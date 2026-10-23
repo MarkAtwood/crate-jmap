@@ -113,7 +113,7 @@ async fn address_book_changes_empty_store() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
 
@@ -138,7 +138,7 @@ async fn address_book_set_destroy_empty_book_succeeds() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -171,7 +171,7 @@ async fn address_book_set_destroy_with_contents_returns_error() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -200,7 +200,7 @@ async fn address_book_set_create_with_client_id_rejected() {
             "c1": { "id": "client-id", "name": "Inbox" }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -224,7 +224,7 @@ async fn address_book_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "create": { "c1": { "name": "x" } }
     });
-    let err = handle_address_book_set(&backend, &(), args)
+    let err = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect_err("unknown accountId must produce method-level error");
 
@@ -279,7 +279,7 @@ async fn contact_card_changes_empty_store() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
 
@@ -303,7 +303,7 @@ async fn address_book_set_state_bumps_visible_via_changes() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     let old_state = resp["oldState"].clone();
@@ -313,7 +313,7 @@ async fn address_book_set_state_bumps_visible_via_changes() {
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
     let HandlerOutput {
         primary: changes, ..
-    } = handle_address_book_changes(&backend, &(), args)
+    } = handle_address_book_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
 
@@ -360,7 +360,7 @@ async fn address_book_set_on_success_set_is_default_demotes_other_books_in_memor
         "accountId": "acc1",
         "onSuccessSetIsDefault": "ab2"
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     assert!(
@@ -426,7 +426,7 @@ async fn address_book_set_on_success_set_is_default_records_demoted_books_in_cha
         "accountId": "acc1",
         "onSuccessSetIsDefault": "ab2"
     });
-    let _ = handle_address_book_set(&backend, &(), args)
+    let _ = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -435,7 +435,7 @@ async fn address_book_set_on_success_set_is_default_records_demoted_books_in_cha
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
     let HandlerOutput {
         primary: changes, ..
-    } = handle_address_book_changes(&backend, &(), args)
+    } = handle_address_book_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
     let updated = changes["updated"]
@@ -476,7 +476,7 @@ async fn address_book_set_on_success_set_is_default_no_op_does_not_demote() {
         "accountId": "acc1",
         "onSuccessSetIsDefault": "ab1"
     });
-    let _ = handle_address_book_set(&backend, &(), args)
+    let _ = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -525,7 +525,7 @@ async fn address_book_set_create_set_default_demotes_existing_default() {
         },
         "onSuccessSetIsDefault": "#c1"
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     assert!(
@@ -578,7 +578,7 @@ async fn address_book_set_create_set_default_records_demoted_in_changes() {
         },
         "onSuccessSetIsDefault": "#c1"
     });
-    let _ = handle_address_book_set(&backend, &(), args)
+    let _ = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -587,7 +587,7 @@ async fn address_book_set_create_set_default_records_demoted_in_changes() {
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
     let HandlerOutput {
         primary: changes, ..
-    } = handle_address_book_changes(&backend, &(), args)
+    } = handle_address_book_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
     let updated = changes["updated"]
@@ -630,7 +630,7 @@ async fn address_book_set_on_success_set_is_default_reports_demoted_in_updated_w
         "accountId": "acc1",
         "onSuccessSetIsDefault": "ab2"
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -673,7 +673,7 @@ async fn address_book_set_create_set_default_reports_demoted_in_updated_wire() {
         },
         "onSuccessSetIsDefault": "#c1"
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -719,7 +719,7 @@ async fn address_book_set_update_no_is_default_change_does_not_pollute_updated()
         "accountId": "acc1",
         "update": { "ab2": { "name": "Renamed" } }
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -767,7 +767,7 @@ async fn contact_card_set_create_with_client_id_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -809,7 +809,7 @@ async fn contact_card_create_missing_address_book_ids_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -847,7 +847,7 @@ async fn contact_card_create_empty_address_book_ids_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -887,7 +887,7 @@ async fn contact_card_update_removing_last_address_book_id_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -952,7 +952,7 @@ async fn contact_card_create_duplicate_uid_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -1015,7 +1015,7 @@ async fn contact_card_create_with_uid_matching_seeded_card_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -1069,7 +1069,7 @@ async fn contact_card_same_uid_different_accounts_allowed() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -1122,7 +1122,7 @@ async fn contact_card_update_to_duplicate_uid_rejected() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -1176,7 +1176,7 @@ async fn contact_card_update_with_same_uid_succeeds() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -1213,7 +1213,7 @@ async fn contact_card_update_unrelated_field_preserves_invariant() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -1261,7 +1261,7 @@ async fn address_book_set_destroy_cascade_destroys_exclusive_card() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -1328,7 +1328,7 @@ async fn address_book_set_destroy_cascade_patches_shared_card() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     let destroyed = resp["destroyed"]
@@ -1394,7 +1394,7 @@ async fn address_book_set_destroy_cascade_mixed_exclusive_and_shared() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     assert_eq!(resp["destroyed"][0], "ab1");
@@ -1442,7 +1442,7 @@ async fn address_book_set_destroy_cascade_empty_book_proceeds() {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     assert_eq!(resp["destroyed"][0], "ab1");
@@ -1761,7 +1761,7 @@ async fn address_book_set_client_is_default_rejected() {
         "create": { "c1": { "name": "Second", "isSubscribed": true, "isDefault": true } },
         "update": { "ab1": { "isDefault": true } },
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     let want = json!({ "type": "invalidProperties", "properties": ["isDefault"] });

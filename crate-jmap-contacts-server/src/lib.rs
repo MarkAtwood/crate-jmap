@@ -129,11 +129,12 @@ where
     //
     // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
     // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
-    // The optional `$ids` binds `CallContext::created_ids`, the
-    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
-    // use to resolve `#creationId` references.
+    // Each optional trailing ident binds the `CallContext` field of that name:
+    // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
+    // `/set` handlers use to resolve `#creationId` references, or `using`,
+    // the request's capability list (draft-ietf-jmap-metadata-04 §3).
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -142,7 +143,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
-                        $(created_ids: $ids,)?
+                        $($field,)*
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -156,23 +157,27 @@ where
     reg!("AddressBook/get", backend, |b, _ci, a, ctx| {
         handle_address_book_get(&*b, &ctx, a).await
     });
-    reg!("AddressBook/changes", backend, |b, _ci, a, ctx| {
-        handle_address_book_changes(&*b, &ctx, a).await
+    reg!("AddressBook/changes", backend, |b, _ci, a, ctx, using| {
+        handle_address_book_changes(&*b, &ctx, a, &using).await
     });
-    reg!("AddressBook/set", backend, |b, _ci, a, ctx| {
-        handle_address_book_set(&*b, &ctx, a).await
+    reg!("AddressBook/set", backend, |b, _ci, a, ctx, using| {
+        handle_address_book_set(&*b, &ctx, a, &using).await
     });
 
     // ContactCard
     reg!("ContactCard/get", backend, |b, _ci, a, ctx| {
         handle_contact_card_get(&*b, &ctx, a).await
     });
-    reg!("ContactCard/changes", backend, |b, _ci, a, ctx| {
-        handle_contact_card_changes(&*b, &ctx, a).await
+    reg!("ContactCard/changes", backend, |b, _ci, a, ctx, using| {
+        handle_contact_card_changes(&*b, &ctx, a, &using).await
     });
-    reg!("ContactCard/set", backend, |b, _ci, a, ctx, ids| {
-        handle_contact_card_set(&*b, &ctx, &ids, a).await
-    });
+    reg!(
+        "ContactCard/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, using| {
+            handle_contact_card_set(&*b, &ctx, &created_ids, a, &using).await
+        }
+    );
     reg!("ContactCard/copy", backend, |b, ci, a, ctx| {
         handle_contact_card_copy(&*b, &ctx, a, &ci).await
     });

@@ -37,8 +37,8 @@ use serde_json::{Value, json};
 
 use crate::ContactsBackend;
 use crate::helpers::{
-    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    reject_unsupported_sort, resolve_map_key_refs,
+    SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
 };
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, reject_read_only_patch,
@@ -75,13 +75,20 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<ContactCard, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<ContactCard, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -103,12 +110,19 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3). An unknown
 /// reference is `invalidProperties` naming `addressBookIds`.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -156,6 +170,13 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 .and_then(reject_server_set::<ContactCard>)
             {
                 not_created.insert(create_id, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             if let Err(err) = resolve_map_key_refs(&mut obj_val, "addressBookIds", created_ids) {
@@ -226,6 +247,10 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             };
             if let Some(err) = reject_read_only_patch::<ContactCard>(patch.as_map(), None) {
                 not_updated.insert(id_str, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -731,9 +756,10 @@ mod tests {
     async fn changes_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let HandlerOutput { primary: resp, .. } = handle_contact_card_changes(&backend, &(), args)
-            .await
-            .expect("must not error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_changes(&backend, &(), args, &[])
+                .await
+                .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
     }
 
@@ -935,7 +961,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         let created = &resp["created"];
@@ -1445,9 +1471,10 @@ mod tests {
     async fn set_non_string_destroy_element_does_not_echo_value() {
         let backend = MockBackend::new_with_account("acc");
         let args = json!({ "accountId": "acc", "destroy": [{ "note": "CANARY-zegc" }] });
-        let err = handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await
-            .expect_err("non-string destroy element must be a method error");
+        let err =
+            handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect_err("non-string destroy element must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");

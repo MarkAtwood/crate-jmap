@@ -253,7 +253,7 @@ async fn destroy_ab1(fail: Step, books: Value) -> (Value, FailingBackend) {
         "onDestroyRemoveContents": true,
         "destroy": ["ab1"]
     });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_set(&backend, &(), args, &[])
         .await
         .expect("a cascade failure is a per-record SetError, not a method error");
     (resp, backend)
