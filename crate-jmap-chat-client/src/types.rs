@@ -153,4 +153,81 @@ mod tests {
             );
         }
     }
+
+    /// QuotaResourceType canonical variants round-trip correctly to/from
+    /// their RFC 9425 §3.2 wire strings.
+    #[test]
+    fn quota_resource_type_canonical_variants_round_trip() {
+        let cases: &[(&str, QuotaResourceType)] = &[
+            (r#""count""#, QuotaResourceType::Count),
+            (r#""octets""#, QuotaResourceType::Octets),
+        ];
+        for (raw, expected) in cases {
+            let parsed: QuotaResourceType = serde_json::from_str(raw).expect("must deserialize");
+            assert_eq!(
+                &parsed, expected,
+                "wire {raw} must deserialise to {expected:?}"
+            );
+            assert_eq!(
+                serde_json::to_string(&parsed).unwrap(),
+                *raw,
+                "wire {raw} must round-trip"
+            );
+        }
+    }
+
+    /// `as_str`, `Display` and `From<String>` agree with the RFC 9425 §3.1
+    /// wire strings for every QuotaScope variant, including `Other`.
+    #[test]
+    fn quota_scope_as_str_display_from_string() {
+        let cases = [
+            ("account", QuotaScope::Account),
+            ("domain", QuotaScope::Domain),
+            ("global", QuotaScope::Global),
+            (
+                "siteCustom-tier-A",
+                QuotaScope::Other("siteCustom-tier-A".to_owned()),
+            ),
+        ];
+        for (wire, variant) in cases {
+            assert_eq!(variant.as_str(), wire);
+            assert_eq!(variant.to_string(), wire);
+            assert_eq!(QuotaScope::from(wire.to_owned()), variant);
+        }
+    }
+
+    /// `as_str`, `Display` and `From<String>` agree with the RFC 9425 §3.2
+    /// wire strings for every QuotaResourceType variant, including `Other`.
+    #[test]
+    fn quota_resource_type_as_str_display_from_string() {
+        let cases = [
+            ("count", QuotaResourceType::Count),
+            ("octets", QuotaResourceType::Octets),
+            (
+                "vendorUnit-decibels",
+                QuotaResourceType::Other("vendorUnit-decibels".to_owned()),
+            ),
+        ];
+        for (wire, variant) in cases {
+            assert_eq!(variant.as_str(), wire);
+            assert_eq!(variant.to_string(), wire);
+            assert_eq!(QuotaResourceType::from(wire.to_owned()), variant);
+        }
+    }
+
+    /// RFC 9425 §3.1/§3.2 define both fields as JSON strings; a non-string
+    /// JSON value must be rejected with the registered `expecting` text.
+    #[test]
+    fn quota_enums_reject_non_string_json() {
+        let err = serde_json::from_str::<QuotaScope>("42").unwrap_err();
+        assert!(
+            err.to_string().contains("a QuotaScope wire string"),
+            "{err}"
+        );
+        let err = serde_json::from_str::<QuotaResourceType>("true").unwrap_err();
+        assert!(
+            err.to_string().contains("a QuotaResourceType wire string"),
+            "{err}"
+        );
+    }
 }
