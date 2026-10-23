@@ -169,17 +169,19 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
         // non-string elements — silent-skip is the wrong behaviour per the
         // workspace "silent-drop is a data-integrity bug class" rule
         // (JMAP-wlip.1).
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
-        for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s.to_owned(),
-                None => continue, // unreachable: validated above
-            };
+        let id_strs: Vec<&str> = destroy_arr
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        for id_str in id_strs {
+            let id_str = id_str.to_owned();
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {

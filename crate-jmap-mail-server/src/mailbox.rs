@@ -981,12 +981,17 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
         // silently skipping it, which would produce a misleading response.
-        if let Some(bad) = destroy_ids.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
+        let id_strs: Vec<&str> = destroy_ids
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
 
         // Re-fetch mailboxes after create/update: RFC 8620 §5.3 requires
         // create/update/destroy to operate in sequence, so a mailbox created
@@ -998,10 +1003,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             .await
             .map_err(|e| server_fail_from_backend(&e))?;
 
-        for id_val in destroy_ids {
-            let Some(id_str) = id_val.as_str() else {
-                continue; // unreachable: validated above
-            };
+        for id_str in id_strs {
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {

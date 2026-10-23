@@ -430,17 +430,18 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
         // silently skipping it, which would produce a misleading response.
-        if let Some(bad) = destroy_ids.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
-        for id_val in &destroy_ids {
-            let id_str = match id_val.as_str() {
-                Some(s) => s,
-                None => continue, // unreachable: validated above
-            };
+        let id_strs: Vec<&str> = destroy_ids
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        for id_str in id_strs {
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
