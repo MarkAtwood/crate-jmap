@@ -3059,6 +3059,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-scene-server**: `SceneBackend` rustdoc no longer requires
+  `query_changes` to omit records hidden from the caller, and states the
+  `query_objects` omission as SHOULD. draft-atwood-jmap-scene-00
+  §Visibility Contract: the server "SHOULD NOT include a SceneObject in a
+  ... `SceneObject/query` result", and "`/changes` and `/queryChanges`
+  report changes for the account".
 - **BREAKING** **jmap-types**, **jmap-server**: `UTCDate::new_validated` and
   `UTCDate::to_epoch_seconds` now accept a non-zero RFC 3339 fractional
   second (`2014-10-30T06:12:00.123Z`) and still reject a zero one

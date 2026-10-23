@@ -514,19 +514,29 @@ pub trait SceneBackend: JmapBackend {
     ///
     /// `SceneRegion/get`, `SceneObject/get` and `SceneAvatar/get` report a
     /// region, object or avatar in a region without access as `notFound`:
-    /// "Regardless of `accessPolicy`, the server MUST return `notFound`
-    /// (not `forbidden`) ... This prevents access-policy enumeration."
+    /// "The server SHOULD treat a request from a user without access to a
+    /// region as if the region did not exist: `notFound` for
+    /// `SceneRegion/get`, `SceneObject/get`, and `SceneAvatar/get` ... and
+    /// no results from the region in `/query`" (draft-atwood-jmap-scene-00
+    /// at 29e9a41, L2606).
     /// `SceneRegion/set`, `SceneObject/set` and `SceneAvatar/set` report an
     /// update or destroy of such a record as `notFound` too, never
     /// `forbidden`. A region that no longer exists
     /// may be treated either way.
     ///
     /// The handlers cannot filter a `/query` page they did not cut, so
-    /// `query_objects` and `query_changes` MUST omit what `/get` would
-    /// hide: the server "MUST NOT include a SceneObject in a ...
+    /// `query_objects` should omit what `/get` would hide: "The server
+    /// SHOULD NOT include a SceneObject in a `SceneObject/get` response or
     /// `SceneObject/query` result if the authenticated user does not have
     /// access to the object's containing SceneRegion" (§Visibility
-    /// Contract). The same applies to SceneRegion and SceneAvatar results.
+    /// Contract, L2577). The same applies to SceneRegion and SceneAvatar
+    /// results (L2606).
+    ///
+    /// `query_changes` is not filtered per caller: visibility filtering
+    /// "does not change the JMAP state model: each data type has one state
+    /// string per account ... and `/changes` and `/queryChanges` report
+    /// changes for the account" (L2587). An id it reports that the caller
+    /// may not see, `/get` reports in `notFound`.
     ///
     /// # Default implementation
     ///
@@ -551,9 +561,10 @@ pub trait SceneBackend: JmapBackend {
     /// Consulted only for objects in a region the caller may access
     /// ([`Self::may_access_region`]). `SceneObject/get` reports an object
     /// outside the set as `notFound`, and `SceneObject/set` refuses an
-    /// update or destroy of it with `notFound`: "The server MUST NOT return
-    /// `forbidden`, as that would confirm the object still exists."
-    /// `query_objects` and `query_changes` MUST omit such objects as well.
+    /// update or destroy of it with `notFound`: "The server SHOULD NOT
+    /// return `forbidden`, as that would confirm the object still exists"
+    /// (L2589). `query_objects` should omit such objects as well;
+    /// `query_changes` reports changes for the account (L2587).
     ///
     /// # Default implementation
     ///
@@ -588,7 +599,8 @@ pub trait SceneBackend: JmapBackend {
     /// filtering". `SceneAvatar/get` reports such an avatar exactly as a
     /// missing one, in `notFound` ("The server SHOULD NOT return an error,
     /// a filtered-result indicator, or any other signal", L2674);
-    /// `query_objects` and `query_changes` MUST omit it as well. The
+    /// `query_objects` should omit it as well, while `query_changes`
+    /// reports changes for the account (§Visibility Contract). The
     /// handlers leave `activeAvatarCount` the true count, which deployments
     /// "SHOULD prefer" (L2678).
     ///
@@ -628,7 +640,8 @@ pub trait SceneBackend: JmapBackend {
     /// ([`Self::may_access_region`]). `SceneAvatar/get` reports the avatars
     /// of a region answering `false` in `notFound`, and
     /// [`crate::should_deliver`] drops their `SceneAvatarEvent`s;
-    /// `query_objects` and `query_changes` MUST omit them as well.
+    /// `query_objects` should omit them as well, while `query_changes`
+    /// reports changes for the account (§Visibility Contract).
     ///
     /// The VTC lookup (`VTCCall.e2eeEnabled` and the call's participants)
     /// lives in the binding crate, `jmap-scene-vtc-server`.

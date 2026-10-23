@@ -180,11 +180,12 @@ async fn full_get_leaves_out_records_without_region_access() {
     assert_eq!(objects, [O1, O2]);
 }
 
-/// L2340: "The server MUST NOT include a SceneObject in a
-/// `SceneObject/get` response or `SceneObject/query` result if the
-/// authenticated user does not have access to the object's containing
-/// SceneRegion." The same holds for the regions and avatars `/get` hides
-/// (L2367).
+/// draft-atwood-jmap-scene-00 at 29e9a41, L2577: "The server SHOULD NOT
+/// include a SceneObject in a `SceneObject/get` response or
+/// `SceneObject/query` result if the authenticated user does not have
+/// access to the object's containing SceneRegion." The same holds for the
+/// regions and avatars `/get` hides: "no results from the region in
+/// `/query`" (L2606).
 #[tokio::test]
 async fn query_omits_records_without_region_access() {
     let backend = scene();
