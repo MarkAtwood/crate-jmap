@@ -34,7 +34,7 @@ and `Foo/query` calls.
 ## Crate Family Context
 
 ```
-jmap-metadata-types
+serde_json
     └── jmap-metadata-client  ← this crate (sibling of canonical jmap-mail-client)
 ```
 

@@ -2224,7 +2224,6 @@ dependencies = [
 name = "jmap-metadata-client"
 version = "0.3.0"
 dependencies = [
- "jmap-metadata-types",
  "serde_json",
 ]
 

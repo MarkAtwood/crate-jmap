@@ -65,22 +65,6 @@
 #![forbid(unsafe_code)]
 
 // ---------------------------------------------------------------------------
-// Re-exports from jmap-metadata-types
-// ---------------------------------------------------------------------------
-
-/// Capability URI for `urn:ietf:params:jmap:metadata`.
-pub use jmap_metadata_types::JMAP_METADATA_URI;
-
-/// Per-data-type metadata capability advertisement (§1.2.1).
-pub use jmap_metadata_types::DataTypeMetadataInfo;
-
-/// Value shape for text-matching filter conditions (§3.6).
-pub use jmap_metadata_types::MetadataTextMatch;
-
-/// Namespace identifier validation helpers.
-pub use jmap_metadata_types::{is_registered_namespace, is_valid_namespace, is_vendor_namespace};
-
-// ---------------------------------------------------------------------------
 // Property name constants (§2)
 // ---------------------------------------------------------------------------
 
@@ -94,8 +78,8 @@ pub const METADATA_PROPERTY: &str = "metadata";
 /// types (§2).
 ///
 /// Include in the `properties` list of a `/get` request to fetch the
-/// per-namespace per-user metadata map. Only available when the account's
-/// [`DataTypeMetadataInfo::supports_private`] is `true`.
+/// per-namespace per-user metadata map. Only available when the data type's
+/// `supportsPrivate` in the account capability is `true` (§1.2.1).
 pub const PRIVATE_METADATA_PROPERTY: &str = "privateMetadata";
 
 // ---------------------------------------------------------------------------
@@ -437,50 +421,6 @@ mod tests {
         let v = private_metadata_text_equals_condition("workflow/status", "approved");
         assert_eq!(v["privateMetadataTextEquals"]["path"], "workflow/status");
         assert_eq!(v["privateMetadataTextEquals"]["value"], "approved");
-    }
-
-    // -- MetadataTextMatch round-trip via re-export -------------------------
-
-    #[test]
-    fn metadata_text_match_re_export_round_trip() {
-        let m: MetadataTextMatch = serde_json::from_value(json!({
-            "path": "acme.example.com/memo",
-            "value": "follow up"
-        }))
-        .unwrap();
-        let v = serde_json::to_value(&m).unwrap();
-        assert_eq!(
-            v,
-            json!({ "path": "acme.example.com/memo", "value": "follow up" })
-        );
-        let back: MetadataTextMatch = serde_json::from_value(v).unwrap();
-        assert_eq!(back, m);
-    }
-
-    // -- DataTypeMetadataInfo re-export ------------------------------------
-
-    #[test]
-    fn data_type_metadata_info_re_export_deserializes() {
-        let info: DataTypeMetadataInfo = serde_json::from_str(
-            r#"{
-                "namespaces": ["photography"],
-                "supportsVendorNamespaces": false,
-                "supportsPrivate": true,
-                "maxDepth": 3
-            }"#,
-        )
-        .unwrap();
-        assert_eq!(info.namespaces, vec!["photography"]);
-        assert!(!info.supports_vendor_namespaces);
-        assert!(info.supports_private);
-        assert_eq!(info.max_depth, Some(3));
-    }
-
-    // -- JMAP_METADATA_URI re-export ---------------------------------------
-
-    #[test]
-    fn jmap_metadata_uri_value() {
-        assert_eq!(JMAP_METADATA_URI, "urn:ietf:params:jmap:metadata");
     }
 
     // -- IGNORE_METADATA_ONLY_CHANGES constant -----------------------------

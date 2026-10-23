@@ -4,8 +4,7 @@
 
 Pure, stateless client-side helpers for the JMAP Object Metadata
 extension ([draft-ietf-jmap-metadata-04]). No `SessionClient`, no
-extension trait, no network I/O. Depends only on
-[`jmap-metadata-types`] and `serde_json`.
+extension trait, no network I/O. Depends only on `serde_json`.
 
 ## What it's for
 
@@ -25,7 +24,10 @@ extension clients (`jmap-mail-client`, `jmap-calendars-client`, …):
 | `metadata_text_equals_condition`, `private_metadata_text_equals_condition` | `metadataTextEquals` / `privateMetadataTextEquals` | §3.6 |
 
 `JMAP_METADATA_URI`, `DataTypeMetadataInfo`, `MetadataTextMatch`, and
-the namespace validators are re-exported from `jmap-metadata-types`.
+the namespace validators live in [`jmap-metadata-types`]; depend on it
+directly. This crate neither re-exports nor depends on it, so its
+public API (`&str`, `bool`, `serde_json::Value`) does not tie its
+major version to that crate's.
 
 ## How to use
 
@@ -63,13 +65,21 @@ assert_eq!(
   `supportsPrivate` is false; servers MAY reject the four text-match
   conditions with `unsupportedFilter` and clients SHOULD be prepared
   to fall back to a client-side scan (§3.6). Check
-  `DataTypeMetadataInfo` in the account capability first.
+  `DataTypeMetadataInfo` (`jmap-metadata-types`) in the account
+  capability first.
 - **Typed filters.** The extension-types `FilterCondition` structs
   carry no metadata fields (bd JMAP-ua37.4). The extension clients'
   `*_query` / `*_query_changes` methods take a generic
   `jmap_types::Filter<C>`, so a typed tree uses
   `jmap_metadata_types::WithMetadata<C>` leaves and an untyped one is
   passed as `Filter::Condition(value)`.
+
+## Migration from 0.3
+
+The `jmap-metadata-types` re-exports (`JMAP_METADATA_URI`,
+`DataTypeMetadataInfo`, `MetadataTextMatch`, `is_registered_namespace`,
+`is_valid_namespace`, `is_vendor_namespace`) are removed. Import them
+from `jmap_metadata_types` instead.
 
 ## Migration from 0.1 (draft-01)
 
@@ -81,8 +91,8 @@ in 0.2.
 ## Crate family
 
 ```
-jmap-metadata-types
-    └── jmap-metadata-client  ← this crate
+serde_json
+    └── jmap-metadata-client  ← this crate (no jmap-* dependency)
 ```
 
 ## References

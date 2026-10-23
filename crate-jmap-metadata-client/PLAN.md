@@ -6,8 +6,8 @@ Pure client-side helpers for the JMAP Object Metadata extension
 ## Crate Family Position
 
 ```
-jmap-metadata-types
-    └── jmap-metadata-client  ← this crate
+serde_json
+    └── jmap-metadata-client  ← this crate (no jmap-* dependency)
 ```
 
 ## What This Crate Is
@@ -27,7 +27,6 @@ rewrite (bd JMAP-ua37.3).
 | `metadata_exists_condition`, `private_metadata_exists_condition` | §3.6 |
 | `metadata_text_contains_condition`, `private_metadata_text_contains_condition` | §3.6 |
 | `metadata_text_equals_condition`, `private_metadata_text_equals_condition` | §3.6 |
-| re-exports from `jmap-metadata-types` | §1.2.1, §2.1, §3.6 |
 
 ## What This Crate Is Not
 
@@ -43,7 +42,7 @@ rewrite (bd JMAP-ua37.3).
 
 ```
 src/
-  lib.rs   constants, classifiers, condition builders, re-exports
+  lib.rs   constants, classifiers, condition builders
 ```
 
 ## Test Strategy

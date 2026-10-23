@@ -142,10 +142,12 @@ jmap-jscontact-types   — RFC 9553 JSContact typed sub-types: Name, EmailAddres
 jmap-metadata-types    — draft-ietf-jmap-metadata-04 data types: DataTypeMetadataInfo,
                          MetadataTextMatch, namespace validation. No async.
                          Depends on serde and serde_json only.
-    ├── jmap-metadata-server   — pure server helpers (validation, filter predicates,
-    │                            /changes classification). No handlers.
-    └── jmap-metadata-client   — pure client helpers (property constants, filter-
-                                 condition builders, /changes helpers).
+    └── jmap-metadata-server   — pure server helpers (validation, filter predicates,
+                                 /changes classification). No handlers.
+
+jmap-metadata-client   — pure client helpers (property constants, filter-condition
+                         builders, /changes helpers). Depends on serde_json only; it
+                         does not re-export jmap-metadata-types (bd JMAP-wzq9.30).
 
 jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
                          (urn:ietf:params:jmap:cid) plus the Sha256 typed wire
