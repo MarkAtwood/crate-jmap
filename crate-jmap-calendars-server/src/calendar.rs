@@ -238,8 +238,13 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object values
             // produce an `invalidPatch` SetError. The newtype's transparent
@@ -311,7 +316,13 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 Some(s) => s.to_owned(),
                 None => continue, // unreachable: validated above
             };
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Check for events if onDestroyRemoveEvents is false (default).
             // The three-way result distinguishes 'definitely empty',

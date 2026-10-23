@@ -571,7 +571,13 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
     }
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             match S::update(backend, caller, &account_id, &cap, &id, patch).await {
                 Ok(v) => updated.insert(id_str, v),
                 Err(e) => not_updated.insert(id_str, e),
@@ -590,7 +596,14 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
                 ))
             })?;
         for id_str in ids {
-            match S::destroy(backend, caller, &account_id, &Id::from(id_str)).await {
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
+            match S::destroy(backend, caller, &account_id, &id).await {
                 Ok(()) => destroyed.push(Value::String(id_str.to_owned())),
                 Err(e) => {
                     not_destroyed.insert(id_str.to_owned(), e);

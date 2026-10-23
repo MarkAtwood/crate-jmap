@@ -729,6 +729,10 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
     }
 
     if let Some(new_parent) = patch.as_map().get("parentId").and_then(|v| v.as_str()) {
+        let new_parent_id = match jmap_server::parse_wire_id(new_parent, "parentId") {
+            Ok(id) => id,
+            Err(err) => return Ok(Err(*err)),
+        };
         if node.parent_id.as_ref().map(Id::as_ref) != Some(new_parent)
             && !may_add_children(
                 chat,
@@ -736,7 +740,7 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
                 files,
                 files_caller,
                 account_id,
-                &Id::from(new_parent),
+                &new_parent_id,
             )
             .await?
         {

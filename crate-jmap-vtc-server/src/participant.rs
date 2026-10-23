@@ -219,7 +219,13 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             match update_participant(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
@@ -244,7 +250,14 @@ pub async fn handle_vtc_participant_set<B: VtcBackend>(
                 ))
             })?;
         for id_str in ids {
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
             let err = match fetch_one::<VtcParticipant, _>(backend, caller, &account_id, &id).await
             {
                 Ok(Some(_)) => forbidden("VTCParticipant records are not destroyed; set leftAt"),

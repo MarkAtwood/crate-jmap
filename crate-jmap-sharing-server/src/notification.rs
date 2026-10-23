@@ -28,7 +28,7 @@
 //! within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_sharing_types::ShareNotification;
-use jmap_types::{Id, JmapError};
+use jmap_types::JmapError;
 use serde_json::{json, Value};
 
 use crate::helpers::{
@@ -186,8 +186,13 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
             })?;
         for id_str_ref in ids {
             let id_str = id_str_ref.to_owned();
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             match backend
                 .destroy_object::<ShareNotification>(caller, &account_id, &id)

@@ -241,8 +241,7 @@ fn dedup_caller_members(members: Vec<Value>, caller_identity: &str) -> Vec<Value
 /// Parse one Remove* entry — a bare string id.
 fn parse_id_entry(canonical: &'static str, idx: usize, entry: Value) -> Result<Id, String> {
     match entry {
-        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-        Value::String(s) => Ok(Id::from(s.as_str())),
+        Value::String(s) => Id::new_validated(s).map_err(|e| format!("{canonical}[{idx}]: {e}")),
         other => Err(format!(
             "{canonical}[{idx}] must be a string Id, got {}",
             json_value_kind(&other)
@@ -271,7 +270,9 @@ fn parse_update_entry<P: serde::de::DeserializeOwned>(
         .remove("id")
         .ok_or_else(|| format!("{canonical}[{idx}] missing required \"id\" property"))?;
     let id = match id_val {
-        Value::String(s) => Id::from(s.as_str()),
+        Value::String(s) => {
+            Id::new_validated(s).map_err(|e| format!("{canonical}[{idx}].id: {e}"))?
+        }
         other => {
             return Err(format!(
                 "{canonical}[{idx}].id must be a string, got {}",
@@ -304,7 +305,9 @@ fn parse_add_member_entry(
         .remove("id")
         .ok_or_else(|| format!("{canonical}[{idx}] missing required \"id\" property"))?;
     let user_id = match id_val {
-        Value::String(s) => Id::from(s.as_str()),
+        Value::String(s) => {
+            Id::new_validated(s).map_err(|e| format!("{canonical}[{idx}].id: {e}"))?
+        }
         other => {
             return Err(format!(
                 "{canonical}[{idx}].id must be a string, got {}",
@@ -1068,7 +1071,13 @@ pub async fn handle_space_set<B: ChatBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Reject patches to server-set Space properties, including
             // `roles`, `members`, `categories` and `uncategorizedChannelIds`,
@@ -1395,7 +1404,13 @@ pub async fn handle_space_set<B: ChatBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             // The backend cascades the destroy to the Space's channel
             // Chats (§Destroying a Space), so read their ids first for
@@ -1582,7 +1597,8 @@ pub async fn handle_space_join<B: ChatBackend>(
             // Public space path: fetch the space by id and verify is_public.
             // draft-atwood-jmap-chat-00 §Space/join: "If the Space does not exist or has
             // `isPublic: false`, the server MUST return a `notPermitted` method error."
-            let space_id_typed = Id::from(sid.as_str());
+            let space_id_typed = Id::new_validated(sid.as_str())
+                .map_err(|e| JmapError::invalid_arguments(format!("spaceId: {e}")))?;
             let (spaces, _) = backend
                 .get_objects::<Space>(caller, &account_id, Some(&[space_id_typed]), None)
                 .await

@@ -200,8 +200,13 @@ pub async fn handle_presence_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // §PresenceStatus: `id` and `updatedAt` are server-set.
             if let Some(err) = patch_val

@@ -161,6 +161,7 @@ pub async fn handle_vtc_livestream_get<B: VtcBackend>(
             let moderator = match moderator_on.get(&call_id) {
                 Some(m) => *m,
                 None => {
+                    // Id::from: callId from this handler's own /get response.
                     let m =
                         is_moderator_on(backend, caller, &account_id, &Id::from(call_id.as_str()))
                             .await
@@ -309,7 +310,13 @@ where
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             let result = match kind {
                 Kind::Recording => update_recording(backend, caller, &account_id, &id, patch).await,
                 Kind::Livestream => {
@@ -340,7 +347,15 @@ where
                 ))
             })?;
         for id_str in ids {
-            match destroy_media::<O, B>(backend, caller, &account_id, &Id::from(id_str)).await {
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
+            match destroy_media::<O, B>(backend, caller, &account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
                     acc.destroyed.push(Value::String(id_str.to_owned()));
@@ -465,9 +480,14 @@ async fn check_create<O: SetObject, B: VtcBackend>(
         .get("callId")
         .and_then(Value::as_str)
         .ok_or_else(|| invalid(&["callId"], "callId is required"))?;
-    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, &Id::from(call_id))
-        .await?
-        .ok_or_else(|| invalid(&["callId"], "callId does not name a call"))?;
+    let call = fetch_one::<VtcCall, _>(
+        backend,
+        caller,
+        account_id,
+        &Id::new_validated(call_id).map_err(|e| invalid(&["callId"], &e.to_string()))?,
+    )
+    .await?
+    .ok_or_else(|| invalid(&["callId"], "callId does not name a call"))?;
 
     if !backend
         .is_moderator(caller, account_id, &call)

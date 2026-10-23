@@ -1408,6 +1408,19 @@ wire behaviour that a conforming peer can observe.
   `fromAccountId` or `SieveScript/validate` `blobId` argument is
   `invalidArguments`. `query_anchor_args` returns `invalidArguments` for a
   malformed `anchor` where it used to pass it through to `anchorNotFound`.
+- **BREAKING** **jmap-chat-server**, **jmap-calendars-server**,
+  **jmap-tasks-server**, **jmap-contacts-server**, **jmap-filenode-server**,
+  **jmap-sharing-server**, **jmap-vtc-server**, **jmap-scene-server**,
+  **jmap-graph-server**, **jmap-chat-mimi-server**,
+  **jmap-chat-filenode-server**: the same RFC 8620 §1.2 wire-id validation
+  as `jmap-mail-server` (bd JMAP-k9va). `/set` `update` keys and `destroy`
+  elements fail with `invalidProperties` (`properties: ["id"]`); Id-typed
+  create and patch properties (for example `spaceId`, `userId`, `chatId`,
+  `parentId`, `blobId`, `regionId`, `visualRef`, `callId`,
+  `parentCallId`, `nodeId`, `/copy` `id`) fail with `invalidProperties`
+  naming them; the `fromAccountId`, `chatId`, Space/join `spaceId` and
+  `Principal/getAvailability` `id` arguments are `invalidArguments`. A
+  malformed `onSuccessSetIsDefault` id is skipped like an unknown one.
 - **jmap-calendars-server**: **BREAKING** `AvailabilityError` and
   `QueryCalendarEventsError` are removed. `get_availability` and
   `query_calendar_events` return `jmap_server::BackendQueryError<Self::Error>`,

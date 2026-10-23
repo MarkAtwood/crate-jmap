@@ -207,7 +207,13 @@ pub async fn handle_position_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // §ReadPosition: `id` and `lastReadAt` are server-set, `chatId`
             // is immutable.

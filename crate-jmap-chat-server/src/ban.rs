@@ -208,8 +208,13 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 );
                 continue;
             };
-            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
-            let space_id = Id::from(space_id_str);
+            let space_id = match jmap_server::parse_wire_id(space_id_str, "spaceId") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             let Some(user_id_str) = obj_val.get("userId").and_then(|v| v.as_str()) else {
                 not_created.insert(
@@ -218,7 +223,13 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 );
                 continue;
             };
-            let user_id = Id::from(user_id_str);
+            let user_id = match jmap_server::parse_wire_id(user_id_str, "userId") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             // bannedBy is always the acting caller's resolved identity
             // (foundation seam) — never from the client body. See
@@ -308,7 +319,13 @@ pub async fn handle_ban_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // §SpaceBan: `id`, `bannedBy` and `createdAt` are server-set,
             // `spaceId` and `userId` immutable.
@@ -400,7 +417,13 @@ pub async fn handle_ban_set<B: ChatBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             if let Some(err) = stored_ban_denied(backend, caller, &account_id, &id).await {
                 not_destroyed.insert(id_str.to_owned(), err);

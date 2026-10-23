@@ -350,8 +350,12 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             }
 
             // blobId is required
-            let blob_id = match obj_val.get("blobId").and_then(|v| v.as_str()) {
-                Some(s) if !s.is_empty() => Id::from(s),
+            let blob_id = match obj_val
+                .get("blobId")
+                .and_then(|v| v.as_str())
+                .and_then(|s| Id::new_validated(s).ok())
+            {
+                Some(id) => id,
                 _ => {
                     not_created.insert(
                         create_id.clone(),
@@ -437,7 +441,13 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // §CustomEmoji: `id`, `createdBy` and `createdAt` are
             // server-set; `spaceId` is set only on create.
@@ -568,7 +578,13 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             let Some(id_str) = id_val.as_str() else {
                 continue; // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Authorization gate (draft-atwood-jmap-chat-00 commit
             // `9344aec`). Pre-fetch the existing emoji to learn its

@@ -199,7 +199,13 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             match update_call(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
@@ -224,7 +230,15 @@ pub async fn handle_vtc_call_set<B: VtcBackend>(
                 ))
             })?;
         for id_str in ids {
-            match destroy_call(backend, caller, &account_id, &Id::from(id_str)).await {
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
+            match destroy_call(backend, caller, &account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
                     acc.destroyed.push(Value::String(id_str.to_owned()));
@@ -346,9 +360,15 @@ async fn create_call<B: VtcBackend>(
     }
 
     if let Some(parent_id) = m.get("parentCallId").and_then(Value::as_str) {
-        let parent = fetch_one::<VtcCall, _>(backend, caller, account_id, &Id::from(parent_id))
-            .await?
-            .ok_or_else(|| invalid(&["parentCallId"], "parentCallId does not name a call"))?;
+        let parent = fetch_one::<VtcCall, _>(
+            backend,
+            caller,
+            account_id,
+            &Id::new_validated(parent_id)
+                .map_err(|e| invalid(&["parentCallId"], &e.to_string()))?,
+        )
+        .await?
+        .ok_or_else(|| invalid(&["parentCallId"], "parentCallId does not name a call"))?;
         let moderator = backend
             .is_moderator(caller, account_id, &parent)
             .await

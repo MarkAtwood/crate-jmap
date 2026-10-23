@@ -137,6 +137,8 @@ pub async fn handle_graph_node_op_query<B: GraphBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     require_edit(backend, caller, &args).await?;
     let filter = op_filter(&args)?;
+    // Id::from: handle_query below rejects a malformed accountId before
+    // this value is used.
     let account_id = Id::from(args["accountId"].as_str().unwrap_or_default());
     let out = jmap_server::handle_query::<GraphNodeOp, B>(backend, caller, args).await?;
     let readable = match fetch_one::<GraphNode, B>(backend, caller, &account_id, &filter.node_id)
@@ -235,7 +237,8 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
                 "nodeId (Id), baseSeq (UnsignedInt) and data (String) are required",
             ));
         }
-        let node_id = Id::from(m["nodeId"].as_str().unwrap_or_default());
+        let node_id = Id::new_validated(m["nodeId"].as_str().unwrap_or_default())
+            .map_err(|e| invalid(&["nodeId"], &e.to_string()))?;
         let base_seq = m["baseSeq"].as_u64().unwrap_or_default();
         let fail = |e: B::Error| jmap_server::server_fail_value_from_backend(&e);
         // ponytail: re-reads the edit capability per create; one call per

@@ -259,7 +259,13 @@ pub async fn handle_task_set<B: TasksBackend>(
             // isDraft immutability (draft-tasks-06 §4 isDraft paragraph) is
             // enforced by the backend in update_object, atomically with the
             // write (TasksBackend::update_object, bd:JMAP-h47t.29).
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Route to the per-user update path when every patch key targets
             // a per-user Task property (draft-tasks-06 §4.5.1).
@@ -365,7 +371,13 @@ pub async fn handle_task_set<B: TasksBackend>(
                 Some(s) => s.to_owned(),
                 None => continue, // unreachable: validated above
             };
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_destroyed.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
 
             match backend
                 .destroy_object::<Task>(caller, &account_id, &id)
@@ -451,7 +463,8 @@ pub async fn handle_task_copy<B: TasksBackend>(
         .remove("fromAccountId")
         .and_then(|v| v.as_str().map(|s| s.to_owned()))
         .ok_or_else(|| JmapError::invalid_arguments("fromAccountId is required"))?;
-    let from_account_id = Id::from(from_account_id_str.as_str());
+    let from_account_id = Id::new_validated(from_account_id_str)
+        .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?;
 
     // RFC 8620 §5.4: fromAccountId MUST differ from accountId. The canonical
     // sibling jmap-mail-server enforces this in handle_email_copy; without it
@@ -533,7 +546,13 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 );
                 continue;
             };
-            let source_id: Id = Id::from(source_id_str);
+            let source_id: Id = match jmap_server::parse_wire_id(source_id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_created.insert(create_id, set_error_value(&err));
+                    continue;
+                }
+            };
 
             // Fetch the source Task from `fromAccountId`. RFC 8620 §5.4 frames
             // /copy as a read-from-source-then-create-in-destination operation;

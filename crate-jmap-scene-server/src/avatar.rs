@@ -183,7 +183,13 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             match update_avatar(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
@@ -366,7 +372,8 @@ async fn enter_region<B: SceneBackend>(
     // `regionId` does not reference an existing SceneRegion. The server
     // SHOULD return the same error when the caller has no access to the
     // region under its `accessPolicy`".
-    let region_id = Id::from(m["regionId"].as_str().unwrap_or_default());
+    let region_id = Id::new_validated(m["regionId"].as_str().unwrap_or_default())
+        .map_err(|e| invalid(&["regionId"], &e.to_string()))?;
     let inaccessible = || invalid(&["regionId"], "regionId is not an accessible SceneRegion");
     let region: SceneRegion = fetch_one(backend, caller, account_id, &region_id)
         .await?

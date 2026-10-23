@@ -187,7 +187,13 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
-            let id = Id::from(id_str.as_str());
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    continue;
+                }
+            };
             match update_scene_object(backend, caller, &account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
@@ -212,7 +218,15 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
                 ))
             })?;
         for id_str in ids {
-            match destroy_scene_object(backend, caller, &account_id, &Id::from(id_str)).await {
+            let id = match jmap_server::parse_wire_id(id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), set_error_value(&err));
+                    continue;
+                }
+            };
+            match destroy_scene_object(backend, caller, &account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
                     acc.destroyed.push(Value::String(id_str.to_owned()));
@@ -305,7 +319,11 @@ async fn check_visual_ref<B: SceneBackend>(
     visual_ref: &str,
 ) -> Result<(), Value> {
     backend
-        .blob_size(caller, account_id, &Id::from(visual_ref))
+        .blob_size(
+            caller,
+            account_id,
+            &Id::new_validated(visual_ref).map_err(|e| invalid(&["visualRef"], &e.to_string()))?,
+        )
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?
         .map(|_| ())
@@ -459,7 +477,8 @@ async fn create_scene_object<B: SceneBackend>(
     // "The server MUST return `invalidProperties` naming `regionId` when
     // `regionId` does not exist, and SHOULD return the same error (not
     // `forbidden`) when the caller does not have access to the region".
-    let region_id = Id::from(m["regionId"].as_str().unwrap_or_default());
+    let region_id = Id::new_validated(m["regionId"].as_str().unwrap_or_default())
+        .map_err(|e| invalid(&["regionId"], &e.to_string()))?;
     let inaccessible = || invalid(&["regionId"], "regionId is not an accessible SceneRegion");
     fetch_one::<SceneRegion, B>(backend, caller, account_id, &region_id)
         .await?
@@ -481,7 +500,7 @@ async fn create_scene_object<B: SceneBackend>(
             account_id,
             &region_id,
             None,
-            &Id::from(p),
+            &Id::new_validated(p).map_err(|e| invalid(&["parentId"], &e.to_string()))?,
             1,
         )
         .await?;
@@ -613,7 +632,7 @@ async fn update_scene_object<B: SceneBackend>(
                 account_id,
                 &object.region_id,
                 Some(id),
-                &Id::from(p),
+                &Id::new_validated(p).map_err(|e| invalid(&["parentId"], &e.to_string()))?,
                 height,
             )
             .await?;

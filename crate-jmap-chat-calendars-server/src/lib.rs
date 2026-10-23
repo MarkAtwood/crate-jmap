@@ -157,6 +157,7 @@ pub async fn create_space_calendar<K: CalendarsBackend>(
     space: &mut Space,
 ) -> Result<Id, BackendSetError<K::Error>> {
     if let Some(Value::String(existing)) = space.extra.get(SPACE_CALENDAR_ID_PROPERTY) {
+        // Id::from: this crate stored the id when it created the record.
         return Ok(Id::from(existing.as_str()));
     }
     let mut calendar: Calendar = serde_json::from_value(serde_json::json!({
