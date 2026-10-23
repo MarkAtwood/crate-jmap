@@ -525,6 +525,18 @@ impl MemoryError {
     pub fn description(&self) -> &str {
         &self.description
     }
+
+    /// Construct a [`MemoryError`] for a `serde_json` failure during
+    /// `context` (the operation that failed).
+    ///
+    /// Only the error's [`serde_json::error::Category`] is kept. A serde
+    /// data error quotes the offending value (`invalid type: string
+    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// contract forbids PII and blob content in `Display` output
+    /// (bd:JMAP-510h.37).
+    pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
+        Self::new(format!("{context}: serde_json {:?} error", e.classify()))
+    }
 }
 
 impl std::fmt::Display for MemoryError {
@@ -595,7 +607,7 @@ impl JmapBackend for MemoryBackend {
                 match store.get(id) {
                     Some(val) => {
                         let obj: O = O::deserialize(val).map_err(|e| {
-                            MemoryError::new(format!("deserialize {}: {e}", O::TYPE_NAME))
+                            MemoryError::serde(format_args!("deserialize {}", O::TYPE_NAME), &e)
                         })?;
                         found.push(obj);
                     }
@@ -604,8 +616,9 @@ impl JmapBackend for MemoryBackend {
             }
         } else {
             for val in store.values() {
-                let obj: O = O::deserialize(val)
-                    .map_err(|e| MemoryError::new(format!("deserialize {}: {e}", O::TYPE_NAME)))?;
+                let obj: O = O::deserialize(val).map_err(|e| {
+                    MemoryError::serde(format_args!("deserialize {}", O::TYPE_NAME), &e)
+                })?;
                 found.push(obj);
             }
         }
@@ -1176,7 +1189,7 @@ impl MailBackend for MemoryBackend {
             Id::from(uuid::Uuid::new_v4().to_string())
         };
         let mut val = serde_json::to_value(build(&id))
-            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
         // Replace placeholder blobId with a server-assigned UUID. The Email/set
         // create handler sets blobId to [`crate::helpers::PLACEHOLDER_BLOB_ID`]
         // because it has no raw bytes to hash; the backend is responsible for
@@ -1208,7 +1221,7 @@ impl MailBackend for MemoryBackend {
             );
         }
         let created_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
+            BackendSetError::Other(MemoryError::serde("deserialize after create", &e))
         })?;
 
         let mut inner = self.inner.lock().unwrap();
@@ -1240,7 +1253,7 @@ impl MailBackend for MemoryBackend {
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         let patch_val: serde_json::Value = serde_json::to_value(patch)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
@@ -1432,9 +1445,8 @@ impl MailBackend for MemoryBackend {
             });
 
             // Serialize the email for storage.
-            let email_val = serde_json::to_value(&email).map_err(|e| {
-                BackendSetError::Other(MemoryError::new(format!("serialize email: {e}")))
-            })?;
+            let email_val = serde_json::to_value(&email)
+                .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
 
             // Insert or update Thread (append email_id if thread exists).
             let thread_store = inner.objects_mut("Thread", account_id.as_ref());
@@ -1670,7 +1682,7 @@ impl MailBackend for MemoryBackend {
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let new_id = Id::from(uuid::Uuid::new_v4().to_string());
         let mut val = serde_json::to_value(&obj).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("serialize copied object: {e}")))
+            BackendSetError::Other(MemoryError::serde("serialize copied object", &e))
         })?;
         if let serde_json::Value::Object(map) = &mut val {
             map.insert(
@@ -1679,7 +1691,7 @@ impl MailBackend for MemoryBackend {
             );
         }
         let stored: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("deserialize copied object: {e}")))
+            BackendSetError::Other(MemoryError::serde("deserialize copied object", &e))
         })?;
         let thread_id = (O::TYPE_NAME == Email::TYPE_NAME)
             .then(|| val.get("threadId").and_then(|v| v.as_str()).map(Id::from))
@@ -2646,7 +2658,7 @@ impl MdnBackend for MemoryBackend {
             // Mdn is #[non_exhaustive] and defined outside this crate, so we
             // round-trip through JSON to construct a modified copy.
             let mut sent_val = serde_json::to_value(&mdn).map_err(|e| {
-                jmap_server::BackendSetError::Other(MemoryError::new(format!("serialize mdn: {e}")))
+                jmap_server::BackendSetError::Other(MemoryError::serde("serialize mdn", &e))
             })?;
             if let serde_json::Value::Object(ref mut m) = sent_val {
                 m.insert("mdnGateway".to_owned(), serde_json::Value::Null);
@@ -2686,9 +2698,7 @@ impl MdnBackend for MemoryBackend {
                 }
             }
             let sent_mdn: Mdn = serde_json::from_value(sent_val).map_err(|e| {
-                jmap_server::BackendSetError::Other(MemoryError::new(format!(
-                    "deserialize sent mdn: {e}"
-                )))
+                jmap_server::BackendSetError::Other(MemoryError::serde("deserialize sent mdn", &e))
             })?;
             sent.insert(creation_id, sent_mdn);
         }
@@ -2797,7 +2807,7 @@ impl MdnBackend for MemoryBackend {
                         "extensionFields": serde_json::Value::Null,
                     });
                     let mdn: Mdn = serde_json::from_value(mdn_val)
-                        .map_err(|e| MemoryError::new(format!("deserialize parsed mdn: {e}")))?;
+                        .map_err(|e| MemoryError::serde("deserialize parsed mdn", &e))?;
                     parsed.insert(blob_id, mdn);
                 }
             }
@@ -3027,5 +3037,32 @@ mod tests {
             .get(&id)
             .cloned();
         assert_eq!(after, Some(stored));
+    }
+}
+
+#[cfg(test)]
+mod memory_error_tests {
+    use super::MemoryError;
+
+    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// include ... PII shaped like an email address" in `Display`
+    /// output. serde_json data errors quote the offending value, so
+    /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
+    #[test]
+    fn serde_error_display_omits_offending_value() {
+        let canary = "alice@example.com";
+        let e = serde_json::from_value::<u64>(serde_json::Value::String(canary.into()))
+            .expect_err("a string is not a u64");
+        assert!(
+            e.to_string().contains(canary),
+            "precondition: serde_json quotes the value"
+        );
+
+        let shown = MemoryError::serde("decode", &e).to_string();
+        assert!(!shown.contains(canary), "canary leaked: {shown}");
+        assert!(
+            shown.contains("decode") && shown.contains("Data"),
+            "{shown}"
+        );
     }
 }

@@ -3122,6 +3122,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **mail, calendars, chat, chat-mimi, contacts, filenode, graph, scene,
+  sharing, tasks, vtc servers**: `MemoryError` no longer embeds a
+  `serde_json` error message. serde data errors quote the offending value
+  (`invalid type: string "alice@example.com", expected u64`), which put
+  object content and email-shaped PII into `Display` output against the
+  `JmapBackend::Error` contract. The description now carries only the
+  operation and the serde error category, e.g.
+  `deserialize Email: serde_json Data error` (bd JMAP-510h.37).
+
 - **jmap-chat-server**: the reference `MemoryBackend` sorts UTCDate
   properties such as `receivedAt` chronologically. Before this fix it
   compared them byte by byte, so an instant on a whole second (written

@@ -350,6 +350,18 @@ impl MemoryError {
     pub fn description(&self) -> &str {
         &self.description
     }
+
+    /// Construct a [`MemoryError`] for a `serde_json` failure during
+    /// `context` (the operation that failed).
+    ///
+    /// Only the error's [`serde_json::error::Category`] is kept. A serde
+    /// data error quotes the offending value (`invalid type: string
+    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// contract forbids PII and blob content in `Display` output
+    /// (bd:JMAP-510h.37).
+    pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
+        Self::new(format!("{context}: serde_json {:?} error", e.classify()))
+    }
 }
 
 impl std::fmt::Display for MemoryError {
@@ -383,7 +395,7 @@ impl<C: Send + Sync + 'static> JmapBackend for MemoryBackend<C> {
         let decode = |r: &Record| {
             serde_json::to_value(&r.key_package)
                 .and_then(O::deserialize)
-                .map_err(|e| MemoryError::new(format!("decode {}: {e}", O::TYPE_NAME)))
+                .map_err(|e| MemoryError::serde(format_args!("decode {}", O::TYPE_NAME), &e))
         };
         match ids {
             None => {
@@ -516,7 +528,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
             "keyPackageRef": key_package.key_package_ref,
             "lastResort": key_package.last_resort,
         }))
-        .map_err(|e| BackendSetError::Other(MemoryError::new(format!("encode KeyPackage: {e}"))))?;
+        .map_err(|e| BackendSetError::Other(MemoryError::serde("encode KeyPackage", &e)))?;
         if !inner.bindings.contains_key(&key_package.signature_key) {
             let user_uri = inner
                 .accounts
@@ -785,5 +797,32 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         }
         inner.bump(account_id);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod memory_error_tests {
+    use super::MemoryError;
+
+    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// include ... PII shaped like an email address" in `Display`
+    /// output. serde_json data errors quote the offending value, so
+    /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
+    #[test]
+    fn serde_error_display_omits_offending_value() {
+        let canary = "alice@example.com";
+        let e = serde_json::from_value::<u64>(serde_json::Value::String(canary.into()))
+            .expect_err("a string is not a u64");
+        assert!(
+            e.to_string().contains(canary),
+            "precondition: serde_json quotes the value"
+        );
+
+        let shown = MemoryError::serde("decode", &e).to_string();
+        assert!(!shown.contains(canary), "canary leaked: {shown}");
+        assert!(
+            shown.contains("decode") && shown.contains("Data"),
+            "{shown}"
+        );
     }
 }

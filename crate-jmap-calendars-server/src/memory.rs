@@ -123,6 +123,18 @@ impl MemoryError {
     pub fn description(&self) -> &str {
         &self.description
     }
+
+    /// Construct a [`MemoryError`] for a `serde_json` failure during
+    /// `context` (the operation that failed).
+    ///
+    /// Only the error's [`serde_json::error::Category`] is kept. A serde
+    /// data error quotes the offending value (`invalid type: string
+    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// contract forbids PII and blob content in `Display` output
+    /// (bd:JMAP-510h.37).
+    pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
+        Self::new(format!("{context}: serde_json {:?} error", e.classify()))
+    }
 }
 
 impl std::fmt::Display for MemoryError {
@@ -622,10 +634,10 @@ impl JmapBackend for MemoryBackend {
                         match O::deserialize(val) {
                             Ok(obj) => list.push(obj),
                             Err(e) => {
-                                return Err(MemoryError::new(format!(
-                                    "deserialize {}: {e}",
-                                    O::TYPE_NAME
-                                )));
+                                return Err(MemoryError::serde(
+                                    format_args!("deserialize {}", O::TYPE_NAME),
+                                    &e,
+                                ));
                             }
                         }
                     }
@@ -640,10 +652,10 @@ impl JmapBackend for MemoryBackend {
                         Some(val) => match O::deserialize(val) {
                             Ok(obj) => found.push(obj),
                             Err(e) => {
-                                return Err(MemoryError::new(format!(
-                                    "deserialize {}: {e}",
-                                    O::TYPE_NAME
-                                )));
+                                return Err(MemoryError::serde(
+                                    format_args!("deserialize {}", O::TYPE_NAME),
+                                    &e,
+                                ));
                             }
                         },
                         None => not_found.push(id.clone()),
@@ -1006,7 +1018,7 @@ impl CalendarsBackend for MemoryBackend {
 
         let stored_obj = build(&server_id);
         let val = serde_json::to_value(&stored_obj)
-            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         // bd:JMAP-ic0j.8 — for CalendarEvent, feed the new value to the
@@ -1057,9 +1069,8 @@ impl CalendarsBackend for MemoryBackend {
         // the shared `apply_patch_object`, so an invalidPatch leaves the
         // stored object unchanged. Values replace wholesale; the helper caps
         // path plus value nesting depth.
-        let patch_val = serde_json::to_value(&patch).map_err(|e| {
-            BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
-        })?;
+        let patch_val = serde_json::to_value(&patch)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
         if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
             (&mut current, &patch_val)
         {
@@ -1964,5 +1975,32 @@ mod calendar_event_counts_tests {
             inner.apply_calendar_event_index_delta("acc1", Some(&with_ids), Some(&bare));
         }
         assert!(!has_key(&backend, "acc1", "cal1"));
+    }
+}
+
+#[cfg(test)]
+mod memory_error_tests {
+    use super::MemoryError;
+
+    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// include ... PII shaped like an email address" in `Display`
+    /// output. serde_json data errors quote the offending value, so
+    /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
+    #[test]
+    fn serde_error_display_omits_offending_value() {
+        let canary = "alice@example.com";
+        let e = serde_json::from_value::<u64>(serde_json::Value::String(canary.into()))
+            .expect_err("a string is not a u64");
+        assert!(
+            e.to_string().contains(canary),
+            "precondition: serde_json quotes the value"
+        );
+
+        let shown = MemoryError::serde("decode", &e).to_string();
+        assert!(!shown.contains(canary), "canary leaked: {shown}");
+        assert!(
+            shown.contains("decode") && shown.contains("Data"),
+            "{shown}"
+        );
     }
 }
