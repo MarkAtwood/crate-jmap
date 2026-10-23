@@ -1,0 +1,14 @@
+{
+  "accounts": {
+    "acct-001": {
+      "accountCapabilities": {
+        "urn:ietf:params:jmap:did": {
+          "did": "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK",
+          "didDocumentUri": null,
+          "previousDid": null,
+          "keyCustody": "user"
+        }
+      }
+    }
+  }
+}

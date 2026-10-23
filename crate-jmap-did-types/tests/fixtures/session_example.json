@@ -1,0 +1,9 @@
+{
+  "capabilities": {
+    "urn:ietf:params:jmap:core": {},
+    "urn:ietf:params:jmap:did": {
+      "supportedMethods": ["key", "web"],
+      "verificationEndpoint": null
+    }
+  }
+}
