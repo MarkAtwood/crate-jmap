@@ -31,7 +31,7 @@ use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{Value, json};
 
 use crate::helpers::set_error_value;
-use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
+use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, reject_read_only_patch, server_fail_from_backend,
 };
@@ -237,7 +237,7 @@ pub trait MdnBackend: jmap_server::JmapBackend {
     /// `MailBackend::update_object` after this method returns — the backend
     /// does NOT stamp the keyword.
     ///
-    /// Returns [`BackendSetError::Other`] only for catastrophic storage
+    /// Returns [`BackendSetError::Other`](crate::BackendSetError::Other) only for catastrophic storage
     /// failures; per-entry failures are reported inside
     /// [`MdnSendResult::not_sent`].
     fn send_mdns(
@@ -507,11 +507,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             let result = backend
                 .send_mdns(caller, &req.account_id, &req.identity_id, backend_send)
                 .await
-                .map_err(|e| match e {
-                    BackendSetError::Other(inner) => server_fail_from_backend(&inner),
-                    BackendSetError::SetError(se) => server_fail_from_backend(&se),
-                    _ => JmapError::server_fail("unhandled backend error variant".to_owned()),
-                })?;
+                .map_err(|e| server_fail_from_backend(&e))?;
 
             for (id, se) in result.not_sent {
                 not_sent.insert(id, set_error_value(&se));
