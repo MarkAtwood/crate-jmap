@@ -4629,8 +4629,11 @@ fn emoji_name_holder(
 /// the field is absent sort last"; §Chat/query "chats without messages
 /// sort last").
 ///
-/// ponytail: strings compare byte-wise, ignoring `collation`; UTCDate
-/// strings order correctly only because the server emits one format.
+/// Two UTCDate strings compare chronologically ([`utc_date_key`]): RFC
+/// 8620 §1.4 omits a zero time-secfrac, so byte-wise `...:05Z` sorts
+/// after `...:05.001Z` (bd:JMAP-rvp2).
+///
+/// ponytail: other strings compare byte-wise, ignoring `collation`.
 /// Values of mismatched JSON types compare equal.
 fn compare_by_sort(
     a: &serde_json::Value,
@@ -4651,7 +4654,12 @@ fn compare_by_sort(
             (Some(_), None) => Ordering::Less,
             (Some(x), Some(y)) => {
                 let ord = match (x, y) {
-                    (Value::String(x), Value::String(y)) => x.cmp(y),
+                    (Value::String(x), Value::String(y)) => {
+                        match (utc_date_key(x), utc_date_key(y)) {
+                            (Some(x), Some(y)) => x.cmp(&y),
+                            _ => x.cmp(y),
+                        }
+                    }
                     (Value::Number(x), Value::Number(y)) => x
                         .as_f64()
                         .partial_cmp(&y.as_f64())
@@ -4671,6 +4679,19 @@ fn compare_by_sort(
         }
     }
     Ordering::Equal
+}
+
+/// Chronological sort key of an RFC 8620 §1.4 UTCDate string: whole
+/// epoch seconds, then the fraction digits without trailing zeros, which
+/// order lexicographically as they do numerically. `None` when `s` is not
+/// a UTCDate.
+fn utc_date_key(s: &str) -> Option<(i64, &str)> {
+    let secs = jmap_types::UTCDate::from(s).to_epoch_seconds().ok()?;
+    let frac = s
+        .strip_suffix('Z')?
+        .split_once('.')
+        .map_or("", |(_, f)| f.trim_end_matches('0'));
+    Some((secs, frac))
 }
 
 /// Check whether a stored object of type `type_name` passes an RFC 8620
@@ -4985,6 +5006,29 @@ mod tests {
     use super::*;
     use crate::ChatBackend;
     use std::collections::HashSet;
+
+    /// Oracle: RFC 8620 §1.4 — a UTCDate is an RFC 3339 instant whose zero
+    /// time-secfrac "MUST be omitted", so `00:00:01Z` is one millisecond
+    /// after `00:00:00.999Z` and before `00:00:01.001Z` (bd:JMAP-rvp2).
+    #[test]
+    fn compare_by_sort_orders_utc_dates_chronologically() {
+        use serde_json::json;
+        let comparators = [json!({ "property": "receivedAt", "isAscending": true })];
+        let mut msgs = [
+            json!({ "id": "c", "receivedAt": "2026-01-01T00:00:01.001Z" }),
+            json!({ "id": "b", "receivedAt": "2026-01-01T00:00:01Z" }),
+            json!({ "id": "a", "receivedAt": "2026-01-01T00:00:00.999Z" }),
+            json!({ "id": "d", "receivedAt": "2026-01-01T00:00:01.01Z" }),
+        ];
+        msgs.sort_by(|x, y| compare_by_sort(x, y, &comparators));
+        let ids: Vec<&str> = msgs.iter().map(|m| m["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["a", "b", "c", "d"]);
+
+        let descending = [json!({ "property": "receivedAt", "isAscending": false })];
+        msgs.sort_by(|x, y| compare_by_sort(x, y, &descending));
+        let ids: Vec<&str> = msgs.iter().map(|m| m["id"].as_str().unwrap()).collect();
+        assert_eq!(ids, ["d", "c", "b", "a"]);
+    }
 
     /// Oracle: invite codes are CSPRNG-derived, so a batch of generated codes
     /// must show high entropy — no duplicates across a large sample, no
