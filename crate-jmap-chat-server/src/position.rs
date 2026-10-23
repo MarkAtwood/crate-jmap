@@ -39,7 +39,7 @@ use crate::chat::record_unread_count_changes;
 use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, not_found_json, now_utc_string, serialize_value, set_error_value,
+    finalize_set_response, not_found_json, now_utc_string, serialize_value,
 };
 use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -244,12 +244,12 @@ pub async fn handle_position_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch_val, &["lastReadMessageId"], created_ids) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -259,7 +259,7 @@ pub async fn handle_position_set<B: ChatBackend>(
                 .as_object()
                 .and_then(|m| reject_read_only_patch::<ReadPosition>(m, None))
             {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
             // `lastReadMessageId` (String, optional). Checked here because
@@ -304,11 +304,7 @@ pub async fn handle_position_set<B: ChatBackend>(
                 Ok(Some(obj)) => {
                     mutated = true;
                     updated_ids.push(id);
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -375,7 +371,7 @@ pub async fn handle_position_set<B: ChatBackend>(
 /// The `forbidden` SetError for a client `create` or `destroy` of a
 /// server-managed ReadPosition (draft-atwood-jmap-chat-00 §ReadPosition/set).
 fn forbidden_server_managed() -> Value {
-    set_error_value(
+    serde_json::Value::from(
         &SetError::new(SetErrorType::Forbidden)
             .with_description("ReadPosition records are managed by the server"),
     )
