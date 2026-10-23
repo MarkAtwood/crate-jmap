@@ -470,7 +470,10 @@ fn refuse_malformed(mut bad: Vec<&'static str>) -> Result<(), Value> {
 }
 
 /// One §Creating an Object. The `Ok` value is the `created` entry: the
-/// server-set `id`, `ownerId`, `createdAt` and `updatedAt`.
+/// server-set `id`, `ownerId`, `createdAt` and `updatedAt`, plus
+/// `orientation` when it was omitted (defaulted to identity) or normalizing
+/// changed it (RFC 8620 §5.3: "any properties that were omitted or not set
+/// to the requested value by the server").
 async fn create_scene_object<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -535,10 +538,12 @@ async fn create_scene_object<B: SceneBackend>(
 
     // `orientation` is optional on create and has no stated default; an
     // absent one is "the identity orientation (no rotation)".
+    let mut echo_orientation = !m.contains_key("orientation");
     m.entry("orientation")
         .or_insert_with(|| json!(IDENTITY_ORIENTATION));
     if let Some(q) = normalized_quaternion(&m, "orientation") {
         m.insert("orientation".to_owned(), q);
+        echo_orientation = true;
     }
     let now = now_utc_string();
     // `id` is required by the type, so the parse uses "", which is not an
@@ -557,12 +562,16 @@ async fn create_scene_object<B: SceneBackend>(
         })
         .await
         .map_err(backend_set_error_value)?;
-    Ok(json!({
+    let mut created = json!({
         "id": id,
         "ownerId": stored.owner_id,
         "createdAt": stored.created_at,
         "updatedAt": stored.updated_at,
-    }))
+    });
+    if echo_orientation {
+        created["orientation"] = json!(stored.orientation);
+    }
+    Ok(created)
 }
 
 /// The stored object `id` if the caller may modify it

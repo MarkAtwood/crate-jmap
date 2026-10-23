@@ -149,15 +149,20 @@ fn assert_invalid(err: &Value, expected: &[&str]) {
 #[tokio::test]
 async fn create_returns_the_server_set_properties() {
     // L1451 "The server sets `id`, `ownerId`, `createdAt`, and
-    // `updatedAt`"; the L1517-1522 `created` entry carries exactly those
-    // four, `ownerId` being the creating user (L503 "The userId of the
-    // user who created this object").
+    // `updatedAt`", `ownerId` being the creating user (L503 "The userId of
+    // the user who created this object"). The pedestal's
+    // `[0, 0.383, 0, 0.924]` is not unit length, so 29e9a41 L196 normalizes
+    // it and RFC 8620 §5.3 adds it to `created` ("any properties that were
+    // omitted or not set to the requested value by the server").
     let backend = setup();
     let resp = set(&backend, ALICE, json!({ "create": { "o0": pedestal() } })).await;
     let created = resp["created"]["o0"].as_object().expect("created entry");
     let mut keys: Vec<&str> = created.keys().map(String::as_str).collect();
     keys.sort_unstable();
-    assert_eq!(keys, ["createdAt", "id", "ownerId", "updatedAt"]);
+    assert_eq!(
+        keys,
+        ["createdAt", "id", "orientation", "ownerId", "updatedAt"]
+    );
     assert_eq!(created["ownerId"], ALICE);
     assert_eq!(created["createdAt"], created["updatedAt"]);
     // L1514-1515: the state advances.
@@ -222,6 +227,49 @@ async fn accepted_orientations_are_stored_normalized() {
         let stored = &get(&backend, &id).await["list"][0]["orientation"];
         assert!(is_normalized_yw(stored, y, w), "{stored}");
     }
+}
+
+#[tokio::test]
+async fn create_echoes_a_normalized_orientation() {
+    // 29e9a41 L196 "If the server does not reject the value, it MUST
+    // normalize the quaternion to unit length before storage"; RFC 8620
+    // §5.3 `created` holds "any properties that were omitted or not set to
+    // the requested value by the server".
+    let backend = setup();
+    let resp = set(&backend, ALICE, json!({ "create": { "o0": sculpture() } })).await;
+    let created = &resp["created"]["o0"];
+    let echoed = &created["orientation"];
+    assert!(is_normalized_yw(echoed, 0.707, 0.707), "{resp}");
+    let id = created["id"].as_str().expect("id");
+    let stored = &get(&backend, id).await["list"][0]["orientation"];
+    assert_eq!(stored, echoed);
+}
+
+#[tokio::test]
+async fn create_echoes_an_omitted_orientation_as_identity() {
+    // 29e9a41 L1553 lists `orientation` as optional and L192 "The identity
+    // orientation (no rotation) is `[0, 0, 0, 1]`"; RFC 8620 §5.3
+    // `created` holds "any properties that were omitted".
+    let backend = setup();
+    let resp = set(&backend, ALICE, json!({ "create": { "o0": bare(REGION) } })).await;
+    assert_eq!(
+        resp["created"]["o0"]["orientation"],
+        json!([0.0, 0.0, 0.0, 1.0]),
+        "{resp}"
+    );
+}
+
+#[tokio::test]
+async fn create_does_not_echo_a_unit_orientation() {
+    // `[0, 1, 0, 0]` (29e9a41 L1652's half turn) is already unit length, so the
+    // server stores it as requested and RFC 8620 §5.3 does not require it
+    // in `created`.
+    let backend = setup();
+    let mut o = bare(REGION);
+    o["orientation"] = json!([0, 1, 0, 0]);
+    let resp = set(&backend, ALICE, json!({ "create": { "o0": o } })).await;
+    let created = resp["created"]["o0"].as_object().expect("created entry");
+    assert!(!created.contains_key("orientation"), "{resp}");
 }
 
 #[tokio::test]
