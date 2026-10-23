@@ -378,7 +378,7 @@ async fn messages_and_positions<B: ChatBackend>(
 /// §Chat `unreadCount` for `chat_id`: Messages in the Chat whose `id`
 /// sorts after the owner's `lastReadMessageId`, or all of them when it
 /// is absent.
-fn unread_count(messages: &[Message], positions: &[ReadPosition], chat_id: &str) -> u64 {
+pub(crate) fn unread_count(messages: &[Message], positions: &[ReadPosition], chat_id: &str) -> u64 {
     let last_read = positions
         .iter()
         .find(|p| p.chat_id.as_ref() == chat_id)

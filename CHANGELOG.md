@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: **BREAKING** `build_chat_message_push` takes a
+  trailing `unread_count: Option<u64>` that becomes the payload's
+  `unreadCount`, and the new `owner_unread_count` returns the owner's
+  total unread count across non-muted Chats to pass there
+  (draft-atwood-jmap-chat-push-00 §ChatMessagePush: "Servers SHOULD
+  include this for platforms that support atomic badge updates"). Pass
+  `None` to keep the old output (bd JMAP-3rpv).
 - **jmap-chat-mimi-client**: `decrypt_group_info_and_tree` decrypts a
   verified GroupInfoResponse's `encrypted_groupinfo_and_tree` with the
   `groupInfoPublicKey` private key (RFC 9420 §5.1.3 DecryptWithLabel,
