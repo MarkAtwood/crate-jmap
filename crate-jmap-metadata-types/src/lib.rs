@@ -6,10 +6,10 @@
 //!
 //! ## Architecture change from -01 to -02
 //!
-//! draft-ietf-jmap-metadata-04 eliminates the standalone `Metadata` object
-//! type entirely. Instead, each listed data type gains `metadata` (shared)
-//! and `privateMetadata` (per-user) properties — plain `String[Object]` maps
-//! keyed by namespace identifier.
+//! Since -02, the draft has no standalone `Metadata` object type. Instead,
+//! each listed data type gains `metadata` (shared) and `privateMetadata`
+//! (per-user) properties — plain `String[Object]` maps keyed by namespace
+//! identifier.
 //!
 //! This crate provides the helper types that consumers need:
 //!
