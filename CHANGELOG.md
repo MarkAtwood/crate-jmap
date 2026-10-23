@@ -3309,6 +3309,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: **BREAKING** `Space/set` create rejects a key
+  that is neither a client-settable Space property nor a registered
+  `space_extension_properties` key with an `invalidProperties` SetError
+  naming it (RFC 8620 §5.3), as update already did, instead of silently
+  dropping it. A create carrying `calendarId` or `taskListId` without
+  `mayBindCalendar`/`mayBindTaskList`, or a structural key such as
+  `addRoles`, is now refused (bd JMAP-zmqp).
 - **jmap-chat-server**: the nine `/set` handlers (`Chat`, `Message`,
   `Space`, `ChatContact`, `PresenceStatus`, `SpaceInvite`, `CustomEmoji`,
   `ReadPosition`, `SpaceBan`) now call `JmapBackend::account_exists` and

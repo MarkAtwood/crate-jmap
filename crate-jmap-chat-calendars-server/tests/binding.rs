@@ -196,15 +196,31 @@ async fn create_bound_space(chat: &ChatMemory) -> (String, Value) {
     (id, calendar_id)
 }
 
-/// L98: with `mayBindCalendar: false` no Space is bound. A create leaves
-/// `calendarId` absent ("When absent, this Space has no bound Calendar",
-/// L112), and an update patch naming it is `invalidProperties` (RFC 8620
-/// §5.3), as `calendarId` is then no Space property.
+/// L98: with `mayBindCalendar: false` no Space is bound. `calendarId` is
+/// then no Space property, so a create or an update patch naming it is
+/// `invalidProperties` (RFC 8620 §5.3) (bd:JMAP-zmqp).
 #[tokio::test]
 async fn binding_refused_without_may_bind_calendar() {
     let chat = chat(false);
-    let (id, calendar_id) = create_bound_space(&chat).await;
-    assert_eq!(calendar_id, Value::Null);
+    let out = space_set(
+        &chat,
+        json!({ "accountId": ACCOUNT,
+                "create": { "s": { "name": "Team", "calendarId": "C1" } } }),
+    )
+    .await;
+    assert_eq!(
+        out["notCreated"]["s"],
+        json!({ "type": "invalidProperties", "properties": ["calendarId"] })
+    );
+    let out = space_set(
+        &chat,
+        json!({ "accountId": ACCOUNT, "create": { "s": { "name": "Team" } } }),
+    )
+    .await;
+    let id = out["created"]["s"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("Space not created: {out}"))
+        .to_owned();
     let out = space_set(
         &chat,
         json!({ "accountId": ACCOUNT, "update": { &id: { "calendarId": "C1" } } }),

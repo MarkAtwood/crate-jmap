@@ -856,8 +856,8 @@ const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
 /// - Keys listed by [`ChatBackend::space_extension_properties`] are
 ///   accepted on create and update, except a core Space property or a
 ///   structural patch key, which keeps its core meaning (`closedAt` in an
-///   update is `invalidProperties`); any other unknown update key is
-///   `invalidProperties`.
+///   update is `invalidProperties`); any other unknown create or update
+///   key is `invalidProperties`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_set<B: ChatBackend>(
@@ -920,6 +920,27 @@ pub async fn handle_space_set<B: ChatBackend>(
         for (create_id, obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Space>) {
                 not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
+            // RFC 8620 §5.3 invalidProperties: "It contains properties that
+            // are invalid according to the type specification of this
+            // record type." A key that is neither a client-settable Space
+            // property nor a registered extension property is rejected, as
+            // on update, rather than silently dropped.
+            let unknown_keys: Vec<&str> = obj_val
+                .as_object()
+                .into_iter()
+                .flat_map(|m| m.keys())
+                .map(String::as_str)
+                .filter(|key| {
+                    !(Space::CLIENT_SETTABLE.contains(key) || extension_props.contains(key))
+                })
+                .collect();
+            if !unknown_keys.is_empty() {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": unknown_keys }),
+                );
                 continue;
             }
             // Optional properties: a wrongly-typed value is invalidProperties
