@@ -410,13 +410,18 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     // the account unchanged.
     let mut destroys: Vec<Id> = Vec::new();
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
-        for raw in destroy_arr.iter().filter_map(Value::as_str) {
+        let id_strs: Vec<&str> = destroy_arr
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
+        for raw in id_strs {
             match jmap_server::parse_wire_id(raw, "id") {
                 Ok(id) => destroys.push(id),
                 Err(err) => {

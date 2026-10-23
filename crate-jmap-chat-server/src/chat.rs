@@ -1321,18 +1321,23 @@ pub async fn handle_chat_set<B: ChatBackend>(
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
         // silently skipping it, which would produce a misleading response.
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {}",
-                jmap_server::json_type_name(bad)
-            )));
-        }
+        let id_strs: Vec<&str> = destroy_arr
+            .iter()
+            .map(|v| {
+                v.as_str().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {}",
+                        jmap_server::json_type_name(v)
+                    ))
+                })
+            })
+            .collect::<Result<_, _>>()?;
         // §Destroying a Chat: "For channel Chats, destroy via `Chat/set` is
         // not supported; the server MUST return a SetError of type
         // `forbidden`." An id that does not resolve is left for
         // destroy_object to surface `notFound`.
         let mut ids: Vec<Id> = Vec::new();
-        for raw in destroy_arr.iter().filter_map(Value::as_str) {
+        for raw in id_strs {
             match jmap_server::parse_wire_id(raw, "id") {
                 Ok(id) => ids.push(id),
                 Err(err) => {
