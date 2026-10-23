@@ -62,7 +62,7 @@ pub async fn handle_vtc_call_changes<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<VtcCall, B>(backend, caller, args).await
+    jmap_server::handle_changes::<VtcCall, B>(backend, caller, args, &[]).await
 }
 
 /// Handle `VTCCall/query` (draft-atwood-jmap-vtc-00 §VTCCall/query).

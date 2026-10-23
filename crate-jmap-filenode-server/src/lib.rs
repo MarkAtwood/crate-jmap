@@ -49,9 +49,9 @@ pub use filenode::{
 };
 pub use jmap_filenode_types::FileNodeProperty;
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 
 /// Capability URI for `urn:ietf:params:jmap:filenode`.

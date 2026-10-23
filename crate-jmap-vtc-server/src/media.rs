@@ -72,7 +72,7 @@ pub async fn handle_vtc_recording_changes<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<VtcRecording, B>(backend, caller, args).await
+    jmap_server::handle_changes::<VtcRecording, B>(backend, caller, args, &[]).await
 }
 
 /// Handle `VTCRecording/set` (draft-atwood-jmap-vtc-00 §VTCRecording/set).
@@ -198,7 +198,7 @@ pub async fn handle_vtc_livestream_changes<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<VtcLivestream, B>(backend, caller, args).await
+    jmap_server::handle_changes::<VtcLivestream, B>(backend, caller, args, &[]).await
 }
 
 /// Handle `VTCLivestream/set` (draft-atwood-jmap-vtc-00

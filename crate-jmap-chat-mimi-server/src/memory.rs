@@ -437,8 +437,7 @@ impl<C: Send + Sync + 'static> JmapBackend for MemoryBackend<C> {
         &self,
         _caller: &(),
         _account_id: &Id,
-        _since_state: &State,
-        _max_changes: Option<u64>,
+        _params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
         Err(BackendChangesError::CannotCalculate)
     }

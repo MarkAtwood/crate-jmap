@@ -133,7 +133,7 @@ pub async fn handle_task_changes<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Task, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Task, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------

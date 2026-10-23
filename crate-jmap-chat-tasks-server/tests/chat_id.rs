@@ -232,11 +232,10 @@ impl JmapBackend for ViewGate {
         &self,
         caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_chat_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         self.inner
-            .get_changes::<O>(caller, account_id, since_state, max_changes)
+            .get_changes::<O>(caller, account_id, params)
             .await
     }
 

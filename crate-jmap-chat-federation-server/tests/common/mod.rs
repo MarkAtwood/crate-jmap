@@ -343,12 +343,9 @@ impl JmapBackend for Fed {
         &self,
         caller: &(),
         account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
-        self.chat
-            .get_changes::<O>(caller, account_id, since_state, max_changes)
-            .await
+        self.chat.get_changes::<O>(caller, account_id, params).await
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(

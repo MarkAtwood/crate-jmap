@@ -79,7 +79,7 @@ pub async fn handle_principal_changes<B: SharingBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Principal, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Principal, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------

@@ -342,7 +342,7 @@ pub async fn handle_filenode_changes<B: FileNodeBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
-    jmap_server::handle_changes::<FileNode, B>(backend, caller, args).await
+    jmap_server::handle_changes::<FileNode, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------
@@ -2594,12 +2594,9 @@ mod tests {
             &self,
             _caller: &(),
             account_id: &Id,
-            since_state: &State,
-            max_changes: Option<u64>,
+            params: jmap_server::ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-            self.inner
-                .get_changes::<O>(&(), account_id, since_state, max_changes)
-                .await
+            self.inner.get_changes::<O>(&(), account_id, params).await
         }
 
         async fn query_objects<O: QueryObject + Send + Sync>(
@@ -3025,12 +3022,9 @@ mod tests {
             &self,
             _caller: &(),
             account_id: &Id,
-            since_state: &State,
-            max_changes: Option<u64>,
+            params: jmap_server::ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-            self.0
-                .get_changes::<O>(&(), account_id, since_state, max_changes)
-                .await
+            self.0.get_changes::<O>(&(), account_id, params).await
         }
 
         async fn query_objects<O: QueryObject + Send + Sync>(

@@ -28,7 +28,7 @@ use jmap_types::{Id, JmapError, State};
 use serde_json::{Value, json};
 
 use crate::backend::{
-    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryObject, QueryParams,
+    ChangesParams, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryObject, QueryParams,
 };
 use crate::helpers::{
     enforce_max_objects_in_get, extract_account_id, filter_arg, not_found_json, optional_arg,
@@ -202,19 +202,26 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 
 /// Generic `*/changes` handler (RFC 8620 §5.2).
 ///
-/// This implementation always returns `updatedProperties: null` (see RFC 8620
-/// §5.2 for the field's semantics). For types with frequently-updated
-/// server-computed counts (e.g. Mailbox `totalEmails`, `unreadEmails`), a
-/// production backend MAY override or post-process the response to set
-/// `updatedProperties` to the list of count fields when only those changed.
-/// When non-null, compliant clients skip re-fetching non-count properties,
-/// reducing traffic on large inboxes. Backends that do not track per-property
-/// change detail MUST leave it null — returning an empty array would be
-/// incorrect (that means "nothing about the listed objects actually changed").
+/// `using` is the request's capability list ([`crate::CallContext::using`]).
+/// When it includes `urn:ietf:params:jmap:metadata`, the optional
+/// `ignoreMetadataOnlyChanges` argument (draft-ietf-jmap-metadata-04 §3.3)
+/// is parsed, and must be a boolean; otherwise the backend is told to
+/// ignore metadata-only changes, because -04 §3 says such a request "MUST
+/// behave as if ignoreMetadataOnlyChanges were true".
+///
+/// `updatedProperties` is [`ChangesResult::updated_properties`]
+/// (RFC 8621 §2.2, -04 §3.3), and `null` whenever `updated` is empty
+/// (-04 §3.3: "It is always present, and is null when updated is empty").
+/// Backends that do not track per-property change detail MUST leave it
+/// `None`: an empty array would mean "nothing about the listed objects
+/// actually changed".
+///
+/// [`ChangesResult::updated_properties`]: crate::ChangesResult::updated_properties
 pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
     if !backend
@@ -232,17 +239,43 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 
     let max_changes = crate::parse_max_changes(args.get("maxChanges"))?;
 
+    let uses_metadata = using
+        .iter()
+        .any(|u| u == jmap_metadata_types::JMAP_METADATA_URI);
+    let ignore_metadata_only_changes = !uses_metadata
+        || match args.get("ignoreMetadataOnlyChanges") {
+            None | Some(Value::Null) => false,
+            Some(Value::Bool(b)) => *b,
+            Some(v) => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "ignoreMetadataOnlyChanges: expected a boolean, got {}",
+                    crate::helpers::json_type_name(v)
+                )));
+            }
+        };
+
     let result = backend
-        .get_changes::<O>(caller, &account_id, &since_state, max_changes)
+        .get_changes::<O>(
+            caller,
+            &account_id,
+            ChangesParams::new(&since_state)
+                .max_changes(max_changes)
+                .ignore_metadata_only_changes(ignore_metadata_only_changes),
+        )
         .await
         .map_err(JmapError::from)?;
+    let updated_properties = if result.updated.is_empty() {
+        None
+    } else {
+        result.updated_properties
+    };
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
-        "updatedProperties": Value::Null,
+        "updatedProperties": updated_properties,
         // bd:JMAP-wlip.28 — Vec<Id> serializes directly via Id's
         // #[serde(transparent)] impl; no intermediate &str Vec needed.
         "created":   result.created,
@@ -636,8 +669,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_state: &State,
-            _max_changes: Option<u64>,
+            _params: ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
             unreachable!("only query_objects is exercised")
         }
@@ -800,8 +832,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_state: &State,
-            _max_changes: Option<u64>,
+            _params: ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
             unreachable!("only /get is exercised")
         }
@@ -926,8 +957,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_state: &State,
-            _max_changes: Option<u64>,
+            _params: ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
             unreachable!("only queries are exercised")
         }
@@ -1176,8 +1206,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_state: &State,
-            _max_changes: Option<u64>,
+            _params: ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
             match self.outcome {
                 Canned::Ok => Ok(ChangesResult::new(
@@ -1237,6 +1266,7 @@ mod tests {
             &CANNED_OK,
             &(),
             json!({"accountId": "a1", "sinceState": "s1"}),
+            &[],
         )
         .await
         .expect("/changes must succeed");
@@ -1252,6 +1282,233 @@ mod tests {
                 "updated": ["u1"],
                 "destroyed": ["d1"],
             })
+        );
+    }
+
+    // -----------------------------------------------------------------
+    // handle_changes: draft-ietf-jmap-metadata-04 §3, §3.3 (bd:JMAP-cbhv)
+    // -----------------------------------------------------------------
+
+    const CORE: &str = "urn:ietf:params:jmap:core";
+    const METADATA: &str = "urn:ietf:params:jmap:metadata";
+
+    /// `/changes`-only backend: records the [`ChangesParams`] it was
+    /// given and answers with the configured `updated` list and
+    /// `updated_properties`.
+    struct MetadataChangesBackend {
+        updated: Vec<Id>,
+        updated_properties: Option<Vec<String>>,
+        seen_ignore: std::sync::Mutex<Option<bool>>,
+    }
+
+    impl MetadataChangesBackend {
+        fn new(updated: &[&str], updated_properties: Option<&[&str]>) -> Self {
+            Self {
+                updated: updated.iter().map(|u| Id::from(*u)).collect(),
+                updated_properties: updated_properties
+                    .map(|p| p.iter().map(|s| (*s).to_owned()).collect()),
+                seen_ignore: std::sync::Mutex::new(None),
+            }
+        }
+    }
+
+    impl JmapBackend for MetadataChangesBackend {
+        type Error = LeakyQueryError;
+        type CallerCtx = ();
+
+        async fn account_exists(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            unreachable!("only get_changes is exercised")
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            unreachable!("only get_changes is exercised")
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            params: ChangesParams<'_>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            *self.seen_ignore.lock().unwrap() = Some(params.ignore_metadata_only_changes);
+            Ok(ChangesResult::new(
+                Vec::new(),
+                self.updated.clone(),
+                Vec::new(),
+                false,
+                State::from("s2"),
+            )
+            .with_updated_properties(self.updated_properties.clone()))
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _params: QueryParams<'_, O>,
+        ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
+            unreachable!("only get_changes is exercised")
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _params: QueryChangesParams<'_, O>,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only get_changes is exercised")
+        }
+    }
+
+    /// Run `QueryProbe/changes` with `extra` merged into the arguments and
+    /// return the `ignoreMetadataOnlyChanges` value the backend received.
+    async fn ignore_seen(using: &[&str], extra: Value) -> bool {
+        let backend = MetadataChangesBackend::new(&["u1"], None);
+        let mut args = json!({"accountId": "a1", "sinceState": "s1"});
+        if let Value::Object(extra) = extra {
+            args.as_object_mut().unwrap().extend(extra);
+        }
+        let using: Vec<String> = using.iter().map(|u| (*u).to_owned()).collect();
+        handle_changes::<QueryProbe, _>(&backend, &(), args, &using)
+            .await
+            .expect("/changes must succeed");
+        backend
+            .seen_ignore
+            .lock()
+            .unwrap()
+            .expect("backend must be called")
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §3 (draft-ietf-jmap-metadata-04.txt
+    /// L460-465): "These extensions apply to requests whose using includes
+    /// urn:ietf:params:jmap:metadata. For other requests, ... Foo/changes
+    /// MUST behave as if ignoreMetadataOnlyChanges were true." The
+    /// argument is not defined for such requests, so a malformed value is
+    /// not an error.
+    #[tokio::test]
+    async fn changes_without_metadata_capability_ignores_metadata_only_changes() {
+        assert!(ignore_seen(&[CORE], json!({})).await);
+        assert!(ignore_seen(&[CORE], json!({"ignoreMetadataOnlyChanges": false})).await);
+        assert!(ignore_seen(&[CORE], json!({"ignoreMetadataOnlyChanges": "no"})).await);
+        assert!(ignore_seen(&[], json!({})).await);
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L598):
+    /// "*ignoreMetadataOnlyChanges*: Boolean (default: false)".
+    #[tokio::test]
+    async fn changes_with_metadata_capability_passes_ignore_argument() {
+        assert!(!ignore_seen(&[CORE, METADATA], json!({})).await);
+        assert!(
+            !ignore_seen(
+                &[CORE, METADATA],
+                json!({"ignoreMetadataOnlyChanges": null})
+            )
+            .await
+        );
+        assert!(
+            !ignore_seen(
+                &[CORE, METADATA],
+                json!({"ignoreMetadataOnlyChanges": false})
+            )
+            .await
+        );
+        assert!(
+            ignore_seen(
+                &[CORE, METADATA],
+                json!({"ignoreMetadataOnlyChanges": true})
+            )
+            .await
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L598) types the argument
+    /// "Boolean"; RFC 8620 §3.6.2 "invalidArguments: One of the arguments
+    /// is of the wrong type".
+    #[tokio::test]
+    async fn changes_rejects_non_boolean_ignore_argument() {
+        let backend = MetadataChangesBackend::new(&["u1"], None);
+        let err = handle_changes::<QueryProbe, _>(
+            &backend,
+            &(),
+            json!({"accountId": "a1", "sinceState": "s1", "ignoreMetadataOnlyChanges": "yes"}),
+            &[CORE.to_owned(), METADATA.to_owned()],
+        )
+        .await
+        .expect_err("a string ignoreMetadataOnlyChanges must fail");
+        assert_eq!(err.error_type.to_string(), "invalidArguments");
+        assert!(
+            backend.seen_ignore.lock().unwrap().is_none(),
+            "backend must not be called"
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L624-643): when "the only
+    /// properties that have changed on every id in the updated array ...
+    /// are metadata and/or privateMetadata, this argument MUST be set to a
+    /// list containing only those property names (e.g., ["metadata"]"; and
+    /// the §3.3 example response (L1325) carries
+    /// `"updatedProperties": ["metadata"]`.
+    #[tokio::test]
+    async fn changes_reports_backend_updated_properties() {
+        let backend = MetadataChangesBackend::new(&["u1"], Some(&["metadata"]));
+        let HandlerOutput { primary: resp, .. } = handle_changes::<QueryProbe, _>(
+            &backend,
+            &(),
+            json!({"accountId": "a1", "sinceState": "s1"}),
+            &[CORE.to_owned(), METADATA.to_owned()],
+        )
+        .await
+        .expect("/changes must succeed");
+        assert_eq!(
+            resp,
+            json!({
+                "accountId": "a1",
+                "oldState": "s1",
+                "newState": "s2",
+                "hasMoreChanges": false,
+                "updatedProperties": ["metadata"],
+                "created": [],
+                "updated": ["u1"],
+                "destroyed": [],
+            })
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L638-639): updatedProperties
+    /// "is always present, and is null when updated is empty".
+    #[tokio::test]
+    async fn changes_updated_properties_null_when_updated_empty() {
+        let backend = MetadataChangesBackend::new(&[], Some(&["metadata"]));
+        let HandlerOutput { primary: resp, .. } = handle_changes::<QueryProbe, _>(
+            &backend,
+            &(),
+            json!({"accountId": "a1", "sinceState": "s1"}),
+            &[CORE.to_owned(), METADATA.to_owned()],
+        )
+        .await
+        .expect("/changes must succeed");
+        assert_eq!(resp["updatedProperties"], Value::Null);
+        assert!(
+            resp.as_object().unwrap().contains_key("updatedProperties"),
+            "updatedProperties must be present"
         );
     }
 
@@ -1322,7 +1579,7 @@ mod tests {
             if let Some(v) = &since {
                 args["sinceState"] = v.clone();
             }
-            let err = handle_changes::<QueryProbe, _>(&CANNED_OK, &(), args)
+            let err = handle_changes::<QueryProbe, _>(&CANNED_OK, &(), args, &[])
                 .await
                 .expect_err("/changes without a string sinceState must fail");
             assert_eq!(err.error_type.to_string(), "invalidArguments", "{since:?}");
@@ -1408,6 +1665,7 @@ mod tests {
                 &backend,
                 &(),
                 json!({"accountId": "a1", "sinceState": "s1"}),
+                &[],
             )
             .await;
             let query_changes = handle_query_changes::<QueryProbe, _>(
@@ -1443,6 +1701,7 @@ mod tests {
                 &backend,
                 &(),
                 json!({"accountId": "nope", "sinceState": "s1"}),
+                &[],
             )
             .await,
             handle_query::<QueryProbe, _>(&backend, &(), json!({"accountId": "nope"})).await,

@@ -222,7 +222,11 @@ async fn memory_backend_get_changes_from_zero() {
         .unwrap();
 
     let changes = backend
-        .get_changes::<Mailbox>(&(), &account_id, &State::from("0"), None)
+        .get_changes::<Mailbox>(
+            &(),
+            &account_id,
+            jmap_server::ChangesParams::new(&State::from("0")),
+        )
         .await
         .expect("get_changes");
 
@@ -557,15 +561,12 @@ async fn search_snippet_get_capability_gated() {
             &self,
             _caller: &(),
             account_id: &Id,
-            since_state: &jmap_types::State,
-            max_changes: Option<u64>,
+            params: jmap_server::ChangesParams<'_>,
         ) -> Result<
             jmap_mail_server::ChangesResult,
             jmap_mail_server::BackendChangesError<Self::Error>,
         > {
-            self.0
-                .get_changes::<O>(&(), account_id, since_state, max_changes)
-                .await
+            self.0.get_changes::<O>(&(), account_id, params).await
         }
 
         async fn query_objects<O: jmap_mail_server::QueryObject + Send + Sync>(

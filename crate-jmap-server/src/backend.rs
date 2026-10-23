@@ -259,6 +259,13 @@ pub struct ChangesResult {
     pub has_more_changes: bool,
     /// The current state token after applying all reported changes.
     pub new_state: jmap_types::State,
+    /// The `updatedProperties` response argument (RFC 8621 §2.2,
+    /// draft-ietf-jmap-metadata-04 §3.3): the only properties that may
+    /// have changed on every id in [`updated`](Self::updated), or `None`
+    /// when any other property may have changed or the backend cannot
+    /// tell. [`crate::handle_changes`] sends `null` when `updated` is
+    /// empty, whatever this holds.
+    pub updated_properties: Option<Vec<String>>,
 }
 
 impl ChangesResult {
@@ -276,7 +283,16 @@ impl ChangesResult {
             destroyed,
             has_more_changes,
             new_state,
+            updated_properties: None,
         }
+    }
+
+    /// Set [`updated_properties`](Self::updated_properties); [`Self::new`]
+    /// leaves it `None`.
+    #[must_use]
+    pub fn with_updated_properties(mut self, updated_properties: Option<Vec<String>>) -> Self {
+        self.updated_properties = updated_properties;
+        self
     }
 }
 
@@ -402,6 +418,67 @@ impl QueryChangesResult {
             removed,
             added,
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Changes parameters
+// ---------------------------------------------------------------------------
+
+/// The `/changes` arguments (RFC 8620 §5.2) passed to
+/// [`JmapBackend::get_changes`], after `accountId`.
+///
+/// `#[non_exhaustive]` for the same reason as [`QueryParams`]. Build one
+/// with [`ChangesParams::new`], which takes the one required argument,
+/// `sinceState`, and the setters:
+///
+/// ```
+/// # use jmap_server::ChangesParams;
+/// let since = jmap_server::State::from("s1");
+/// let params = ChangesParams::new(&since).max_changes(Some(50));
+/// assert_eq!(params.max_changes, Some(50));
+/// assert!(!params.ignore_metadata_only_changes);
+/// ```
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub struct ChangesParams<'a> {
+    /// `sinceState`, the state the client already has.
+    pub since_state: &'a jmap_types::State,
+    /// `maxChanges`; `None` means no client limit.
+    pub max_changes: Option<u64>,
+    /// `ignoreMetadataOnlyChanges` (draft-ietf-jmap-metadata-04 §3.3):
+    /// when `true`, a backend that tracks per-update changed properties
+    /// MUST leave out of `updated` every id whose only changes are to
+    /// `metadata` and/or `privateMetadata`, and those ids do not count
+    /// toward `max_changes`. [`crate::handle_changes`] sets it `true`
+    /// for a request whose `using` lacks `urn:ietf:params:jmap:metadata`
+    /// (-04 §3). A backend that does not support metadata ignores it.
+    pub ignore_metadata_only_changes: bool,
+}
+
+impl<'a> ChangesParams<'a> {
+    /// Changes since `since_state`, with no `maxChanges` and
+    /// `ignoreMetadataOnlyChanges` false (its -04 §3.3 default).
+    pub fn new(since_state: &'a jmap_types::State) -> Self {
+        Self {
+            since_state,
+            max_changes: None,
+            ignore_metadata_only_changes: false,
+        }
+    }
+
+    /// Set [`max_changes`](Self::max_changes).
+    #[must_use]
+    pub fn max_changes(mut self, max_changes: Option<u64>) -> Self {
+        self.max_changes = max_changes;
+        self
+    }
+
+    /// Set [`ignore_metadata_only_changes`](Self::ignore_metadata_only_changes).
+    #[must_use]
+    pub fn ignore_metadata_only_changes(mut self, ignore: bool) -> Self {
+        self.ignore_metadata_only_changes = ignore;
+        self
     }
 }
 
@@ -818,7 +895,9 @@ pub trait JmapBackend: Send + Sync + 'static {
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<jmap_types::State, Self::Error>> + Send;
 
-    /// Return changes since `since_state`, up to `max_changes` entries.
+    /// Return changes since `params.since_state`, up to
+    /// `params.max_changes` entries, honouring
+    /// `params.ignore_metadata_only_changes` (see [`ChangesParams`]).
     ///
     /// # Unknown `account_id`
     ///
@@ -834,8 +913,7 @@ pub trait JmapBackend: Send + Sync + 'static {
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
-        since_state: &jmap_types::State,
-        max_changes: Option<u64>,
+        params: ChangesParams<'_>,
     ) -> impl std::future::Future<Output = Result<ChangesResult, BackendChangesError<Self::Error>>> + Send;
 
     /// Execute a `/query` and return a page of matching ids.
@@ -1260,8 +1338,7 @@ mod tests {
             &self,
             _caller: &(),
             _account_id: &jmap_types::Id,
-            _since_state: &jmap_types::State,
-            _max_changes: Option<u64>,
+            _params: ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
             unreachable!("stub backend: only default methods are exercised")
         }

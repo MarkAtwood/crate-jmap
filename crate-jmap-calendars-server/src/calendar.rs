@@ -78,7 +78,7 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Calendar, B>(backend, caller, args).await
+    jmap_server::handle_changes::<Calendar, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------
@@ -635,8 +635,7 @@ mod tests {
                 &self,
                 _caller: &(),
                 _account_id: &Id,
-                _since_state: &State,
-                _max_changes: Option<u64>,
+                _params: jmap_server::ChangesParams<'_>,
             ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
                 Ok(ChangesResult::new(
                     vec![],

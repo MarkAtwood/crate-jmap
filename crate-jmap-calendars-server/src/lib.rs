@@ -66,9 +66,9 @@ pub use jmap_calendars_types::{
     ParticipantIdentityProperty,
 };
 pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use participant_identity::{
     handle_participant_identity_changes, handle_participant_identity_get,
@@ -597,8 +597,7 @@ pub(crate) mod test_support {
             &self,
             _caller: &(),
             _account_id: &Id,
-            _since_state: &State,
-            _max_changes: Option<u64>,
+            _params: jmap_server::ChangesParams<'_>,
         ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
             Ok(ChangesResult::new(
                 vec![],

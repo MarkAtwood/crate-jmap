@@ -91,7 +91,7 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<AddressBook, B>(backend, caller, args).await
+    jmap_server::handle_changes::<AddressBook, B>(backend, caller, args, &[]).await
 }
 
 // ---------------------------------------------------------------------------

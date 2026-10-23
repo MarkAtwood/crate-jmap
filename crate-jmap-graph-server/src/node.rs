@@ -223,7 +223,7 @@ pub async fn handle_graph_node_changes<B: GraphBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<GraphNode, B>(backend, caller, args).await
+    jmap_server::handle_changes::<GraphNode, B>(backend, caller, args, &[]).await
 }
 
 /// Handle `GraphNode/query` (draft-atwood-jmap-graph-00 §GraphNode/query):

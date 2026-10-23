@@ -37,9 +37,10 @@ mod handlers;
 mod helpers;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject, backend_set_error_value,
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
+    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject,
+    backend_set_error_value,
 };
 pub use handlers::{
     SERVER_FAIL_INTERNAL_DESC, handle_changes, handle_get, handle_query, handle_query_changes,
@@ -152,6 +153,11 @@ pub struct CallContext<CallerCtx> {
     /// dispatcher cannot, because only the handler knows which
     /// properties are Id-typed (bd:JMAP-8ypy).
     pub created_ids: BTreeMap<Id, Id>,
+    /// The request's `using` capability URIs (RFC 8620 §3.3). Extensions
+    /// change method behaviour per request on it; e.g.
+    /// draft-ietf-jmap-metadata-04 §3 extends `Foo/changes` only for
+    /// requests whose `using` includes `urn:ietf:params:jmap:metadata`.
+    pub using: Vec<String>,
 }
 
 impl<CallerCtx> CallContext<CallerCtx> {
@@ -168,6 +174,7 @@ impl<CallerCtx> CallContext<CallerCtx> {
             args,
             caller,
             created_ids: BTreeMap::new(),
+            using: Vec::new(),
         }
     }
 
@@ -175,6 +182,12 @@ impl<CallerCtx> CallContext<CallerCtx> {
     /// empty.
     pub fn with_created_ids(mut self, created_ids: BTreeMap<Id, Id>) -> Self {
         self.created_ids = created_ids;
+        self
+    }
+
+    /// Set [`CallContext::using`]; [`CallContext::new`] leaves it empty.
+    pub fn with_using(mut self, using: Vec<String>) -> Self {
+        self.using = using;
         self
     }
 }
@@ -455,6 +468,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             // ponytail: clones the map per call; it is bounded by
             // maxCallsInRequest x maxObjectsInSet. Arc it if that grows.
             let created_ids_snapshot = created_ids.clone();
+            let using = request.using.clone();
 
             // Run in a spawned task for panic isolation.
             let result: Result<Result<HandlerOutput, JmapError>, tokio::task::JoinError> =
@@ -462,7 +476,8 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     handler
                         .call(
                             CallContext::new(method_clone, call_id_clone, args, caller_clone)
-                                .with_created_ids(created_ids_snapshot),
+                                .with_created_ids(created_ids_snapshot)
+                                .with_using(using),
                         )
                         .await
                 })
@@ -1724,6 +1739,47 @@ mod tests {
                 "c7".to_owned(),
                 json!({"accountId": "a1"})
             ))
+        );
+    }
+
+    /// Oracle: RFC 8620 §3.3 — the Request object's `using` is "The set
+    /// of capabilities the client wishes to use"; draft-ietf-jmap-metadata-04
+    /// §3 makes `Foo/changes` behaviour depend on whether it "includes
+    /// urn:ietf:params:jmap:metadata", so the dispatcher MUST hand every
+    /// handler the request's `using` list unchanged.
+    #[tokio::test]
+    async fn dispatch_passes_request_using_to_handler() {
+        struct DummyBackend;
+        let seen: Arc<Mutex<Option<Vec<String>>>> = Arc::new(Mutex::new(None));
+        let seen_clone = Arc::clone(&seen);
+        let handler = ClosureHandler::new(
+            Arc::new(DummyBackend),
+            move |_b: Arc<DummyBackend>, cx: CallContext<()>| {
+                *seen_clone.lock().unwrap() = Some(cx.using);
+                Box::pin(async { Ok(HandlerOutput::new(json!({}))) }) as HandlerFuture
+            },
+        );
+        let mut d: Dispatcher<()> = Dispatcher::new();
+        d.register("Foo/changes", Arc::new(handler));
+        let req = JmapRequest::new(
+            vec![
+                "urn:ietf:params:jmap:core".into(),
+                "urn:ietf:params:jmap:metadata".into(),
+            ],
+            vec![Invocation::new(
+                "Foo/changes",
+                json!({"accountId": "a1", "sinceState": "s1"}),
+                "c0",
+            )],
+            None,
+        );
+        d.dispatch(req, (), "s0".into()).await;
+        assert_eq!(
+            seen.lock().unwrap().take(),
+            Some(vec![
+                "urn:ietf:params:jmap:core".to_owned(),
+                "urn:ietf:params:jmap:metadata".to_owned(),
+            ])
         );
     }
 
