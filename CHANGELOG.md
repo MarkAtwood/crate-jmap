@@ -3139,6 +3139,13 @@ wire behaviour that a conforming peer can observe.
 ### Fixed
 
 - **mail, calendars, chat, chat-mimi, contacts, filenode, graph, scene,
+  sharing, tasks, vtc servers**: the self-dev-dependency that enables
+  `memory` (and `mdn`, `sieve`) for tests is now path-only, so
+  `cargo publish` drops it instead of resolving it against crates.io. A
+  release that adds a server feature no longer fails with "depends on
+  `<crate>` with feature `<f>` but `<crate>` does not have that feature",
+  and no temporary `Cargo.toml` edit is needed (bd JMAP-31o4).
+- **mail, calendars, chat, chat-mimi, contacts, filenode, graph, scene,
   sharing, tasks, vtc servers**: `MemoryError` no longer embeds a
   `serde_json` error message. serde data errors quote the offending value
   (`invalid type: string "alice@example.com", expected u64`), which put

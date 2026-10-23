@@ -139,35 +139,30 @@ parallel by spawning multiple `cargo publish` processes.
 
 The 2026-05-13 publish wave surfaced these. Read before the next release.
 
-### 1. Server-crate self-dev-dep + new features (bd:JMAP-31o4)
+### 1. Server-crate self-dev-dep + new features (bd:JMAP-31o4) — resolved
 
-Every `jmap-*-server` crate carries:
-
-```toml
-[dev-dependencies]
-jmap-<X>-server = { workspace = true, features = ["memory", ...] }
-```
-
-The workspace dep expands to `{ path = "...", version = "0.1" }`. On
-publish, cargo strips `path` and tries to resolve the self-dev-dep against
-the registry. If the new features (`memory`, `mdn`, `sieve`, …) did not
-exist in the previously-published versions of the crate, resolution fails:
+Server crates enable their own `memory` (and `mdn`, `sieve`) features for
+integration tests through a self-dev-dependency. It used to be
+`{ workspace = true, features = [...] }`, which carries a `version`; on
+publish cargo resolved it against crates.io and failed when a feature was
+newer than the last published release:
 
 ```
 package `jmap-mail-server` depends on `jmap-mail-server` with feature
 `mdn` but `jmap-mail-server` does not have that feature.
-failed to select a version for `jmap-mail-server` which could resolve
-this conflict
 ```
 
-`--no-verify` does NOT bypass this — the error fires during pre-publish
-manifest resolution, before the build-verify step.
+The self-dev-dep is now path-only, with no `version`:
 
-**Workaround (until bd:JMAP-31o4 lands a permanent fix):** for each
-affected server crate, temporarily comment out the self-dev-dep line in
-its `Cargo.toml`, then `cargo publish --allow-dirty -p <crate>`, then
-revert. Dev-dependencies are stripped from the published manifest anyway,
-so consumers see no difference.
+```toml
+[dev-dependencies]
+jmap-<X>-server = { path = ".", features = ["memory"] }
+```
+
+`cargo publish` drops version-less path dev-dependencies from the published
+manifest, so nothing is resolved against the registry and no temporary
+`Cargo.toml` edit is needed. Tests still run with plain
+`cargo test -p <crate>`. Do not switch these back to `workspace = true`.
 
 ### 2. crates.io 20-char keyword limit
 
