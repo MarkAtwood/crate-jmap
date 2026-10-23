@@ -125,7 +125,9 @@ enum Change {
     Destroyed,
 }
 
-type Key = (&'static str, String);
+/// `type_name` → `account_id` → `V`. Nested rather than tuple-keyed so a
+/// lookup borrows the `&str` account id instead of allocating a `String`.
+type Keyed<V> = HashMap<&'static str, HashMap<String, V>>;
 
 /// The avatar changes and the regions to recount that [`Inner::admit`]
 /// leaves for its caller to commit.
@@ -133,12 +135,12 @@ type Admitted = (Vec<(Id, Change)>, Vec<Id>);
 
 #[derive(Default)]
 struct Inner {
-    /// `(type_name, account_id)` → `id → stored object`.
-    objects: HashMap<Key, HashMap<Id, Value>>,
-    /// `(type_name, account_id)` → state counter.
-    states: HashMap<Key, u64>,
-    /// `(type_name, account_id)` → `(state after the change, id, change)`.
-    log: HashMap<Key, Vec<(u64, Id, Change)>>,
+    /// `type_name` → `account_id` → `id → stored object`.
+    objects: Keyed<HashMap<Id, Value>>,
+    /// `type_name` → `account_id` → state counter.
+    states: Keyed<u64>,
+    /// `type_name` → `account_id` → `(state after the change, id, change)`.
+    log: Keyed<Vec<(u64, Id, Change)>>,
     /// Registered accounts and their Scene capability object.
     accounts: HashMap<String, SceneCapability>,
     /// `(account_id, blob_id)` → blob size in bytes.
@@ -175,30 +177,40 @@ struct Inner {
 impl Inner {
     fn objects(&self, type_name: &'static str, account_id: &Id) -> Option<&HashMap<Id, Value>> {
         self.objects
-            .get(&(type_name, account_id.as_ref().to_owned()))
+            .get(type_name)
+            .and_then(|m| m.get(account_id.as_ref()))
     }
 
     fn objects_mut(&mut self, type_name: &'static str, account_id: &Id) -> &mut HashMap<Id, Value> {
         self.objects
-            .entry((type_name, account_id.as_ref().to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.as_ref().to_owned())
             .or_default()
     }
 
     fn state(&self, type_name: &'static str, account_id: &Id) -> u64 {
         self.states
-            .get(&(type_name, account_id.as_ref().to_owned()))
+            .get(type_name)
+            .and_then(|m| m.get(account_id.as_ref()))
             .copied()
             .unwrap_or(0)
     }
 
     /// Advance the state of `type_name` once and log `changes` under it.
     fn commit(&mut self, type_name: &'static str, account_id: &Id, changes: Vec<(Id, Change)>) {
-        let key = (type_name, account_id.as_ref().to_owned());
-        let state = self.states.entry(key.clone()).or_insert(0);
+        let state = self
+            .states
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.as_ref().to_owned())
+            .or_insert(0);
         *state += 1;
         let state = *state;
         self.log
-            .entry(key)
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.as_ref().to_owned())
             .or_default()
             .extend(changes.into_iter().map(|(id, c)| (state, id, c)));
     }
@@ -649,7 +661,8 @@ impl JmapBackend for MemoryBackend {
         let mut net: Vec<(Id, Change)> = Vec::new();
         for (_, id, change) in inner
             .log
-            .get(&(O::TYPE_NAME, account_id.as_ref().to_owned()))
+            .get(O::TYPE_NAME)
+            .and_then(|m| m.get(account_id.as_ref()))
             .into_iter()
             .flatten()
             .filter(|(s, _, _)| *s > since)

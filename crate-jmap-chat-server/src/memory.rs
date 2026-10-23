@@ -94,12 +94,12 @@ struct ChangeEntry {
 /// Shared inner state, behind Arc<Mutex>.
 #[derive(Default)]
 struct Inner {
-    /// `(type_name, account_id)` → `id → serialized object`
-    objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>>,
-    /// `(type_name, account_id)` → current state counter
-    states: HashMap<(&'static str, String), u64>,
-    /// `(type_name, account_id)` → ordered change entries
-    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,
+    /// `type_name` → `account_id` → `id → serialized object`
+    objects: HashMap<&'static str, HashMap<String, HashMap<Id, serde_json::Value>>>,
+    /// `type_name` → `account_id` → current state counter
+    states: HashMap<&'static str, HashMap<String, u64>>,
+    /// `type_name` → `account_id` → ordered change entries
+    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
     /// Test-only override for [`ChatBackend::limits`]. `None` means use
@@ -187,7 +187,8 @@ impl Inner {
 
     fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {
         self.states
-            .get(&(type_name, account_id.to_owned()))
+            .get(type_name)
+            .and_then(|m| m.get(account_id))
             .copied()
             .unwrap_or(0)
     }
@@ -195,7 +196,9 @@ impl Inner {
     fn bump_state(&mut self, type_name: &'static str, account_id: &str) -> u64 {
         let entry = self
             .states
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_insert(0);
         *entry += 1;
         *entry
@@ -208,7 +211,9 @@ impl Inner {
     ) -> &mut HashMap<Id, serde_json::Value> {
         self.known_accounts.insert(account_id.to_owned());
         self.objects
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_default()
     }
 
@@ -217,7 +222,7 @@ impl Inner {
         type_name: &'static str,
         account_id: &str,
     ) -> Option<&HashMap<Id, serde_json::Value>> {
-        self.objects.get(&(type_name, account_id.to_owned()))
+        self.objects.get(type_name).and_then(|m| m.get(account_id))
     }
 
     fn change_log_mut(
@@ -226,7 +231,9 @@ impl Inner {
         account_id: &str,
     ) -> &mut Vec<ChangeEntry> {
         self.change_log
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_default()
     }
 }
@@ -507,10 +514,12 @@ impl MemoryBackend {
         let inner = self.inner.lock().unwrap();
         // Walk every account looking for this space id. Integration
         // tests use a single account "a1" so the iteration is trivial.
-        for ((type_name, _account), map) in &inner.objects {
-            if *type_name != "Space" {
-                continue;
-            }
+        for map in inner
+            .objects
+            .get("Space")
+            .into_iter()
+            .flat_map(HashMap::values)
+        {
             if let Some(space) = map.get(space_id) {
                 let cats = space
                     .get("categories")
@@ -537,10 +546,12 @@ impl MemoryBackend {
     #[doc(hidden)]
     pub fn peek_chat(&self, chat_id: &Id) -> serde_json::Value {
         let inner = self.inner.lock().unwrap();
-        for ((type_name, _account), map) in &inner.objects {
-            if *type_name != "Chat" {
-                continue;
-            }
+        for map in inner
+            .objects
+            .get("Chat")
+            .into_iter()
+            .flat_map(HashMap::values)
+        {
             if let Some(chat) = map.get(chat_id) {
                 return chat.clone();
             }
@@ -679,7 +690,8 @@ impl JmapBackend for MemoryBackend {
 
         let log = inner
             .change_log
-            .get(&(O::TYPE_NAME, account_id.as_ref().to_owned()))
+            .get(O::TYPE_NAME)
+            .and_then(|m| m.get(account_id.as_ref()))
             .map(Vec::as_slice)
             .unwrap_or(&[]);
 

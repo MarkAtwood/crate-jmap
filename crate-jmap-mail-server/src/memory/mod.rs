@@ -107,12 +107,12 @@ struct ChangeEntry {
 /// Shared inner state, behind Arc<Mutex>.
 #[derive(Default)]
 struct Inner {
-    /// `(type_name, account_id)` → `id → serialized object`
-    objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>>,
-    /// `(type_name, account_id)` → current state counter
-    states: HashMap<(&'static str, String), u64>,
-    /// `(type_name, account_id)` → ordered change entries
-    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,
+    /// `type_name` → `account_id` → `id → serialized object`
+    objects: HashMap<&'static str, HashMap<String, HashMap<Id, serde_json::Value>>>,
+    /// `type_name` → `account_id` → current state counter
+    states: HashMap<&'static str, HashMap<String, u64>>,
+    /// `type_name` → `account_id` → ordered change entries
+    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
     /// blob_id → raw bytes (used by import_email and parse_email)
     blobs: HashMap<Id, Vec<u8>>,
     /// Optional maxSizeScript limit in bytes for sieve size enforcement tests.
@@ -133,7 +133,8 @@ struct Inner {
 impl Inner {
     fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {
         self.states
-            .get(&(type_name, account_id.to_owned()))
+            .get(type_name)
+            .and_then(|m| m.get(account_id))
             .copied()
             .unwrap_or(0)
     }
@@ -141,7 +142,9 @@ impl Inner {
     fn bump_state(&mut self, type_name: &'static str, account_id: &str) -> u64 {
         let entry = self
             .states
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_insert(0);
         *entry += 1;
         *entry
@@ -154,7 +157,9 @@ impl Inner {
     ) -> &mut HashMap<Id, serde_json::Value> {
         self.known_accounts.insert(account_id.to_owned());
         self.objects
-            .entry((type_name, account_id.to_owned()))
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
             .or_default()
     }
 
@@ -163,7 +168,19 @@ impl Inner {
         type_name: &'static str,
         account_id: &str,
     ) -> Option<&HashMap<Id, serde_json::Value>> {
-        self.objects.get(&(type_name, account_id.to_owned()))
+        self.objects.get(type_name).and_then(|m| m.get(account_id))
+    }
+
+    fn change_log_mut(
+        &mut self,
+        type_name: &'static str,
+        account_id: &str,
+    ) -> &mut Vec<ChangeEntry> {
+        self.change_log
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
+            .or_default()
     }
 
     /// Re-sort a Thread's `emailIds` by the `receivedAt` of each member email.
@@ -215,7 +232,10 @@ impl Inner {
         id_and_date.sort_by_key(|pair| pair.1);
 
         // Write the sorted list back to the Thread object.
-        if let Some(store) = self.objects.get_mut(&("Thread", account_id.to_owned()))
+        if let Some(store) = self
+            .objects
+            .get_mut("Thread")
+            .and_then(|m| m.get_mut(account_id))
             && let Some(thread_val) = store.get_mut(thread_id)
             && let Some(arr) = thread_val["emailIds"].as_array_mut()
         {
@@ -620,7 +640,8 @@ impl JmapBackend for MemoryBackend {
             let inner = self.inner.lock().unwrap();
             let log = inner
                 .change_log
-                .get(&(O::TYPE_NAME, account_id.to_string()))
+                .get(O::TYPE_NAME)
+                .and_then(|m| m.get(account_id.as_ref()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
 
@@ -1187,9 +1208,7 @@ impl MailBackend for MemoryBackend {
             .insert(id.clone(), val);
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
-            .change_log
-            .entry((O::TYPE_NAME, account_id.to_string()))
-            .or_default()
+            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
             .push(ChangeEntry {
                 new_state,
                 created: vec![id.clone()],
@@ -1253,9 +1272,7 @@ impl MailBackend for MemoryBackend {
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
-            .change_log
-            .entry((O::TYPE_NAME, account_id.to_string()))
-            .or_default()
+            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
             .push(ChangeEntry {
                 new_state,
                 created: vec![],
@@ -1283,9 +1300,7 @@ impl MailBackend for MemoryBackend {
         })?;
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
-            .change_log
-            .entry((O::TYPE_NAME, account_id.to_string()))
-            .or_default()
+            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
             .push(ChangeEntry {
                 new_state,
                 created: vec![],
@@ -1483,9 +1498,7 @@ impl MailBackend for MemoryBackend {
             // Bump state for both Email and Thread.
             let new_email_state = inner.bump_state("Email", account_id.as_ref());
             inner
-                .change_log
-                .entry(("Email", account_id.to_string()))
-                .or_default()
+                .change_log_mut("Email", account_id.as_ref())
                 .push(ChangeEntry {
                     new_state: new_email_state,
                     created: vec![email_id.clone()],
@@ -1494,9 +1507,7 @@ impl MailBackend for MemoryBackend {
                 });
             let new_thread_state = inner.bump_state("Thread", account_id.as_ref());
             inner
-                .change_log
-                .entry(("Thread", account_id.to_string()))
-                .or_default()
+                .change_log_mut("Thread", account_id.as_ref())
                 .push(ChangeEntry {
                     new_state: new_thread_state,
                     created: if thread_existed {
@@ -1671,9 +1682,7 @@ impl MailBackend for MemoryBackend {
             .insert(new_id.clone(), val);
         let new_state = inner.bump_state(O::TYPE_NAME, to_account_id.as_ref());
         inner
-            .change_log
-            .entry((O::TYPE_NAME, to_account_id.to_string()))
-            .or_default()
+            .change_log_mut(O::TYPE_NAME, to_account_id.as_ref())
             .push(ChangeEntry {
                 new_state,
                 created: vec![new_id.clone()],
@@ -1707,9 +1716,7 @@ impl MailBackend for MemoryBackend {
                 (vec![thread_id], vec![])
             };
             inner
-                .change_log
-                .entry(("Thread", to_account_id.to_string()))
-                .or_default()
+                .change_log_mut("Thread", to_account_id.as_ref())
                 .push(ChangeEntry {
                     new_state: new_thread_state,
                     created,
@@ -1788,15 +1795,14 @@ impl MailBackend for MemoryBackend {
         for id in email_ids {
             let removed = inner
                 .objects
-                .get_mut(&("Email", account_str.clone()))
+                .get_mut("Email")
+                .and_then(|m| m.get_mut(&account_str))
                 .and_then(|store| store.remove(id))
                 .is_some();
             let err = if removed {
                 let new_state = inner.bump_state("Email", &account_str);
                 inner
-                    .change_log
-                    .entry(("Email", account_str.clone()))
-                    .or_default()
+                    .change_log_mut("Email", &account_str)
                     .push(ChangeEntry {
                         new_state,
                         created: vec![],
