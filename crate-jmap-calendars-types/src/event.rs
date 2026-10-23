@@ -188,13 +188,13 @@ pub struct CalendarEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub locale: Option<String>,
 
-    /// Map of keyword strings → `true`.
+    /// Map of keyword strings → `true` (RFC 8984 §4.2.10).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keywords: Option<serde_json::Value>,
+    pub keywords: Option<BTreeMap<String, bool>>,
 
-    /// Map of category URI strings → `true`.
+    /// Map of category URI strings → `true` (RFC 8984 §4.2.11).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub categories: Option<serde_json::Value>,
+    pub categories: Option<BTreeMap<String, bool>>,
 
     /// CSS color name or `#rrggbb` for this event.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -269,9 +269,9 @@ pub struct CalendarEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub privacy: Option<String>,
 
-    /// Map of scheduling method → reply-to URI.
+    /// Map of scheduling method → reply-to URI (RFC 8984 §4.4.4).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reply_to: Option<serde_json::Value>,
+    pub reply_to: Option<BTreeMap<String, String>>,
 
     /// Addr-spec of the person who sent this event data.
     #[serde(skip_serializing_if = "Option::is_none")]
