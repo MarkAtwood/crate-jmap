@@ -3560,6 +3560,12 @@ wire behaviour that a conforming peer can observe.
   `rust,ignore`, use a typed `Dispatcher<MyCallerCtx>`, and point to the
   verified `lib.rs` doctest (bd JMAP-50yd).
 
+- **jmap-calendars-server**: the clippy gate now rejects narrowing and
+  sign-changing `as` casts, mirroring jmap-mail-server (bd JMAP-uqhn.3).
+  The audit found none left: the remaining casts widen `usize` to `u64`,
+  and query position/limit already go through
+  `jmap_server::resolve_query_start` / `limit_or_max`.
+
 - **jmap-chat-server**: the clippy gate now rejects narrowing and
   sign-changing `as` casts, mirroring jmap-mail-server (bd JMAP-uqhn.2).
   The audit found none left: the remaining casts widen `u32`/`usize` to
