@@ -32,7 +32,8 @@ use serde_json::{Value, json};
 
 use crate::TasksBackend;
 use crate::helpers::{
-    SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response,
 };
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, reject_read_only_patch,
@@ -69,13 +70,20 @@ pub async fn handle_task_list_get<B: TasksBackend>(
 /// `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_list_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<TaskList, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<TaskList, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -96,11 +104,18 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
 /// If `false` and the list has tasks, the destroy is rejected with a
 /// `taskListHasTask` SetError.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_list_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -148,6 +163,13 @@ pub async fn handle_task_list_set<B: TasksBackend>(
         for (create_id, obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<TaskList>) {
                 not_created.insert(create_id, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             // `TaskList.id` is required, so the parse fills it with "",
@@ -237,6 +259,10 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             };
             if let Some(err) = reject_read_only_patch::<TaskList>(patch.as_map(), None) {
                 not_updated.insert(id_str, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -441,7 +467,7 @@ mod tests {
             "destroy": ["list1"],
             "onDestroyRemoveTasks": false
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -467,7 +493,7 @@ mod tests {
             "destroy": ["list1"],
             "onDestroyRemoveTasks": true
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -485,7 +511,7 @@ mod tests {
     async fn set_empty_returns_valid_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "destroy": [] });
-        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
         assert_eq!(resp["accountId"], "acc1");

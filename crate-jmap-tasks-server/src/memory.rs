@@ -66,7 +66,7 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -74,7 +74,16 @@ use crate::{
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
     QueryResult, SetError, SetErrorType, SetObject, TasksBackend,
 };
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
+use jmap_metadata_server::{
+    ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
+    changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
+    metadata_path_exists, metadata_text_contains, metadata_text_equals,
+};
+use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_server::{
+    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+};
+use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
 use jmap_types::{Id, JmapError, State};
 
 // ---------------------------------------------------------------------------
@@ -161,6 +170,23 @@ struct ChangeEntry {
     created: Vec<Id>,
     updated: Vec<Id>,
     destroyed: Vec<Id>,
+    /// The top-level properties this change altered on every id in
+    /// `updated`, or `None` when not known. Feeds
+    /// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges` and
+    /// `updatedProperties`.
+    updated_props: Option<BTreeSet<String>>,
+}
+
+impl ChangeEntry {
+    /// `true` for an update that changed only `metadata` and/or
+    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    fn is_metadata_only_update(&self) -> bool {
+        self.created.is_empty()
+            && self.destroyed.is_empty()
+            && self.updated_props.as_ref().is_some_and(|props| {
+                !props.is_empty() && props.iter().all(|p| is_metadata_property(p))
+            })
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -194,6 +220,10 @@ struct Inner {
     aux: HashMap<String, AccountAux>,
     /// Explicitly registered account ids (accounts may exist with no objects yet).
     known_accounts: HashSet<String>,
+    /// `type_name` → the draft-ietf-jmap-metadata-04 §1.2.1
+    /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
+    /// A type without an entry does not have the metadata properties.
+    metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
 }
 
 impl Inner {
@@ -353,6 +383,51 @@ impl MemoryBackend {
     #[must_use]
     pub fn with_account(self, account_id: &Id) -> Self {
         self.register_account(account_id);
+        self
+    }
+
+    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// §1.2.1).
+    ///
+    /// Without this call a type has no metadata: `Foo/set` rejects a
+    /// write to `metadata` or `privateMetadata` with `invalidProperties`
+    /// and `Foo/query` rejects a metadata filter condition with
+    /// `unsupportedFilter`. With it, `Foo/set` validates metadata writes
+    /// (-04 §3.2, §4.1), `Task/query` evaluates the -04 §3.6 conditions,
+    /// and `Foo/changes` honours `ignoreMetadataOnlyChanges` and reports
+    /// `updatedProperties` (-04 §3.3). Advertising the capability in the
+    /// session is the server's job: list `info` under `data_type` in the
+    /// account's `urn:ietf:params:jmap:metadata` `dataTypes`.
+    ///
+    /// TaskList writes need `myRights.maySetMetadata` on the TaskList, and
+    /// Task writes need it on the Task's TaskList before and after the
+    /// update, or on the `taskListId` of a create (-04 §4.1). An absent
+    /// `maySetMetadata` allows the write (fail-open, JMAP-bghk). This
+    /// backend never sets Task `updated`, so a metadata-only change leaves
+    /// it alone, as -04 §3.1 requires.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `data_type` is not `"TaskList"` or `"Task"` (the rights
+    /// object of draft-ietf-jmap-tasks-06 §3 and the type it contains;
+    /// -04 §4.1), or if `info.supports_private` is true: this backend has
+    /// no per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
+    /// (-04 §2).
+    #[must_use]
+    pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
+        let type_name = metadata_type_name(data_type).unwrap_or_else(|| {
+            panic!("MemoryBackend supports metadata only on TaskList and Task, not {data_type:?}")
+        });
+        assert!(
+            !info.supports_private,
+            "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
+        );
+        self.inner
+            .lock()
+            .unwrap()
+            .metadata_info
+            .insert(type_name, info);
         self
     }
 
@@ -524,6 +599,13 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
+        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // already folded a `using` without the capability into this flag.
+        let mode = if params.ignore_metadata_only_changes {
+            MetadataOnlyChanges::Ignore
+        } else {
+            MetadataOnlyChanges::Report
+        };
         let inner = self.inner.lock().unwrap();
 
         let since_n: u64 = since_state
@@ -542,8 +624,15 @@ impl JmapBackend for MemoryBackend {
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
+        // Each entry counts as one change toward the limit, except a
+        // metadata-only update under Ignore: -04 §3.3 "Excluded ids do not
+        // count toward maxChanges".
+        let counted = relevant
+            .iter()
+            .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
+            .count();
         if let Some(max) = max_changes
-            && relevant.len() as u64 > max
+            && counted as u64 > max
         {
             return Err(BackendChangesError::TooManyChanges { limit: max });
         }
@@ -553,6 +642,7 @@ impl JmapBackend for MemoryBackend {
         // order so the response lists are deterministic.
         let mut fates: HashMap<Id, IdFate> = HashMap::new();
         let mut order: Vec<Id> = Vec::new();
+        let mut window_props = ChangedProperties::new();
         for entry in &relevant {
             for id in &entry.created {
                 if fates.insert(id.clone(), IdFate::Created).is_none() {
@@ -560,6 +650,7 @@ impl JmapBackend for MemoryBackend {
                 }
             }
             for id in &entry.updated {
+                window_props.record(id.as_ref(), entry.updated_props.as_ref());
                 let fate = match fates.get(id) {
                     Some(IdFate::Created) => IdFate::Created,
                     Some(IdFate::Destroyed) => IdFate::Destroyed,
@@ -588,19 +679,29 @@ impl JmapBackend for MemoryBackend {
         for id in order {
             match fates.remove(&id) {
                 Some(IdFate::Created) => created.push(id),
+                // -04 §3.3: under Ignore, "exclude from the updated array
+                // any id whose only changes since sinceState ... are
+                // confined to metadata and/or privateMetadata".
+                Some(IdFate::Updated)
+                    if mode == MetadataOnlyChanges::Ignore
+                        && window_props.is_metadata_only(id.as_ref()) => {}
                 Some(IdFate::Updated) => updated.push(id),
                 Some(IdFate::Destroyed) => destroyed.push(id),
                 None => {}
             }
         }
 
+        // -04 §3.3 `updatedProperties`; no tasks type has the RFC 8621
+        // §2.2 count properties that only Mailbox/changes may list.
+        let updated_properties = window_props.updated_properties(&updated, mode, &[]);
         Ok(ChangesResult::new(
             created,
             updated,
             destroyed,
             false,
             State::from(current_state.to_string()),
-        ))
+        )
+        .with_updated_properties(updated_properties))
     }
 
     /// Returns all object ids in this account, sorted lexicographically by id,
@@ -609,10 +710,12 @@ impl JmapBackend for MemoryBackend {
     /// # Filter and sort are NOT honored
     ///
     /// This reference implementation supports exactly one filter shape: a
-    /// Task filter whose only set field is `taskListId` (draft-tasks-06
-    /// §4.6), which the `TaskList/set` `onDestroyRemoveTasks` cascade
-    /// (draft-tasks-06 §3.4) needs. It does **not** support any other filter
-    /// or any sort shape. RFC 8620 §5.5 mandates that an unsupported `filter` produces
+    /// single Task condition whose only set fields are `taskListId`
+    /// (draft-tasks-06 §4.6), which the `TaskList/set` `onDestroyRemoveTasks`
+    /// cascade (draft-tasks-06 §3.4) needs, and the draft-ietf-jmap-metadata-04
+    /// §3.6 shared-metadata conditions once [`MemoryBackend::with_metadata_info`]
+    /// opts Task in. It does **not** support any other filter or any sort
+    /// shape. RFC 8620 §5.5 mandates that an unsupported `filter` produces
     /// `unsupportedFilter` at the method level, and an unsupported `sort`
     /// produces `unsupportedSort`. A production backend MUST inspect both
     /// arguments against the type's [`QueryObject`] supported sets and
@@ -623,9 +726,11 @@ impl JmapBackend for MemoryBackend {
     /// `MemoryBackend` module rustdoc), this method **fails loud** when
     /// either argument is non-trivial:
     ///
-    /// - `filter` is `Some` carrying any non-null field other than a Task
-    ///   `taskListId` → returns [`MemoryError`] with a `filter not
-    ///   supported` message.
+    /// - `filter` is `Some` carrying any non-null field other than those
+    ///   Task fields → returns [`MemoryError`] with a `filter not
+    ///   supported` message. A metadata condition on a type that is not
+    ///   opted in is `unsupportedFilter`, and a malformed one
+    ///   `invalidArguments` (draft-ietf-jmap-metadata-04 §3.6).
     /// - `sort` is `Some` with one or more comparators → returns
     ///   [`MemoryError`] with a `sort not supported` message.
     ///
@@ -667,19 +772,30 @@ impl JmapBackend for MemoryBackend {
         // `TaskNotificationFilter` or (TaskList) `Value` here. A serializer
         // failure surfaces as serverFail rather than a panic or a silently
         // dropped filter (see the jmap-mail-server memory backend).
+        //
+        // draft-ietf-jmap-metadata-04 §3.6: on an opted-in Task the shared
+        // `metadata*` conditions are evaluable in the same leaf;
+        // [`check_metadata_filter`] validates them first, also inside an
+        // operator tree, so a malformed path is `invalidArguments`.
+        let inner = self.inner.lock().unwrap();
+        let is_task = O::TYPE_NAME == Task::TYPE_NAME;
         let mut in_task_list: Option<Id> = None;
+        let mut task_condition: Option<TaskFilterCondition> = None;
         if let Some(f) = filter {
             let v = jmap_server::serialize_value(f).map_err(BackendQueryError::Method)?;
+            check_metadata_filter(&v, inner.metadata_info.get(O::TYPE_NAME))?;
             if v.get("operator").is_some() {
                 return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
             }
             let any_field_set = match v.as_object() {
                 Some(m) => {
-                    if O::TYPE_NAME == "Task" {
+                    if is_task {
                         in_task_list = Inner::task_list_id_of(&v);
                     }
                     m.iter().any(|(k, val)| {
-                        !val.is_null() && !(in_task_list.is_some() && k == "taskListId")
+                        !val.is_null()
+                            && !(in_task_list.is_some() && k == "taskListId")
+                            && !(is_task && SHARED_METADATA_CONDITION_KEYS.contains(&k.as_str()))
                     })
                 }
                 // Filter serialized as something other than an object (only
@@ -696,6 +812,11 @@ impl JmapBackend for MemoryBackend {
                     O::TYPE_NAME
                 ))));
             }
+            if is_task {
+                task_condition = Some(serde_json::from_value(v).map_err(|e| {
+                    BackendQueryError::Method(JmapError::server_fail(e.to_string()))
+                })?);
+            }
         }
 
         // Fail loud on any non-empty sort. RFC 8620 §5.5 default order is
@@ -711,15 +832,21 @@ impl JmapBackend for MemoryBackend {
             ))));
         }
 
-        let inner = self.inner.lock().unwrap();
-
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
             .map(|m| {
                 let mut keys: Vec<Id> = m
                     .iter()
                     .filter(|(_, v)| {
-                        in_task_list.is_none() || Inner::task_list_id_of(v) == in_task_list
+                        (in_task_list.is_none() || Inner::task_list_id_of(v) == in_task_list)
+                            && task_condition.as_ref().is_none_or(|c| {
+                                metadata_matches(
+                                    v.get("metadata").and_then(serde_json::Value::as_object),
+                                    c.metadata_exists.as_deref(),
+                                    c.metadata_text_contains.as_ref(),
+                                    c.metadata_text_equals.as_ref(),
+                                )
+                            })
                     })
                     .map(|(k, _)| k.clone())
                     .collect();
@@ -836,6 +963,241 @@ impl JmapBackend for MemoryBackend {
     }
 }
 
+/// The `TYPE_NAME` of the type named `data_type` if it is one this backend
+/// can give draft-ietf-jmap-metadata-04 properties: TaskList, which has a
+/// rights object (draft-ietf-jmap-tasks-06 §3 `myRights`), and Task, which
+/// "takes the right from its containers" (-04 §4.1).
+fn metadata_type_name(data_type: &str) -> Option<&'static str> {
+    [TaskList::TYPE_NAME, Task::TYPE_NAME]
+        .into_iter()
+        .find(|t| *t == data_type)
+}
+
+fn invalid_metadata_property(property: &str, description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties([property])
+            .with_description(description),
+    ))
+}
+
+impl Inner {
+    /// draft-ietf-jmap-metadata-04 §3.2 rules 1 to 3 for a metadata write
+    /// on a `type_name` object, before the write is applied. Returns the
+    /// type's DataTypeMetadataInfo for the rule 4 check after applying,
+    /// or `None` when `entry` writes no metadata.
+    ///
+    /// `entry` is the create object or update patch, `stored` the object
+    /// before an update (`None` on create), and `containers` the TaskList
+    /// ids whose `maySetMetadata` a Task write needs (-04 §4.1). Rule 1's
+    /// `notFound` is the caller's: this backend has no read rights, so
+    /// only a missing object is unreadable.
+    fn check_metadata_set(
+        &self,
+        type_name: &'static str,
+        account_id: &str,
+        kind: SetKind,
+        entry: &serde_json::Map<String, serde_json::Value>,
+        stored: Option<&serde_json::Map<String, serde_json::Value>>,
+        containers: &[&str],
+    ) -> Result<Option<DataTypeMetadataInfo>, BackendSetError<MemoryError>> {
+        let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
+            return Ok(None);
+        };
+        // -04 §1.2.1: an unlisted type "does not gain the metadata or
+        // privateMetadata properties".
+        let Some(info) = self.metadata_info.get(type_name) else {
+            return Err(invalid_metadata_property(
+                first,
+                "metadata is not supported on this data type",
+            ));
+        };
+        // Rule 1 / -04 §4.1: "A write to metadata without maySetMetadata
+        // MUST be rejected with a "forbidden" SetError". A TaskList has
+        // its own rights; a Task takes the right from its TaskList. An
+        // absent right or container allows the write (fail-open,
+        // JMAP-bghk).
+        let writes_shared = entry.keys().any(|k| {
+            crate::helpers::is_metadata_key(k)
+                && k.split_once('/').map_or(k.as_str(), |(root, _)| root) == "metadata"
+        });
+        let denies = |rights: Option<&serde_json::Value>| {
+            rights
+                .and_then(|r| r.get("maySetMetadata"))
+                .and_then(serde_json::Value::as_bool)
+                == Some(false)
+        };
+        let forbidden = writes_shared
+            && if type_name == TaskList::TYPE_NAME {
+                denies(stored.and_then(|l| l.get("myRights")))
+            } else {
+                let lists = self.objects_ref(TaskList::TYPE_NAME, account_id);
+                containers.iter().any(|id| {
+                    denies(
+                        lists
+                            .and_then(|l| l.get(*id))
+                            .and_then(|list| list.get("myRights")),
+                    )
+                })
+            };
+        if forbidden {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("maySetMetadata is required to write metadata"),
+            )));
+        }
+        check_metadata_write(kind, entry, stored, info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+        Ok(Some(info.clone()))
+    }
+}
+
+/// The TaskList ids a Task update's metadata write needs `maySetMetadata`
+/// on: the TaskList the Task is in before the update and the one `patch`
+/// moves it to (-04 §4.1: "on every container both before and after the
+/// change"). draft-ietf-jmap-tasks-06 §4: a Task belongs to exactly one
+/// TaskList, named by the string `taskListId`.
+fn task_update_containers<'a>(
+    stored: &'a serde_json::Map<String, serde_json::Value>,
+    patch: &'a serde_json::Map<String, serde_json::Value>,
+) -> Vec<&'a str> {
+    [stored.get("taskListId"), patch.get("taskListId")]
+        .into_iter()
+        .flatten()
+        .filter_map(serde_json::Value::as_str)
+        .collect()
+}
+
+/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
+/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
+/// on the stored value. A Task needs `maySetMetadata` on the TaskList of
+/// its `taskListId` (-04 §4.1: "on create, on the containers given in the
+/// create"). Types without the -04 properties pass unchecked.
+fn check_metadata_create(
+    inner: &Inner,
+    type_name: &'static str,
+    account_id: &str,
+    val: &serde_json::Value,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let (Some(type_name), Some(obj)) = (metadata_type_name(type_name), val.as_object()) else {
+        return Ok(());
+    };
+    let entry: serde_json::Map<String, serde_json::Value> = obj
+        .iter()
+        .filter(|(k, _)| is_metadata_property(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let containers: Vec<&str> = if type_name == Task::TYPE_NAME {
+        obj.get("taskListId")
+            .and_then(serde_json::Value::as_str)
+            .into_iter()
+            .collect()
+    } else {
+        Vec::new()
+    };
+    if let Some(info) = inner.check_metadata_set(
+        type_name,
+        account_id,
+        SetKind::Create,
+        &entry,
+        None,
+        &containers,
+    )? {
+        check_metadata_depth(&entry, obj, &info)
+            .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+    }
+    Ok(())
+}
+
+/// The six draft-ietf-jmap-metadata-04 §3.6 FilterCondition fields.
+const METADATA_CONDITION_KEYS: [&str; 6] = [
+    "metadataExists",
+    "privateMetadataExists",
+    "metadataTextContains",
+    "privateMetadataTextContains",
+    "metadataTextEquals",
+    "privateMetadataTextEquals",
+];
+
+/// The three -04 §3.6 conditions on shared `metadata` that this backend
+/// evaluates; the `privateMetadata*` three never pass
+/// [`check_metadata_filter`] because `supportsPrivate` is false.
+const SHARED_METADATA_CONDITION_KEYS: [&str; 3] = [
+    "metadataExists",
+    "metadataTextContains",
+    "metadataTextEquals",
+];
+
+/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
+/// before any object is matched.
+///
+/// A type without `info` has no metadata (-04 §1.2.1: it "does not gain
+/// the metadata or privateMetadata properties"), so a metadata leaf is
+/// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
+/// but the server cannot process it"). Otherwise
+/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// `invalidArguments`, and a `privateMetadata*` condition is
+/// `unsupportedFilter` because `supportsPrivate` is false.
+fn check_metadata_filter(
+    filter: &serde_json::Value,
+    info: Option<&DataTypeMetadataInfo>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    let unsupported = |description: String| {
+        let mut err = JmapError::unsupported_filter();
+        err.description = Some(description);
+        BackendQueryError::Method(err)
+    };
+    if filter.get("operator").is_some() {
+        return filter
+            .get("conditions")
+            .and_then(serde_json::Value::as_array)
+            .into_iter()
+            .flatten()
+            .try_for_each(|f| check_metadata_filter(f, info));
+    }
+    let Some(leaf) = filter.as_object() else {
+        return Ok(());
+    };
+    if !METADATA_CONDITION_KEYS
+        .iter()
+        .any(|k| leaf.get(*k).is_some_and(|v| !v.is_null()))
+    {
+        return Ok(());
+    }
+    let Some(info) = info else {
+        return Err(unsupported(
+            "metadata filter conditions are not supported".to_owned(),
+        ));
+    };
+    MetadataCondition::take_from(&mut leaf.clone(), info)
+        .map(drop)
+        .map_err(|e| match e {
+            MetadataFilterError::InvalidArguments(d) => {
+                BackendQueryError::Method(JmapError::invalid_arguments(d))
+            }
+            other => unsupported(other.to_string()),
+        })
+}
+
+/// Match the draft-ietf-jmap-metadata-04 §3.6 shared-metadata conditions of
+/// one filter leaf against an object's `metadata` (absent means `{}`, -04
+/// §2). The `privateMetadata*` conditions never reach this point:
+/// [`check_metadata_filter`] rejects them, since this backend has
+/// `supportsPrivate` false.
+fn metadata_matches(
+    metadata: Option<&serde_json::Map<String, serde_json::Value>>,
+    exists: Option<&str>,
+    contains: Option<&MetadataTextMatch>,
+    equals: Option<&MetadataTextMatch>,
+) -> bool {
+    let empty = serde_json::Map::new();
+    let metadata = metadata.unwrap_or(&empty);
+    exists.is_none_or(|p| metadata_path_exists(metadata, p))
+        && contains.is_none_or(|m| metadata_text_contains(metadata, m))
+        && equals.is_none_or(|m| metadata_text_equals(metadata, m))
+}
+
 // ---------------------------------------------------------------------------
 // TasksBackend impl
 // ---------------------------------------------------------------------------
@@ -858,6 +1220,7 @@ impl TasksBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
+        check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val)?;
 
         inner.known_accounts.insert(account_id.as_ref().to_owned());
 
@@ -878,6 +1241,7 @@ impl TasksBackend for MemoryBackend {
                 created: vec![server_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
 
         if O::TYPE_NAME == "Task" {
@@ -894,8 +1258,26 @@ impl TasksBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        let patch_val = serde_json::to_value(&patch)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
+        let invalid_patch = |e: PatchPathError| {
+            BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+            ))
+        };
+        // draft-ietf-jmap-metadata-04 §3.2: "Patch errors that can be
+        // determined from the request alone (for example, two paths where
+        // one is a prefix of the other) MUST be reported with
+        // "invalidPatch" before rule 1 is evaluated."
+        if let serde_json::Value::Object(patch_map) = &patch_val {
+            check_patch_paths(patch_map).map_err(invalid_patch)?;
+        }
+
         let mut inner = self.inner.lock().unwrap();
 
+        // -04 §3.2 rule 1: "If the user cannot read the related object,
+        // reject with "notFound"" comes before "forbidden". Here only a
+        // missing object is unreadable.
         let existing = inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .get(id)
@@ -906,9 +1288,6 @@ impl TasksBackend for MemoryBackend {
                 SetErrorType::NotFound,
             ))));
         };
-
-        let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
 
         let was_draft = current.get("isDraft").and_then(|v| v.as_bool()) == Some(true);
 
@@ -926,14 +1305,57 @@ impl TasksBackend for MemoryBackend {
         // the shared `apply_patch_object`, so an invalidPatch leaves the
         // stored object unchanged. Values replace wholesale; the helper caps
         // path plus value nesting depth.
+        let mut updated_props = None;
         if let (serde_json::Value::Object(base), serde_json::Value::Object(patch_map)) =
             (&mut current, &patch_val)
         {
-            apply_patch_object(base, patch_map).map_err(|e| {
-                BackendSetError::SetError(Box::new(
-                    SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
-                ))
-            })?;
+            // -04 §3.2 rules 1 to 3 run before the patch is applied.
+            let metadata_info = if metadata_type_name(O::TYPE_NAME).is_some() {
+                let containers = if O::TYPE_NAME == Task::TYPE_NAME {
+                    task_update_containers(base, patch_map)
+                } else {
+                    Vec::new()
+                };
+                inner.check_metadata_set(
+                    O::TYPE_NAME,
+                    account_id.as_ref(),
+                    SetKind::Update,
+                    patch_map,
+                    Some(base),
+                    &containers,
+                )?
+            } else {
+                None
+            };
+            // -04 §2 `metadata` has "default: {}", so a
+            // `metadata/<namespace>` pointer finds its parent.
+            if metadata_info.is_some() {
+                base.entry("metadata")
+                    .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+            }
+            let before = base.clone();
+            // The value-dependent patch errors (missing parent, path through
+            // an array) land here, after rule 3 and before rule 4 (-04 §3.2).
+            apply_patch_object(base, patch_map).map_err(invalid_patch)?;
+            if let Some(info) = &metadata_info {
+                // -04 §3.2: "In an update, null is equivalent to {}"; the
+                // patch removed the property instead.
+                for property in ["metadata", "privateMetadata"] {
+                    if patch_map
+                        .get(property)
+                        .is_some_and(serde_json::Value::is_null)
+                    {
+                        base.insert(
+                            property.to_owned(),
+                            serde_json::Value::Object(serde_json::Map::new()),
+                        );
+                    }
+                }
+                // -04 §3.2 rule 4 runs on the value as it would be stored.
+                check_metadata_depth(patch_map, base, info)
+                    .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
+            }
+            updated_props = Some(changed_properties(&before, base));
         }
 
         // Re-validate the patched copy against the typed object before
@@ -994,6 +1416,7 @@ impl TasksBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                updated_props,
             });
 
         if O::TYPE_NAME == "Task" && old_task_list_id != new_task_list_id {
@@ -1041,6 +1464,7 @@ impl TasksBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        updated_props: None,
                     });
                 if O::TYPE_NAME == "Task" {
                     inner.dec_task_ref(account_id.as_ref(), Inner::task_list_id_of(&val));
@@ -1225,18 +1649,21 @@ mod changes_tests {
                 created: vec![id("eph"), id("fresh")],
                 updated: vec![],
                 destroyed: vec![],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 2,
                 created: vec![],
                 updated: vec![id("fresh"), id("old"), id("doomed")],
                 destroyed: vec![id("eph")],
+                updated_props: None,
             });
             log.push(ChangeEntry {
                 new_state: 3,
                 created: vec![],
                 updated: vec![id("old")],
                 destroyed: vec![id("doomed"), id("gone")],
+                updated_props: None,
             });
         }
 

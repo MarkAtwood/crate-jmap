@@ -14,6 +14,36 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-tasks-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
+  TaskList and Task (TaskList has the -04 §4.1 rights object, and a Task
+  takes the right from its TaskList). `handle_task_list_set`,
+  `handle_task_set`, `handle_task_list_changes` and `handle_task_changes`
+  take the request's `using` list as a new last argument
+  (`register_tasks_handlers` passes `CallContext::using`), with the same
+  `/changes` and `/set` checks as jmap-mail-server. Creates store the
+  `metadata` they carry. The in-memory backend opts a type in with
+  `MemoryBackend::with_metadata_info("TaskList" | "Task", info)` (panics
+  for other types or `supportsPrivate: true`); nothing is enabled by
+  default. An opted-in Task evaluates the -04 §3.6 shared-metadata
+  conditions on `Task/query` in a single condition, alone or with
+  `taskListId` (operator trees stay `unsupportedFilter` in this backend).
+  Opted-in types validate writes in -04 §3.2 rule order (request-only
+  `invalidPatch`, `notFound`, `forbidden` without `maySetMetadata` on the
+  TaskList, or on the Task's TaskList before and after the update and on
+  the `taskListId` of a create, then namespace and `maxDepth` checks),
+  store an update's `metadata: null` as `{}`, leave Task `updated` alone
+  (-04 §3.1), and drop metadata-only updates from `/changes` under
+  `ignoreMetadataOnlyChanges` without counting them toward `maxChanges`.
+  A type that is not opted in rejects metadata writes with
+  `invalidProperties` and metadata filters with `unsupportedFilter`
+  (bd JMAP-s4kp.4).
+- **jmap-tasks-types**: **BREAKING** draft-ietf-jmap-metadata-04 fields on
+  TaskList and Task: typed `metadata` and `privateMetadata`
+  (`Option<Map<String, Value>>`, -04 §2; `null` decodes as absent, a
+  non-object fails), classified `CLIENT_SETTABLE`. `TaskFilterCondition`
+  carries the six -04 §3.6 conditions as leaf fields, with
+  `has_metadata_condition`; `deny_unknown_fields` still rejects any other
+  key (bd JMAP-s4kp.4).
 - **jmap-calendars-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
   Calendar and CalendarEvent (the types -04 §4.1 names for calendars).
   `handle_calendar_set`, `handle_calendar_event_set`,

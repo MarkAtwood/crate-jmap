@@ -220,9 +220,9 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`TaskFilterCondition`](jmap_tasks_types::TaskFilterCondition); use
-    /// `jmap_metadata_types::WithMetadata<TaskFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// [`TaskFilterCondition`](jmap_tasks_types::TaskFilterCondition),
+    /// which carries the draft-ietf-jmap-metadata-04 §3.6 `metadata*`
+    /// conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&TaskFilter>`).
     ///
     /// # Errors
@@ -272,9 +272,9 @@ impl super::SessionClient {
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
-    /// [`TaskFilterCondition`](jmap_tasks_types::TaskFilterCondition); use
-    /// `jmap_metadata_types::WithMetadata<TaskFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// [`TaskFilterCondition`](jmap_tasks_types::TaskFilterCondition),
+    /// which carries the draft-ietf-jmap-metadata-04 §3.6 `metadata*`
+    /// conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&TaskFilter>`).
     ///
     /// # Errors

@@ -136,7 +136,7 @@ async fn task_list_changes_empty_store_empty_result() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
 
@@ -167,7 +167,7 @@ async fn task_list_set_destroy_empty_list_succeeds() {
         "accountId": "acc1",
         "destroy": ["tl1"]
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -204,7 +204,7 @@ async fn task_list_set_destroy_with_tasks_returns_error() {
         "destroy": ["tl1"]
         // onDestroyRemoveTasks defaults to false
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -272,7 +272,7 @@ async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
         "destroy": ["tl1"],
         "onDestroyRemoveTasks": true
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     assert_eq!(
@@ -305,6 +305,7 @@ async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "sinceState": task_state }),
+        &[],
     )
     .await
     .expect("Task/changes must succeed");
@@ -360,7 +361,7 @@ async fn task_list_set_destroy_remove_tasks_failure_keeps_list() {
         "destroy": ["tl1"],
         "onDestroyRemoveTasks": true
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     assert_eq!(
@@ -405,7 +406,7 @@ async fn task_list_set_create_with_client_id_rejects() {
             "c1": { "id": "client-id", "name": "Inbox" }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
 
@@ -429,7 +430,7 @@ async fn task_list_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "create": { "c1": { "name": "x" } }
     });
-    let err = handle_task_list_set(&backend, &(), args)
+    let err = handle_task_list_set(&backend, &(), args, &[])
         .await
         .expect_err("must produce method-level error");
 
@@ -487,7 +488,7 @@ async fn task_changes_empty_store_empty_result() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let HandlerOutput { primary: resp, .. } = handle_task_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
 
@@ -512,7 +513,7 @@ async fn task_list_set_state_bumps_visible_via_changes() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["tl1"] });
-    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
         .await
         .expect("/set must succeed");
     let old_state = resp["oldState"].clone();
@@ -522,7 +523,7 @@ async fn task_list_set_state_bumps_visible_via_changes() {
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
     let HandlerOutput {
         primary: changes, ..
-    } = handle_task_list_changes(&backend, &(), args)
+    } = handle_task_list_changes(&backend, &(), args, &[])
         .await
         .expect("/changes must succeed");
 
@@ -560,7 +561,7 @@ async fn task_set_create_with_client_id_rejects() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed");
 
@@ -583,7 +584,7 @@ async fn task_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "create": { "c1": { "@type": "Task", "uid": "u1", "title": "x", "taskListId": "tl1" } }
     });
-    let err = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+    let err = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect_err("unknown accountId must produce method-level error");
 
@@ -650,7 +651,7 @@ async fn task_set_isdraft_revert_rejected_by_memory_backend() {
         "update": { "t1": { "isDraft": true } }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed at the top level");
 
@@ -689,7 +690,7 @@ async fn task_set_isdraft_true_on_absent_rejected_by_memory_backend() {
         "update": { "t1": { "isDraft": true } }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("/set must succeed at the top level");
 
@@ -959,6 +960,7 @@ async fn task_query_changes_honours_task_list_filter() {
                 "c3": { "@type": "Task", "uid": "c3-uid", "title": "Call", "taskListId": "tl2" }
             }
         }),
+        &[],
     )
     .await
     .expect("Task/set must succeed");
@@ -999,6 +1001,7 @@ async fn task_list_set_create_server_set_properties() {
         &backend,
         &(),
         args(json!({ "name": "Todo", "isSubscribed": true, "myRights": { "mayAdmin": true } })),
+        &[],
     )
     .await
     .expect("TaskList/set must not return a top-level error");
@@ -1012,6 +1015,7 @@ async fn task_list_set_create_server_set_properties() {
         &backend,
         &(),
         args(json!({ "name": "Todo", "isSubscribed": true })),
+        &[],
     )
     .await
     .expect("TaskList/set must not return a top-level error");
