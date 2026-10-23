@@ -3105,6 +3105,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: the reference `MemoryBackend` sorts UTCDate
+  properties such as `receivedAt` chronologically. Before this fix it
+  compared them byte by byte, so an instant on a whole second (written
+  `...:05Z`, because RFC 8620 §1.4 omits a zero fraction) sorted after
+  `...:05.001Z` in the same second. That made `Message/query` order
+  flaky (bd JMAP-rvp2).
 - **all extension servers, jmap-server**: `invalidArguments`
   descriptions for a wrongly typed `/set` `destroy` element or `/query`
   `filter`, `limit`, `position`, `anchor` or `anchorOffset` (plus
