@@ -6,6 +6,8 @@
 //!
 //! No expected values are derived from the code under test.
 
+mod common;
+
 use jmap_tasks_types::{
     NotificationType, PrincipalTasksCapability, Task, TaskFilterCondition, TaskList, TaskListRole,
     TaskNotification, TaskNotificationFilterCondition, TaskProgress, TaskRights,
@@ -21,7 +23,7 @@ use jmap_tasks_types::{
 /// Deserialize a full TaskList from hand-written JSON and verify key fields.
 #[test]
 fn tasklist_deserialize_full() {
-    let json = include_str!("fixtures/tasklist_full.json");
+    let json = &common::fixture("tasklist_full.json");
     let tl: TaskList = serde_json::from_str(json).expect("TaskList deserialize");
 
     assert_eq!(tl.id.as_ref(), "abc123");
@@ -54,7 +56,7 @@ fn tasklist_deserialize_full() {
 /// Round-trip: serialize then re-deserialize and compare to original.
 #[test]
 fn tasklist_roundtrip() {
-    let json = include_str!("fixtures/tasklist_full.json");
+    let json = &common::fixture("tasklist_full.json");
     let original: TaskList = serde_json::from_str(json).expect("first deserialize");
     let serialized = serde_json::to_string(&original).expect("serialize");
     let recovered: TaskList = serde_json::from_str(&serialized).expect("second deserialize");
@@ -64,21 +66,7 @@ fn tasklist_roundtrip() {
 /// A minimal TaskList (only required fields) deserializes without error.
 #[test]
 fn tasklist_minimal() {
-    let json = r#"{
-        "id": "minid",
-        "name": "Minimal List",
-        "sortOrder": 0,
-        "isSubscribed": false,
-        "myRights": {
-            "mayReadItems": false,
-            "mayWriteAll": false,
-            "mayWriteOwn": false,
-            "mayUpdatePrivate": false,
-            "mayRSVP": false,
-            "mayAdmin": false,
-            "mayDelete": false
-        }
-    }"#;
+    let json = &common::fixture("tasklist_minimal.json");
     let tl: TaskList = serde_json::from_str(json).expect("minimal TaskList");
     assert_eq!(tl.name, "Minimal List");
     assert!(tl.role.is_none());
@@ -126,15 +114,7 @@ fn task_list_role_wire_strings() {
 /// `mayRSVP` round-trips with the correct camelCase wire name.
 #[test]
 fn task_rights_may_rsvp_wire_name() {
-    let json = r#"{
-        "mayReadItems": false,
-        "mayWriteAll": false,
-        "mayWriteOwn": false,
-        "mayUpdatePrivate": false,
-        "mayRSVP": true,
-        "mayAdmin": false,
-        "mayDelete": false
-    }"#;
+    let json = &common::fixture("task_rights_may_rsvp_wire_name.json");
     let rights: TaskRights = serde_json::from_str(json).expect("TaskRights");
     assert!(rights.may_rsvp);
 
@@ -151,12 +131,7 @@ fn task_rights_may_rsvp_wire_name() {
 #[test]
 fn task_simple_rfc8984_example() {
     // RFC 8984 §6.2 example (trimmed to only spec-defined fields):
-    let json = r#"{
-        "@type": "Task",
-        "uid": "2a358cee-6489-4f14-a57f-c104db4dc2f2",
-        "updated": "2020-01-09T14:32:01Z",
-        "title": "Do something"
-    }"#;
+    let json = &common::fixture("task_simple_rfc8984_example.json");
     let task: Task = serde_json::from_str(json).expect("simple Task");
     assert_eq!(task.at_type.as_deref(), Some("Task"));
     assert_eq!(
@@ -173,7 +148,7 @@ fn task_simple_rfc8984_example() {
 /// RFC 8984 §6.5: Task with a Due Date.  Verbatim from the spec.
 #[test]
 fn task_due_date_rfc8984_example() {
-    let json = include_str!("fixtures/task_due_date.json");
+    let json = &common::fixture("task_due_date.json");
     let task: Task = serde_json::from_str(json).expect("due-date Task");
     assert_eq!(task.title.as_deref(), Some("Buy groceries"));
     assert_eq!(task.due.as_deref(), Some("2020-01-19T18:00:00"));
@@ -185,7 +160,7 @@ fn task_due_date_rfc8984_example() {
 /// Task with JMAP-specific fields (draft-tasks-06 §4).
 #[test]
 fn task_jmap_fields() {
-    let json = include_str!("fixtures/task_simple.json");
+    let json = &common::fixture("task_simple.json");
     let task: Task = serde_json::from_str(json).expect("JMAP Task");
     assert_eq!(task.id.as_ref().map(|id| id.as_ref()), Some("taskid001"));
     assert_eq!(
@@ -205,12 +180,7 @@ fn task_default_is_empty() {
 /// Task with `keywords` map deserializes correctly.
 #[test]
 fn task_keywords() {
-    let json = r#"{
-        "keywords": {
-            "work": true,
-            "urgent": true
-        }
-    }"#;
+    let json = &common::fixture("task_keywords.json");
     let task: Task = serde_json::from_str(json).expect("Task with keywords");
     let kw = task.keywords.as_ref().expect("keywords");
     assert_eq!(kw.get("work"), Some(&true));
@@ -220,7 +190,7 @@ fn task_keywords() {
 /// Task round-trip.
 #[test]
 fn task_roundtrip() {
-    let json = include_str!("fixtures/task_due_date.json");
+    let json = &common::fixture("task_due_date.json");
     let original: Task = serde_json::from_str(json).expect("first deserialize");
     let serialized = serde_json::to_string(&original).expect("serialize");
     let recovered: Task = serde_json::from_str(&serialized).expect("second deserialize");
@@ -242,7 +212,7 @@ fn task_roundtrip() {
 /// deterministic.
 #[test]
 fn task_recurrence_overrides_patch_object_transparent() {
-    let json = r#"{"recurrenceOverrides":{"2024-03-15T09:00:00":{"start":"2024-03-15T10:00:00","title":"Rescheduled"}}}"#;
+    let json = &common::fixture("task_recurrence_overrides_patch_object_transparent.json");
     let task: Task = serde_json::from_str(json).expect("deserialize");
 
     // Deserialized into typed PatchObject, accessible via .as_map().
@@ -266,7 +236,7 @@ fn task_recurrence_overrides_patch_object_transparent() {
     // #[serde(transparent)] is doing its job — PatchObject does not
     // introduce any wrapper key on the wire.
     let serialized = serde_json::to_string(&task).expect("serialize");
-    assert_eq!(serialized, json);
+    assert_eq!(serialized, *json);
 }
 
 /// `localizations` round-trips as a `BTreeMap<String, PatchObject>`.
@@ -278,7 +248,7 @@ fn task_recurrence_overrides_patch_object_transparent() {
 /// underlying reason).
 #[test]
 fn task_localizations_patch_object_transparent() {
-    let json = r#"{"localizations":{"de":{"description":"Beschreibung","title":"Aufgabe"}}}"#;
+    let json = &common::fixture("task_localizations_patch_object_transparent.json");
     let task: Task = serde_json::from_str(json).expect("deserialize");
 
     let locs = task.localizations.as_ref().expect("localizations present");
@@ -293,7 +263,7 @@ fn task_localizations_patch_object_transparent() {
     );
 
     let serialized = serde_json::to_string(&task).expect("serialize");
-    assert_eq!(serialized, json);
+    assert_eq!(serialized, *json);
 }
 
 // ─── TaskProgress ────────────────────────────────────────────────────────────
@@ -353,13 +323,7 @@ fn task_filter_condition_empty_defaults() {
 /// (draft-ietf-jmap-calendars-33 §5.11.1).
 #[test]
 fn task_filter_condition_populated() {
-    let json = r#"{
-        "taskListId": "list001",
-        "isDraft": false,
-        "progress": "needs-action",
-        "after": "2024-01-01T00:00:00",
-        "before": "2025-01-01T00:00:00"
-    }"#;
+    let json = &common::fixture("task_filter_condition_populated.json");
     let cond: TaskFilterCondition = serde_json::from_str(json).expect("filter");
     assert_eq!(
         cond.task_list_id.as_ref().map(|id| id.as_ref()),
@@ -382,7 +346,7 @@ fn task_filter_condition_populated() {
 /// Deserialize a TaskNotification from hand-written JSON.
 #[test]
 fn notification_deserialize() {
-    let json = include_str!("fixtures/notification.json");
+    let json = &common::fixture("notification.json");
     let notif: TaskNotification = serde_json::from_str(json).expect("notification");
     assert_eq!(notif.id.as_ref(), "notif001");
     assert_eq!(notif.created, "2020-01-10T08:00:00Z");
@@ -412,7 +376,7 @@ fn notification_deserialize() {
 /// See bd:JMAP-ky8g.5.
 #[test]
 fn notification_roundtrip() {
-    let json = include_str!("fixtures/notification.json");
+    let json = &common::fixture("notification.json");
     let original: TaskNotification = serde_json::from_str(json).expect("first deserialize");
     let serialized = serde_json::to_string(&original).expect("serialize");
     let recovered: TaskNotification =
@@ -427,7 +391,7 @@ fn notification_roundtrip() {
 /// serialization deterministic.
 #[test]
 fn notification_task_patch_patch_object_transparent() {
-    let json = r#"{"id":"notif002","created":"2020-01-10T08:00:00Z","changedBy":{"@type":"Person","name":"Alice"},"type":"updated","taskId":"taskid001","taskPatch":{"title":"New title"}}"#;
+    let json = &common::fixture("notification_task_patch_patch_object_transparent.json");
     let notif: TaskNotification = serde_json::from_str(json).expect("notification");
 
     let patch = notif.task_patch.as_ref().expect("taskPatch present");
@@ -439,7 +403,7 @@ fn notification_task_patch_patch_object_transparent() {
     // Byte-for-byte round-trip: PatchObject's #[serde(transparent)] must
     // emit the inner Map directly, with no wrapper key.
     let serialized = serde_json::to_string(&notif).expect("serialize");
-    assert_eq!(serialized, json);
+    assert_eq!(serialized, *json);
 }
 
 /// `NotificationType` known values deserialize correctly.
@@ -470,13 +434,7 @@ fn notification_type_other_roundtrip() {
 fn notification_type_wire_field_name() {
     // Build a TaskNotification via JSON so we don't need a struct literal
     // (the struct is #[non_exhaustive] and Id doesn't implement FromStr).
-    let json = r#"{
-        "id": "n1",
-        "created": "2024-01-01T00:00:00Z",
-        "changedBy": { "@type": "Person" },
-        "type": "created",
-        "taskId": "t1"
-    }"#;
+    let json = &common::fixture("notification_type_wire_field_name.json");
     let notif: TaskNotification = serde_json::from_str(json).expect("parse");
     let out = serde_json::to_string(&notif).expect("serialize");
     assert!(
@@ -512,7 +470,7 @@ fn tasks_capability_empty_object() {
 /// `TasksAccountCapability` round-trips correctly.
 #[test]
 fn tasks_account_capability_roundtrip() {
-    let json = include_str!("fixtures/capability.json");
+    let json = &common::fixture("capability.json");
     let cap: TasksAccountCapability = serde_json::from_str(json).expect("account capability");
     assert_eq!(cap.min_date_time.as_ref(), "1970-01-01T00:00:00");
     assert_eq!(cap.max_date_time.as_ref(), "2100-12-31T23:59:59");
@@ -532,12 +490,12 @@ fn tasks_account_capability_roundtrip() {
 /// required) and serialize back to the identical JSON.
 #[test]
 fn tasks_account_capability_local_date_spec_example() {
-    let json = r#"{"minDateTime":"2014-10-30T14:12:00","maxDateTime":"2014-10-30T14:12:00","mayCreateTaskList":true}"#;
+    let json = &common::fixture("tasks_account_capability_local_date_spec_example.json");
     let cap: TasksAccountCapability = serde_json::from_str(json).expect("deserialize");
     assert_eq!(cap.min_date_time.as_ref(), "2014-10-30T14:12:00");
     assert_eq!(cap.max_date_time.as_ref(), "2014-10-30T14:12:00");
     assert!(cap.may_create_task_list);
-    assert_eq!(serde_json::to_string(&cap).expect("serialize"), json);
+    assert_eq!(serde_json::to_string(&cap).expect("serialize"), *json);
 }
 
 /// Capability URI constants have the expected values.
@@ -615,9 +573,10 @@ fn tasks_custom_time_zones_account_capability_empty_object() {
 #[test]
 fn principal_tasks_capability_account_id_null_serializes() {
     // Construct via deserialization (struct is #[non_exhaustive]).
-    let cap: PrincipalTasksCapability =
-        serde_json::from_str(r#"{"accountId":null,"mayShareWith":false}"#)
-            .expect("must deserialize");
+    let cap: PrincipalTasksCapability = serde_json::from_str(&common::fixture(
+        "principal_tasks_capability_account_id_null_serializes.json",
+    ))
+    .expect("must deserialize");
     let out = serde_json::to_value(&cap).expect("must serialize");
     assert!(
         out["accountId"].is_null(),
@@ -631,9 +590,10 @@ fn principal_tasks_capability_account_id_null_serializes() {
 #[test]
 fn principal_tasks_capability_send_to_absent_when_none() {
     // Construct via deserialization (struct is #[non_exhaustive]).
-    let cap: PrincipalTasksCapability =
-        serde_json::from_str(r#"{"accountId":null,"mayShareWith":true}"#)
-            .expect("must deserialize");
+    let cap: PrincipalTasksCapability = serde_json::from_str(&common::fixture(
+        "principal_tasks_capability_send_to_absent_when_none.json",
+    ))
+    .expect("must deserialize");
     let out = serde_json::to_value(&cap).expect("must serialize");
     assert!(
         out.get("sendTo").is_none(),
@@ -646,13 +606,7 @@ fn principal_tasks_capability_send_to_absent_when_none() {
 /// Oracle: draft-ietf-jmap-tasks-06 §2.1 field definitions.
 #[test]
 fn principal_tasks_capability_roundtrip_full() {
-    let json = r#"{
-        "accountId": "acc001",
-        "mayShareWith": true,
-        "sendTo": {
-            "imip": "mailto:alice@example.com"
-        }
-    }"#;
+    let json = &common::fixture("principal_tasks_capability_roundtrip_full.json");
     let cap: PrincipalTasksCapability =
         serde_json::from_str(json).expect("must deserialize full capability");
     assert_eq!(
@@ -777,8 +731,10 @@ fn tasks_assignees_capability_empty_object_deserialize() {
 /// Oracle: draft-ietf-jmap-tasks-06 §1.6.2 — account capability has one required field.
 #[test]
 fn tasks_recurrences_account_capability_serialize() {
-    let cap: TasksRecurrencesAccountCapability =
-        serde_json::from_str(r#"{"maxExpandedQueryDuration":"P1Y"}"#).expect("must deserialize");
+    let cap: TasksRecurrencesAccountCapability = serde_json::from_str(&common::fixture(
+        "tasks_recurrences_account_capability_serialize.json",
+    ))
+    .expect("must deserialize");
     let out = serde_json::to_value(&cap).expect("must serialize");
     assert_eq!(out["maxExpandedQueryDuration"], "P1Y");
 }
@@ -789,7 +745,7 @@ fn tasks_recurrences_account_capability_serialize() {
 #[test]
 fn tasks_recurrences_account_capability_roundtrip() {
     // Hand-written fixture: P365D is a valid ISO 8601 duration.
-    let json = r#"{"maxExpandedQueryDuration":"P365D"}"#;
+    let json = &common::fixture("tasks_recurrences_account_capability_roundtrip.json");
     let cap: TasksRecurrencesAccountCapability =
         serde_json::from_str(json).expect("must deserialize");
     assert_eq!(cap.max_expanded_query_duration.as_ref(), "P365D");
@@ -807,8 +763,10 @@ fn tasks_recurrences_account_capability_roundtrip() {
 /// Oracle: draft-ietf-jmap-tasks-06 §1.6.3 — maxParticipantsPerTask is UnsignedInt|null.
 #[test]
 fn tasks_assignees_account_capability_null_participants_serialize() {
-    let cap: TasksAssigneesAccountCapability =
-        serde_json::from_str(r#"{"maxParticipantsPerTask":null}"#).expect("must deserialize");
+    let cap: TasksAssigneesAccountCapability = serde_json::from_str(&common::fixture(
+        "tasks_assignees_account_capability_null_participants_serialize.json",
+    ))
+    .expect("must deserialize");
     assert!(cap.max_participants_per_task.is_none());
     let out = serde_json::to_value(&cap).expect("must serialize");
     assert!(
@@ -823,7 +781,7 @@ fn tasks_assignees_account_capability_null_participants_serialize() {
 #[test]
 fn tasks_assignees_account_capability_roundtrip() {
     // Hand-written fixture: server allows up to 50 participants per task.
-    let json = r#"{"maxParticipantsPerTask":50}"#;
+    let json = &common::fixture("tasks_assignees_account_capability_roundtrip.json");
     let cap: TasksAssigneesAccountCapability =
         serde_json::from_str(json).expect("must deserialize");
     assert_eq!(cap.max_participants_per_task, Some(50));
@@ -1598,12 +1556,12 @@ fn task_with_check_items_missing_at_type_deserializes() {
 /// expected bytes are hand-written.
 #[test]
 fn task_localizations_serialize_in_sorted_key_order() {
-    let raw = r#"{"localizations":{"fr":{"title":"Tache"},"de":{"title":"Aufgabe"}}}"#;
+    let raw = &common::fixture("task_localizations_serialize_in_sorted_key_order.json");
     let task: Task = serde_json::from_str(raw).expect("deserialize");
     let j = serde_json::to_string(&task).expect("serialize");
     assert_eq!(
         j,
-        r#"{"localizations":{"de":{"title":"Aufgabe"},"fr":{"title":"Tache"}}}"#
+        common::fixture("task_localizations_serialize_in_sorted_key_order_2.json")
     );
 }
 
@@ -1681,15 +1639,20 @@ fn task_notification_comparator_sort_properties() {
 #[test]
 fn filter_conditions_use_object_enums() {
     let notif: TaskNotificationFilterCondition =
-        serde_json::from_str(r#"{"type":"destroyed"}"#).expect("notification filter");
+        serde_json::from_str(&common::fixture("filter_conditions_use_object_enums.json"))
+            .expect("notification filter");
     assert_eq!(notif.notification_type, Some(NotificationType::Destroyed));
 
-    let task: TaskFilterCondition =
-        serde_json::from_str(r#"{"progress":"needs-action"}"#).expect("task filter");
+    let task: TaskFilterCondition = serde_json::from_str(&common::fixture(
+        "filter_conditions_use_object_enums_2.json",
+    ))
+    .expect("task filter");
     assert_eq!(task.progress, Some(TaskProgress::NeedsAction));
 
-    let vendor: TaskFilterCondition =
-        serde_json::from_str(r#"{"progress":"x-blocked"}"#).expect("vendor progress");
+    let vendor: TaskFilterCondition = serde_json::from_str(&common::fixture(
+        "filter_conditions_use_object_enums_3.json",
+    ))
+    .expect("vendor progress");
     assert_eq!(
         serde_json::to_value(&vendor).expect("serialize"),
         serde_json::json!({"progress": "x-blocked"})
