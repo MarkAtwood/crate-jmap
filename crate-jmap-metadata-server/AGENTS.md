@@ -5,7 +5,7 @@
 This crate is a **sibling under the canonical `jmap-mail-server`
 extension-server template**. Doc-comment style, lint settings, error
 conventions, and test layout must mirror `jmap-mail-server`.
-Differences are *only* the spec content (draft-ietf-jmap-metadata-04
+Differences are *only* the spec content (draft-ietf-jmap-metadata
 here; RFC 8621 in mail-server). draft-04 defines no methods of its
 own, so this crate has no `Backend` trait, handler registration,
 `/set` boilerplate, or `MemoryBackend`; that is a spec-mandated
@@ -27,12 +27,12 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — module layout, helper contracts
-2. Read the relevant draft-ietf-jmap-metadata-04 section for the helper you are changing
+2. Read the relevant draft-ietf-jmap-metadata section for the helper you are changing
 3. Run `bd ready` — check for open issues before creating new ones
 
 ## What This Is
 
-Pure, stateless helpers for draft-ietf-jmap-metadata-04: depth and
+Pure, stateless helpers for draft-ietf-jmap-metadata: depth and
 namespace validation (§2.1, §3.2), `/changes` classification (§3.3),
 and `metadata*` filter predicates (§3.6). Extension servers call them
 from their own `Foo/get`, `Foo/set`, `Foo/changes`, and `Foo/query`
@@ -48,7 +48,7 @@ jmap-metadata-types    data types
 ## Spec Reference
 
 ```
-https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04   ← normative
+draft-ietf-jmap-metadata (revision pinned in PLAN.md)   ← normative
 ~/PROJECT/jmap-chat-spec/references/rfc8620.txt                     ← base protocol
 ```
 
@@ -111,4 +111,4 @@ Run all four before considering any work done.
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond: jmap-metadata-types, serde_json
 - Do not add handlers, a backend trait, or auth logic (draft-04 has no `Metadata/*` methods)
-- Do not implement behavior not in draft-ietf-jmap-metadata-04 unless explicitly directed
+- Do not implement behavior not in draft-ietf-jmap-metadata unless explicitly directed

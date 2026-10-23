@@ -6,7 +6,7 @@ This crate is a **sibling under the canonical `jmap-mail-server`
 extension-server template**. Module layout, `Backend` trait shape,
 handler-registration pattern, `/set` boilerplate, error-mapping
 helpers, and test-harness layout must mirror `jmap-mail-server`.
-Differences are *only* the spec content (draft-ietf-jmap-tasks-06
+Differences are *only* the spec content (draft-ietf-jmap-tasks
 here; RFC 8621 in mail-server).
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
@@ -25,13 +25,13 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — `TasksBackend` trait, module layout, handler pattern
-2. Read the relevant draft-ietf-jmap-tasks-06 section for the method you are implementing
+2. Read the relevant draft-ietf-jmap-tasks section for the method you are implementing
 3. Cross-check the canonical sibling `~/PROJECT/crate-jmap/crate-jmap-mail-server/` for the handler/backend pattern to follow
 4. Run `bd ready` — check for open issues before creating new ones
 
 ## What This Is
 
-JMAP Tasks extension method handlers (draft-ietf-jmap-tasks-06). Plugs
+JMAP Tasks extension method handlers (draft-ietf-jmap-tasks). Plugs
 into `jmap-server`'s `Dispatcher` via `register_tasks_handlers`. Defines
 `TasksBackend` trait; consumers provide the storage impl. A reference
 in-memory implementation (`memory::MemoryBackend`) is gated behind
@@ -50,7 +50,7 @@ jmap-types
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-tasks-06.txt   ← normative
+draft-ietf-jmap-tasks (revision pinned in PLAN.md)   ← normative
 ~/PROJECT/jmap-chat-spec/references/rfc8984.txt                    ← JSCalendar format
 ~/PROJECT/jmap-chat-spec/references/rfc8620.txt                    ← base protocol
 ```
@@ -120,7 +120,7 @@ Run all four before considering any work done.
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
 | Dependencies | jmap-types, jmap-tasks-types, jmap-server, serde, serde_json |
-| Method names | Must match draft-ietf-jmap-tasks-06 exactly (`TaskList/get`, `Task/set`, `TaskNotification/get`, etc.) |
+| Method names | Must match draft-ietf-jmap-tasks exactly (`TaskList/get`, `Task/set`, `TaskNotification/get`, etc.) |
 | Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
 
 ## Subagent Guidance
@@ -136,4 +136,4 @@ Run all four before considering any work done.
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond: jmap-types, jmap-tasks-types, jmap-server, serde, serde_json
 - Do not add auth logic or role checks inside handlers (backend canonical — see section above)
-- Do not implement methods not in draft-ietf-jmap-tasks-06 unless explicitly directed
+- Do not implement methods not in draft-ietf-jmap-tasks unless explicitly directed

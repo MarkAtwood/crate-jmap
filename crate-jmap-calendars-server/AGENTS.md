@@ -6,7 +6,7 @@ This crate is a **sibling under the canonical `jmap-mail-server`
 extension-server template**. Module layout, `Backend` trait shape,
 handler-registration pattern, `/set` boilerplate, error-mapping
 helpers, and test-harness layout must mirror `jmap-mail-server`.
-Differences are *only* the spec content (draft-ietf-jmap-calendars-33
+Differences are *only* the spec content (draft-ietf-jmap-calendars
 here; RFC 8621 in mail-server).
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
@@ -25,13 +25,13 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — `CalendarsBackend` trait, module layout, handler pattern
-2. Read the relevant draft-ietf-jmap-calendars-33 section for the method you are implementing
+2. Read the relevant draft-ietf-jmap-calendars section for the method you are implementing
 3. Cross-check the canonical sibling `~/PROJECT/crate-jmap/crate-jmap-mail-server/` for the handler/backend pattern to follow
 4. Run `bd ready` — check for open issues before creating new ones
 
 ## What This Is
 
-JMAP Calendars extension method handlers (draft-ietf-jmap-calendars-33).
+JMAP Calendars extension method handlers (draft-ietf-jmap-calendars).
 Plugs into `jmap-server`'s `Dispatcher` via `register_calendars_handlers`.
 Defines `CalendarsBackend` trait; consumers provide the storage impl. A
 reference in-memory implementation (`memory::MemoryBackend`) is gated
@@ -50,7 +50,7 @@ jmap-types
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-33.txt   ← normative
+draft-ietf-jmap-calendars (revision pinned in PLAN.md)   ← normative
 ~/PROJECT/jmap-chat-spec/references/rfc8984.txt                        ← JSCalendar format
 ~/PROJECT/jmap-chat-spec/references/rfc8620.txt                        ← base protocol
 ```
@@ -120,7 +120,7 @@ Run all four before considering any work done.
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
 | Dependencies | jmap-types, jmap-calendars-types, jmap-server, serde_json, thiserror |
-| Method names | Must match draft-ietf-jmap-calendars-33 exactly (`Calendar/get`, `CalendarEvent/set`, `CalendarEventNotification/get`, etc.) |
+| Method names | Must match draft-ietf-jmap-calendars exactly (`Calendar/get`, `CalendarEvent/set`, `CalendarEventNotification/get`, etc.) |
 | Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
 
 ## Subagent Guidance
@@ -136,4 +136,4 @@ Run all four before considering any work done.
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond: jmap-types, jmap-calendars-types, jmap-server, serde_json, thiserror
 - Do not add auth logic or role checks inside handlers (backend canonical — see section above)
-- Do not implement methods not in draft-ietf-jmap-calendars-33 unless explicitly directed
+- Do not implement methods not in draft-ietf-jmap-calendars unless explicitly directed
