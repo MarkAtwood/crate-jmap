@@ -11,32 +11,18 @@ use jmap_graph_types::CandidateKind;
 use jmap_graph_types::GraphNodeComparator;
 use jmap_graph_types::{GraphCapability, GraphNode, GraphRights};
 use jmap_graph_types::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
-use jmap_types::{Id, JmapError};
+use jmap_types::{Id, JmapError, SetObject};
 use serde_json::{json, Map, Value};
 
 use crate::edit::check_node_edit;
 use crate::helpers::{
     backend_set_error_value, check_annotations, decode_patch, fetch_one, forbidden,
     handle_get_visible, handle_graph_item_query, handle_graph_item_query_changes, handle_set,
-    invalid, is_uri, listed_in, mistyped, not_found, patched, patched_properties, readable_rights,
+    invalid, is_uri, mistyped, not_found, patched, patched_properties, readable_rights,
     set_error_value, string_or_null, to_map, SetOps, TypeCheck,
 };
 use crate::{EditLog, GraphBackend, JmapBackend};
-use jmap_server::{now_utc_string, HandlerOutput};
-
-/// The server-set properties of a GraphNode and a GraphEdge (`createdBy`,
-/// `updatedBy` and the timestamps; `id`).
-pub(crate) const SERVER_SET: &[&str] = &["id", "created", "updated", "createdBy", "updatedBy"];
-
-/// [`SERVER_SET`] plus the immutable `graphId`, refused in an update.
-pub(crate) const IMMUTABLE: &[&str] = &[
-    "id",
-    "graphId",
-    "created",
-    "updated",
-    "createdBy",
-    "updatedBy",
-];
+use jmap_server::{now_utc_string, reject_read_only_patch, reject_server_set, HandlerOutput};
 
 /// The properties with a draft default, echoed in `created` when the
 /// client omits them (RFC 8620 §5.3).
@@ -193,11 +179,14 @@ pub(crate) fn touch<B: GraphBackend>(
 
 /// The `created` entry for `stored`: the server-set properties and each
 /// property in `omitted` (RFC 8620 §5.3: "any properties that were omitted
-/// or not set to the requested value by the server").
+/// or not set to the requested value by the server"). GraphNode and
+/// GraphEdge share their server-set properties (draft-atwood-jmap-graph-00
+/// §GraphEdge: "As defined for GraphNode").
 pub(crate) fn created_entry(id: &Id, stored: &impl serde::Serialize, omitted: &[&str]) -> Value {
     let stored = to_map(stored);
     let mut created = json!({ "id": id });
-    for k in SERVER_SET[1..].iter().chain(omitted) {
+    let server_set = GraphNode::SERVER_SET.iter().filter(|k| **k != "id");
+    for k in server_set.chain(omitted) {
         created[*k] = stored.get(*k).cloned().unwrap_or(Value::Null);
     }
     created
@@ -299,9 +288,10 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
         let Value::Object(mut m) = obj else {
             return Err(invalid(&[], "a GraphNode create must be a JSON object"));
         };
-        let fixed = listed_in(m.keys().map(String::as_str), SERVER_SET);
-        if !fixed.is_empty() {
-            return Err(invalid(&fixed, "these properties are set by the server"));
+        if let Some(e) = reject_server_set::<GraphNode>(&m) {
+            return Err(set_error_value(
+                &e.with_description("these properties are set by the server"),
+            ));
         }
         validate(&m, cap)?;
         let graph_id = create_graph_id(backend, caller, account_id, &m).await?;
@@ -364,11 +354,9 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             .ok_or_else(not_found)?;
         item_graph_writable(backend, caller, account_id, &node.graph_id).await?;
         let keys = patched_properties(&patch);
-        let fixed = listed_in(keys.iter().map(String::as_str), IMMUTABLE);
-        if !fixed.is_empty() {
-            return Err(invalid(
-                &fixed,
-                "these properties are immutable or server-set",
+        if let Some(e) = reject_read_only_patch::<GraphNode>(patch.as_map(), Some(&to_map(&node))) {
+            return Err(set_error_value(
+                &e.with_description("these properties are immutable or server-set"),
             ));
         }
         let next = patched(&node, &patch)?;

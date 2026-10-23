@@ -42,39 +42,21 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
-    apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
-    HandlerOutput,
+    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
 };
 
-/// Properties a create may not carry: those §VTCParticipant marks
-/// server-set, and those "The server sets" at join or dial-out.
-const SERVER_SET_ON_CREATE: &[&str] = &[
-    "id",
-    "userId",
+/// The properties "The server sets" at join or dial-out that an update may
+/// still change, so they are not in [`VtcParticipant::SERVER_SET`]. A
+/// create may carry none of them.
+const SET_BY_SERVER_ON_CREATE: &[&str] = &[
     "role",
-    "joinedAt",
     "leftAt",
     "callResponse",
     "lobbyState",
-    "speakerTimeMs",
     "kickedBy",
-    "e2eeFingerprint",
     "unmuteRequested",
     "breakoutCallId",
-];
-
-/// Properties no update may patch: those §VTCParticipant marks immutable or
-/// server-set, and `gatewayData`, which the server "stores and relays ...
-/// without interpretation" from the gateway. A client reaches
-/// `gatewayData` only through [`PENDING_SIGNAL`].
-const NOT_PATCHABLE: &[&str] = &[
-    "id",
-    "callId",
-    "userId",
-    "joinedAt",
-    "speakerTimeMs",
-    "e2eeFingerprint",
-    "gatewayData",
 ];
 
 /// The patch path of an outbound gateway signal (§VTCGatewaySignal).
@@ -315,7 +297,12 @@ async fn create_participant<B: VtcBackend>(
             "a VTCParticipant create must be a JSON object",
         ));
     };
-    let server_set: Vec<&str> = SERVER_SET_ON_CREATE
+    if let Some(e) = reject_server_set::<VtcParticipant>(&m) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
+        ));
+    }
+    let server_set: Vec<&str> = SET_BY_SERVER_ON_CREATE
         .iter()
         .copied()
         .filter(|k| m.contains_key(*k))
@@ -673,9 +660,12 @@ async fn update_participant<B: VtcBackend>(
     keys.sort_unstable();
     keys.dedup();
     let has = |k: &str| keys.iter().any(|key| key == k);
-    let fixed: Vec<&str> = NOT_PATCHABLE.iter().copied().filter(|k| has(k)).collect();
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties cannot be updated"));
+    // §VTCParticipant: the immutable and server-set properties. A client
+    // reaches `gatewayData` only through [`PENDING_SIGNAL`], removed above.
+    if let Some(e) = reject_read_only_patch::<VtcParticipant>(patch.as_map(), None) {
+        return Err(set_error_value(
+            &e.with_description("these properties cannot be updated"),
+        ));
     }
 
     // "An unknown VTCParticipant id yields `notFound`".

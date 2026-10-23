@@ -40,7 +40,9 @@ use crate::helpers::{
     SetAccumulators,
 };
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // ReadPosition/get
@@ -207,19 +209,13 @@ pub async fn handle_position_set<B: ChatBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // id and chatId are immutable; lastReadAt is server-set
-            // (§ReadPosition: "`lastReadAt` (UTCDate, server-set)").
-            const POSITION_READONLY: &[&str] = &["id", "chatId", "lastReadAt"];
-            let bad_props: Vec<&str> = POSITION_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
+            // §ReadPosition: `id` and `lastReadAt` are server-set, `chatId`
+            // is immutable.
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| reject_read_only_patch::<ReadPosition>(m, None))
+            {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
             // `lastReadMessageId` (String, optional). Checked here because

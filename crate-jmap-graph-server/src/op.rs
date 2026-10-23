@@ -16,20 +16,17 @@ use jmap_graph_types::{
     GraphCursorEvent, GraphNodeCursorRequest, GraphNodeCursorResponse, GraphNodeOpComparator,
     GraphNodeOpFilterCondition, GraphNodeOpSortProperty, OPS_COMPACTED,
 };
-use jmap_server::{now_utc_string, server_fail_from_backend, HandlerOutput};
-use jmap_types::{Id, JmapError};
+use jmap_server::{now_utc_string, reject_server_set, server_fail_from_backend, HandlerOutput};
+use jmap_types::{Id, JmapError, SetObject};
 use serde::Deserialize as _;
 use serde_json::{json, Map, Value};
 
 use crate::edit::base64url_len;
 use crate::helpers::{
     backend_set_error_value, fetch_one, forbidden, handle_get_visible, handle_set, invalid,
-    listed_in, readable_rights, set_error_value, to_map, SetOps,
+    readable_rights, set_error_value, to_map, SetOps,
 };
 use crate::{GraphBackend, JmapBackend, SetError, SetErrorType};
-
-/// The server-set properties of a GraphNodeOp.
-const SERVER_SET: &[&str] = &["id", "graphId", "seq", "created", "createdBy"];
 
 /// The edit capability of the call's account: `accountNotFound` for an
 /// unknown account, `accountNotSupportedByMethod` without the capability.
@@ -218,9 +215,10 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
         let Value::Object(mut m) = obj else {
             return Err(invalid(&[], "a GraphNodeOp create must be a JSON object"));
         };
-        let fixed = listed_in(m.keys().map(String::as_str), SERVER_SET);
-        if !fixed.is_empty() {
-            return Err(invalid(&fixed, "these properties are set by the server"));
+        if let Some(e) = reject_server_set::<GraphNodeOp>(&m) {
+            return Err(set_error_value(
+                &e.with_description("these properties are set by the server"),
+            ));
         }
         let bad: Vec<&str> = [
             ("nodeId", m.get("nodeId").is_some_and(Value::is_string)),
@@ -301,7 +299,7 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
         let stored = to_map(&stored);
         let mut created = Map::new();
         created.insert("id".to_owned(), json!(id));
-        for k in &SERVER_SET[1..] {
+        for k in GraphNodeOp::SERVER_SET.iter().filter(|k| **k != "id") {
             created.insert(
                 (*k).to_owned(),
                 stored.get(*k).cloned().unwrap_or(Value::Null),

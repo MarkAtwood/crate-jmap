@@ -23,24 +23,13 @@ use crate::helpers::{
 };
 use crate::{BindingProperty, BindingTarget, SceneBackend};
 use jmap_server::{
-    apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
-    HandlerOutput, SetError, SetErrorType,
+    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, SetError,
+    SetErrorType,
 };
 
 pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 const JMAP_VTC_URI: &str = "urn:ietf:params:jmap:vtc";
-
-/// "The server sets `id`, `accountId`, `ownerId` (to the caller's
-/// userId), `activeAvatarCount` (to `0`), `createdAt`, and `updatedAt`."
-/// None of them may be set or patched.
-const SERVER_SET: &[&str] = &[
-    "id",
-    "accountId",
-    "ownerId",
-    "activeAvatarCount",
-    "createdAt",
-    "updatedAt",
-];
 
 /// The binding properties and the companion capability each needs:
 /// "present only when the corresponding companion capability is
@@ -432,13 +421,6 @@ async fn validate<B: SceneBackend>(
     check_bindings(backend, caller, account_id, m, touched).await
 }
 
-fn server_set_in<'a>(keys: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
-    let mut fixed: Vec<&str> = keys.filter(|k| SERVER_SET.contains(k)).collect();
-    fixed.sort_unstable();
-    fixed.dedup();
-    fixed
-}
-
 /// One §Creating a Region. The `Ok` value is the `created` entry: the
 /// server-set `id`, `accountId`, `ownerId` (from
 /// [`SceneBackend::caller_user_id`]), `activeAvatarCount`, `createdAt` and
@@ -464,16 +446,19 @@ async fn create_region<B: SceneBackend>(
         return Err(forbidden("mayCreateRegion is false"));
     }
 
-    // `activeCallId` is a binding `update` supports; `create` does not
-    // list it.
-    let mut fixed = server_set_in(m.keys().map(String::as_str));
-    if m.contains_key("activeCallId") {
-        fixed.push("activeCallId");
+    // "The server sets `id`, `accountId`, `ownerId` (to the caller's
+    // userId), `activeAvatarCount` (to `0`), `createdAt`, and
+    // `updatedAt`." `activeCallId` is a binding `update` supports; `create`
+    // does not list it.
+    if let Some(e) = reject_server_set::<SceneRegion>(&m) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
+        ));
     }
-    if !fixed.is_empty() {
+    if m.contains_key("activeCallId") {
         return Err(invalid(
-            &fixed,
-            "these properties are set by the server or cannot be set on create",
+            &["activeCallId"],
+            "activeCallId cannot be set on create",
         ));
     }
 
@@ -552,10 +537,6 @@ async fn update_region<B: SceneBackend>(
 
     let top = |k: &str| k.split('/').next().unwrap_or(k).to_owned();
     let patched: Vec<String> = patch.as_map().keys().map(|k| top(k)).collect();
-    let fixed = server_set_in(patched.iter().map(String::as_str));
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties are set by the server"));
-    }
 
     // "Same field-level validations as create apply", to the region as
     // the patch leaves it.
@@ -564,6 +545,13 @@ async fn update_region<B: SceneBackend>(
     else {
         unreachable!("a SceneRegion serializes as a JSON object")
     };
+    // The server-set properties may repeat only their stored value (RFC
+    // 8620 §5.3).
+    if let Some(e) = reject_read_only_patch::<SceneRegion>(patch.as_map(), Some(&result)) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
+        ));
+    }
     apply_patch_object(&mut result, patch.as_map()).map_err(|e| {
         set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
     })?;

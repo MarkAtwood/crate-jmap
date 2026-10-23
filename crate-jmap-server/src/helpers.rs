@@ -1147,6 +1147,17 @@ pub fn reject_read_only_patch<O: SetObject>(
         .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
 }
 
+/// Whether a client may change `prop` of `O` in a `/set` update: it is in
+/// [`SetObject::CLIENT_SETTABLE`] and not in [`SetObject::IMMUTABLE`].
+///
+/// For a handler whose spec lists the update keys it supports, so that any
+/// other property is rejected rather than checked against the read-only
+/// lists.
+#[must_use]
+pub fn is_client_updatable<O: SetObject>(prop: &str) -> bool {
+    O::CLIENT_SETTABLE.contains(&prop) && !O::IMMUTABLE.contains(&prop)
+}
+
 /// Resolve an Id-typed value that may be a creation-id reference
 /// (RFC 8620 §5.3).
 ///
@@ -1175,9 +1186,9 @@ pub fn resolve_creation_ref(
 mod tests {
     use super::{
         apply_jmap_patch, apply_patch_object, civil_from_days, enforce_max_objects_in_set,
-        extract_account_id, filter_arg, json_merge_patch, now_utc_string, parse_max_changes,
-        reject_did_bearing_properties, reject_read_only_patch, reject_server_set,
-        resolve_creation_ref, resolve_query_offset, resolve_query_start,
+        extract_account_id, filter_arg, is_client_updatable, json_merge_patch, now_utc_string,
+        parse_max_changes, reject_did_bearing_properties, reject_read_only_patch,
+        reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
         utc_date_from_epoch_seconds, MergePatchError, PatchPathError, MAX_MERGE_PATCH_DEPTH,
     };
     use jmap_types::{Id, PushSubscription};
@@ -1232,6 +1243,17 @@ mod tests {
             )),
             Some(vec!["id".to_owned(), "url".to_owned(), "keys".to_owned()])
         );
+    }
+
+    /// Oracle: RFC 8620 §7.2: `id` is "(immutable; server-set)",
+    /// `deviceClientId` is "(immutable)", `expires` carries no attribute;
+    /// `nope` is not a PushSubscription property.
+    #[test]
+    fn is_client_updatable_excludes_server_set_immutable_and_unknown() {
+        assert!(is_client_updatable::<PushSubscription>("expires"));
+        assert!(!is_client_updatable::<PushSubscription>("id"));
+        assert!(!is_client_updatable::<PushSubscription>("deviceClientId"));
+        assert!(!is_client_updatable::<PushSubscription>("nope"));
     }
 
     /// Oracle: RFC 8620 §5.3, "Any server-set properties MAY be included in

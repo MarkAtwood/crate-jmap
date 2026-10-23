@@ -22,7 +22,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{GetObject, Id, JmapError, JmapObject, PatchObject, SetObject};
+use jmap_types::{GetObject, Id, JmapError, PatchObject, SetObject};
 use jmap_vtc_types::VtcMediaComparator;
 use jmap_vtc_types::{
     CallState, LivestreamState, RecordingState, VtcCall, VtcLivestream, VtcRecording,
@@ -39,28 +39,9 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, StatefulObject, VtcBackend};
 use jmap_server::{
-    now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    now_utc_string, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput,
 };
-
-/// Properties a `VTCRecording/set` create may not carry: "The server sets
-/// `id`, `state` (to `"recording"`), `startedAt`, and `initiatedBy`", plus
-/// the properties §VTCRecording marks server-set.
-const RECORDING_SERVER_SET: &[&str] = &[
-    "id",
-    "state",
-    "startedAt",
-    "stoppedAt",
-    "initiatedBy",
-    "blobId",
-    "size",
-    "duration",
-    "mediaType",
-];
-
-/// Properties a `VTCLivestream/set` create may not carry: "The server sets
-/// `id` and `state` (to `"starting"`)", plus the properties §VTCLivestream
-/// marks server-set.
-const LIVESTREAM_SERVER_SET: &[&str] = &["id", "state", "startedAt", "stoppedAt"];
 
 /// The stream configuration §Updating Stream Configuration lets an update
 /// patch "only while the livestream is in state `"stopped"` or
@@ -447,23 +428,28 @@ where
 /// The checks §Starting a Recording and §Starting a Livestream share, in
 /// one order: server-set properties, the capability flag, the call, the
 /// moderator rule, E2EE and the `"active"` state. Returns the call.
-async fn check_create<B: VtcBackend>(
+///
+/// Both sections say "The server sets `id`, `state` ...", so `state`, which
+/// an update may change, is refused on create beside `O::SERVER_SET`.
+async fn check_create<O: SetObject, B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     m: &Map<String, Value>,
-    server_set: &[&str],
     supported: impl Fn(&jmap_vtc_types::VtcCapability) -> bool,
-    type_name: &str,
 ) -> Result<VtcCall, Value> {
-    let present: Vec<&str> = server_set
-        .iter()
-        .copied()
-        .filter(|k| m.contains_key(*k))
-        .collect();
-    if !present.is_empty() {
-        return Err(invalid(&present, "these properties are set by the server"));
+    if let Some(e) = reject_server_set::<O>(m) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
+        ));
     }
+    if m.contains_key("state") {
+        return Err(invalid(
+            &["state"],
+            "these properties are set by the server",
+        ));
+    }
+    let type_name = O::TYPE_NAME;
 
     let cap = backend
         .vtc_capability(caller, account_id)
@@ -549,16 +535,9 @@ async fn create_recording<B: VtcBackend>(
     let Value::Object(m) = obj else {
         return Err(invalid(&[], "a VTCRecording create must be a JSON object"));
     };
-    let call = check_create(
-        backend,
-        caller,
-        account_id,
-        &m,
-        RECORDING_SERVER_SET,
-        |c| c.supports_recording,
-        VtcRecording::TYPE_NAME,
-    )
-    .await?;
+    let call =
+        check_create::<VtcRecording, B>(backend, caller, account_id, &m, |c| c.supports_recording)
+            .await?;
     let initiator = backend
         .caller_user_id(caller, account_id)
         .await
@@ -799,16 +778,8 @@ async fn create_livestream<B: VtcBackend>(
     let Value::Object(m) = obj else {
         return Err(invalid(&[], "a VTCLivestream create must be a JSON object"));
     };
-    check_create(
-        backend,
-        caller,
-        account_id,
-        &m,
-        LIVESTREAM_SERVER_SET,
-        |c| c.supports_livestream,
-        VtcLivestream::TYPE_NAME,
-    )
-    .await?;
+    check_create::<VtcLivestream, B>(backend, caller, account_id, &m, |c| c.supports_livestream)
+        .await?;
 
     // "`streamUri` (String, required)", "`streamKey` (String, required)";
     // "Optional: `platform` (String)".

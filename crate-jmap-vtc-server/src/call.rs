@@ -29,45 +29,13 @@ use crate::helpers::{
 use crate::media::{stop_livestreams, stop_recordings};
 use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
 use jmap_server::{
-    now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+    now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
 };
 
 /// Capability URI of draft-atwood-jmap-chat-00, which gates the Chat binding
 /// properties.
 pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
-
-/// Properties a `VTCCall/set` create may not carry: "The server sets `id`,
-/// `initiatorId`, `createdAt`, `state`, and `joinUri`", plus the other
-/// properties §VTCCall marks server-set.
-const SERVER_SET_ON_CREATE: &[&str] = &[
-    "id",
-    "accountId",
-    "state",
-    "createdAt",
-    "endedAt",
-    "endReason",
-    "initiatorId",
-    "joinUri",
-    "activeParticipantCount",
-    "breakoutRoomIds",
-];
-
-/// Properties a `VTCCall/set` update may not patch: those §VTCCall marks
-/// immutable or server-set, except `state`, whose transitions "clients
-/// request ... via `VTCCall/set`", and the server-generated `joinUri`.
-const NOT_PATCHABLE: &[&str] = &[
-    "id",
-    "accountId",
-    "callType",
-    "createdAt",
-    "endedAt",
-    "endReason",
-    "initiatorId",
-    "joinUri",
-    "activeParticipantCount",
-    "parentCallId",
-    "breakoutRoomIds",
-];
 
 /// Properties only a moderator may patch: ending the call (§Ending a Call),
 /// "Toggle lobby" (§Moderator Actions on VTCCall), `policy` ("Mutable by
@@ -285,14 +253,18 @@ async fn create_call<B: VtcBackend>(
         return Err(invalid(&[], "a VTCCall create must be a JSON object"));
     };
 
-    let server_set: Vec<&str> = SERVER_SET_ON_CREATE
-        .iter()
-        .copied()
-        .filter(|k| m.contains_key(*k))
-        .collect();
-    if !server_set.is_empty() {
+    // "The server sets `id`, `initiatorId`, `createdAt`, `state`, and
+    // `joinUri`", with the other properties §VTCCall marks server-set.
+    // `state` is not in `VtcCall::SERVER_SET`: its transitions "clients
+    // request ... via `VTCCall/set`".
+    if let Some(e) = reject_server_set::<VtcCall>(&m) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
+        ));
+    }
+    if m.contains_key("state") {
         return Err(invalid(
-            &server_set,
+            &["state"],
             "these properties are set by the server",
         ));
     }
@@ -497,13 +469,12 @@ async fn update_call<B: VtcBackend>(
     keys.sort_unstable();
     keys.dedup();
 
-    let fixed: Vec<&str> = keys
-        .iter()
-        .copied()
-        .filter(|k| NOT_PATCHABLE.contains(k))
-        .collect();
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties cannot be updated"));
+    // §VTCCall: the immutable and server-set properties, `joinUri`
+    // included; `state` stays patchable.
+    if let Some(e) = reject_read_only_patch::<VtcCall>(patch.as_map(), None) {
+        return Err(set_error_value(
+            &e.with_description("these properties cannot be updated"),
+        ));
     }
 
     let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id)

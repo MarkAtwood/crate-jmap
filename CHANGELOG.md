@@ -23,8 +23,9 @@ wire behaviour that a conforming peer can observe.
   `invalidProperties` SetError for a `/set` create carrying a non-null
   server-set property and for an update patch naming a server-set or
   immutable property, from `O`'s `SetObject` lists. Given the stored
-  object, `reject_read_only_patch` lets a key repeat its stored value
-  (bd JMAP-x2gd.87).
+  object, `reject_read_only_patch` lets a key repeat its stored value.
+  `is_client_updatable::<O>(prop)` says whether an update may change a
+  property (bd JMAP-x2gd.87).
 - **jmap-types**: `Filter::matches` evaluates an RFC 8620 §5.5
   `FilterOperator` tree (`AND`/`OR`/`NOT`) over a caller's
   per-condition predicate (bd JMAP-skk9.2).
@@ -1414,6 +1415,27 @@ wire behaviour that a conforming peer can observe.
   AddressBook `isDefault` changes only through `onSuccessSetIsDefault`
   (RFC 9610 §2), and the book it demotes now appears in `updated`
   whatever the backend's `update_object` returns (bd JMAP-x2gd.87).
+- **jmap-chat-types**, **jmap-vtc-types**: **BREAKING** the `SetObject`
+  lists also follow each `/set` method's text: Chat `members`, `spaceId`
+  and the channel properties, Space `roles`, `members`, `categories` and
+  `uncategorizedChannelIds`, ChatContact `endpoints`, VTCCall `joinUri`
+  and VTCParticipant `e2eeFingerprint` are server-set; Message
+  `attachments`, `actions`, `replyTo`, `threadRootId` and `sentAt`,
+  CustomEmoji `spaceId` and VTCParticipant `gatewayData` are immutable
+  (bd JMAP-x2gd.87).
+- **jmap-chat-server**, **jmap-graph-server**, **jmap-scene-server**,
+  **jmap-vtc-server**: **BREAKING** (wire) the hand-written read-only and
+  update-allowed lists are gone; `/set` handlers read the `SetObject`
+  lists through `jmap_server::reject_server_set`,
+  `reject_read_only_patch` and `is_client_updatable`. Creates reject a
+  non-null server-set property, including on Chat, Message, Space,
+  CustomEmoji, SpaceInvite and SpaceBan, which ignored some before. A
+  ChatContact patch to a server-set property such as `presence` is now
+  `invalidProperties` instead of being dropped, and a key pointing inside
+  a read-only property is rejected. Graph, GraphNode, GraphEdge,
+  SceneObject and SceneRegion updates accept a server-set or immutable
+  property that repeats its stored value (RFC 8620 §5.3)
+  (bd JMAP-x2gd.87).
 - **jmap-chat-mimi-server**: `KeyPackage/set` create takes its allowed
   properties from `KeyPackage::CLIENT_SETTABLE` (bd JMAP-x2gd.87).
 - **jmap-vtc-client**, **jmap-scene-client**, **jmap-graph-client**:

@@ -27,21 +27,18 @@ use crate::helpers::{
 };
 use crate::SceneBackend;
 use jmap_server::{
-    apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
-    HandlerOutput, SetError, SetErrorType,
+    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, SetError,
+    SetErrorType,
 };
 
 /// "The server sets `id`, `userId` (to the caller's userId), `position`
 /// (to the region's `spawnPosition`), `orientation` (to the region's
 /// `spawnOrientation`), `joinedAt`, and `leftAt` (to `null`)." A client
 /// "MUST omit any properties that may only be set by the server" (RFC 8620
-/// §5.3). `userId` is checked against the caller instead (`forbidden`), so
-/// it is not listed.
-const SERVER_SET_ON_CREATE: &[&str] = &["id", "position", "orientation", "joinedAt", "leftAt"];
-
-/// Properties no update may patch: `id` and `regionId` are immutable,
-/// `userId` and `joinedAt` server-set.
-const FIXED_ON_UPDATE: &[&str] = &["id", "regionId", "userId", "joinedAt"];
+/// §5.3). These are the ones an update may still change, so they are not in
+/// [`SceneAvatar::SERVER_SET`].
+const SET_BY_SERVER_ON_CREATE: &[&str] = &["position", "orientation", "leftAt"];
 
 /// What a region owner or administrator may patch on another user's
 /// avatar: "An eject update patches only `leftAt`"
@@ -341,10 +338,6 @@ async fn enter_region<B: SceneBackend>(
         return Err(invalid(&[], "a SceneAvatar create must be a JSON object"));
     };
 
-    let fixed = present_in(m.keys().map(String::as_str), SERVER_SET_ON_CREATE);
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties are set by the server"));
-    }
     let user_id = backend
         .caller_user_id(caller, account_id)
         .await
@@ -354,6 +347,18 @@ async fn enter_region<B: SceneBackend>(
         .is_some_and(|u| u.as_str() != Some(&user_id))
     {
         return Err(forbidden("Users MUST only create their own avatar."));
+    }
+    // A matching `userId` is the value the server sets below, so only the
+    // other server-set properties are refused.
+    m.remove("userId");
+    if let Some(e) = reject_server_set::<SceneAvatar>(&m) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
+        ));
+    }
+    let fixed = present_in(m.keys().map(String::as_str), SET_BY_SERVER_ON_CREATE);
+    if !fixed.is_empty() {
+        return Err(invalid(&fixed, "these properties are set by the server"));
     }
     refuse_malformed(malformed(&m))?;
 
@@ -475,12 +480,12 @@ async fn update_avatar<B: SceneBackend>(
         }
     }
 
-    let fixed = present_in(patched.iter().map(String::as_str), FIXED_ON_UPDATE);
-    if !fixed.is_empty() {
-        return Err(invalid(
-            &fixed,
+    // §SceneAvatar: `id`, `userId` and `joinedAt` are server-set, `regionId`
+    // immutable.
+    if let Some(e) = reject_read_only_patch::<SceneAvatar>(patch.as_map(), None) {
+        return Err(set_error_value(&e.with_description(
             "these properties are immutable or set by the server",
-        ));
+        )));
     }
     let mut echo = Map::new();
     if left_to.as_ref().is_some_and(Value::is_null) {

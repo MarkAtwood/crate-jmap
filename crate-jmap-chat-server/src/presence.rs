@@ -37,7 +37,9 @@ use crate::helpers::{
 };
 use crate::outbound::OutboundEvent;
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    reject_read_only_patch, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // PresenceStatus/get
@@ -201,18 +203,12 @@ pub async fn handle_presence_set<B: ChatBackend>(
             // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str.as_str());
 
-            // Reject patches that include server-set readonly fields.
-            const PRESENCE_READONLY: &[&str] = &["id", "updatedAt"];
-            let bad_props: Vec<&str> = PRESENCE_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
+            // §PresenceStatus: `id` and `updatedAt` are server-set.
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| reject_read_only_patch::<PresenceStatus>(m, None))
+            {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 

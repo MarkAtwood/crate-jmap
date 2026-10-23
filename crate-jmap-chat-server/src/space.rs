@@ -33,7 +33,7 @@ use jmap_chat_types::{
 };
 use jmap_chat_types::{Chat, ChatKind, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 use jmap_chat_types::{SpaceComparator, SpaceFilter};
-use jmap_types::{Id, JmapError, PatchObject, UTCDate};
+use jmap_types::{Id, JmapError, PatchObject, SetObject, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
@@ -48,8 +48,8 @@ use crate::{
     SpacePatchOp,
 };
 use jmap_server::{
-    query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
-    QueryParams,
+    is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -466,37 +466,6 @@ const NON_MEMBER_PREVIEWABLE_FIELDS: &[&str] = &[
     "isPublic",
     "isPubliclyPreviewable",
     "closedAt",
-];
-
-/// Server-set or directly-overwritable Space fields that a `Space/set`
-/// `update` patch MUST NOT carry.
-///
-/// `roles`, `members`, `categories`, and `uncategorizedChannelIds` are
-/// managed through named semantic mutations (`addRoles` / `removeRoles`
-/// / etc.) and MUST never be overwritten directly via a JSON Merge
-/// Patch. `id`, `createdAt`, and `memberCount` are server-set.
-const SPACE_READONLY: &[&str] = &[
-    "id",
-    "createdAt",
-    "memberCount",
-    "roles",
-    "members",
-    "categories",
-    "uncategorizedChannelIds",
-];
-
-/// Allowed top-level metadata fields on a `Space/set` `update` patch
-/// (RFC 8620 §5.3 partial update on server-managed properties).
-///
-/// These reach `update_object` via a JSON Merge Patch. Structural
-/// mutation keys (`addRoles` / `addMembers` / etc.) are handled via
-/// the [`StructuralKey`] enum and `apply_space_patch` instead.
-const SPACE_METADATA_FIELDS: &[&str] = &[
-    "name",
-    "description",
-    "iconBlobId",
-    "isPublic",
-    "isPubliclyPreviewable",
 ];
 
 /// Apply the JMAP `/get` `properties` filter plus the
@@ -943,9 +912,8 @@ pub async fn handle_space_set<B: ChatBackend>(
         .iter()
         .copied()
         .filter(|&key| {
-            !(SPACE_READONLY.contains(&key)
-                || SPACE_METADATA_FIELDS.contains(&key)
-                || key == "closedAt"
+            !(Space::SERVER_SET.contains(&key)
+                || Space::CLIENT_SETTABLE.contains(&key)
                 || StructuralKey::from_wire(key).is_some())
         })
         .collect();
@@ -955,6 +923,10 @@ pub async fn handle_space_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Space>) {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(
@@ -1099,18 +1071,14 @@ pub async fn handle_space_set<B: ChatBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // Reject patches that include server-set or directly-overwritable fields.
-            // See module-level `SPACE_READONLY` for the field list and rationale.
-            let bad_props: Vec<&str> = SPACE_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
+            // Reject patches to server-set Space properties, including
+            // `roles`, `members`, `categories` and `uncategorizedChannelIds`,
+            // which change only through the structural keys.
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| reject_read_only_patch::<Space>(m, None))
+            {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 
@@ -1150,7 +1118,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                             break;
                         }
                     }
-                } else if SPACE_METADATA_FIELDS.contains(&key.as_str())
+                } else if is_client_updatable::<Space>(&key)
                     || extension_props.contains(&key.as_str())
                 {
                     clean_patch.insert(key, value);
@@ -1702,7 +1670,7 @@ pub async fn handle_space_join<B: ChatBackend>(
     }
 
     // Add the calling user as a Space member.
-    // This bypasses the SPACE_READONLY guard in handle_space_set — Space/join calling
+    // This bypasses the read-only check in handle_space_set — Space/join calling
     // update_object directly is correct: it is an atomic server operation, not a client patch.
     let now_str = now_utc_string();
     let mut new_members = current_members;

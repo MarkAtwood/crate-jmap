@@ -28,8 +28,8 @@ use crate::helpers::{
 };
 use crate::SceneBackend;
 use jmap_server::{
-    now_utc_string, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
-    SetError, SetErrorType,
+    now_utc_string, reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, SetError, SetErrorType,
 };
 
 /// The mandatory-to-implement visual asset media type: "The IANA media
@@ -40,23 +40,6 @@ use jmap_server::{
 /// `SceneAsset/set` accepts it even when the backend's
 /// [`SceneBackend::scene_capability`] leaves it out.
 pub const GLTF_BINARY: &str = "model/gltf-binary";
-
-/// Properties the client may not set on create: "The server sets `id`,
-/// `accountId`, `ownerId`, `size`, and `createdAt`."
-const SERVER_SET: &[&str] = &["id", "accountId", "ownerId", "size", "createdAt"];
-
-/// Properties an update may not patch: "`id`, `accountId`, `ownerId`,
-/// `blobId`, `mediaType`, `size`, and `createdAt` are immutable or
-/// server-set."
-const IMMUTABLE: &[&str] = &[
-    "id",
-    "accountId",
-    "ownerId",
-    "blobId",
-    "mediaType",
-    "size",
-    "createdAt",
-];
 
 /// The optional `String|null` properties: "Optional: `name` (String),
 /// `assetUri` (String), `sha256` (String)."
@@ -332,15 +315,11 @@ async fn create_asset<B: SceneBackend>(
         return Err(invalid(&[], "a SceneAsset create must be a JSON object"));
     };
 
-    let server_set: Vec<&str> = SERVER_SET
-        .iter()
-        .copied()
-        .filter(|k| m.contains_key(*k))
-        .collect();
-    if !server_set.is_empty() {
-        return Err(invalid(
-            &server_set,
-            "these properties are set by the server",
+    // "The server sets `id`, `accountId`, `ownerId`, `size`, and
+    // `createdAt`."
+    if let Some(e) = reject_server_set::<SceneAsset>(&m) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
         ));
     }
 
@@ -452,18 +431,12 @@ async fn update_asset<B: SceneBackend>(
     fetch_modifiable(backend, caller, account_id, id).await?;
 
     // "Attempting to change a property other than `name`, `assetUri`, or
-    // `sha256`" is `invalidProperties` for each of the [`IMMUTABLE`]
-    // properties; vendor extension properties stay patchable.
-    let mut fixed: Vec<&str> = patch
-        .as_map()
-        .keys()
-        .map(|k| k.split('/').next().unwrap_or(k))
-        .filter(|k| IMMUTABLE.contains(k))
-        .collect();
-    fixed.sort_unstable();
-    fixed.dedup();
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties cannot be changed"));
+    // `sha256`" is `invalidProperties` for each server-set or immutable
+    // property; vendor extension properties stay patchable.
+    if let Some(e) = reject_read_only_patch::<SceneAsset>(patch.as_map(), None) {
+        return Err(set_error_value(
+            &e.with_description("these properties cannot be changed"),
+        ));
     }
     let cap = capability(backend, caller, account_id).await?;
     let bad = malformed(patch.as_map(), &cap);

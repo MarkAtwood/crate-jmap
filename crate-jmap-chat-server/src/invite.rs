@@ -37,7 +37,9 @@ use crate::helpers::{
 };
 use crate::helpers::{mistyped_create_props, PropType};
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
+};
 
 // ---------------------------------------------------------------------------
 // SpaceInvite/get
@@ -248,6 +250,13 @@ pub async fn handle_invite_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(reject_server_set::<SpaceInvite>)
+            {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(

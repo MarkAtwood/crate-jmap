@@ -290,8 +290,14 @@ impl GetObject for crate::Chat {}
 /// draft-atwood-jmap-chat-00 §Chat Object Fields (lines 580-664): `id` and
 /// `createdAt` are "immutable, server-set"; `closedAt`, `lastMessageAt`,
 /// `unreadCount`, `activeCallId` and `activeCallAccountId` are
-/// "server-set"; `kind`, `contactId` and `spaceId` are "immutable".
-/// §Chat/set "Updating a Chat" narrows the update keys further.
+/// "server-set"; `kind` and `contactId` are "immutable".
+///
+/// §Chat/set never accepts `members` (changed by the `addMembers`,
+/// `removeMembers` and `updateMemberRoles` patch keys) or the channel
+/// properties `spaceId`, `categoryId`, `position`, `topic`,
+/// `slowModeSeconds` and `permissionOverrides` ("Channel Chats are created
+/// exclusively via the `addChannels` patch key in `Space/set`"), so they
+/// are server-set here.
 impl SetObject for crate::Chat {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -302,13 +308,6 @@ impl SetObject for crate::Chat {
         "unreadCount",
         "activeCallId",
         "activeCallAccountId",
-    ];
-    const CLIENT_SETTABLE: &'static [&'static str] = &[
-        "kind",
-        "contactId",
-        "name",
-        "description",
-        "avatarBlobId",
         "members",
         "spaceId",
         "categoryId",
@@ -316,6 +315,13 @@ impl SetObject for crate::Chat {
         "topic",
         "slowModeSeconds",
         "permissionOverrides",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "kind",
+        "contactId",
+        "name",
+        "description",
+        "avatarBlobId",
         "pinnedMessageIds",
         "muted",
         "muteUntil",
@@ -323,7 +329,7 @@ impl SetObject for crate::Chat {
         "receiptSharing",
         "messageExpirySeconds",
     ];
-    const IMMUTABLE: &'static [&'static str] = &["kind", "contactId", "spaceId"];
+    const IMMUTABLE: &'static [&'static str] = &["kind", "contactId"];
 }
 
 impl QueryObject for crate::Chat {
@@ -344,7 +350,10 @@ impl GetObject for crate::Message {}
 /// `deliveryReceipts`, `deliveredAt`, `editedAt` and `editHistory` are
 /// "server-set"; `chatId`, `topicId`, `subject`, `senderExpiresAt`,
 /// `burnOnRead` and `expiresAfterReadSeconds` are "immutable".
-/// §Message/set narrows the update keys further.
+///
+/// §Message/set "Creating a Message" accepts `attachments`, `actions`,
+/// `replyTo`, `threadRootId` and `sentAt`, and no update section changes
+/// them, so they are immutable here.
 impl SetObject for crate::Message {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -384,8 +393,13 @@ impl SetObject for crate::Message {
     ];
     const IMMUTABLE: &'static [&'static str] = &[
         "chatId",
+        "attachments",
+        "actions",
+        "replyTo",
+        "threadRootId",
         "topicId",
         "subject",
+        "sentAt",
         "senderExpiresAt",
         "burnOnRead",
         "expiresAfterReadSeconds",
@@ -406,19 +420,28 @@ impl GetObject for crate::Space {}
 
 /// draft-atwood-jmap-chat-00 §Space (lines 868-904): `id` and `createdAt`
 /// are "immutable, server-set"; `memberCount` and `closedAt` are
-/// "server-set". §Space/set "Updating a Space" narrows the update keys
-/// further.
+/// "server-set".
+///
+/// §Space/set changes `roles`, `members`, `categories` and
+/// `uncategorizedChannelIds` only through its semantic patch keys
+/// (`addRoles`, `addMembers`, ...), never as properties, so they are
+/// server-set here.
 impl SetObject for crate::Space {
     type Patch = PatchObject;
-    const SERVER_SET: &'static [&'static str] = &["id", "createdAt", "memberCount", "closedAt"];
-    const CLIENT_SETTABLE: &'static [&'static str] = &[
-        "name",
-        "description",
-        "iconBlobId",
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "createdAt",
+        "memberCount",
+        "closedAt",
         "roles",
         "members",
         "categories",
         "uncategorizedChannelIds",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "name",
+        "description",
+        "iconBlobId",
         "isPublic",
         "isPubliclyPreviewable",
     ];
@@ -441,8 +464,9 @@ impl GetObject for crate::ChatContact {}
 /// "immutable, server-set"; `login`, `firstSeenAt`, `lastSeenAt`,
 /// `presence`, `lastActiveAt`, `statusText` and `statusEmoji` are
 /// "server-set"; `identity` is "immutable". draft-atwood-jmap-chat-did-00
-/// §Optional did field: `did` "is server-set". §ChatContact/set narrows
-/// the create and update keys further.
+/// §Optional did field: `did` "is server-set". §ChatContact/set: "`create`
+/// accepts only `identity`" and "`update` supports: `blocked`,
+/// `displayName`", so `endpoints` is server-set here.
 impl SetObject for crate::ChatContact {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -455,9 +479,9 @@ impl SetObject for crate::ChatContact {
         "statusText",
         "statusEmoji",
         "did",
+        "endpoints",
     ];
-    const CLIENT_SETTABLE: &'static [&'static str] =
-        &["identity", "displayName", "endpoints", "blocked"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["identity", "displayName", "blocked"];
     const IMMUTABLE: &'static [&'static str] = &["identity"];
 }
 
@@ -492,12 +516,13 @@ impl GetObject for crate::CustomEmoji {}
 
 /// draft-atwood-jmap-chat-00 §CustomEmoji (lines 917-932): `id`,
 /// `createdBy` and `createdAt` are "immutable, server-set".
-/// §CustomEmoji/set narrows the update keys further.
+/// §CustomEmoji/set: "`create` accepts: `name` ..., `blobId` ..., `spaceId`"
+/// and "`update` supports: `name`, `blobId`", so `spaceId` is immutable.
 impl SetObject for crate::CustomEmoji {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &["id", "createdBy", "createdAt"];
     const CLIENT_SETTABLE: &'static [&'static str] = &["name", "blobId", "spaceId"];
-    const IMMUTABLE: &'static [&'static str] = &[];
+    const IMMUTABLE: &'static [&'static str] = &["spaceId"];
 }
 
 impl QueryObject for crate::CustomEmoji {

@@ -36,8 +36,8 @@ use crate::helpers::{
 use crate::helpers::{mistyped_create_props, PropType};
 use crate::{BackendSetError, ChatBackend, EmojiSetOp};
 use jmap_server::{
-    query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
-    QueryParams,
+    is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -308,6 +308,13 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(reject_server_set::<CustomEmoji>)
+            {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(obj_val, &[("spaceId", PropType::Str)]) {
@@ -433,23 +440,18 @@ pub async fn handle_emoji_set<B: ChatBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // Reject server-set and immutable fields.
-            // spaceId is immutable after creation per spec.
-            const EMOJI_READONLY: &[&str] = &["id", "createdBy", "createdAt", "spaceId"];
-            let bad_props: Vec<&str> = EMOJI_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
+            // §CustomEmoji: `id`, `createdBy` and `createdAt` are
+            // server-set; `spaceId` is set only on create.
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| reject_read_only_patch::<CustomEmoji>(m, None))
+            {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 
-            const EMOJI_UPDATE_ALLOWED: &[&str] = &["name", "blobId"];
+            // §CustomEmoji/set: "`update` supports: `name`, `blobId`", the
+            // client-settable properties that are not immutable.
             let Value::Object(mut patch_map) = patch_val else {
                 not_updated.insert(
                     id_str,
@@ -457,12 +459,8 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 );
                 continue;
             };
-            let mut clean_patch = serde_json::Map::new();
-            for &field in EMOJI_UPDATE_ALLOWED {
-                if let Some(v) = patch_map.remove(field) {
-                    clean_patch.insert(field.to_owned(), v);
-                }
-            }
+            patch_map.retain(|field, _| is_client_updatable::<CustomEmoji>(field));
+            let clean_patch = patch_map;
             if clean_patch.is_empty() {
                 not_updated.insert(
                     id_str,

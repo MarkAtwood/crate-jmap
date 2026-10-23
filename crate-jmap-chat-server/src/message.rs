@@ -45,8 +45,8 @@ use crate::helpers::{
 };
 use crate::helpers::{mistyped_create_props, PropType};
 use jmap_server::{
-    query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
-    QueryParams,
+    is_client_updatable, query_anchor_args, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -1083,6 +1083,10 @@ pub async fn handle_message_set<B: ChatBackend>(
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         let mut delivered_chat_ids: Vec<Id> = Vec::new();
         for (create_id, obj_val) in create_map {
+            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Message>) {
+                not_created.insert(create_id.clone(), set_error_value(&err));
+                continue;
+            }
             // Optional properties: a wrongly-typed value is invalidProperties
             // (RFC 8620 §5.3), not a silent absence.
             if let Some(err) = mistyped_create_props(
@@ -1596,27 +1600,19 @@ pub async fn handle_message_set<B: ChatBackend>(
             // `broadcastMentions`), Adding and Removing Reactions
             // (`reactions/<senderReactionId>` JSON Pointer keys), Deleting
             // (`deletedAt`, `deletedForAll`) and Marking as Read (`readAt`,
-            // `readDisposition`). Every other key names a server-set or
-            // immutable property, so it is rejected with RFC 8620 §5.3
-            // `invalidProperties`. A field added to Message later is
-            // rejected until it is listed here.
-            const MESSAGE_UPDATE_ALLOWED: &[&str] = &[
-                "body",
-                "bodyType",
-                "mentions",
-                "broadcastMentions",
-                "deletedAt",
-                "deletedForAll",
-                "readAt",
-                "readDisposition",
-            ];
+            // `readDisposition`): the client-settable Message properties
+            // that are not immutable, with `reactions` changed only per
+            // entry. Every other key names a server-set or immutable
+            // property, so it is rejected with RFC 8620 §5.3
+            // `invalidProperties`.
             let bad_props: Vec<&str> = patch_val
                 .as_object()
                 .map(|obj| {
                     obj.keys()
                         .map(String::as_str)
-                        .filter(|k| {
-                            !MESSAGE_UPDATE_ALLOWED.contains(k) && !k.starts_with("reactions/")
+                        .filter(|&k| {
+                            !(k.starts_with("reactions/")
+                                || (k != "reactions" && is_client_updatable::<Message>(k)))
                         })
                         .collect()
                 })

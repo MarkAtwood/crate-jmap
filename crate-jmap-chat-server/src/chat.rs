@@ -39,7 +39,10 @@ use crate::helpers::{
 use crate::helpers::{mistyped_create_props, PropType};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, HandlerOutput};
+use jmap_server::{
+    is_client_updatable, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput,
+};
 
 /// `Chat/set` update keys that change a group Chat's member list
 /// (draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat").
@@ -54,26 +57,6 @@ const SHARED_GROUP_KEYS: &[&str] = &["name", "description", "avatarBlobId", "pin
 /// chats, admins additionally may update: `name`, `description`,
 /// `avatarBlobId`.").
 const GROUP_ADMIN_KEYS: &[&str] = &["name", "description", "avatarBlobId"];
-
-/// Every `Chat/set` update key draft-atwood-jmap-chat-00 §Chat/set
-/// "Updating a Chat" defines: the keys for all chat kinds, then
-/// [`GROUP_ADMIN_KEYS`], then [`MEMBER_PATCH_KEYS`]. Any other key names a
-/// server-set, immutable or `Space/set`-managed property and is
-/// `invalidProperties` (RFC 8620 §5.3).
-const CHAT_UPDATE_ALLOWED: &[&str] = &[
-    "muted",
-    "muteUntil",
-    "receiveTypingIndicators",
-    "pinnedMessageIds",
-    "messageExpirySeconds",
-    "receiptSharing",
-    "name",
-    "description",
-    "avatarBlobId",
-    "addMembers",
-    "removeMembers",
-    "updateMemberRoles",
-];
 
 /// Chat properties draft-atwood-jmap-chat-00 §Chat Object Fields scopes
 /// to one kind ("**Direct chats only.**", "**Group chats only.**",
@@ -697,6 +680,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     );
                     continue;
                 }
+                if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Chat>) {
+                    not_created.insert(create_id.clone(), set_error_value(&err));
+                    continue;
+                }
             }
 
             // Validate kind-specific required fields and extract per-kind state.
@@ -1040,7 +1027,11 @@ pub async fn handle_chat_set<B: ChatBackend>(
             let id = Id::from(id_str.as_str());
 
             // Only the keys §Chat/set "Updating a Chat" defines may be
-            // patched; JSON Pointer paths count by their first segment.
+            // patched: the client-settable Chat properties that are not
+            // immutable, and [`MEMBER_PATCH_KEYS`]. Any other key names a
+            // server-set, immutable or `Space/set`-managed property and is
+            // `invalidProperties` (RFC 8620 §5.3). JSON Pointer paths count
+            // by their first segment.
             let bad_props: Vec<&str> = patch_val
                 .as_object()
                 .map(|obj| {
@@ -1048,7 +1039,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         .map(String::as_str)
                         .filter(|k| {
                             let top = k.split('/').next().unwrap_or(k);
-                            !CHAT_UPDATE_ALLOWED.contains(&top)
+                            !(is_client_updatable::<Chat>(top) || MEMBER_PATCH_KEYS.contains(&top))
                         })
                         .collect()
                 })

@@ -435,17 +435,6 @@ pub(crate) fn is_uri(s: &str) -> bool {
     true
 }
 
-/// The property names in `keys` that `forbidden_keys` lists, sorted.
-pub(crate) fn listed_in<'a>(
-    keys: impl Iterator<Item = &'a str>,
-    forbidden_keys: &[&str],
-) -> Vec<&'a str> {
-    let mut found: Vec<&str> = keys.filter(|k| forbidden_keys.contains(k)).collect();
-    found.sort_unstable();
-    found.dedup();
-    found
-}
-
 /// The top-level properties a PatchObject touches: `annotations/x` touches
 /// `annotations`.
 pub(crate) fn patched_properties(patch: &PatchObject) -> Vec<String> {

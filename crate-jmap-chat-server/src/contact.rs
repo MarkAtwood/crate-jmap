@@ -34,8 +34,8 @@ use crate::helpers::{
 };
 use crate::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    query_anchor_args, server_fail_from_backend, server_fail_value_from_backend, HandlerOutput,
-    QueryParams,
+    is_client_updatable, query_anchor_args, reject_read_only_patch, server_fail_from_backend,
+    server_fail_value_from_backend, HandlerOutput, QueryParams,
 };
 
 // ---------------------------------------------------------------------------
@@ -290,35 +290,23 @@ pub async fn handle_contact_set<B: ChatBackend>(
             // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str.as_str());
 
-            // Reject patches that include server-set fields.
-            // MAINTENANCE: when adding a server-set field to ChatContact in
-            // jmap-chat-types, add its wire name here too. Drift between
-            // this list and the struct fields is a silent client-overwrite
-            // bug. Tracked workspace-wide as bd:JMAP-x2gd.87.
-            const CONTACT_READONLY: &[&str] = &["id", "identity", "firstSeenAt", "lastSeenAt"];
-            let bad_props: Vec<&str> = CONTACT_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
+            // Reject patches to server-set or immutable ChatContact
+            // properties (§ChatContact).
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| reject_read_only_patch::<ChatContact>(m, None))
+            {
+                not_updated.insert(id_str, set_error_value(&err));
                 continue;
             }
 
             // draft-atwood-jmap-chat-00 §ChatContact/set:
-            // "update supports: blocked, displayName."
+            // "update supports: blocked, displayName.", the client-settable
+            // properties that are not immutable.
             //
-            // Project the patch onto the allowed-field set so that
-            // unknown / not-allowed wire fields (e.g. client-forged
-            // `presence`, `lastActiveAt`) are silently dropped rather
-            // than reaching `backend.update_object`. Without this
-            // projection a client could overwrite server-derived state
-            // such as presence, corrupting it for other observers.
-            const CONTACT_UPDATE_ALLOWED: &[&str] = &["blocked", "displayName"];
+            // Project the patch onto that set so that unknown wire fields
+            // are silently dropped rather than reaching
+            // `backend.update_object`.
             let Value::Object(mut patch_map) = patch_val else {
                 not_updated.insert(
                     id_str,
@@ -326,12 +314,8 @@ pub async fn handle_contact_set<B: ChatBackend>(
                 );
                 continue;
             };
-            let mut clean_patch = serde_json::Map::new();
-            for &field in CONTACT_UPDATE_ALLOWED {
-                if let Some(v) = patch_map.remove(field) {
-                    clean_patch.insert(field.to_owned(), v);
-                }
-            }
+            patch_map.retain(|field, _| is_client_updatable::<ChatContact>(field));
+            let clean_patch = patch_map;
             if clean_patch.is_empty() {
                 not_updated.insert(
                     id_str,

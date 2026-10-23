@@ -27,13 +27,10 @@ use crate::helpers::{
 };
 use crate::SceneBackend;
 use jmap_server::{
-    apply_patch_object, now_utc_string, server_fail_from_backend, server_fail_value_from_backend,
-    HandlerOutput, SetError, SetErrorType,
+    apply_patch_object, now_utc_string, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, HandlerOutput, SetError,
+    SetErrorType,
 };
-
-/// "The server sets `id`, `ownerId`, `createdAt`, and `updatedAt`." None
-/// of them may be set or patched.
-const SERVER_SET: &[&str] = &["id", "ownerId", "createdAt", "updatedAt"];
 
 /// "`physicsMode` is not one of `\"static\"`, `\"dynamic\"`,
 /// `\"kinematic\"`, `\"none\"`" is `invalidProperties` in `/set` and
@@ -412,13 +409,6 @@ async fn subtree_height<B: SceneBackend>(
     Ok(height)
 }
 
-fn server_set_in<'a>(keys: impl Iterator<Item = &'a str>) -> Vec<&'a str> {
-    let mut fixed: Vec<&str> = keys.filter(|k| SERVER_SET.contains(k)).collect();
-    fixed.sort_unstable();
-    fixed.dedup();
-    fixed
-}
-
 /// Refuse `bad` (from [`malformed`]) with one `invalidProperties`.
 fn refuse_malformed(mut bad: Vec<&'static str>) -> Result<(), Value> {
     if bad.is_empty() {
@@ -455,9 +445,11 @@ async fn create_scene_object<B: SceneBackend>(
         return Err(forbidden("mayCreateObject is false"));
     }
 
-    let fixed = server_set_in(m.keys().map(String::as_str));
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties are set by the server"));
+    // "The server sets `id`, `ownerId`, `createdAt`, and `updatedAt`."
+    if let Some(e) = reject_server_set::<SceneObject>(&m) {
+        return Err(set_error_value(
+            &e.with_description("these properties are set by the server"),
+        ));
     }
     refuse_malformed(malformed(&m))?;
     if let Some(t) = m.get("visualType").and_then(Value::as_str) {
@@ -578,23 +570,22 @@ async fn update_scene_object<B: SceneBackend>(
 
     let top = |k: &str| k.split('/').next().unwrap_or(k).to_owned();
     let patched: Vec<String> = patch.as_map().keys().map(|k| top(k)).collect();
-    let fixed = server_set_in(patched.iter().map(String::as_str));
-    if !fixed.is_empty() {
-        return Err(invalid(&fixed, "these properties are set by the server"));
-    }
 
     let Value::Object(mut result) =
         serde_json::to_value(&object).expect("derive(Serialize) on plain data is infallible")
     else {
         unreachable!("a SceneObject serializes as a JSON object")
     };
+    // The server-set properties and "`regionId` is immutable and cannot be
+    // changed via update"; each may repeat its stored value (RFC 8620 §5.3).
+    if let Some(e) = reject_read_only_patch::<SceneObject>(patch.as_map(), Some(&result)) {
+        return Err(set_error_value(&e.with_description(
+            "these properties are set by the server or immutable",
+        )));
+    }
     apply_patch_object(&mut result, patch.as_map()).map_err(|e| {
         set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
     })?;
-    // "`regionId` is immutable and cannot be changed via update."
-    if result.get("regionId") != Some(&json!(object.region_id)) {
-        return Err(invalid(&["regionId"], "regionId is immutable"));
-    }
     // "Same field-level validations as create", on the object as the
     // patch leaves it.
     refuse_malformed(malformed(&result))?;

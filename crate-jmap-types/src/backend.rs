@@ -38,14 +38,15 @@ pub trait SetObject: JmapObject {
     /// Wire names of the properties the spec marks "server-set": "Only the
     /// server can set the value for this property. The client MUST NOT send
     /// this property when creating a new object of this type." (RFC 8620
-    /// §1.1).
+    /// §1.1). A property the type's `/set` method text never accepts from a
+    /// client, on create or update, is server-set too.
     ///
     /// A `/set` create that carries one, or an update patch that changes
     /// one, is `invalidProperties` (RFC 8620 §5.3).
     const SERVER_SET: &'static [&'static str];
 
     /// Wire names of every property that is not [`SERVER_SET`]: the ones a
-    /// client may send in a `/set` create.
+    /// client may set through `/set`.
     ///
     /// Each property of the type is in exactly one of [`SERVER_SET`] and
     /// `CLIENT_SETTABLE`; [`check_property_classification`] tests that.
@@ -55,6 +56,8 @@ pub trait SetObject: JmapObject {
 
     /// The [`CLIENT_SETTABLE`] properties the spec marks "immutable": "The
     /// value MUST NOT change after the object is created." (RFC 8620 §1.1).
+    /// A property the `/set` method text accepts on create but not on update
+    /// is immutable too.
     ///
     /// A client may set one in a `/set` create; an update patch that changes
     /// one is `invalidProperties`.

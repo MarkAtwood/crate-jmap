@@ -163,20 +163,28 @@ async fn only_registered_keys_are_accepted() {
 /// `ChatBackend::space_extension_properties`: "A listed key that is
 /// already a core Space property or a structural patch key keeps its
 /// core meaning." draft-atwood-jmap-chat-00 L820: Space `closedAt` is
-/// "server-set" and "Absent while the Space is open", so a listed
-/// `closedAt` on create is not stored, while a listed extension key is.
+/// "server-set", so a listed `closedAt` on create is `invalidProperties`
+/// (RFC 8620 §1.1: "The client MUST NOT send this property when
+/// creating"). A listed structural key is not stored, while a listed
+/// extension key is.
 #[tokio::test]
 async fn listed_core_property_is_not_stored_on_create() {
     let backend = backend_with(&["closedAt", "addRoles", "calendarId"]);
-    let id = create_space(
+    let resp = space_set(
         &backend,
-        json!({
+        json!({ "accountId": ACCOUNT_ID, "create": { "s0": {
+            "name": "Team",
             "closedAt": "2026-01-01T00:00:00Z",
-            "addRoles": [],
-            "calendarId": "cal-1",
-        }),
+        } } }),
     )
     .await;
+    assert_eq!(
+        resp["notCreated"]["s0"],
+        json!({ "type": "invalidProperties", "properties": ["closedAt"] }),
+        "{resp}"
+    );
+
+    let id = create_space(&backend, json!({ "addRoles": [], "calendarId": "cal-1" })).await;
 
     let space = get_space(&backend, &id).await;
     assert!(space.get("closedAt").is_none(), "{space}");
