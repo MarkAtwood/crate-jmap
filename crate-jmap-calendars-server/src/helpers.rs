@@ -107,6 +107,71 @@ pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 
+/// Resolve an Id-typed property value that may be a `#creationId`
+/// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
+///
+/// A literal id is returned unchanged; its validation stays with the
+/// caller.
+///
+/// # Errors
+///
+/// A boxed `invalidProperties` [`crate::SetError`] naming `property` when
+/// the reference matches no record created earlier in the request.
+pub(crate) fn resolve_ref(
+    raw: &str,
+    property: &str,
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+) -> Result<jmap_types::Id, Box<crate::SetError>> {
+    jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
+        Box::new(
+            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+                .with_properties([property])
+                .with_description(
+                    "creation id reference matches no record created earlier in this request",
+                ),
+        )
+    })
+}
+
+/// Replace `#creationId` references among the ids of the `property` map
+/// (an `Id[Boolean]` set such as `addressBookIds`) in a create or patch
+/// with the ids they name (RFC 8620 §5.3): the keys of a `property` object
+/// and the id segment of a `property/<id>` patch path.
+///
+/// # Errors
+///
+/// As [`resolve_ref`], naming `property`.
+pub(crate) fn resolve_map_key_refs(
+    obj: &mut serde_json::Value,
+    property: &str,
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+) -> Result<(), Box<crate::SetError>> {
+    let Some(obj) = obj.as_object_mut() else {
+        return Ok(());
+    };
+    if let Some(serde_json::Value::Object(ids)) = obj.get_mut(property) {
+        let mut resolved = serde_json::Map::with_capacity(ids.len());
+        for (key, value) in std::mem::take(ids) {
+            let id = resolve_ref(&key, property, created_ids)?;
+            resolved.insert(id.as_ref().to_owned(), value);
+        }
+        *ids = resolved;
+    }
+    let prefix = format!("{property}/");
+    let ref_paths: Vec<String> = obj
+        .keys()
+        .filter(|k| k.strip_prefix(&prefix).is_some_and(|r| r.starts_with('#')))
+        .cloned()
+        .collect();
+    for path in ref_paths {
+        let id = resolve_ref(&path[prefix.len()..], property, created_ids)?;
+        if let Some(value) = obj.remove(&path) {
+            obj.insert(format!("{prefix}{}", id.as_ref()), value);
+        }
+    }
+    Ok(())
+}
+
 /// Resolve an `onSuccessSetIsDefault` argument value to the target [`Id`].
 ///
 /// Per draft-ietf-jmap-calendars-33 §3.3 / §4.3, a `#`-prefixed string

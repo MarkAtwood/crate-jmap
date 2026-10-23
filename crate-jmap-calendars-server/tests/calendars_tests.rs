@@ -472,9 +472,10 @@ async fn calendar_event_set_create_with_client_id_invalid_properties() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_set(&backend, &(), args)
-        .await
-        .expect("/set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must not return top-level error");
 
     assert_eq!(
         resp["notCreated"]["c1"]["type"], "invalidProperties",

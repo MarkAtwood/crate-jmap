@@ -1447,6 +1447,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-calendars-server**: `handle_calendar_event_set` takes
+  a new third argument, `created_ids: &BTreeMap<Id, Id>` (pass
+  `CallContext::created_ids`; `register_calendars_handlers` does). A
+  CalendarEvent `calendarIds` key or `calendarIds/<id>` patch path that is
+  a `#creationId` reference (RFC 8620 §5.3) now resolves to the Calendar
+  created earlier in the request instead of being stored literally; an
+  unknown reference fails that entry with `invalidProperties` naming
+  `calendarIds` (bd JMAP-1p88).
 - **BREAKING** **jmap-contacts-server**: `handle_contact_card_set` takes a
   new third argument, `created_ids: &BTreeMap<Id, Id>` (pass
   `CallContext::created_ids`; `register_contacts_handlers` does). A

@@ -50,7 +50,7 @@ async fn calendar_event_set_rejects_malformed_destroy_id() {
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args = json!({ "accountId": account_id.as_ref(), "destroy": ["bad id"] });
-    let resp = handle_calendar_event_set(&backend, &(), args)
+    let resp = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
         .await
         .expect("/set must not fail as a method")
         .primary;

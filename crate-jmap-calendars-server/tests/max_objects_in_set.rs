@@ -94,7 +94,7 @@ async fn calendar_event_set_over_limit_create_returns_limit_error() {
         "accountId": account_id.as_ref(),
         "create": create_map_of_size(DEFAULT_CAP + 1),
     });
-    let err = handle_calendar_event_set(&backend, &(), args)
+    let err = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
         .await
         .expect_err("501-entry CalendarEvent/set create batch must trip maxObjectsInSet cap");
     let (etype, edesc) = expected_limit_error_shape();
