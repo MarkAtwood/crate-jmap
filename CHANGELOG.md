@@ -3039,6 +3039,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: `build_chat_message_push` now sends `bodySnippet`
+  for `application/jmap-chat-rich` messages, rendered from the span `text`
+  values joined in order, per the draft-atwood-jmap-chat-push-00
+  §ChatMessageEntry SHOULD for a plaintext approximation. It used to omit
+  the snippet. A body that does not parse as a rich body still gets no
+  snippet.
 - **jmap-contacts-server**: the `BackendSetError` catch-all arms in
   `AddressBook/set` and `ContactCard/set`/`copy` no longer Debug-format the
   backend error into the `serverFail` description; they now send only

@@ -15,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use jmap_chat_types::{
     BodyType, BroadcastScope, Chat, ChatContact, ChatKind, ChatMessageEntry, ChatMessagePush,
-    ChatPushCapability, ChatPushConfig, Message, Space, SpaceMember, UrgencyLevel,
+    ChatPushCapability, ChatPushConfig, Message, RichBody, Space, SpaceMember, UrgencyLevel,
 };
 use jmap_server::state_change_for;
 use jmap_types::{Id, PushSubscription, State, StateChange, UTCDate, Urgency};
@@ -290,8 +290,10 @@ pub struct BuiltPush {
 ///   most `cap.maxSnippetBytes` bytes on a UTF-8 character boundary.
 ///   Markdown markup is left in, which misses the §ChatMessageEntry SHOULD
 ///   for a plaintext approximation. For `application/jmap-chat-rich` the
-///   snippet is omitted even when requested: there is no span type to
-///   render plaintext from.
+///   snippet is rendered from the span `text` values joined in order
+///   (draft-atwood-jmap-chat-00 §Span Object: "The plaintext content of
+///   this span"), so no markup reaches it; a body that does not parse as a
+///   rich body gets no snippet.
 /// - `senderDisplayName` treats an empty `login` as absent.
 ///
 /// The urgency is `cfg.mentionUrgency` when it is set and the owner is
@@ -320,8 +322,11 @@ pub fn build_chat_message_push(
         let has_mention = msg.mentions.iter().any(|m| m.id == *account_id);
         let scopes = mention_scopes(msg, owner);
         mentioned = has_mention || !scopes.is_empty();
-        let snippet = (body_type != BodyType::Rich.as_str())
-            .then(|| snippet(&msg.body, cap.max_snippet_bytes));
+        let snippet = if body_type == BodyType::Rich.as_str() {
+            rich_text(&msg.body).map(|text| snippet(&text, cap.max_snippet_bytes))
+        } else {
+            Some(snippet(&msg.body, cap.max_snippet_bytes))
+        };
         ChatMessageEntry::plaintext(
             msg.id.clone(),
             msg.chat_id.clone(),
@@ -609,6 +614,16 @@ fn mention_scopes(msg: &Message, owner: OwnerFlags) -> Vec<BroadcastScope> {
 
 /// `body` without control characters, cut to at most `max_bytes` bytes on
 /// a UTF-8 character boundary.
+/// The plaintext of an `application/jmap-chat-rich` body: its span `text`
+/// values joined in order, or `None` when `body` is not a rich body. The
+/// spans only render the preview; servers must not validate the body or
+/// decide anything from span content (draft-atwood-jmap-chat-00 §Rich Body
+/// Format).
+fn rich_text(body: &str) -> Option<String> {
+    let rich: RichBody = serde_json::from_str(body).ok()?;
+    Some(rich.spans.into_iter().map(|s| s.text).collect())
+}
+
 fn snippet(body: &str, max_bytes: u64) -> String {
     let mut text: String = body.chars().filter(|c| !c.is_control()).collect();
     let mut end = usize::try_from(max_bytes).map_or(text.len(), |max| max.min(text.len()));
