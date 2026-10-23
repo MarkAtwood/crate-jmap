@@ -125,28 +125,7 @@ fn mailbox_role_display_matches_wire_names() {
 #[test]
 fn mailbox_with_unknown_role_deserializes() {
     // Inline JSON for a Mailbox carrying an unrecognized role string.
-    let json = r#"{
-        "id": "abc123",
-        "name": "FutureBox",
-        "role": "futurevalue",
-        "sortOrder": 99,
-        "totalEmails": 0,
-        "unreadEmails": 0,
-        "totalThreads": 0,
-        "unreadThreads": 0,
-        "myRights": {
-            "mayReadItems": true,
-            "mayAddItems": false,
-            "mayRemoveItems": false,
-            "maySetSeen": false,
-            "maySetKeywords": false,
-            "mayCreateChild": false,
-            "mayRename": false,
-            "mayDelete": false,
-            "maySubmit": false
-        },
-        "isSubscribed": false
-    }"#;
+    let json = &common::fixture("mailbox_with_unknown_role_deserializes.json");
     let mb: Mailbox =
         serde_json::from_str(json).expect("Mailbox with unknown role must deserialize");
     assert_eq!(mb.role, Some(MailboxRole::Other("futurevalue".to_owned())));
@@ -182,7 +161,7 @@ fn mailbox_new_constructor() {
 /// §5.1: "If null, all properties of the object are returned."
 #[test]
 fn mailbox_without_role_serializes_role_null() {
-    let json = r#"{"id":"MB1","name":"Lists","sortOrder":0,"totalEmails":0,"unreadEmails":0,"totalThreads":0,"unreadThreads":0,"myRights":{"mayReadItems":true,"mayAddItems":true,"mayRemoveItems":true,"maySetSeen":true,"maySetKeywords":true,"mayCreateChild":true,"mayRename":true,"mayDelete":true,"maySubmit":true},"isSubscribed":true}"#;
+    let json = &common::fixture("mailbox_without_role_serializes_role_null.json");
     let mb: Mailbox = serde_json::from_str(json).expect("deserialize");
     let v = serde_json::to_value(&mb).expect("serialize");
     assert!(v["role"].is_null() && v.get("role").is_some(), "{v}");

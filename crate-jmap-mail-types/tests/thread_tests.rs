@@ -30,7 +30,7 @@ fn thread_roundtrip() {
 
 #[test]
 fn thread_email_ids_order_preserved() {
-    let json = r#"{"id":"abc","emailIds":["z","a","m"]}"#;
+    let json = &common::fixture("thread_email_ids_order_preserved.json");
     let t: Thread = serde_json::from_str(json).expect("deserialize");
     assert_eq!(t.email_ids[0], Id::from("z"));
     assert_eq!(t.email_ids[1], Id::from("a"));
@@ -40,7 +40,7 @@ fn thread_email_ids_order_preserved() {
 #[test]
 fn thread_wire_field_name_is_email_ids() {
     // Oracle: RFC 8621 §3 — wire name is emailIds
-    let json = r#"{"id":"x","emailIds":["y"]}"#;
+    let json = &common::fixture("thread_wire_field_name_is_email_ids.json");
     let t: Thread = serde_json::from_str(json).expect("deserialize");
     let serialized = serde_json::to_string(&t).expect("serialize");
     assert!(
