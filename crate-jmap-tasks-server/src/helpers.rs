@@ -97,3 +97,52 @@ where
 pub(crate) fn set_error_value(e: &crate::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
+
+/// Resolve an Id-typed property value that may be a `#creationId`
+/// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
+///
+/// A literal id is returned unchanged; its validation stays with the
+/// caller.
+///
+/// # Errors
+///
+/// A boxed `invalidProperties` [`crate::SetError`] naming `property` when
+/// the reference matches no record created earlier in the request.
+pub(crate) fn resolve_ref(
+    raw: &str,
+    property: &str,
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+) -> Result<jmap_types::Id, Box<crate::SetError>> {
+    jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
+        Box::new(
+            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+                .with_properties([property])
+                .with_description(
+                    "creation id reference matches no record created earlier in this request",
+                ),
+        )
+    })
+}
+
+/// Rewrite each top-level `props` value of `obj`, a create or an update
+/// patch, that is a `#creationId` reference to the id it names, through
+/// [`resolve_ref`]. Other values are left for the caller to validate.
+///
+/// # Errors
+///
+/// As [`resolve_ref`], for the first unresolvable property.
+pub(crate) fn resolve_refs(
+    obj: &mut serde_json::Value,
+    props: &[&str],
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+) -> Result<(), Box<crate::SetError>> {
+    let Some(m) = obj.as_object_mut() else {
+        return Ok(());
+    };
+    for p in props {
+        if let Some(serde_json::Value::String(raw)) = m.get_mut(*p) {
+            *raw = resolve_ref(raw, p, created_ids)?.as_ref().to_owned();
+        }
+    }
+    Ok(())
+}

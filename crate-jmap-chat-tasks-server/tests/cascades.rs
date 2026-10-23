@@ -250,6 +250,7 @@ async fn task_destroy_leaves_its_chat() {
     let out = handle_task_set(
         &tasks,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT, "destroy": ["t1"] }),
     )
     .await

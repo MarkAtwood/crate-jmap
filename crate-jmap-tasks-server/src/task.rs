@@ -28,6 +28,8 @@
 //! `/copy` call surface in the `notCreated` / `notUpdated` /
 //! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
+use std::collections::BTreeMap;
+
 use jmap_tasks_types::Task;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde::Deserialize;
@@ -36,7 +38,7 @@ use serde_json::{Value, json};
 use crate::TasksBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    set_error_value,
+    resolve_refs, set_error_value,
 };
 use jmap_server::{
     HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
@@ -138,6 +140,10 @@ pub async fn handle_task_changes<B: TasksBackend>(
 // Task/set
 // ---------------------------------------------------------------------------
 
+/// The Task properties that hold the id of another record, which a client
+/// may set to a `#creationId` reference (RFC 8620 §5.3).
+const TASK_ID_PROPERTIES: &[&str] = &["taskListId"];
+
 /// Handle a `Task/set` method call (draft-tasks-06 §4.7).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -156,10 +162,16 @@ pub async fn handle_task_changes<B: TasksBackend>(
 /// `invalidProperties` from `update_object` when the patch violates it.
 /// The handler also does a best-effort check on the patch itself.
 ///
+/// **`taskListId` references**: a `#creationId` value on create or update
+/// names a TaskList created earlier in the request and resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3). An unknown reference is `invalidProperties` naming `taskListId`.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -202,8 +214,12 @@ pub async fn handle_task_set<B: TasksBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj_val) in create_map {
+        for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Task>) {
+                not_created.insert(create_id, set_error_value(&err));
+                continue;
+            }
+            if let Err(err) = resolve_refs(&mut obj_val, TASK_ID_PROPERTIES, created_ids) {
                 not_created.insert(create_id, set_error_value(&err));
                 continue;
             }
@@ -247,7 +263,7 @@ pub async fn handle_task_set<B: TasksBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             // isDraft immutability (draft-tasks-06 §4 isDraft paragraph) is
             // enforced by the backend in update_object, atomically with the
             // write (TasksBackend::update_object, bd:JMAP-h47t.29).
@@ -284,6 +300,11 @@ pub async fn handle_task_set<B: TasksBackend>(
                         jmap_tasks_types::is_per_user_task_property(head)
                     })
             });
+
+            if let Err(err) = resolve_refs(&mut patch_val, TASK_ID_PROPERTIES, created_ids) {
+                not_updated.insert(id_str, set_error_value(&err));
+                continue;
+            }
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
@@ -1046,9 +1067,10 @@ mod tests {
     async fn set_empty_destroy_returns_valid_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "destroy": [] });
-        let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-            .await
-            .expect("must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+                .await
+                .expect("must not return top-level error");
         assert_eq!(resp["accountId"], "acc1");
     }
 
@@ -1070,9 +1092,10 @@ mod tests {
                 "t1": { "isDraft": true }
             }
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-            .await
-            .expect("must not return a top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+                .await
+                .expect("must not return a top-level error");
 
         let not_updated = resp["notUpdated"]
             .as_object()
@@ -1107,9 +1130,10 @@ mod tests {
                 "t2": { "isDraft": true }
             }
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-            .await
-            .expect("must not return a top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+                .await
+                .expect("must not return a top-level error");
 
         // The handler passes the patch to the backend (which returns Forbidden
         // in the mock). The important thing is it is NOT pre-rejected here —
@@ -1138,9 +1162,10 @@ mod tests {
                 "t3": { "isDraft": false }
             }
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_set(&backend, &(), args)
-            .await
-            .expect("must not return a top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+                .await
+                .expect("must not return a top-level error");
 
         // Like above: the patch must NOT be pre-rejected with invalidProperties.
         if let Some(not_updated) = resp["notUpdated"].as_object()
@@ -1219,7 +1244,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "color": "#ff0000" } }
         });
-        let _ = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -1248,7 +1273,7 @@ mod tests {
                 }
             }
         });
-        let _ = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -1268,7 +1293,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "title": "New title" } }
         });
-        let _ = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -1289,7 +1314,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "title": null } }
         });
-        let _ = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -1309,7 +1334,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "color": "#ff0000", "title": "New" } }
         });
-        let _ = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -1330,7 +1355,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": {} }
         });
-        let _ = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -1350,7 +1375,7 @@ mod tests {
     async fn set_non_string_destroy_element_does_not_echo_value() {
         let backend = MockBackend::new_with_account("acc");
         let args = json!({ "accountId": "acc", "destroy": [{ "note": "CANARY-zegc" }] });
-        let err = handle_task_set(&backend, &(), args)
+        let err = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args)
             .await
             .expect_err("non-string destroy element must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
