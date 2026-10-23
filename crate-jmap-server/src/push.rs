@@ -472,7 +472,7 @@ fn created_value(sub: &PushSubscription, sent: &HashSet<String>) -> Value {
 /// Returns the `notCreated` SetError on failure.
 fn validate_create(obj: Value) -> Result<PushSubscription, Value> {
     let Value::Object(fields) = &obj else {
-        return Err(set_error_value(
+        return Err(Value::from(
             &SetError::new(SetErrorType::InvalidProperties)
                 .with_description("a create entry must be an object"),
         ));
@@ -480,7 +480,7 @@ fn validate_create(obj: Value) -> Result<PushSubscription, Value> {
     // RFC 8620 §1.1 (rfc8620.txt:261-262): the client MUST NOT send a
     // server-set property when creating.
     if let Some(err) = reject_server_set::<PushSubscription>(fields) {
-        return Err(set_error_value(&err));
+        return Err(Value::from(&err));
     }
     // RFC 8620 §7.2 (rfc8620.txt:3620-3621): "This MUST begin with
     // "https://"."
@@ -497,9 +497,7 @@ fn validate_create(obj: Value) -> Result<PushSubscription, Value> {
         return Err(invalid_property("verificationCode"));
     }
     let mut new: PushSubscription = serde_json::from_value(obj).map_err(|e| {
-        set_error_value(
-            &SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string()),
-        )
+        Value::from(&SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string()))
     })?;
     new.expires = Some(limit_expires(new.expires.as_ref())?);
     Ok(new)
@@ -517,10 +515,10 @@ async fn update_one<B: PushSubscriptionBackend>(
     patch: Value,
 ) -> Result<Value, Value> {
     let Some(current) = current else {
-        return Err(set_error_value(&SetError::new(SetErrorType::NotFound)));
+        return Err(Value::from(&SetError::new(SetErrorType::NotFound)));
     };
     let Value::Object(patch) = patch else {
-        return Err(set_error_value(
+        return Err(Value::from(
             &SetError::new(SetErrorType::InvalidPatch)
                 .with_description("a PatchObject must be an object"),
         ));
@@ -534,7 +532,7 @@ async fn update_one<B: PushSubscriptionBackend>(
     };
     let before = target.clone();
     apply_patch_object(&mut target, &patch).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        Value::from(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
     })?;
     // RFC 8620 §5.3 (rfc8620.txt:2141-2145): sending an immutable or
     // server-set property is an error only if the value differs.
@@ -544,7 +542,7 @@ async fn update_one<B: PushSubscriptionBackend>(
         .find(|p| before.get(**p) != target.get(**p));
     let mut patched: PushSubscription =
         serde_json::from_value(Value::Object(target)).map_err(|e| {
-            set_error_value(
+            Value::from(
                 &SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string()),
             )
         })?;
@@ -675,11 +673,5 @@ fn codes_match(sent: &str, expected: &str) -> bool {
 
 /// An `invalidProperties` SetError naming `property`.
 fn invalid_property(property: &str) -> Value {
-    set_error_value(&SetError::new(SetErrorType::InvalidProperties).with_properties([property]))
-}
-
-/// Serialize a [`SetError`] for a `notCreated` / `notUpdated` /
-/// `notDestroyed` map.
-fn set_error_value(e: &SetError) -> Value {
-    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
+    Value::from(&SetError::new(SetErrorType::InvalidProperties).with_properties([property]))
 }

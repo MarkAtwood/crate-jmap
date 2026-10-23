@@ -92,9 +92,7 @@ impl<E: std::fmt::Display> BackendSetError<E> {
 /// errors through this one function.
 pub fn backend_set_error_value<E: std::fmt::Display>(err: BackendSetError<E>) -> serde_json::Value {
     match err {
-        BackendSetError::SetError(se) => {
-            serde_json::to_value(&*se).expect("derive(Serialize) on plain data is infallible")
-        }
+        BackendSetError::SetError(se) => serde_json::Value::from(*se),
         BackendSetError::Other(e) => crate::handlers::server_fail_value_from_backend(&e),
     }
 }
