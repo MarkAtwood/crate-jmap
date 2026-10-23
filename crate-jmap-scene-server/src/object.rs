@@ -24,7 +24,6 @@ use crate::helpers::{
     SetAccumulators, check_region_filter, default_sort, enforce_max_objects_in_set,
     extract_account_id, fetch_one, finalize_set_response, finite3, forbidden, handle_get_visible,
     invalid, is_visible, normalized_quaternion, not_found, orientation_ok, reject_unsupported_sort,
-    set_error_value,
 };
 use crate::helpers::{parents_first, resolve_refs};
 use jmap_server::{
@@ -187,7 +186,8 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in parents_first(create_map, "parentId") {
             if let Err(err) = resolve_refs(&mut obj, OBJECT_ID_PROPERTIES, &created_ids) {
-                acc.not_created.insert(create_id, set_error_value(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             match create_scene_object(backend, caller, &account_id, &create_id, obj).await {
@@ -210,12 +210,14 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    acc.not_updated.insert(id_str, set_error_value(&err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch, OBJECT_ID_PROPERTIES, &created_ids) {
-                acc.not_updated.insert(id_str, set_error_value(&err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
             match update_scene_object(backend, caller, &account_id, &id, patch).await {
@@ -247,7 +249,7 @@ pub async fn handle_scene_object_set<B: SceneBackend>(
                 Ok(id) => id,
                 Err(err) => {
                     acc.not_destroyed
-                        .insert(id_str.to_owned(), set_error_value(&err));
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -490,7 +492,7 @@ async fn create_scene_object<B: SceneBackend>(
 
     // "The server sets `id`, `ownerId`, `createdAt`, and `updatedAt`."
     if let Some(e) = reject_server_set::<SceneObject>(&m) {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &e.with_description("these properties are set by the server"),
         ));
     }
@@ -612,27 +614,31 @@ async fn update_scene_object<B: SceneBackend>(
     patch: Value,
 ) -> Result<Value, Value> {
     let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
     let object = fetch_modifiable(backend, caller, account_id, id).await?;
 
     let top = |k: &str| k.split('/').next().unwrap_or(k).to_owned();
     let patched: Vec<String> = patch.as_map().keys().map(|k| top(k)).collect();
 
-    let Value::Object(mut result) =
-        serde_json::to_value(&object).expect("derive(Serialize) on plain data is infallible")
+    let Value::Object(mut result) = jmap_server::serialize_value(&object)
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
     else {
         unreachable!("a SceneObject serializes as a JSON object")
     };
     // The server-set properties and "`regionId` is immutable and cannot be
     // changed via update"; each may repeat its stored value (RFC 8620 §5.3).
     if let Some(e) = reject_read_only_patch::<SceneObject>(patch.as_map(), Some(&result)) {
-        return Err(set_error_value(&e.with_description(
+        return Err(serde_json::Value::from(&e.with_description(
             "these properties are set by the server or immutable",
         )));
     }
     apply_patch_object(&mut result, patch.as_map()).map_err(|e| {
-        set_error_value(&SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()))
+        serde_json::Value::from(
+            &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
+        )
     })?;
     // "Same field-level validations as create", on the object as the
     // patch leaves it.
@@ -681,9 +687,8 @@ async fn update_scene_object<B: SceneBackend>(
         .await
         .map_err(backend_set_error_value)?
     {
-        Some(object) => Ok(
-            serde_json::to_value(object).expect("derive(Serialize) on plain data is infallible")
-        ),
+        Some(object) => Ok(jmap_server::serialize_value(object)
+            .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?),
         None => Ok(Value::Object(echo)),
     }
 }

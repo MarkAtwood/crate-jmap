@@ -23,9 +23,7 @@ use serde_json::{Map, Value, json};
 
 use crate::SceneBackend;
 use crate::ephemeral::has_active_avatar;
-use crate::helpers::{
-    extract_account_id, fetch_one, forbidden, invalid, is_visible, not_found, set_error_value,
-};
+use crate::helpers::{extract_account_id, fetch_one, forbidden, invalid, is_visible, not_found};
 use jmap_server::{HandlerOutput, SetError, SetErrorType, server_fail_value_from_backend};
 
 /// Handle `SceneObject/interact`.
@@ -137,7 +135,7 @@ async fn interact<B: SceneBackend>(
         .await
         .map_err(fail)?
     {
-        return Err(set_error_value(
+        return Err(serde_json::Value::from(
             &SetError::new(SetErrorType::RateLimit)
                 .with_description("The interaction rate was exceeded."),
         ));
