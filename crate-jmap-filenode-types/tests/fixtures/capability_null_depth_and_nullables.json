@@ -1,0 +1,13 @@
+{
+        "maxFileNodeDepth": null,
+        "maxSizeFileNodeName": 100,
+        "fileNodeQuerySortOptions": ["name"],
+        "supportedNodeTypes": ["Directory", "File"],
+        "forbiddenNameChars": null,
+        "forbiddenNodeNames": null,
+        "caseInsensitiveNames": true,
+        "mayCreateTopLevelFileNode": true,
+        "webTrashUrl": null,
+        "webUrlTemplate": null,
+        "webWriteUrlTemplate": null
+    }

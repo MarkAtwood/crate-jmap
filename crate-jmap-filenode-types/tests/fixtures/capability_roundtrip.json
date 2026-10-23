@@ -1,0 +1,13 @@
+{
+        "maxFileNodeDepth": 100,
+        "maxSizeFileNodeName": 255,
+        "fileNodeQuerySortOptions": ["name", "size"],
+        "supportedNodeTypes": ["Directory", "File", "SymLink"],
+        "forbiddenNameChars": "/\\",
+        "forbiddenNodeNames": [".", ".."],
+        "caseInsensitiveNames": false,
+        "mayCreateTopLevelFileNode": true,
+        "webTrashUrl": "https://example.com/trash",
+        "webUrlTemplate": "https://example.com/view/{id}",
+        "webWriteUrlTemplate": null
+    }

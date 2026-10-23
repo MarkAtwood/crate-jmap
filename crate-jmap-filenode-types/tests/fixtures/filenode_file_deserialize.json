@@ -1,0 +1,24 @@
+{
+        "@type": "File",
+        "id": "fn1",
+        "parentId": "dir1",
+        "blobId": "blob1",
+        "size": 4096,
+        "name": "readme.txt",
+        "mediaType": "text/plain",
+        "created": "2024-01-15T10:00:00Z",
+        "modified": "2024-03-01T12:00:00Z",
+        "accessed": "2024-03-10T08:00:00Z",
+        "changed": "2024-03-01T12:00:00Z",
+        "executable": false,
+        "isSubscribed": true,
+        "myRights": {
+            "mayRead": true,
+            "mayAddChildren": false,
+            "mayRename": true,
+            "mayDelete": true,
+            "mayModifyContent": true,
+            "mayShare": false
+        },
+        "shareWith": null
+    }

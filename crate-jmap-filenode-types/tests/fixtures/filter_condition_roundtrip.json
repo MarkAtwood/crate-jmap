@@ -1,0 +1,8 @@
+{
+        "isTopLevel": false,
+        "parentId": "p1",
+        "nodeType": "File",
+        "minSize": 512,
+        "mediaType": "image/png",
+        "nameMatch": "*.png"
+    }

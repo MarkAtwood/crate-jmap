@@ -1,0 +1,8 @@
+{
+        "@type": "SymLink",
+        "id": "sym1",
+        "parentId": "dir1",
+        "target": ["", "home", "alice", "docs"],
+        "name": "docs-link",
+        "shareWith": null
+    }
