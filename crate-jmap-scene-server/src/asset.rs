@@ -418,6 +418,10 @@ async fn fetch_modifiable<B: SceneBackend>(
 }
 
 /// One §SceneAsset/set update. `Ok` is the `updated` echo.
+/// Vendor extension properties stay patchable and the spec-defined immutable
+/// or server-set ones do not (§Extension Properties in Updates: "MAY also
+/// accept patches to them", "MUST NOT accept patches to a property this
+/// document defines as immutable or server-set").
 async fn update_asset<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -432,7 +436,8 @@ async fn update_asset<B: SceneBackend>(
 
     // "Attempting to change a property other than `name`, `assetUri`, or
     // `sha256`" is `invalidProperties` for each server-set or immutable
-    // property; vendor extension properties stay patchable.
+    // property; vendor extension properties stay patchable
+    // (§Extension Properties in Updates).
     if let Some(e) = reject_read_only_patch::<SceneAsset>(patch.as_map(), None) {
         return Err(set_error_value(
             &e.with_description("these properties cannot be changed"),
