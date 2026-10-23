@@ -69,6 +69,11 @@ When changing a public type or field, check that both consumers still compile.
 | FileNode | `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-filenode-00.md` | File attachment objects |
 | CID | `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-cid-00.md` | Content identifier scheme |
 
+The `draft-atwood-*` files intentionally live at the top level of
+`~/PROJECT/jmap-chat-spec/`, not in a `references/` subdirectory, because
+this workspace authors those drafts. Do not move them or rewrite these paths
+to match the upstream-RFC paths used by other crates.
+
 Stale copies in `jmap-chat-js/docs/` and `jmap-chat-jsbig/docs/` — always use
 `~/PROJECT/jmap-chat-spec/` as authoritative.
 
