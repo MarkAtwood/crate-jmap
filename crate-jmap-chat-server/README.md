@@ -131,6 +131,124 @@ pub trait ChatBackend: JmapBackend {
 The read-side operations (`get_objects`, `get_state`, `get_changes`, `query_objects`,
 `query_changes`) are defined on the `JmapBackend` supertrait from `jmap-server`.
 
+## Permission enforcement responsibilities
+
+The handlers in this crate do **no** caller-identity checking. Per the
+workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
+are canonical for authorization. Caller identity is read via
+`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+parameter every backend method receives. In JMAP Chat the caller
+acts as the account's owner, whose Space member entry is the
+accountId (draft-atwood-jmap-chat-00 §Terminology), so authorization
+splits three ways:
+
+- **Account access** — the backend MUST verify that `caller` may act
+  as the owner of `account_id` in `create_object`, `update_object`,
+  `destroy_object`, `read_and_burn_message` and the other write
+  methods, and return a `forbidden` SetError otherwise. Handlers do
+  not check this, so a backend that trusts them lets any caller write
+  any account.
+- **Space permissions** — the backend decides them in the `may_*`
+  hooks, `apply_space_patch`, `apply_space_metadata_patch` and
+  `destroy_object::<Space>`, resolving the owner's permissions per
+  §Space Permission Resolution (`everyone_permissions` supplies the
+  `@everyone` floor). The hooks default to permit (fail-open,
+  bd:JMAP-bghk).
+- **Owner-relative rules on stored data** — group-admin and Message
+  authorship rules are checked by the handler against the stored
+  object and the accountId. A backend with concurrent writers
+  re-verifies them atomically with the write.
+
+The reference `memory::MemoryBackend` implements the Space-permission
+hooks against the owner's member entry (except `may_set_custom_emoji`,
+which permits every op), but returns `None` from `principal_id` and
+does **not** check account access. Production backends MUST implement
+every check below or they will silently accept JMAP requests that
+draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
+`forbidden` SetErrors.
+
+### Space/set and Space destroy (§Space/set, §Destroying a Space)
+
+1. **`apply_space_patch` gates every op on its permission**:
+   `manage_space`, `manage_channels`, `manage_members` or
+   `manage_roles`, as `required_permissions_for_op` maps them. Role
+   adds and edits, and role assignment, are limited to positions
+   strictly below the caller's highest role; "servers SHOULD enforce
+   this".
+
+2. **Last-administrator protection.** When `protect_last_admin`
+   returns `true`, reject any patch that leaves no member holding
+   `manage_members` or `manage_space`; self-removal is exempt.
+
+3. **Destroy requires `manage_space`**, checked atomically in
+   `destroy_object::<Space>`: "The caller MUST hold `"manage_space"`".
+
+### SpaceInvite/set and SpaceBan/set (§SpaceInvite/set, §SpaceBan/set)
+
+4. **SpaceInvite create "Requires `"manage_members"` permission";
+   destroy "Requires `"manage_members"` permission or ownership of the
+   invite"** — `may_set_space_invite`.
+
+5. **SpaceBan create, update and destroy each "Requires `"ban"`
+   permission in the Space"** — `may_set_space_ban`.
+
+6. **Visibility.** "Only members of the Space may retrieve its
+   invites. Members with `"manage_members"` permission see all
+   invites; other members see only invites they created"
+   (`may_get_space_invite`). Members with `ban` see all SpaceBans of
+   the Space; a banned user sees only their own (`may_get_space_ban`).
+
+### Message/set and Message reads (§Message/set, §Message/query)
+
+7. **Sender membership and `send`.** "The server MUST verify the
+   sender is a current member of the target Chat … Non-members MUST
+   receive a SetError of type `forbidden`", and channel senders need
+   the `send` permission — `may_send_message`.
+
+8. **Broadcast mentions** in a channel require `mention_broadcast`
+   on create and update — `may_broadcast_mention`.
+
+9. **Authorship (handler-checked).** Edits are allowed only "on a
+   message where `senderId` is the accountId and `deletedAt` is
+   absent"; `deletedForAll: true` and reaction changes for other
+   senders are `forbidden`.
+
+10. **Channel `view`.** "Messages in channels the caller cannot view
+    MUST be omitted" from `Message/get` and `Message/query` —
+    `may_view_chat`. A query without `chatId` spans Chats, so
+    `query_objects` MUST itself omit them.
+
+11. **Extension-bound Chats.** `may_create_message`,
+    `may_update_message` and `may_update_chat` let a binding such as
+    draft-atwood-jmap-chat-mimi-00 refuse writes to a Chat it
+    restricts.
+
+### Chat/set (§Chat)
+
+12. **Group member changes "all require admin role, except leaving
+    the group"** (handler-checked).
+
+13. **`pinnedMessageIds`.** "For group chats, only admins may modify
+    this list … For channel chats, only members with the `"pin"`
+    Space permission may modify this list" — `may_set_pinned_messages`.
+
+### CustomEmoji/set
+
+14. **Implementation-defined.** `may_set_custom_emoji` decides every
+    create, update and destroy, for server-global and Space-scoped
+    emoji alike.
+
+### Caller-identity-less backends
+
+The reference `MemoryBackend` returns `None` from `principal_id` and
+does not check account access (fail-open, bd:JMAP-bghk) — it is
+suitable for single-user dev servers, fixtures, and the workspace's
+own integration tests, but NOT for any deployment where more than one
+principal can reach the JMAP dispatcher. A deployment that needs
+access control MUST override `JmapBackend::principal_id` and implement
+each of the checks above; the workspace ships no production-grade
+reference impl.
+
 ## How it works
 
 ### Generic handlers

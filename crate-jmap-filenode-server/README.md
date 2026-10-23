@@ -132,6 +132,75 @@ pub trait FileNodeBackend: JmapBackend {
   (`notFound`, `invalidProperties`, `forbidden`, `alreadyExists`, `nodeHasChildren`, etc.)
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a `serverFail` response
 
+## Permission enforcement responsibilities
+
+The handlers in this crate do **no** permission checking. Per the
+workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
+are canonical for authorization: the handler computes the candidate
+mutation and the backend's `/set` impl is the canonical point of
+enforcement. Caller identity is read via
+`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+parameter every backend method receives. The full contract is the
+"Permission enforcement (backend canonical)" rustdoc on
+`FileNodeBackend`; `files_rights` only reports rights.
+
+The reference `memory::MemoryBackend` does **not** implement any of
+the checks below — it returns `None` from `principal_id` and stores
+whatever the handler hands it. Production backends MUST implement each
+of the following or they will silently accept JMAP requests that
+draft-ietf-jmap-filenode-16 mandates the server to reject. ACL denials
+are `forbidden` SetErrors.
+
+Rights are the `FilesRights` in `myRights` (§3.1.1), derived from the
+`shareWith` ACLs on a node and its ancestors: "if mayRead is set on a
+node, all its child nodes are also readable" (§5).
+
+### FileNode/set and FileNode/copy (§2.1, §3.1.1, §3.2.3, §3.2.4)
+
+1. **Create requires `mayAddChildren` on the parent**, or the
+   account's `mayCreateTopLevelFileNode` (§2.1) when `parentId` is
+   null.
+
+2. **Update requires the right for each property changed:**
+   `mayRename` to change `name` or `parentId` (plus `mayAddChildren`
+   on a new parent); `mayModifyContent` to change `blobId`,
+   `mediaType`, `target`, `modified`, `accessed` or `executable`;
+   `mayShare` to change `shareWith`.
+
+3. **Destroy requires `mayDelete`**, including on the existing node
+   that an `onExists: "replace"` create overwrites.
+
+4. **`FileNode/copy`** requires the source to be discoverable in
+   `fromAccountId`; the copy is a create in `accountId` and follows
+   check 1.
+
+### Reads (§5)
+
+5. **Discoverability.** "Nodes which are not "discoverable" MUST
+   return notFound errors if fetched with FileNode/get and MUST NOT be
+   returned in response to FileNode/query." `get_objects` and
+   `query_objects` leave them out.
+
+### Structural invariants are not ACLs
+
+Cycle prevention on `parentId` changes, name uniqueness under a
+parent, blob existence and the `nodeHasChildren` guard (§3.2.3) are
+pre-checked by the handler and MUST be re-verified atomically by the
+backend, as the `create_object`, `update_object` and `destroy_object`
+rustdoc lists. They apply to every caller, so a backend enforces them
+even when `principal_id` returns `None`.
+
+### Caller-identity-less backends
+
+The reference `MemoryBackend` returns `None` from `principal_id` and
+is intentionally permissive (fail-open, bd:JMAP-bghk) — it is suitable
+for single-user dev servers, fixtures, and the workspace's own
+integration tests, but NOT for any deployment where more than one
+principal can reach the JMAP dispatcher. A deployment that needs ACL
+enforcement MUST override `JmapBackend::principal_id` and implement
+each of the checks above; the workspace ships no production-grade
+reference impl.
+
 ## How it works
 
 ### Registration
