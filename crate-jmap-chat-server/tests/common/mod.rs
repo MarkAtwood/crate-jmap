@@ -1248,6 +1248,10 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///   [`ChatBackend::create_object`] call for type `Chat`, so the
 ///   handler's pre-create snapshot read succeeds and its post-create
 ///   race-detection re-fetch fails.
+/// - `(O::TYPE_NAME, "query")` — the next [`JmapBackend::query_objects`]
+///   call for type `O` returns `BackendQueryError::Method` carrying
+///   `unsupportedFilter` with description
+///   [`INJECTED_QUERY_METHOD_ERROR_DESCRIPTION`] (RFC 8620 §5.5).
 /// - `("Message", "read_and_burn")` — fails the next
 ///   [`ChatBackend::read_and_burn_message`] call.
 /// - [`InjectableBackend::queue_chat_race_phantom`] — after the next
@@ -1261,6 +1265,11 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///
 /// Other `(type, op)` pairs are not currently honored; extend this
 /// wrapper if a new redaction-canary site lands.
+/// Description of the `unsupportedFilter` an injected `"query"` fault
+/// returns; the handler's own `unsupportedFilter` carries no description,
+/// so seeing this text proves the backend's error passed through.
+pub const INJECTED_QUERY_METHOD_ERROR_DESCRIPTION: &str = "backend cannot process this filter";
+
 pub struct InjectableBackend {
     pub inner: MemoryBackend,
     failures:
@@ -1408,6 +1417,11 @@ impl JmapBackend for InjectableBackend {
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        if self.take_fault(O::TYPE_NAME, "query") {
+            let mut err = jmap_types::JmapError::unsupported_filter();
+            err.description = Some(INJECTED_QUERY_METHOD_ERROR_DESCRIPTION.into());
+            return Err(BackendQueryError::Method(err));
+        }
         self.inner
             .query_objects::<O>(caller, account_id, params)
             .await
