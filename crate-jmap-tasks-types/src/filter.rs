@@ -101,7 +101,7 @@ pub struct TaskComparator {
 
     /// If true, sort ascending; if false, sort descending.
     /// Defaults to true per JMAP base §5.5.
-    #[serde(default = "default_ascending")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
 
     /// A collation identifier (RFC 4790) to use when comparing strings.
@@ -133,7 +133,7 @@ pub struct TaskNotificationComparator {
     pub property: TaskNotificationComparatorProperty,
 
     /// If true, sort ascending; if false, sort descending.
-    #[serde(default = "default_ascending")]
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
 
     /// A collation identifier (RFC 4790) to use when comparing strings.
@@ -165,6 +165,10 @@ impl TaskNotificationComparator {
     }
 }
 
-fn default_ascending() -> bool {
+fn bool_true() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }

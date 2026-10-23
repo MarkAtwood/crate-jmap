@@ -128,6 +128,11 @@ pub(crate) fn default_true() -> bool {
     true
 }
 
+/// Serde skip predicate pairing with [`default_true`]: omit a `true` value.
+pub(crate) fn is_true(b: &bool) -> bool {
+    *b
+}
+
 pub use backend::{
     ChatContactProperty, ChatProperty, CustomEmojiProperty, MessageProperty,
     PresenceStatusProperty, ReadPositionProperty, SpaceBanProperty, SpaceInviteProperty,

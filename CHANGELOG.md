@@ -1431,6 +1431,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** (wire): **jmap-calendars-types**, **jmap-chat-types**,
+  **jmap-contacts-types**, **jmap-filenode-types**, **jmap-sharing-types**
+  and **jmap-tasks-types** comparators omit `isAscending` when it is
+  `true`, as `EmailComparator` does; `false` is still sent and an absent
+  key still decodes as ascending (RFC 8620 §5.5 "default: true"). Byte
+  comparisons, snapshots or hashes of an ascending sort change (bd
+  JMAP-18qe).
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
   **jmap-tasks-server**, **jmap-sharing-server**, **jmap-scene-server**,
   **jmap-vtc-server**, **jmap-graph-server**, **jmap-chat-mimi-server**:
