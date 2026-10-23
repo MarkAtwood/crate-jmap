@@ -56,9 +56,10 @@ async fn filenode_set_create_without_type_is_rejected() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
-        .await
-        .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return top-level error");
 
     assert!(
         resp["created"].is_null(),
@@ -98,9 +99,10 @@ async fn filenode_set_create_file_requires_blobid() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
-        .await
-        .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return top-level error");
 
     let not_created = &resp["notCreated"];
     assert!(
@@ -138,9 +140,10 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
         "destroy": ["leaf-1"]
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
-        .await
-        .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return top-level error");
 
     let destroyed = resp["destroyed"]
         .as_array()
@@ -178,9 +181,10 @@ async fn filenode_set_destroy_parent_node_has_children() {
         "destroy": ["parent-1"]
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
-        .await
-        .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return top-level error");
 
     assert!(
         resp["destroyed"].is_null(),
@@ -217,9 +221,10 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
         "destroy": ["parent-2"]
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
-        .await
-        .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return top-level error");
 
     let destroyed = resp["destroyed"]
         .as_array()
@@ -267,9 +272,10 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
         "destroy": ["A", "B"]
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
-        .await
-        .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return top-level error");
 
     let not_destroyed = resp["notDestroyed"]
         .as_object()
@@ -334,9 +340,10 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
         "destroy": ["FA", "FB", "FC"]
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), args)
-        .await
-        .expect("set must not return top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return top-level error");
 
     let destroyed = resp["destroyed"]
         .as_array()
@@ -380,7 +387,7 @@ async fn filenode_get_returns_created_node() {
     });
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_filenode_set(&backend, &(), set_args)
+    } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), set_args)
         .await
         .expect("set must succeed");
 
@@ -432,6 +439,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -448,9 +456,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
         .to_owned();
 
     // Create a child under the parent.
-    let HandlerOutput { primary: child_resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: child_resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -515,6 +521,7 @@ async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": {
@@ -594,6 +601,7 @@ async fn filenode_query_depth_one_returns_children() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -613,6 +621,7 @@ async fn filenode_query_depth_one_returns_children() {
     handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -685,6 +694,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -774,6 +784,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -794,6 +805,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -813,9 +825,7 @@ async fn filenode_set_create_replace_with_remove_children_cascades() {
     // onDestroyRemoveChildren=true, the existing "shared_name" directory
     // (which has children) MUST be destroyed along with its descendants,
     // and the new node MUST be created.
-    let HandlerOutput { primary: replace_resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: replace_resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onDestroyRemoveChildren": true,
@@ -867,6 +877,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -884,6 +895,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
     let _ = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -896,9 +908,7 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
 
     // Attempt replace without onDestroyRemoveChildren=true: MUST return
     // nodeHasChildren (the no-cascade guard is preserved).
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "replace",
@@ -940,9 +950,7 @@ async fn create_node(
     parent_id: Option<&str>,
     create_id: &str,
 ) -> String {
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        backend,
-        &(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": account,
             "create": {
@@ -2027,9 +2035,7 @@ async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
 async fn filenode_query_role_filter_excludes_non_matching() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    handle_filenode_set(
-        &backend,
-        &(),
+    handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2113,6 +2119,7 @@ async fn filenode_set_state_advances_on_successful_create() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2150,6 +2157,7 @@ async fn filenode_set_state_stays_when_all_creates_fail() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2196,9 +2204,7 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
     // without blobId (will fail with invalidProperties). State must
     // advance exactly once — not zero (one create succeeded), not
     // twice (the per-failed-target is not a mutation).
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2311,6 +2317,7 @@ async fn filenode_set_on_exists_newest_incoming_wins() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "newest",
@@ -2359,6 +2366,7 @@ async fn filenode_set_on_exists_newest_existing_wins() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "newest",
@@ -2405,6 +2413,7 @@ async fn filenode_set_on_exists_newest_both_missing_modified() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "newest",
@@ -2508,6 +2517,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2525,6 +2535,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
     let _ = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2540,6 +2551,7 @@ async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "newest",
@@ -2581,6 +2593,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2601,6 +2614,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
     } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -2620,6 +2634,7 @@ async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "newest",
@@ -2677,6 +2692,7 @@ async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": "newest",
@@ -2765,6 +2781,7 @@ async fn filenode_set_unsupported_type_description_names_values() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": { "c1": { "@type": "directory", "name": "d" } }
@@ -2801,6 +2818,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": { "l": { "@type": "SymLink", "name": "l", "target": ["d"] } }
@@ -2816,6 +2834,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": {
@@ -2855,6 +2874,7 @@ async fn filenode_set_update_ignores_null_other_type_properties() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": {
@@ -2891,6 +2911,7 @@ async fn filenode_set_update_rejects_other_type_pointer_key() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": { &dir_id: { "mediaType/x": "text/plain" } }
@@ -2920,6 +2941,7 @@ async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": {
@@ -2954,6 +2976,7 @@ async fn filenode_set_update_rejects_type_change() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": { &dir_id: { "@type": "SymLink" } }
@@ -2994,6 +3017,7 @@ async fn assert_invalid_create_keeps_existing(on_exists: &str) {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "onExists": on_exists,
@@ -3052,9 +3076,7 @@ async fn filenode_set_create_invalid_newest_keeps_existing() {
 async fn filenode_set_create_rejects_other_type_property() {
     let backend = MemoryBackend::new().with_account("acc1");
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -3081,6 +3103,7 @@ async fn filenode_set_create_ignores_null_other_type_property() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -3133,6 +3156,7 @@ async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "create": create }),
     )
     .await
@@ -3165,6 +3189,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": { id: { "modified": null, "accessed": null } }
@@ -3220,6 +3245,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
     )
     .await
@@ -3256,6 +3282,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { &id: { "name": null } } }),
     )
     .await
@@ -3306,6 +3333,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
     )
     .await
@@ -3400,6 +3428,7 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": update }),
     )
     .await
@@ -3448,6 +3477,7 @@ async fn filenode_query_space_id_returns_only_matching_space_root() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -3506,6 +3536,7 @@ async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -3540,6 +3571,7 @@ async fn filenode_set_create_space_id_on_non_root_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -3578,6 +3610,7 @@ async fn filenode_set_update_space_id_rejected() {
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
         )
         .await
@@ -3600,6 +3633,7 @@ async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { "d1": { "spaceId": "S1" } } }),
     )
     .await
@@ -3619,6 +3653,7 @@ async fn filenode_set_update_role_off_space_root_rejected() {
         let HandlerOutput { primary: resp, .. } = handle_filenode_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
         )
         .await
@@ -3649,6 +3684,7 @@ async fn filenode_set_update_role_to_chatspace_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1", "update": { "d1": { "role": "chatspace" } } }),
     )
     .await
@@ -3676,6 +3712,7 @@ async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": "acc1",
                 "update": { root.clone(): { "role": "chatspace", "name": "renamed" } } }),
     )
@@ -3703,9 +3740,7 @@ async fn filenode_query_evaluates_operator_tree() {
 
     let HandlerOutput {
         primary: set_resp, ..
-    } = handle_filenode_set(
-        &backend,
-        &(),
+    } = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "create": {

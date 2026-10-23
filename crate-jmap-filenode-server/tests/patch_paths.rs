@@ -66,6 +66,7 @@ async fn assert_invalid_patch(bad_patch: Value, ok_patch: Value) {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "acc1",
             "update": { "bad": bad_patch, "ok": ok_patch }

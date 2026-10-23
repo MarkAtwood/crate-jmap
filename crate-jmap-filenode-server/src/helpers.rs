@@ -107,3 +107,90 @@ where
 pub(crate) fn set_error_value(e: &jmap_server::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
+
+/// Resolve an Id-typed property value that may be a `#creationId`
+/// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
+///
+/// A literal id is returned unchanged; its validation stays with the
+/// caller.
+///
+/// # Errors
+///
+/// A boxed `invalidProperties` [`crate::SetError`] naming `property` when
+/// the reference matches no record created earlier in the request.
+pub(crate) fn resolve_ref(
+    raw: &str,
+    property: &str,
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+) -> Result<jmap_types::Id, Box<crate::SetError>> {
+    jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
+        Box::new(
+            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+                .with_properties([property])
+                .with_description(
+                    "creation id reference matches no record created earlier in this request",
+                ),
+        )
+    })
+}
+
+/// Rewrite each top-level `props` value of `obj`, a create or an update
+/// patch, that is a `#creationId` reference to the id it names, through
+/// [`resolve_ref`]. Other values are left for the caller to validate.
+///
+/// # Errors
+///
+/// As [`resolve_ref`], for the first unresolvable property.
+pub(crate) fn resolve_refs(
+    obj: &mut serde_json::Value,
+    props: &[&str],
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+) -> Result<(), Box<crate::SetError>> {
+    let Some(m) = obj.as_object_mut() else {
+        return Ok(());
+    };
+    for p in props {
+        if let Some(serde_json::Value::String(raw)) = m.get_mut(*p) {
+            *raw = resolve_ref(raw, p, created_ids)?.as_ref().to_owned();
+        }
+    }
+    Ok(())
+}
+
+/// Order a `/set` create map so each create whose `property` is `#k`
+/// comes after the create `k` of the same call, as RFC 8620 §5.3 requires
+/// for "records with references to the same type". A cycle or a
+/// self-reference keeps its map order and fails reference resolution.
+///
+/// ponytail: repeated passes, O(n^2) in the create count, which
+/// `maxObjectsInSet` bounds; a topological sort is the upgrade path.
+pub(crate) fn parents_first(
+    creates: serde_json::Map<String, serde_json::Value>,
+    property: &str,
+) -> Vec<(String, serde_json::Value)> {
+    let keys: std::collections::BTreeSet<String> = creates.keys().cloned().collect();
+    let mut pending: Vec<(String, serde_json::Value)> = creates.into_iter().collect();
+    let mut ordered: Vec<(String, serde_json::Value)> = Vec::with_capacity(pending.len());
+    loop {
+        let before = pending.len();
+        let (waiting, ready): (Vec<_>, Vec<_>) = std::mem::take(&mut pending)
+            .into_iter()
+            .partition(|(create_id, props)| {
+                props
+                    .get(property)
+                    .and_then(serde_json::Value::as_str)
+                    .and_then(|p| p.strip_prefix('#'))
+                    .is_some_and(|parent| {
+                        parent != create_id.as_str()
+                            && keys.contains(parent)
+                            && !ordered.iter().any(|(done, _)| done.as_str() == parent)
+                    })
+            });
+        ordered.extend(ready);
+        pending = waiting;
+        if pending.is_empty() || pending.len() == before {
+            ordered.extend(pending);
+            return ordered;
+        }
+    }
+}

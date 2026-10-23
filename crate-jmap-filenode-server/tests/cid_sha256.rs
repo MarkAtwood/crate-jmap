@@ -28,9 +28,10 @@ fn digest(hex: &str) -> Sha256 {
 }
 
 async fn set(backend: &MemoryBackend, args: Value) -> Value {
-    let HandlerOutput { primary, .. } = handle_filenode_set(backend, &(), args)
-        .await
-        .expect("set must not return a top-level error");
+    let HandlerOutput { primary, .. } =
+        handle_filenode_set(backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("set must not return a top-level error");
     primary
 }
 
