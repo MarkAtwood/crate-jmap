@@ -50,7 +50,7 @@ use serde_json::{Value, json};
 use crate::FileNodeBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
-    parents_first, resolve_refs, set_error_value,
+    parents_first, resolve_refs,
 };
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
@@ -203,10 +203,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
                     // FileNode is plain data with derive(Serialize): no
                     // non-string map keys, no custom serializers that can
                     // fail, so to_value cannot return Err.
-                    list.push(
-                        serde_json::to_value(&ancestor)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    list.push(jmap_server::serialize_value(&ancestor)?);
                 }
             }
         }
@@ -498,11 +495,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             .map_err(|e| server_fail_from_backend(&e))?;
         for (create_id, mut obj_val) in parents_first(create_map, "parentId") {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<FileNode>) {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             if let Err(err) = resolve_refs(&mut obj_val, FILENODE_ID_PROPERTIES, &created_ids) {
-                not_created.insert(create_id, set_error_value(&err));
+                not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             // `FileNode.id` is required, so the parse fills it with "",
@@ -863,8 +860,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 Ok((new_id, created_obj)) => {
                     mutated = true;
                     created_ids.insert(Id::from(create_id.as_str()), new_id);
-                    let mut value = serde_json::to_value(&created_obj)
-                        .expect("derive(Serialize) on plain data is infallible");
+                    let mut value = jmap_server::serialize_value(&created_obj)?;
                     // draft-ietf-jmap-filenode-16 §3.2.3 lines 687-690:
                     // "If the server changes the name, it MUST include
                     // the new 'name' value in the created or updated
@@ -903,12 +899,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, set_error_value(&err));
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
             if let Err(err) = resolve_refs(&mut patch_val, FILENODE_ID_PROPERTIES, &created_ids) {
-                not_updated.insert(id_str, set_error_value(&err));
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -1015,7 +1011,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     if let Some(err) =
                         reject_read_only_patch::<FileNode>(patch.as_map(), current.as_ref())
                     {
-                        not_updated.insert(id_str, set_error_value(&err));
+                        not_updated.insert(id_str, serde_json::Value::from(&err));
                         continue;
                     }
                     // draft-atwood-jmap-chat-filenode-00 §Creating the File
@@ -1112,7 +1108,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     {
                         Ok(id) => id,
                         Err(err) => {
-                            not_updated.insert(id_str, set_error_value(&err));
+                            not_updated.insert(id_str, serde_json::Value::from(&*err));
                             continue;
                         }
                     };
@@ -1167,7 +1163,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     let blob_id = match jmap_server::parse_wire_id(blob_id, "blobId") {
                         Ok(id) => id,
                         Err(err) => {
-                            not_updated.insert(id_str, set_error_value(&err));
+                            not_updated.insert(id_str, serde_json::Value::from(&*err));
                             continue;
                         }
                     };
@@ -1193,11 +1189,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 // RFC 8620 §5.3: the updated entry carries any property
                 // "that changed that were not explicitly requested by the
@@ -1251,7 +1243,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, set_error_value(&err));
+                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -1530,7 +1522,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             let source_id = match jmap_server::parse_wire_id(source_id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_copied.insert(create_id, set_error_value(&err));
+                    not_copied.insert(create_id, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -1926,8 +1918,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    let mut value = serde_json::to_value(&created_obj)
-                        .expect("derive(Serialize) on plain data is infallible");
+                    let mut value = jmap_server::serialize_value(&created_obj)?;
                     // §3.2.3 lines 687-690 MUST: enforce the renamed
                     // name in the response regardless of whether the
                     // backend echoed it.
@@ -2115,11 +2106,12 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 ///
 /// Returns the merged FileNode on success. On a malformed override
 /// (e.g. wrong-shape `role`, malformed `nodeType`), returns an
-/// `invalidProperties`-shaped error Value suitable for `notCreated`.
+/// `invalidProperties`-shaped error Value suitable for `notCreated`; a
+/// serializer failure on `source` returns a `serverFail` Value instead.
 fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<FileNode, Value> {
     // Serialize the source into a mutable Value map.
     let mut merged =
-        serde_json::to_value(&source).expect("derive(Serialize) on FileNode is infallible");
+        jmap_server::serialize_value(&source).map_err(|e| server_fail_value_from_backend(&e))?;
 
     let map = merged
         .as_object_mut()
