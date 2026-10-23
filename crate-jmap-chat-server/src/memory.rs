@@ -177,6 +177,8 @@ struct Inner {
     /// Space id → that Space's `@everyone` permissions.
     /// Set via [`MemoryBackend::set_space_everyone_permissions`].
     space_everyone_permissions: HashMap<String, HashSet<ChatPermission>>,
+    /// Source of every id this backend assigns; see [`Inner::mint_id`].
+    ids: ulid::Generator,
 }
 
 /// One lifecycle callback received by the [`MemoryBackend`], as
@@ -193,6 +195,21 @@ pub enum LifecycleEvent {
 }
 
 impl Inner {
+    /// A fresh ULID, greater than every id minted before it.
+    ///
+    /// The draft assigns ULIDs to Chats (L570), Messages (L675), Roles
+    /// and Categories (§Space/set `addRoles` / `addCategories`: "Server
+    /// assigns ULIDs"), and `unreadCount` / `unreadReplyCount` compare
+    /// Message ids lexicographically. A monotonic generator keeps that
+    /// order for ids minted within the same millisecond.
+    fn mint_id(&mut self) -> Id {
+        let ulid = self
+            .ids
+            .generate()
+            .expect("80 random ULID bits cannot overflow within one millisecond in practice");
+        Id::from(ulid.to_string())
+    }
+
     /// The `@everyone` permissions of Space `space_id`.
     fn everyone_for(&self, space_id: &str) -> &HashSet<ChatPermission> {
         self.space_everyone_permissions
@@ -1037,10 +1054,7 @@ impl ChatBackend for MemoryBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&Id) -> O + Send,
     {
-        // ponytail: uuid v4 like canonical jmap-mail-server. The draft wants
-        // ULIDs (time-ordered, so `unreadCount` and ordered retrieval can
-        // compare ids); uuid v4 is not ordered. A production backend mints ULIDs.
-        let server_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let server_id = self.inner.lock().unwrap().mint_id();
         let stored_obj = build(&server_id);
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
@@ -1987,7 +2001,7 @@ impl PushSubscriptionBackend for MemoryBackend {
                 )),
             )));
         }
-        let id = Id::from(uuid::Uuid::new_v4().to_string());
+        let id = inner.mint_id();
         new.id = Some(id.clone());
         let stored = StoredPushSubscription {
             subscription: new,
@@ -2716,8 +2730,8 @@ fn apply_category_op(
     let assigned_id = match op {
         SpacePatchOp::AddCategory(cat) => {
             // Mint a fresh CategoryId (draft §Space/set `addCategories`:
-            // "Server assigns ULIDs"); see `create_object` for the uuid v4 ceiling.
-            let new_id = Id::from(uuid::Uuid::new_v4().to_string());
+            // "Server assigns ULIDs").
+            let new_id = inner.mint_id();
             // The draft leaves the default `position` open; an entry without
             // one is appended after the highest existing category position.
             let position = cat.position.unwrap_or_else(|| {
@@ -3053,7 +3067,7 @@ fn apply_add_channel(
     }
 
     // Mint a fresh channel Chat id.
-    let new_id = Id::from(uuid::Uuid::new_v4().to_string());
+    let new_id = inner.mint_id();
 
     // Build the channel JSON. Required fields per `Chat`:
     //   id, kind, createdAt, unreadCount, pinnedMessageIds, muted,
@@ -3503,9 +3517,9 @@ fn apply_add_role(
     };
 
     // Mint a fresh RoleId (draft §Space/set `addRoles`: "Server assigns
-    // ULIDs"); see `create_object` for the uuid v4 ceiling. Inserting it
-    // after serializing overrides any client `id` carried in `extra`.
-    let new_id = Id::from(uuid::Uuid::new_v4().to_string());
+    // ULIDs"). Inserting it after serializing overrides any client `id`
+    // carried in `extra`.
+    let new_id = inner.mint_id();
     let mut stored = serde_json::to_value(&role).map_err(|e| {
         SetError::new(SetErrorType::Forbidden)
             .with_description(format!("internal: serialize RoleCreate: {e}"))

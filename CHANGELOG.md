@@ -3309,6 +3309,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: `MemoryBackend` assigns monotonic ULIDs, not
+  uuid v4, to every object it creates (Chats, Messages, Roles,
+  Categories, channels, push subscriptions), so `unreadCount` and
+  `unreadReplyCount`, which compare Message ids lexicographically, are
+  correct for server-created Messages (draft-atwood-jmap-chat-00 L675:
+  "Message IDs are ULIDs [...] lexicographically ordered by time"; L570
+  for Chats). The `memory` feature now depends on `ulid` instead of
+  `uuid` (bd JMAP-nls1).
 - **jmap-chat-server**: **BREAKING** `Space/set` create rejects a key
   that is neither a client-settable Space property nor a registered
   `space_extension_properties` key with an `invalidProperties` SetError
