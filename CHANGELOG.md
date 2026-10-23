@@ -429,6 +429,13 @@ wire behaviour that a conforming peer can observe.
   and `FileNode/copy` report a `Some` result in each `created` entry
   (RFC 8620 §5.3); there an `Err` leaves the create standing and the
   entry reports the stored `myRights`.
+- **jmap-filenode-server**: `FileNodeBackend::find_unique_name` picks
+  the `onExists: "rename"` name for `FileNode/set` and `FileNode/copy`.
+  The default keeps the old loop: up to 100 sequential
+  `find_sibling_by_name` calls. `MemoryBackend` overrides it with one
+  sibling scan and has no attempt cap. When the backend finds no name,
+  the error description is now "backend found no unique name" (bd
+  JMAP-510h.16).
 - **jmap-chat-filenode-server**: a deployment returns `space_files_rights`
   from `FileNodeBackend::files_rights`, so `FileNode/get`, `FileNode/set`
   and `FileNode/copy` report the §Permission Mapping rights without

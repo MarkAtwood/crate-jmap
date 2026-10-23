@@ -629,6 +629,44 @@ pub trait FileNodeBackend: JmapBackend {
         folding: CaseFolding,
     ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
 
+    /// Returns a name of the form `{base_name}-{n}` (`n >= 1`) that no
+    /// sibling under `parent_id` has under `folding`, or `None` if the
+    /// backend gives up.
+    ///
+    /// `FileNode/set` and `FileNode/copy` call this for `onExists`
+    /// `"rename"`. `draft-ietf-jmap-filenode-16` §3.2.3 leaves the algorithm
+    /// to the server ("using an algorithm of its choice"); on `None` the
+    /// handler reports the create as failed.
+    ///
+    /// # Default implementation
+    ///
+    /// Tries `n = 1..=100` in order, one [`Self::find_sibling_by_name`] call
+    /// each, and returns `None` if all 100 collide. Backends that can list a
+    /// directory's names in one query SHOULD override this to avoid up to
+    /// 100 sequential round-trips per create.
+    fn find_unique_name(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        parent_id: Option<&jmap_types::Id>,
+        base_name: &str,
+        folding: CaseFolding,
+    ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
+        async move {
+            for suffix in 1_u32..=100 {
+                let candidate = format!("{base_name}-{suffix}");
+                if self
+                    .find_sibling_by_name(caller, account_id, parent_id, &candidate, folding)
+                    .await?
+                    .is_none()
+                {
+                    return Ok(Some(candidate));
+                }
+            }
+            Ok(None)
+        }
+    }
+
     /// Return all FileNode IDs in the subtree rooted at any node in `root_ids`,
     /// up to `max_depth` levels deep.
     ///

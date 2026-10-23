@@ -363,7 +363,7 @@ enum OnExists {
     Reject,
     /// `"replace"` — destroy the existing node and create the new one.
     Replace,
-    /// `"rename"` — find a non-colliding name by appending a counter suffix.
+    /// `"rename"` — take the name from [`FileNodeBackend::find_unique_name`].
     Rename,
     /// `"newest"` — compare modified timestamps; replace only if incoming is
     /// strictly later, otherwise reject with `alreadyExists`.
@@ -711,47 +711,32 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 // Fall through to create the new node.
                             }
                             OnExists::Rename => {
-                                // Find a non-colliding name by appending a counter suffix.
-                                let mut renamed = false;
-                                let mut rename_error = false;
-                                for suffix in 1_u32..=100 {
-                                    let candidate = format!("{node_name}-{suffix}");
-                                    match backend
-                                        .find_sibling_by_name(
-                                            caller,
-                                            &account_id,
-                                            parent_id_for_collision.as_ref(),
-                                            &candidate,
-                                            case_folding,
-                                        )
-                                        .await
-                                    {
-                                        Ok(None) => {
-                                            node.name = candidate.clone();
-                                            renamed_to = Some(candidate);
-                                            renamed = true;
-                                            break;
-                                        }
-                                        Ok(Some(_)) => continue,
-                                        Err(e) => {
-                                            not_created.insert(
-                                                create_id.clone(),
-                                                server_fail_value_from_backend(&e),
-                                            );
-                                            rename_error = true;
-                                            break;
-                                        }
+                                match backend
+                                    .find_unique_name(
+                                        caller,
+                                        &account_id,
+                                        parent_id_for_collision.as_ref(),
+                                        &node_name,
+                                        case_folding,
+                                    )
+                                    .await
+                                {
+                                    Ok(Some(candidate)) => {
+                                        node.name = candidate.clone();
+                                        renamed_to = Some(candidate);
                                     }
-                                }
-                                if rename_error {
-                                    continue;
-                                }
-                                if !renamed {
-                                    not_created.insert(
-                                        create_id,
-                                        json!({ "type": "serverFail", "description": "could not find unique name after 100 attempts" }),
-                                    );
-                                    continue;
+                                    Ok(None) => {
+                                        not_created.insert(
+                                            create_id,
+                                            json!({ "type": "serverFail", "description": "backend found no unique name" }),
+                                        );
+                                        continue;
+                                    }
+                                    Err(e) => {
+                                        not_created
+                                            .insert(create_id, server_fail_value_from_backend(&e));
+                                        continue;
+                                    }
                                 }
                                 // Fall through to create the renamed node.
                             }
@@ -1786,52 +1771,35 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             // Fall through to create the new node.
                         }
                         OnExists::Rename => {
-                            // Find a non-colliding name by appending a
-                            // counter suffix; matches handle_filenode_set's
-                            // 100-attempt bound.
-                            let mut renamed = false;
-                            let mut rename_error = false;
-                            for suffix in 1_u32..=100 {
-                                let candidate = format!("{node_name}-{suffix}");
-                                match backend
-                                    .find_sibling_by_name(
-                                        caller,
-                                        &account_id,
-                                        parent_id_for_collision.as_ref(),
-                                        &candidate,
-                                        case_folding,
-                                    )
-                                    .await
-                                {
-                                    Ok(None) => {
-                                        source_node.name = candidate.clone();
-                                        renamed_to = Some(candidate);
-                                        renamed = true;
-                                        break;
-                                    }
-                                    Ok(Some(_)) => continue,
-                                    Err(e) => {
-                                        not_copied.insert(
-                                            create_id.clone(),
-                                            server_fail_value_from_backend(&e),
-                                        );
-                                        rename_error = true;
-                                        break;
-                                    }
+                            match backend
+                                .find_unique_name(
+                                    caller,
+                                    &account_id,
+                                    parent_id_for_collision.as_ref(),
+                                    &node_name,
+                                    case_folding,
+                                )
+                                .await
+                            {
+                                Ok(Some(candidate)) => {
+                                    source_node.name = candidate.clone();
+                                    renamed_to = Some(candidate);
                                 }
-                            }
-                            if rename_error {
-                                continue;
-                            }
-                            if !renamed {
-                                not_copied.insert(
-                                    create_id,
-                                    json!({
-                                        "type": "alreadyExists",
-                                        "description": "no available name within 100 rename attempts",
-                                    }),
-                                );
-                                continue;
+                                Ok(None) => {
+                                    not_copied.insert(
+                                        create_id,
+                                        json!({
+                                            "type": "alreadyExists",
+                                            "description": "backend found no unique name",
+                                        }),
+                                    );
+                                    continue;
+                                }
+                                Err(e) => {
+                                    not_copied
+                                        .insert(create_id, server_fail_value_from_backend(&e));
+                                    continue;
+                                }
                             }
                         }
                         OnExists::Newest => {
@@ -4699,6 +4667,37 @@ mod tests {
             name, "foo-1",
             "rename MUST surface the renamed name in created.c1 (§3.2.3): {resp}"
         );
+    }
+
+    /// `FaultyBackend` does not override `find_unique_name`, so this runs
+    /// the trait's default: candidates "foo-1" through "foo-100", then give
+    /// up. With "foo" and all 100 candidates taken the create fails with
+    /// `serverFail` instead of picking a colliding name (draft-ietf-jmap-
+    /// filenode-16 §3.2.3: the new name must "not clash").
+    #[tokio::test]
+    async fn set_create_rename_default_impl_gives_up_after_100() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("existing-0", None, "foo"));
+        for n in 1..=100 {
+            backend.seed_node(
+                "acc1",
+                make_filenode(&format!("existing-{n}"), None, &format!("foo-{n}")),
+            );
+        }
+
+        let args = json!({
+            "accountId": "acc1",
+            "onExists": "rename",
+            "create": {
+                "c1": { "@type": "Directory", "name": "foo", "parentId": null, "role": null }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("must not return top-level error");
+        assert_eq!(resp["notCreated"]["c1"]["type"], "serverFail", "{resp}");
+        assert!(resp["created"].is_null(), "{resp}");
     }
 
     /// Oracle: draft-ietf-jmap-filenode-16 §3.2.3 lines 687-690 — "If
