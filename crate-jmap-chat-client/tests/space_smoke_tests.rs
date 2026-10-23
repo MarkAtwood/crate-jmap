@@ -13,8 +13,9 @@
 mod helpers;
 
 use helpers::{
-    SPACE_STATE_NEW, SPACE_STATE_OLD, TEST_ACCOUNT_ID, jmap_response, mock_jmap_post,
-    recorded_args, recorded_body, set_destroy_response, set_response,
+    QUERY_STATE_NEW, QUERY_STATE_OLD, SPACE_STATE_NEW, SPACE_STATE_OLD, TEST_ACCOUNT_ID,
+    TEST_SPACE_ID, jmap_response, mock_jmap_post, recorded_args, recorded_body,
+    set_destroy_response, set_response,
 };
 use jmap_types::{Id, State};
 use serde_json::json;
@@ -29,7 +30,7 @@ async fn space_get_omits_ids_and_properties_when_none() {
         "Space/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "sp-state-1",
+            "state": SPACE_STATE_OLD,
             "list": [],
             "notFound": []
         }),
@@ -88,10 +89,10 @@ async fn space_get_decodes_populated_space() {
         "Space/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "sp-state-2",
+            "state": SPACE_STATE_NEW,
             "list": [
                 {
-                    "id": "space-1",
+                    "id": TEST_SPACE_ID,
                     "name": "Engineering",
                     "description": "Engineering team space",
                     "roles": [
@@ -140,11 +141,11 @@ async fn space_get_decodes_populated_space() {
         TEST_ACCOUNT_ID,
         "accountId mismatch"
     );
-    assert_eq!(resp.state, "sp-state-2", "state mismatch");
+    assert_eq!(resp.state, SPACE_STATE_NEW, "state mismatch");
     assert_eq!(resp.list.len(), 1, "list must contain exactly one Space");
 
     let space = &resp.list[0];
-    assert_eq!(space.id.as_ref(), "space-1", "id mismatch");
+    assert_eq!(space.id.as_ref(), TEST_SPACE_ID, "id mismatch");
     assert_eq!(space.name, "Engineering", "name mismatch");
     assert_eq!(
         space.description.as_deref(),
@@ -227,8 +228,8 @@ async fn space_changes_passthrough() {
         "Space/changes",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldState": "sp-old",
-            "newState": "sp-new",
+            "oldState": SPACE_STATE_OLD,
+            "newState": SPACE_STATE_NEW,
             "hasMoreChanges": false,
             "created": [],
             "updated": [],
@@ -238,14 +239,18 @@ async fn space_changes_passthrough() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("sp-old");
+    let since = State::from(SPACE_STATE_OLD);
     let _ = sc
         .space_changes(&since, Some(25))
         .await
         .expect("space_changes: must succeed");
 
     let args = recorded_args(&server).await;
-    assert_eq!(args["sinceState"], json!("sp-old"), "sinceState mismatch");
+    assert_eq!(
+        args["sinceState"],
+        json!(SPACE_STATE_OLD),
+        "sinceState mismatch"
+    );
     assert_eq!(args["maxChanges"], json!(25), "maxChanges mismatch");
 }
 
@@ -333,7 +338,7 @@ async fn space_query_empty_filter_sends_null() {
         "Space/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "sq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
             "ids": []
@@ -370,7 +375,7 @@ async fn space_query_filter_is_public_serializes() {
         "Space/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "sq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
             "ids": []
@@ -407,8 +412,8 @@ async fn space_query_changes_since_state_passthrough() {
         "Space/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "sqc-old",
-            "newQueryState": "sqc-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": null,
             "removed": [],
             "added": []
@@ -417,7 +422,7 @@ async fn space_query_changes_since_state_passthrough() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("sqc-old");
+    let since = State::from(QUERY_STATE_OLD);
     let _ = sc
         .space_query_changes(
             &since,
@@ -433,7 +438,7 @@ async fn space_query_changes_since_state_passthrough() {
     let args = recorded_args(&server).await;
     assert_eq!(
         args["sinceQueryState"],
-        json!("sqc-old"),
+        json!(QUERY_STATE_OLD),
         "sinceQueryState mismatch"
     );
     assert_eq!(args["maxChanges"], json!(50), "maxChanges mismatch");
@@ -610,12 +615,12 @@ async fn space_update_patch_full_member_management_serialises() {
         "Space/set",
         SPACE_STATE_OLD,
         SPACE_STATE_NEW,
-        json!({ "updated": { "space-1": null } }),
+        json!({ "updated": { TEST_SPACE_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let space_id = Id::from("space-1");
+    let space_id = Id::from(TEST_SPACE_ID);
     let new_member_id = Id::from("u-alice");
     let new_member_role = Id::from("role-admin");
     let role_ids = [new_member_role.clone()];
@@ -650,7 +655,7 @@ async fn space_update_patch_full_member_management_serialises() {
         .expect("space_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["space-1"];
+    let patch_obj = &args["update"][TEST_SPACE_ID];
     assert_eq!(patch_obj["name"], json!("Engineering"), "name mismatch");
     assert_eq!(
         patch_obj["description"],
@@ -691,12 +696,12 @@ async fn space_update_empty_member_slices_omit_keys() {
         "Space/set",
         SPACE_STATE_OLD,
         SPACE_STATE_NEW,
-        json!({ "updated": { "space-1": null } }),
+        json!({ "updated": { TEST_SPACE_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let space_id = Id::from("space-1");
+    let space_id = Id::from(TEST_SPACE_ID);
     let empty_add: [jmap_chat_client::SpaceAddMemberInput<'_>; 0] = [];
     let empty_remove: [Id; 0] = [];
     let patch = jmap_chat_client::SpacePatch {
@@ -711,7 +716,7 @@ async fn space_update_empty_member_slices_omit_keys() {
         .expect("space_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["space-1"];
+    let patch_obj = &args["update"][TEST_SPACE_ID];
     assert_eq!(patch_obj["name"], json!("Just renaming"));
     assert!(
         patch_obj.get("addMembers").is_none(),
@@ -736,8 +741,8 @@ async fn space_query_changes_with_filter_sort_upto_calculatetotal() {
         "Space/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": 0,
             "removed": [],
             "added": []
@@ -746,7 +751,7 @@ async fn space_query_changes_with_filter_sort_upto_calculatetotal() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("qs-old");
+    let since = State::from(QUERY_STATE_OLD);
     let up_to = Id::from("SP-100");
     let mut cond = jmap_chat_types::SpaceFilterCondition::default();
     cond.is_public = Some(true);
@@ -800,8 +805,8 @@ async fn space_query_changes_all_none_omits_optional_wire_keys() {
         "Space/queryChanges",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "oldQueryState": "qs-old",
-            "newQueryState": "qs-new",
+            "oldQueryState": QUERY_STATE_OLD,
+            "newQueryState": QUERY_STATE_NEW,
             "total": 0,
             "removed": [],
             "added": []
@@ -810,7 +815,7 @@ async fn space_query_changes_all_none_omits_optional_wire_keys() {
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let since = State::from("qs-old");
+    let since = State::from(QUERY_STATE_OLD);
     sc.space_query_changes(
         &since,
         None,
@@ -853,12 +858,12 @@ async fn space_update_roles_accept_all_color_representations() {
         "Space/set",
         SPACE_STATE_OLD,
         SPACE_STATE_NEW,
-        json!({ "updated": { "space-1": null } }),
+        json!({ "updated": { TEST_SPACE_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let space_id = Id::from("space-1");
+    let space_id = Id::from(TEST_SPACE_ID);
     let perms = ["send_messages"];
     let token = json!({ "$type": "color", "$value": {"colorSpace": "srgb", "components": [0.345, 0.396, 0.949], "hex": "#5865f2"} });
     let add_roles = [
@@ -916,7 +921,7 @@ async fn space_update_roles_accept_all_color_representations() {
         .expect("space_update: must succeed");
 
     let args = recorded_args(&server).await;
-    let patch_obj = &args["update"]["space-1"];
+    let patch_obj = &args["update"][TEST_SPACE_ID];
     assert_eq!(
         patch_obj["addRoles"],
         json!([
@@ -964,12 +969,12 @@ async fn space_update_channels_categories_roles_serialise() {
         "Space/set",
         SPACE_STATE_OLD,
         SPACE_STATE_NEW,
-        json!({ "updated": { "space-1": null } }),
+        json!({ "updated": { TEST_SPACE_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let space_id = Id::from("space-1");
+    let space_id = Id::from(TEST_SPACE_ID);
     let icon = Id::from("blob-icon");
     let cat_a = Id::from("cat-a");
     let ch_x = Id::from("ch-x");
@@ -1070,7 +1075,7 @@ async fn space_update_channels_categories_roles_serialise() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["space-1"],
+        args["update"][TEST_SPACE_ID],
         json!({
             "iconBlobId": "blob-icon",
             "isPubliclyPreviewable": false,
@@ -1118,7 +1123,7 @@ async fn space_update_channels_categories_roles_serialise() {
 async fn space_update_empty_entry_names_rejected_before_send() {
     let server = MockServer::start().await;
     let sc = helpers::make_client(&server);
-    let space_id = Id::from("space-1");
+    let space_id = Id::from(TEST_SPACE_ID);
 
     let channels = [jmap_chat_client::SpaceAddChannelInput {
         name: "",
@@ -1228,7 +1233,7 @@ async fn space_get_threads_ids_and_properties() {
         "Space/get",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "state": "sp-state-1",
+            "state": SPACE_STATE_OLD,
             "list": [],
             "notFound": ["space-a", "space-b"]
         }),
@@ -1265,7 +1270,7 @@ async fn space_query_sort_serializes_comparators() {
         "Space/query",
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "queryState": "sq-1",
+            "queryState": QUERY_STATE_OLD,
             "canCalculateChanges": true,
             "position": 0,
             "ids": []
@@ -1357,12 +1362,12 @@ async fn space_update_members_role_ids_and_nick_clear_serialise() {
         "Space/set",
         SPACE_STATE_OLD,
         SPACE_STATE_NEW,
-        json!({ "updated": { "space-1": null } }),
+        json!({ "updated": { TEST_SPACE_ID: null } }),
     );
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
-    let space_id = Id::from("space-1");
+    let space_id = Id::from(TEST_SPACE_ID);
     let member_id = Id::from("u-bob");
     let role_ids = [Id::from("role-mod"), Id::from("role-dev")];
     let update_members = [jmap_chat_client::SpaceUpdateMemberInput {
@@ -1382,7 +1387,7 @@ async fn space_update_members_role_ids_and_nick_clear_serialise() {
 
     let args = recorded_args(&server).await;
     assert_eq!(
-        args["update"]["space-1"],
+        args["update"][TEST_SPACE_ID],
         json!({
             "updateMembers": [
                 { "id": "u-bob", "roleIds": ["role-mod", "role-dev"], "nick": null }
