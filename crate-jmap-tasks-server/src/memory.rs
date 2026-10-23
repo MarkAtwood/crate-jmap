@@ -1152,6 +1152,32 @@ mod fixture_helper_tests {
         );
     }
 
+    /// A non-object value panics at the seed call instead of surfacing
+    /// later as an opaque deserialize error from get_objects.
+    #[test]
+    #[should_panic(expected = "must be a JSON object")]
+    fn seed_object_rejects_non_object_value() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "TaskList",
+            &Id::from("tl1"),
+            json!(42),
+        );
+    }
+
+    /// A value without an `id` field panics instead of storing a fixture
+    /// whose `id` is absent on read-back.
+    #[test]
+    #[should_panic(expected = "must contain an `id` string field")]
+    fn seed_object_rejects_value_without_id_field() {
+        MemoryBackend::new().seed_object(
+            &Id::from("acc1"),
+            "TaskList",
+            &Id::from("tl1"),
+            json!({"name": "Work"}),
+        );
+    }
+
     #[test]
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
