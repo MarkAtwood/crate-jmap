@@ -7,20 +7,23 @@
 //! subscription it returns from `list_push_subscriptions`, builds
 //! notifications with [`chat_state_change_for`], and builds the
 //! `ChatMessagePush` for each new inbound message with
-//! [`build_chat_message_push`] after [`should_push`] allows it, fitted to
-//! the platform size limit with [`fit_chat_message_push`].
+//! [`build_chat_message_push`] after [`should_push`] allows it, with the
+//! badge count from [`owner_unread_count`], fitted to the platform size
+//! limit with [`fit_chat_message_push`].
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use jmap_chat_types::{
     BodyType, BroadcastScope, Chat, ChatContact, ChatKind, ChatMessageEntry, ChatMessagePush,
-    ChatPushCapability, ChatPushConfig, Message, RichBody, Space, SpaceMember, UrgencyLevel,
+    ChatPushCapability, ChatPushConfig, Message, ReadPosition, RichBody, Space, SpaceMember,
+    UrgencyLevel,
 };
 use jmap_server::state_change_for;
 use jmap_types::{Id, PushSubscription, State, StateChange, UTCDate, Urgency};
 use serde_json::{Map, Value};
 
+use crate::chat::unread_count;
 use crate::{ChatBackend, SetError, SetErrorType};
 
 /// The `PushSubscription` property this extension adds.
@@ -277,6 +280,13 @@ pub struct BuiltPush {
 /// message was stored. §ChatMessagePush: "The server MUST set this field to
 /// the post-delivery state".
 ///
+/// `unread_count` becomes the payload's `unreadCount`, normally the
+/// value of [`owner_unread_count`] read after this message was stored.
+/// §ChatMessagePush: "The account owner's total unread message count
+/// across all non-muted Chats at the time this push was generated.
+/// Servers SHOULD include this for platforms that support atomic badge
+/// updates". `None` leaves it out.
+///
 /// The entry holds exactly the fields in `cfg.properties`, or the default
 /// set when it is absent. §ChatPushConfig: "The `properties` list is
 /// authoritative: the server returns exactly the requested fields." Each
@@ -311,6 +321,7 @@ pub fn build_chat_message_push(
     cap: &ChatPushCapability,
     owner: OwnerFlags,
     item: PushItem<'_>,
+    unread_count: Option<u64>,
 ) -> BuiltPush {
     let msg = item.message;
     let kind = item.chat.kind.clone();
@@ -390,9 +401,64 @@ pub fn build_chat_message_push(
     // exactly one entry for a single new message") and §Batching and Retry
     // prefers ("at most one `ChatMessagePush` per message"). The upgrade
     // path is batching, chunked by `maxMessagesPerPush`.
-    BuiltPush {
-        payload: ChatMessagePush::new(account_id.clone(), state, vec![entry]),
-        urgency,
+    let mut payload = ChatMessagePush::new(account_id.clone(), state, vec![entry]);
+    payload.unread_count = unread_count;
+    BuiltPush { payload, urgency }
+}
+
+/// The owner of `account_id`'s total unread message count across all
+/// non-muted Chats, for [`build_chat_message_push`].
+///
+/// draft-atwood-jmap-chat-push-00 §ChatMessagePush `unreadCount`: "The
+/// account owner's total unread message count across all non-muted Chats
+/// at the time this push was generated." Each Chat contributes its
+/// `unreadCount` as `Chat/get` reports it: the stored value when
+/// [`ChatBackend::maintains_unread_count`] is `true`, otherwise the count
+/// derived from the owner's ReadPosition (draft-atwood-jmap-chat-00
+/// §Chat `unreadCount`). A Chat is muted as in [`should_push`]: until
+/// `muteUntil` when it is set, otherwise when `muted` is `true`.
+///
+/// # Errors
+///
+/// Returns the backend's error if reading the Chats, Messages or
+/// ReadPositions fails.
+// ponytail: like Chat/get, a backend that does not maintain the count is
+// scanned in full (O(messages)) per call.
+pub async fn owner_unread_count<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+) -> Result<u64, B::Error> {
+    let (chats, _) = backend
+        .get_objects::<Chat>(caller, account_id, None, None)
+        .await?;
+    let derived = if backend.maintains_unread_count() {
+        None
+    } else {
+        let (messages, _) = backend
+            .get_objects::<Message>(caller, account_id, None, None)
+            .await?;
+        let (positions, _) = backend
+            .get_objects::<ReadPosition>(caller, account_id, None, None)
+            .await?;
+        Some((messages, positions))
+    };
+    Ok(chats
+        .iter()
+        .filter(|chat| !chat_muted(chat))
+        .map(|chat| match &derived {
+            Some((messages, positions)) => unread_count(messages, positions, chat.id.as_ref()),
+            None => chat.unread_count,
+        })
+        .fold(0, u64::saturating_add))
+}
+
+/// Whether the owner has muted `chat` right now: until `muteUntil` when
+/// it is set, otherwise when `muted` is `true`.
+fn chat_muted(chat: &Chat) -> bool {
+    match &chat.mute_until {
+        Some(until) => mute_active(until),
+        None => chat.muted,
     }
 }
 
@@ -526,11 +592,7 @@ pub async fn should_push<B: ChatBackend>(
         return Ok(false);
     }
     let bypass = is_plaintext(msg.body_type.as_str()) && !mention_scopes(msg, owner).is_empty();
-    let muted = match &chat.mute_until {
-        Some(until) => mute_active(until),
-        None => chat.muted,
-    };
-    if muted && !bypass {
+    if chat_muted(&chat) && !bypass {
         return Ok(false);
     }
     Ok(!backend

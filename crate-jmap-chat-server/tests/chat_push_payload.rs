@@ -136,7 +136,7 @@ fn build(
 ) -> BuiltPush {
     let mut item = PushItem::new(msg, chat, sender);
     item.sender_member = sender_member;
-    build_chat_message_push(&id(ACCOUNT), state("s42"), cfg, &cap(), owner, item)
+    build_chat_message_push(&id(ACCOUNT), state("s42"), cfg, &cap(), owner, item, None)
 }
 
 /// The single entry of `push`, as wire JSON.
@@ -261,7 +261,7 @@ fn build_with_space(cfg: &ChatPushConfig, chat: &Chat, space: &Space) -> BuiltPu
     let sender = bob();
     let mut item = PushItem::new(&msg, chat, &sender);
     item.space = Some(space);
-    build_chat_message_push(&id(ACCOUNT), state("s42"), cfg, &cap(), NOBODY, item)
+    build_chat_message_push(&id(ACCOUNT), state("s42"), cfg, &cap(), NOBODY, item, None)
 }
 
 /// draft-atwood-jmap-chat-push-00 §ChatPushConfig (push:121): "The server
@@ -627,4 +627,43 @@ fn urgency_outside_rfc8030_is_sent_as_normal() {
     let direct = message("hi", "text/plain", json!([{ "id": ACCOUNT }]), json!([]));
     let built = build(&cfg, NOBODY, &direct, &chat, &bob(), None);
     assert_eq!(built.urgency, Urgency::Normal);
+}
+
+/// draft-atwood-jmap-chat-push-00 §ChatMessagePush (push:149-150):
+/// `unreadCount` is "The account owner's total unread message count across
+/// all non-muted Chats ... Servers SHOULD include this for platforms that
+/// support atomic badge updates"; "It is a property of the push as a
+/// whole, not of any one entry, and is not governed by the `properties`
+/// list". A count passed in is a top-level member even when `properties`
+/// asks for one entry field only; none passed in leaves it out.
+#[test]
+fn unread_count_is_a_top_level_member() {
+    let msg = plain("hello");
+    let chat = group_chat();
+    let sender = bob();
+    let cfg = config(json!({ "properties": ["messageId"] }));
+    let item = PushItem::new(&msg, &chat, &sender);
+    let built = build_chat_message_push(
+        &id(ACCOUNT),
+        state("s42"),
+        &cfg,
+        &cap(),
+        NOBODY,
+        item,
+        Some(7),
+    );
+    assert_eq!(
+        serde_json::to_value(&built.payload).expect("serialize"),
+        json!({
+            "@type": "ChatMessagePush",
+            "accountId": ACCOUNT,
+            "state": "s42",
+            "messages": [{ "messageId": "msg-1" }],
+            "unreadCount": 7,
+        })
+    );
+
+    let built = build(&cfg, NOBODY, &msg, &chat, &sender, None);
+    let wire = serde_json::to_value(&built.payload).expect("serialize");
+    assert!(wire.get("unreadCount").is_none(), "{wire}");
 }

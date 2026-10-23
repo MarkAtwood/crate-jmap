@@ -130,11 +130,16 @@ fn falls_back_for_an_encrypted_entry_that_does_not_fit() {
 /// "if more matching messages are pending than the limit allows, the
 /// server MUST deliver additional `ChatMessagePush` payloads to cover the
 /// remainder": a batch over the size limit is split into one payload per
-/// message instead of losing entries.
+/// message instead of losing entries. `unreadCount` "is a property of the
+/// push as a whole" (§ChatMessagePush), so every split payload keeps it.
 #[test]
 fn splits_an_oversized_batch_without_losing_entries() {
-    let full = payload(vec![full_entry(1), full_entry(2), full_entry(3)]);
-    let one = |n| payload(vec![full_entry(n)]);
+    let with_unread = |mut p: Value| {
+        p["unreadCount"] = json!(9);
+        p
+    };
+    let full = with_unread(payload(vec![full_entry(1), full_entry(2), full_entry(3)]));
+    let one = |n| with_unread(payload(vec![full_entry(n)]));
     assert_eq!(
         fit(&full, len(&one(1))),
         vec![Some(one(1)), Some(one(2)), Some(one(3))]
