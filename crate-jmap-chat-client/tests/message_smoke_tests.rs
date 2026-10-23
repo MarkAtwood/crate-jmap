@@ -1231,6 +1231,41 @@ async fn message_update_with_read_disposition_other_serialises_correctly() {
     );
 }
 
+/// The catch-all must cover arbitrary values, not just the spec's examples.
+/// Oracle: draft-atwood-jmap-chat-00 §ReadDisposition (6c38e2f line 500):
+/// "Unrecognized values MUST be stored as-is". `"acmeCorpPrivateStatus"`
+/// appears nowhere in the spec, so a regression that special-cased only
+/// `"voice-listened"` / `"forwarded"` fails here.
+#[tokio::test]
+async fn message_update_with_read_disposition_arbitrary_other_passes_through() {
+    let server = MockServer::start().await;
+    let resp_body =
+        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let patch = jmap_chat_client::MessagePatch {
+        read_at: Some(&read_at),
+        read_disposition: Some(jmap_chat_types::ReadDisposition::Other(
+            "acmeCorpPrivateStatus".into(),
+        )),
+        ..Default::default()
+    };
+    let _ = sc
+        .message_update(&msg_id, &patch, None)
+        .await
+        .expect("message_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["msg-1"]["readDisposition"],
+        json!("acmeCorpPrivateStatus"),
+        "an arbitrary Other value must reach the wire unchanged"
+    );
+}
+
 /// `MessagePatch.read_at = Some(_)` alone (no `read_disposition`) must emit
 /// `readAt` but NOT a `readDisposition` key, so the server's
 /// "default to displayed" path (spec §Message line 540) is reachable from
