@@ -122,6 +122,12 @@ pub struct PrincipalCalendarsCapability {
     /// or `null` if no accessible calendar account exists.
     ///
     /// Required-and-nullable: always present on the wire, as `null` or an Id.
+    /// Do NOT add `skip_serializing_if` to this field: draft-ietf-jmap-calendars
+    /// §2.1 types `accountId` as `Id|null`, so omitting it on `None` is a
+    /// wire-protocol break, not a clean-up. The regression test
+    /// `principal_calendars_capability_account_id_null_serializes` (in
+    /// `tests/types_test.rs`) pins the current behavior. Precedent:
+    /// `CalendarAlert.recurrence_id`, bd:JMAP-1rwf.7.
     pub account_id: Option<jmap_types::Id>,
 
     /// The requesting user may call `Principal/getAvailability` for this
