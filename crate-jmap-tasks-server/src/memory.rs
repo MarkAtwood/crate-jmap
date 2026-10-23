@@ -727,17 +727,13 @@ impl JmapBackend for MemoryBackend {
     /// either argument is non-trivial:
     ///
     /// - `filter` is `Some` carrying any non-null field other than those
-    ///   Task fields → returns [`MemoryError`] with a `filter not
-    ///   supported` message. A metadata condition on a type that is not
-    ///   opted in is `unsupportedFilter`, and a malformed one
-    ///   `invalidArguments` (draft-ietf-jmap-metadata-04 §3.6).
+    ///   Task fields, or any operator tree it cannot evaluate → returns
+    ///   [`BackendQueryError::Method`] carrying `unsupportedFilter`. A
+    ///   metadata condition on a type that is not opted in is also
+    ///   `unsupportedFilter`, and a malformed one `invalidArguments`
+    ///   (draft-ietf-jmap-metadata-04 §3.6).
     /// - `sort` is `Some` with one or more comparators → returns
-    ///   [`MemoryError`] with a `sort not supported` message.
-    ///
-    /// The handler maps both to `serverFail` on the wire (a workspace-canonical
-    /// approximation; a properly typed `unsupportedFilter` / `unsupportedSort`
-    /// path through the backend would require a richer error variant on
-    /// the `JmapBackend` trait).
+    ///   [`BackendQueryError::Method`] carrying `unsupportedSort`.
     ///
     /// Callers that want "all objects in this account" pass
     /// `filter = None`, `sort = None`.
