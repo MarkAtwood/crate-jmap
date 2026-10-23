@@ -9,9 +9,10 @@
 //! Previously every `jmap-*-types` crate carried a byte-identical copy of this
 //! macro; this module consolidates them. See bd issue JMAP-wk77.
 
-/// Implement [`serde::Serialize`], [`serde::Deserialize`], [`std::fmt::Display`],
-/// `From<&str>` and `From<String>` for a string-backed enum with a catch-all
-/// `Other(String)` variant.
+/// Implement an inherent `as_str()`, [`serde::Serialize`],
+/// [`serde::Deserialize`], [`std::fmt::Display`], `From<&str>` and
+/// `From<String>` for a string-backed enum with a catch-all `Other(String)`
+/// variant.
 ///
 /// # Requirements
 ///
@@ -29,11 +30,13 @@
 /// ```
 ///
 /// This emits:
-/// - `impl Serialize` — serialises each listed variant to its wire string; `Other(v)`
-///   serialises to the inner string.
+/// - `pub fn as_str(&self) -> &str` — the single wire mapping: each listed
+///   variant yields its wire string, `Other(v)` yields the inner string.
+///   Do not hand-write a second copy; `Serialize` and `Display` call this.
+/// - `impl Serialize` — serialises the `as_str()` value.
 /// - `impl Deserialize` — deserialises a JSON string using a `Visitor`; unknown values
 ///   become `Other(v.to_owned())`.
-/// - `impl Display` — formats using the same mapping as `Serialize`.
+/// - `impl Display` — formats the `as_str()` value, identical to `Serialize`.
 /// - `impl From<&str>` and `impl From<String>` — the same mapping as
 ///   `Deserialize`, so a listed wire string always builds its typed variant
 ///   and never `Other`: `MyEnum::from("wire-string-1") == MyEnum::Variant1`.
@@ -49,12 +52,19 @@
 #[macro_export]
 macro_rules! impl_string_enum {
     ($ty:ident, $expecting:literal, $( $s:literal => $variant:ident ),+ $(,)?) => {
-        impl ::serde::Serialize for $ty {
-            fn serialize<S: ::serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-                s.serialize_str(match self {
+        impl $ty {
+            /// The wire string for this value: the listed string for a
+            /// known variant, the stored string for `Other`.
+            pub fn as_str(&self) -> &str {
+                match self {
                     $( $ty::$variant => $s, )+
                     $ty::Other(v) => v.as_str(),
-                })
+                }
+            }
+        }
+        impl ::serde::Serialize for $ty {
+            fn serialize<S: ::serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+                s.serialize_str(self.as_str())
             }
         }
         impl<'de> ::serde::Deserialize<'de> for $ty {
@@ -93,10 +103,7 @@ macro_rules! impl_string_enum {
         }
         impl ::std::fmt::Display for $ty {
             fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
-                f.write_str(match self {
-                    $( $ty::$variant => $s, )+
-                    $ty::Other(v) => v.as_str(),
-                })
+                f.write_str(self.as_str())
             }
         }
     };
@@ -174,6 +181,15 @@ mod tests {
             format!("{}", TestKind::Other("custom".to_owned())),
             "custom",
         );
+    }
+
+    #[test]
+    fn as_str_yields_wire_string() {
+        // Hand-written oracle: the listed wire strings, and the stored
+        // string verbatim for `Other`.
+        assert_eq!(TestKind::Foo.as_str(), "foo");
+        assert_eq!(TestKind::Bar.as_str(), "bar");
+        assert_eq!(TestKind::Other("custom".to_owned()).as_str(), "custom");
     }
 
     #[test]

@@ -48,17 +48,6 @@ pub enum ChatMemberRole {
     Other(String),
 }
 
-impl ChatMemberRole {
-    /// The canonical wire string for this role.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Admin => "admin",
-            Self::Member => "member",
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(ChatMemberRole, "a ChatMemberRole wire string",
     "admin"  => Admin,
     "member" => Member,
@@ -126,17 +115,6 @@ pub enum ChannelPermissionTargetType {
     /// string. Reserve `Other(s)` for unrecognized strings; compare wire
     /// equality via [`as_str`](Self::as_str).
     Other(String),
-}
-
-impl ChannelPermissionTargetType {
-    /// The wire string for this target type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Role => "role",
-            Self::Member => "member",
-            Self::Other(s) => s.as_str(),
-        }
-    }
 }
 
 impl_string_enum!(ChannelPermissionTargetType, "a ChannelPermission targetType string",

@@ -65,18 +65,6 @@ pub enum BodyType {
     Other(String),
 }
 
-impl BodyType {
-    /// The canonical MIME type string for this body type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Plain => "text/plain",
-            Self::Markdown => "text/markdown",
-            Self::Rich => "application/jmap-chat-rich",
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(BodyType, "a BodyType MIME-string",
     "text/plain"                 => Plain,
     "text/markdown"              => Markdown,
@@ -263,18 +251,6 @@ pub enum BroadcastScope {
     /// unrecognized strings; compare wire equality via
     /// [`as_str`](Self::as_str).
     Other(String),
-}
-
-impl BroadcastScope {
-    /// The wire string for this scope.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Everyone => "everyone",
-            Self::Here => "here",
-            Self::Admins => "admins",
-            Self::Other(s) => s.as_str(),
-        }
-    }
 }
 
 impl_string_enum!(BroadcastScope, "a broadcast scope string",

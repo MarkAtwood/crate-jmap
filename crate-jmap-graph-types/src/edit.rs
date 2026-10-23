@@ -336,17 +336,6 @@ pub enum GraphEditDataType {
     Other(String),
 }
 
-impl GraphEditDataType {
-    /// The wire string for this data type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Ops => DATA_TYPE_OPS,
-            Self::Cursors => DATA_TYPE_CURSORS,
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(GraphEditDataType, "a GraphEditStreamEnable dataTypes string",
     "ops" => Ops,
     "cursors" => Cursors,

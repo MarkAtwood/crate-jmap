@@ -43,18 +43,6 @@ pub enum QuotaScope {
     Other(String),
 }
 
-impl QuotaScope {
-    /// The canonical wire string for this quota scope.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Account => "account",
-            Self::Domain => "domain",
-            Self::Global => "global",
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(QuotaScope, "a QuotaScope wire string",
     "account" => Account,
     "domain"  => Domain,
@@ -88,17 +76,6 @@ pub enum QuotaResourceType {
     /// genuinely unrecognised wire strings; compare wire equality
     /// via `as_str()`, not `PartialEq`.
     Other(String),
-}
-
-impl QuotaResourceType {
-    /// The canonical wire string for this resource type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Count => "count",
-            Self::Octets => "octets",
-            Self::Other(s) => s.as_str(),
-        }
-    }
 }
 
 impl_string_enum!(QuotaResourceType, "a QuotaResourceType wire string",

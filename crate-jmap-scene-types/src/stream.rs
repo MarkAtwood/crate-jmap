@@ -45,18 +45,6 @@ pub enum SceneEventType {
     Other(String),
 }
 
-impl SceneEventType {
-    /// The wire string for this event type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Avatar => AVATAR,
-            Self::Object => OBJECT,
-            Self::Interaction => INTERACTION,
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
 impl_string_enum!(SceneEventType, "a SceneStreamEnable eventTypes string",
     "SceneAvatarEvent" => Avatar,
     "SceneObjectEvent" => Object,
