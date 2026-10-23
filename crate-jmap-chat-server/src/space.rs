@@ -339,6 +339,15 @@ pub async fn handle_space_get<B: ChatBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+
+    // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
@@ -583,6 +592,15 @@ pub async fn handle_space_query<B: ChatBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+
+    // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
 
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
@@ -1467,6 +1485,15 @@ pub async fn handle_space_join<B: ChatBackend>(
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, args) = extract_account_id(args)?;
+
+    // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
 
     // The joining participant is the owner, referenced by the accountId:
     // draft-atwood-jmap-chat-00 §SpaceMember.id is "The participant's

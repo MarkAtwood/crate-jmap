@@ -8186,6 +8186,9 @@ async fn space_join_invite_code_from_other_account_not_found() {
     use jmap_chat_server::handle_invite_get;
 
     let backend = common::account_backend();
+    // a2 is a valid account (RFC 8620 §3.6.2), so the invite lookup, not
+    // accountNotFound, decides the outcome.
+    backend.register_account(&Id::from("a2"));
 
     let HandlerOutput {
         primary: space_resp,
