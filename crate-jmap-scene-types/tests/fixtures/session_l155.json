@@ -1,0 +1,10 @@
+{
+  "capabilities": {
+    "urn:ietf:params:jmap:websocket": {
+      "url": "wss://scene.example.com/jmap/ws/",
+      "supportsPush": true
+    },
+    "urn:ietf:params:jmap:scene": {},
+    "urn:ietf:params:jmap:scene:websocket": {}
+  }
+}

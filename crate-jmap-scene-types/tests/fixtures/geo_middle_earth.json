@@ -1,0 +1,15 @@
+{
+  "name": "Rivendell Courtyard",
+  "viewHint": "3d",
+  "geoAnchor": {
+    "referenceFrame": "https://maps.example.com/worlds/middle-earth",
+    "latitude": 33.21,
+    "longitude": -12.84,
+    "altitude": 200.0,
+    "heading": 45
+  },
+  "bounds": {
+    "min": [-100, 0, -100],
+    "max": [100, 50, 100]
+  }
+}

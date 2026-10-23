@@ -1,0 +1,5 @@
+{
+  "@type": "SceneStreamEnable",
+  "regionIds": ["01J5ABC0000000000000000001"],
+  "eventTypes": ["SceneInteractionEvent"]
+}

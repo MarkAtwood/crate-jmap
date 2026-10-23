@@ -1,0 +1,28 @@
+[["SceneAvatar/set", {
+  "accountId": "alice-account",
+  "oldState": "s200",
+  "newState": "s201",
+  "created": {
+    "av0": {
+      "id": "user:alice@example.com",
+      "regionId": "01JXKR5M0G3QVTA8N2BWFP7Y01",
+      "userId": "user:alice@example.com",
+      "displayName": "Alice Chen",
+      "position": [0, 0, 10],
+      "orientation": [0, 0, 0, 1],
+      "visualRef": "blob-avatar-alice-001",
+      "visualType": "model/gltf-binary",
+      "joinedAt": "2026-06-06T09:15:00Z",
+      "leftAt": null,
+      "worldState": {
+        "animation": "idle",
+        "nametag": true
+      }
+    }
+  },
+  "updated": null,
+  "destroyed": null,
+  "notCreated": null,
+  "notUpdated": null,
+  "notDestroyed": null
+}, "0"]]

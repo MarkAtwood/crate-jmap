@@ -1,0 +1,16 @@
+{
+  "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:scene"],
+  "methodCalls": [
+    ["SceneRegion/query", {
+      "accountId": "acct-001",
+      "filter": {
+        "accessPolicy": "public"
+      },
+      "sort": [
+        {"property": "activeAvatarCount", "isAscending": false}
+      ],
+      "position": 0,
+      "limit": 10
+    }, "r0"]
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:scene"],
+  "methodCalls": [
+    ["SceneObject/query", {
+      "accountId": "acct-001",
+      "filter": {
+        "regionId": "01J5ABC0000000000000000001",
+        "interactable": true,
+        "withinRadius": {
+          "center": [5.0, 0, -2.0],
+          "radius": 20
+        }
+      },
+      "sort": [
+        {"property": "name", "isAscending": true}
+      ],
+      "position": 0,
+      "limit": 25
+    }, "o0"]
+  ]
+}

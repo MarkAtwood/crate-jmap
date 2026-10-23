@@ -1,0 +1,15 @@
+{
+  "name": "Volunteer Park AR Garden",
+  "viewHint": "ar",
+  "geoAnchor": {
+    "referenceFrame": null,
+    "latitude": 47.6301,
+    "longitude": -122.3154,
+    "altitude": 130.0,
+    "heading": 0
+  },
+  "bounds": {
+    "min": [-50, 0, -50],
+    "max": [50, 30, 50]
+  }
+}

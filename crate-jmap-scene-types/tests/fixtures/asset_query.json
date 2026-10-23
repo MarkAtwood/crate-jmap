@@ -1,0 +1,12 @@
+[["SceneAsset/query", {
+  "accountId": "account-xyz",
+  "filter": {
+    "mediaType": "model/gltf-binary",
+    "name": "sculpture",
+    "createdAfter": "2026-03-01T00:00:00Z",
+    "createdBefore": "2026-06-01T00:00:00Z"
+  },
+  "sort": [{"property": "createdAt", "isAscending": false}],
+  "position": 0,
+  "limit": 25
+}, "0"]]

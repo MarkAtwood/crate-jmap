@@ -1,0 +1,17 @@
+[["SceneRegion/query", {
+  "accountId": "alice-account",
+  "filter": {
+    "accessPolicy": "public",
+    "hasActiveAvatars": true
+  },
+  "sort": [{"property": "activeAvatarCount", "isAscending": false}],
+  "limit": 10
+}, "0"],
+["SceneRegion/get", {
+  "accountId": "alice-account",
+  "#ids": {
+    "resultOf": "0",
+    "name": "SceneRegion/query",
+    "path": "/ids"
+  }
+}, "1"]]
