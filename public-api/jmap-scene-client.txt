@@ -1,0 +1,94 @@
+pub mod jmap_scene_client
+pub use jmap_scene_client::AddedItem
+pub use jmap_scene_client::ChangesResponse
+pub use jmap_scene_client::ClientError
+pub use jmap_scene_client::GetResponse
+pub use jmap_scene_client::PartialObject
+pub use jmap_scene_client::QueryChangesResponse
+pub use jmap_scene_client::QueryResponse
+pub use jmap_scene_client::SetError
+pub use jmap_scene_client::SetResponse
+pub use jmap_scene_client::reqwest
+#[non_exhaustive] pub enum jmap_scene_client::AssetFetchError
+pub jmap_scene_client::AssetFetchError::DigestMismatch
+pub jmap_scene_client::AssetFetchError::DigestMismatch::actual: jmap_cid_types::digest::Sha256
+pub jmap_scene_client::AssetFetchError::DigestMismatch::expected: jmap_cid_types::digest::Sha256
+pub jmap_scene_client::AssetFetchError::InvalidUri(url::parser::ParseError)
+pub jmap_scene_client::AssetFetchError::NotHttps
+pub jmap_scene_client::AssetFetchError::Status(u16)
+pub jmap_scene_client::AssetFetchError::TooLarge(usize)
+pub jmap_scene_client::AssetFetchError::Transport(reqwest::error::Error)
+impl core::error::Error for jmap_scene_client::AssetFetchError
+pub fn jmap_scene_client::AssetFetchError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_scene_client::AssetFetchError
+pub fn jmap_scene_client::AssetFetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_scene_client::AssetFetchError
+pub fn jmap_scene_client::AssetFetchError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_scene_client::SceneWsFrame
+pub jmap_scene_client::SceneWsFrame::Avatar(jmap_scene_types::event::SceneAvatarEvent)
+pub jmap_scene_client::SceneWsFrame::Interaction(jmap_scene_types::event::SceneInteractionEvent)
+pub jmap_scene_client::SceneWsFrame::Object(jmap_scene_types::event::SceneObjectEvent)
+pub jmap_scene_client::SceneWsFrame::Other(jmap_base_client::ws::WsFrame)
+impl core::clone::Clone for jmap_scene_client::SceneWsFrame
+pub fn jmap_scene_client::SceneWsFrame::clone(&self) -> jmap_scene_client::SceneWsFrame
+impl core::fmt::Debug for jmap_scene_client::SceneWsFrame
+pub fn jmap_scene_client::SceneWsFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_scene_client::AssetFetcher
+impl jmap_scene_client::AssetFetcher
+pub async fn jmap_scene_client::AssetFetcher::fetch(&self, &str, core::option::Option<&jmap_cid_types::digest::Sha256>, usize) -> core::result::Result<alloc::vec::Vec<u8>, jmap_scene_client::AssetFetchError>
+pub fn jmap_scene_client::AssetFetcher::new() -> core::result::Result<Self, jmap_scene_client::AssetFetchError>
+pub fn jmap_scene_client::AssetFetcher::with_builder(reqwest::async_impl::client::ClientBuilder) -> core::result::Result<Self, jmap_scene_client::AssetFetchError>
+impl core::clone::Clone for jmap_scene_client::AssetFetcher
+pub fn jmap_scene_client::AssetFetcher::clone(&self) -> jmap_scene_client::AssetFetcher
+impl core::fmt::Debug for jmap_scene_client::AssetFetcher
+pub fn jmap_scene_client::AssetFetcher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_scene_client::SessionClient
+impl jmap_scene_client::SessionClient
+pub fn jmap_scene_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_scene_client::SessionClient::for_account(&self, &str) -> core::result::Result<Self, jmap_base_client::error::ClientError>
+pub fn jmap_scene_client::SessionClient::scene_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_scene_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_scene_client::SessionClient
+pub async fn jmap_scene_client::SessionClient::scene_asset_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_asset_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_scene_types::asset::SceneAsset>, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_asset_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneAssetComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_asset_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneAssetComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_asset_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_scene_client::SessionClient
+pub async fn jmap_scene_client::SessionClient::scene_avatar_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_avatar_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_scene_types::avatar::SceneAvatar>, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_avatar_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneAvatarComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_avatar_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneAvatarComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_avatar_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_scene_client::SessionClient
+pub async fn jmap_scene_client::SessionClient::scene_object_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_object_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_scene_types::object::SceneObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_object_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneObjectComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_object_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneObjectComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_object_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_scene_client::SessionClient
+pub async fn jmap_scene_client::SessionClient::scene_region_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_region_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_scene_types::region::SceneRegion>, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_region_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneRegionComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_region_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_scene_types::query::SceneRegionComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_scene_client::SessionClient::scene_region_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_scene_client::SessionClient
+pub fn jmap_scene_client::SessionClient::clone(&self) -> jmap_scene_client::SessionClient
+impl core::fmt::Debug for jmap_scene_client::SessionClient
+pub fn jmap_scene_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_scene_client::MAX_REDIRECTS: usize
+pub trait jmap_scene_client::JmapSceneExt: jmap_scene_client::sealed::Sealed
+pub fn jmap_scene_client::JmapSceneExt::with_scene_session(&self, jmap_base_client::request::Session) -> jmap_scene_client::SessionClient
+impl jmap_scene_client::JmapSceneExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_scene_session(&self, jmap_base_client::request::Session) -> jmap_scene_client::SessionClient
+pub trait jmap_scene_client::SceneWsExt: jmap_scene_client::ws::sealed::Sealed
+pub fn jmap_scene_client::SceneWsExt::next_scene_frame(&mut self) -> impl core::future::future::Future<Output = core::option::Option<core::result::Result<jmap_scene_client::SceneWsFrame, jmap_base_client::error::ClientError>>> + core::marker::Send
+pub fn jmap_scene_client::SceneWsExt::send_scene_interaction(&mut self, &jmap_scene_types::event::SceneInteractionEvent) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+pub fn jmap_scene_client::SceneWsExt::send_scene_stream_disable(&mut self) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+pub fn jmap_scene_client::SceneWsExt::send_scene_stream_enable(&mut self, &jmap_scene_types::stream::SceneStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+impl jmap_scene_client::SceneWsExt for jmap_base_client::ws::WsSession
+pub async fn jmap_base_client::ws::WsSession::next_scene_frame(&mut self) -> core::option::Option<core::result::Result<jmap_scene_client::SceneWsFrame, jmap_base_client::error::ClientError>>
+pub async fn jmap_base_client::ws::WsSession::send_scene_interaction(&mut self, &jmap_scene_types::event::SceneInteractionEvent) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub async fn jmap_base_client::ws::WsSession::send_scene_stream_disable(&mut self) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub async fn jmap_base_client::ws::WsSession::send_scene_stream_enable(&mut self, &jmap_scene_types::stream::SceneStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub fn jmap_scene_client::parse_scene_ws_frame(jmap_base_client::ws::WsFrame) -> jmap_scene_client::SceneWsFrame

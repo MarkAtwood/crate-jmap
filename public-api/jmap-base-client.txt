@@ -1,0 +1,712 @@
+pub mod jmap_base_client
+pub use jmap_base_client::StateChange
+#[non_exhaustive] pub enum jmap_base_client::ClientError
+pub jmap_base_client::ClientError::AuthFailed(u16)
+pub jmap_base_client::ClientError::BlobIntegrityMismatch
+pub jmap_base_client::ClientError::BlobIntegrityMismatch::actual: alloc::string::String
+pub jmap_base_client::ClientError::BlobIntegrityMismatch::expected: alloc::string::String
+pub jmap_base_client::ClientError::Http(jmap_base_client::HttpError)
+pub jmap_base_client::ClientError::InvalidArgument(alloc::string::String)
+pub jmap_base_client::ClientError::InvalidHeaderValue(jmap_base_client::InvalidHeaderValueError)
+pub jmap_base_client::ClientError::InvalidSession(alloc::string::String)
+pub jmap_base_client::ClientError::MethodError(jmap_types::error::JmapError)
+pub jmap_base_client::ClientError::MethodNotFound(alloc::string::String)
+pub jmap_base_client::ClientError::Parse(jmap_base_client::ParseError)
+pub jmap_base_client::ClientError::RateLimited
+pub jmap_base_client::ClientError::RateLimited::retry_after: jmap_types::id::UTCDate
+pub jmap_base_client::ClientError::ResponseTooLarge
+pub jmap_base_client::ClientError::ResponseTooLarge::actual: u64
+pub jmap_base_client::ClientError::ResponseTooLarge::limit: u64
+pub jmap_base_client::ClientError::Serialize(jmap_base_client::SerializeError)
+pub jmap_base_client::ClientError::SseFrameTooLarge
+pub jmap_base_client::ClientError::SseFrameTooLarge::limit: usize
+pub jmap_base_client::ClientError::UnexpectedResponse(alloc::string::String)
+pub jmap_base_client::ClientError::WebSocket(jmap_base_client::WebSocketError)
+pub jmap_base_client::ClientError::WsClosed
+pub jmap_base_client::ClientError::WsClosed::code: u16
+pub jmap_base_client::ClientError::WsClosed::reason: alloc::string::String
+impl jmap_base_client::ClientError
+pub fn jmap_base_client::ClientError::from_parse(serde_json::error::Error) -> Self
+pub fn jmap_base_client::ClientError::from_serialize(serde_json::error::Error) -> Self
+impl core::error::Error for jmap_base_client::ClientError
+impl core::fmt::Debug for jmap_base_client::ClientError
+pub fn jmap_base_client::ClientError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::ClientError
+pub fn jmap_base_client::ClientError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_base_client::CloseAfter
+pub jmap_base_client::CloseAfter::No
+pub jmap_base_client::CloseAfter::State
+impl jmap_base_client::CloseAfter
+pub fn jmap_base_client::CloseAfter::as_str(self) -> &'static str
+impl core::clone::Clone for jmap_base_client::CloseAfter
+pub fn jmap_base_client::CloseAfter::clone(&self) -> jmap_base_client::CloseAfter
+impl core::cmp::Eq for jmap_base_client::CloseAfter
+impl core::cmp::PartialEq for jmap_base_client::CloseAfter
+pub fn jmap_base_client::CloseAfter::eq(&self, &jmap_base_client::CloseAfter) -> bool
+impl core::fmt::Debug for jmap_base_client::CloseAfter
+pub fn jmap_base_client::CloseAfter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::CloseAfter
+pub fn jmap_base_client::CloseAfter::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_base_client::CloseAfter
+impl core::marker::StructuralPartialEq for jmap_base_client::CloseAfter
+#[non_exhaustive] pub enum jmap_base_client::HttpErrorKind
+pub jmap_base_client::HttpErrorKind::Builder
+pub jmap_base_client::HttpErrorKind::Connect
+pub jmap_base_client::HttpErrorKind::Decode
+pub jmap_base_client::HttpErrorKind::Other
+pub jmap_base_client::HttpErrorKind::Redirect
+pub jmap_base_client::HttpErrorKind::RequestBody
+pub jmap_base_client::HttpErrorKind::ResponseBody
+pub jmap_base_client::HttpErrorKind::Status(u16)
+pub jmap_base_client::HttpErrorKind::Timeout
+impl core::clone::Clone for jmap_base_client::HttpErrorKind
+pub fn jmap_base_client::HttpErrorKind::clone(&self) -> jmap_base_client::HttpErrorKind
+impl core::cmp::Eq for jmap_base_client::HttpErrorKind
+impl core::cmp::PartialEq for jmap_base_client::HttpErrorKind
+pub fn jmap_base_client::HttpErrorKind::eq(&self, &jmap_base_client::HttpErrorKind) -> bool
+impl core::fmt::Debug for jmap_base_client::HttpErrorKind
+pub fn jmap_base_client::HttpErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::HttpErrorKind
+pub fn jmap_base_client::HttpErrorKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_base_client::HttpErrorKind
+#[non_exhaustive] pub enum jmap_base_client::ParseCategory
+pub jmap_base_client::ParseCategory::Data
+pub jmap_base_client::ParseCategory::Eof
+pub jmap_base_client::ParseCategory::Io
+pub jmap_base_client::ParseCategory::Syntax
+impl core::clone::Clone for jmap_base_client::ParseCategory
+pub fn jmap_base_client::ParseCategory::clone(&self) -> jmap_base_client::ParseCategory
+impl core::cmp::Eq for jmap_base_client::ParseCategory
+impl core::cmp::PartialEq for jmap_base_client::ParseCategory
+pub fn jmap_base_client::ParseCategory::eq(&self, &jmap_base_client::ParseCategory) -> bool
+impl core::convert::From<serde_json::error::Category> for jmap_base_client::ParseCategory
+pub fn jmap_base_client::ParseCategory::from(serde_json::error::Category) -> Self
+impl core::fmt::Debug for jmap_base_client::ParseCategory
+pub fn jmap_base_client::ParseCategory::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::ParseCategory
+pub fn jmap_base_client::ParseCategory::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_base_client::ParseCategory
+#[non_exhaustive] pub enum jmap_base_client::SseEvent
+pub jmap_base_client::SseEvent::StateChange(jmap_types::push::StateChange)
+pub jmap_base_client::SseEvent::Unknown
+pub jmap_base_client::SseEvent::Unknown::data: alloc::string::String
+pub jmap_base_client::SseEvent::Unknown::event_type: alloc::string::String
+impl core::clone::Clone for jmap_base_client::SseEvent
+pub fn jmap_base_client::SseEvent::clone(&self) -> jmap_base_client::SseEvent
+impl core::cmp::Eq for jmap_base_client::SseEvent
+impl core::cmp::PartialEq for jmap_base_client::SseEvent
+pub fn jmap_base_client::SseEvent::eq(&self, &jmap_base_client::SseEvent) -> bool
+impl core::fmt::Debug for jmap_base_client::SseEvent
+pub fn jmap_base_client::SseEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::SseEvent
+#[non_exhaustive] pub enum jmap_base_client::WebSocketErrorKind
+pub jmap_base_client::WebSocketErrorKind::AlreadyClosed
+pub jmap_base_client::WebSocketErrorKind::Capacity
+pub jmap_base_client::WebSocketErrorKind::ConnectionClosed
+pub jmap_base_client::WebSocketErrorKind::Io
+pub jmap_base_client::WebSocketErrorKind::Other
+pub jmap_base_client::WebSocketErrorKind::Protocol
+pub jmap_base_client::WebSocketErrorKind::Url
+impl core::clone::Clone for jmap_base_client::WebSocketErrorKind
+pub fn jmap_base_client::WebSocketErrorKind::clone(&self) -> jmap_base_client::WebSocketErrorKind
+impl core::cmp::Eq for jmap_base_client::WebSocketErrorKind
+impl core::cmp::PartialEq for jmap_base_client::WebSocketErrorKind
+pub fn jmap_base_client::WebSocketErrorKind::eq(&self, &jmap_base_client::WebSocketErrorKind) -> bool
+impl core::fmt::Debug for jmap_base_client::WebSocketErrorKind
+pub fn jmap_base_client::WebSocketErrorKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::WebSocketErrorKind
+pub fn jmap_base_client::WebSocketErrorKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_base_client::WebSocketErrorKind
+#[non_exhaustive] pub enum jmap_base_client::WsFrame
+pub jmap_base_client::WsFrame::RequestError(jmap_base_client::WsRequestError)
+pub jmap_base_client::WsFrame::Response(jmap_types::wire::JmapResponse)
+pub jmap_base_client::WsFrame::StateChange(jmap_types::push::StateChange)
+pub jmap_base_client::WsFrame::Unknown
+pub jmap_base_client::WsFrame::Unknown::raw: serde_json::value::Value
+pub jmap_base_client::WsFrame::Unknown::type_name: alloc::string::String
+impl jmap_base_client::WsFrame
+pub fn jmap_base_client::WsFrame::request_id(&self) -> core::option::Option<&str>
+impl core::clone::Clone for jmap_base_client::WsFrame
+pub fn jmap_base_client::WsFrame::clone(&self) -> jmap_base_client::WsFrame
+impl core::cmp::PartialEq for jmap_base_client::WsFrame
+pub fn jmap_base_client::WsFrame::eq(&self, &jmap_base_client::WsFrame) -> bool
+impl core::fmt::Debug for jmap_base_client::WsFrame
+pub fn jmap_base_client::WsFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::WsFrame
+#[non_exhaustive] pub struct jmap_base_client::AccountInfo
+pub jmap_base_client::AccountInfo::account_capabilities: alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::AccountInfo::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::AccountInfo::is_personal: bool
+pub jmap_base_client::AccountInfo::is_read_only: bool
+pub jmap_base_client::AccountInfo::name: jmap_base_client::AccountName
+impl jmap_base_client::AccountInfo
+pub fn jmap_base_client::AccountInfo::account_extension_capability<T>(&self, &str) -> core::result::Result<core::option::Option<T>, jmap_base_client::ClientError> where T: serde_core::de::DeserializeOwned
+pub fn jmap_base_client::AccountInfo::did_capability(&self) -> core::result::Result<core::option::Option<jmap_did_types::capability::DidAccountCapability>, jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::AccountInfo
+pub fn jmap_base_client::AccountInfo::clone(&self) -> jmap_base_client::AccountInfo
+impl core::cmp::Eq for jmap_base_client::AccountInfo
+impl core::cmp::PartialEq for jmap_base_client::AccountInfo
+pub fn jmap_base_client::AccountInfo::eq(&self, &jmap_base_client::AccountInfo) -> bool
+impl core::fmt::Debug for jmap_base_client::AccountInfo
+pub fn jmap_base_client::AccountInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::AccountInfo
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::AccountInfo
+pub fn jmap_base_client::AccountInfo::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_base_client::AccountName(_)
+impl jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::expose_unredacted(&self) -> &str
+pub fn jmap_base_client::AccountName::into_inner(self) -> alloc::string::String
+pub fn jmap_base_client::AccountName::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::clone(&self) -> jmap_base_client::AccountName
+impl core::cmp::Eq for jmap_base_client::AccountName
+impl core::cmp::PartialEq for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::eq(&self, &jmap_base_client::AccountName) -> bool
+impl core::cmp::PartialEq<&str> for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<jmap_base_client::AccountName> for &str
+pub fn &str::eq(&self, &jmap_base_client::AccountName) -> bool
+impl core::cmp::PartialEq<jmap_base_client::AccountName> for str
+pub fn str::eq(&self, &jmap_base_client::AccountName) -> bool
+impl core::cmp::PartialEq<str> for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::eq(&self, &str) -> bool
+impl core::fmt::Debug for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_base_client::AccountName
+impl serde_core::ser::Serialize for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::AccountName
+pub fn jmap_base_client::AccountName::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_base_client::AuthHeader<'a>
+impl<'a> jmap_base_client::AuthHeader<'a>
+pub fn jmap_base_client::AuthHeader<'a>::expose_value(&self) -> &'a str
+pub fn jmap_base_client::AuthHeader<'a>::name(&self) -> &'a str
+pub fn jmap_base_client::AuthHeader<'a>::new(&'a str, &'a str) -> Self
+impl core::fmt::Debug for jmap_base_client::AuthHeader<'_>
+pub fn jmap_base_client::AuthHeader<'_>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::clone::Clone for jmap_base_client::AuthHeader<'a>
+pub fn jmap_base_client::AuthHeader<'a>::clone(&self) -> jmap_base_client::AuthHeader<'a>
+impl<'a> core::marker::Copy for jmap_base_client::AuthHeader<'a>
+pub struct jmap_base_client::BasicAuth
+impl jmap_base_client::BasicAuth
+pub fn jmap_base_client::BasicAuth::new(&str, &str) -> core::result::Result<Self, jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::BasicAuth
+pub fn jmap_base_client::BasicAuth::clone(&self) -> jmap_base_client::BasicAuth
+impl core::fmt::Debug for jmap_base_client::BasicAuth
+pub fn jmap_base_client::BasicAuth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_base_client::AuthProvider for jmap_base_client::BasicAuth
+pub fn jmap_base_client::BasicAuth::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+pub struct jmap_base_client::BearerAuth
+impl jmap_base_client::BearerAuth
+pub fn jmap_base_client::BearerAuth::new(&str) -> core::result::Result<Self, jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::BearerAuth
+pub fn jmap_base_client::BearerAuth::clone(&self) -> jmap_base_client::BearerAuth
+impl core::fmt::Debug for jmap_base_client::BearerAuth
+pub fn jmap_base_client::BearerAuth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_base_client::AuthProvider for jmap_base_client::BearerAuth
+pub fn jmap_base_client::BearerAuth::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+pub struct jmap_base_client::BlobDownloadStream
+impl jmap_base_client::BlobDownloadStream
+pub fn jmap_base_client::BlobDownloadStream::content_length(&self) -> core::option::Option<u64>
+impl core::fmt::Debug for jmap_base_client::BlobDownloadStream
+pub fn jmap_base_client::BlobDownloadStream::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl futures_core::stream::Stream for jmap_base_client::BlobDownloadStream
+pub type jmap_base_client::BlobDownloadStream::Item = core::result::Result<bytes::bytes::Bytes, jmap_base_client::ClientError>
+pub fn jmap_base_client::BlobDownloadStream::poll_next(core::pin::Pin<&mut Self>, &mut core::task::wake::Context<'_>) -> core::task::poll::Poll<core::option::Option<Self::Item>>
+#[non_exhaustive] pub struct jmap_base_client::BlobUploadResponse
+pub jmap_base_client::BlobUploadResponse::account_id: jmap_types::id::Id
+pub jmap_base_client::BlobUploadResponse::blob_id: jmap_types::id::Id
+pub jmap_base_client::BlobUploadResponse::content_type: alloc::string::String
+pub jmap_base_client::BlobUploadResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::BlobUploadResponse::sha256: core::option::Option<jmap_cid_types::digest::Sha256>
+pub jmap_base_client::BlobUploadResponse::size: u64
+impl core::clone::Clone for jmap_base_client::BlobUploadResponse
+pub fn jmap_base_client::BlobUploadResponse::clone(&self) -> jmap_base_client::BlobUploadResponse
+impl core::cmp::Eq for jmap_base_client::BlobUploadResponse
+impl core::cmp::PartialEq for jmap_base_client::BlobUploadResponse
+pub fn jmap_base_client::BlobUploadResponse::eq(&self, &jmap_base_client::BlobUploadResponse) -> bool
+impl core::fmt::Debug for jmap_base_client::BlobUploadResponse
+pub fn jmap_base_client::BlobUploadResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::BlobUploadResponse
+impl serde_core::ser::Serialize for jmap_base_client::BlobUploadResponse
+pub fn jmap_base_client::BlobUploadResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::BlobUploadResponse
+pub fn jmap_base_client::BlobUploadResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_base_client::BuilderTransport
+impl core::clone::Clone for jmap_base_client::BuilderTransport
+pub fn jmap_base_client::BuilderTransport::clone(&self) -> jmap_base_client::BuilderTransport
+impl core::fmt::Debug for jmap_base_client::BuilderTransport
+pub fn jmap_base_client::BuilderTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_base_client::TransportConfig for jmap_base_client::BuilderTransport
+pub fn jmap_base_client::BuilderTransport::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+#[non_exhaustive] pub struct jmap_base_client::ClientConfig
+pub jmap_base_client::ClientConfig::max_call_body: u64
+pub jmap_base_client::ClientConfig::max_download_body: u64
+pub jmap_base_client::ClientConfig::max_session_body: u64
+pub jmap_base_client::ClientConfig::max_sse_frame: usize
+pub jmap_base_client::ClientConfig::max_upload_response_body: u64
+pub jmap_base_client::ClientConfig::max_ws_message: usize
+pub jmap_base_client::ClientConfig::request_timeout: core::time::Duration
+impl jmap_base_client::ClientConfig
+pub fn jmap_base_client::ClientConfig::validate(&self) -> core::result::Result<(), jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::ClientConfig
+pub fn jmap_base_client::ClientConfig::clone(&self) -> jmap_base_client::ClientConfig
+impl core::cmp::Eq for jmap_base_client::ClientConfig
+impl core::cmp::PartialEq for jmap_base_client::ClientConfig
+pub fn jmap_base_client::ClientConfig::eq(&self, &jmap_base_client::ClientConfig) -> bool
+impl core::default::Default for jmap_base_client::ClientConfig
+pub fn jmap_base_client::ClientConfig::default() -> Self
+impl core::fmt::Debug for jmap_base_client::ClientConfig
+pub fn jmap_base_client::ClientConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::ClientConfig
+pub struct jmap_base_client::CustomCaTransport
+impl jmap_base_client::CustomCaTransport
+pub fn jmap_base_client::CustomCaTransport::from_pem_bytes(&[u8]) -> core::result::Result<Self, jmap_base_client::ClientError>
+pub fn jmap_base_client::CustomCaTransport::new(alloc::vec::Vec<u8>) -> Self
+impl core::clone::Clone for jmap_base_client::CustomCaTransport
+pub fn jmap_base_client::CustomCaTransport::clone(&self) -> jmap_base_client::CustomCaTransport
+impl core::fmt::Debug for jmap_base_client::CustomCaTransport
+pub fn jmap_base_client::CustomCaTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_base_client::TransportConfig for jmap_base_client::CustomCaTransport
+pub fn jmap_base_client::CustomCaTransport::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+pub struct jmap_base_client::CustomTransportBuilder
+impl jmap_base_client::CustomTransportBuilder
+pub fn jmap_base_client::CustomTransportBuilder::add_root_der(self, alloc::vec::Vec<u8>) -> Self
+pub fn jmap_base_client::CustomTransportBuilder::add_root_pem(self, &[u8]) -> core::result::Result<Self, jmap_base_client::ClientError>
+pub fn jmap_base_client::CustomTransportBuilder::add_roots_pem_bundle(self, &[u8]) -> core::result::Result<Self, jmap_base_client::ClientError>
+pub fn jmap_base_client::CustomTransportBuilder::build(self) -> jmap_base_client::BuilderTransport
+pub fn jmap_base_client::CustomTransportBuilder::new() -> Self
+pub fn jmap_base_client::CustomTransportBuilder::with_client_cert(self, alloc::vec::Vec<u8>, alloc::vec::Vec<u8>) -> Self
+impl core::default::Default for jmap_base_client::CustomTransportBuilder
+pub fn jmap_base_client::CustomTransportBuilder::default() -> jmap_base_client::CustomTransportBuilder
+pub struct jmap_base_client::DefaultTransport
+impl core::clone::Clone for jmap_base_client::DefaultTransport
+pub fn jmap_base_client::DefaultTransport::clone(&self) -> jmap_base_client::DefaultTransport
+impl core::fmt::Debug for jmap_base_client::DefaultTransport
+pub fn jmap_base_client::DefaultTransport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_base_client::TransportConfig for jmap_base_client::DefaultTransport
+pub fn jmap_base_client::DefaultTransport::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+pub struct jmap_base_client::DownloadBlobParams<'a>
+pub jmap_base_client::DownloadBlobParams::accept_type: core::option::Option<&'a str>
+pub jmap_base_client::DownloadBlobParams::account_id: &'a jmap_types::id::Id
+pub jmap_base_client::DownloadBlobParams::blob_id: &'a jmap_types::id::Id
+pub jmap_base_client::DownloadBlobParams::download_url_template: &'a jmap_base_client::JmapUrlTemplate
+pub jmap_base_client::DownloadBlobParams::expected_sha256: core::option::Option<&'a jmap_cid_types::digest::Sha256>
+pub jmap_base_client::DownloadBlobParams::name: &'a str
+impl<'a> core::clone::Clone for jmap_base_client::DownloadBlobParams<'a>
+pub fn jmap_base_client::DownloadBlobParams<'a>::clone(&self) -> jmap_base_client::DownloadBlobParams<'a>
+impl<'a> core::fmt::Debug for jmap_base_client::DownloadBlobParams<'a>
+pub fn jmap_base_client::DownloadBlobParams<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Copy for jmap_base_client::DownloadBlobParams<'a>
+pub struct jmap_base_client::DownloadBlobSessionParams<'a>
+pub jmap_base_client::DownloadBlobSessionParams::accept_type: core::option::Option<&'a str>
+pub jmap_base_client::DownloadBlobSessionParams::account_id: &'a jmap_types::id::Id
+pub jmap_base_client::DownloadBlobSessionParams::blob_id: &'a jmap_types::id::Id
+pub jmap_base_client::DownloadBlobSessionParams::expected_sha256: core::option::Option<&'a jmap_cid_types::digest::Sha256>
+pub jmap_base_client::DownloadBlobSessionParams::name: &'a str
+impl<'a> core::clone::Clone for jmap_base_client::DownloadBlobSessionParams<'a>
+pub fn jmap_base_client::DownloadBlobSessionParams<'a>::clone(&self) -> jmap_base_client::DownloadBlobSessionParams<'a>
+impl<'a> core::fmt::Debug for jmap_base_client::DownloadBlobSessionParams<'a>
+pub fn jmap_base_client::DownloadBlobSessionParams<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Copy for jmap_base_client::DownloadBlobSessionParams<'a>
+#[non_exhaustive] pub struct jmap_base_client::HttpClient(_)
+impl jmap_base_client::HttpClient
+pub fn jmap_base_client::HttpClient::new(reqwest::async_impl::client::Client) -> Self
+impl core::fmt::Debug for jmap_base_client::HttpClient
+pub fn jmap_base_client::HttpClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::HttpError(_)
+impl jmap_base_client::HttpError
+pub fn jmap_base_client::HttpError::is_body(&self) -> bool
+pub fn jmap_base_client::HttpError::is_builder(&self) -> bool
+pub fn jmap_base_client::HttpError::is_connect(&self) -> bool
+pub fn jmap_base_client::HttpError::is_decode(&self) -> bool
+pub fn jmap_base_client::HttpError::is_redirect(&self) -> bool
+pub fn jmap_base_client::HttpError::is_request(&self) -> bool
+pub fn jmap_base_client::HttpError::is_status(&self) -> bool
+pub fn jmap_base_client::HttpError::is_timeout(&self) -> bool
+pub fn jmap_base_client::HttpError::kind(&self) -> jmap_base_client::HttpErrorKind
+pub fn jmap_base_client::HttpError::status(&self) -> core::option::Option<u16>
+pub fn jmap_base_client::HttpError::url(&self) -> core::option::Option<alloc::string::String>
+impl core::error::Error for jmap_base_client::HttpError
+pub fn jmap_base_client::HttpError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_base_client::HttpError
+pub fn jmap_base_client::HttpError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::HttpError
+pub fn jmap_base_client::HttpError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::InvalidHeaderValueError
+impl jmap_base_client::InvalidHeaderValueError
+pub fn jmap_base_client::InvalidHeaderValueError::message(&self) -> &str
+impl core::error::Error for jmap_base_client::InvalidHeaderValueError
+impl core::fmt::Debug for jmap_base_client::InvalidHeaderValueError
+pub fn jmap_base_client::InvalidHeaderValueError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::InvalidHeaderValueError
+pub fn jmap_base_client::InvalidHeaderValueError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_base_client::JmapClient
+impl jmap_base_client::JmapClient
+pub async fn jmap_base_client::JmapClient::call(&self, &str, &jmap_types::wire::JmapRequest) -> core::result::Result<jmap_types::wire::JmapResponse, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::call_session(&self, &jmap_base_client::Session, &jmap_types::wire::JmapRequest) -> core::result::Result<jmap_types::wire::JmapResponse, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::connect_ws_session(&self, &str, core::option::Option<jmap_base_client::AuthHeader<'_>>) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::fetch_session(&self) -> core::result::Result<jmap_base_client::Session, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::subscribe_events(&self, &str, core::option::Option<&str>) -> core::result::Result<futures_core::stream::BoxStream<'static, core::result::Result<jmap_base_client::SseFrame, jmap_base_client::ClientError>>, jmap_base_client::ClientError>
+pub fn jmap_base_client::JmapClient::subscribe_events_reconnecting(&self, &str, core::option::Option<&str>, jmap_base_client::SseReconnectPolicy) -> futures_core::stream::BoxStream<'static, core::result::Result<jmap_base_client::SseFrame, jmap_base_client::ClientError>>
+pub async fn jmap_base_client::JmapClient::subscribe_events_session(&self, &jmap_base_client::Session, jmap_base_client::SubscribeEventsSessionParams<'_>) -> core::result::Result<futures_core::stream::BoxStream<'static, core::result::Result<jmap_base_client::SseFrame, jmap_base_client::ClientError>>, jmap_base_client::ClientError>
+impl jmap_base_client::JmapClient
+pub async fn jmap_base_client::JmapClient::download_blob(&self, jmap_base_client::DownloadBlobParams<'_>) -> core::result::Result<bytes::bytes::Bytes, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::download_blob_session(&self, &jmap_base_client::Session, jmap_base_client::DownloadBlobSessionParams<'_>) -> core::result::Result<bytes::bytes::Bytes, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::download_blob_stream(&self, jmap_base_client::DownloadBlobParams<'_>) -> core::result::Result<jmap_base_client::BlobDownloadStream, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::upload_blob(&self, jmap_base_client::UploadBlobParams<'_>) -> core::result::Result<jmap_base_client::BlobUploadResponse, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::upload_blob_session(&self, &jmap_base_client::Session, jmap_base_client::UploadBlobSessionParams<'_>) -> core::result::Result<jmap_base_client::BlobUploadResponse, jmap_base_client::ClientError>
+pub async fn jmap_base_client::JmapClient::upload_blob_stream(&self, jmap_base_client::UploadBlobStreamParams<'_>) -> core::result::Result<jmap_base_client::BlobUploadResponse, jmap_base_client::ClientError>
+impl jmap_base_client::JmapClient
+pub fn jmap_base_client::JmapClient::new(impl jmap_base_client::TransportConfig, impl jmap_base_client::AuthProvider + 'static, &str, jmap_base_client::ClientConfig) -> core::result::Result<Self, jmap_base_client::ClientError>
+pub fn jmap_base_client::JmapClient::new_plain(impl jmap_base_client::AuthProvider + 'static, &str, jmap_base_client::ClientConfig) -> core::result::Result<Self, jmap_base_client::ClientError>
+pub fn jmap_base_client::JmapClient::new_with_shared_auth(impl jmap_base_client::TransportConfig, alloc::sync::Arc<dyn jmap_base_client::AuthProvider>, &str, jmap_base_client::ClientConfig) -> core::result::Result<Self, jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::JmapClient
+pub fn jmap_base_client::JmapClient::clone(&self) -> jmap_base_client::JmapClient
+impl core::fmt::Debug for jmap_base_client::JmapClient
+pub fn jmap_base_client::JmapClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_base_client::JmapRequestBuilder
+impl jmap_base_client::JmapRequestBuilder
+pub fn jmap_base_client::JmapRequestBuilder::add_call(&mut self, impl core::convert::Into<alloc::string::String>, serde_json::value::Value, impl core::convert::Into<alloc::string::String>) -> core::result::Result<&mut Self, jmap_base_client::ClientError>
+pub fn jmap_base_client::JmapRequestBuilder::build(self) -> core::result::Result<jmap_types::wire::JmapRequest, jmap_base_client::ClientError>
+pub fn jmap_base_client::JmapRequestBuilder::new(&[&str]) -> Self
+impl core::fmt::Debug for jmap_base_client::JmapRequestBuilder
+pub fn jmap_base_client::JmapRequestBuilder::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::JmapUrl(_)
+impl jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::as_str(&self) -> &str
+pub fn jmap_base_client::JmapUrl::into_inner(self) -> alloc::string::String
+pub fn jmap_base_client::JmapUrl::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::clone(&self) -> jmap_base_client::JmapUrl
+impl core::cmp::Eq for jmap_base_client::JmapUrl
+impl core::cmp::PartialEq for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::eq(&self, &jmap_base_client::JmapUrl) -> bool
+impl core::cmp::PartialEq<&str> for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<jmap_base_client::JmapUrl> for &str
+pub fn &str::eq(&self, &jmap_base_client::JmapUrl) -> bool
+impl core::cmp::PartialEq<jmap_base_client::JmapUrl> for str
+pub fn str::eq(&self, &jmap_base_client::JmapUrl) -> bool
+impl core::cmp::PartialEq<str> for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::eq(&self, &str) -> bool
+impl core::convert::AsRef<str> for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::as_ref(&self) -> &str
+impl core::fmt::Debug for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_base_client::JmapUrl
+impl serde_core::ser::Serialize for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::JmapUrl
+pub fn jmap_base_client::JmapUrl::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_base_client::JmapUrlTemplate(_)
+impl jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::as_str(&self) -> &str
+pub fn jmap_base_client::JmapUrlTemplate::into_inner(self) -> alloc::string::String
+pub fn jmap_base_client::JmapUrlTemplate::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::clone(&self) -> jmap_base_client::JmapUrlTemplate
+impl core::cmp::Eq for jmap_base_client::JmapUrlTemplate
+impl core::cmp::PartialEq for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::eq(&self, &jmap_base_client::JmapUrlTemplate) -> bool
+impl core::cmp::PartialEq<&str> for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<jmap_base_client::JmapUrlTemplate> for &str
+pub fn &str::eq(&self, &jmap_base_client::JmapUrlTemplate) -> bool
+impl core::cmp::PartialEq<jmap_base_client::JmapUrlTemplate> for str
+pub fn str::eq(&self, &jmap_base_client::JmapUrlTemplate) -> bool
+impl core::cmp::PartialEq<str> for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::eq(&self, &str) -> bool
+impl core::convert::AsRef<str> for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::as_ref(&self) -> &str
+impl core::fmt::Debug for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_base_client::JmapUrlTemplate
+impl serde_core::ser::Serialize for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::JmapUrlTemplate
+pub fn jmap_base_client::JmapUrlTemplate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_base_client::NoneAuth
+impl core::clone::Clone for jmap_base_client::NoneAuth
+pub fn jmap_base_client::NoneAuth::clone(&self) -> jmap_base_client::NoneAuth
+impl core::fmt::Debug for jmap_base_client::NoneAuth
+pub fn jmap_base_client::NoneAuth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_base_client::AuthProvider for jmap_base_client::NoneAuth
+pub fn jmap_base_client::NoneAuth::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+#[non_exhaustive] pub struct jmap_base_client::ParseError(_)
+impl jmap_base_client::ParseError
+pub fn jmap_base_client::ParseError::classify(&self) -> jmap_base_client::ParseCategory
+pub fn jmap_base_client::ParseError::column(&self) -> usize
+pub fn jmap_base_client::ParseError::from_serde_json(serde_json::error::Error) -> Self
+pub fn jmap_base_client::ParseError::line(&self) -> usize
+impl core::error::Error for jmap_base_client::ParseError
+pub fn jmap_base_client::ParseError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_base_client::ParseError
+pub fn jmap_base_client::ParseError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::ParseError
+pub fn jmap_base_client::ParseError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_base_client::QueryParams
+pub jmap_base_client::QueryParams::anchor: core::option::Option<jmap_types::id::Id>
+pub jmap_base_client::QueryParams::anchor_offset: core::option::Option<i64>
+pub jmap_base_client::QueryParams::calculate_total: core::option::Option<bool>
+pub jmap_base_client::QueryParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::QueryParams::limit: core::option::Option<u64>
+pub jmap_base_client::QueryParams::position: core::option::Option<i64>
+impl jmap_base_client::QueryParams
+pub fn jmap_base_client::QueryParams::to_arguments(&self, &str) -> serde_json::value::Value
+impl core::clone::Clone for jmap_base_client::QueryParams
+pub fn jmap_base_client::QueryParams::clone(&self) -> jmap_base_client::QueryParams
+impl core::cmp::PartialEq for jmap_base_client::QueryParams
+pub fn jmap_base_client::QueryParams::eq(&self, &jmap_base_client::QueryParams) -> bool
+impl core::default::Default for jmap_base_client::QueryParams
+pub fn jmap_base_client::QueryParams::default() -> jmap_base_client::QueryParams
+impl core::fmt::Debug for jmap_base_client::QueryParams
+pub fn jmap_base_client::QueryParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::QueryParams
+#[non_exhaustive] pub struct jmap_base_client::SerializeError(_)
+impl jmap_base_client::SerializeError
+pub fn jmap_base_client::SerializeError::classify(&self) -> jmap_base_client::ParseCategory
+pub fn jmap_base_client::SerializeError::column(&self) -> usize
+pub fn jmap_base_client::SerializeError::from_serde_json(serde_json::error::Error) -> Self
+pub fn jmap_base_client::SerializeError::line(&self) -> usize
+impl core::error::Error for jmap_base_client::SerializeError
+pub fn jmap_base_client::SerializeError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_base_client::SerializeError
+pub fn jmap_base_client::SerializeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::SerializeError
+pub fn jmap_base_client::SerializeError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::Session
+pub jmap_base_client::Session::accounts: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_base_client::AccountInfo>
+pub jmap_base_client::Session::api_url: jmap_base_client::JmapUrl
+pub jmap_base_client::Session::capabilities: alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::Session::download_url: jmap_base_client::JmapUrlTemplate
+pub jmap_base_client::Session::event_source_url: jmap_base_client::JmapUrlTemplate
+pub jmap_base_client::Session::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::Session::primary_accounts: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::id::Id>
+pub jmap_base_client::Session::state: jmap_types::id::State
+pub jmap_base_client::Session::upload_url: jmap_base_client::JmapUrlTemplate
+pub jmap_base_client::Session::username: jmap_base_client::Username
+impl jmap_base_client::Session
+pub fn jmap_base_client::Session::did_capability(&self) -> core::result::Result<core::option::Option<jmap_did_types::capability::DidCapability>, jmap_base_client::ClientError>
+pub fn jmap_base_client::Session::extension_capability<T>(&self, &str) -> core::result::Result<core::option::Option<T>, jmap_base_client::ClientError> where T: serde_core::de::DeserializeOwned
+pub fn jmap_base_client::Session::primary_account_id(&self, &str) -> core::option::Option<&jmap_types::id::Id>
+pub fn jmap_base_client::Session::supports_cid(&self) -> bool
+pub fn jmap_base_client::Session::websocket_capability(&self) -> core::result::Result<core::option::Option<jmap_base_client::WebSocketCapability>, jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::Session
+pub fn jmap_base_client::Session::clone(&self) -> jmap_base_client::Session
+impl core::cmp::Eq for jmap_base_client::Session
+impl core::cmp::PartialEq for jmap_base_client::Session
+pub fn jmap_base_client::Session::eq(&self, &jmap_base_client::Session) -> bool
+impl core::fmt::Debug for jmap_base_client::Session
+pub fn jmap_base_client::Session::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::Session
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::Session
+pub fn jmap_base_client::Session::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_base_client::SseFrame
+pub jmap_base_client::SseFrame::event: jmap_base_client::SseEvent
+pub jmap_base_client::SseFrame::id: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_base_client::SseFrame
+pub fn jmap_base_client::SseFrame::clone(&self) -> jmap_base_client::SseFrame
+impl core::cmp::Eq for jmap_base_client::SseFrame
+impl core::cmp::PartialEq for jmap_base_client::SseFrame
+pub fn jmap_base_client::SseFrame::eq(&self, &jmap_base_client::SseFrame) -> bool
+impl core::fmt::Debug for jmap_base_client::SseFrame
+pub fn jmap_base_client::SseFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::SseFrame
+#[non_exhaustive] pub struct jmap_base_client::SseReconnectPolicy
+pub jmap_base_client::SseReconnectPolicy::initial_delay: core::time::Duration
+pub jmap_base_client::SseReconnectPolicy::max_delay: core::time::Duration
+pub jmap_base_client::SseReconnectPolicy::max_retries: core::option::Option<u32>
+impl core::clone::Clone for jmap_base_client::SseReconnectPolicy
+pub fn jmap_base_client::SseReconnectPolicy::clone(&self) -> jmap_base_client::SseReconnectPolicy
+impl core::cmp::Eq for jmap_base_client::SseReconnectPolicy
+impl core::cmp::PartialEq for jmap_base_client::SseReconnectPolicy
+pub fn jmap_base_client::SseReconnectPolicy::eq(&self, &jmap_base_client::SseReconnectPolicy) -> bool
+impl core::default::Default for jmap_base_client::SseReconnectPolicy
+pub fn jmap_base_client::SseReconnectPolicy::default() -> Self
+impl core::fmt::Debug for jmap_base_client::SseReconnectPolicy
+pub fn jmap_base_client::SseReconnectPolicy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_base_client::SseReconnectPolicy
+impl core::marker::StructuralPartialEq for jmap_base_client::SseReconnectPolicy
+pub struct jmap_base_client::SubscribeEventsSessionParams<'a>
+pub jmap_base_client::SubscribeEventsSessionParams::close_after: core::option::Option<jmap_base_client::CloseAfter>
+pub jmap_base_client::SubscribeEventsSessionParams::last_event_id: core::option::Option<&'a str>
+pub jmap_base_client::SubscribeEventsSessionParams::ping: core::option::Option<u32>
+pub jmap_base_client::SubscribeEventsSessionParams::types: core::option::Option<&'a str>
+impl<'a> core::clone::Clone for jmap_base_client::SubscribeEventsSessionParams<'a>
+pub fn jmap_base_client::SubscribeEventsSessionParams<'a>::clone(&self) -> jmap_base_client::SubscribeEventsSessionParams<'a>
+impl<'a> core::default::Default for jmap_base_client::SubscribeEventsSessionParams<'a>
+pub fn jmap_base_client::SubscribeEventsSessionParams<'a>::default() -> jmap_base_client::SubscribeEventsSessionParams<'a>
+impl<'a> core::fmt::Debug for jmap_base_client::SubscribeEventsSessionParams<'a>
+pub fn jmap_base_client::SubscribeEventsSessionParams<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Copy for jmap_base_client::SubscribeEventsSessionParams<'a>
+pub struct jmap_base_client::UploadBlobParams<'a>
+pub jmap_base_client::UploadBlobParams::account_id: &'a jmap_types::id::Id
+pub jmap_base_client::UploadBlobParams::content_type: &'a str
+pub jmap_base_client::UploadBlobParams::data: bytes::bytes::Bytes
+pub jmap_base_client::UploadBlobParams::upload_url_template: &'a jmap_base_client::JmapUrlTemplate
+impl<'a> core::clone::Clone for jmap_base_client::UploadBlobParams<'a>
+pub fn jmap_base_client::UploadBlobParams<'a>::clone(&self) -> jmap_base_client::UploadBlobParams<'a>
+impl<'a> core::fmt::Debug for jmap_base_client::UploadBlobParams<'a>
+pub fn jmap_base_client::UploadBlobParams<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_base_client::UploadBlobSessionParams<'a>
+pub jmap_base_client::UploadBlobSessionParams::account_id: &'a jmap_types::id::Id
+pub jmap_base_client::UploadBlobSessionParams::content_type: &'a str
+pub jmap_base_client::UploadBlobSessionParams::data: bytes::bytes::Bytes
+impl<'a> core::clone::Clone for jmap_base_client::UploadBlobSessionParams<'a>
+pub fn jmap_base_client::UploadBlobSessionParams<'a>::clone(&self) -> jmap_base_client::UploadBlobSessionParams<'a>
+impl<'a> core::fmt::Debug for jmap_base_client::UploadBlobSessionParams<'a>
+pub fn jmap_base_client::UploadBlobSessionParams<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_base_client::UploadBlobStreamParams<'a>
+pub jmap_base_client::UploadBlobStreamParams::account_id: &'a jmap_types::id::Id
+pub jmap_base_client::UploadBlobStreamParams::body: jmap_base_client::BlobUploadBody
+pub jmap_base_client::UploadBlobStreamParams::content_length: core::option::Option<u64>
+pub jmap_base_client::UploadBlobStreamParams::content_type: &'a str
+pub jmap_base_client::UploadBlobStreamParams::upload_url_template: &'a jmap_base_client::JmapUrlTemplate
+impl core::fmt::Debug for jmap_base_client::UploadBlobStreamParams<'_>
+pub fn jmap_base_client::UploadBlobStreamParams<'_>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::Username(_)
+impl jmap_base_client::Username
+pub fn jmap_base_client::Username::expose_unredacted(&self) -> &str
+pub fn jmap_base_client::Username::into_inner(self) -> alloc::string::String
+pub fn jmap_base_client::Username::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_base_client::Username
+pub fn jmap_base_client::Username::clone(&self) -> jmap_base_client::Username
+impl core::cmp::Eq for jmap_base_client::Username
+impl core::cmp::PartialEq for jmap_base_client::Username
+pub fn jmap_base_client::Username::eq(&self, &jmap_base_client::Username) -> bool
+impl core::cmp::PartialEq<&str> for jmap_base_client::Username
+pub fn jmap_base_client::Username::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<jmap_base_client::Username> for &str
+pub fn &str::eq(&self, &jmap_base_client::Username) -> bool
+impl core::cmp::PartialEq<jmap_base_client::Username> for str
+pub fn str::eq(&self, &jmap_base_client::Username) -> bool
+impl core::cmp::PartialEq<str> for jmap_base_client::Username
+pub fn jmap_base_client::Username::eq(&self, &str) -> bool
+impl core::fmt::Debug for jmap_base_client::Username
+pub fn jmap_base_client::Username::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::Username
+pub fn jmap_base_client::Username::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_base_client::Username
+pub fn jmap_base_client::Username::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_base_client::Username
+impl serde_core::ser::Serialize for jmap_base_client::Username
+pub fn jmap_base_client::Username::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::Username
+pub fn jmap_base_client::Username::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_base_client::WebSocketCapability
+pub jmap_base_client::WebSocketCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::WebSocketCapability::supports_push: bool
+pub jmap_base_client::WebSocketCapability::url: alloc::string::String
+impl core::clone::Clone for jmap_base_client::WebSocketCapability
+pub fn jmap_base_client::WebSocketCapability::clone(&self) -> jmap_base_client::WebSocketCapability
+impl core::cmp::Eq for jmap_base_client::WebSocketCapability
+impl core::cmp::PartialEq for jmap_base_client::WebSocketCapability
+pub fn jmap_base_client::WebSocketCapability::eq(&self, &jmap_base_client::WebSocketCapability) -> bool
+impl core::fmt::Debug for jmap_base_client::WebSocketCapability
+pub fn jmap_base_client::WebSocketCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::WebSocketCapability
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::WebSocketCapability
+pub fn jmap_base_client::WebSocketCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_base_client::WebSocketError(_)
+impl jmap_base_client::WebSocketError
+pub fn jmap_base_client::WebSocketError::is_already_closed(&self) -> bool
+pub fn jmap_base_client::WebSocketError::is_capacity(&self) -> bool
+pub fn jmap_base_client::WebSocketError::is_connection_closed(&self) -> bool
+pub fn jmap_base_client::WebSocketError::is_io(&self) -> bool
+pub fn jmap_base_client::WebSocketError::is_protocol(&self) -> bool
+pub fn jmap_base_client::WebSocketError::is_url(&self) -> bool
+pub fn jmap_base_client::WebSocketError::kind(&self) -> jmap_base_client::WebSocketErrorKind
+impl core::error::Error for jmap_base_client::WebSocketError
+pub fn jmap_base_client::WebSocketError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_base_client::WebSocketError
+pub fn jmap_base_client::WebSocketError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_base_client::WebSocketError
+pub fn jmap_base_client::WebSocketError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_base_client::WsReceiver
+impl jmap_base_client::WsReceiver
+pub async fn jmap_base_client::WsReceiver::next_frame(&mut self) -> core::option::Option<core::result::Result<jmap_base_client::WsFrame, jmap_base_client::ClientError>>
+impl core::fmt::Debug for jmap_base_client::WsReceiver
+pub fn jmap_base_client::WsReceiver::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::WsRequestError
+pub jmap_base_client::WsRequestError::detail: core::option::Option<alloc::string::String>
+pub jmap_base_client::WsRequestError::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::WsRequestError::limit: core::option::Option<alloc::string::String>
+pub jmap_base_client::WsRequestError::problem_type: alloc::string::String
+pub jmap_base_client::WsRequestError::request_id: core::option::Option<alloc::string::String>
+pub jmap_base_client::WsRequestError::status: core::option::Option<u16>
+impl core::clone::Clone for jmap_base_client::WsRequestError
+pub fn jmap_base_client::WsRequestError::clone(&self) -> jmap_base_client::WsRequestError
+impl core::cmp::Eq for jmap_base_client::WsRequestError
+impl core::cmp::PartialEq for jmap_base_client::WsRequestError
+pub fn jmap_base_client::WsRequestError::eq(&self, &jmap_base_client::WsRequestError) -> bool
+impl core::fmt::Debug for jmap_base_client::WsRequestError
+pub fn jmap_base_client::WsRequestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::WsRequestError
+impl serde_core::ser::Serialize for jmap_base_client::WsRequestError
+pub fn jmap_base_client::WsRequestError::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::WsRequestError
+pub fn jmap_base_client::WsRequestError::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_base_client::WsSender
+impl jmap_base_client::WsSender
+pub async fn jmap_base_client::WsSender::send_push_disable(&mut self) -> core::result::Result<(), jmap_base_client::ClientError>
+pub async fn jmap_base_client::WsSender::send_push_enable(&mut self, core::option::Option<&[&str]>, core::option::Option<&str>) -> core::result::Result<(), jmap_base_client::ClientError>
+pub async fn jmap_base_client::WsSender::send_request(&mut self, &jmap_types::wire::JmapRequest, core::option::Option<&str>) -> core::result::Result<(), jmap_base_client::ClientError>
+pub async fn jmap_base_client::WsSender::send_text(&mut self, alloc::string::String) -> core::result::Result<(), jmap_base_client::ClientError>
+impl core::fmt::Debug for jmap_base_client::WsSender
+pub fn jmap_base_client::WsSender::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_base_client::WsSession
+impl jmap_base_client::WsSession
+pub fn jmap_base_client::WsSession::enable_keepalive(&mut self, core::time::Duration, core::time::Duration) -> core::result::Result<(), jmap_base_client::ClientError>
+pub async fn jmap_base_client::WsSession::next_frame(&mut self) -> core::option::Option<core::result::Result<jmap_base_client::WsFrame, jmap_base_client::ClientError>>
+pub async fn jmap_base_client::WsSession::send_push_disable(&mut self) -> core::result::Result<(), jmap_base_client::ClientError>
+pub async fn jmap_base_client::WsSession::send_push_enable(&mut self, core::option::Option<&[&str]>, core::option::Option<&str>) -> core::result::Result<(), jmap_base_client::ClientError>
+pub async fn jmap_base_client::WsSession::send_request(&mut self, &jmap_types::wire::JmapRequest, core::option::Option<&str>) -> core::result::Result<(), jmap_base_client::ClientError>
+pub async fn jmap_base_client::WsSession::send_text(&mut self, alloc::string::String) -> core::result::Result<(), jmap_base_client::ClientError>
+pub fn jmap_base_client::WsSession::split(self) -> (jmap_base_client::WsSender, jmap_base_client::WsReceiver)
+impl core::fmt::Debug for jmap_base_client::WsSession
+pub fn jmap_base_client::WsSession::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_base_client::DEFAULT_WS_MAX_MESSAGE_BYTES: usize
+pub trait jmap_base_client::AuthProvider: core::marker::Send + core::marker::Sync
+pub fn jmap_base_client::AuthProvider::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+impl jmap_base_client::AuthProvider for alloc::boxed::Box<dyn jmap_base_client::AuthProvider>
+pub fn alloc::boxed::Box<dyn jmap_base_client::AuthProvider>::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+impl jmap_base_client::AuthProvider for alloc::sync::Arc<dyn jmap_base_client::AuthProvider>
+pub fn alloc::sync::Arc<dyn jmap_base_client::AuthProvider>::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+impl jmap_base_client::AuthProvider for jmap_base_client::BasicAuth
+pub fn jmap_base_client::BasicAuth::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+impl jmap_base_client::AuthProvider for jmap_base_client::BearerAuth
+pub fn jmap_base_client::BearerAuth::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+impl jmap_base_client::AuthProvider for jmap_base_client::NoneAuth
+pub fn jmap_base_client::NoneAuth::auth_header(&self) -> core::option::Option<jmap_base_client::AuthHeader<'_>>
+pub trait jmap_base_client::TransportConfig: core::marker::Send + core::marker::Sync
+pub fn jmap_base_client::TransportConfig::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+impl jmap_base_client::TransportConfig for alloc::boxed::Box<dyn jmap_base_client::TransportConfig>
+pub fn alloc::boxed::Box<dyn jmap_base_client::TransportConfig>::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+impl jmap_base_client::TransportConfig for jmap_base_client::BuilderTransport
+pub fn jmap_base_client::BuilderTransport::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+impl jmap_base_client::TransportConfig for jmap_base_client::CustomCaTransport
+pub fn jmap_base_client::CustomCaTransport::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+impl jmap_base_client::TransportConfig for jmap_base_client::DefaultTransport
+pub fn jmap_base_client::DefaultTransport::build_client(&self) -> core::result::Result<jmap_base_client::HttpClient, jmap_base_client::ClientError>
+pub async fn jmap_base_client::connect_ws(&str, core::option::Option<jmap_base_client::AuthHeader<'_>>) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
+pub async fn jmap_base_client::connect_ws_allow_plaintext(&str, core::option::Option<jmap_base_client::AuthHeader<'_>>, usize) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
+pub async fn jmap_base_client::connect_ws_with_limit(&str, core::option::Option<jmap_base_client::AuthHeader<'_>>, usize) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
+pub fn jmap_base_client::expand_url_template(&str, &[(&str, &str)]) -> core::result::Result<alloc::string::String, jmap_base_client::ClientError>
+pub fn jmap_base_client::extract_response<T: serde_core::de::DeserializeOwned>(&jmap_types::wire::JmapResponse, &str) -> core::result::Result<T, jmap_base_client::ClientError>
+pub fn jmap_base_client::method_error_details<'a>(&'a jmap_types::wire::JmapResponse, &str) -> core::option::Option<&'a serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub fn jmap_base_client::parse_sse_block(&str) -> jmap_base_client::SseFrame
+pub fn jmap_base_client::upload_body_from_reader<R>(R) -> jmap_base_client::BlobUploadBody where R: tokio::io::async_read::AsyncRead + core::marker::Send + 'static
+pub type jmap_base_client::BlobUploadBody = core::pin::Pin<alloc::boxed::Box<(dyn futures_core::stream::Stream<Item = core::result::Result<bytes::bytes::Bytes, core::io::error::Error>> + core::marker::Send)>>

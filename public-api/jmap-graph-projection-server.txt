@@ -1,0 +1,56 @@
+pub mod jmap_graph_projection_server
+pub use jmap_graph_projection_server::JMAP_GRAPH_PROJECTION_URI
+#[non_exhaustive] pub struct jmap_graph_projection_server::Reference
+pub jmap_graph_projection_server::Reference::edge_type: alloc::string::String
+pub jmap_graph_projection_server::Reference::target_id: jmap_types::id::Id
+pub jmap_graph_projection_server::Reference::target_uri_type: &'static str
+impl jmap_graph_projection_server::Reference
+pub fn jmap_graph_projection_server::Reference::target_uri(&self, &jmap_types::id::Id) -> core::result::Result<jmap_types::jmap_uri::JmapUri, jmap_types::jmap_uri::JmapUriError>
+impl core::clone::Clone for jmap_graph_projection_server::Reference
+pub fn jmap_graph_projection_server::Reference::clone(&self) -> jmap_graph_projection_server::Reference
+impl core::cmp::Eq for jmap_graph_projection_server::Reference
+impl core::cmp::PartialEq for jmap_graph_projection_server::Reference
+pub fn jmap_graph_projection_server::Reference::eq(&self, &jmap_graph_projection_server::Reference) -> bool
+impl core::fmt::Debug for jmap_graph_projection_server::Reference
+pub fn jmap_graph_projection_server::Reference::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_projection_server::Reference
+pub const jmap_graph_projection_server::OBJECT_URI_PROPERTY: &str
+pub trait jmap_graph_projection_server::Projectable: jmap_types::backend::GetObject
+pub const jmap_graph_projection_server::Projectable::URI_TYPE: &'static str
+pub fn jmap_graph_projection_server::Projectable::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_graph_projection_server::Projectable::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_graph_projection_server::Projectable for jmap_contacts_types::addressbook::AddressBook
+pub const jmap_contacts_types::addressbook::AddressBook::URI_TYPE: &'static str
+pub fn jmap_contacts_types::addressbook::AddressBook::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_contacts_types::addressbook::AddressBook::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_graph_projection_server::Projectable for jmap_contacts_types::card::ContactCard
+pub const jmap_contacts_types::card::ContactCard::URI_TYPE: &'static str
+pub fn jmap_contacts_types::card::ContactCard::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_contacts_types::card::ContactCard::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_graph_projection_server::Projectable for jmap_mail_types::email::Email
+pub const jmap_mail_types::email::Email::URI_TYPE: &'static str
+pub fn jmap_mail_types::email::Email::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_mail_types::email::Email::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_graph_projection_server::Projectable for jmap_mail_types::identity::Identity
+pub const jmap_mail_types::identity::Identity::URI_TYPE: &'static str
+pub fn jmap_mail_types::identity::Identity::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_mail_types::identity::Identity::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_graph_projection_server::Projectable for jmap_mail_types::mailbox::Mailbox
+pub const jmap_mail_types::mailbox::Mailbox::URI_TYPE: &'static str
+pub fn jmap_mail_types::mailbox::Mailbox::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_mail_types::mailbox::Mailbox::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_graph_projection_server::Projectable for jmap_mail_types::submission::EmailSubmission
+pub const jmap_mail_types::submission::EmailSubmission::URI_TYPE: &'static str
+pub fn jmap_mail_types::submission::EmailSubmission::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_mail_types::submission::EmailSubmission::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+impl jmap_graph_projection_server::Projectable for jmap_mail_types::thread::Thread
+pub const jmap_mail_types::thread::Thread::URI_TYPE: &'static str
+pub fn jmap_mail_types::thread::Thread::references(&self) -> alloc::vec::Vec<jmap_graph_projection_server::Reference>
+pub fn jmap_mail_types::thread::Thread::source_id(&self) -> core::option::Option<&jmap_types::id::Id>
+pub fn jmap_graph_projection_server::node_matches(&jmap_graph_types::query::GraphNodeFilterCondition, &jmap_graph_types::node::GraphNode) -> bool
+pub fn jmap_graph_projection_server::node_object_uri(&jmap_graph_types::node::GraphNode) -> core::option::Option<&str>
+pub fn jmap_graph_projection_server::object_uri<O: jmap_graph_projection_server::Projectable>(&jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_types::jmap_uri::JmapUri, jmap_types::jmap_uri::JmapUriError>
+pub fn jmap_graph_projection_server::projected_edge(&jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_graph_projection_server::Reference, &jmap_types::id::UTCDate) -> jmap_graph_types::edge::GraphEdge
+pub fn jmap_graph_projection_server::projected_graph_rights() -> jmap_graph_types::graph::GraphRights
+pub fn jmap_graph_projection_server::projected_node(&jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::jmap_uri::JmapUri, &jmap_types::id::UTCDate) -> jmap_graph_types::node::GraphNode
+pub async fn jmap_graph_projection_server::visible_ids<O, B>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id]) -> core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, <B as jmap_server::backend::JmapBackend>::Error> where O: jmap_graph_projection_server::Projectable + core::marker::Send + core::marker::Sync, B: jmap_server::backend::JmapBackend

@@ -1,0 +1,571 @@
+pub mod jmap_chat_mimi_types
+#[non_exhaustive] pub enum jmap_chat_mimi_types::Base64UrlError
+#[non_exhaustive] pub jmap_chat_mimi_types::Base64UrlError::InvalidByte
+pub jmap_chat_mimi_types::Base64UrlError::InvalidByte::at: u32
+pub jmap_chat_mimi_types::Base64UrlError::InvalidByte::byte: u8
+#[non_exhaustive] pub jmap_chat_mimi_types::Base64UrlError::InvalidLength
+pub jmap_chat_mimi_types::Base64UrlError::InvalidLength::len: u32
+pub jmap_chat_mimi_types::Base64UrlError::NonCanonical
+impl core::clone::Clone for jmap_chat_mimi_types::Base64UrlError
+pub fn jmap_chat_mimi_types::Base64UrlError::clone(&self) -> jmap_chat_mimi_types::Base64UrlError
+impl core::cmp::Eq for jmap_chat_mimi_types::Base64UrlError
+impl core::cmp::PartialEq for jmap_chat_mimi_types::Base64UrlError
+pub fn jmap_chat_mimi_types::Base64UrlError::eq(&self, &jmap_chat_mimi_types::Base64UrlError) -> bool
+impl core::error::Error for jmap_chat_mimi_types::Base64UrlError
+impl core::fmt::Debug for jmap_chat_mimi_types::Base64UrlError
+pub fn jmap_chat_mimi_types::Base64UrlError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::Base64UrlError
+pub fn jmap_chat_mimi_types::Base64UrlError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::Base64UrlError
+#[non_exhaustive] pub enum jmap_chat_mimi_types::GroupInfoCode
+pub jmap_chat_mimi_types::GroupInfoCode::NoSuchRoom
+pub jmap_chat_mimi_types::GroupInfoCode::NotAuthorized
+pub jmap_chat_mimi_types::GroupInfoCode::Other(alloc::string::String)
+pub jmap_chat_mimi_types::GroupInfoCode::Success
+impl core::clone::Clone for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::clone(&self) -> jmap_chat_mimi_types::GroupInfoCode
+impl core::cmp::Eq for jmap_chat_mimi_types::GroupInfoCode
+impl core::cmp::PartialEq for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::eq(&self, &jmap_chat_mimi_types::GroupInfoCode) -> bool
+impl core::convert::From<&str> for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::GroupInfoCode
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_mimi_types::KeyMaterialClientCode
+pub jmap_chat_mimi_types::KeyMaterialClientCode::KeyMaterialExhausted
+pub jmap_chat_mimi_types::KeyMaterialClientCode::NothingCompatible
+pub jmap_chat_mimi_types::KeyMaterialClientCode::Other(alloc::string::String)
+pub jmap_chat_mimi_types::KeyMaterialClientCode::Success
+impl core::clone::Clone for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::clone(&self) -> jmap_chat_mimi_types::KeyMaterialClientCode
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyMaterialClientCode
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::eq(&self, &jmap_chat_mimi_types::KeyMaterialClientCode) -> bool
+impl core::convert::From<&str> for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyMaterialClientCode
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_mimi_types::KeyMaterialUserCode
+pub jmap_chat_mimi_types::KeyMaterialUserCode::IncompatibleProtocol
+pub jmap_chat_mimi_types::KeyMaterialUserCode::NoCompatibleMaterial
+pub jmap_chat_mimi_types::KeyMaterialUserCode::NoConsent
+pub jmap_chat_mimi_types::KeyMaterialUserCode::NoConsentForThisRoom
+pub jmap_chat_mimi_types::KeyMaterialUserCode::Other(alloc::string::String)
+pub jmap_chat_mimi_types::KeyMaterialUserCode::PartialSuccess
+pub jmap_chat_mimi_types::KeyMaterialUserCode::Success
+pub jmap_chat_mimi_types::KeyMaterialUserCode::UserDeleted
+pub jmap_chat_mimi_types::KeyMaterialUserCode::UserUnknown
+impl core::clone::Clone for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::clone(&self) -> jmap_chat_mimi_types::KeyMaterialUserCode
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyMaterialUserCode
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::eq(&self, &jmap_chat_mimi_types::KeyMaterialUserCode) -> bool
+impl core::convert::From<&str> for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyMaterialUserCode
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_mimi_types::KeyPackageProperty
+pub jmap_chat_mimi_types::KeyPackageProperty::Id
+pub jmap_chat_mimi_types::KeyPackageProperty::KeyPackage
+pub jmap_chat_mimi_types::KeyPackageProperty::KeyPackageRef
+pub jmap_chat_mimi_types::KeyPackageProperty::LastResort
+impl core::clone::Clone for jmap_chat_mimi_types::KeyPackageProperty
+pub fn jmap_chat_mimi_types::KeyPackageProperty::clone(&self) -> jmap_chat_mimi_types::KeyPackageProperty
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyPackageProperty
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyPackageProperty
+pub fn jmap_chat_mimi_types::KeyPackageProperty::eq(&self, &jmap_chat_mimi_types::KeyPackageProperty) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyPackageProperty
+pub fn jmap_chat_mimi_types::KeyPackageProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::KeyPackageProperty
+pub fn jmap_chat_mimi_types::KeyPackageProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyPackageProperty
+#[non_exhaustive] pub enum jmap_chat_mimi_types::SubmitResponseCode
+pub jmap_chat_mimi_types::SubmitResponseCode::Accepted
+pub jmap_chat_mimi_types::SubmitResponseCode::EpochTooOld
+pub jmap_chat_mimi_types::SubmitResponseCode::NotAllowed
+pub jmap_chat_mimi_types::SubmitResponseCode::Other(alloc::string::String)
+impl core::clone::Clone for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::clone(&self) -> jmap_chat_mimi_types::SubmitResponseCode
+impl core::cmp::Eq for jmap_chat_mimi_types::SubmitResponseCode
+impl core::cmp::PartialEq for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::eq(&self, &jmap_chat_mimi_types::SubmitResponseCode) -> bool
+impl core::convert::From<&str> for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::SubmitResponseCode
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_mimi_types::UpdateResponseCode
+pub jmap_chat_mimi_types::UpdateResponseCode::InvalidProposal
+pub jmap_chat_mimi_types::UpdateResponseCode::NotAllowed
+pub jmap_chat_mimi_types::UpdateResponseCode::Other(alloc::string::String)
+pub jmap_chat_mimi_types::UpdateResponseCode::Success
+pub jmap_chat_mimi_types::UpdateResponseCode::WrongEpoch
+impl core::clone::Clone for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::clone(&self) -> jmap_chat_mimi_types::UpdateResponseCode
+impl core::cmp::Eq for jmap_chat_mimi_types::UpdateResponseCode
+impl core::cmp::PartialEq for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::eq(&self, &jmap_chat_mimi_types::UpdateResponseCode) -> bool
+impl core::convert::From<&str> for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::UpdateResponseCode
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+pub struct jmap_chat_mimi_types::Base64Url(_)
+impl jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::as_str(&self) -> &str
+impl core::clone::Clone for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::clone(&self) -> jmap_chat_mimi_types::Base64Url
+impl core::cmp::Eq for jmap_chat_mimi_types::Base64Url
+impl core::cmp::PartialEq for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::eq(&self, &jmap_chat_mimi_types::Base64Url) -> bool
+impl core::convert::AsRef<str> for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::as_ref(&self) -> &str
+impl core::convert::TryFrom<alloc::string::String> for jmap_chat_mimi_types::Base64Url
+pub type jmap_chat_mimi_types::Base64Url::Error = jmap_chat_mimi_types::Base64UrlError
+pub fn jmap_chat_mimi_types::Base64Url::try_from(alloc::string::String) -> core::result::Result<Self, Self::Error>
+impl core::fmt::Debug for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::Base64Url
+impl core::str::traits::FromStr for jmap_chat_mimi_types::Base64Url
+pub type jmap_chat_mimi_types::Base64Url::Err = jmap_chat_mimi_types::Base64UrlError
+pub fn jmap_chat_mimi_types::Base64Url::from_str(&str) -> core::result::Result<Self, Self::Err>
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::Base64Url
+pub fn jmap_chat_mimi_types::Base64Url::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::ClientKeyMaterial
+pub jmap_chat_mimi_types::ClientKeyMaterial::client_capabilities: core::option::Option<jmap_chat_mimi_types::Base64Url>
+pub jmap_chat_mimi_types::ClientKeyMaterial::client_status: jmap_chat_mimi_types::KeyMaterialClientCode
+pub jmap_chat_mimi_types::ClientKeyMaterial::client_uri: alloc::string::String
+pub jmap_chat_mimi_types::ClientKeyMaterial::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::ClientKeyMaterial::key_package: core::option::Option<jmap_chat_mimi_types::Base64Url>
+impl jmap_chat_mimi_types::ClientKeyMaterial
+pub fn jmap_chat_mimi_types::ClientKeyMaterial::new(jmap_chat_mimi_types::KeyMaterialClientCode, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::ClientKeyMaterial
+pub fn jmap_chat_mimi_types::ClientKeyMaterial::clone(&self) -> jmap_chat_mimi_types::ClientKeyMaterial
+impl core::cmp::Eq for jmap_chat_mimi_types::ClientKeyMaterial
+impl core::cmp::PartialEq for jmap_chat_mimi_types::ClientKeyMaterial
+pub fn jmap_chat_mimi_types::ClientKeyMaterial::eq(&self, &jmap_chat_mimi_types::ClientKeyMaterial) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::ClientKeyMaterial
+pub fn jmap_chat_mimi_types::ClientKeyMaterial::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::ClientKeyMaterial
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::ClientKeyMaterial
+pub fn jmap_chat_mimi_types::ClientKeyMaterial::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::ClientKeyMaterial
+pub fn jmap_chat_mimi_types::ClientKeyMaterial::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::GroupInfoFetchRequest
+pub jmap_chat_mimi_types::GroupInfoFetchRequest::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::GroupInfoFetchRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::GroupInfoFetchRequest::request: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::GroupInfoFetchRequest::room_id: alloc::string::String
+impl jmap_chat_mimi_types::GroupInfoFetchRequest
+pub fn jmap_chat_mimi_types::GroupInfoFetchRequest::new(jmap_types::id::Id, alloc::string::String, jmap_chat_mimi_types::Base64Url) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::GroupInfoFetchRequest
+pub fn jmap_chat_mimi_types::GroupInfoFetchRequest::clone(&self) -> jmap_chat_mimi_types::GroupInfoFetchRequest
+impl core::cmp::Eq for jmap_chat_mimi_types::GroupInfoFetchRequest
+impl core::cmp::PartialEq for jmap_chat_mimi_types::GroupInfoFetchRequest
+pub fn jmap_chat_mimi_types::GroupInfoFetchRequest::eq(&self, &jmap_chat_mimi_types::GroupInfoFetchRequest) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::GroupInfoFetchRequest
+pub fn jmap_chat_mimi_types::GroupInfoFetchRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::GroupInfoFetchRequest
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::GroupInfoFetchRequest
+pub fn jmap_chat_mimi_types::GroupInfoFetchRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::GroupInfoFetchRequest
+pub fn jmap_chat_mimi_types::GroupInfoFetchRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::GroupInfoFetchResponse
+pub jmap_chat_mimi_types::GroupInfoFetchResponse::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::GroupInfoFetchResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::GroupInfoFetchResponse::response: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::GroupInfoFetchResponse::status: jmap_chat_mimi_types::GroupInfoCode
+impl jmap_chat_mimi_types::GroupInfoFetchResponse
+pub fn jmap_chat_mimi_types::GroupInfoFetchResponse::new(jmap_types::id::Id, jmap_chat_mimi_types::GroupInfoCode, jmap_chat_mimi_types::Base64Url) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::GroupInfoFetchResponse
+pub fn jmap_chat_mimi_types::GroupInfoFetchResponse::clone(&self) -> jmap_chat_mimi_types::GroupInfoFetchResponse
+impl core::cmp::Eq for jmap_chat_mimi_types::GroupInfoFetchResponse
+impl core::cmp::PartialEq for jmap_chat_mimi_types::GroupInfoFetchResponse
+pub fn jmap_chat_mimi_types::GroupInfoFetchResponse::eq(&self, &jmap_chat_mimi_types::GroupInfoFetchResponse) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::GroupInfoFetchResponse
+pub fn jmap_chat_mimi_types::GroupInfoFetchResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::GroupInfoFetchResponse
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::GroupInfoFetchResponse
+pub fn jmap_chat_mimi_types::GroupInfoFetchResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::GroupInfoFetchResponse
+pub fn jmap_chat_mimi_types::GroupInfoFetchResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::KeyMaterialFetchRequest
+pub jmap_chat_mimi_types::KeyMaterialFetchRequest::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::KeyMaterialFetchRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::KeyMaterialFetchRequest::request: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::KeyMaterialFetchRequest::room_id: alloc::string::String
+impl jmap_chat_mimi_types::KeyMaterialFetchRequest
+pub fn jmap_chat_mimi_types::KeyMaterialFetchRequest::new(jmap_types::id::Id, alloc::string::String, jmap_chat_mimi_types::Base64Url) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::KeyMaterialFetchRequest
+pub fn jmap_chat_mimi_types::KeyMaterialFetchRequest::clone(&self) -> jmap_chat_mimi_types::KeyMaterialFetchRequest
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyMaterialFetchRequest
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyMaterialFetchRequest
+pub fn jmap_chat_mimi_types::KeyMaterialFetchRequest::eq(&self, &jmap_chat_mimi_types::KeyMaterialFetchRequest) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyMaterialFetchRequest
+pub fn jmap_chat_mimi_types::KeyMaterialFetchRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyMaterialFetchRequest
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::KeyMaterialFetchRequest
+pub fn jmap_chat_mimi_types::KeyMaterialFetchRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyMaterialFetchRequest
+pub fn jmap_chat_mimi_types::KeyMaterialFetchRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::KeyMaterialFetchResponse
+pub jmap_chat_mimi_types::KeyMaterialFetchResponse::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::KeyMaterialFetchResponse::clients: alloc::vec::Vec<jmap_chat_mimi_types::ClientKeyMaterial>
+pub jmap_chat_mimi_types::KeyMaterialFetchResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::KeyMaterialFetchResponse::user_status: jmap_chat_mimi_types::KeyMaterialUserCode
+pub jmap_chat_mimi_types::KeyMaterialFetchResponse::user_uri: alloc::string::String
+impl jmap_chat_mimi_types::KeyMaterialFetchResponse
+pub fn jmap_chat_mimi_types::KeyMaterialFetchResponse::new(jmap_types::id::Id, jmap_chat_mimi_types::KeyMaterialUserCode, alloc::string::String, alloc::vec::Vec<jmap_chat_mimi_types::ClientKeyMaterial>) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::KeyMaterialFetchResponse
+pub fn jmap_chat_mimi_types::KeyMaterialFetchResponse::clone(&self) -> jmap_chat_mimi_types::KeyMaterialFetchResponse
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyMaterialFetchResponse
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyMaterialFetchResponse
+pub fn jmap_chat_mimi_types::KeyMaterialFetchResponse::eq(&self, &jmap_chat_mimi_types::KeyMaterialFetchResponse) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyMaterialFetchResponse
+pub fn jmap_chat_mimi_types::KeyMaterialFetchResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyMaterialFetchResponse
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::KeyMaterialFetchResponse
+pub fn jmap_chat_mimi_types::KeyMaterialFetchResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyMaterialFetchResponse
+pub fn jmap_chat_mimi_types::KeyMaterialFetchResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::KeyPackage
+pub jmap_chat_mimi_types::KeyPackage::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::KeyPackage::id: jmap_types::id::Id
+pub jmap_chat_mimi_types::KeyPackage::key_package: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::KeyPackage::key_package_ref: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::KeyPackage::last_resort: bool
+impl core::clone::Clone for jmap_chat_mimi_types::KeyPackage
+pub fn jmap_chat_mimi_types::KeyPackage::clone(&self) -> jmap_chat_mimi_types::KeyPackage
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyPackage
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyPackage
+pub fn jmap_chat_mimi_types::KeyPackage::eq(&self, &jmap_chat_mimi_types::KeyPackage) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyPackage
+pub fn jmap_chat_mimi_types::KeyPackage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyPackage
+impl jmap_types::backend::GetObject for jmap_chat_mimi_types::KeyPackage
+impl jmap_types::backend::JmapObject for jmap_chat_mimi_types::KeyPackage
+pub type jmap_chat_mimi_types::KeyPackage::Property = jmap_chat_mimi_types::KeyPackageProperty
+pub const jmap_chat_mimi_types::KeyPackage::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_chat_mimi_types::KeyPackage
+pub type jmap_chat_mimi_types::KeyPackage::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_mimi_types::KeyPackage::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_mimi_types::KeyPackage::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_mimi_types::KeyPackage::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::KeyPackage
+pub fn jmap_chat_mimi_types::KeyPackage::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyPackage
+pub fn jmap_chat_mimi_types::KeyPackage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::KeyPackageCreate
+pub jmap_chat_mimi_types::KeyPackageCreate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::KeyPackageCreate::key_package: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::KeyPackageCreate::last_resort: core::option::Option<bool>
+impl jmap_chat_mimi_types::KeyPackageCreate
+pub fn jmap_chat_mimi_types::KeyPackageCreate::new(jmap_chat_mimi_types::Base64Url) -> Self
+pub fn jmap_chat_mimi_types::KeyPackageCreate::with_last_resort(self, bool) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::KeyPackageCreate
+pub fn jmap_chat_mimi_types::KeyPackageCreate::clone(&self) -> jmap_chat_mimi_types::KeyPackageCreate
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyPackageCreate
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyPackageCreate
+pub fn jmap_chat_mimi_types::KeyPackageCreate::eq(&self, &jmap_chat_mimi_types::KeyPackageCreate) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyPackageCreate
+pub fn jmap_chat_mimi_types::KeyPackageCreate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyPackageCreate
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::KeyPackageCreate
+pub fn jmap_chat_mimi_types::KeyPackageCreate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyPackageCreate
+pub fn jmap_chat_mimi_types::KeyPackageCreate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::KeyPackageCreated
+pub jmap_chat_mimi_types::KeyPackageCreated::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::KeyPackageCreated::id: jmap_types::id::Id
+pub jmap_chat_mimi_types::KeyPackageCreated::key_package_ref: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::KeyPackageCreated::last_resort: core::option::Option<bool>
+impl core::clone::Clone for jmap_chat_mimi_types::KeyPackageCreated
+pub fn jmap_chat_mimi_types::KeyPackageCreated::clone(&self) -> jmap_chat_mimi_types::KeyPackageCreated
+impl core::cmp::Eq for jmap_chat_mimi_types::KeyPackageCreated
+impl core::cmp::PartialEq for jmap_chat_mimi_types::KeyPackageCreated
+pub fn jmap_chat_mimi_types::KeyPackageCreated::eq(&self, &jmap_chat_mimi_types::KeyPackageCreated) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::KeyPackageCreated
+pub fn jmap_chat_mimi_types::KeyPackageCreated::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::KeyPackageCreated
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::KeyPackageCreated
+pub fn jmap_chat_mimi_types::KeyPackageCreated::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyPackageCreated
+pub fn jmap_chat_mimi_types::KeyPackageCreated::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::MimiCapability
+pub jmap_chat_mimi_types::MimiCapability::cipher_suites: alloc::vec::Vec<u16>
+pub jmap_chat_mimi_types::MimiCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::MimiCapability::hub_sender: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::MimiCapability::max_key_packages: u64
+pub jmap_chat_mimi_types::MimiCapability::room_id_prefix: alloc::string::String
+pub jmap_chat_mimi_types::MimiCapability::user_uri: alloc::string::String
+impl core::clone::Clone for jmap_chat_mimi_types::MimiCapability
+pub fn jmap_chat_mimi_types::MimiCapability::clone(&self) -> jmap_chat_mimi_types::MimiCapability
+impl core::cmp::Eq for jmap_chat_mimi_types::MimiCapability
+impl core::cmp::PartialEq for jmap_chat_mimi_types::MimiCapability
+pub fn jmap_chat_mimi_types::MimiCapability::eq(&self, &jmap_chat_mimi_types::MimiCapability) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::MimiCapability
+pub fn jmap_chat_mimi_types::MimiCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::MimiCapability
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::MimiCapability
+pub fn jmap_chat_mimi_types::MimiCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::MimiCapability
+pub fn jmap_chat_mimi_types::MimiCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_chat_mimi_types::RefKey(_)
+impl jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::as_str(&self) -> &str
+pub fn jmap_chat_mimi_types::RefKey::from_sender_msg_id(&str) -> core::option::Option<Self>
+pub fn jmap_chat_mimi_types::RefKey::of_message_id(&jmap_chat_mimi_types::MimiMessageId) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::clone(&self) -> jmap_chat_mimi_types::RefKey
+impl core::cmp::Eq for jmap_chat_mimi_types::RefKey
+impl core::cmp::Ord for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::cmp(&self, &jmap_chat_mimi_types::RefKey) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::eq(&self, &jmap_chat_mimi_types::RefKey) -> bool
+impl core::cmp::PartialOrd for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::partial_cmp(&self, &jmap_chat_mimi_types::RefKey) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::as_ref(&self) -> &str
+impl core::fmt::Debug for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_mimi_types::RefKey
+pub fn jmap_chat_mimi_types::RefKey::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RefKey
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RefKeyCollision
+impl core::clone::Clone for jmap_chat_mimi_types::RefKeyCollision
+pub fn jmap_chat_mimi_types::RefKeyCollision::clone(&self) -> jmap_chat_mimi_types::RefKeyCollision
+impl core::cmp::Eq for jmap_chat_mimi_types::RefKeyCollision
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RefKeyCollision
+pub fn jmap_chat_mimi_types::RefKeyCollision::eq(&self, &jmap_chat_mimi_types::RefKeyCollision) -> bool
+impl core::error::Error for jmap_chat_mimi_types::RefKeyCollision
+impl core::fmt::Debug for jmap_chat_mimi_types::RefKeyCollision
+pub fn jmap_chat_mimi_types::RefKeyCollision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_types::RefKeyCollision
+pub fn jmap_chat_mimi_types::RefKeyCollision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RefKeyCollision
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomCreateRequest
+pub jmap_chat_mimi_types::RoomCreateRequest::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomCreateRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::RoomCreateRequest::group_info: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::RoomCreateRequest::ratchet_tree: jmap_chat_mimi_types::Base64Url
+impl jmap_chat_mimi_types::RoomCreateRequest
+pub fn jmap_chat_mimi_types::RoomCreateRequest::new(jmap_types::id::Id, jmap_chat_mimi_types::Base64Url, jmap_chat_mimi_types::Base64Url) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomCreateRequest
+pub fn jmap_chat_mimi_types::RoomCreateRequest::clone(&self) -> jmap_chat_mimi_types::RoomCreateRequest
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomCreateRequest
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomCreateRequest
+pub fn jmap_chat_mimi_types::RoomCreateRequest::eq(&self, &jmap_chat_mimi_types::RoomCreateRequest) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomCreateRequest
+pub fn jmap_chat_mimi_types::RoomCreateRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomCreateRequest
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomCreateRequest
+pub fn jmap_chat_mimi_types::RoomCreateRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomCreateRequest
+pub fn jmap_chat_mimi_types::RoomCreateRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomCreateResponse
+pub jmap_chat_mimi_types::RoomCreateResponse::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomCreateResponse::chat_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomCreateResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::RoomCreateResponse::room_id: alloc::string::String
+impl jmap_chat_mimi_types::RoomCreateResponse
+pub fn jmap_chat_mimi_types::RoomCreateResponse::new(jmap_types::id::Id, alloc::string::String, jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomCreateResponse
+pub fn jmap_chat_mimi_types::RoomCreateResponse::clone(&self) -> jmap_chat_mimi_types::RoomCreateResponse
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomCreateResponse
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomCreateResponse
+pub fn jmap_chat_mimi_types::RoomCreateResponse::eq(&self, &jmap_chat_mimi_types::RoomCreateResponse) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomCreateResponse
+pub fn jmap_chat_mimi_types::RoomCreateResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomCreateResponse
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomCreateResponse
+pub fn jmap_chat_mimi_types::RoomCreateResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomCreateResponse
+pub fn jmap_chat_mimi_types::RoomCreateResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomSendRequest
+pub jmap_chat_mimi_types::RoomSendRequest::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomSendRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::RoomSendRequest::message: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::RoomSendRequest::room_id: alloc::string::String
+impl jmap_chat_mimi_types::RoomSendRequest
+pub fn jmap_chat_mimi_types::RoomSendRequest::new(jmap_types::id::Id, alloc::string::String, jmap_chat_mimi_types::Base64Url) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomSendRequest
+pub fn jmap_chat_mimi_types::RoomSendRequest::clone(&self) -> jmap_chat_mimi_types::RoomSendRequest
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomSendRequest
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomSendRequest
+pub fn jmap_chat_mimi_types::RoomSendRequest::eq(&self, &jmap_chat_mimi_types::RoomSendRequest) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomSendRequest
+pub fn jmap_chat_mimi_types::RoomSendRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomSendRequest
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomSendRequest
+pub fn jmap_chat_mimi_types::RoomSendRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomSendRequest
+pub fn jmap_chat_mimi_types::RoomSendRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomSendResponse
+pub jmap_chat_mimi_types::RoomSendResponse::accepted_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_mimi_types::RoomSendResponse::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomSendResponse::current_epoch: core::option::Option<u64>
+pub jmap_chat_mimi_types::RoomSendResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::RoomSendResponse::response_code: jmap_chat_mimi_types::SubmitResponseCode
+impl jmap_chat_mimi_types::RoomSendResponse
+pub fn jmap_chat_mimi_types::RoomSendResponse::new(jmap_types::id::Id, jmap_chat_mimi_types::SubmitResponseCode) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomSendResponse
+pub fn jmap_chat_mimi_types::RoomSendResponse::clone(&self) -> jmap_chat_mimi_types::RoomSendResponse
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomSendResponse
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomSendResponse
+pub fn jmap_chat_mimi_types::RoomSendResponse::eq(&self, &jmap_chat_mimi_types::RoomSendResponse) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomSendResponse
+pub fn jmap_chat_mimi_types::RoomSendResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomSendResponse
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomSendResponse
+pub fn jmap_chat_mimi_types::RoomSendResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomSendResponse
+pub fn jmap_chat_mimi_types::RoomSendResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomUnbindRequest
+pub jmap_chat_mimi_types::RoomUnbindRequest::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomUnbindRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::RoomUnbindRequest::room_id: alloc::string::String
+impl jmap_chat_mimi_types::RoomUnbindRequest
+pub fn jmap_chat_mimi_types::RoomUnbindRequest::new(jmap_types::id::Id, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomUnbindRequest
+pub fn jmap_chat_mimi_types::RoomUnbindRequest::clone(&self) -> jmap_chat_mimi_types::RoomUnbindRequest
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomUnbindRequest
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomUnbindRequest
+pub fn jmap_chat_mimi_types::RoomUnbindRequest::eq(&self, &jmap_chat_mimi_types::RoomUnbindRequest) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomUnbindRequest
+pub fn jmap_chat_mimi_types::RoomUnbindRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomUnbindRequest
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomUnbindRequest
+pub fn jmap_chat_mimi_types::RoomUnbindRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomUnbindRequest
+pub fn jmap_chat_mimi_types::RoomUnbindRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomUnbindResponse
+pub jmap_chat_mimi_types::RoomUnbindResponse::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomUnbindResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_chat_mimi_types::RoomUnbindResponse
+pub fn jmap_chat_mimi_types::RoomUnbindResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomUnbindResponse
+pub fn jmap_chat_mimi_types::RoomUnbindResponse::clone(&self) -> jmap_chat_mimi_types::RoomUnbindResponse
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomUnbindResponse
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomUnbindResponse
+pub fn jmap_chat_mimi_types::RoomUnbindResponse::eq(&self, &jmap_chat_mimi_types::RoomUnbindResponse) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomUnbindResponse
+pub fn jmap_chat_mimi_types::RoomUnbindResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomUnbindResponse
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomUnbindResponse
+pub fn jmap_chat_mimi_types::RoomUnbindResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomUnbindResponse
+pub fn jmap_chat_mimi_types::RoomUnbindResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomUpdateRequest
+pub jmap_chat_mimi_types::RoomUpdateRequest::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomUpdateRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::RoomUpdateRequest::request: jmap_chat_mimi_types::Base64Url
+pub jmap_chat_mimi_types::RoomUpdateRequest::room_id: alloc::string::String
+impl jmap_chat_mimi_types::RoomUpdateRequest
+pub fn jmap_chat_mimi_types::RoomUpdateRequest::new(jmap_types::id::Id, alloc::string::String, jmap_chat_mimi_types::Base64Url) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomUpdateRequest
+pub fn jmap_chat_mimi_types::RoomUpdateRequest::clone(&self) -> jmap_chat_mimi_types::RoomUpdateRequest
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomUpdateRequest
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomUpdateRequest
+pub fn jmap_chat_mimi_types::RoomUpdateRequest::eq(&self, &jmap_chat_mimi_types::RoomUpdateRequest) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomUpdateRequest
+pub fn jmap_chat_mimi_types::RoomUpdateRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomUpdateRequest
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomUpdateRequest
+pub fn jmap_chat_mimi_types::RoomUpdateRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomUpdateRequest
+pub fn jmap_chat_mimi_types::RoomUpdateRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_mimi_types::RoomUpdateResponse
+pub jmap_chat_mimi_types::RoomUpdateResponse::accepted_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_mimi_types::RoomUpdateResponse::account_id: jmap_types::id::Id
+pub jmap_chat_mimi_types::RoomUpdateResponse::current_epoch: core::option::Option<u64>
+pub jmap_chat_mimi_types::RoomUpdateResponse::error_description: alloc::string::String
+pub jmap_chat_mimi_types::RoomUpdateResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_mimi_types::RoomUpdateResponse::invalid_proposals: core::option::Option<alloc::vec::Vec<jmap_chat_mimi_types::Base64Url>>
+pub jmap_chat_mimi_types::RoomUpdateResponse::response_code: jmap_chat_mimi_types::UpdateResponseCode
+impl jmap_chat_mimi_types::RoomUpdateResponse
+pub fn jmap_chat_mimi_types::RoomUpdateResponse::new(jmap_types::id::Id, jmap_chat_mimi_types::UpdateResponseCode, alloc::string::String) -> Self
+impl core::clone::Clone for jmap_chat_mimi_types::RoomUpdateResponse
+pub fn jmap_chat_mimi_types::RoomUpdateResponse::clone(&self) -> jmap_chat_mimi_types::RoomUpdateResponse
+impl core::cmp::Eq for jmap_chat_mimi_types::RoomUpdateResponse
+impl core::cmp::PartialEq for jmap_chat_mimi_types::RoomUpdateResponse
+pub fn jmap_chat_mimi_types::RoomUpdateResponse::eq(&self, &jmap_chat_mimi_types::RoomUpdateResponse) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_types::RoomUpdateResponse
+pub fn jmap_chat_mimi_types::RoomUpdateResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_types::RoomUpdateResponse
+impl serde_core::ser::Serialize for jmap_chat_mimi_types::RoomUpdateResponse
+pub fn jmap_chat_mimi_types::RoomUpdateResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::RoomUpdateResponse
+pub fn jmap_chat_mimi_types::RoomUpdateResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_chat_mimi_types::JMAP_CHAT_MIMI_URI: &str
+pub const jmap_chat_mimi_types::MIMI_FANOUT_BODY_TYPE: &str
+pub const jmap_chat_mimi_types::MLS_MESSAGE_BODY_TYPE: &str
+pub fn jmap_chat_mimi_types::chat_room_id(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::option::Option<&str>
+pub fn jmap_chat_mimi_types::check_ref_key<I: core::cmp::PartialEq + ?core::marker::Sized>(core::option::Option<&I>, &I) -> core::result::Result<(), jmap_chat_mimi_types::RefKeyCollision>
+pub fn jmap_chat_mimi_types::is_media_reaction(&str) -> bool
+pub fn jmap_chat_mimi_types::may_record_alias<S: core::cmp::PartialEq + ?core::marker::Sized>(&S, &S) -> bool
+pub fn jmap_chat_mimi_types::never_sets_read(u8) -> bool
+pub fn jmap_chat_mimi_types::sender_msg_id(u64, &jmap_chat_mimi_types::MimiMessageId) -> core::option::Option<alloc::string::String>
+pub fn jmap_chat_mimi_types::topic_id(&[u8]) -> core::option::Option<&str>
+pub fn jmap_chat_mimi_types::ulid(u64, &[u8; 10]) -> core::option::Option<alloc::string::String>
+pub type jmap_chat_mimi_types::MimiMessageId = [u8; 32]

@@ -1,0 +1,369 @@
+pub mod jmap_jscalendar_types
+pub use jmap_jscalendar_types::Id
+pub use jmap_jscalendar_types::PatchObject
+pub use jmap_jscalendar_types::UTCDate
+#[non_exhaustive] pub enum jmap_jscalendar_types::AlertTrigger
+pub jmap_jscalendar_types::AlertTrigger::AbsoluteTrigger(jmap_jscalendar_types::AbsoluteTrigger)
+pub jmap_jscalendar_types::AlertTrigger::OffsetTrigger(jmap_jscalendar_types::OffsetTrigger)
+pub jmap_jscalendar_types::AlertTrigger::Unknown(serde_json::value::Value)
+impl core::clone::Clone for jmap_jscalendar_types::AlertTrigger
+pub fn jmap_jscalendar_types::AlertTrigger::clone(&self) -> jmap_jscalendar_types::AlertTrigger
+impl core::cmp::PartialEq for jmap_jscalendar_types::AlertTrigger
+pub fn jmap_jscalendar_types::AlertTrigger::eq(&self, &jmap_jscalendar_types::AlertTrigger) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::AlertTrigger
+pub fn jmap_jscalendar_types::AlertTrigger::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::AlertTrigger
+impl serde_core::ser::Serialize for jmap_jscalendar_types::AlertTrigger
+pub fn jmap_jscalendar_types::AlertTrigger::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::AlertTrigger
+pub fn jmap_jscalendar_types::AlertTrigger::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_jscalendar_types::AbsoluteTrigger
+pub jmap_jscalendar_types::AbsoluteTrigger::at_type: alloc::string::String
+pub jmap_jscalendar_types::AbsoluteTrigger::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::AbsoluteTrigger::when: jmap_types::id::UTCDate
+impl core::clone::Clone for jmap_jscalendar_types::AbsoluteTrigger
+pub fn jmap_jscalendar_types::AbsoluteTrigger::clone(&self) -> jmap_jscalendar_types::AbsoluteTrigger
+impl core::cmp::PartialEq for jmap_jscalendar_types::AbsoluteTrigger
+pub fn jmap_jscalendar_types::AbsoluteTrigger::eq(&self, &jmap_jscalendar_types::AbsoluteTrigger) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::AbsoluteTrigger
+pub fn jmap_jscalendar_types::AbsoluteTrigger::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::AbsoluteTrigger
+impl serde_core::ser::Serialize for jmap_jscalendar_types::AbsoluteTrigger
+pub fn jmap_jscalendar_types::AbsoluteTrigger::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::AbsoluteTrigger
+pub fn jmap_jscalendar_types::AbsoluteTrigger::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::Alert
+pub jmap_jscalendar_types::Alert::acknowledged: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_jscalendar_types::Alert::action: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Alert::at_type: alloc::string::String
+pub jmap_jscalendar_types::Alert::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::Alert::related_to: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_jscalendar_types::Relation>>
+pub jmap_jscalendar_types::Alert::trigger: jmap_jscalendar_types::AlertTrigger
+impl core::clone::Clone for jmap_jscalendar_types::Alert
+pub fn jmap_jscalendar_types::Alert::clone(&self) -> jmap_jscalendar_types::Alert
+impl core::cmp::PartialEq for jmap_jscalendar_types::Alert
+pub fn jmap_jscalendar_types::Alert::eq(&self, &jmap_jscalendar_types::Alert) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::Alert
+pub fn jmap_jscalendar_types::Alert::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::Alert
+impl serde_core::ser::Serialize for jmap_jscalendar_types::Alert
+pub fn jmap_jscalendar_types::Alert::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::Alert
+pub fn jmap_jscalendar_types::Alert::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::Duration(_)
+impl core::clone::Clone for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::clone(&self) -> jmap_jscalendar_types::Duration
+impl core::cmp::Eq for jmap_jscalendar_types::Duration
+impl core::cmp::PartialEq for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::eq(&self, &jmap_jscalendar_types::Duration) -> bool
+impl core::convert::AsRef<str> for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::Duration
+impl serde_core::ser::Serialize for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::Duration
+pub fn jmap_jscalendar_types::Duration::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::Link
+pub jmap_jscalendar_types::Link::at_type: alloc::string::String
+pub jmap_jscalendar_types::Link::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_jscalendar_types::Link::cid: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Link::content_type: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Link::display: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Link::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::Link::href: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Link::rel: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Link::size: core::option::Option<u64>
+pub jmap_jscalendar_types::Link::title: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscalendar_types::Link
+pub fn jmap_jscalendar_types::Link::clone(&self) -> jmap_jscalendar_types::Link
+impl core::cmp::PartialEq for jmap_jscalendar_types::Link
+pub fn jmap_jscalendar_types::Link::eq(&self, &jmap_jscalendar_types::Link) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::Link
+pub fn jmap_jscalendar_types::Link::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::Link
+impl serde_core::ser::Serialize for jmap_jscalendar_types::Link
+pub fn jmap_jscalendar_types::Link::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::Link
+pub fn jmap_jscalendar_types::Link::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::LocalDateTime(_)
+impl core::clone::Clone for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::clone(&self) -> jmap_jscalendar_types::LocalDateTime
+impl core::cmp::Eq for jmap_jscalendar_types::LocalDateTime
+impl core::cmp::Ord for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::cmp(&self, &jmap_jscalendar_types::LocalDateTime) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::eq(&self, &jmap_jscalendar_types::LocalDateTime) -> bool
+impl core::cmp::PartialOrd for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::partial_cmp(&self, &jmap_jscalendar_types::LocalDateTime) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::LocalDateTime
+impl serde_core::ser::Serialize for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::LocalDateTime
+pub fn jmap_jscalendar_types::LocalDateTime::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::Location
+pub jmap_jscalendar_types::Location::at_type: alloc::string::String
+pub jmap_jscalendar_types::Location::coordinates: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Location::description: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Location::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::Location::links: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_jscalendar_types::Link>>
+pub jmap_jscalendar_types::Location::location_types: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscalendar_types::Location::name: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Location::relative_to: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Location::time_zone: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscalendar_types::Location
+pub fn jmap_jscalendar_types::Location::clone(&self) -> jmap_jscalendar_types::Location
+impl core::cmp::PartialEq for jmap_jscalendar_types::Location
+pub fn jmap_jscalendar_types::Location::eq(&self, &jmap_jscalendar_types::Location) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::Location
+pub fn jmap_jscalendar_types::Location::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::Location
+impl serde_core::ser::Serialize for jmap_jscalendar_types::Location
+pub fn jmap_jscalendar_types::Location::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::Location
+pub fn jmap_jscalendar_types::Location::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::NDay
+pub jmap_jscalendar_types::NDay::at_type: alloc::string::String
+pub jmap_jscalendar_types::NDay::day: alloc::string::String
+pub jmap_jscalendar_types::NDay::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::NDay::nth_of_period: core::option::Option<i32>
+impl core::clone::Clone for jmap_jscalendar_types::NDay
+pub fn jmap_jscalendar_types::NDay::clone(&self) -> jmap_jscalendar_types::NDay
+impl core::cmp::Eq for jmap_jscalendar_types::NDay
+impl core::cmp::PartialEq for jmap_jscalendar_types::NDay
+pub fn jmap_jscalendar_types::NDay::eq(&self, &jmap_jscalendar_types::NDay) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::NDay
+pub fn jmap_jscalendar_types::NDay::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::NDay
+impl serde_core::ser::Serialize for jmap_jscalendar_types::NDay
+pub fn jmap_jscalendar_types::NDay::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::NDay
+pub fn jmap_jscalendar_types::NDay::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::OffsetTrigger
+pub jmap_jscalendar_types::OffsetTrigger::at_type: alloc::string::String
+pub jmap_jscalendar_types::OffsetTrigger::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::OffsetTrigger::offset: jmap_jscalendar_types::SignedDuration
+pub jmap_jscalendar_types::OffsetTrigger::relative_to: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscalendar_types::OffsetTrigger
+pub fn jmap_jscalendar_types::OffsetTrigger::clone(&self) -> jmap_jscalendar_types::OffsetTrigger
+impl core::cmp::PartialEq for jmap_jscalendar_types::OffsetTrigger
+pub fn jmap_jscalendar_types::OffsetTrigger::eq(&self, &jmap_jscalendar_types::OffsetTrigger) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::OffsetTrigger
+pub fn jmap_jscalendar_types::OffsetTrigger::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::OffsetTrigger
+impl serde_core::ser::Serialize for jmap_jscalendar_types::OffsetTrigger
+pub fn jmap_jscalendar_types::OffsetTrigger::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::OffsetTrigger
+pub fn jmap_jscalendar_types::OffsetTrigger::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::Participant
+pub jmap_jscalendar_types::Participant::at_type: alloc::string::String
+pub jmap_jscalendar_types::Participant::calendar_address: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::delegated_from: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscalendar_types::Participant::delegated_to: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscalendar_types::Participant::description: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::email: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::expect_reply: core::option::Option<bool>
+pub jmap_jscalendar_types::Participant::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::Participant::invited_by: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::kind: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::language: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::links: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_jscalendar_types::Link>>
+pub jmap_jscalendar_types::Participant::location_id: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::member_of: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscalendar_types::Participant::name: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::participation_comment: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::participation_status: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::percent_complete: core::option::Option<u8>
+pub jmap_jscalendar_types::Participant::progress: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::progress_updated: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_jscalendar_types::Participant::roles: alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>
+pub jmap_jscalendar_types::Participant::schedule_agent: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::Participant::schedule_force_send: core::option::Option<bool>
+pub jmap_jscalendar_types::Participant::schedule_sequence: core::option::Option<u64>
+pub jmap_jscalendar_types::Participant::schedule_status: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_jscalendar_types::Participant::schedule_updated: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_jscalendar_types::Participant::send_to: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+pub jmap_jscalendar_types::Participant::sent_by: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_jscalendar_types::Participant
+pub fn jmap_jscalendar_types::Participant::clone(&self) -> jmap_jscalendar_types::Participant
+impl core::cmp::PartialEq for jmap_jscalendar_types::Participant
+pub fn jmap_jscalendar_types::Participant::eq(&self, &jmap_jscalendar_types::Participant) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::Participant
+pub fn jmap_jscalendar_types::Participant::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::Participant
+impl serde_core::ser::Serialize for jmap_jscalendar_types::Participant
+pub fn jmap_jscalendar_types::Participant::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::Participant
+pub fn jmap_jscalendar_types::Participant::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::RecurrenceRule
+pub jmap_jscalendar_types::RecurrenceRule::at_type: alloc::string::String
+pub jmap_jscalendar_types::RecurrenceRule::by_day: core::option::Option<alloc::vec::Vec<jmap_jscalendar_types::NDay>>
+pub jmap_jscalendar_types::RecurrenceRule::by_hour: core::option::Option<alloc::vec::Vec<u8>>
+pub jmap_jscalendar_types::RecurrenceRule::by_minute: core::option::Option<alloc::vec::Vec<u8>>
+pub jmap_jscalendar_types::RecurrenceRule::by_month: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_jscalendar_types::RecurrenceRule::by_month_day: core::option::Option<alloc::vec::Vec<i32>>
+pub jmap_jscalendar_types::RecurrenceRule::by_second: core::option::Option<alloc::vec::Vec<u8>>
+pub jmap_jscalendar_types::RecurrenceRule::by_set_position: core::option::Option<alloc::vec::Vec<i32>>
+pub jmap_jscalendar_types::RecurrenceRule::by_week_no: core::option::Option<alloc::vec::Vec<i32>>
+pub jmap_jscalendar_types::RecurrenceRule::by_year_day: core::option::Option<alloc::vec::Vec<i32>>
+pub jmap_jscalendar_types::RecurrenceRule::count: core::option::Option<u64>
+pub jmap_jscalendar_types::RecurrenceRule::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::RecurrenceRule::first_day_of_week: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::RecurrenceRule::frequency: alloc::string::String
+pub jmap_jscalendar_types::RecurrenceRule::interval: core::option::Option<u64>
+pub jmap_jscalendar_types::RecurrenceRule::rscale: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::RecurrenceRule::skip: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::RecurrenceRule::until: core::option::Option<jmap_jscalendar_types::LocalDateTime>
+impl core::clone::Clone for jmap_jscalendar_types::RecurrenceRule
+pub fn jmap_jscalendar_types::RecurrenceRule::clone(&self) -> jmap_jscalendar_types::RecurrenceRule
+impl core::cmp::PartialEq for jmap_jscalendar_types::RecurrenceRule
+pub fn jmap_jscalendar_types::RecurrenceRule::eq(&self, &jmap_jscalendar_types::RecurrenceRule) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::RecurrenceRule
+pub fn jmap_jscalendar_types::RecurrenceRule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::RecurrenceRule
+impl serde_core::ser::Serialize for jmap_jscalendar_types::RecurrenceRule
+pub fn jmap_jscalendar_types::RecurrenceRule::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::RecurrenceRule
+pub fn jmap_jscalendar_types::RecurrenceRule::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::Relation
+pub jmap_jscalendar_types::Relation::at_type: alloc::string::String
+pub jmap_jscalendar_types::Relation::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::Relation::relation: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+impl core::clone::Clone for jmap_jscalendar_types::Relation
+pub fn jmap_jscalendar_types::Relation::clone(&self) -> jmap_jscalendar_types::Relation
+impl core::cmp::PartialEq for jmap_jscalendar_types::Relation
+pub fn jmap_jscalendar_types::Relation::eq(&self, &jmap_jscalendar_types::Relation) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::Relation
+pub fn jmap_jscalendar_types::Relation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::Relation
+impl serde_core::ser::Serialize for jmap_jscalendar_types::Relation
+pub fn jmap_jscalendar_types::Relation::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::Relation
+pub fn jmap_jscalendar_types::Relation::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::SignedDuration(_)
+impl core::clone::Clone for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::clone(&self) -> jmap_jscalendar_types::SignedDuration
+impl core::cmp::Eq for jmap_jscalendar_types::SignedDuration
+impl core::cmp::PartialEq for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::eq(&self, &jmap_jscalendar_types::SignedDuration) -> bool
+impl core::convert::AsRef<str> for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::SignedDuration
+impl serde_core::ser::Serialize for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::SignedDuration
+pub fn jmap_jscalendar_types::SignedDuration::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::TimeZone
+pub jmap_jscalendar_types::TimeZone::aliases: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscalendar_types::TimeZone::at_type: alloc::string::String
+pub jmap_jscalendar_types::TimeZone::daylight: core::option::Option<alloc::vec::Vec<jmap_jscalendar_types::TimeZoneRule>>
+pub jmap_jscalendar_types::TimeZone::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::TimeZone::standard: core::option::Option<alloc::vec::Vec<jmap_jscalendar_types::TimeZoneRule>>
+pub jmap_jscalendar_types::TimeZone::tz_id: alloc::string::String
+pub jmap_jscalendar_types::TimeZone::updated: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_jscalendar_types::TimeZone::url: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::TimeZone::valid_until: core::option::Option<jmap_types::id::UTCDate>
+impl core::clone::Clone for jmap_jscalendar_types::TimeZone
+pub fn jmap_jscalendar_types::TimeZone::clone(&self) -> jmap_jscalendar_types::TimeZone
+impl core::cmp::PartialEq for jmap_jscalendar_types::TimeZone
+pub fn jmap_jscalendar_types::TimeZone::eq(&self, &jmap_jscalendar_types::TimeZone) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::TimeZone
+pub fn jmap_jscalendar_types::TimeZone::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::TimeZone
+impl serde_core::ser::Serialize for jmap_jscalendar_types::TimeZone
+pub fn jmap_jscalendar_types::TimeZone::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::TimeZone
+pub fn jmap_jscalendar_types::TimeZone::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::TimeZoneRule
+pub jmap_jscalendar_types::TimeZoneRule::at_type: alloc::string::String
+pub jmap_jscalendar_types::TimeZoneRule::comments: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_jscalendar_types::TimeZoneRule::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::TimeZoneRule::names: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscalendar_types::TimeZoneRule::offset_from: jmap_jscalendar_types::UTCOffset
+pub jmap_jscalendar_types::TimeZoneRule::offset_to: jmap_jscalendar_types::UTCOffset
+pub jmap_jscalendar_types::TimeZoneRule::recurrence_overrides: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_jscalendar_types::LocalDateTime, jmap_types::patch::PatchObject>>
+pub jmap_jscalendar_types::TimeZoneRule::recurrence_rules: core::option::Option<alloc::vec::Vec<jmap_jscalendar_types::RecurrenceRule>>
+pub jmap_jscalendar_types::TimeZoneRule::start: jmap_jscalendar_types::LocalDateTime
+impl core::clone::Clone for jmap_jscalendar_types::TimeZoneRule
+pub fn jmap_jscalendar_types::TimeZoneRule::clone(&self) -> jmap_jscalendar_types::TimeZoneRule
+impl core::cmp::PartialEq for jmap_jscalendar_types::TimeZoneRule
+pub fn jmap_jscalendar_types::TimeZoneRule::eq(&self, &jmap_jscalendar_types::TimeZoneRule) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::TimeZoneRule
+pub fn jmap_jscalendar_types::TimeZoneRule::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::TimeZoneRule
+impl serde_core::ser::Serialize for jmap_jscalendar_types::TimeZoneRule
+pub fn jmap_jscalendar_types::TimeZoneRule::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::TimeZoneRule
+pub fn jmap_jscalendar_types::TimeZoneRule::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::UTCOffset(_)
+impl core::clone::Clone for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::clone(&self) -> jmap_jscalendar_types::UTCOffset
+impl core::cmp::Eq for jmap_jscalendar_types::UTCOffset
+impl core::cmp::PartialEq for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::eq(&self, &jmap_jscalendar_types::UTCOffset) -> bool
+impl core::convert::AsRef<str> for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::UTCOffset
+impl serde_core::ser::Serialize for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::UTCOffset
+pub fn jmap_jscalendar_types::UTCOffset::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_jscalendar_types::VirtualLocation
+pub jmap_jscalendar_types::VirtualLocation::at_type: alloc::string::String
+pub jmap_jscalendar_types::VirtualLocation::description: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::VirtualLocation::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_jscalendar_types::VirtualLocation::features: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_jscalendar_types::VirtualLocation::name: core::option::Option<alloc::string::String>
+pub jmap_jscalendar_types::VirtualLocation::uri: alloc::string::String
+impl core::clone::Clone for jmap_jscalendar_types::VirtualLocation
+pub fn jmap_jscalendar_types::VirtualLocation::clone(&self) -> jmap_jscalendar_types::VirtualLocation
+impl core::cmp::PartialEq for jmap_jscalendar_types::VirtualLocation
+pub fn jmap_jscalendar_types::VirtualLocation::eq(&self, &jmap_jscalendar_types::VirtualLocation) -> bool
+impl core::fmt::Debug for jmap_jscalendar_types::VirtualLocation
+pub fn jmap_jscalendar_types::VirtualLocation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_jscalendar_types::VirtualLocation
+impl serde_core::ser::Serialize for jmap_jscalendar_types::VirtualLocation
+pub fn jmap_jscalendar_types::VirtualLocation::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_jscalendar_types::VirtualLocation
+pub fn jmap_jscalendar_types::VirtualLocation::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>

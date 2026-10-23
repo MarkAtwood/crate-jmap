@@ -1,6 +1,7 @@
 # Workspace CI — enforces the AGENTS.md pre-commit gate on every push and PR.
 #
-# Scope: fmt + clippy + test (stable + beta) + doc + typos + msrv + deny,
+# Scope: fmt + clippy + test (stable + beta) + doc + typos + msrv + deny
+# + public-api,
 # single ubuntu-latest runner. Each job runs in parallel so total wall
 # time is roughly the slowest job (~test). Beta is advisory.
 
@@ -162,3 +163,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: bnjbvr/cargo-machete@main
+
+  # -------------------------------------------------------------------------
+  # public-api — every publishable crate's public surface is snapshotted in
+  # public-api/<crate>.txt (bd:JMAP-698j.1), so each API change shows up in
+  # the review diff. Fails when the snapshots are stale; bless an intended
+  # change with scripts/public-api.sh (AGENTS.md "Public API snapshots").
+  # rustdoc JSON is nightly-only, so the nightly and the tool are pinned
+  # here and in the script: bump both together with a regeneration.
+  # -------------------------------------------------------------------------
+  public-api:
+    name: public-api
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: nightly-2026-09-13
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo install cargo-public-api
+        run: cargo install --locked cargo-public-api@0.52.0
+      - name: scripts/public-api.sh
+        run: scripts/public-api.sh
+      - name: snapshots up to date
+        run: git diff --exit-code -- public-api/ && test -z "$(git status --porcelain -- public-api/)"

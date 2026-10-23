@@ -1,0 +1,170 @@
+pub mod jmap_graph_server
+pub use jmap_graph_server::AddedItem
+pub use jmap_graph_server::BackendChangesError
+pub use jmap_graph_server::BackendQueryError
+pub use jmap_graph_server::BackendSetError
+pub use jmap_graph_server::ChangesResult
+pub use jmap_graph_server::GetObject
+pub use jmap_graph_server::JMAP_GRAPH_EDIT_URI
+pub use jmap_graph_server::JMAP_GRAPH_SEARCH_URI
+pub use jmap_graph_server::JMAP_GRAPH_URI
+pub use jmap_graph_server::JmapBackend
+pub use jmap_graph_server::JmapObject
+pub use jmap_graph_server::QueryChangesParams
+pub use jmap_graph_server::QueryChangesResult
+pub use jmap_graph_server::QueryObject
+pub use jmap_graph_server::QueryParams
+pub use jmap_graph_server::QueryResult
+pub use jmap_graph_server::SetError
+pub use jmap_graph_server::SetErrorType
+pub use jmap_graph_server::SetObject
+pub mod jmap_graph_server::memory
+#[non_exhaustive] pub struct jmap_graph_server::memory::MemoryBackend
+impl jmap_graph_server::memory::MemoryBackend
+pub fn jmap_graph_server::memory::MemoryBackend::new() -> Self
+impl core::clone::Clone for jmap_graph_server::memory::MemoryBackend
+pub fn jmap_graph_server::memory::MemoryBackend::clone(&self) -> jmap_graph_server::memory::MemoryBackend
+impl core::default::Default for jmap_graph_server::memory::MemoryBackend
+pub fn jmap_graph_server::memory::MemoryBackend::default() -> jmap_graph_server::memory::MemoryBackend
+impl jmap_graph_server::GraphBackend for jmap_graph_server::memory::MemoryBackend
+pub async fn jmap_graph_server::memory::MemoryBackend::create_object<O, F>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<jmap_graph_server::memory::MemoryError>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub async fn jmap_graph_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_graph_server::memory::MemoryError>>
+pub async fn jmap_graph_server::memory::MemoryBackend::edit_log(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_graph_server::EditLog, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::graph_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_graph_types::capability::GraphCapability, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::graph_edit_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_graph_types::edit::GraphEditCapability>, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::graph_search_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_graph_types::search::GraphSearchCapability>, jmap_graph_server::memory::MemoryError>
+pub fn jmap_graph_server::memory::MemoryBackend::has_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id, &str) -> bool
+pub async fn jmap_graph_server::memory::MemoryBackend::is_sender_blocked(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::projected_graph_id(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::publish_cursor(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_graph_types::edit::GraphCursorEvent)
+pub fn jmap_graph_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub async fn jmap_graph_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_graph_server::memory::MemoryError>>
+impl jmap_server::backend::JmapBackend for jmap_graph_server::memory::MemoryBackend
+pub type jmap_graph_server::memory::MemoryBackend::CallerCtx = jmap_types::id::Id
+pub type jmap_graph_server::memory::MemoryBackend::Error = jmap_graph_server::memory::MemoryError
+pub async fn jmap_graph_server::memory::MemoryBackend::account_exists(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_graph_server::memory::MemoryError>>
+pub async fn jmap_graph_server::memory::MemoryBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_graph_server::memory::MemoryError>
+pub fn jmap_graph_server::memory::MemoryBackend::principal_id(&jmap_types::id::Id) -> core::option::Option<&jmap_types::id::Id>
+pub async fn jmap_graph_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_graph_server::memory::MemoryError>>
+pub async fn jmap_graph_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_graph_server::memory::MemoryError>>
+#[non_exhaustive] pub struct jmap_graph_server::memory::MemoryError
+impl jmap_graph_server::memory::MemoryError
+pub fn jmap_graph_server::memory::MemoryError::description(&self) -> &str
+pub fn jmap_graph_server::memory::MemoryError::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::error::Error for jmap_graph_server::memory::MemoryError
+impl core::fmt::Debug for jmap_graph_server::memory::MemoryError
+pub fn jmap_graph_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_graph_server::memory::MemoryError
+pub fn jmap_graph_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub mod jmap_graph_server::query
+pub fn jmap_graph_server::query::compare_edges(&jmap_graph_types::edge::GraphEdge, &jmap_graph_types::edge::GraphEdge, &[jmap_graph_types::query::GraphEdgeComparator]) -> core::cmp::Ordering
+pub fn jmap_graph_server::query::compare_graphs(&jmap_graph_types::graph::Graph, &jmap_graph_types::graph::Graph, &[jmap_graph_types::query::GraphComparator]) -> core::cmp::Ordering
+pub fn jmap_graph_server::query::compare_nodes(&jmap_graph_types::node::GraphNode, &jmap_graph_types::node::GraphNode, &[jmap_graph_types::query::GraphNodeComparator]) -> core::cmp::Ordering
+pub fn jmap_graph_server::query::edge_matches(&jmap_graph_types::query::GraphEdgeFilterCondition, &jmap_graph_types::edge::GraphEdge) -> bool
+pub fn jmap_graph_server::query::graph_matches(&jmap_graph_types::query::GraphFilter, &jmap_graph_types::graph::Graph) -> bool
+pub fn jmap_graph_server::query::node_matches(&jmap_graph_types::query::GraphNodeFilterCondition, &jmap_graph_types::node::GraphNode) -> bool
+pub mod jmap_graph_server::search
+pub struct jmap_graph_server::search::GraphView<'a>
+impl<'a> jmap_graph_server::search::GraphView<'a>
+pub fn jmap_graph_server::search::GraphView<'a>::edge_matches(&self, &jmap_graph_types::search::Expression, &jmap_types::id::Id) -> bool
+pub fn jmap_graph_server::search::GraphView<'a>::new(&'a [jmap_graph_types::node::GraphNode], &'a [jmap_graph_types::edge::GraphEdge]) -> Self
+pub fn jmap_graph_server::search::GraphView<'a>::node_matches(&self, &jmap_graph_types::search::Expression, &jmap_types::id::Id) -> bool
+impl<'a> core::fmt::Debug for jmap_graph_server::search::GraphView<'a>
+pub fn jmap_graph_server::search::GraphView<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_graph_server::search::COLLATIONS: &[&str]
+pub fn jmap_graph_server::search::check_search_filter(&serde_json::value::Value, jmap_graph_types::search::CandidateKind, &jmap_graph_types::search::GraphSearchCapability) -> core::result::Result<(), jmap_types::error::JmapError>
+#[non_exhaustive] pub struct jmap_graph_server::EditLog
+pub jmap_graph_server::EditLog::compacted_through: u64
+pub jmap_graph_server::EditLog::head: u64
+impl jmap_graph_server::EditLog
+pub fn jmap_graph_server::EditLog::new(u64, u64) -> Self
+impl core::clone::Clone for jmap_graph_server::EditLog
+pub fn jmap_graph_server::EditLog::clone(&self) -> jmap_graph_server::EditLog
+impl core::cmp::Eq for jmap_graph_server::EditLog
+impl core::cmp::PartialEq for jmap_graph_server::EditLog
+pub fn jmap_graph_server::EditLog::eq(&self, &jmap_graph_server::EditLog) -> bool
+impl core::default::Default for jmap_graph_server::EditLog
+pub fn jmap_graph_server::EditLog::default() -> jmap_graph_server::EditLog
+impl core::fmt::Debug for jmap_graph_server::EditLog
+pub fn jmap_graph_server::EditLog::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_graph_server::EditLog
+impl core::marker::StructuralPartialEq for jmap_graph_server::EditLog
+pub struct jmap_graph_server::GraphEditStreamFilter
+impl jmap_graph_server::GraphEditStreamFilter
+pub fn jmap_graph_server::GraphEditStreamFilter::cursors(&self) -> bool
+pub fn jmap_graph_server::GraphEditStreamFilter::node_ids(&self) -> &[jmap_types::id::Id]
+pub fn jmap_graph_server::GraphEditStreamFilter::ops(&self) -> bool
+impl core::clone::Clone for jmap_graph_server::GraphEditStreamFilter
+pub fn jmap_graph_server::GraphEditStreamFilter::clone(&self) -> jmap_graph_server::GraphEditStreamFilter
+impl core::cmp::Eq for jmap_graph_server::GraphEditStreamFilter
+impl core::cmp::PartialEq for jmap_graph_server::GraphEditStreamFilter
+pub fn jmap_graph_server::GraphEditStreamFilter::eq(&self, &jmap_graph_server::GraphEditStreamFilter) -> bool
+impl core::fmt::Debug for jmap_graph_server::GraphEditStreamFilter
+pub fn jmap_graph_server::GraphEditStreamFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_server::GraphEditStreamFilter
+pub struct jmap_graph_server::GraphEditSubscription
+impl jmap_graph_server::GraphEditSubscription
+pub fn jmap_graph_server::GraphEditSubscription::filter(&self) -> core::option::Option<&jmap_graph_server::GraphEditStreamFilter>
+pub fn jmap_graph_server::GraphEditSubscription::replace_with(&mut self, &jmap_graph_types::edit::GraphEditStreamEnable) -> core::result::Result<(), jmap_types::error::JmapError>
+impl core::clone::Clone for jmap_graph_server::GraphEditSubscription
+pub fn jmap_graph_server::GraphEditSubscription::clone(&self) -> jmap_graph_server::GraphEditSubscription
+impl core::cmp::Eq for jmap_graph_server::GraphEditSubscription
+impl core::cmp::PartialEq for jmap_graph_server::GraphEditSubscription
+pub fn jmap_graph_server::GraphEditSubscription::eq(&self, &jmap_graph_server::GraphEditSubscription) -> bool
+impl core::default::Default for jmap_graph_server::GraphEditSubscription
+pub fn jmap_graph_server::GraphEditSubscription::default() -> jmap_graph_server::GraphEditSubscription
+impl core::fmt::Debug for jmap_graph_server::GraphEditSubscription
+pub fn jmap_graph_server::GraphEditSubscription::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_graph_server::GraphEditSubscription
+pub trait jmap_graph_server::GraphBackend: jmap_server::backend::JmapBackend
+pub fn jmap_graph_server::GraphBackend::create_object<O, F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::edit_log(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_graph_server::EditLog, Self::Error>> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::graph_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_graph_types::capability::GraphCapability, Self::Error>> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::graph_edit_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_graph_types::edit::GraphEditCapability>, Self::Error>> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::graph_search_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_graph_types::search::GraphSearchCapability>, Self::Error>> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::has_capability(&self, &Self::CallerCtx, &jmap_types::id::Id, &str) -> bool
+pub fn jmap_graph_server::GraphBackend::is_sender_blocked(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::projected_graph_id(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_types::id::Id>, Self::Error>> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::publish_cursor(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_graph_types::edit::GraphCursorEvent) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn jmap_graph_server::GraphBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
+pub fn jmap_graph_server::GraphBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+impl jmap_graph_server::GraphBackend for jmap_graph_server::memory::MemoryBackend
+pub async fn jmap_graph_server::memory::MemoryBackend::create_object<O, F>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &str, F) -> core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<jmap_graph_server::memory::MemoryError>> where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub async fn jmap_graph_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_graph_server::memory::MemoryError>>
+pub async fn jmap_graph_server::memory::MemoryBackend::edit_log(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_graph_server::EditLog, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::graph_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_graph_types::capability::GraphCapability, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::graph_edit_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_graph_types::edit::GraphEditCapability>, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::graph_search_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_graph_types::search::GraphSearchCapability>, jmap_graph_server::memory::MemoryError>
+pub fn jmap_graph_server::memory::MemoryBackend::has_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id, &str) -> bool
+pub async fn jmap_graph_server::memory::MemoryBackend::is_sender_blocked(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::projected_graph_id(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_graph_server::memory::MemoryError>
+pub async fn jmap_graph_server::memory::MemoryBackend::publish_cursor(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_graph_types::edit::GraphCursorEvent)
+pub fn jmap_graph_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub async fn jmap_graph_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_graph_server::memory::MemoryError>>
+pub async fn jmap_graph_server::handle_graph_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_edge_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_edge_get<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_edge_query<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_edge_query_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_edge_set<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_get<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_cursor<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_get<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_op_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_op_get<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_op_query<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_op_query_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_op_set<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_query<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_query_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_node_set<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_query<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_query_changes<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_graph_server::handle_graph_set<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub fn jmap_graph_server::register_graph_edit_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_graph_server::GraphBackend + 'static
+pub fn jmap_graph_server::register_graph_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_graph_server::GraphBackend + 'static
+pub async fn jmap_graph_server::should_deliver<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_graph_server::GraphEditSubscription, &jmap_graph_types::edit::GraphEditEvent) -> core::result::Result<bool, <B as jmap_server::backend::JmapBackend>::Error>

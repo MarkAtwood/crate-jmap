@@ -1,0 +1,267 @@
+pub mod jmap_filenode_types
+pub use jmap_filenode_types::Filter
+pub use jmap_filenode_types::FilterOperator
+pub use jmap_filenode_types::Operator
+#[non_exhaustive] pub enum jmap_filenode_types::FileNodeComparatorProperty
+pub jmap_filenode_types::FileNodeComparatorProperty::Created
+pub jmap_filenode_types::FileNodeComparatorProperty::MediaType
+pub jmap_filenode_types::FileNodeComparatorProperty::Modified
+pub jmap_filenode_types::FileNodeComparatorProperty::Name
+pub jmap_filenode_types::FileNodeComparatorProperty::NodeType
+pub jmap_filenode_types::FileNodeComparatorProperty::Other(alloc::string::String)
+pub jmap_filenode_types::FileNodeComparatorProperty::Size
+pub jmap_filenode_types::FileNodeComparatorProperty::Tree
+impl core::clone::Clone for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::clone(&self) -> jmap_filenode_types::FileNodeComparatorProperty
+impl core::cmp::Eq for jmap_filenode_types::FileNodeComparatorProperty
+impl core::cmp::PartialEq for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::eq(&self, &jmap_filenode_types::FileNodeComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_filenode_types::FileNodeComparatorProperty
+impl serde_core::ser::Serialize for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::FileNodeComparatorProperty
+pub fn jmap_filenode_types::FileNodeComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_filenode_types::FileNodeProperty
+pub jmap_filenode_types::FileNodeProperty::Accessed
+pub jmap_filenode_types::FileNodeProperty::BlobId
+pub jmap_filenode_types::FileNodeProperty::Changed
+pub jmap_filenode_types::FileNodeProperty::Created
+pub jmap_filenode_types::FileNodeProperty::Executable
+pub jmap_filenode_types::FileNodeProperty::Id
+pub jmap_filenode_types::FileNodeProperty::IsSubscribed
+pub jmap_filenode_types::FileNodeProperty::MediaType
+pub jmap_filenode_types::FileNodeProperty::Modified
+pub jmap_filenode_types::FileNodeProperty::MyRights
+pub jmap_filenode_types::FileNodeProperty::Name
+pub jmap_filenode_types::FileNodeProperty::NodeType
+pub jmap_filenode_types::FileNodeProperty::ParentId
+pub jmap_filenode_types::FileNodeProperty::Role
+pub jmap_filenode_types::FileNodeProperty::ShareWith
+pub jmap_filenode_types::FileNodeProperty::Size
+pub jmap_filenode_types::FileNodeProperty::Target
+impl core::clone::Clone for jmap_filenode_types::FileNodeProperty
+pub fn jmap_filenode_types::FileNodeProperty::clone(&self) -> jmap_filenode_types::FileNodeProperty
+impl core::cmp::Eq for jmap_filenode_types::FileNodeProperty
+impl core::cmp::PartialEq for jmap_filenode_types::FileNodeProperty
+pub fn jmap_filenode_types::FileNodeProperty::eq(&self, &jmap_filenode_types::FileNodeProperty) -> bool
+impl core::fmt::Debug for jmap_filenode_types::FileNodeProperty
+pub fn jmap_filenode_types::FileNodeProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_filenode_types::FileNodeProperty
+pub fn jmap_filenode_types::FileNodeProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_filenode_types::FileNodeProperty
+#[non_exhaustive] pub enum jmap_filenode_types::NodeRole
+pub jmap_filenode_types::NodeRole::ChatSpace
+pub jmap_filenode_types::NodeRole::Documents
+pub jmap_filenode_types::NodeRole::Downloads
+pub jmap_filenode_types::NodeRole::Home
+pub jmap_filenode_types::NodeRole::Music
+pub jmap_filenode_types::NodeRole::Other(alloc::string::String)
+pub jmap_filenode_types::NodeRole::Pictures
+pub jmap_filenode_types::NodeRole::Root
+pub jmap_filenode_types::NodeRole::Temp
+pub jmap_filenode_types::NodeRole::Trash
+pub jmap_filenode_types::NodeRole::Videos
+impl jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::to_wire_str(&self) -> &str
+impl core::clone::Clone for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::clone(&self) -> jmap_filenode_types::NodeRole
+impl core::cmp::Eq for jmap_filenode_types::NodeRole
+impl core::cmp::PartialEq for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::eq(&self, &jmap_filenode_types::NodeRole) -> bool
+impl core::convert::From<&str> for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_filenode_types::NodeRole
+impl serde_core::ser::Serialize for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::NodeRole
+pub fn jmap_filenode_types::NodeRole::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_filenode_types::NodeType
+pub jmap_filenode_types::NodeType::Directory
+pub jmap_filenode_types::NodeType::File
+pub jmap_filenode_types::NodeType::Other(alloc::string::String)
+pub jmap_filenode_types::NodeType::Symlink
+impl jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::to_wire_str(&self) -> &str
+impl core::clone::Clone for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::clone(&self) -> jmap_filenode_types::NodeType
+impl core::cmp::Eq for jmap_filenode_types::NodeType
+impl core::cmp::PartialEq for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::eq(&self, &jmap_filenode_types::NodeType) -> bool
+impl core::convert::From<&str> for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_filenode_types::NodeType
+impl serde_core::ser::Serialize for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::NodeType
+pub fn jmap_filenode_types::NodeType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_filenode_types::FileNode
+pub jmap_filenode_types::FileNode::accessed: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNode::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNode::changed: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNode::created: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNode::executable: core::option::Option<bool>
+pub jmap_filenode_types::FileNode::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_filenode_types::FileNode::id: jmap_types::id::Id
+pub jmap_filenode_types::FileNode::is_subscribed: core::option::Option<bool>
+pub jmap_filenode_types::FileNode::media_type: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNode::modified: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNode::my_rights: core::option::Option<jmap_filenode_types::FilesRights>
+pub jmap_filenode_types::FileNode::name: alloc::string::String
+pub jmap_filenode_types::FileNode::node_type: core::option::Option<jmap_filenode_types::NodeType>
+pub jmap_filenode_types::FileNode::parent_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNode::role: core::option::Option<jmap_filenode_types::NodeRole>
+pub jmap_filenode_types::FileNode::sha256: core::option::Option<jmap_cid_types::digest::Sha256>
+pub jmap_filenode_types::FileNode::share_with: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_filenode_types::FilesRights>>
+pub jmap_filenode_types::FileNode::size: core::option::Option<u64>
+pub jmap_filenode_types::FileNode::space_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNode::target: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+impl core::clone::Clone for jmap_filenode_types::FileNode
+pub fn jmap_filenode_types::FileNode::clone(&self) -> jmap_filenode_types::FileNode
+impl core::cmp::PartialEq for jmap_filenode_types::FileNode
+pub fn jmap_filenode_types::FileNode::eq(&self, &jmap_filenode_types::FileNode) -> bool
+impl core::fmt::Debug for jmap_filenode_types::FileNode
+pub fn jmap_filenode_types::FileNode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_filenode_types::FileNode
+impl jmap_types::backend::GetObject for jmap_filenode_types::FileNode
+impl jmap_types::backend::JmapObject for jmap_filenode_types::FileNode
+pub type jmap_filenode_types::FileNode::Property = jmap_filenode_types::FileNodeProperty
+pub const jmap_filenode_types::FileNode::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_filenode_types::FileNode
+pub type jmap_filenode_types::FileNode::Comparator = jmap_filenode_types::FileNodeComparator
+pub type jmap_filenode_types::FileNode::Filter = jmap_types::query::Filter<jmap_filenode_types::FileNodeFilterCondition>
+impl jmap_types::backend::SetObject for jmap_filenode_types::FileNode
+pub type jmap_filenode_types::FileNode::Patch = jmap_types::patch::PatchObject
+pub const jmap_filenode_types::FileNode::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_filenode_types::FileNode::IMMUTABLE: &'static [&'static str]
+pub const jmap_filenode_types::FileNode::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_filenode_types::FileNode
+pub fn jmap_filenode_types::FileNode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::FileNode
+pub fn jmap_filenode_types::FileNode::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_filenode_types::FileNodeCapability
+pub jmap_filenode_types::FileNodeCapability::case_insensitive_names: bool
+pub jmap_filenode_types::FileNodeCapability::file_node_query_sort_options: alloc::vec::Vec<alloc::string::String>
+pub jmap_filenode_types::FileNodeCapability::forbidden_name_chars: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeCapability::forbidden_node_names: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_filenode_types::FileNodeCapability::max_file_node_depth: core::option::Option<u64>
+pub jmap_filenode_types::FileNodeCapability::max_size_file_node_name: u64
+pub jmap_filenode_types::FileNodeCapability::may_create_top_level_file_node: bool
+pub jmap_filenode_types::FileNodeCapability::supported_node_types: alloc::vec::Vec<jmap_filenode_types::NodeType>
+pub jmap_filenode_types::FileNodeCapability::web_trash_url: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeCapability::web_url_template: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeCapability::web_write_url_template: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_filenode_types::FileNodeCapability
+pub fn jmap_filenode_types::FileNodeCapability::clone(&self) -> jmap_filenode_types::FileNodeCapability
+impl core::cmp::PartialEq for jmap_filenode_types::FileNodeCapability
+pub fn jmap_filenode_types::FileNodeCapability::eq(&self, &jmap_filenode_types::FileNodeCapability) -> bool
+impl core::fmt::Debug for jmap_filenode_types::FileNodeCapability
+pub fn jmap_filenode_types::FileNodeCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_filenode_types::FileNodeCapability
+impl serde_core::ser::Serialize for jmap_filenode_types::FileNodeCapability
+pub fn jmap_filenode_types::FileNodeCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::FileNodeCapability
+pub fn jmap_filenode_types::FileNodeCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_filenode_types::FileNodeComparator
+pub jmap_filenode_types::FileNodeComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeComparator::is_ascending: bool
+pub jmap_filenode_types::FileNodeComparator::property: jmap_filenode_types::FileNodeComparatorProperty
+impl jmap_filenode_types::FileNodeComparator
+pub fn jmap_filenode_types::FileNodeComparator::new(jmap_filenode_types::FileNodeComparatorProperty) -> Self
+impl core::clone::Clone for jmap_filenode_types::FileNodeComparator
+pub fn jmap_filenode_types::FileNodeComparator::clone(&self) -> jmap_filenode_types::FileNodeComparator
+impl core::cmp::Eq for jmap_filenode_types::FileNodeComparator
+impl core::cmp::PartialEq for jmap_filenode_types::FileNodeComparator
+pub fn jmap_filenode_types::FileNodeComparator::eq(&self, &jmap_filenode_types::FileNodeComparator) -> bool
+impl core::fmt::Debug for jmap_filenode_types::FileNodeComparator
+pub fn jmap_filenode_types::FileNodeComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_filenode_types::FileNodeComparator
+impl serde_core::ser::Serialize for jmap_filenode_types::FileNodeComparator
+pub fn jmap_filenode_types::FileNodeComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::FileNodeComparator
+pub fn jmap_filenode_types::FileNodeComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_filenode_types::FileNodeFilterCondition
+pub jmap_filenode_types::FileNodeFilterCondition::accessed_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNodeFilterCondition::accessed_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNodeFilterCondition::ancestor_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNodeFilterCondition::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNodeFilterCondition::body: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::created_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNodeFilterCondition::created_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNodeFilterCondition::descendant_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNodeFilterCondition::has_any_role: core::option::Option<bool>
+pub jmap_filenode_types::FileNodeFilterCondition::is_executable: core::option::Option<bool>
+pub jmap_filenode_types::FileNodeFilterCondition::is_top_level: core::option::Option<bool>
+pub jmap_filenode_types::FileNodeFilterCondition::max_size: core::option::Option<u64>
+pub jmap_filenode_types::FileNodeFilterCondition::media_type: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::media_type_match: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::min_size: core::option::Option<u64>
+pub jmap_filenode_types::FileNodeFilterCondition::modified_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNodeFilterCondition::modified_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_filenode_types::FileNodeFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::name_match: core::option::Option<alloc::string::String>
+pub jmap_filenode_types::FileNodeFilterCondition::node_type: core::option::Option<jmap_filenode_types::NodeType>
+pub jmap_filenode_types::FileNodeFilterCondition::parent_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNodeFilterCondition::role: core::option::Option<jmap_filenode_types::NodeRole>
+pub jmap_filenode_types::FileNodeFilterCondition::space_id: core::option::Option<jmap_types::id::Id>
+pub jmap_filenode_types::FileNodeFilterCondition::text: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_filenode_types::FileNodeFilterCondition
+pub fn jmap_filenode_types::FileNodeFilterCondition::clone(&self) -> jmap_filenode_types::FileNodeFilterCondition
+impl core::default::Default for jmap_filenode_types::FileNodeFilterCondition
+pub fn jmap_filenode_types::FileNodeFilterCondition::default() -> jmap_filenode_types::FileNodeFilterCondition
+impl core::fmt::Debug for jmap_filenode_types::FileNodeFilterCondition
+pub fn jmap_filenode_types::FileNodeFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_filenode_types::FileNodeFilterCondition
+pub fn jmap_filenode_types::FileNodeFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::FileNodeFilterCondition
+pub fn jmap_filenode_types::FileNodeFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_filenode_types::FilesRights
+pub jmap_filenode_types::FilesRights::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_filenode_types::FilesRights::may_add_children: bool
+pub jmap_filenode_types::FilesRights::may_delete: bool
+pub jmap_filenode_types::FilesRights::may_modify_content: bool
+pub jmap_filenode_types::FilesRights::may_read: bool
+pub jmap_filenode_types::FilesRights::may_rename: bool
+pub jmap_filenode_types::FilesRights::may_set_metadata: core::option::Option<bool>
+pub jmap_filenode_types::FilesRights::may_share: bool
+impl core::clone::Clone for jmap_filenode_types::FilesRights
+pub fn jmap_filenode_types::FilesRights::clone(&self) -> jmap_filenode_types::FilesRights
+impl core::cmp::Eq for jmap_filenode_types::FilesRights
+impl core::cmp::PartialEq for jmap_filenode_types::FilesRights
+pub fn jmap_filenode_types::FilesRights::eq(&self, &jmap_filenode_types::FilesRights) -> bool
+impl core::default::Default for jmap_filenode_types::FilesRights
+pub fn jmap_filenode_types::FilesRights::default() -> jmap_filenode_types::FilesRights
+impl core::fmt::Debug for jmap_filenode_types::FilesRights
+pub fn jmap_filenode_types::FilesRights::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_filenode_types::FilesRights
+impl serde_core::ser::Serialize for jmap_filenode_types::FilesRights
+pub fn jmap_filenode_types::FilesRights::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_filenode_types::FilesRights
+pub fn jmap_filenode_types::FilesRights::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_filenode_types::JMAP_FILENODE_URI: &str
+pub type jmap_filenode_types::FileNodeFilter = jmap_types::query::Filter<jmap_filenode_types::FileNodeFilterCondition>

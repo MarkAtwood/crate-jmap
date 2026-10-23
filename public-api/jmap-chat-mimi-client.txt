@@ -1,0 +1,61 @@
+pub mod jmap_chat_mimi_client
+pub use jmap_chat_mimi_client::ClientError
+pub use jmap_chat_mimi_client::MimiCapability
+pub use jmap_chat_mimi_client::openmls
+#[non_exhaustive] pub enum jmap_chat_mimi_client::GroupInfoResponseError
+pub jmap_chat_mimi_client::GroupInfoResponseError::BadSignature
+pub jmap_chat_mimi_client::GroupInfoResponseError::Malformed
+pub jmap_chat_mimi_client::GroupInfoResponseError::NotSuccess(u8)
+pub jmap_chat_mimi_client::GroupInfoResponseError::UnsupportedCipherSuite(u16)
+pub jmap_chat_mimi_client::GroupInfoResponseError::UnsupportedProtocol(u8)
+impl core::clone::Clone for jmap_chat_mimi_client::GroupInfoResponseError
+pub fn jmap_chat_mimi_client::GroupInfoResponseError::clone(&self) -> jmap_chat_mimi_client::GroupInfoResponseError
+impl core::cmp::Eq for jmap_chat_mimi_client::GroupInfoResponseError
+impl core::cmp::PartialEq for jmap_chat_mimi_client::GroupInfoResponseError
+pub fn jmap_chat_mimi_client::GroupInfoResponseError::eq(&self, &jmap_chat_mimi_client::GroupInfoResponseError) -> bool
+impl core::convert::From<tls_codec::Error> for jmap_chat_mimi_client::GroupInfoResponseError
+pub fn jmap_chat_mimi_client::GroupInfoResponseError::from(tls_codec::Error) -> Self
+impl core::error::Error for jmap_chat_mimi_client::GroupInfoResponseError
+impl core::fmt::Debug for jmap_chat_mimi_client::GroupInfoResponseError
+pub fn jmap_chat_mimi_client::GroupInfoResponseError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_mimi_client::GroupInfoResponseError
+pub fn jmap_chat_mimi_client::GroupInfoResponseError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_client::GroupInfoResponseError
+#[non_exhaustive] pub struct jmap_chat_mimi_client::SessionClient
+impl jmap_chat_mimi_client::SessionClient
+pub fn jmap_chat_mimi_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub async fn jmap_chat_mimi_client::SessionClient::group_info_fetch(&self, &str, jmap_chat_mimi_types::base64url::Base64Url) -> core::result::Result<jmap_chat_mimi_types::groupinfo::GroupInfoFetchResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_mimi_client::SessionClient::key_material_fetch(&self, &str, jmap_chat_mimi_types::base64url::Base64Url) -> core::result::Result<jmap_chat_mimi_types::keymaterial::KeyMaterialFetchResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_mimi_client::SessionClient::key_package_get(&self, core::option::Option<&[jmap_types::id::Id]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_mimi_types::keypackage::KeyPackage>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_mimi_client::SessionClient::key_package_set(&self, &alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_chat_mimi_types::keypackage::KeyPackageCreate>, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_chat_mimi_types::keypackage::KeyPackageCreated>, jmap_base_client::error::ClientError>
+pub fn jmap_chat_mimi_client::SessionClient::mimi_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_chat_mimi_client::SessionClient::mimi_capability(&self) -> core::result::Result<core::option::Option<jmap_chat_mimi_types::capability::MimiCapability>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_mimi_client::SessionClient::room_create(&self, jmap_chat_mimi_types::base64url::Base64Url, jmap_chat_mimi_types::base64url::Base64Url) -> core::result::Result<jmap_chat_mimi_types::room::RoomCreateResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_mimi_client::SessionClient::room_send(&self, &str, jmap_chat_mimi_types::base64url::Base64Url) -> core::result::Result<jmap_chat_mimi_types::room::RoomSendResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_mimi_client::SessionClient::room_unbind(&self, &str) -> core::result::Result<jmap_chat_mimi_types::room::RoomUnbindResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_mimi_client::SessionClient::room_update(&self, &str, jmap_chat_mimi_types::base64url::Base64Url) -> core::result::Result<jmap_chat_mimi_types::room::RoomUpdateResponse, jmap_base_client::error::ClientError>
+pub fn jmap_chat_mimi_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl core::clone::Clone for jmap_chat_mimi_client::SessionClient
+pub fn jmap_chat_mimi_client::SessionClient::clone(&self) -> jmap_chat_mimi_client::SessionClient
+impl core::fmt::Debug for jmap_chat_mimi_client::SessionClient
+pub fn jmap_chat_mimi_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_chat_mimi_client::VerifiedGroupInfoResponse
+pub jmap_chat_mimi_client::VerifiedGroupInfoResponse::cipher_suite: openmls_traits::types::Ciphersuite
+pub jmap_chat_mimi_client::VerifiedGroupInfoResponse::encrypted_groupinfo_and_tree: openmls_traits::types::HpkeCiphertext
+pub jmap_chat_mimi_client::VerifiedGroupInfoResponse::hub_sender: openmls::extensions::external_sender_extension::ExternalSender
+pub jmap_chat_mimi_client::VerifiedGroupInfoResponse::room_id: alloc::vec::Vec<u8>
+impl core::clone::Clone for jmap_chat_mimi_client::VerifiedGroupInfoResponse
+pub fn jmap_chat_mimi_client::VerifiedGroupInfoResponse::clone(&self) -> jmap_chat_mimi_client::VerifiedGroupInfoResponse
+impl core::cmp::Eq for jmap_chat_mimi_client::VerifiedGroupInfoResponse
+impl core::cmp::PartialEq for jmap_chat_mimi_client::VerifiedGroupInfoResponse
+pub fn jmap_chat_mimi_client::VerifiedGroupInfoResponse::eq(&self, &jmap_chat_mimi_client::VerifiedGroupInfoResponse) -> bool
+impl core::fmt::Debug for jmap_chat_mimi_client::VerifiedGroupInfoResponse
+pub fn jmap_chat_mimi_client::VerifiedGroupInfoResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_mimi_client::VerifiedGroupInfoResponse
+pub trait jmap_chat_mimi_client::JmapMimiExt: jmap_chat_mimi_client::sealed::Sealed
+pub fn jmap_chat_mimi_client::JmapMimiExt::with_mimi_session(&self, jmap_base_client::request::Session) -> jmap_chat_mimi_client::SessionClient
+impl jmap_chat_mimi_client::JmapMimiExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_mimi_session(&self, jmap_base_client::request::Session) -> jmap_chat_mimi_client::SessionClient
+pub fn jmap_chat_mimi_client::account_has_left(impl core::iter::traits::collect::IntoIterator<Item = openmls::group::mls_group::Member>, &str) -> bool
+pub fn jmap_chat_mimi_client::group_info_names_hub_sender(&openmls::messages::group_info::VerifiableGroupInfo, &openmls::extensions::external_sender_extension::ExternalSender) -> bool
+pub fn jmap_chat_mimi_client::verify_group_info_response(&impl openmls_traits::crypto::OpenMlsCrypto, &[u8]) -> core::result::Result<jmap_chat_mimi_client::VerifiedGroupInfoResponse, jmap_chat_mimi_client::GroupInfoResponseError>

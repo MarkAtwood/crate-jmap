@@ -1,0 +1,802 @@
+pub mod jmap_types
+pub macro jmap_types::impl_string_enum!
+pub enum jmap_types::Argument<T: jmap_types::resultref::sealed::Sealed>
+pub jmap_types::Argument::Ref(jmap_types::ResultReference)
+pub jmap_types::Argument::Value(T)
+impl<'de, T> serde_core::de::Deserialize<'de> for jmap_types::Argument<T> where T: serde_core::de::Deserialize<'de> + jmap_types::resultref::sealed::Sealed
+pub fn jmap_types::Argument<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone + jmap_types::resultref::sealed::Sealed> core::clone::Clone for jmap_types::Argument<T>
+pub fn jmap_types::Argument<T>::clone(&self) -> jmap_types::Argument<T>
+impl<T: core::cmp::Eq + jmap_types::resultref::sealed::Sealed> core::cmp::Eq for jmap_types::Argument<T>
+impl<T: core::cmp::PartialEq + jmap_types::resultref::sealed::Sealed> core::cmp::PartialEq for jmap_types::Argument<T>
+pub fn jmap_types::Argument<T>::eq(&self, &jmap_types::Argument<T>) -> bool
+impl<T: core::cmp::PartialEq + jmap_types::resultref::sealed::Sealed> core::marker::StructuralPartialEq for jmap_types::Argument<T>
+impl<T: core::fmt::Debug + jmap_types::resultref::sealed::Sealed> core::fmt::Debug for jmap_types::Argument<T>
+pub fn jmap_types::Argument<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T: core::hash::Hash + jmap_types::resultref::sealed::Sealed> core::hash::Hash for jmap_types::Argument<T>
+pub fn jmap_types::Argument<T>::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl<T> serde_core::ser::Serialize for jmap_types::Argument<T> where T: serde_core::ser::Serialize + jmap_types::resultref::sealed::Sealed
+pub fn jmap_types::Argument<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub enum jmap_types::Filter<T>
+pub jmap_types::Filter::Condition(T)
+pub jmap_types::Filter::Operator(jmap_types::FilterOperator<T>)
+impl<T> jmap_types::Filter<T>
+pub fn jmap_types::Filter<T>::matches(&self, &impl core::ops::function::Fn(&T) -> bool) -> bool
+impl<'de, T> serde_core::de::Deserialize<'de> for jmap_types::Filter<T> where T: serde_core::de::Deserialize<'de>
+pub fn jmap_types::Filter<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_types::Filter<T>
+pub fn jmap_types::Filter<T>::clone(&self) -> jmap_types::Filter<T>
+impl<T: core::cmp::Eq> core::cmp::Eq for jmap_types::Filter<T>
+impl<T: core::cmp::PartialEq> core::cmp::PartialEq for jmap_types::Filter<T>
+pub fn jmap_types::Filter<T>::eq(&self, &jmap_types::Filter<T>) -> bool
+impl<T: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_types::Filter<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_types::Filter<T>
+pub fn jmap_types::Filter<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for jmap_types::Filter<T> where T: serde_core::ser::Serialize
+pub fn jmap_types::Filter<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub enum jmap_types::JmapUriError
+pub jmap_types::JmapUriError::InvalidAccountId(core::option::Option<jmap_types::ValidationError>)
+pub jmap_types::JmapUriError::InvalidDataType
+pub jmap_types::JmapUriError::InvalidObjectId(jmap_types::ValidationError)
+pub jmap_types::JmapUriError::MissingObjectId
+pub jmap_types::JmapUriError::NotJmapScheme
+impl core::clone::Clone for jmap_types::JmapUriError
+pub fn jmap_types::JmapUriError::clone(&self) -> jmap_types::JmapUriError
+impl core::cmp::Eq for jmap_types::JmapUriError
+impl core::cmp::PartialEq for jmap_types::JmapUriError
+pub fn jmap_types::JmapUriError::eq(&self, &jmap_types::JmapUriError) -> bool
+impl core::error::Error for jmap_types::JmapUriError
+pub fn jmap_types::JmapUriError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_types::JmapUriError
+pub fn jmap_types::JmapUriError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::JmapUriError
+pub fn jmap_types::JmapUriError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::JmapUriError
+#[non_exhaustive] pub enum jmap_types::MethodErrorType
+pub jmap_types::MethodErrorType::AccountNotFound
+pub jmap_types::MethodErrorType::AccountNotSupportedByMethod
+pub jmap_types::MethodErrorType::AccountReadOnly
+pub jmap_types::MethodErrorType::AnchorNotFound
+pub jmap_types::MethodErrorType::CannotCalculateChanges
+pub jmap_types::MethodErrorType::Forbidden
+pub jmap_types::MethodErrorType::FromAccountNotFound
+pub jmap_types::MethodErrorType::FromAccountNotSupportedByMethod
+pub jmap_types::MethodErrorType::InvalidArguments
+pub jmap_types::MethodErrorType::InvalidResultReference
+pub jmap_types::MethodErrorType::Limit
+pub jmap_types::MethodErrorType::NotJson
+pub jmap_types::MethodErrorType::NotRequest
+pub jmap_types::MethodErrorType::Other(alloc::string::String)
+pub jmap_types::MethodErrorType::RequestTooLarge
+pub jmap_types::MethodErrorType::ServerFail
+pub jmap_types::MethodErrorType::ServerPartialFail
+pub jmap_types::MethodErrorType::ServerUnavailable
+pub jmap_types::MethodErrorType::StateMismatch
+pub jmap_types::MethodErrorType::TooManyChanges
+pub jmap_types::MethodErrorType::UnknownCapability
+pub jmap_types::MethodErrorType::UnknownMethod
+pub jmap_types::MethodErrorType::UnsupportedFilter
+pub jmap_types::MethodErrorType::UnsupportedSort
+impl core::clone::Clone for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::clone(&self) -> jmap_types::MethodErrorType
+impl core::cmp::Eq for jmap_types::MethodErrorType
+impl core::cmp::PartialEq for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::eq(&self, &jmap_types::MethodErrorType) -> bool
+impl core::convert::From<&str> for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::MethodErrorType
+impl serde_core::ser::Serialize for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::MethodErrorType
+pub fn jmap_types::MethodErrorType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_types::Operator
+pub jmap_types::Operator::And
+pub jmap_types::Operator::Not
+pub jmap_types::Operator::Or
+impl core::clone::Clone for jmap_types::Operator
+pub fn jmap_types::Operator::clone(&self) -> jmap_types::Operator
+impl core::cmp::Eq for jmap_types::Operator
+impl core::cmp::PartialEq for jmap_types::Operator
+pub fn jmap_types::Operator::eq(&self, &jmap_types::Operator) -> bool
+impl core::fmt::Debug for jmap_types::Operator
+pub fn jmap_types::Operator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::Operator
+impl serde_core::ser::Serialize for jmap_types::Operator
+pub fn jmap_types::Operator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::Operator
+pub fn jmap_types::Operator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_types::SetErrorType
+pub jmap_types::SetErrorType::AlreadyExists
+pub jmap_types::SetErrorType::BlobNotFound
+pub jmap_types::SetErrorType::CannotUnsend
+pub jmap_types::SetErrorType::Forbidden
+pub jmap_types::SetErrorType::ForbiddenFrom
+pub jmap_types::SetErrorType::ForbiddenMailFrom
+pub jmap_types::SetErrorType::ForbiddenToSend
+pub jmap_types::SetErrorType::InvalidEmail
+pub jmap_types::SetErrorType::InvalidPatch
+pub jmap_types::SetErrorType::InvalidProperties
+pub jmap_types::SetErrorType::InvalidRecipients
+pub jmap_types::SetErrorType::MailboxHasChild
+pub jmap_types::SetErrorType::MailboxHasEmail
+pub jmap_types::SetErrorType::NoRecipients
+pub jmap_types::SetErrorType::NotFound
+pub jmap_types::SetErrorType::Other(alloc::string::String)
+pub jmap_types::SetErrorType::OverQuota
+pub jmap_types::SetErrorType::RateLimit
+pub jmap_types::SetErrorType::Singleton
+pub jmap_types::SetErrorType::TooLarge
+pub jmap_types::SetErrorType::TooManyKeywords
+pub jmap_types::SetErrorType::TooManyMailboxes
+pub jmap_types::SetErrorType::TooManyRecipients
+pub jmap_types::SetErrorType::WillDestroy
+impl core::clone::Clone for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::clone(&self) -> jmap_types::SetErrorType
+impl core::cmp::Eq for jmap_types::SetErrorType
+impl core::cmp::PartialEq for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::eq(&self, &jmap_types::SetErrorType) -> bool
+impl core::convert::From<&str> for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::SetErrorType
+impl serde_core::ser::Serialize for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::SetErrorType
+pub fn jmap_types::SetErrorType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+pub enum jmap_types::Urgency
+pub jmap_types::Urgency::High
+pub jmap_types::Urgency::Low
+pub jmap_types::Urgency::Normal
+pub jmap_types::Urgency::VeryLow
+impl jmap_types::Urgency
+pub const fn jmap_types::Urgency::as_str(self) -> &'static str
+impl core::clone::Clone for jmap_types::Urgency
+pub fn jmap_types::Urgency::clone(&self) -> jmap_types::Urgency
+impl core::cmp::Eq for jmap_types::Urgency
+impl core::cmp::Ord for jmap_types::Urgency
+pub fn jmap_types::Urgency::cmp(&self, &jmap_types::Urgency) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_types::Urgency
+pub fn jmap_types::Urgency::eq(&self, &jmap_types::Urgency) -> bool
+impl core::cmp::PartialOrd for jmap_types::Urgency
+pub fn jmap_types::Urgency::partial_cmp(&self, &jmap_types::Urgency) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for jmap_types::Urgency
+pub fn jmap_types::Urgency::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::Urgency
+pub fn jmap_types::Urgency::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_types::Urgency
+impl core::marker::StructuralPartialEq for jmap_types::Urgency
+impl serde_core::ser::Serialize for jmap_types::Urgency
+pub fn jmap_types::Urgency::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::Urgency
+pub fn jmap_types::Urgency::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_types::AddedItem
+pub jmap_types::AddedItem::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::AddedItem::id: jmap_types::Id
+pub jmap_types::AddedItem::index: u64
+impl core::clone::Clone for jmap_types::AddedItem
+pub fn jmap_types::AddedItem::clone(&self) -> jmap_types::AddedItem
+impl core::cmp::PartialEq for jmap_types::AddedItem
+pub fn jmap_types::AddedItem::eq(&self, &jmap_types::AddedItem) -> bool
+impl core::fmt::Debug for jmap_types::AddedItem
+pub fn jmap_types::AddedItem::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::AddedItem
+impl serde_core::ser::Serialize for jmap_types::AddedItem
+pub fn jmap_types::AddedItem::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::AddedItem
+pub fn jmap_types::AddedItem::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::ChangesResponse
+pub jmap_types::ChangesResponse::account_id: jmap_types::Id
+pub jmap_types::ChangesResponse::created: alloc::vec::Vec<jmap_types::Id>
+pub jmap_types::ChangesResponse::destroyed: alloc::vec::Vec<jmap_types::Id>
+pub jmap_types::ChangesResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::ChangesResponse::has_more_changes: bool
+pub jmap_types::ChangesResponse::new_state: jmap_types::State
+pub jmap_types::ChangesResponse::old_state: jmap_types::State
+pub jmap_types::ChangesResponse::updated: alloc::vec::Vec<jmap_types::Id>
+pub jmap_types::ChangesResponse::updated_properties: core::option::Option<core::option::Option<alloc::vec::Vec<alloc::string::String>>>
+impl core::clone::Clone for jmap_types::ChangesResponse
+pub fn jmap_types::ChangesResponse::clone(&self) -> jmap_types::ChangesResponse
+impl core::fmt::Debug for jmap_types::ChangesResponse
+pub fn jmap_types::ChangesResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_types::ChangesResponse
+pub fn jmap_types::ChangesResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::ChangesResponse
+pub fn jmap_types::ChangesResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::CopyResponse<T>
+pub jmap_types::CopyResponse::account_id: jmap_types::Id
+pub jmap_types::CopyResponse::created: alloc::collections::btree::map::BTreeMap<alloc::string::String, T>
+pub jmap_types::CopyResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::CopyResponse::from_account_id: jmap_types::Id
+pub jmap_types::CopyResponse::new_state: jmap_types::State
+pub jmap_types::CopyResponse::not_created: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::SetError>
+pub jmap_types::CopyResponse::old_state: core::option::Option<jmap_types::State>
+impl<'de, T> serde_core::de::Deserialize<'de> for jmap_types::CopyResponse<T> where T: serde_core::de::DeserializeOwned
+pub fn jmap_types::CopyResponse<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_types::CopyResponse<T>
+pub fn jmap_types::CopyResponse<T>::clone(&self) -> jmap_types::CopyResponse<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_types::CopyResponse<T>
+pub fn jmap_types::CopyResponse<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for jmap_types::CopyResponse<T> where T: serde_core::ser::Serialize
+pub fn jmap_types::CopyResponse<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_types::Date(_)
+impl jmap_types::Date
+pub fn jmap_types::Date::into_inner(self) -> alloc::string::String
+impl core::borrow::Borrow<str> for jmap_types::Date
+pub fn jmap_types::Date::borrow(&self) -> &str
+impl core::clone::Clone for jmap_types::Date
+pub fn jmap_types::Date::clone(&self) -> jmap_types::Date
+impl core::cmp::Eq for jmap_types::Date
+impl core::cmp::PartialEq for jmap_types::Date
+pub fn jmap_types::Date::eq(&self, &jmap_types::Date) -> bool
+impl core::cmp::PartialEq<&str> for jmap_types::Date
+pub fn jmap_types::Date::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<str> for jmap_types::Date
+pub fn jmap_types::Date::eq(&self, &str) -> bool
+impl core::convert::AsRef<str> for jmap_types::Date
+pub fn jmap_types::Date::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_types::Date
+pub fn jmap_types::Date::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_types::Date
+pub fn jmap_types::Date::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_types::Date
+pub fn jmap_types::Date::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::Date
+pub fn jmap_types::Date::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::Date
+pub fn jmap_types::Date::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::Date
+impl serde_core::ser::Serialize for jmap_types::Date
+pub fn jmap_types::Date::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::Date
+pub fn jmap_types::Date::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::FilterOperator<T>
+pub jmap_types::FilterOperator::conditions: alloc::vec::Vec<jmap_types::Filter<T>>
+pub jmap_types::FilterOperator::operator: jmap_types::Operator
+impl<T> jmap_types::FilterOperator<T>
+pub fn jmap_types::FilterOperator<T>::new(jmap_types::Operator, alloc::vec::Vec<jmap_types::Filter<T>>) -> Self
+impl<'de, T> serde_core::de::Deserialize<'de> for jmap_types::FilterOperator<T> where T: serde_core::de::Deserialize<'de>
+pub fn jmap_types::FilterOperator<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_types::FilterOperator<T>
+pub fn jmap_types::FilterOperator<T>::clone(&self) -> jmap_types::FilterOperator<T>
+impl<T: core::cmp::Eq> core::cmp::Eq for jmap_types::FilterOperator<T>
+impl<T: core::cmp::PartialEq> core::cmp::PartialEq for jmap_types::FilterOperator<T>
+pub fn jmap_types::FilterOperator<T>::eq(&self, &jmap_types::FilterOperator<T>) -> bool
+impl<T: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_types::FilterOperator<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_types::FilterOperator<T>
+pub fn jmap_types::FilterOperator<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for jmap_types::FilterOperator<T> where T: serde_core::ser::Serialize
+pub fn jmap_types::FilterOperator<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_types::GetResponse<T>
+pub jmap_types::GetResponse::account_id: jmap_types::Id
+pub jmap_types::GetResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::GetResponse::list: alloc::vec::Vec<T>
+pub jmap_types::GetResponse::not_found: alloc::vec::Vec<jmap_types::Id>
+pub jmap_types::GetResponse::state: jmap_types::State
+impl<'de, T> serde_core::de::Deserialize<'de> for jmap_types::GetResponse<T> where T: serde_core::de::Deserialize<'de>
+pub fn jmap_types::GetResponse<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_types::GetResponse<T>
+pub fn jmap_types::GetResponse<T>::clone(&self) -> jmap_types::GetResponse<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_types::GetResponse<T>
+pub fn jmap_types::GetResponse<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for jmap_types::GetResponse<T> where T: serde_core::ser::Serialize
+pub fn jmap_types::GetResponse<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_types::Id(_)
+impl jmap_types::Id
+pub fn jmap_types::Id::into_inner(self) -> alloc::string::String
+impl jmap_types::Id
+pub fn jmap_types::Id::new_validated(impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_types::ValidationError>
+impl core::borrow::Borrow<str> for jmap_types::Id
+pub fn jmap_types::Id::borrow(&self) -> &str
+impl core::clone::Clone for jmap_types::Id
+pub fn jmap_types::Id::clone(&self) -> jmap_types::Id
+impl core::cmp::Eq for jmap_types::Id
+impl core::cmp::Ord for jmap_types::Id
+pub fn jmap_types::Id::cmp(&self, &jmap_types::Id) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_types::Id
+pub fn jmap_types::Id::eq(&self, &jmap_types::Id) -> bool
+impl core::cmp::PartialEq<&str> for jmap_types::Id
+pub fn jmap_types::Id::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<str> for jmap_types::Id
+pub fn jmap_types::Id::eq(&self, &str) -> bool
+impl core::cmp::PartialOrd for jmap_types::Id
+pub fn jmap_types::Id::partial_cmp(&self, &jmap_types::Id) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_types::Id
+pub fn jmap_types::Id::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_types::Id
+pub fn jmap_types::Id::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_types::Id
+pub fn jmap_types::Id::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_types::Id
+pub fn jmap_types::Id::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::Id
+pub fn jmap_types::Id::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::Id
+pub fn jmap_types::Id::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::Id
+impl serde_core::ser::Serialize for jmap_types::Id
+pub fn jmap_types::Id::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::Id
+pub fn jmap_types::Id::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_types::Invocation
+pub jmap_types::Invocation::arguments: serde_json::value::Value
+pub jmap_types::Invocation::call_id: alloc::string::String
+pub jmap_types::Invocation::name: alloc::string::String
+impl jmap_types::Invocation
+pub fn jmap_types::Invocation::new(impl core::convert::Into<alloc::string::String>, serde_json::value::Value, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_types::Invocation
+pub fn jmap_types::Invocation::clone(&self) -> jmap_types::Invocation
+impl core::cmp::PartialEq for jmap_types::Invocation
+pub fn jmap_types::Invocation::eq(&self, &jmap_types::Invocation) -> bool
+impl core::convert::From<(alloc::string::String, serde_json::value::Value, alloc::string::String)> for jmap_types::Invocation
+pub fn jmap_types::Invocation::from((alloc::string::String, serde_json::value::Value, alloc::string::String)) -> Self
+impl core::convert::From<jmap_types::Invocation> for (alloc::string::String, serde_json::value::Value, alloc::string::String)
+pub fn (alloc::string::String, serde_json::value::Value, alloc::string::String)::from(jmap_types::Invocation) -> Self
+impl core::fmt::Debug for jmap_types::Invocation
+pub fn jmap_types::Invocation::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::Invocation
+impl serde_core::ser::Serialize for jmap_types::Invocation
+pub fn jmap_types::Invocation::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::Invocation
+pub fn jmap_types::Invocation::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_types::JmapError
+pub jmap_types::JmapError::description: core::option::Option<alloc::string::String>
+pub jmap_types::JmapError::error_type: jmap_types::MethodErrorType
+pub jmap_types::JmapError::limit: core::option::Option<u64>
+pub jmap_types::JmapError::limit_name: core::option::Option<alloc::string::String>
+impl jmap_types::JmapError
+pub fn jmap_types::JmapError::account_not_found() -> Self
+pub fn jmap_types::JmapError::account_not_supported_by_method() -> Self
+pub fn jmap_types::JmapError::account_read_only() -> Self
+pub fn jmap_types::JmapError::anchor_not_found() -> Self
+pub fn jmap_types::JmapError::cannot_calculate_changes() -> Self
+pub fn jmap_types::JmapError::custom(impl core::convert::Into<jmap_types::MethodErrorType>) -> Self
+pub fn jmap_types::JmapError::forbidden() -> Self
+pub fn jmap_types::JmapError::from_account_not_found() -> Self
+pub fn jmap_types::JmapError::from_account_not_supported_by_method() -> Self
+pub fn jmap_types::JmapError::invalid_arguments(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_types::JmapError::invalid_result_reference() -> Self
+pub fn jmap_types::JmapError::limit(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_types::JmapError::not_json() -> Self
+pub fn jmap_types::JmapError::not_request() -> Self
+pub fn jmap_types::JmapError::rate_limit() -> Self
+pub fn jmap_types::JmapError::request_too_large() -> Self
+pub fn jmap_types::JmapError::server_fail(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_types::JmapError::server_partial_fail() -> Self
+pub fn jmap_types::JmapError::server_unavailable() -> Self
+pub fn jmap_types::JmapError::state_mismatch() -> Self
+pub fn jmap_types::JmapError::too_large() -> Self
+pub fn jmap_types::JmapError::too_many_changes_with_limit(u64) -> Self
+pub fn jmap_types::JmapError::unknown_capability_with_detail(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_types::JmapError::unknown_method() -> Self
+pub fn jmap_types::JmapError::unsupported_filter() -> Self
+pub fn jmap_types::JmapError::unsupported_sort() -> Self
+impl core::clone::Clone for jmap_types::JmapError
+pub fn jmap_types::JmapError::clone(&self) -> jmap_types::JmapError
+impl core::cmp::Eq for jmap_types::JmapError
+impl core::cmp::PartialEq for jmap_types::JmapError
+pub fn jmap_types::JmapError::eq(&self, &jmap_types::JmapError) -> bool
+impl core::error::Error for jmap_types::JmapError
+impl core::fmt::Debug for jmap_types::JmapError
+pub fn jmap_types::JmapError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::JmapError
+pub fn jmap_types::JmapError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::JmapError
+impl serde_core::ser::Serialize for jmap_types::JmapError
+pub fn jmap_types::JmapError::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::JmapError
+pub fn jmap_types::JmapError::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::JmapRequest
+pub jmap_types::JmapRequest::created_ids: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::Id>>
+pub jmap_types::JmapRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::JmapRequest::method_calls: alloc::vec::Vec<jmap_types::Invocation>
+pub jmap_types::JmapRequest::using: alloc::vec::Vec<alloc::string::String>
+impl jmap_types::JmapRequest
+pub fn jmap_types::JmapRequest::new(alloc::vec::Vec<alloc::string::String>, alloc::vec::Vec<jmap_types::Invocation>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::Id>>) -> Self
+impl core::clone::Clone for jmap_types::JmapRequest
+pub fn jmap_types::JmapRequest::clone(&self) -> jmap_types::JmapRequest
+impl core::cmp::PartialEq for jmap_types::JmapRequest
+pub fn jmap_types::JmapRequest::eq(&self, &jmap_types::JmapRequest) -> bool
+impl core::fmt::Debug for jmap_types::JmapRequest
+pub fn jmap_types::JmapRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::JmapRequest
+impl serde_core::ser::Serialize for jmap_types::JmapRequest
+pub fn jmap_types::JmapRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::JmapRequest
+pub fn jmap_types::JmapRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::JmapResponse
+pub jmap_types::JmapResponse::created_ids: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::Id>>
+pub jmap_types::JmapResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::JmapResponse::method_responses: alloc::vec::Vec<jmap_types::Invocation>
+pub jmap_types::JmapResponse::session_state: jmap_types::State
+impl jmap_types::JmapResponse
+pub fn jmap_types::JmapResponse::new(alloc::vec::Vec<jmap_types::Invocation>, jmap_types::State, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::Id>>) -> Self
+impl core::clone::Clone for jmap_types::JmapResponse
+pub fn jmap_types::JmapResponse::clone(&self) -> jmap_types::JmapResponse
+impl core::cmp::PartialEq for jmap_types::JmapResponse
+pub fn jmap_types::JmapResponse::eq(&self, &jmap_types::JmapResponse) -> bool
+impl core::fmt::Debug for jmap_types::JmapResponse
+pub fn jmap_types::JmapResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::JmapResponse
+impl serde_core::ser::Serialize for jmap_types::JmapResponse
+pub fn jmap_types::JmapResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::JmapResponse
+pub fn jmap_types::JmapResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_types::JmapUri
+impl jmap_types::JmapUri
+pub fn jmap_types::JmapUri::account_id(&self) -> &jmap_types::Id
+pub fn jmap_types::JmapUri::data_type(&self) -> &str
+pub fn jmap_types::JmapUri::new(impl core::convert::Into<alloc::string::String>, jmap_types::Id, jmap_types::Id) -> core::result::Result<Self, jmap_types::JmapUriError>
+pub fn jmap_types::JmapUri::object_id(&self) -> &jmap_types::Id
+impl core::clone::Clone for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::clone(&self) -> jmap_types::JmapUri
+impl core::cmp::Eq for jmap_types::JmapUri
+impl core::cmp::PartialEq for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::eq(&self, &jmap_types::JmapUri) -> bool
+impl core::fmt::Debug for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::JmapUri
+impl core::str::traits::FromStr for jmap_types::JmapUri
+pub type jmap_types::JmapUri::Err = jmap_types::JmapUriError
+pub fn jmap_types::JmapUri::from_str(&str) -> core::result::Result<Self, Self::Err>
+pub struct jmap_types::PartialObject
+pub jmap_types::PartialObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::PartialObject::id: core::option::Option<jmap_types::Id>
+impl core::clone::Clone for jmap_types::PartialObject
+pub fn jmap_types::PartialObject::clone(&self) -> jmap_types::PartialObject
+impl core::cmp::PartialEq for jmap_types::PartialObject
+pub fn jmap_types::PartialObject::eq(&self, &jmap_types::PartialObject) -> bool
+impl core::default::Default for jmap_types::PartialObject
+pub fn jmap_types::PartialObject::default() -> jmap_types::PartialObject
+impl core::fmt::Debug for jmap_types::PartialObject
+pub fn jmap_types::PartialObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::PartialObject
+impl serde_core::ser::Serialize for jmap_types::PartialObject
+pub fn jmap_types::PartialObject::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::PartialObject
+pub fn jmap_types::PartialObject::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::PatchObject(_)
+impl jmap_types::PatchObject
+pub fn jmap_types::PatchObject::as_map(&self) -> &serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub fn jmap_types::PatchObject::as_map_mut(&mut self) -> &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub fn jmap_types::PatchObject::from_map(serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> Self
+pub fn jmap_types::PatchObject::into_inner(self) -> serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub fn jmap_types::PatchObject::is_empty(&self) -> bool
+pub fn jmap_types::PatchObject::len(&self) -> usize
+pub fn jmap_types::PatchObject::new() -> Self
+impl core::clone::Clone for jmap_types::PatchObject
+pub fn jmap_types::PatchObject::clone(&self) -> jmap_types::PatchObject
+impl core::cmp::PartialEq for jmap_types::PatchObject
+pub fn jmap_types::PatchObject::eq(&self, &jmap_types::PatchObject) -> bool
+impl core::convert::From<jmap_types::PatchObject> for serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub fn serde_json::map::Map<alloc::string::String, serde_json::value::Value>::from(jmap_types::PatchObject) -> Self
+impl core::convert::From<serde_json::map::Map<alloc::string::String, serde_json::value::Value>> for jmap_types::PatchObject
+pub fn jmap_types::PatchObject::from(serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> Self
+impl core::default::Default for jmap_types::PatchObject
+pub fn jmap_types::PatchObject::default() -> jmap_types::PatchObject
+impl core::fmt::Debug for jmap_types::PatchObject
+pub fn jmap_types::PatchObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::PatchObject
+impl serde_core::ser::Serialize for jmap_types::PatchObject
+pub fn jmap_types::PatchObject::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::PatchObject
+pub fn jmap_types::PatchObject::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::PushKeys
+pub jmap_types::PushKeys::auth: alloc::string::String
+pub jmap_types::PushKeys::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::PushKeys::p256dh: alloc::string::String
+impl core::clone::Clone for jmap_types::PushKeys
+pub fn jmap_types::PushKeys::clone(&self) -> jmap_types::PushKeys
+impl core::cmp::Eq for jmap_types::PushKeys
+impl core::cmp::PartialEq for jmap_types::PushKeys
+pub fn jmap_types::PushKeys::eq(&self, &jmap_types::PushKeys) -> bool
+impl core::fmt::Debug for jmap_types::PushKeys
+pub fn jmap_types::PushKeys::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::PushKeys
+impl serde_core::ser::Serialize for jmap_types::PushKeys
+pub fn jmap_types::PushKeys::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::PushKeys
+pub fn jmap_types::PushKeys::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::PushSubscription
+pub jmap_types::PushSubscription::device_client_id: alloc::string::String
+pub jmap_types::PushSubscription::expires: core::option::Option<jmap_types::UTCDate>
+pub jmap_types::PushSubscription::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::PushSubscription::id: core::option::Option<jmap_types::Id>
+pub jmap_types::PushSubscription::keys: core::option::Option<jmap_types::PushKeys>
+pub jmap_types::PushSubscription::types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_types::PushSubscription::url: core::option::Option<alloc::string::String>
+pub jmap_types::PushSubscription::verification_code: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_types::PushSubscription
+pub fn jmap_types::PushSubscription::clone(&self) -> jmap_types::PushSubscription
+impl core::cmp::Eq for jmap_types::PushSubscription
+impl core::cmp::PartialEq for jmap_types::PushSubscription
+pub fn jmap_types::PushSubscription::eq(&self, &jmap_types::PushSubscription) -> bool
+impl core::fmt::Debug for jmap_types::PushSubscription
+pub fn jmap_types::PushSubscription::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::PushSubscription
+impl jmap_types::JmapObject for jmap_types::PushSubscription
+pub type jmap_types::PushSubscription::Property = ()
+pub const jmap_types::PushSubscription::TYPE_NAME: &'static str
+impl jmap_types::SetObject for jmap_types::PushSubscription
+pub type jmap_types::PushSubscription::Patch = jmap_types::PatchObject
+pub const jmap_types::PushSubscription::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_types::PushSubscription::IMMUTABLE: &'static [&'static str]
+pub const jmap_types::PushSubscription::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_types::PushSubscription
+pub fn jmap_types::PushSubscription::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::PushSubscription
+pub fn jmap_types::PushSubscription::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::PushVerification
+pub jmap_types::PushVerification::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::PushVerification::push_subscription_id: jmap_types::Id
+pub jmap_types::PushVerification::verification_code: alloc::string::String
+impl core::clone::Clone for jmap_types::PushVerification
+pub fn jmap_types::PushVerification::clone(&self) -> jmap_types::PushVerification
+impl core::cmp::Eq for jmap_types::PushVerification
+impl core::cmp::PartialEq for jmap_types::PushVerification
+pub fn jmap_types::PushVerification::eq(&self, &jmap_types::PushVerification) -> bool
+impl core::fmt::Debug for jmap_types::PushVerification
+pub fn jmap_types::PushVerification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::PushVerification
+impl serde_core::ser::Serialize for jmap_types::PushVerification
+pub fn jmap_types::PushVerification::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::PushVerification
+pub fn jmap_types::PushVerification::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_types::QueryChangesResponse
+pub jmap_types::QueryChangesResponse::account_id: jmap_types::Id
+pub jmap_types::QueryChangesResponse::added: alloc::vec::Vec<jmap_types::AddedItem>
+pub jmap_types::QueryChangesResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::QueryChangesResponse::new_query_state: jmap_types::State
+pub jmap_types::QueryChangesResponse::old_query_state: jmap_types::State
+pub jmap_types::QueryChangesResponse::removed: alloc::vec::Vec<jmap_types::Id>
+pub jmap_types::QueryChangesResponse::total: core::option::Option<u64>
+impl core::clone::Clone for jmap_types::QueryChangesResponse
+pub fn jmap_types::QueryChangesResponse::clone(&self) -> jmap_types::QueryChangesResponse
+impl core::fmt::Debug for jmap_types::QueryChangesResponse
+pub fn jmap_types::QueryChangesResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_types::QueryChangesResponse
+pub fn jmap_types::QueryChangesResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::QueryChangesResponse
+pub fn jmap_types::QueryChangesResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::QueryResponse
+pub jmap_types::QueryResponse::account_id: jmap_types::Id
+pub jmap_types::QueryResponse::can_calculate_changes: bool
+pub jmap_types::QueryResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::QueryResponse::ids: alloc::vec::Vec<jmap_types::Id>
+pub jmap_types::QueryResponse::limit: core::option::Option<u64>
+pub jmap_types::QueryResponse::position: u64
+pub jmap_types::QueryResponse::query_state: jmap_types::State
+pub jmap_types::QueryResponse::total: core::option::Option<u64>
+impl core::clone::Clone for jmap_types::QueryResponse
+pub fn jmap_types::QueryResponse::clone(&self) -> jmap_types::QueryResponse
+impl core::fmt::Debug for jmap_types::QueryResponse
+pub fn jmap_types::QueryResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_types::QueryResponse
+pub fn jmap_types::QueryResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::QueryResponse
+pub fn jmap_types::QueryResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::ReservedExtrasKey
+pub jmap_types::ReservedExtrasKey::key: alloc::string::String
+impl core::clone::Clone for jmap_types::ReservedExtrasKey
+pub fn jmap_types::ReservedExtrasKey::clone(&self) -> jmap_types::ReservedExtrasKey
+impl core::cmp::Eq for jmap_types::ReservedExtrasKey
+impl core::cmp::PartialEq for jmap_types::ReservedExtrasKey
+pub fn jmap_types::ReservedExtrasKey::eq(&self, &jmap_types::ReservedExtrasKey) -> bool
+impl core::error::Error for jmap_types::ReservedExtrasKey
+impl core::fmt::Debug for jmap_types::ReservedExtrasKey
+pub fn jmap_types::ReservedExtrasKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::ReservedExtrasKey
+pub fn jmap_types::ReservedExtrasKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::ReservedExtrasKey
+#[non_exhaustive] pub struct jmap_types::ResultReference
+pub jmap_types::ResultReference::name: alloc::string::String
+pub jmap_types::ResultReference::path: alloc::string::String
+pub jmap_types::ResultReference::result_of: alloc::string::String
+impl jmap_types::ResultReference
+pub fn jmap_types::ResultReference::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_types::ResultReference
+pub fn jmap_types::ResultReference::clone(&self) -> jmap_types::ResultReference
+impl core::cmp::Eq for jmap_types::ResultReference
+impl core::cmp::PartialEq for jmap_types::ResultReference
+pub fn jmap_types::ResultReference::eq(&self, &jmap_types::ResultReference) -> bool
+impl core::fmt::Debug for jmap_types::ResultReference
+pub fn jmap_types::ResultReference::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::ResultReference
+pub fn jmap_types::ResultReference::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::ResultReference
+impl serde_core::ser::Serialize for jmap_types::ResultReference
+pub fn jmap_types::ResultReference::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::ResultReference
+pub fn jmap_types::ResultReference::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::SetError
+pub jmap_types::SetError::description: core::option::Option<alloc::string::String>
+pub jmap_types::SetError::error_type: jmap_types::SetErrorType
+pub jmap_types::SetError::existing_id: core::option::Option<jmap_types::Id>
+pub jmap_types::SetError::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::SetError::invalid_recipients: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_types::SetError::max_recipients: core::option::Option<u64>
+pub jmap_types::SetError::max_size: core::option::Option<u64>
+pub jmap_types::SetError::not_found: core::option::Option<alloc::vec::Vec<jmap_types::Id>>
+pub jmap_types::SetError::properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+impl jmap_types::SetError
+pub fn jmap_types::SetError::new(impl core::convert::Into<jmap_types::SetErrorType>) -> Self
+pub fn jmap_types::SetError::validate_extras(&self) -> core::result::Result<(), jmap_types::ReservedExtrasKey>
+pub fn jmap_types::SetError::with_description(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_types::SetError::with_existing_id(self, jmap_types::Id) -> Self
+pub fn jmap_types::SetError::with_extra(self, impl core::convert::Into<alloc::string::String>, serde_json::value::Value) -> Self
+pub fn jmap_types::SetError::with_invalid_recipients<I, S>(self, I) -> Self where I: core::iter::traits::collect::IntoIterator<Item = S>, S: core::convert::Into<alloc::string::String>
+pub fn jmap_types::SetError::with_max_recipients(self, u64) -> Self
+pub fn jmap_types::SetError::with_max_size(self, u64) -> Self
+pub fn jmap_types::SetError::with_not_found(self, alloc::vec::Vec<jmap_types::Id>) -> Self
+pub fn jmap_types::SetError::with_properties<I, S>(self, I) -> Self where I: core::iter::traits::collect::IntoIterator<Item = S>, S: core::convert::Into<alloc::string::String>
+impl core::clone::Clone for jmap_types::SetError
+pub fn jmap_types::SetError::clone(&self) -> jmap_types::SetError
+impl core::cmp::PartialEq for jmap_types::SetError
+pub fn jmap_types::SetError::eq(&self, &jmap_types::SetError) -> bool
+impl core::fmt::Debug for jmap_types::SetError
+pub fn jmap_types::SetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::SetError
+pub fn jmap_types::SetError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::SetError
+impl serde_core::ser::Serialize for jmap_types::SetError
+pub fn jmap_types::SetError::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::SetError
+pub fn jmap_types::SetError::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::SetResponse<T>
+pub jmap_types::SetResponse::account_id: jmap_types::Id
+pub jmap_types::SetResponse::created: alloc::collections::btree::map::BTreeMap<alloc::string::String, T>
+pub jmap_types::SetResponse::destroyed: alloc::vec::Vec<jmap_types::Id>
+pub jmap_types::SetResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::SetResponse::new_state: jmap_types::State
+pub jmap_types::SetResponse::not_created: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::SetError>
+pub jmap_types::SetResponse::not_destroyed: alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::SetError>
+pub jmap_types::SetResponse::not_updated: alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::SetError>
+pub jmap_types::SetResponse::old_state: core::option::Option<jmap_types::State>
+pub jmap_types::SetResponse::updated: alloc::collections::btree::map::BTreeMap<jmap_types::Id, core::option::Option<T>>
+impl<'de, T> serde_core::de::Deserialize<'de> for jmap_types::SetResponse<T> where T: serde_core::de::DeserializeOwned
+pub fn jmap_types::SetResponse<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_types::SetResponse<T>
+pub fn jmap_types::SetResponse<T>::clone(&self) -> jmap_types::SetResponse<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_types::SetResponse<T>
+pub fn jmap_types::SetResponse<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for jmap_types::SetResponse<T> where T: serde_core::ser::Serialize
+pub fn jmap_types::SetResponse<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_types::State(_)
+impl jmap_types::State
+pub fn jmap_types::State::into_inner(self) -> alloc::string::String
+impl jmap_types::State
+pub fn jmap_types::State::new_validated(impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_types::ValidationError>
+impl core::borrow::Borrow<str> for jmap_types::State
+pub fn jmap_types::State::borrow(&self) -> &str
+impl core::clone::Clone for jmap_types::State
+pub fn jmap_types::State::clone(&self) -> jmap_types::State
+impl core::cmp::Eq for jmap_types::State
+impl core::cmp::Ord for jmap_types::State
+pub fn jmap_types::State::cmp(&self, &jmap_types::State) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_types::State
+pub fn jmap_types::State::eq(&self, &jmap_types::State) -> bool
+impl core::cmp::PartialEq<&str> for jmap_types::State
+pub fn jmap_types::State::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<str> for jmap_types::State
+pub fn jmap_types::State::eq(&self, &str) -> bool
+impl core::cmp::PartialOrd for jmap_types::State
+pub fn jmap_types::State::partial_cmp(&self, &jmap_types::State) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_types::State
+pub fn jmap_types::State::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_types::State
+pub fn jmap_types::State::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_types::State
+pub fn jmap_types::State::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_types::State
+pub fn jmap_types::State::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::State
+pub fn jmap_types::State::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::State
+pub fn jmap_types::State::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::State
+impl serde_core::ser::Serialize for jmap_types::State
+pub fn jmap_types::State::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::State
+pub fn jmap_types::State::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::StateChange
+pub jmap_types::StateChange::changed: alloc::collections::btree::map::BTreeMap<jmap_types::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::State>>
+pub jmap_types::StateChange::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_types::StateChange
+pub fn jmap_types::StateChange::new(alloc::collections::btree::map::BTreeMap<jmap_types::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::State>>) -> Self
+impl core::clone::Clone for jmap_types::StateChange
+pub fn jmap_types::StateChange::clone(&self) -> jmap_types::StateChange
+impl core::cmp::Eq for jmap_types::StateChange
+impl core::cmp::PartialEq for jmap_types::StateChange
+pub fn jmap_types::StateChange::eq(&self, &jmap_types::StateChange) -> bool
+impl core::fmt::Debug for jmap_types::StateChange
+pub fn jmap_types::StateChange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::StateChange
+impl serde_core::ser::Serialize for jmap_types::StateChange
+pub fn jmap_types::StateChange::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::StateChange
+pub fn jmap_types::StateChange::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_types::UTCDate(_)
+impl jmap_types::UTCDate
+pub fn jmap_types::UTCDate::into_inner(self) -> alloc::string::String
+impl jmap_types::UTCDate
+pub fn jmap_types::UTCDate::new_validated(impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_types::ValidationError>
+pub fn jmap_types::UTCDate::to_epoch_seconds(&self) -> core::result::Result<i64, jmap_types::ValidationError>
+impl core::borrow::Borrow<str> for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::borrow(&self) -> &str
+impl core::clone::Clone for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::clone(&self) -> jmap_types::UTCDate
+impl core::cmp::Eq for jmap_types::UTCDate
+impl core::cmp::PartialEq for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::eq(&self, &jmap_types::UTCDate) -> bool
+impl core::cmp::PartialEq<&str> for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::eq(&self, &&str) -> bool
+impl core::cmp::PartialEq<str> for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::eq(&self, &str) -> bool
+impl core::convert::AsRef<str> for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::UTCDate
+impl serde_core::ser::Serialize for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::UTCDate
+pub fn jmap_types::UTCDate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::ValidationError(_)
+impl core::clone::Clone for jmap_types::ValidationError
+pub fn jmap_types::ValidationError::clone(&self) -> jmap_types::ValidationError
+impl core::cmp::Eq for jmap_types::ValidationError
+impl core::cmp::PartialEq for jmap_types::ValidationError
+pub fn jmap_types::ValidationError::eq(&self, &jmap_types::ValidationError) -> bool
+impl core::error::Error for jmap_types::ValidationError
+impl core::fmt::Debug for jmap_types::ValidationError
+pub fn jmap_types::ValidationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::ValidationError
+pub fn jmap_types::ValidationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::ValidationError
+pub trait jmap_types::GetObject: jmap_types::JmapObject
+pub trait jmap_types::JmapObject: serde_core::ser::Serialize + for<'de> serde_core::de::Deserialize<'de> + core::marker::Send + core::marker::Sync + 'static
+pub type jmap_types::JmapObject::Property: core::marker::Send + core::marker::Sync + 'static
+pub const jmap_types::JmapObject::TYPE_NAME: &'static str
+impl jmap_types::JmapObject for jmap_types::PushSubscription
+pub type jmap_types::PushSubscription::Property = ()
+pub const jmap_types::PushSubscription::TYPE_NAME: &'static str
+pub trait jmap_types::QueryObject: jmap_types::JmapObject
+pub type jmap_types::QueryObject::Comparator: serde_core::ser::Serialize + serde_core::de::DeserializeOwned + core::marker::Send + core::marker::Sync + 'static
+pub type jmap_types::QueryObject::Filter: serde_core::ser::Serialize + serde_core::de::DeserializeOwned + core::marker::Send + core::marker::Sync + 'static
+pub trait jmap_types::SetObject: jmap_types::JmapObject
+pub type jmap_types::SetObject::Patch: serde_core::ser::Serialize + serde_core::de::DeserializeOwned + core::marker::Send + core::marker::Sync + 'static
+pub const jmap_types::SetObject::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_types::SetObject::IMMUTABLE: &'static [&'static str]
+pub const jmap_types::SetObject::SERVER_SET: &'static [&'static str]
+impl jmap_types::SetObject for jmap_types::PushSubscription
+pub type jmap_types::PushSubscription::Patch = jmap_types::PatchObject
+pub const jmap_types::PushSubscription::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_types::PushSubscription::IMMUTABLE: &'static [&'static str]
+pub const jmap_types::PushSubscription::SERVER_SET: &'static [&'static str]
+pub fn jmap_types::check_property_classification<T: jmap_types::SetObject>(&T) -> core::result::Result<(), alloc::string::String>

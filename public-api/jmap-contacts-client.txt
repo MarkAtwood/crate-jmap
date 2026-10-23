@@ -1,0 +1,60 @@
+pub mod jmap_contacts_client
+pub use jmap_contacts_client::AddedItem
+pub use jmap_contacts_client::ChangesResponse
+pub use jmap_contacts_client::ClientError
+pub use jmap_contacts_client::CopyResponse
+pub use jmap_contacts_client::GetResponse
+pub use jmap_contacts_client::PartialObject
+pub use jmap_contacts_client::QueryChangesResponse
+pub use jmap_contacts_client::QueryResponse
+pub use jmap_contacts_client::SetError
+pub use jmap_contacts_client::SetResponse
+pub struct jmap_contacts_client::AddressBookSetParams
+pub jmap_contacts_client::AddressBookSetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_contacts_client::AddressBookSetParams::on_destroy_remove_contents: core::option::Option<bool>
+pub jmap_contacts_client::AddressBookSetParams::on_success_set_is_default: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_contacts_client::AddressBookSetParams
+pub fn jmap_contacts_client::AddressBookSetParams::clone(&self) -> jmap_contacts_client::AddressBookSetParams
+impl core::default::Default for jmap_contacts_client::AddressBookSetParams
+pub fn jmap_contacts_client::AddressBookSetParams::default() -> jmap_contacts_client::AddressBookSetParams
+impl core::fmt::Debug for jmap_contacts_client::AddressBookSetParams
+pub fn jmap_contacts_client::AddressBookSetParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_contacts_client::AddressBookSetParams
+pub fn jmap_contacts_client::AddressBookSetParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+pub struct jmap_contacts_client::ContactCardCopyParams
+pub jmap_contacts_client::ContactCardCopyParams::destroy_from_if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_contacts_client::ContactCardCopyParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_contacts_client::ContactCardCopyParams::from_account_id: jmap_types::id::Id
+pub jmap_contacts_client::ContactCardCopyParams::if_from_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_contacts_client::ContactCardCopyParams::if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_contacts_client::ContactCardCopyParams::on_success_destroy_original: core::option::Option<bool>
+impl core::clone::Clone for jmap_contacts_client::ContactCardCopyParams
+pub fn jmap_contacts_client::ContactCardCopyParams::clone(&self) -> jmap_contacts_client::ContactCardCopyParams
+impl core::fmt::Debug for jmap_contacts_client::ContactCardCopyParams
+pub fn jmap_contacts_client::ContactCardCopyParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl serde_core::ser::Serialize for jmap_contacts_client::ContactCardCopyParams
+pub fn jmap_contacts_client::ContactCardCopyParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_contacts_client::SessionClient
+impl jmap_contacts_client::SessionClient
+pub async fn jmap_contacts_client::SessionClient::address_book_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_contacts_client::SessionClient::address_book_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_contacts_types::addressbook::AddressBook>, jmap_base_client::error::ClientError>
+pub async fn jmap_contacts_client::SessionClient::address_book_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>, core::option::Option<jmap_contacts_client::AddressBookSetParams>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_contacts_client::SessionClient
+pub fn jmap_contacts_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_contacts_client::SessionClient::contacts_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_contacts_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_contacts_client::SessionClient
+pub async fn jmap_contacts_client::SessionClient::contact_card_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_contacts_client::SessionClient::contact_card_copy(&self, jmap_contacts_client::ContactCardCopyParams, serde_json::value::Value) -> core::result::Result<jmap_types::methods::CopyResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_contacts_client::SessionClient::contact_card_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_contacts_types::card::ContactCard>, jmap_base_client::error::ClientError>
+pub async fn jmap_contacts_client::SessionClient::contact_card_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_contacts_types::card::ContactCardComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_contacts_client::SessionClient::contact_card_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_contacts_types::card::ContactCardComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_contacts_client::SessionClient::contact_card_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_contacts_client::SessionClient
+pub fn jmap_contacts_client::SessionClient::clone(&self) -> jmap_contacts_client::SessionClient
+impl core::fmt::Debug for jmap_contacts_client::SessionClient
+pub fn jmap_contacts_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_contacts_client::JmapContactsExt: jmap_contacts_client::sealed::Sealed
+pub fn jmap_contacts_client::JmapContactsExt::with_contacts_session(&self, jmap_base_client::request::Session) -> jmap_contacts_client::SessionClient
+impl jmap_contacts_client::JmapContactsExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_contacts_session(&self, jmap_base_client::request::Session) -> jmap_contacts_client::SessionClient

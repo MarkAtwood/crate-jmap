@@ -1,0 +1,66 @@
+pub mod jmap_graph_client
+pub use jmap_graph_client::AddedItem
+pub use jmap_graph_client::ChangesResponse
+pub use jmap_graph_client::ClientError
+pub use jmap_graph_client::GetResponse
+pub use jmap_graph_client::PartialObject
+pub use jmap_graph_client::QueryChangesResponse
+pub use jmap_graph_client::QueryResponse
+pub use jmap_graph_client::SetError
+pub use jmap_graph_client::SetResponse
+#[non_exhaustive] pub enum jmap_graph_client::GraphEditWsFrame
+pub jmap_graph_client::GraphEditWsFrame::Cursor(jmap_graph_types::edit::GraphCursorEvent)
+pub jmap_graph_client::GraphEditWsFrame::Op(jmap_graph_types::edit::GraphNodeOpEvent)
+pub jmap_graph_client::GraphEditWsFrame::Other(jmap_base_client::ws::WsFrame)
+impl core::clone::Clone for jmap_graph_client::GraphEditWsFrame
+pub fn jmap_graph_client::GraphEditWsFrame::clone(&self) -> jmap_graph_client::GraphEditWsFrame
+impl core::fmt::Debug for jmap_graph_client::GraphEditWsFrame
+pub fn jmap_graph_client::GraphEditWsFrame::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_graph_client::SessionClient
+impl jmap_graph_client::SessionClient
+pub fn jmap_graph_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_graph_client::SessionClient::for_account(&self, &str) -> core::result::Result<Self, jmap_base_client::error::ClientError>
+pub fn jmap_graph_client::SessionClient::graph_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_graph_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_graph_client::SessionClient
+pub async fn jmap_graph_client::SessionClient::graph_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_graph_types::graph::Graph>, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_graph_types::query::GraphComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_graph_types::query::GraphComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_graph_client::SessionClient
+pub async fn jmap_graph_client::SessionClient::graph_edge_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_edge_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_graph_types::edge::GraphEdge>, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_edge_query(&self, &jmap_graph_types::query::GraphEdgeFilterCondition, core::option::Option<&[jmap_graph_types::query::GraphEdgeComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_edge_query_changes(&self, &jmap_types::id::State, core::option::Option<u64>, &jmap_graph_types::query::GraphEdgeFilterCondition, core::option::Option<&[jmap_graph_types::query::GraphEdgeComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_edge_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_graph_client::SessionClient
+pub async fn jmap_graph_client::SessionClient::graph_node_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_graph_types::node::GraphNode>, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_query(&self, &jmap_graph_types::query::GraphNodeFilterCondition, core::option::Option<&[jmap_graph_types::query::GraphNodeComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_query_changes(&self, &jmap_types::id::State, core::option::Option<u64>, &jmap_graph_types::query::GraphNodeFilterCondition, core::option::Option<&[jmap_graph_types::query::GraphNodeComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_graph_client::SessionClient
+pub async fn jmap_graph_client::SessionClient::graph_node_cursor(&self, &jmap_types::id::Id, &str) -> core::result::Result<jmap_graph_types::edit::GraphNodeCursorResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_op_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_op_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_graph_types::edit::GraphNodeOp>, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_op_query(&self, &jmap_graph_types::edit::GraphNodeOpFilterCondition, core::option::Option<&[jmap_graph_types::edit::GraphNodeOpComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_op_query_changes(&self, &jmap_types::id::State, core::option::Option<u64>, &jmap_graph_types::edit::GraphNodeOpFilterCondition, core::option::Option<&[jmap_graph_types::edit::GraphNodeOpComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_graph_client::SessionClient::graph_node_op_set(&self, serde_json::value::Value, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_graph_client::SessionClient
+pub fn jmap_graph_client::SessionClient::clone(&self) -> jmap_graph_client::SessionClient
+impl core::fmt::Debug for jmap_graph_client::SessionClient
+pub fn jmap_graph_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_graph_client::GraphEditWsExt: jmap_graph_client::ws::sealed::Sealed
+pub fn jmap_graph_client::GraphEditWsExt::next_graph_edit_frame(&mut self) -> impl core::future::future::Future<Output = core::option::Option<core::result::Result<jmap_graph_client::GraphEditWsFrame, jmap_base_client::error::ClientError>>> + core::marker::Send
+pub fn jmap_graph_client::GraphEditWsExt::send_graph_edit_stream_disable(&mut self) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+pub fn jmap_graph_client::GraphEditWsExt::send_graph_edit_stream_enable(&mut self, &jmap_graph_types::edit::GraphEditStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+impl jmap_graph_client::GraphEditWsExt for jmap_base_client::ws::WsSession
+pub async fn jmap_base_client::ws::WsSession::next_graph_edit_frame(&mut self) -> core::option::Option<core::result::Result<jmap_graph_client::GraphEditWsFrame, jmap_base_client::error::ClientError>>
+pub async fn jmap_base_client::ws::WsSession::send_graph_edit_stream_disable(&mut self) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub async fn jmap_base_client::ws::WsSession::send_graph_edit_stream_enable(&mut self, &jmap_graph_types::edit::GraphEditStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub trait jmap_graph_client::JmapGraphExt: jmap_graph_client::sealed::Sealed
+pub fn jmap_graph_client::JmapGraphExt::with_graph_session(&self, jmap_base_client::request::Session) -> jmap_graph_client::SessionClient
+impl jmap_graph_client::JmapGraphExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_graph_session(&self, jmap_base_client::request::Session) -> jmap_graph_client::SessionClient
+pub fn jmap_graph_client::parse_graph_edit_ws_frame(jmap_base_client::ws::WsFrame) -> jmap_graph_client::GraphEditWsFrame

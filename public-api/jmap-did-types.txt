@@ -1,0 +1,332 @@
+pub mod jmap_did_types
+#[non_exhaustive] pub enum jmap_did_types::DidError
+pub jmap_did_types::DidError::InvalidMethodName
+pub jmap_did_types::DidError::InvalidMethodSpecificId
+pub jmap_did_types::DidError::MissingPrefix
+impl core::clone::Clone for jmap_did_types::DidError
+pub fn jmap_did_types::DidError::clone(&self) -> jmap_did_types::DidError
+impl core::cmp::Eq for jmap_did_types::DidError
+impl core::cmp::PartialEq for jmap_did_types::DidError
+pub fn jmap_did_types::DidError::eq(&self, &jmap_did_types::DidError) -> bool
+impl core::error::Error for jmap_did_types::DidError
+impl core::fmt::Debug for jmap_did_types::DidError
+pub fn jmap_did_types::DidError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_types::DidError
+pub fn jmap_did_types::DidError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::DidError
+#[non_exhaustive] pub enum jmap_did_types::DidKeyError
+pub jmap_did_types::DidKeyError::InvalidDid
+pub jmap_did_types::DidKeyError::InvalidMultibase
+pub jmap_did_types::DidKeyError::InvalidPublicKeyLength
+pub jmap_did_types::DidKeyError::InvalidPublicKeyLength::key_type: jmap_did_types::KeyType
+pub jmap_did_types::DidKeyError::InvalidPublicKeyLength::len: usize
+pub jmap_did_types::DidKeyError::UnsupportedKeyType
+pub jmap_did_types::DidKeyError::UnsupportedKeyType::multicodec: u64
+impl core::clone::Clone for jmap_did_types::DidKeyError
+pub fn jmap_did_types::DidKeyError::clone(&self) -> jmap_did_types::DidKeyError
+impl core::cmp::Eq for jmap_did_types::DidKeyError
+impl core::cmp::PartialEq for jmap_did_types::DidKeyError
+pub fn jmap_did_types::DidKeyError::eq(&self, &jmap_did_types::DidKeyError) -> bool
+impl core::error::Error for jmap_did_types::DidKeyError
+impl core::fmt::Debug for jmap_did_types::DidKeyError
+pub fn jmap_did_types::DidKeyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_types::DidKeyError
+pub fn jmap_did_types::DidKeyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::DidKeyError
+#[non_exhaustive] pub enum jmap_did_types::KeyCustody
+pub jmap_did_types::KeyCustody::Other(alloc::string::String)
+pub jmap_did_types::KeyCustody::Server
+pub jmap_did_types::KeyCustody::User
+impl core::clone::Clone for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::clone(&self) -> jmap_did_types::KeyCustody
+impl core::cmp::Eq for jmap_did_types::KeyCustody
+impl core::cmp::PartialEq for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::eq(&self, &jmap_did_types::KeyCustody) -> bool
+impl core::convert::From<&str> for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_did_types::KeyCustody
+impl serde_core::ser::Serialize for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_did_types::KeyType
+pub jmap_did_types::KeyType::Ed25519
+pub jmap_did_types::KeyType::P256
+pub jmap_did_types::KeyType::P384
+pub jmap_did_types::KeyType::Secp256k1
+pub jmap_did_types::KeyType::X25519
+impl jmap_did_types::KeyType
+pub fn jmap_did_types::KeyType::multicodec(self) -> u64
+pub fn jmap_did_types::KeyType::public_key_len(self) -> usize
+impl core::clone::Clone for jmap_did_types::KeyType
+pub fn jmap_did_types::KeyType::clone(&self) -> jmap_did_types::KeyType
+impl core::cmp::Eq for jmap_did_types::KeyType
+impl core::cmp::PartialEq for jmap_did_types::KeyType
+pub fn jmap_did_types::KeyType::eq(&self, &jmap_did_types::KeyType) -> bool
+impl core::fmt::Debug for jmap_did_types::KeyType
+pub fn jmap_did_types::KeyType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_did_types::KeyType
+pub fn jmap_did_types::KeyType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_did_types::KeyType
+impl core::marker::StructuralPartialEq for jmap_did_types::KeyType
+#[non_exhaustive] pub enum jmap_did_types::PlcError
+pub jmap_did_types::PlcError::CidMismatch
+pub jmap_did_types::PlcError::CidMismatch::index: usize
+pub jmap_did_types::PlcError::EmptyLog
+pub jmap_did_types::PlcError::InvalidGenesis
+pub jmap_did_types::PlcError::InvalidSignature
+pub jmap_did_types::PlcError::InvalidSignature::index: usize
+pub jmap_did_types::PlcError::InvalidTimestamp
+pub jmap_did_types::PlcError::InvalidTimestamp::index: usize
+pub jmap_did_types::PlcError::Json(serde_json::error::Error)
+pub jmap_did_types::PlcError::LateRecovery
+pub jmap_did_types::PlcError::LateRecovery::index: usize
+pub jmap_did_types::PlcError::MalformedOperation
+pub jmap_did_types::PlcError::MalformedOperation::index: usize
+pub jmap_did_types::PlcError::Misordered
+pub jmap_did_types::PlcError::Misordered::index: usize
+pub jmap_did_types::PlcError::NonMonotonic
+pub jmap_did_types::PlcError::NonMonotonic::index: usize
+pub jmap_did_types::PlcError::NotPlc
+pub jmap_did_types::PlcError::NullifiedMismatch
+pub jmap_did_types::PlcError::NullifiedMismatch::index: usize
+pub jmap_did_types::PlcError::UnsupportedRotationKey
+pub jmap_did_types::PlcError::UnsupportedRotationKey::index: usize
+pub jmap_did_types::PlcError::WrongDid
+pub jmap_did_types::PlcError::WrongDid::index: usize
+impl core::error::Error for jmap_did_types::PlcError
+pub fn jmap_did_types::PlcError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_did_types::PlcError
+pub fn jmap_did_types::PlcError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_types::PlcError
+pub fn jmap_did_types::PlcError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_did_types::PlcStatus
+pub jmap_did_types::PlcStatus::Active(jmap_did_types::PlcState)
+pub jmap_did_types::PlcStatus::Deactivated
+impl core::clone::Clone for jmap_did_types::PlcStatus
+pub fn jmap_did_types::PlcStatus::clone(&self) -> jmap_did_types::PlcStatus
+impl core::cmp::Eq for jmap_did_types::PlcStatus
+impl core::cmp::PartialEq for jmap_did_types::PlcStatus
+pub fn jmap_did_types::PlcStatus::eq(&self, &jmap_did_types::PlcStatus) -> bool
+impl core::fmt::Debug for jmap_did_types::PlcStatus
+pub fn jmap_did_types::PlcStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::PlcStatus
+#[non_exhaustive] pub enum jmap_did_types::WebvhError
+pub jmap_did_types::WebvhError::AfterDeactivation
+pub jmap_did_types::WebvhError::DidNotInLog
+pub jmap_did_types::WebvhError::EmptyLog
+pub jmap_did_types::WebvhError::EntryHashMismatch
+pub jmap_did_types::WebvhError::IllegalMove
+pub jmap_did_types::WebvhError::InvalidDid
+pub jmap_did_types::WebvhError::InvalidParameter
+pub jmap_did_types::WebvhError::InvalidParameter::name: alloc::string::String
+pub jmap_did_types::WebvhError::InvalidProof
+pub jmap_did_types::WebvhError::InvalidVersionId
+pub jmap_did_types::WebvhError::InvalidVersionTime
+pub jmap_did_types::WebvhError::MalformedEntry
+pub jmap_did_types::WebvhError::MalformedWitnessFile
+pub jmap_did_types::WebvhError::PreRotation
+pub jmap_did_types::WebvhError::ScidMismatch
+pub jmap_did_types::WebvhError::UnsupportedMethod
+pub jmap_did_types::WebvhError::WitnessThreshold
+impl core::clone::Clone for jmap_did_types::WebvhError
+pub fn jmap_did_types::WebvhError::clone(&self) -> jmap_did_types::WebvhError
+impl core::cmp::Eq for jmap_did_types::WebvhError
+impl core::cmp::PartialEq for jmap_did_types::WebvhError
+pub fn jmap_did_types::WebvhError::eq(&self, &jmap_did_types::WebvhError) -> bool
+impl core::error::Error for jmap_did_types::WebvhError
+impl core::fmt::Debug for jmap_did_types::WebvhError
+pub fn jmap_did_types::WebvhError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_types::WebvhError
+pub fn jmap_did_types::WebvhError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::WebvhError
+pub struct jmap_did_types::Did(_)
+impl jmap_did_types::Did
+pub fn jmap_did_types::Did::as_str(&self) -> &str
+pub fn jmap_did_types::Did::method(&self) -> &str
+pub fn jmap_did_types::Did::method_specific_id(&self) -> &str
+pub fn jmap_did_types::Did::parse(&str) -> core::result::Result<Self, jmap_did_types::DidError>
+pub fn jmap_did_types::Did::web_document_url(&self) -> core::option::Option<alloc::string::String>
+pub fn jmap_did_types::Did::web_domain(&self) -> core::option::Option<&str>
+impl core::clone::Clone for jmap_did_types::Did
+pub fn jmap_did_types::Did::clone(&self) -> jmap_did_types::Did
+impl core::cmp::Eq for jmap_did_types::Did
+impl core::cmp::Ord for jmap_did_types::Did
+pub fn jmap_did_types::Did::cmp(&self, &jmap_did_types::Did) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_did_types::Did
+pub fn jmap_did_types::Did::eq(&self, &jmap_did_types::Did) -> bool
+impl core::cmp::PartialOrd for jmap_did_types::Did
+pub fn jmap_did_types::Did::partial_cmp(&self, &jmap_did_types::Did) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_did_types::Did
+pub fn jmap_did_types::Did::as_ref(&self) -> &str
+impl core::convert::From<jmap_did_types::Did> for alloc::string::String
+pub fn alloc::string::String::from(jmap_did_types::Did) -> Self
+impl core::convert::TryFrom<alloc::string::String> for jmap_did_types::Did
+pub type jmap_did_types::Did::Error = jmap_did_types::DidError
+pub fn jmap_did_types::Did::try_from(alloc::string::String) -> core::result::Result<Self, jmap_did_types::DidError>
+impl core::fmt::Debug for jmap_did_types::Did
+pub fn jmap_did_types::Did::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_did_types::Did
+pub fn jmap_did_types::Did::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_did_types::Did
+pub fn jmap_did_types::Did::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_did_types::Did
+impl core::str::traits::FromStr for jmap_did_types::Did
+pub type jmap_did_types::Did::Err = jmap_did_types::DidError
+pub fn jmap_did_types::Did::from_str(&str) -> core::result::Result<Self, jmap_did_types::DidError>
+impl serde_core::ser::Serialize for jmap_did_types::Did
+pub fn jmap_did_types::Did::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_did_types::Did
+pub fn jmap_did_types::Did::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_did_types::DidAccountCapability
+pub jmap_did_types::DidAccountCapability::did: alloc::string::String
+pub jmap_did_types::DidAccountCapability::did_document_uri: core::option::Option<alloc::string::String>
+pub jmap_did_types::DidAccountCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_did_types::DidAccountCapability::key_custody: core::option::Option<jmap_did_types::KeyCustody>
+pub jmap_did_types::DidAccountCapability::previous_did: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_did_types::DidAccountCapability
+pub fn jmap_did_types::DidAccountCapability::clone(&self) -> jmap_did_types::DidAccountCapability
+impl core::cmp::Eq for jmap_did_types::DidAccountCapability
+impl core::cmp::PartialEq for jmap_did_types::DidAccountCapability
+pub fn jmap_did_types::DidAccountCapability::eq(&self, &jmap_did_types::DidAccountCapability) -> bool
+impl core::fmt::Debug for jmap_did_types::DidAccountCapability
+pub fn jmap_did_types::DidAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::DidAccountCapability
+impl serde_core::ser::Serialize for jmap_did_types::DidAccountCapability
+pub fn jmap_did_types::DidAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_did_types::DidAccountCapability
+pub fn jmap_did_types::DidAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_did_types::DidCapability
+pub jmap_did_types::DidCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_did_types::DidCapability::supported_methods: alloc::vec::Vec<alloc::string::String>
+pub jmap_did_types::DidCapability::verification_endpoint: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_did_types::DidCapability
+pub fn jmap_did_types::DidCapability::clone(&self) -> jmap_did_types::DidCapability
+impl core::cmp::Eq for jmap_did_types::DidCapability
+impl core::cmp::PartialEq for jmap_did_types::DidCapability
+pub fn jmap_did_types::DidCapability::eq(&self, &jmap_did_types::DidCapability) -> bool
+impl core::fmt::Debug for jmap_did_types::DidCapability
+pub fn jmap_did_types::DidCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::DidCapability
+impl serde_core::ser::Serialize for jmap_did_types::DidCapability
+pub fn jmap_did_types::DidCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_did_types::DidCapability
+pub fn jmap_did_types::DidCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_did_types::DidKey
+impl jmap_did_types::DidKey
+pub fn jmap_did_types::DidKey::did(&self) -> &jmap_did_types::Did
+pub fn jmap_did_types::DidKey::document(&self) -> serde_json::value::Value
+pub fn jmap_did_types::DidKey::from_did(&jmap_did_types::Did) -> core::result::Result<Self, jmap_did_types::DidKeyError>
+pub fn jmap_did_types::DidKey::key_type(&self) -> jmap_did_types::KeyType
+pub fn jmap_did_types::DidKey::public_key(&self) -> &[u8]
+impl core::clone::Clone for jmap_did_types::DidKey
+pub fn jmap_did_types::DidKey::clone(&self) -> jmap_did_types::DidKey
+impl core::cmp::Eq for jmap_did_types::DidKey
+impl core::cmp::PartialEq for jmap_did_types::DidKey
+pub fn jmap_did_types::DidKey::eq(&self, &jmap_did_types::DidKey) -> bool
+impl core::fmt::Debug for jmap_did_types::DidKey
+pub fn jmap_did_types::DidKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::DidKey
+#[non_exhaustive] pub struct jmap_did_types::PlcService
+pub jmap_did_types::PlcService::endpoint: alloc::string::String
+pub jmap_did_types::PlcService::service_type: alloc::string::String
+impl core::clone::Clone for jmap_did_types::PlcService
+pub fn jmap_did_types::PlcService::clone(&self) -> jmap_did_types::PlcService
+impl core::cmp::Eq for jmap_did_types::PlcService
+impl core::cmp::PartialEq for jmap_did_types::PlcService
+pub fn jmap_did_types::PlcService::eq(&self, &jmap_did_types::PlcService) -> bool
+impl core::fmt::Debug for jmap_did_types::PlcService
+pub fn jmap_did_types::PlcService::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::PlcService
+impl serde_core::ser::Serialize for jmap_did_types::PlcService
+pub fn jmap_did_types::PlcService::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_did_types::PlcService
+pub fn jmap_did_types::PlcService::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_did_types::PlcState
+pub jmap_did_types::PlcState::also_known_as: alloc::vec::Vec<alloc::string::String>
+pub jmap_did_types::PlcState::did: jmap_did_types::Did
+pub jmap_did_types::PlcState::rotation_keys: alloc::vec::Vec<alloc::string::String>
+pub jmap_did_types::PlcState::services: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_did_types::PlcService>
+pub jmap_did_types::PlcState::verification_methods: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>
+impl jmap_did_types::PlcState
+pub fn jmap_did_types::PlcState::document(&self) -> serde_json::value::Value
+impl core::clone::Clone for jmap_did_types::PlcState
+pub fn jmap_did_types::PlcState::clone(&self) -> jmap_did_types::PlcState
+impl core::cmp::Eq for jmap_did_types::PlcState
+impl core::cmp::PartialEq for jmap_did_types::PlcState
+pub fn jmap_did_types::PlcState::eq(&self, &jmap_did_types::PlcState) -> bool
+impl core::fmt::Debug for jmap_did_types::PlcState
+pub fn jmap_did_types::PlcState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::PlcState
+impl serde_core::ser::Serialize for jmap_did_types::PlcState
+pub fn jmap_did_types::PlcState::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_did_types::WebvhLog
+impl jmap_did_types::WebvhLog
+pub fn jmap_did_types::WebvhLog::current(&self) -> core::option::Option<&jmap_did_types::WebvhVersion>
+pub fn jmap_did_types::WebvhLog::invalid_entry(&self) -> core::option::Option<(usize, &jmap_did_types::WebvhError)>
+pub fn jmap_did_types::WebvhLog::is_deactivated(&self) -> bool
+pub fn jmap_did_types::WebvhLog::latest(&self) -> &jmap_did_types::WebvhVersion
+pub fn jmap_did_types::WebvhLog::scid(&self) -> &str
+pub fn jmap_did_types::WebvhLog::version(&self, &str) -> core::option::Option<&jmap_did_types::WebvhVersion>
+pub fn jmap_did_types::WebvhLog::versions(&self) -> impl core::iter::traits::iterator::Iterator<Item = &jmap_did_types::WebvhVersion>
+impl core::clone::Clone for jmap_did_types::WebvhLog
+pub fn jmap_did_types::WebvhLog::clone(&self) -> jmap_did_types::WebvhLog
+impl core::cmp::Eq for jmap_did_types::WebvhLog
+impl core::cmp::PartialEq for jmap_did_types::WebvhLog
+pub fn jmap_did_types::WebvhLog::eq(&self, &jmap_did_types::WebvhLog) -> bool
+impl core::fmt::Debug for jmap_did_types::WebvhLog
+pub fn jmap_did_types::WebvhLog::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::WebvhLog
+#[non_exhaustive] pub struct jmap_did_types::WebvhParameters
+pub jmap_did_types::WebvhParameters::deactivated: bool
+pub jmap_did_types::WebvhParameters::next_key_hashes: alloc::vec::Vec<alloc::string::String>
+pub jmap_did_types::WebvhParameters::portable: bool
+pub jmap_did_types::WebvhParameters::ttl: u64
+pub jmap_did_types::WebvhParameters::update_keys: alloc::vec::Vec<alloc::string::String>
+pub jmap_did_types::WebvhParameters::watchers: alloc::vec::Vec<alloc::string::String>
+pub jmap_did_types::WebvhParameters::witness: core::option::Option<jmap_did_types::WebvhWitness>
+impl core::clone::Clone for jmap_did_types::WebvhParameters
+pub fn jmap_did_types::WebvhParameters::clone(&self) -> jmap_did_types::WebvhParameters
+impl core::cmp::Eq for jmap_did_types::WebvhParameters
+impl core::cmp::PartialEq for jmap_did_types::WebvhParameters
+pub fn jmap_did_types::WebvhParameters::eq(&self, &jmap_did_types::WebvhParameters) -> bool
+impl core::fmt::Debug for jmap_did_types::WebvhParameters
+pub fn jmap_did_types::WebvhParameters::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::WebvhParameters
+#[non_exhaustive] pub struct jmap_did_types::WebvhVersion
+pub jmap_did_types::WebvhVersion::document: serde_json::value::Value
+pub jmap_did_types::WebvhVersion::parameters: jmap_did_types::WebvhParameters
+pub jmap_did_types::WebvhVersion::version_id: alloc::string::String
+pub jmap_did_types::WebvhVersion::version_number: u64
+pub jmap_did_types::WebvhVersion::version_time: alloc::string::String
+impl core::clone::Clone for jmap_did_types::WebvhVersion
+pub fn jmap_did_types::WebvhVersion::clone(&self) -> jmap_did_types::WebvhVersion
+impl core::cmp::Eq for jmap_did_types::WebvhVersion
+impl core::cmp::PartialEq for jmap_did_types::WebvhVersion
+pub fn jmap_did_types::WebvhVersion::eq(&self, &jmap_did_types::WebvhVersion) -> bool
+impl core::fmt::Debug for jmap_did_types::WebvhVersion
+pub fn jmap_did_types::WebvhVersion::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::WebvhVersion
+#[non_exhaustive] pub struct jmap_did_types::WebvhWitness
+pub jmap_did_types::WebvhWitness::threshold: u64
+pub jmap_did_types::WebvhWitness::witnesses: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for jmap_did_types::WebvhWitness
+pub fn jmap_did_types::WebvhWitness::clone(&self) -> jmap_did_types::WebvhWitness
+impl core::cmp::Eq for jmap_did_types::WebvhWitness
+impl core::cmp::PartialEq for jmap_did_types::WebvhWitness
+pub fn jmap_did_types::WebvhWitness::eq(&self, &jmap_did_types::WebvhWitness) -> bool
+impl core::fmt::Debug for jmap_did_types::WebvhWitness
+pub fn jmap_did_types::WebvhWitness::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_did_types::WebvhWitness
+pub const jmap_did_types::JMAP_DID_URI: &str
+pub fn jmap_did_types::verify_plc_audit_log(&jmap_did_types::Did, &[u8]) -> core::result::Result<jmap_did_types::PlcStatus, jmap_did_types::PlcError>
+pub fn jmap_did_types::verify_webvh_log(&jmap_did_types::Did, &[u8], core::option::Option<&[u8]>, std::time::SystemTime) -> core::result::Result<jmap_did_types::WebvhLog, jmap_did_types::WebvhError>
+pub fn jmap_did_types::webvh_log_url(&jmap_did_types::Did) -> core::option::Option<alloc::string::String>

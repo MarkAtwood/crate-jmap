@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **workspace**: committed public-API snapshots (`public-api/<crate>.txt`,
+  `scripts/public-api.sh`) and a CI `public-api` job that fails when they
+  are stale, so every public-surface change appears in review diffs
+  (bd JMAP-698j.1).
 - **jmap-server**: `parse_wire_id(raw, property)` validates a client-supplied
   id against RFC 8620 §1.2 and returns an `invalidProperties` SetError naming
   `property` when it is not an Id (bd JMAP-k9va).

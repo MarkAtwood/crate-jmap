@@ -1,0 +1,177 @@
+pub mod jmap_peer_auth
+pub use jmap_peer_auth::ed25519_dalek
+pub enum jmap_peer_auth::DnssecAnswer
+pub jmap_peer_auth::DnssecAnswer::Bogus
+pub jmap_peer_auth::DnssecAnswer::Indeterminate
+pub jmap_peer_auth::DnssecAnswer::Insecure
+pub jmap_peer_auth::DnssecAnswer::LookupFailed
+pub jmap_peer_auth::DnssecAnswer::Secure(alloc::vec::Vec<alloc::string::String>)
+pub jmap_peer_auth::DnssecAnswer::SecureDenial
+impl core::clone::Clone for jmap_peer_auth::DnssecAnswer
+pub fn jmap_peer_auth::DnssecAnswer::clone(&self) -> jmap_peer_auth::DnssecAnswer
+impl core::cmp::Eq for jmap_peer_auth::DnssecAnswer
+impl core::cmp::PartialEq for jmap_peer_auth::DnssecAnswer
+pub fn jmap_peer_auth::DnssecAnswer::eq(&self, &jmap_peer_auth::DnssecAnswer) -> bool
+impl core::fmt::Debug for jmap_peer_auth::DnssecAnswer
+pub fn jmap_peer_auth::DnssecAnswer::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth::DnssecAnswer
+#[non_exhaustive] pub enum jmap_peer_auth::IdentityBinding
+pub jmap_peer_auth::IdentityBinding::Bound
+pub jmap_peer_auth::IdentityBinding::HostMismatch
+pub jmap_peer_auth::IdentityBinding::NeedsDidVerification
+pub jmap_peer_auth::IdentityBinding::NoHost
+impl core::clone::Clone for jmap_peer_auth::IdentityBinding
+pub fn jmap_peer_auth::IdentityBinding::clone(&self) -> jmap_peer_auth::IdentityBinding
+impl core::cmp::Eq for jmap_peer_auth::IdentityBinding
+impl core::cmp::PartialEq for jmap_peer_auth::IdentityBinding
+pub fn jmap_peer_auth::IdentityBinding::eq(&self, &jmap_peer_auth::IdentityBinding) -> bool
+impl core::fmt::Debug for jmap_peer_auth::IdentityBinding
+pub fn jmap_peer_auth::IdentityBinding::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_peer_auth::IdentityBinding
+impl core::marker::StructuralPartialEq for jmap_peer_auth::IdentityBinding
+#[non_exhaustive] pub enum jmap_peer_auth::Rejection
+pub jmap_peer_auth::Rejection::BadSignature
+pub jmap_peer_auth::Rejection::ContentDigestMismatch
+pub jmap_peer_auth::Rejection::CreatedInFuture
+pub jmap_peer_auth::Rejection::DnssecBogus
+pub jmap_peer_auth::Rejection::Expired
+pub jmap_peer_auth::Rejection::InvalidKeyId
+pub jmap_peer_auth::Rejection::LifetimeTooLong
+pub jmap_peer_auth::Rejection::Malformed(&'static str)
+pub jmap_peer_auth::Rejection::MissingComponent(&'static str)
+pub jmap_peer_auth::Rejection::MultipleSignatures
+pub jmap_peer_auth::Rejection::NoSignature
+pub jmap_peer_auth::Rejection::PrecedesRestart
+pub jmap_peer_auth::Rejection::Replayed
+pub jmap_peer_auth::Rejection::UnderivableComponent(alloc::string::String)
+pub jmap_peer_auth::Rejection::UnknownKey
+pub jmap_peer_auth::Rejection::WrongAlgorithm
+impl core::clone::Clone for jmap_peer_auth::Rejection
+pub fn jmap_peer_auth::Rejection::clone(&self) -> jmap_peer_auth::Rejection
+impl core::cmp::Eq for jmap_peer_auth::Rejection
+impl core::cmp::PartialEq for jmap_peer_auth::Rejection
+pub fn jmap_peer_auth::Rejection::eq(&self, &jmap_peer_auth::Rejection) -> bool
+impl core::error::Error for jmap_peer_auth::Rejection
+impl core::fmt::Debug for jmap_peer_auth::Rejection
+pub fn jmap_peer_auth::Rejection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_peer_auth::Rejection
+pub fn jmap_peer_auth::Rejection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth::Rejection
+#[non_exhaustive] pub enum jmap_peer_auth::SignError
+pub jmap_peer_auth::SignError::Clock
+pub jmap_peer_auth::SignError::Random(getrandom::error::Error)
+pub jmap_peer_auth::SignError::TargetUri
+impl core::error::Error for jmap_peer_auth::SignError
+pub fn jmap_peer_auth::SignError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_peer_auth::SignError
+pub fn jmap_peer_auth::SignError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_peer_auth::SignError
+pub fn jmap_peer_auth::SignError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_peer_auth::Accepted
+pub jmap_peer_auth::Accepted::created: std::time::SystemTime
+pub jmap_peer_auth::Accepted::forget_after: std::time::SystemTime
+pub jmap_peer_auth::Accepted::key: jmap_peer_auth::PeerSigningKey
+pub jmap_peer_auth::Accepted::nonce: alloc::string::String
+pub jmap_peer_auth::Accepted::peer_domain: jmap_peer_auth::PeerDomain
+impl core::clone::Clone for jmap_peer_auth::Accepted
+pub fn jmap_peer_auth::Accepted::clone(&self) -> jmap_peer_auth::Accepted
+impl core::cmp::Eq for jmap_peer_auth::Accepted
+impl core::cmp::PartialEq for jmap_peer_auth::Accepted
+pub fn jmap_peer_auth::Accepted::eq(&self, &jmap_peer_auth::Accepted) -> bool
+impl core::fmt::Debug for jmap_peer_auth::Accepted
+pub fn jmap_peer_auth::Accepted::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth::Accepted
+pub struct jmap_peer_auth::InvalidPeerDomain
+impl core::clone::Clone for jmap_peer_auth::InvalidPeerDomain
+pub fn jmap_peer_auth::InvalidPeerDomain::clone(&self) -> jmap_peer_auth::InvalidPeerDomain
+impl core::cmp::Eq for jmap_peer_auth::InvalidPeerDomain
+impl core::cmp::PartialEq for jmap_peer_auth::InvalidPeerDomain
+pub fn jmap_peer_auth::InvalidPeerDomain::eq(&self, &jmap_peer_auth::InvalidPeerDomain) -> bool
+impl core::error::Error for jmap_peer_auth::InvalidPeerDomain
+impl core::fmt::Debug for jmap_peer_auth::InvalidPeerDomain
+pub fn jmap_peer_auth::InvalidPeerDomain::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_peer_auth::InvalidPeerDomain
+pub fn jmap_peer_auth::InvalidPeerDomain::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_peer_auth::InvalidPeerDomain
+impl core::marker::StructuralPartialEq for jmap_peer_auth::InvalidPeerDomain
+pub struct jmap_peer_auth::PeerDomain(_)
+impl jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::as_str(&self) -> &str
+pub fn jmap_peer_auth::PeerDomain::parse(&str) -> core::result::Result<Self, jmap_peer_auth::InvalidPeerDomain>
+impl core::clone::Clone for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::clone(&self) -> jmap_peer_auth::PeerDomain
+impl core::cmp::Eq for jmap_peer_auth::PeerDomain
+impl core::cmp::Ord for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::cmp(&self, &jmap_peer_auth::PeerDomain) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::eq(&self, &jmap_peer_auth::PeerDomain) -> bool
+impl core::cmp::PartialOrd for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::partial_cmp(&self, &jmap_peer_auth::PeerDomain) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::as_ref(&self) -> &str
+impl core::fmt::Debug for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::PeerDomain::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_peer_auth::PeerDomain
+impl core::str::traits::FromStr for jmap_peer_auth::PeerDomain
+pub type jmap_peer_auth::PeerDomain::Err = jmap_peer_auth::InvalidPeerDomain
+pub fn jmap_peer_auth::PeerDomain::from_str(&str) -> core::result::Result<Self, Self::Err>
+pub struct jmap_peer_auth::PeerSigningKey
+impl jmap_peer_auth::PeerSigningKey
+pub fn jmap_peer_auth::PeerSigningKey::from_jwk(&serde_json::value::Value) -> core::option::Option<Self>
+pub fn jmap_peer_auth::PeerSigningKey::kid(&self) -> &str
+pub fn jmap_peer_auth::PeerSigningKey::to_jwk(&self) -> serde_json::value::Value
+pub fn jmap_peer_auth::PeerSigningKey::verifying_key(&self) -> &ed25519_dalek::verifying::VerifyingKey
+impl core::clone::Clone for jmap_peer_auth::PeerSigningKey
+pub fn jmap_peer_auth::PeerSigningKey::clone(&self) -> jmap_peer_auth::PeerSigningKey
+impl core::cmp::Eq for jmap_peer_auth::PeerSigningKey
+impl core::cmp::PartialEq for jmap_peer_auth::PeerSigningKey
+pub fn jmap_peer_auth::PeerSigningKey::eq(&self, &jmap_peer_auth::PeerSigningKey) -> bool
+impl core::convert::From<ed25519_dalek::verifying::VerifyingKey> for jmap_peer_auth::PeerSigningKey
+pub fn jmap_peer_auth::PeerSigningKey::from(ed25519_dalek::verifying::VerifyingKey) -> Self
+impl core::fmt::Debug for jmap_peer_auth::PeerSigningKey
+pub fn jmap_peer_auth::PeerSigningKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth::PeerSigningKey
+pub struct jmap_peer_auth::Request<'a>
+pub jmap_peer_auth::Request::content: &'a [u8]
+pub jmap_peer_auth::Request::headers: &'a http::header::map::HeaderMap
+pub jmap_peer_auth::Request::method: &'a http::method::Method
+pub jmap_peer_auth::Request::target_uri: &'a str
+impl<'a> core::clone::Clone for jmap_peer_auth::Request<'a>
+pub fn jmap_peer_auth::Request<'a>::clone(&self) -> jmap_peer_auth::Request<'a>
+impl<'a> core::fmt::Debug for jmap_peer_auth::Request<'a>
+pub fn jmap_peer_auth::Request<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Copy for jmap_peer_auth::Request<'a>
+#[non_exhaustive] pub struct jmap_peer_auth::SignatureHeaders
+pub jmap_peer_auth::SignatureHeaders::content_digest: core::option::Option<alloc::string::String>
+pub jmap_peer_auth::SignatureHeaders::signature: alloc::string::String
+pub jmap_peer_auth::SignatureHeaders::signature_input: alloc::string::String
+impl core::clone::Clone for jmap_peer_auth::SignatureHeaders
+pub fn jmap_peer_auth::SignatureHeaders::clone(&self) -> jmap_peer_auth::SignatureHeaders
+impl core::cmp::Eq for jmap_peer_auth::SignatureHeaders
+impl core::cmp::PartialEq for jmap_peer_auth::SignatureHeaders
+pub fn jmap_peer_auth::SignatureHeaders::eq(&self, &jmap_peer_auth::SignatureHeaders) -> bool
+impl core::fmt::Debug for jmap_peer_auth::SignatureHeaders
+pub fn jmap_peer_auth::SignatureHeaders::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth::SignatureHeaders
+pub struct jmap_peer_auth::SignedRequest<'a>
+impl<'a> jmap_peer_auth::SignedRequest<'a>
+pub fn jmap_peer_auth::SignedRequest<'a>::kid(&self) -> &str
+pub fn jmap_peer_auth::SignedRequest<'a>::parse(jmap_peer_auth::Request<'a>) -> core::result::Result<Self, jmap_peer_auth::Rejection>
+pub fn jmap_peer_auth::SignedRequest<'a>::peer_domain(&self) -> &jmap_peer_auth::PeerDomain
+pub fn jmap_peer_auth::SignedRequest<'a>::verify(&self, &[jmap_peer_auth::PeerSigningKey], std::time::SystemTime) -> core::result::Result<jmap_peer_auth::Accepted, jmap_peer_auth::Rejection>
+impl<'a> core::clone::Clone for jmap_peer_auth::SignedRequest<'a>
+pub fn jmap_peer_auth::SignedRequest<'a>::clone(&self) -> jmap_peer_auth::SignedRequest<'a>
+impl<'a> core::fmt::Debug for jmap_peer_auth::SignedRequest<'a>
+pub fn jmap_peer_auth::SignedRequest<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_peer_auth::CLOCK_SKEW_SECS: u64
+pub const jmap_peer_auth::MAX_LIFETIME_SECS: u64
+pub const jmap_peer_auth::REPLAY_MARGIN_SECS: u64
+pub const jmap_peer_auth::SIGNATURE_TAG: &str
+pub fn jmap_peer_auth::bind_identity(&str, &jmap_peer_auth::PeerDomain) -> jmap_peer_auth::IdentityBinding
+pub fn jmap_peer_auth::fetch_address_allowed(core::net::ip_addr::IpAddr) -> bool
+pub fn jmap_peer_auth::sign(&ed25519_dalek::signing::SigningKey, &jmap_peer_auth::PeerDomain, &http::method::Method, &str, &[u8], std::time::SystemTime) -> core::result::Result<jmap_peer_auth::SignatureHeaders, jmap_peer_auth::SignError>
+pub fn jmap_peer_auth::usable_keys(&serde_json::value::Value, &jmap_peer_auth::DnssecAnswer) -> core::result::Result<alloc::vec::Vec<jmap_peer_auth::PeerSigningKey>, jmap_peer_auth::Rejection>

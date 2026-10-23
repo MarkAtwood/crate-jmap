@@ -1,0 +1,5 @@
+pub mod jmap_chat_calendars_server
+pub async fn jmap_chat_calendars_server::check_calendar_id<K: jmap_calendars_server::backend::CalendarsBackend>(&K, &<K as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &serde_json::value::Value) -> core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, <K as jmap_server::backend::JmapBackend>::Error>
+pub async fn jmap_chat_calendars_server::create_space_calendar<K: jmap_calendars_server::backend::CalendarsBackend>(&K, &<K as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &mut jmap_chat_types::space::Space) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<<K as jmap_server::backend::JmapBackend>::Error>>
+pub fn jmap_chat_calendars_server::may_advertise<'a>(impl core::iter::traits::collect::IntoIterator<Item = &'a str>) -> bool
+pub fn jmap_chat_calendars_server::space_extension_properties(&jmap_chat_types::capability::ChatCalendarsCapability) -> &'static [&'static str]

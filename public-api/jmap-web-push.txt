@@ -1,0 +1,171 @@
+pub mod jmap_web_push
+pub use jmap_web_push::Urgency
+pub use jmap_web_push::jmap_types
+pub use jmap_web_push::p256
+pub use jmap_web_push::reqwest
+pub use jmap_web_push::url
+#[non_exhaustive] pub enum jmap_web_push::EncryptError
+pub jmap_web_push::EncryptError::Random(core::io::error::Error)
+pub jmap_web_push::EncryptError::TooLarge
+pub jmap_web_push::EncryptError::TooLarge::len: usize
+impl core::convert::From<jmap_web_push::EncryptError> for jmap_web_push::SendError
+pub fn jmap_web_push::SendError::from(jmap_web_push::EncryptError) -> Self
+impl core::error::Error for jmap_web_push::EncryptError
+pub fn jmap_web_push::EncryptError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_web_push::EncryptError
+pub fn jmap_web_push::EncryptError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_web_push::EncryptError
+pub fn jmap_web_push::EncryptError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_web_push::EndpointError
+pub jmap_web_push::EndpointError::Auth
+pub jmap_web_push::EndpointError::MissingUrl
+pub jmap_web_push::EndpointError::P256dh
+pub jmap_web_push::EndpointError::Url(url::parser::ParseError)
+impl core::error::Error for jmap_web_push::EndpointError
+pub fn jmap_web_push::EndpointError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_web_push::EndpointError
+pub fn jmap_web_push::EndpointError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_web_push::EndpointError
+pub fn jmap_web_push::EndpointError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub enum jmap_web_push::Outcome
+pub jmap_web_push::Outcome::Accepted
+pub jmap_web_push::Outcome::Gone
+impl core::clone::Clone for jmap_web_push::Outcome
+pub fn jmap_web_push::Outcome::clone(&self) -> jmap_web_push::Outcome
+impl core::cmp::Eq for jmap_web_push::Outcome
+impl core::cmp::PartialEq for jmap_web_push::Outcome
+pub fn jmap_web_push::Outcome::eq(&self, &jmap_web_push::Outcome) -> bool
+impl core::fmt::Debug for jmap_web_push::Outcome
+pub fn jmap_web_push::Outcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_web_push::Outcome
+impl core::marker::StructuralPartialEq for jmap_web_push::Outcome
+#[non_exhaustive] pub enum jmap_web_push::SendError
+pub jmap_web_push::SendError::Encrypt(jmap_web_push::EncryptError)
+pub jmap_web_push::SendError::Json(serde_json::error::Error)
+pub jmap_web_push::SendError::Rejected
+pub jmap_web_push::SendError::Rejected::status: http::status::StatusCode
+pub jmap_web_push::SendError::Transport(reqwest::error::Error)
+pub jmap_web_push::SendError::Unavailable
+pub jmap_web_push::SendError::Unavailable::retry_after: core::option::Option<core::time::Duration>
+pub jmap_web_push::SendError::Unavailable::status: http::status::StatusCode
+pub jmap_web_push::SendError::Vapid(jmap_web_push::VapidError)
+impl core::convert::From<jmap_web_push::EncryptError> for jmap_web_push::SendError
+pub fn jmap_web_push::SendError::from(jmap_web_push::EncryptError) -> Self
+impl core::convert::From<jmap_web_push::VapidError> for jmap_web_push::SendError
+pub fn jmap_web_push::SendError::from(jmap_web_push::VapidError) -> Self
+impl core::error::Error for jmap_web_push::SendError
+pub fn jmap_web_push::SendError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_web_push::SendError
+pub fn jmap_web_push::SendError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_web_push::SendError
+pub fn jmap_web_push::SendError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_web_push::VapidError
+pub jmap_web_push::VapidError::OpaqueOrigin
+impl core::convert::From<jmap_web_push::VapidError> for jmap_web_push::SendError
+pub fn jmap_web_push::SendError::from(jmap_web_push::VapidError) -> Self
+impl core::error::Error for jmap_web_push::VapidError
+impl core::fmt::Debug for jmap_web_push::VapidError
+pub fn jmap_web_push::VapidError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_web_push::VapidError
+pub fn jmap_web_push::VapidError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_web_push::Endpoint
+impl jmap_web_push::Endpoint
+pub fn jmap_web_push::Endpoint::new(url::Url, core::option::Option<jmap_web_push::UaKeys>) -> Self
+pub fn jmap_web_push::Endpoint::url(&self) -> &url::Url
+impl core::clone::Clone for jmap_web_push::Endpoint
+pub fn jmap_web_push::Endpoint::clone(&self) -> jmap_web_push::Endpoint
+impl core::convert::TryFrom<&jmap_types::push::PushSubscription> for jmap_web_push::Endpoint
+pub type jmap_web_push::Endpoint::Error = jmap_web_push::EndpointError
+pub fn jmap_web_push::Endpoint::try_from(&jmap_types::push::PushSubscription) -> core::result::Result<Self, jmap_web_push::EndpointError>
+impl core::fmt::Debug for jmap_web_push::Endpoint
+pub fn jmap_web_push::Endpoint::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_web_push::PushOptions
+pub jmap_web_push::PushOptions::topic: core::option::Option<jmap_web_push::Topic>
+pub jmap_web_push::PushOptions::ttl: core::time::Duration
+pub jmap_web_push::PushOptions::urgency: core::option::Option<jmap_types::push::Urgency>
+impl jmap_web_push::PushOptions
+pub fn jmap_web_push::PushOptions::new(core::time::Duration) -> Self
+impl core::clone::Clone for jmap_web_push::PushOptions
+pub fn jmap_web_push::PushOptions::clone(&self) -> jmap_web_push::PushOptions
+impl core::cmp::Eq for jmap_web_push::PushOptions
+impl core::cmp::PartialEq for jmap_web_push::PushOptions
+pub fn jmap_web_push::PushOptions::eq(&self, &jmap_web_push::PushOptions) -> bool
+impl core::fmt::Debug for jmap_web_push::PushOptions
+pub fn jmap_web_push::PushOptions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_web_push::PushOptions
+#[non_exhaustive] pub struct jmap_web_push::Retry
+pub jmap_web_push::Retry::attempts: core::num::nonzero::NonZeroU32
+pub jmap_web_push::Retry::base_delay: core::time::Duration
+pub jmap_web_push::Retry::max_delay: core::time::Duration
+impl core::clone::Clone for jmap_web_push::Retry
+pub fn jmap_web_push::Retry::clone(&self) -> jmap_web_push::Retry
+impl core::cmp::Eq for jmap_web_push::Retry
+impl core::cmp::PartialEq for jmap_web_push::Retry
+pub fn jmap_web_push::Retry::eq(&self, &jmap_web_push::Retry) -> bool
+impl core::default::Default for jmap_web_push::Retry
+pub fn jmap_web_push::Retry::default() -> Self
+impl core::fmt::Debug for jmap_web_push::Retry
+pub fn jmap_web_push::Retry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_web_push::Retry
+impl core::marker::StructuralPartialEq for jmap_web_push::Retry
+pub struct jmap_web_push::Sender
+impl jmap_web_push::Sender
+pub fn jmap_web_push::Sender::from_client(reqwest::async_impl::client::Client, jmap_web_push::Vapid) -> Self
+pub fn jmap_web_push::Sender::new(jmap_web_push::Vapid) -> core::result::Result<Self, reqwest::error::Error>
+pub async fn jmap_web_push::Sender::send<T: serde_core::ser::Serialize + ?core::marker::Sized>(&self, &jmap_web_push::Endpoint, &T, &jmap_web_push::PushOptions) -> core::result::Result<jmap_web_push::Outcome, jmap_web_push::SendError>
+pub fn jmap_web_push::Sender::with_retry(self, jmap_web_push::Retry) -> Self
+impl core::clone::Clone for jmap_web_push::Sender
+pub fn jmap_web_push::Sender::clone(&self) -> jmap_web_push::Sender
+impl core::fmt::Debug for jmap_web_push::Sender
+pub fn jmap_web_push::Sender::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_web_push::Topic(_)
+impl jmap_web_push::Topic
+pub fn jmap_web_push::Topic::as_str(&self) -> &str
+impl core::clone::Clone for jmap_web_push::Topic
+pub fn jmap_web_push::Topic::clone(&self) -> jmap_web_push::Topic
+impl core::cmp::Eq for jmap_web_push::Topic
+impl core::cmp::PartialEq for jmap_web_push::Topic
+pub fn jmap_web_push::Topic::eq(&self, &jmap_web_push::Topic) -> bool
+impl core::convert::TryFrom<alloc::string::String> for jmap_web_push::Topic
+pub type jmap_web_push::Topic::Error = jmap_web_push::TopicError
+pub fn jmap_web_push::Topic::try_from(alloc::string::String) -> core::result::Result<Self, jmap_web_push::TopicError>
+impl core::fmt::Debug for jmap_web_push::Topic
+pub fn jmap_web_push::Topic::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_web_push::Topic
+pub fn jmap_web_push::Topic::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_web_push::Topic
+impl core::str::traits::FromStr for jmap_web_push::Topic
+pub type jmap_web_push::Topic::Err = jmap_web_push::TopicError
+pub fn jmap_web_push::Topic::from_str(&str) -> core::result::Result<Self, jmap_web_push::TopicError>
+pub struct jmap_web_push::TopicError
+impl core::clone::Clone for jmap_web_push::TopicError
+pub fn jmap_web_push::TopicError::clone(&self) -> jmap_web_push::TopicError
+impl core::cmp::Eq for jmap_web_push::TopicError
+impl core::cmp::PartialEq for jmap_web_push::TopicError
+pub fn jmap_web_push::TopicError::eq(&self, &jmap_web_push::TopicError) -> bool
+impl core::error::Error for jmap_web_push::TopicError
+impl core::fmt::Debug for jmap_web_push::TopicError
+pub fn jmap_web_push::TopicError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_web_push::TopicError
+pub fn jmap_web_push::TopicError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_web_push::TopicError
+pub struct jmap_web_push::UaKeys
+impl jmap_web_push::UaKeys
+pub fn jmap_web_push::UaKeys::from_base64(&str, &str) -> core::result::Result<Self, jmap_web_push::EndpointError>
+pub fn jmap_web_push::UaKeys::new(p256::PublicKey, [u8; 16]) -> Self
+impl core::clone::Clone for jmap_web_push::UaKeys
+pub fn jmap_web_push::UaKeys::clone(&self) -> jmap_web_push::UaKeys
+impl core::fmt::Debug for jmap_web_push::UaKeys
+pub fn jmap_web_push::UaKeys::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_web_push::Vapid
+impl jmap_web_push::Vapid
+pub fn jmap_web_push::Vapid::authorization(&self, &url::Url, u64) -> core::result::Result<alloc::string::String, jmap_web_push::VapidError>
+pub fn jmap_web_push::Vapid::new(p256::ecdsa::SigningKey, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_web_push::Vapid::public_key(&self) -> alloc::string::String
+impl core::clone::Clone for jmap_web_push::Vapid
+pub fn jmap_web_push::Vapid::clone(&self) -> jmap_web_push::Vapid
+impl core::fmt::Debug for jmap_web_push::Vapid
+pub fn jmap_web_push::Vapid::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_web_push::MAX_PLAINTEXT: usize
+pub const jmap_web_push::SEND_TIMEOUT: core::time::Duration
+pub fn jmap_web_push::encrypt(&[u8], &jmap_web_push::UaKeys) -> core::result::Result<alloc::vec::Vec<u8>, jmap_web_push::EncryptError>

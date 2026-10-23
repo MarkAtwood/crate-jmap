@@ -1,0 +1,35 @@
+pub mod jmap_sharing_client
+pub use jmap_sharing_client::AddedItem
+pub use jmap_sharing_client::ChangesResponse
+pub use jmap_sharing_client::ClientError
+pub use jmap_sharing_client::GetResponse
+pub use jmap_sharing_client::PartialObject
+pub use jmap_sharing_client::QueryChangesResponse
+pub use jmap_sharing_client::QueryResponse
+pub use jmap_sharing_client::SetError
+pub use jmap_sharing_client::SetResponse
+#[non_exhaustive] pub struct jmap_sharing_client::SessionClient
+impl jmap_sharing_client::SessionClient
+pub fn jmap_sharing_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_sharing_client::SessionClient::principals_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_sharing_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_sharing_client::SessionClient
+pub async fn jmap_sharing_client::SessionClient::principal_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::principal_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_sharing_types::principal::Principal>, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::principal_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[serde_json::value::Value]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::principal_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[serde_json::value::Value]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::principal_set(&self, core::option::Option<serde_json::value::Value>, core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>>, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl jmap_sharing_client::SessionClient
+pub async fn jmap_sharing_client::SessionClient::share_notification_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::share_notification_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_sharing_types::notification::ShareNotification>, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::share_notification_query<C: serde_core::ser::Serialize>(&self, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_sharing_types::notification::ShareNotificationComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::share_notification_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_sharing_types::notification::ShareNotificationComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_sharing_client::SessionClient::share_notification_set(&self, alloc::vec::Vec<jmap_types::id::Id>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_sharing_client::SessionClient
+pub fn jmap_sharing_client::SessionClient::clone(&self) -> jmap_sharing_client::SessionClient
+impl core::fmt::Debug for jmap_sharing_client::SessionClient
+pub fn jmap_sharing_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_sharing_client::JmapSharingExt: jmap_sharing_client::sealed::Sealed
+pub fn jmap_sharing_client::JmapSharingExt::with_sharing_session(&self, jmap_base_client::request::Session) -> jmap_sharing_client::SessionClient
+impl jmap_sharing_client::JmapSharingExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_sharing_session(&self, jmap_base_client::request::Session) -> jmap_sharing_client::SessionClient

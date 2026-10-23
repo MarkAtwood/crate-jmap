@@ -1,0 +1,1304 @@
+pub mod jmap_mail_types
+pub use jmap_mail_types::Filter
+pub use jmap_mail_types::FilterOperator
+pub use jmap_mail_types::Operator
+#[non_exhaustive] pub enum jmap_mail_types::ActionMode
+pub jmap_mail_types::ActionMode::AutomaticAction
+pub jmap_mail_types::ActionMode::ManualAction
+impl core::clone::Clone for jmap_mail_types::ActionMode
+pub fn jmap_mail_types::ActionMode::clone(&self) -> jmap_mail_types::ActionMode
+impl core::cmp::Eq for jmap_mail_types::ActionMode
+impl core::cmp::PartialEq for jmap_mail_types::ActionMode
+pub fn jmap_mail_types::ActionMode::eq(&self, &jmap_mail_types::ActionMode) -> bool
+impl core::fmt::Debug for jmap_mail_types::ActionMode
+pub fn jmap_mail_types::ActionMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::ActionMode
+pub fn jmap_mail_types::ActionMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::ActionMode
+impl serde_core::ser::Serialize for jmap_mail_types::ActionMode
+pub fn jmap_mail_types::ActionMode::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::ActionMode
+pub fn jmap_mail_types::ActionMode::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_mail_types::ComparatorProperty
+pub jmap_mail_types::ComparatorProperty::AllInThreadHaveKeyword
+pub jmap_mail_types::ComparatorProperty::From
+pub jmap_mail_types::ComparatorProperty::HasKeyword
+pub jmap_mail_types::ComparatorProperty::Other(alloc::string::String)
+pub jmap_mail_types::ComparatorProperty::ReceivedAt
+pub jmap_mail_types::ComparatorProperty::SentAt
+pub jmap_mail_types::ComparatorProperty::Size
+pub jmap_mail_types::ComparatorProperty::SomeInThreadHaveKeyword
+pub jmap_mail_types::ComparatorProperty::Subject
+pub jmap_mail_types::ComparatorProperty::To
+impl core::clone::Clone for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::clone(&self) -> jmap_mail_types::ComparatorProperty
+impl core::cmp::Eq for jmap_mail_types::ComparatorProperty
+impl core::cmp::PartialEq for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::eq(&self, &jmap_mail_types::ComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::ComparatorProperty
+impl serde_core::ser::Serialize for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::ComparatorProperty
+pub fn jmap_mail_types::ComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_mail_types::Delivered
+pub jmap_mail_types::Delivered::No
+pub jmap_mail_types::Delivered::Other(alloc::string::String)
+pub jmap_mail_types::Delivered::Queued
+pub jmap_mail_types::Delivered::Unknown
+pub jmap_mail_types::Delivered::Yes
+impl core::clone::Clone for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::clone(&self) -> jmap_mail_types::Delivered
+impl core::cmp::Eq for jmap_mail_types::Delivered
+impl core::cmp::PartialEq for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::eq(&self, &jmap_mail_types::Delivered) -> bool
+impl core::convert::From<&str> for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::Delivered
+impl serde_core::ser::Serialize for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Delivered
+pub fn jmap_mail_types::Delivered::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_mail_types::Displayed
+pub jmap_mail_types::Displayed::Other(alloc::string::String)
+pub jmap_mail_types::Displayed::Unknown
+pub jmap_mail_types::Displayed::Yes
+impl core::clone::Clone for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::clone(&self) -> jmap_mail_types::Displayed
+impl core::cmp::Eq for jmap_mail_types::Displayed
+impl core::cmp::PartialEq for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::eq(&self, &jmap_mail_types::Displayed) -> bool
+impl core::convert::From<&str> for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::Displayed
+impl serde_core::ser::Serialize for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Displayed
+pub fn jmap_mail_types::Displayed::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_mail_types::DispositionType
+pub jmap_mail_types::DispositionType::Deleted
+pub jmap_mail_types::DispositionType::Dispatched
+pub jmap_mail_types::DispositionType::Displayed
+pub jmap_mail_types::DispositionType::Processed
+impl core::clone::Clone for jmap_mail_types::DispositionType
+pub fn jmap_mail_types::DispositionType::clone(&self) -> jmap_mail_types::DispositionType
+impl core::cmp::Eq for jmap_mail_types::DispositionType
+impl core::cmp::PartialEq for jmap_mail_types::DispositionType
+pub fn jmap_mail_types::DispositionType::eq(&self, &jmap_mail_types::DispositionType) -> bool
+impl core::fmt::Debug for jmap_mail_types::DispositionType
+pub fn jmap_mail_types::DispositionType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::DispositionType
+pub fn jmap_mail_types::DispositionType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::DispositionType
+impl serde_core::ser::Serialize for jmap_mail_types::DispositionType
+pub fn jmap_mail_types::DispositionType::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::DispositionType
+pub fn jmap_mail_types::DispositionType::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_mail_types::EmailProperty
+pub jmap_mail_types::EmailProperty::Attachments
+pub jmap_mail_types::EmailProperty::Bcc
+pub jmap_mail_types::EmailProperty::BlobId
+pub jmap_mail_types::EmailProperty::BodyStructure
+pub jmap_mail_types::EmailProperty::BodyValues
+pub jmap_mail_types::EmailProperty::Cc
+pub jmap_mail_types::EmailProperty::From
+pub jmap_mail_types::EmailProperty::HasAttachment
+pub jmap_mail_types::EmailProperty::Headers
+pub jmap_mail_types::EmailProperty::HtmlBody
+pub jmap_mail_types::EmailProperty::Id
+pub jmap_mail_types::EmailProperty::InReplyTo
+pub jmap_mail_types::EmailProperty::Keywords
+pub jmap_mail_types::EmailProperty::MailboxIds
+pub jmap_mail_types::EmailProperty::MessageId
+pub jmap_mail_types::EmailProperty::Preview
+pub jmap_mail_types::EmailProperty::ReceivedAt
+pub jmap_mail_types::EmailProperty::References
+pub jmap_mail_types::EmailProperty::ReplyTo
+pub jmap_mail_types::EmailProperty::Sender
+pub jmap_mail_types::EmailProperty::SentAt
+pub jmap_mail_types::EmailProperty::Size
+pub jmap_mail_types::EmailProperty::Subject
+pub jmap_mail_types::EmailProperty::TextBody
+pub jmap_mail_types::EmailProperty::ThreadId
+pub jmap_mail_types::EmailProperty::To
+impl core::clone::Clone for jmap_mail_types::EmailProperty
+pub fn jmap_mail_types::EmailProperty::clone(&self) -> jmap_mail_types::EmailProperty
+impl core::cmp::Eq for jmap_mail_types::EmailProperty
+impl core::cmp::PartialEq for jmap_mail_types::EmailProperty
+pub fn jmap_mail_types::EmailProperty::eq(&self, &jmap_mail_types::EmailProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailProperty
+pub fn jmap_mail_types::EmailProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::EmailProperty
+pub fn jmap_mail_types::EmailProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailProperty
+#[non_exhaustive] pub enum jmap_mail_types::EmailSubmissionComparatorProperty
+pub jmap_mail_types::EmailSubmissionComparatorProperty::EmailId
+pub jmap_mail_types::EmailSubmissionComparatorProperty::Other(alloc::string::String)
+pub jmap_mail_types::EmailSubmissionComparatorProperty::SentAt
+pub jmap_mail_types::EmailSubmissionComparatorProperty::ThreadId
+impl core::clone::Clone for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::clone(&self) -> jmap_mail_types::EmailSubmissionComparatorProperty
+impl core::cmp::Eq for jmap_mail_types::EmailSubmissionComparatorProperty
+impl core::cmp::PartialEq for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::eq(&self, &jmap_mail_types::EmailSubmissionComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailSubmissionComparatorProperty
+impl serde_core::ser::Serialize for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailSubmissionComparatorProperty
+pub fn jmap_mail_types::EmailSubmissionComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_mail_types::EmailSubmissionProperty
+pub jmap_mail_types::EmailSubmissionProperty::DeliveryStatus
+pub jmap_mail_types::EmailSubmissionProperty::DsnBlobIds
+pub jmap_mail_types::EmailSubmissionProperty::EmailId
+pub jmap_mail_types::EmailSubmissionProperty::Envelope
+pub jmap_mail_types::EmailSubmissionProperty::Id
+pub jmap_mail_types::EmailSubmissionProperty::IdentityId
+pub jmap_mail_types::EmailSubmissionProperty::MdnBlobIds
+pub jmap_mail_types::EmailSubmissionProperty::SendAt
+pub jmap_mail_types::EmailSubmissionProperty::ThreadId
+pub jmap_mail_types::EmailSubmissionProperty::UndoStatus
+impl core::clone::Clone for jmap_mail_types::EmailSubmissionProperty
+pub fn jmap_mail_types::EmailSubmissionProperty::clone(&self) -> jmap_mail_types::EmailSubmissionProperty
+impl core::cmp::Eq for jmap_mail_types::EmailSubmissionProperty
+impl core::cmp::PartialEq for jmap_mail_types::EmailSubmissionProperty
+pub fn jmap_mail_types::EmailSubmissionProperty::eq(&self, &jmap_mail_types::EmailSubmissionProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailSubmissionProperty
+pub fn jmap_mail_types::EmailSubmissionProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::EmailSubmissionProperty
+pub fn jmap_mail_types::EmailSubmissionProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailSubmissionProperty
+#[non_exhaustive] pub enum jmap_mail_types::IdentityProperty
+pub jmap_mail_types::IdentityProperty::Bcc
+pub jmap_mail_types::IdentityProperty::Email
+pub jmap_mail_types::IdentityProperty::HtmlSignature
+pub jmap_mail_types::IdentityProperty::Id
+pub jmap_mail_types::IdentityProperty::MayDelete
+pub jmap_mail_types::IdentityProperty::Name
+pub jmap_mail_types::IdentityProperty::ReplyTo
+pub jmap_mail_types::IdentityProperty::TextSignature
+impl core::clone::Clone for jmap_mail_types::IdentityProperty
+pub fn jmap_mail_types::IdentityProperty::clone(&self) -> jmap_mail_types::IdentityProperty
+impl core::cmp::Eq for jmap_mail_types::IdentityProperty
+impl core::cmp::PartialEq for jmap_mail_types::IdentityProperty
+pub fn jmap_mail_types::IdentityProperty::eq(&self, &jmap_mail_types::IdentityProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::IdentityProperty
+pub fn jmap_mail_types::IdentityProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::IdentityProperty
+pub fn jmap_mail_types::IdentityProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::IdentityProperty
+#[non_exhaustive] pub enum jmap_mail_types::KeywordError
+pub jmap_mail_types::KeywordError::Empty
+pub jmap_mail_types::KeywordError::InvalidChar(char)
+pub jmap_mail_types::KeywordError::ReservedPrefix
+impl core::clone::Clone for jmap_mail_types::KeywordError
+pub fn jmap_mail_types::KeywordError::clone(&self) -> jmap_mail_types::KeywordError
+impl core::cmp::Eq for jmap_mail_types::KeywordError
+impl core::cmp::PartialEq for jmap_mail_types::KeywordError
+pub fn jmap_mail_types::KeywordError::eq(&self, &jmap_mail_types::KeywordError) -> bool
+impl core::error::Error for jmap_mail_types::KeywordError
+impl core::fmt::Debug for jmap_mail_types::KeywordError
+pub fn jmap_mail_types::KeywordError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::KeywordError
+pub fn jmap_mail_types::KeywordError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::KeywordError
+#[non_exhaustive] pub enum jmap_mail_types::MailboxComparatorProperty
+pub jmap_mail_types::MailboxComparatorProperty::Name
+pub jmap_mail_types::MailboxComparatorProperty::Other(alloc::string::String)
+pub jmap_mail_types::MailboxComparatorProperty::SortOrder
+impl core::clone::Clone for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::clone(&self) -> jmap_mail_types::MailboxComparatorProperty
+impl core::cmp::Eq for jmap_mail_types::MailboxComparatorProperty
+impl core::cmp::PartialEq for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::eq(&self, &jmap_mail_types::MailboxComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailboxComparatorProperty
+impl serde_core::ser::Serialize for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MailboxComparatorProperty
+pub fn jmap_mail_types::MailboxComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_mail_types::MailboxProperty
+pub jmap_mail_types::MailboxProperty::Id
+pub jmap_mail_types::MailboxProperty::IsSubscribed
+pub jmap_mail_types::MailboxProperty::MyRights
+pub jmap_mail_types::MailboxProperty::Name
+pub jmap_mail_types::MailboxProperty::ParentId
+pub jmap_mail_types::MailboxProperty::Role
+pub jmap_mail_types::MailboxProperty::SortOrder
+pub jmap_mail_types::MailboxProperty::TotalEmails
+pub jmap_mail_types::MailboxProperty::TotalThreads
+pub jmap_mail_types::MailboxProperty::UnreadEmails
+pub jmap_mail_types::MailboxProperty::UnreadThreads
+impl core::clone::Clone for jmap_mail_types::MailboxProperty
+pub fn jmap_mail_types::MailboxProperty::clone(&self) -> jmap_mail_types::MailboxProperty
+impl core::cmp::Eq for jmap_mail_types::MailboxProperty
+impl core::cmp::PartialEq for jmap_mail_types::MailboxProperty
+pub fn jmap_mail_types::MailboxProperty::eq(&self, &jmap_mail_types::MailboxProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::MailboxProperty
+pub fn jmap_mail_types::MailboxProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::MailboxProperty
+pub fn jmap_mail_types::MailboxProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailboxProperty
+#[non_exhaustive] pub enum jmap_mail_types::MailboxRole
+pub jmap_mail_types::MailboxRole::All
+pub jmap_mail_types::MailboxRole::Archive
+pub jmap_mail_types::MailboxRole::Drafts
+pub jmap_mail_types::MailboxRole::Flagged
+pub jmap_mail_types::MailboxRole::Important
+pub jmap_mail_types::MailboxRole::Inbox
+pub jmap_mail_types::MailboxRole::Junk
+pub jmap_mail_types::MailboxRole::Other(alloc::string::String)
+pub jmap_mail_types::MailboxRole::Sent
+pub jmap_mail_types::MailboxRole::Trash
+impl jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::to_wire_str(&self) -> &str
+impl core::clone::Clone for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::clone(&self) -> jmap_mail_types::MailboxRole
+impl core::cmp::Eq for jmap_mail_types::MailboxRole
+impl core::cmp::PartialEq for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::eq(&self, &jmap_mail_types::MailboxRole) -> bool
+impl core::convert::From<&str> for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailboxRole
+impl serde_core::ser::Serialize for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MailboxRole
+pub fn jmap_mail_types::MailboxRole::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_mail_types::SearchSnippetProperty
+pub jmap_mail_types::SearchSnippetProperty::EmailId
+pub jmap_mail_types::SearchSnippetProperty::Preview
+pub jmap_mail_types::SearchSnippetProperty::Subject
+impl core::clone::Clone for jmap_mail_types::SearchSnippetProperty
+pub fn jmap_mail_types::SearchSnippetProperty::clone(&self) -> jmap_mail_types::SearchSnippetProperty
+impl core::cmp::Eq for jmap_mail_types::SearchSnippetProperty
+impl core::cmp::PartialEq for jmap_mail_types::SearchSnippetProperty
+pub fn jmap_mail_types::SearchSnippetProperty::eq(&self, &jmap_mail_types::SearchSnippetProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::SearchSnippetProperty
+pub fn jmap_mail_types::SearchSnippetProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::SearchSnippetProperty
+pub fn jmap_mail_types::SearchSnippetProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::SearchSnippetProperty
+#[non_exhaustive] pub enum jmap_mail_types::SendingMode
+pub jmap_mail_types::SendingMode::MdnSentAutomatically
+pub jmap_mail_types::SendingMode::MdnSentManually
+impl core::clone::Clone for jmap_mail_types::SendingMode
+pub fn jmap_mail_types::SendingMode::clone(&self) -> jmap_mail_types::SendingMode
+impl core::cmp::Eq for jmap_mail_types::SendingMode
+impl core::cmp::PartialEq for jmap_mail_types::SendingMode
+pub fn jmap_mail_types::SendingMode::eq(&self, &jmap_mail_types::SendingMode) -> bool
+impl core::fmt::Debug for jmap_mail_types::SendingMode
+pub fn jmap_mail_types::SendingMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::SendingMode
+pub fn jmap_mail_types::SendingMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SendingMode
+impl serde_core::ser::Serialize for jmap_mail_types::SendingMode
+pub fn jmap_mail_types::SendingMode::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SendingMode
+pub fn jmap_mail_types::SendingMode::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_mail_types::SieveScriptProperty
+pub jmap_mail_types::SieveScriptProperty::BlobId
+pub jmap_mail_types::SieveScriptProperty::Id
+pub jmap_mail_types::SieveScriptProperty::IsActive
+pub jmap_mail_types::SieveScriptProperty::Name
+impl core::clone::Clone for jmap_mail_types::SieveScriptProperty
+pub fn jmap_mail_types::SieveScriptProperty::clone(&self) -> jmap_mail_types::SieveScriptProperty
+impl core::cmp::Eq for jmap_mail_types::SieveScriptProperty
+impl core::cmp::PartialEq for jmap_mail_types::SieveScriptProperty
+pub fn jmap_mail_types::SieveScriptProperty::eq(&self, &jmap_mail_types::SieveScriptProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::SieveScriptProperty
+pub fn jmap_mail_types::SieveScriptProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::SieveScriptProperty
+pub fn jmap_mail_types::SieveScriptProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::SieveScriptProperty
+#[non_exhaustive] pub enum jmap_mail_types::ThreadProperty
+pub jmap_mail_types::ThreadProperty::EmailIds
+pub jmap_mail_types::ThreadProperty::Id
+impl core::clone::Clone for jmap_mail_types::ThreadProperty
+pub fn jmap_mail_types::ThreadProperty::clone(&self) -> jmap_mail_types::ThreadProperty
+impl core::cmp::Eq for jmap_mail_types::ThreadProperty
+impl core::cmp::PartialEq for jmap_mail_types::ThreadProperty
+pub fn jmap_mail_types::ThreadProperty::eq(&self, &jmap_mail_types::ThreadProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::ThreadProperty
+pub fn jmap_mail_types::ThreadProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::ThreadProperty
+pub fn jmap_mail_types::ThreadProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::ThreadProperty
+#[non_exhaustive] pub enum jmap_mail_types::UndoStatus
+pub jmap_mail_types::UndoStatus::Canceled
+pub jmap_mail_types::UndoStatus::Final
+pub jmap_mail_types::UndoStatus::Other(alloc::string::String)
+pub jmap_mail_types::UndoStatus::Pending
+impl core::clone::Clone for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::clone(&self) -> jmap_mail_types::UndoStatus
+impl core::cmp::Eq for jmap_mail_types::UndoStatus
+impl core::cmp::PartialEq for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::eq(&self, &jmap_mail_types::UndoStatus) -> bool
+impl core::convert::From<&str> for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::UndoStatus
+impl serde_core::ser::Serialize for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::UndoStatus
+pub fn jmap_mail_types::UndoStatus::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_mail_types::VacationResponseProperty
+pub jmap_mail_types::VacationResponseProperty::FromDate
+pub jmap_mail_types::VacationResponseProperty::HtmlBody
+pub jmap_mail_types::VacationResponseProperty::Id
+pub jmap_mail_types::VacationResponseProperty::IsEnabled
+pub jmap_mail_types::VacationResponseProperty::Subject
+pub jmap_mail_types::VacationResponseProperty::TextBody
+pub jmap_mail_types::VacationResponseProperty::ToDate
+impl core::clone::Clone for jmap_mail_types::VacationResponseProperty
+pub fn jmap_mail_types::VacationResponseProperty::clone(&self) -> jmap_mail_types::VacationResponseProperty
+impl core::cmp::Eq for jmap_mail_types::VacationResponseProperty
+impl core::cmp::PartialEq for jmap_mail_types::VacationResponseProperty
+pub fn jmap_mail_types::VacationResponseProperty::eq(&self, &jmap_mail_types::VacationResponseProperty) -> bool
+impl core::fmt::Debug for jmap_mail_types::VacationResponseProperty
+pub fn jmap_mail_types::VacationResponseProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::VacationResponseProperty
+pub fn jmap_mail_types::VacationResponseProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::VacationResponseProperty
+#[non_exhaustive] pub struct jmap_mail_types::Address
+pub jmap_mail_types::Address::email: alloc::string::String
+pub jmap_mail_types::Address::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Address::parameters: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, core::option::Option<alloc::string::String>>>
+impl jmap_mail_types::Address
+pub fn jmap_mail_types::Address::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_mail_types::Address
+pub fn jmap_mail_types::Address::clone(&self) -> jmap_mail_types::Address
+impl core::cmp::Eq for jmap_mail_types::Address
+impl core::cmp::PartialEq for jmap_mail_types::Address
+pub fn jmap_mail_types::Address::eq(&self, &jmap_mail_types::Address) -> bool
+impl core::fmt::Debug for jmap_mail_types::Address
+pub fn jmap_mail_types::Address::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Address
+impl serde_core::ser::Serialize for jmap_mail_types::Address
+pub fn jmap_mail_types::Address::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Address
+pub fn jmap_mail_types::Address::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::DeliveryStatus
+pub jmap_mail_types::DeliveryStatus::delivered: jmap_mail_types::Delivered
+pub jmap_mail_types::DeliveryStatus::displayed: jmap_mail_types::Displayed
+pub jmap_mail_types::DeliveryStatus::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::DeliveryStatus::smtp_reply: alloc::string::String
+impl jmap_mail_types::DeliveryStatus
+pub fn jmap_mail_types::DeliveryStatus::new(impl core::convert::Into<alloc::string::String>, jmap_mail_types::Delivered, jmap_mail_types::Displayed) -> Self
+impl core::clone::Clone for jmap_mail_types::DeliveryStatus
+pub fn jmap_mail_types::DeliveryStatus::clone(&self) -> jmap_mail_types::DeliveryStatus
+impl core::cmp::Eq for jmap_mail_types::DeliveryStatus
+impl core::cmp::PartialEq for jmap_mail_types::DeliveryStatus
+pub fn jmap_mail_types::DeliveryStatus::eq(&self, &jmap_mail_types::DeliveryStatus) -> bool
+impl core::fmt::Debug for jmap_mail_types::DeliveryStatus
+pub fn jmap_mail_types::DeliveryStatus::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::DeliveryStatus
+impl serde_core::ser::Serialize for jmap_mail_types::DeliveryStatus
+pub fn jmap_mail_types::DeliveryStatus::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::DeliveryStatus
+pub fn jmap_mail_types::DeliveryStatus::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Disposition
+pub jmap_mail_types::Disposition::action_mode: jmap_mail_types::ActionMode
+pub jmap_mail_types::Disposition::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Disposition::sending_mode: jmap_mail_types::SendingMode
+pub jmap_mail_types::Disposition::type_: jmap_mail_types::DispositionType
+impl jmap_mail_types::Disposition
+pub fn jmap_mail_types::Disposition::new(jmap_mail_types::ActionMode, jmap_mail_types::SendingMode, jmap_mail_types::DispositionType) -> Self
+impl core::clone::Clone for jmap_mail_types::Disposition
+pub fn jmap_mail_types::Disposition::clone(&self) -> jmap_mail_types::Disposition
+impl core::cmp::Eq for jmap_mail_types::Disposition
+impl core::cmp::PartialEq for jmap_mail_types::Disposition
+pub fn jmap_mail_types::Disposition::eq(&self, &jmap_mail_types::Disposition) -> bool
+impl core::fmt::Debug for jmap_mail_types::Disposition
+pub fn jmap_mail_types::Disposition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Disposition
+impl serde_core::ser::Serialize for jmap_mail_types::Disposition
+pub fn jmap_mail_types::Disposition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Disposition
+pub fn jmap_mail_types::Disposition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Email
+pub jmap_mail_types::Email::attachments: alloc::vec::Vec<jmap_mail_types::EmailBodyPart>
+pub jmap_mail_types::Email::bcc: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+pub jmap_mail_types::Email::blob_id: jmap_types::id::Id
+pub jmap_mail_types::Email::body_structure: core::option::Option<jmap_mail_types::EmailBodyPart>
+pub jmap_mail_types::Email::body_values: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_types::EmailBodyValue>
+pub jmap_mail_types::Email::cc: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+pub jmap_mail_types::Email::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Email::from: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+pub jmap_mail_types::Email::has_attachment: bool
+pub jmap_mail_types::Email::headers: alloc::vec::Vec<jmap_mail_types::EmailHeader>
+pub jmap_mail_types::Email::html_body: alloc::vec::Vec<jmap_mail_types::EmailBodyPart>
+pub jmap_mail_types::Email::id: jmap_types::id::Id
+pub jmap_mail_types::Email::in_reply_to: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::Email::keywords: alloc::collections::btree::map::BTreeMap<jmap_mail_types::Keyword, bool>
+pub jmap_mail_types::Email::mailbox_ids: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, bool>
+pub jmap_mail_types::Email::message_id: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::Email::preview: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Email::received_at: jmap_types::id::UTCDate
+pub jmap_mail_types::Email::references: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::Email::reply_to: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+pub jmap_mail_types::Email::sender: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+pub jmap_mail_types::Email::sent_at: core::option::Option<jmap_types::id::Date>
+pub jmap_mail_types::Email::size: u64
+pub jmap_mail_types::Email::subject: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Email::text_body: alloc::vec::Vec<jmap_mail_types::EmailBodyPart>
+pub jmap_mail_types::Email::thread_id: jmap_types::id::Id
+pub jmap_mail_types::Email::to: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+impl jmap_mail_types::Email
+pub fn jmap_mail_types::Email::new(jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, bool>, u64, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_mail_types::Email
+pub fn jmap_mail_types::Email::clone(&self) -> jmap_mail_types::Email
+impl core::cmp::Eq for jmap_mail_types::Email
+impl core::cmp::PartialEq for jmap_mail_types::Email
+pub fn jmap_mail_types::Email::eq(&self, &jmap_mail_types::Email) -> bool
+impl core::fmt::Debug for jmap_mail_types::Email
+pub fn jmap_mail_types::Email::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Email
+impl jmap_types::backend::GetObject for jmap_mail_types::Email
+impl jmap_types::backend::JmapObject for jmap_mail_types::Email
+pub type jmap_mail_types::Email::Property = jmap_mail_types::EmailProperty
+pub const jmap_mail_types::Email::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_mail_types::Email
+pub type jmap_mail_types::Email::Comparator = jmap_mail_types::EmailComparator
+pub type jmap_mail_types::Email::Filter = jmap_types::query::Filter<jmap_mail_types::EmailFilterCondition>
+impl jmap_types::backend::SetObject for jmap_mail_types::Email
+pub type jmap_mail_types::Email::Patch = jmap_types::patch::PatchObject
+pub const jmap_mail_types::Email::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_mail_types::Email::IMMUTABLE: &'static [&'static str]
+pub const jmap_mail_types::Email::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_mail_types::Email
+pub fn jmap_mail_types::Email::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Email
+pub fn jmap_mail_types::Email::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailAddress
+pub jmap_mail_types::EmailAddress::email: alloc::string::String
+pub jmap_mail_types::EmailAddress::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::EmailAddress::name: core::option::Option<alloc::string::String>
+impl jmap_mail_types::EmailAddress
+pub fn jmap_mail_types::EmailAddress::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_mail_types::EmailAddress
+pub fn jmap_mail_types::EmailAddress::clone(&self) -> jmap_mail_types::EmailAddress
+impl core::cmp::Eq for jmap_mail_types::EmailAddress
+impl core::cmp::PartialEq for jmap_mail_types::EmailAddress
+pub fn jmap_mail_types::EmailAddress::eq(&self, &jmap_mail_types::EmailAddress) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailAddress
+pub fn jmap_mail_types::EmailAddress::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailAddress
+impl serde_core::ser::Serialize for jmap_mail_types::EmailAddress
+pub fn jmap_mail_types::EmailAddress::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailAddress
+pub fn jmap_mail_types::EmailAddress::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailAddressGroup
+pub jmap_mail_types::EmailAddressGroup::addresses: alloc::vec::Vec<jmap_mail_types::EmailAddress>
+pub jmap_mail_types::EmailAddressGroup::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::EmailAddressGroup::name: core::option::Option<alloc::string::String>
+impl jmap_mail_types::EmailAddressGroup
+pub fn jmap_mail_types::EmailAddressGroup::new(alloc::vec::Vec<jmap_mail_types::EmailAddress>) -> Self
+impl core::clone::Clone for jmap_mail_types::EmailAddressGroup
+pub fn jmap_mail_types::EmailAddressGroup::clone(&self) -> jmap_mail_types::EmailAddressGroup
+impl core::cmp::Eq for jmap_mail_types::EmailAddressGroup
+impl core::cmp::PartialEq for jmap_mail_types::EmailAddressGroup
+pub fn jmap_mail_types::EmailAddressGroup::eq(&self, &jmap_mail_types::EmailAddressGroup) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailAddressGroup
+pub fn jmap_mail_types::EmailAddressGroup::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailAddressGroup
+impl serde_core::ser::Serialize for jmap_mail_types::EmailAddressGroup
+pub fn jmap_mail_types::EmailAddressGroup::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailAddressGroup
+pub fn jmap_mail_types::EmailAddressGroup::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailBodyPart
+pub jmap_mail_types::EmailBodyPart::blob_id: core::option::Option<jmap_types::id::Id>
+pub jmap_mail_types::EmailBodyPart::charset: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailBodyPart::cid: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailBodyPart::disposition: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailBodyPart::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::EmailBodyPart::headers: alloc::vec::Vec<jmap_mail_types::EmailHeader>
+pub jmap_mail_types::EmailBodyPart::language: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::EmailBodyPart::location: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailBodyPart::name: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailBodyPart::part_id: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailBodyPart::size: core::option::Option<u64>
+pub jmap_mail_types::EmailBodyPart::sub_parts: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailBodyPart>>
+pub jmap_mail_types::EmailBodyPart::type_: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_mail_types::EmailBodyPart
+pub fn jmap_mail_types::EmailBodyPart::clone(&self) -> jmap_mail_types::EmailBodyPart
+impl core::cmp::Eq for jmap_mail_types::EmailBodyPart
+impl core::cmp::PartialEq for jmap_mail_types::EmailBodyPart
+pub fn jmap_mail_types::EmailBodyPart::eq(&self, &jmap_mail_types::EmailBodyPart) -> bool
+impl core::default::Default for jmap_mail_types::EmailBodyPart
+pub fn jmap_mail_types::EmailBodyPart::default() -> jmap_mail_types::EmailBodyPart
+impl core::fmt::Debug for jmap_mail_types::EmailBodyPart
+pub fn jmap_mail_types::EmailBodyPart::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailBodyPart
+impl serde_core::ser::Serialize for jmap_mail_types::EmailBodyPart
+pub fn jmap_mail_types::EmailBodyPart::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailBodyPart
+pub fn jmap_mail_types::EmailBodyPart::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailBodyValue
+pub jmap_mail_types::EmailBodyValue::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::EmailBodyValue::is_encoding_problem: bool
+pub jmap_mail_types::EmailBodyValue::is_truncated: bool
+pub jmap_mail_types::EmailBodyValue::value: alloc::string::String
+impl jmap_mail_types::EmailBodyValue
+pub fn jmap_mail_types::EmailBodyValue::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_mail_types::EmailBodyValue
+pub fn jmap_mail_types::EmailBodyValue::clone(&self) -> jmap_mail_types::EmailBodyValue
+impl core::cmp::Eq for jmap_mail_types::EmailBodyValue
+impl core::cmp::PartialEq for jmap_mail_types::EmailBodyValue
+pub fn jmap_mail_types::EmailBodyValue::eq(&self, &jmap_mail_types::EmailBodyValue) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailBodyValue
+pub fn jmap_mail_types::EmailBodyValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailBodyValue
+impl serde_core::ser::Serialize for jmap_mail_types::EmailBodyValue
+pub fn jmap_mail_types::EmailBodyValue::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailBodyValue
+pub fn jmap_mail_types::EmailBodyValue::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailComparator
+pub jmap_mail_types::EmailComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailComparator::is_ascending: bool
+pub jmap_mail_types::EmailComparator::keyword: core::option::Option<jmap_mail_types::Keyword>
+pub jmap_mail_types::EmailComparator::property: jmap_mail_types::ComparatorProperty
+impl jmap_mail_types::EmailComparator
+pub fn jmap_mail_types::EmailComparator::new(jmap_mail_types::ComparatorProperty) -> Self
+impl core::clone::Clone for jmap_mail_types::EmailComparator
+pub fn jmap_mail_types::EmailComparator::clone(&self) -> jmap_mail_types::EmailComparator
+impl core::cmp::Eq for jmap_mail_types::EmailComparator
+impl core::cmp::PartialEq for jmap_mail_types::EmailComparator
+pub fn jmap_mail_types::EmailComparator::eq(&self, &jmap_mail_types::EmailComparator) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailComparator
+pub fn jmap_mail_types::EmailComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailComparator
+impl serde_core::ser::Serialize for jmap_mail_types::EmailComparator
+pub fn jmap_mail_types::EmailComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailComparator
+pub fn jmap_mail_types::EmailComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailFilterCondition
+pub jmap_mail_types::EmailFilterCondition::after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_mail_types::EmailFilterCondition::all_in_thread_have_keyword: core::option::Option<jmap_mail_types::Keyword>
+pub jmap_mail_types::EmailFilterCondition::bcc: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_mail_types::EmailFilterCondition::body: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::cc: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::from: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::has_attachment: core::option::Option<bool>
+pub jmap_mail_types::EmailFilterCondition::has_keyword: core::option::Option<jmap_mail_types::Keyword>
+pub jmap_mail_types::EmailFilterCondition::header: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::EmailFilterCondition::in_mailbox: core::option::Option<jmap_types::id::Id>
+pub jmap_mail_types::EmailFilterCondition::in_mailbox_other_than: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_types::EmailFilterCondition::max_size: core::option::Option<u64>
+pub jmap_mail_types::EmailFilterCondition::min_size: core::option::Option<u64>
+pub jmap_mail_types::EmailFilterCondition::none_in_thread_have_keyword: core::option::Option<jmap_mail_types::Keyword>
+pub jmap_mail_types::EmailFilterCondition::not_keyword: core::option::Option<jmap_mail_types::Keyword>
+pub jmap_mail_types::EmailFilterCondition::some_in_thread_have_keyword: core::option::Option<jmap_mail_types::Keyword>
+pub jmap_mail_types::EmailFilterCondition::subject: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::text: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailFilterCondition::to: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_mail_types::EmailFilterCondition
+pub fn jmap_mail_types::EmailFilterCondition::clone(&self) -> jmap_mail_types::EmailFilterCondition
+impl core::cmp::Eq for jmap_mail_types::EmailFilterCondition
+impl core::cmp::PartialEq for jmap_mail_types::EmailFilterCondition
+pub fn jmap_mail_types::EmailFilterCondition::eq(&self, &jmap_mail_types::EmailFilterCondition) -> bool
+impl core::default::Default for jmap_mail_types::EmailFilterCondition
+pub fn jmap_mail_types::EmailFilterCondition::default() -> jmap_mail_types::EmailFilterCondition
+impl core::fmt::Debug for jmap_mail_types::EmailFilterCondition
+pub fn jmap_mail_types::EmailFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailFilterCondition
+impl serde_core::ser::Serialize for jmap_mail_types::EmailFilterCondition
+pub fn jmap_mail_types::EmailFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailFilterCondition
+pub fn jmap_mail_types::EmailFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailHeader
+pub jmap_mail_types::EmailHeader::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::EmailHeader::name: alloc::string::String
+pub jmap_mail_types::EmailHeader::value: alloc::string::String
+impl jmap_mail_types::EmailHeader
+pub fn jmap_mail_types::EmailHeader::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_mail_types::EmailHeader
+pub fn jmap_mail_types::EmailHeader::clone(&self) -> jmap_mail_types::EmailHeader
+impl core::cmp::Eq for jmap_mail_types::EmailHeader
+impl core::cmp::PartialEq for jmap_mail_types::EmailHeader
+pub fn jmap_mail_types::EmailHeader::eq(&self, &jmap_mail_types::EmailHeader) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailHeader
+pub fn jmap_mail_types::EmailHeader::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailHeader
+impl serde_core::ser::Serialize for jmap_mail_types::EmailHeader
+pub fn jmap_mail_types::EmailHeader::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailHeader
+pub fn jmap_mail_types::EmailHeader::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailSubmission
+pub jmap_mail_types::EmailSubmission::delivery_status: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_types::DeliveryStatus>>
+pub jmap_mail_types::EmailSubmission::dsn_blob_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_mail_types::EmailSubmission::email_id: jmap_types::id::Id
+pub jmap_mail_types::EmailSubmission::envelope: core::option::Option<jmap_mail_types::Envelope>
+pub jmap_mail_types::EmailSubmission::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::EmailSubmission::id: jmap_types::id::Id
+pub jmap_mail_types::EmailSubmission::identity_id: jmap_types::id::Id
+pub jmap_mail_types::EmailSubmission::mdn_blob_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_mail_types::EmailSubmission::send_at: jmap_types::id::UTCDate
+pub jmap_mail_types::EmailSubmission::thread_id: jmap_types::id::Id
+pub jmap_mail_types::EmailSubmission::undo_status: jmap_mail_types::UndoStatus
+impl jmap_mail_types::EmailSubmission
+pub fn jmap_mail_types::EmailSubmission::new(jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::UTCDate, jmap_mail_types::UndoStatus) -> Self
+impl core::clone::Clone for jmap_mail_types::EmailSubmission
+pub fn jmap_mail_types::EmailSubmission::clone(&self) -> jmap_mail_types::EmailSubmission
+impl core::cmp::Eq for jmap_mail_types::EmailSubmission
+impl core::cmp::PartialEq for jmap_mail_types::EmailSubmission
+pub fn jmap_mail_types::EmailSubmission::eq(&self, &jmap_mail_types::EmailSubmission) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailSubmission
+pub fn jmap_mail_types::EmailSubmission::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailSubmission
+impl jmap_types::backend::GetObject for jmap_mail_types::EmailSubmission
+impl jmap_types::backend::JmapObject for jmap_mail_types::EmailSubmission
+pub type jmap_mail_types::EmailSubmission::Property = jmap_mail_types::EmailSubmissionProperty
+pub const jmap_mail_types::EmailSubmission::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_mail_types::EmailSubmission
+pub type jmap_mail_types::EmailSubmission::Comparator = jmap_mail_types::EmailSubmissionComparator
+pub type jmap_mail_types::EmailSubmission::Filter = jmap_types::query::Filter<jmap_mail_types::EmailSubmissionFilterCondition>
+impl jmap_types::backend::SetObject for jmap_mail_types::EmailSubmission
+pub type jmap_mail_types::EmailSubmission::Patch = jmap_types::patch::PatchObject
+pub const jmap_mail_types::EmailSubmission::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_mail_types::EmailSubmission::IMMUTABLE: &'static [&'static str]
+pub const jmap_mail_types::EmailSubmission::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_mail_types::EmailSubmission
+pub fn jmap_mail_types::EmailSubmission::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailSubmission
+pub fn jmap_mail_types::EmailSubmission::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailSubmissionComparator
+pub jmap_mail_types::EmailSubmissionComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_mail_types::EmailSubmissionComparator::is_ascending: bool
+pub jmap_mail_types::EmailSubmissionComparator::property: jmap_mail_types::EmailSubmissionComparatorProperty
+impl jmap_mail_types::EmailSubmissionComparator
+pub fn jmap_mail_types::EmailSubmissionComparator::new(jmap_mail_types::EmailSubmissionComparatorProperty) -> Self
+impl core::clone::Clone for jmap_mail_types::EmailSubmissionComparator
+pub fn jmap_mail_types::EmailSubmissionComparator::clone(&self) -> jmap_mail_types::EmailSubmissionComparator
+impl core::cmp::Eq for jmap_mail_types::EmailSubmissionComparator
+impl core::cmp::PartialEq for jmap_mail_types::EmailSubmissionComparator
+pub fn jmap_mail_types::EmailSubmissionComparator::eq(&self, &jmap_mail_types::EmailSubmissionComparator) -> bool
+impl core::fmt::Debug for jmap_mail_types::EmailSubmissionComparator
+pub fn jmap_mail_types::EmailSubmissionComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailSubmissionComparator
+impl serde_core::ser::Serialize for jmap_mail_types::EmailSubmissionComparator
+pub fn jmap_mail_types::EmailSubmissionComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailSubmissionComparator
+pub fn jmap_mail_types::EmailSubmissionComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::EmailSubmissionFilterCondition
+pub jmap_mail_types::EmailSubmissionFilterCondition::after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_mail_types::EmailSubmissionFilterCondition::before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_mail_types::EmailSubmissionFilterCondition::email_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_types::EmailSubmissionFilterCondition::identity_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_types::EmailSubmissionFilterCondition::thread_ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_types::EmailSubmissionFilterCondition::undo_status: core::option::Option<jmap_mail_types::UndoStatus>
+impl core::clone::Clone for jmap_mail_types::EmailSubmissionFilterCondition
+pub fn jmap_mail_types::EmailSubmissionFilterCondition::clone(&self) -> jmap_mail_types::EmailSubmissionFilterCondition
+impl core::cmp::Eq for jmap_mail_types::EmailSubmissionFilterCondition
+impl core::cmp::PartialEq for jmap_mail_types::EmailSubmissionFilterCondition
+pub fn jmap_mail_types::EmailSubmissionFilterCondition::eq(&self, &jmap_mail_types::EmailSubmissionFilterCondition) -> bool
+impl core::default::Default for jmap_mail_types::EmailSubmissionFilterCondition
+pub fn jmap_mail_types::EmailSubmissionFilterCondition::default() -> jmap_mail_types::EmailSubmissionFilterCondition
+impl core::fmt::Debug for jmap_mail_types::EmailSubmissionFilterCondition
+pub fn jmap_mail_types::EmailSubmissionFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::EmailSubmissionFilterCondition
+impl serde_core::ser::Serialize for jmap_mail_types::EmailSubmissionFilterCondition
+pub fn jmap_mail_types::EmailSubmissionFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::EmailSubmissionFilterCondition
+pub fn jmap_mail_types::EmailSubmissionFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Envelope
+pub jmap_mail_types::Envelope::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Envelope::mail_from: jmap_mail_types::Address
+pub jmap_mail_types::Envelope::rcpt_to: alloc::vec::Vec<jmap_mail_types::Address>
+impl jmap_mail_types::Envelope
+pub fn jmap_mail_types::Envelope::new(jmap_mail_types::Address, alloc::vec::Vec<jmap_mail_types::Address>) -> Self
+impl core::clone::Clone for jmap_mail_types::Envelope
+pub fn jmap_mail_types::Envelope::clone(&self) -> jmap_mail_types::Envelope
+impl core::cmp::Eq for jmap_mail_types::Envelope
+impl core::cmp::PartialEq for jmap_mail_types::Envelope
+pub fn jmap_mail_types::Envelope::eq(&self, &jmap_mail_types::Envelope) -> bool
+impl core::fmt::Debug for jmap_mail_types::Envelope
+pub fn jmap_mail_types::Envelope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Envelope
+impl serde_core::ser::Serialize for jmap_mail_types::Envelope
+pub fn jmap_mail_types::Envelope::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Envelope
+pub fn jmap_mail_types::Envelope::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Identity
+pub jmap_mail_types::Identity::bcc: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+pub jmap_mail_types::Identity::email: alloc::string::String
+pub jmap_mail_types::Identity::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Identity::html_signature: alloc::string::String
+pub jmap_mail_types::Identity::id: jmap_types::id::Id
+pub jmap_mail_types::Identity::may_delete: bool
+pub jmap_mail_types::Identity::name: alloc::string::String
+pub jmap_mail_types::Identity::reply_to: core::option::Option<alloc::vec::Vec<jmap_mail_types::EmailAddress>>
+pub jmap_mail_types::Identity::text_signature: alloc::string::String
+impl jmap_mail_types::Identity
+pub fn jmap_mail_types::Identity::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, bool) -> Self
+impl core::clone::Clone for jmap_mail_types::Identity
+pub fn jmap_mail_types::Identity::clone(&self) -> jmap_mail_types::Identity
+impl core::cmp::Eq for jmap_mail_types::Identity
+impl core::cmp::PartialEq for jmap_mail_types::Identity
+pub fn jmap_mail_types::Identity::eq(&self, &jmap_mail_types::Identity) -> bool
+impl core::fmt::Debug for jmap_mail_types::Identity
+pub fn jmap_mail_types::Identity::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Identity
+impl jmap_types::backend::GetObject for jmap_mail_types::Identity
+impl jmap_types::backend::JmapObject for jmap_mail_types::Identity
+pub type jmap_mail_types::Identity::Property = jmap_mail_types::IdentityProperty
+pub const jmap_mail_types::Identity::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_mail_types::Identity
+pub type jmap_mail_types::Identity::Patch = jmap_types::patch::PatchObject
+pub const jmap_mail_types::Identity::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_mail_types::Identity::IMMUTABLE: &'static [&'static str]
+pub const jmap_mail_types::Identity::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_mail_types::Identity
+pub fn jmap_mail_types::Identity::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Identity
+pub fn jmap_mail_types::Identity::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Keyword(_)
+impl jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::new(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_mail_types::Keyword::try_new(impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_mail_types::KeywordError>
+impl core::borrow::Borrow<str> for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::borrow(&self) -> &str
+impl core::clone::Clone for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::clone(&self) -> jmap_mail_types::Keyword
+impl core::cmp::Eq for jmap_mail_types::Keyword
+impl core::cmp::Ord for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::cmp(&self, &jmap_mail_types::Keyword) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::eq(&self, &jmap_mail_types::Keyword) -> bool
+impl core::cmp::PartialOrd for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::partial_cmp(&self, &jmap_mail_types::Keyword) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::as_ref(&self) -> &str
+impl core::convert::From<&str> for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::Keyword
+impl core::ops::deref::Deref for jmap_mail_types::Keyword
+pub type jmap_mail_types::Keyword::Target = str
+pub fn jmap_mail_types::Keyword::deref(&self) -> &str
+impl serde_core::ser::Serialize for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Keyword
+pub fn jmap_mail_types::Keyword::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MailAccountCapability
+pub jmap_mail_types::MailAccountCapability::email_query_sort_options: alloc::vec::Vec<alloc::string::String>
+pub jmap_mail_types::MailAccountCapability::max_mailbox_depth: core::option::Option<u64>
+pub jmap_mail_types::MailAccountCapability::max_mailboxes_per_email: core::option::Option<u64>
+pub jmap_mail_types::MailAccountCapability::max_size_attachments_per_email: u64
+pub jmap_mail_types::MailAccountCapability::max_size_mailbox_name: u64
+pub jmap_mail_types::MailAccountCapability::may_create_top_level_mailbox: bool
+impl core::clone::Clone for jmap_mail_types::MailAccountCapability
+pub fn jmap_mail_types::MailAccountCapability::clone(&self) -> jmap_mail_types::MailAccountCapability
+impl core::cmp::Eq for jmap_mail_types::MailAccountCapability
+impl core::cmp::PartialEq for jmap_mail_types::MailAccountCapability
+pub fn jmap_mail_types::MailAccountCapability::eq(&self, &jmap_mail_types::MailAccountCapability) -> bool
+impl core::fmt::Debug for jmap_mail_types::MailAccountCapability
+pub fn jmap_mail_types::MailAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailAccountCapability
+impl serde_core::ser::Serialize for jmap_mail_types::MailAccountCapability
+pub fn jmap_mail_types::MailAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MailAccountCapability
+pub fn jmap_mail_types::MailAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MailCapability
+impl core::clone::Clone for jmap_mail_types::MailCapability
+pub fn jmap_mail_types::MailCapability::clone(&self) -> jmap_mail_types::MailCapability
+impl core::cmp::Eq for jmap_mail_types::MailCapability
+impl core::cmp::PartialEq for jmap_mail_types::MailCapability
+pub fn jmap_mail_types::MailCapability::eq(&self, &jmap_mail_types::MailCapability) -> bool
+impl core::default::Default for jmap_mail_types::MailCapability
+pub fn jmap_mail_types::MailCapability::default() -> jmap_mail_types::MailCapability
+impl core::fmt::Debug for jmap_mail_types::MailCapability
+pub fn jmap_mail_types::MailCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailCapability
+impl serde_core::ser::Serialize for jmap_mail_types::MailCapability
+pub fn jmap_mail_types::MailCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MailCapability
+pub fn jmap_mail_types::MailCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Mailbox
+pub jmap_mail_types::Mailbox::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Mailbox::id: jmap_types::id::Id
+pub jmap_mail_types::Mailbox::is_subscribed: bool
+pub jmap_mail_types::Mailbox::my_rights: jmap_mail_types::MailboxRights
+pub jmap_mail_types::Mailbox::name: alloc::string::String
+pub jmap_mail_types::Mailbox::parent_id: core::option::Option<jmap_types::id::Id>
+pub jmap_mail_types::Mailbox::role: core::option::Option<jmap_mail_types::MailboxRole>
+pub jmap_mail_types::Mailbox::sort_order: u32
+pub jmap_mail_types::Mailbox::total_emails: u32
+pub jmap_mail_types::Mailbox::total_threads: u32
+pub jmap_mail_types::Mailbox::unread_emails: u32
+pub jmap_mail_types::Mailbox::unread_threads: u32
+impl jmap_mail_types::Mailbox
+pub fn jmap_mail_types::Mailbox::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, u32, u32, u32, u32, u32, jmap_mail_types::MailboxRights, bool) -> Self
+impl core::clone::Clone for jmap_mail_types::Mailbox
+pub fn jmap_mail_types::Mailbox::clone(&self) -> jmap_mail_types::Mailbox
+impl core::cmp::Eq for jmap_mail_types::Mailbox
+impl core::cmp::PartialEq for jmap_mail_types::Mailbox
+pub fn jmap_mail_types::Mailbox::eq(&self, &jmap_mail_types::Mailbox) -> bool
+impl core::fmt::Debug for jmap_mail_types::Mailbox
+pub fn jmap_mail_types::Mailbox::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Mailbox
+impl jmap_types::backend::GetObject for jmap_mail_types::Mailbox
+impl jmap_types::backend::JmapObject for jmap_mail_types::Mailbox
+pub type jmap_mail_types::Mailbox::Property = jmap_mail_types::MailboxProperty
+pub const jmap_mail_types::Mailbox::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_mail_types::Mailbox
+pub type jmap_mail_types::Mailbox::Comparator = jmap_mail_types::MailboxComparator
+pub type jmap_mail_types::Mailbox::Filter = jmap_types::query::Filter<jmap_mail_types::MailboxFilterCondition>
+impl jmap_types::backend::SetObject for jmap_mail_types::Mailbox
+pub type jmap_mail_types::Mailbox::Patch = jmap_types::patch::PatchObject
+pub const jmap_mail_types::Mailbox::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_mail_types::Mailbox::IMMUTABLE: &'static [&'static str]
+pub const jmap_mail_types::Mailbox::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_mail_types::Mailbox
+pub fn jmap_mail_types::Mailbox::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Mailbox
+pub fn jmap_mail_types::Mailbox::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MailboxComparator
+pub jmap_mail_types::MailboxComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_mail_types::MailboxComparator::is_ascending: bool
+pub jmap_mail_types::MailboxComparator::property: jmap_mail_types::MailboxComparatorProperty
+impl jmap_mail_types::MailboxComparator
+pub fn jmap_mail_types::MailboxComparator::new(jmap_mail_types::MailboxComparatorProperty) -> Self
+impl core::clone::Clone for jmap_mail_types::MailboxComparator
+pub fn jmap_mail_types::MailboxComparator::clone(&self) -> jmap_mail_types::MailboxComparator
+impl core::cmp::Eq for jmap_mail_types::MailboxComparator
+impl core::cmp::PartialEq for jmap_mail_types::MailboxComparator
+pub fn jmap_mail_types::MailboxComparator::eq(&self, &jmap_mail_types::MailboxComparator) -> bool
+impl core::fmt::Debug for jmap_mail_types::MailboxComparator
+pub fn jmap_mail_types::MailboxComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailboxComparator
+impl serde_core::ser::Serialize for jmap_mail_types::MailboxComparator
+pub fn jmap_mail_types::MailboxComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MailboxComparator
+pub fn jmap_mail_types::MailboxComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MailboxFilterCondition
+pub jmap_mail_types::MailboxFilterCondition::has_any_role: core::option::Option<bool>
+pub jmap_mail_types::MailboxFilterCondition::is_subscribed: core::option::Option<bool>
+pub jmap_mail_types::MailboxFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_mail_types::MailboxFilterCondition::parent_id: core::option::Option<core::option::Option<jmap_types::id::Id>>
+pub jmap_mail_types::MailboxFilterCondition::role: core::option::Option<core::option::Option<jmap_mail_types::MailboxRole>>
+impl core::clone::Clone for jmap_mail_types::MailboxFilterCondition
+pub fn jmap_mail_types::MailboxFilterCondition::clone(&self) -> jmap_mail_types::MailboxFilterCondition
+impl core::cmp::Eq for jmap_mail_types::MailboxFilterCondition
+impl core::cmp::PartialEq for jmap_mail_types::MailboxFilterCondition
+pub fn jmap_mail_types::MailboxFilterCondition::eq(&self, &jmap_mail_types::MailboxFilterCondition) -> bool
+impl core::default::Default for jmap_mail_types::MailboxFilterCondition
+pub fn jmap_mail_types::MailboxFilterCondition::default() -> jmap_mail_types::MailboxFilterCondition
+impl core::fmt::Debug for jmap_mail_types::MailboxFilterCondition
+pub fn jmap_mail_types::MailboxFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailboxFilterCondition
+impl serde_core::ser::Serialize for jmap_mail_types::MailboxFilterCondition
+pub fn jmap_mail_types::MailboxFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MailboxFilterCondition
+pub fn jmap_mail_types::MailboxFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MailboxRights
+pub jmap_mail_types::MailboxRights::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::MailboxRights::may_add_items: bool
+pub jmap_mail_types::MailboxRights::may_create_child: bool
+pub jmap_mail_types::MailboxRights::may_delete: bool
+pub jmap_mail_types::MailboxRights::may_read_items: bool
+pub jmap_mail_types::MailboxRights::may_remove_items: bool
+pub jmap_mail_types::MailboxRights::may_rename: bool
+pub jmap_mail_types::MailboxRights::may_set_keywords: bool
+pub jmap_mail_types::MailboxRights::may_set_metadata: core::option::Option<bool>
+pub jmap_mail_types::MailboxRights::may_set_seen: bool
+pub jmap_mail_types::MailboxRights::may_submit: bool
+impl core::clone::Clone for jmap_mail_types::MailboxRights
+pub fn jmap_mail_types::MailboxRights::clone(&self) -> jmap_mail_types::MailboxRights
+impl core::cmp::Eq for jmap_mail_types::MailboxRights
+impl core::cmp::PartialEq for jmap_mail_types::MailboxRights
+pub fn jmap_mail_types::MailboxRights::eq(&self, &jmap_mail_types::MailboxRights) -> bool
+impl core::default::Default for jmap_mail_types::MailboxRights
+pub fn jmap_mail_types::MailboxRights::default() -> jmap_mail_types::MailboxRights
+impl core::fmt::Debug for jmap_mail_types::MailboxRights
+pub fn jmap_mail_types::MailboxRights::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MailboxRights
+impl serde_core::ser::Serialize for jmap_mail_types::MailboxRights
+pub fn jmap_mail_types::MailboxRights::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MailboxRights
+pub fn jmap_mail_types::MailboxRights::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Mdn
+pub jmap_mail_types::Mdn::disposition: jmap_mail_types::Disposition
+pub jmap_mail_types::Mdn::error: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::Mdn::extension_fields: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>>
+pub jmap_mail_types::Mdn::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Mdn::final_recipient: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Mdn::for_email_id: core::option::Option<jmap_types::id::Id>
+pub jmap_mail_types::Mdn::include_original_message: bool
+pub jmap_mail_types::Mdn::mdn_gateway: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Mdn::original_message_id: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Mdn::original_recipient: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Mdn::reporting_ua: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Mdn::subject: core::option::Option<alloc::string::String>
+pub jmap_mail_types::Mdn::text_body: core::option::Option<alloc::string::String>
+impl jmap_mail_types::Mdn
+pub fn jmap_mail_types::Mdn::new(jmap_mail_types::Disposition) -> Self
+impl core::clone::Clone for jmap_mail_types::Mdn
+pub fn jmap_mail_types::Mdn::clone(&self) -> jmap_mail_types::Mdn
+impl core::cmp::PartialEq for jmap_mail_types::Mdn
+pub fn jmap_mail_types::Mdn::eq(&self, &jmap_mail_types::Mdn) -> bool
+impl core::fmt::Debug for jmap_mail_types::Mdn
+pub fn jmap_mail_types::Mdn::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Mdn
+impl serde_core::ser::Serialize for jmap_mail_types::Mdn
+pub fn jmap_mail_types::Mdn::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Mdn
+pub fn jmap_mail_types::Mdn::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MdnParseRequest
+pub jmap_mail_types::MdnParseRequest::account_id: jmap_types::id::Id
+pub jmap_mail_types::MdnParseRequest::blob_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_mail_types::MdnParseRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_mail_types::MdnParseRequest
+pub fn jmap_mail_types::MdnParseRequest::new(jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+impl core::clone::Clone for jmap_mail_types::MdnParseRequest
+pub fn jmap_mail_types::MdnParseRequest::clone(&self) -> jmap_mail_types::MdnParseRequest
+impl core::cmp::PartialEq for jmap_mail_types::MdnParseRequest
+pub fn jmap_mail_types::MdnParseRequest::eq(&self, &jmap_mail_types::MdnParseRequest) -> bool
+impl core::fmt::Debug for jmap_mail_types::MdnParseRequest
+pub fn jmap_mail_types::MdnParseRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MdnParseRequest
+impl serde_core::ser::Serialize for jmap_mail_types::MdnParseRequest
+pub fn jmap_mail_types::MdnParseRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MdnParseRequest
+pub fn jmap_mail_types::MdnParseRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MdnParseResponse
+pub jmap_mail_types::MdnParseResponse::account_id: jmap_types::id::Id
+pub jmap_mail_types::MdnParseResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::MdnParseResponse::not_found: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_types::MdnParseResponse::not_parsable: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_mail_types::MdnParseResponse::parsed: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_types::Mdn>>
+impl jmap_mail_types::MdnParseResponse
+pub fn jmap_mail_types::MdnParseResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_mail_types::MdnParseResponse
+pub fn jmap_mail_types::MdnParseResponse::clone(&self) -> jmap_mail_types::MdnParseResponse
+impl core::cmp::PartialEq for jmap_mail_types::MdnParseResponse
+pub fn jmap_mail_types::MdnParseResponse::eq(&self, &jmap_mail_types::MdnParseResponse) -> bool
+impl core::fmt::Debug for jmap_mail_types::MdnParseResponse
+pub fn jmap_mail_types::MdnParseResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MdnParseResponse
+impl serde_core::ser::Serialize for jmap_mail_types::MdnParseResponse
+pub fn jmap_mail_types::MdnParseResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MdnParseResponse
+pub fn jmap_mail_types::MdnParseResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MdnSendRequest
+pub jmap_mail_types::MdnSendRequest::account_id: jmap_types::id::Id
+pub jmap_mail_types::MdnSendRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::MdnSendRequest::identity_id: jmap_types::id::Id
+pub jmap_mail_types::MdnSendRequest::on_success_update_email: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::patch::PatchObject>>
+pub jmap_mail_types::MdnSendRequest::send: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_types::Mdn>
+impl jmap_mail_types::MdnSendRequest
+pub fn jmap_mail_types::MdnSendRequest::new(jmap_types::id::Id, jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_types::Mdn>) -> Self
+impl core::clone::Clone for jmap_mail_types::MdnSendRequest
+pub fn jmap_mail_types::MdnSendRequest::clone(&self) -> jmap_mail_types::MdnSendRequest
+impl core::cmp::PartialEq for jmap_mail_types::MdnSendRequest
+pub fn jmap_mail_types::MdnSendRequest::eq(&self, &jmap_mail_types::MdnSendRequest) -> bool
+impl core::fmt::Debug for jmap_mail_types::MdnSendRequest
+pub fn jmap_mail_types::MdnSendRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MdnSendRequest
+impl serde_core::ser::Serialize for jmap_mail_types::MdnSendRequest
+pub fn jmap_mail_types::MdnSendRequest::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MdnSendRequest
+pub fn jmap_mail_types::MdnSendRequest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::MdnSendResponse
+pub jmap_mail_types::MdnSendResponse::account_id: jmap_types::id::Id
+pub jmap_mail_types::MdnSendResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::MdnSendResponse::not_sent: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
+pub jmap_mail_types::MdnSendResponse::sent: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_types::Mdn>>
+impl jmap_mail_types::MdnSendResponse
+pub fn jmap_mail_types::MdnSendResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_mail_types::MdnSendResponse
+pub fn jmap_mail_types::MdnSendResponse::clone(&self) -> jmap_mail_types::MdnSendResponse
+impl core::cmp::PartialEq for jmap_mail_types::MdnSendResponse
+pub fn jmap_mail_types::MdnSendResponse::eq(&self, &jmap_mail_types::MdnSendResponse) -> bool
+impl core::fmt::Debug for jmap_mail_types::MdnSendResponse
+pub fn jmap_mail_types::MdnSendResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::MdnSendResponse
+impl serde_core::ser::Serialize for jmap_mail_types::MdnSendResponse
+pub fn jmap_mail_types::MdnSendResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::MdnSendResponse
+pub fn jmap_mail_types::MdnSendResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SearchSnippet
+pub jmap_mail_types::SearchSnippet::email_id: jmap_types::id::Id
+pub jmap_mail_types::SearchSnippet::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::SearchSnippet::preview: core::option::Option<alloc::string::String>
+pub jmap_mail_types::SearchSnippet::subject: core::option::Option<alloc::string::String>
+impl jmap_mail_types::SearchSnippet
+pub fn jmap_mail_types::SearchSnippet::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_mail_types::SearchSnippet
+pub fn jmap_mail_types::SearchSnippet::clone(&self) -> jmap_mail_types::SearchSnippet
+impl core::cmp::Eq for jmap_mail_types::SearchSnippet
+impl core::cmp::PartialEq for jmap_mail_types::SearchSnippet
+pub fn jmap_mail_types::SearchSnippet::eq(&self, &jmap_mail_types::SearchSnippet) -> bool
+impl core::fmt::Debug for jmap_mail_types::SearchSnippet
+pub fn jmap_mail_types::SearchSnippet::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SearchSnippet
+impl jmap_types::backend::JmapObject for jmap_mail_types::SearchSnippet
+pub type jmap_mail_types::SearchSnippet::Property = jmap_mail_types::SearchSnippetProperty
+pub const jmap_mail_types::SearchSnippet::TYPE_NAME: &'static str
+impl serde_core::ser::Serialize for jmap_mail_types::SearchSnippet
+pub fn jmap_mail_types::SearchSnippet::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SearchSnippet
+pub fn jmap_mail_types::SearchSnippet::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SearchSnippetGetResponse
+pub jmap_mail_types::SearchSnippetGetResponse::account_id: jmap_types::id::Id
+pub jmap_mail_types::SearchSnippetGetResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::SearchSnippetGetResponse::list: alloc::vec::Vec<jmap_mail_types::SearchSnippet>
+pub jmap_mail_types::SearchSnippetGetResponse::not_found: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+impl core::clone::Clone for jmap_mail_types::SearchSnippetGetResponse
+pub fn jmap_mail_types::SearchSnippetGetResponse::clone(&self) -> jmap_mail_types::SearchSnippetGetResponse
+impl core::cmp::PartialEq for jmap_mail_types::SearchSnippetGetResponse
+pub fn jmap_mail_types::SearchSnippetGetResponse::eq(&self, &jmap_mail_types::SearchSnippetGetResponse) -> bool
+impl core::fmt::Debug for jmap_mail_types::SearchSnippetGetResponse
+pub fn jmap_mail_types::SearchSnippetGetResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SearchSnippetGetResponse
+impl serde_core::ser::Serialize for jmap_mail_types::SearchSnippetGetResponse
+pub fn jmap_mail_types::SearchSnippetGetResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SearchSnippetGetResponse
+pub fn jmap_mail_types::SearchSnippetGetResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SieveAccountCapability
+pub jmap_mail_types::SieveAccountCapability::external_lists: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::SieveAccountCapability::max_number_redirects: core::option::Option<u64>
+pub jmap_mail_types::SieveAccountCapability::max_number_scripts: core::option::Option<u64>
+pub jmap_mail_types::SieveAccountCapability::max_size_script: core::option::Option<u64>
+pub jmap_mail_types::SieveAccountCapability::max_size_script_name: u64
+pub jmap_mail_types::SieveAccountCapability::notification_methods: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_mail_types::SieveAccountCapability::sieve_extensions: alloc::vec::Vec<alloc::string::String>
+impl jmap_mail_types::SieveAccountCapability
+pub fn jmap_mail_types::SieveAccountCapability::new(u64, alloc::vec::Vec<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_mail_types::SieveAccountCapability
+pub fn jmap_mail_types::SieveAccountCapability::clone(&self) -> jmap_mail_types::SieveAccountCapability
+impl core::cmp::Eq for jmap_mail_types::SieveAccountCapability
+impl core::cmp::PartialEq for jmap_mail_types::SieveAccountCapability
+pub fn jmap_mail_types::SieveAccountCapability::eq(&self, &jmap_mail_types::SieveAccountCapability) -> bool
+impl core::fmt::Debug for jmap_mail_types::SieveAccountCapability
+pub fn jmap_mail_types::SieveAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SieveAccountCapability
+impl serde_core::ser::Serialize for jmap_mail_types::SieveAccountCapability
+pub fn jmap_mail_types::SieveAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SieveAccountCapability
+pub fn jmap_mail_types::SieveAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SieveCapability
+pub jmap_mail_types::SieveCapability::implementation: alloc::string::String
+impl jmap_mail_types::SieveCapability
+pub fn jmap_mail_types::SieveCapability::new(alloc::string::String) -> Self
+impl core::clone::Clone for jmap_mail_types::SieveCapability
+pub fn jmap_mail_types::SieveCapability::clone(&self) -> jmap_mail_types::SieveCapability
+impl core::cmp::Eq for jmap_mail_types::SieveCapability
+impl core::cmp::PartialEq for jmap_mail_types::SieveCapability
+pub fn jmap_mail_types::SieveCapability::eq(&self, &jmap_mail_types::SieveCapability) -> bool
+impl core::fmt::Debug for jmap_mail_types::SieveCapability
+pub fn jmap_mail_types::SieveCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SieveCapability
+impl serde_core::ser::Serialize for jmap_mail_types::SieveCapability
+pub fn jmap_mail_types::SieveCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SieveCapability
+pub fn jmap_mail_types::SieveCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SieveScript
+pub jmap_mail_types::SieveScript::blob_id: jmap_types::id::Id
+pub jmap_mail_types::SieveScript::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::SieveScript::id: jmap_types::id::Id
+pub jmap_mail_types::SieveScript::is_active: bool
+pub jmap_mail_types::SieveScript::name: core::option::Option<alloc::string::String>
+impl jmap_mail_types::SieveScript
+pub fn jmap_mail_types::SieveScript::new(jmap_types::id::Id, jmap_types::id::Id, bool) -> Self
+impl core::clone::Clone for jmap_mail_types::SieveScript
+pub fn jmap_mail_types::SieveScript::clone(&self) -> jmap_mail_types::SieveScript
+impl core::cmp::Eq for jmap_mail_types::SieveScript
+impl core::cmp::PartialEq for jmap_mail_types::SieveScript
+pub fn jmap_mail_types::SieveScript::eq(&self, &jmap_mail_types::SieveScript) -> bool
+impl core::fmt::Debug for jmap_mail_types::SieveScript
+pub fn jmap_mail_types::SieveScript::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SieveScript
+impl jmap_types::backend::GetObject for jmap_mail_types::SieveScript
+impl jmap_types::backend::JmapObject for jmap_mail_types::SieveScript
+pub type jmap_mail_types::SieveScript::Property = jmap_mail_types::SieveScriptProperty
+pub const jmap_mail_types::SieveScript::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_mail_types::SieveScript
+pub type jmap_mail_types::SieveScript::Patch = jmap_types::patch::PatchObject
+pub const jmap_mail_types::SieveScript::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_mail_types::SieveScript::IMMUTABLE: &'static [&'static str]
+pub const jmap_mail_types::SieveScript::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_mail_types::SieveScript
+pub fn jmap_mail_types::SieveScript::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SieveScript
+pub fn jmap_mail_types::SieveScript::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SubmissionAccountCapability
+pub jmap_mail_types::SubmissionAccountCapability::max_delayed_send: u64
+pub jmap_mail_types::SubmissionAccountCapability::submission_extensions: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<alloc::string::String>>
+impl core::clone::Clone for jmap_mail_types::SubmissionAccountCapability
+pub fn jmap_mail_types::SubmissionAccountCapability::clone(&self) -> jmap_mail_types::SubmissionAccountCapability
+impl core::cmp::Eq for jmap_mail_types::SubmissionAccountCapability
+impl core::cmp::PartialEq for jmap_mail_types::SubmissionAccountCapability
+pub fn jmap_mail_types::SubmissionAccountCapability::eq(&self, &jmap_mail_types::SubmissionAccountCapability) -> bool
+impl core::fmt::Debug for jmap_mail_types::SubmissionAccountCapability
+pub fn jmap_mail_types::SubmissionAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SubmissionAccountCapability
+impl serde_core::ser::Serialize for jmap_mail_types::SubmissionAccountCapability
+pub fn jmap_mail_types::SubmissionAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SubmissionAccountCapability
+pub fn jmap_mail_types::SubmissionAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SubmissionCapability
+impl core::clone::Clone for jmap_mail_types::SubmissionCapability
+pub fn jmap_mail_types::SubmissionCapability::clone(&self) -> jmap_mail_types::SubmissionCapability
+impl core::cmp::Eq for jmap_mail_types::SubmissionCapability
+impl core::cmp::PartialEq for jmap_mail_types::SubmissionCapability
+pub fn jmap_mail_types::SubmissionCapability::eq(&self, &jmap_mail_types::SubmissionCapability) -> bool
+impl core::default::Default for jmap_mail_types::SubmissionCapability
+pub fn jmap_mail_types::SubmissionCapability::default() -> jmap_mail_types::SubmissionCapability
+impl core::fmt::Debug for jmap_mail_types::SubmissionCapability
+pub fn jmap_mail_types::SubmissionCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SubmissionCapability
+impl serde_core::ser::Serialize for jmap_mail_types::SubmissionCapability
+pub fn jmap_mail_types::SubmissionCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SubmissionCapability
+pub fn jmap_mail_types::SubmissionCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::Thread
+pub jmap_mail_types::Thread::email_ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_mail_types::Thread::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::Thread::id: jmap_types::id::Id
+impl jmap_mail_types::Thread
+pub fn jmap_mail_types::Thread::new(jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+impl core::clone::Clone for jmap_mail_types::Thread
+pub fn jmap_mail_types::Thread::clone(&self) -> jmap_mail_types::Thread
+impl core::cmp::Eq for jmap_mail_types::Thread
+impl core::cmp::PartialEq for jmap_mail_types::Thread
+pub fn jmap_mail_types::Thread::eq(&self, &jmap_mail_types::Thread) -> bool
+impl core::fmt::Debug for jmap_mail_types::Thread
+pub fn jmap_mail_types::Thread::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::Thread
+impl jmap_types::backend::GetObject for jmap_mail_types::Thread
+impl jmap_types::backend::JmapObject for jmap_mail_types::Thread
+pub type jmap_mail_types::Thread::Property = jmap_mail_types::ThreadProperty
+pub const jmap_mail_types::Thread::TYPE_NAME: &'static str
+impl serde_core::ser::Serialize for jmap_mail_types::Thread
+pub fn jmap_mail_types::Thread::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::Thread
+pub fn jmap_mail_types::Thread::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::VacationResponse
+pub jmap_mail_types::VacationResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_mail_types::VacationResponse::from_date: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_mail_types::VacationResponse::html_body: core::option::Option<alloc::string::String>
+pub jmap_mail_types::VacationResponse::id: jmap_types::id::Id
+pub jmap_mail_types::VacationResponse::is_enabled: bool
+pub jmap_mail_types::VacationResponse::subject: core::option::Option<alloc::string::String>
+pub jmap_mail_types::VacationResponse::text_body: core::option::Option<alloc::string::String>
+pub jmap_mail_types::VacationResponse::to_date: core::option::Option<jmap_types::id::UTCDate>
+impl jmap_mail_types::VacationResponse
+pub fn jmap_mail_types::VacationResponse::new(jmap_types::id::Id, bool) -> Self
+impl core::clone::Clone for jmap_mail_types::VacationResponse
+pub fn jmap_mail_types::VacationResponse::clone(&self) -> jmap_mail_types::VacationResponse
+impl core::cmp::Eq for jmap_mail_types::VacationResponse
+impl core::cmp::PartialEq for jmap_mail_types::VacationResponse
+pub fn jmap_mail_types::VacationResponse::eq(&self, &jmap_mail_types::VacationResponse) -> bool
+impl core::fmt::Debug for jmap_mail_types::VacationResponse
+pub fn jmap_mail_types::VacationResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::VacationResponse
+impl jmap_types::backend::GetObject for jmap_mail_types::VacationResponse
+impl jmap_types::backend::JmapObject for jmap_mail_types::VacationResponse
+pub type jmap_mail_types::VacationResponse::Property = jmap_mail_types::VacationResponseProperty
+pub const jmap_mail_types::VacationResponse::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_mail_types::VacationResponse
+pub type jmap_mail_types::VacationResponse::Patch = jmap_types::patch::PatchObject
+pub const jmap_mail_types::VacationResponse::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_mail_types::VacationResponse::IMMUTABLE: &'static [&'static str]
+pub const jmap_mail_types::VacationResponse::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_mail_types::VacationResponse
+pub fn jmap_mail_types::VacationResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::VacationResponse
+pub fn jmap_mail_types::VacationResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::VacationResponseCapability
+impl core::clone::Clone for jmap_mail_types::VacationResponseCapability
+pub fn jmap_mail_types::VacationResponseCapability::clone(&self) -> jmap_mail_types::VacationResponseCapability
+impl core::cmp::Eq for jmap_mail_types::VacationResponseCapability
+impl core::cmp::PartialEq for jmap_mail_types::VacationResponseCapability
+pub fn jmap_mail_types::VacationResponseCapability::eq(&self, &jmap_mail_types::VacationResponseCapability) -> bool
+impl core::default::Default for jmap_mail_types::VacationResponseCapability
+pub fn jmap_mail_types::VacationResponseCapability::default() -> jmap_mail_types::VacationResponseCapability
+impl core::fmt::Debug for jmap_mail_types::VacationResponseCapability
+pub fn jmap_mail_types::VacationResponseCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::VacationResponseCapability
+impl serde_core::ser::Serialize for jmap_mail_types::VacationResponseCapability
+pub fn jmap_mail_types::VacationResponseCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::VacationResponseCapability
+pub fn jmap_mail_types::VacationResponseCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_mail_types::ANSWERED: &str
+pub const jmap_mail_types::DRAFT: &str
+pub const jmap_mail_types::FLAGGED: &str
+pub const jmap_mail_types::FORWARDED: &str
+pub const jmap_mail_types::JMAP_MAIL_URI: &str
+pub const jmap_mail_types::JMAP_MDN_URI: &str
+pub const jmap_mail_types::JMAP_SIEVE_SCRIPTS_URI: &str
+pub const jmap_mail_types::JMAP_SUBMISSION_URI: &str
+pub const jmap_mail_types::JMAP_VACATIONRESPONSE_URI: &str
+pub const jmap_mail_types::JUNK: &str
+pub const jmap_mail_types::NOT_JUNK: &str
+pub const jmap_mail_types::PHISHING: &str
+pub const jmap_mail_types::SEEN: &str
+pub type jmap_mail_types::EmailFilter = jmap_types::query::Filter<jmap_mail_types::EmailFilterCondition>
+pub type jmap_mail_types::EmailSubmissionFilter = jmap_types::query::Filter<jmap_mail_types::EmailSubmissionFilterCondition>
+pub type jmap_mail_types::MailboxFilter = jmap_types::query::Filter<jmap_mail_types::MailboxFilterCondition>

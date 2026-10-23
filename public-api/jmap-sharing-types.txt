@@ -1,0 +1,267 @@
+pub mod jmap_sharing_types
+pub use jmap_sharing_types::Filter
+pub use jmap_sharing_types::FilterOperator
+pub use jmap_sharing_types::Operator
+#[non_exhaustive] pub enum jmap_sharing_types::PrincipalProperty
+pub jmap_sharing_types::PrincipalProperty::Accounts
+pub jmap_sharing_types::PrincipalProperty::Capabilities
+pub jmap_sharing_types::PrincipalProperty::Description
+pub jmap_sharing_types::PrincipalProperty::Email
+pub jmap_sharing_types::PrincipalProperty::Id
+pub jmap_sharing_types::PrincipalProperty::Name
+pub jmap_sharing_types::PrincipalProperty::TimeZone
+pub jmap_sharing_types::PrincipalProperty::Type
+impl core::clone::Clone for jmap_sharing_types::PrincipalProperty
+pub fn jmap_sharing_types::PrincipalProperty::clone(&self) -> jmap_sharing_types::PrincipalProperty
+impl core::cmp::Eq for jmap_sharing_types::PrincipalProperty
+impl core::cmp::PartialEq for jmap_sharing_types::PrincipalProperty
+pub fn jmap_sharing_types::PrincipalProperty::eq(&self, &jmap_sharing_types::PrincipalProperty) -> bool
+impl core::fmt::Debug for jmap_sharing_types::PrincipalProperty
+pub fn jmap_sharing_types::PrincipalProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_sharing_types::PrincipalProperty
+pub fn jmap_sharing_types::PrincipalProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_sharing_types::PrincipalProperty
+#[non_exhaustive] pub enum jmap_sharing_types::PrincipalType
+pub jmap_sharing_types::PrincipalType::Group
+pub jmap_sharing_types::PrincipalType::Individual
+pub jmap_sharing_types::PrincipalType::Location
+pub jmap_sharing_types::PrincipalType::Other(alloc::string::String)
+pub jmap_sharing_types::PrincipalType::Resource
+impl core::clone::Clone for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::clone(&self) -> jmap_sharing_types::PrincipalType
+impl core::cmp::Eq for jmap_sharing_types::PrincipalType
+impl core::cmp::PartialEq for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::eq(&self, &jmap_sharing_types::PrincipalType) -> bool
+impl core::convert::From<&str> for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_sharing_types::PrincipalType
+impl serde_core::ser::Serialize for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_sharing_types::ShareNotificationComparatorProperty
+pub jmap_sharing_types::ShareNotificationComparatorProperty::Created
+pub jmap_sharing_types::ShareNotificationComparatorProperty::Other(alloc::string::String)
+impl core::clone::Clone for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::clone(&self) -> jmap_sharing_types::ShareNotificationComparatorProperty
+impl core::cmp::Eq for jmap_sharing_types::ShareNotificationComparatorProperty
+impl core::cmp::PartialEq for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::eq(&self, &jmap_sharing_types::ShareNotificationComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_sharing_types::ShareNotificationComparatorProperty
+impl serde_core::ser::Serialize for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_sharing_types::ShareNotificationProperty
+pub jmap_sharing_types::ShareNotificationProperty::ChangedBy
+pub jmap_sharing_types::ShareNotificationProperty::Created
+pub jmap_sharing_types::ShareNotificationProperty::Id
+pub jmap_sharing_types::ShareNotificationProperty::Name
+pub jmap_sharing_types::ShareNotificationProperty::NewRights
+pub jmap_sharing_types::ShareNotificationProperty::ObjectAccountId
+pub jmap_sharing_types::ShareNotificationProperty::ObjectId
+pub jmap_sharing_types::ShareNotificationProperty::ObjectType
+pub jmap_sharing_types::ShareNotificationProperty::OldRights
+impl core::clone::Clone for jmap_sharing_types::ShareNotificationProperty
+pub fn jmap_sharing_types::ShareNotificationProperty::clone(&self) -> jmap_sharing_types::ShareNotificationProperty
+impl core::cmp::Eq for jmap_sharing_types::ShareNotificationProperty
+impl core::cmp::PartialEq for jmap_sharing_types::ShareNotificationProperty
+pub fn jmap_sharing_types::ShareNotificationProperty::eq(&self, &jmap_sharing_types::ShareNotificationProperty) -> bool
+impl core::fmt::Debug for jmap_sharing_types::ShareNotificationProperty
+pub fn jmap_sharing_types::ShareNotificationProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_sharing_types::ShareNotificationProperty
+pub fn jmap_sharing_types::ShareNotificationProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_sharing_types::ShareNotificationProperty
+#[non_exhaustive] pub struct jmap_sharing_types::ChangedBy
+pub jmap_sharing_types::ChangedBy::email: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::ChangedBy::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_sharing_types::ChangedBy::name: alloc::string::String
+pub jmap_sharing_types::ChangedBy::principal_id: core::option::Option<jmap_types::id::Id>
+impl core::clone::Clone for jmap_sharing_types::ChangedBy
+pub fn jmap_sharing_types::ChangedBy::clone(&self) -> jmap_sharing_types::ChangedBy
+impl core::cmp::Eq for jmap_sharing_types::ChangedBy
+impl core::cmp::PartialEq for jmap_sharing_types::ChangedBy
+pub fn jmap_sharing_types::ChangedBy::eq(&self, &jmap_sharing_types::ChangedBy) -> bool
+impl core::fmt::Debug for jmap_sharing_types::ChangedBy
+pub fn jmap_sharing_types::ChangedBy::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::ChangedBy
+impl serde_core::ser::Serialize for jmap_sharing_types::ChangedBy
+pub fn jmap_sharing_types::ChangedBy::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::ChangedBy
+pub fn jmap_sharing_types::ChangedBy::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_sharing_types::Principal
+pub jmap_sharing_types::Principal::accounts: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, serde_json::value::Value>>
+pub jmap_sharing_types::Principal::capabilities: alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>
+pub jmap_sharing_types::Principal::description: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::Principal::email: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::Principal::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_sharing_types::Principal::id: jmap_types::id::Id
+pub jmap_sharing_types::Principal::name: alloc::string::String
+pub jmap_sharing_types::Principal::principal_type: jmap_sharing_types::PrincipalType
+pub jmap_sharing_types::Principal::time_zone: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_sharing_types::Principal
+pub fn jmap_sharing_types::Principal::clone(&self) -> jmap_sharing_types::Principal
+impl core::cmp::PartialEq for jmap_sharing_types::Principal
+pub fn jmap_sharing_types::Principal::eq(&self, &jmap_sharing_types::Principal) -> bool
+impl core::fmt::Debug for jmap_sharing_types::Principal
+pub fn jmap_sharing_types::Principal::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::Principal
+impl jmap_types::backend::GetObject for jmap_sharing_types::Principal
+impl jmap_types::backend::JmapObject for jmap_sharing_types::Principal
+pub type jmap_sharing_types::Principal::Property = jmap_sharing_types::PrincipalProperty
+pub const jmap_sharing_types::Principal::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_sharing_types::Principal
+pub type jmap_sharing_types::Principal::Comparator = serde_json::value::Value
+pub type jmap_sharing_types::Principal::Filter = jmap_types::query::Filter<jmap_sharing_types::PrincipalFilterCondition>
+impl jmap_types::backend::SetObject for jmap_sharing_types::Principal
+pub type jmap_sharing_types::Principal::Patch = jmap_types::patch::PatchObject
+pub const jmap_sharing_types::Principal::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_sharing_types::Principal::IMMUTABLE: &'static [&'static str]
+pub const jmap_sharing_types::Principal::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_sharing_types::Principal
+pub fn jmap_sharing_types::Principal::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::Principal
+pub fn jmap_sharing_types::Principal::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_sharing_types::PrincipalFilterCondition
+pub jmap_sharing_types::PrincipalFilterCondition::account_ids: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_sharing_types::PrincipalFilterCondition::email: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::text: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::time_zone: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::type_: core::option::Option<jmap_sharing_types::PrincipalType>
+impl core::clone::Clone for jmap_sharing_types::PrincipalFilterCondition
+pub fn jmap_sharing_types::PrincipalFilterCondition::clone(&self) -> jmap_sharing_types::PrincipalFilterCondition
+impl core::cmp::Eq for jmap_sharing_types::PrincipalFilterCondition
+impl core::cmp::PartialEq for jmap_sharing_types::PrincipalFilterCondition
+pub fn jmap_sharing_types::PrincipalFilterCondition::eq(&self, &jmap_sharing_types::PrincipalFilterCondition) -> bool
+impl core::default::Default for jmap_sharing_types::PrincipalFilterCondition
+pub fn jmap_sharing_types::PrincipalFilterCondition::default() -> jmap_sharing_types::PrincipalFilterCondition
+impl core::fmt::Debug for jmap_sharing_types::PrincipalFilterCondition
+pub fn jmap_sharing_types::PrincipalFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::PrincipalFilterCondition
+impl serde_core::ser::Serialize for jmap_sharing_types::PrincipalFilterCondition
+pub fn jmap_sharing_types::PrincipalFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::PrincipalFilterCondition
+pub fn jmap_sharing_types::PrincipalFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_sharing_types::PrincipalsCapability
+pub jmap_sharing_types::PrincipalsCapability::current_user_principal_id: core::option::Option<jmap_types::id::Id>
+impl core::clone::Clone for jmap_sharing_types::PrincipalsCapability
+pub fn jmap_sharing_types::PrincipalsCapability::clone(&self) -> jmap_sharing_types::PrincipalsCapability
+impl core::cmp::Eq for jmap_sharing_types::PrincipalsCapability
+impl core::cmp::PartialEq for jmap_sharing_types::PrincipalsCapability
+pub fn jmap_sharing_types::PrincipalsCapability::eq(&self, &jmap_sharing_types::PrincipalsCapability) -> bool
+impl core::fmt::Debug for jmap_sharing_types::PrincipalsCapability
+pub fn jmap_sharing_types::PrincipalsCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::PrincipalsCapability
+impl serde_core::ser::Serialize for jmap_sharing_types::PrincipalsCapability
+pub fn jmap_sharing_types::PrincipalsCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::PrincipalsCapability
+pub fn jmap_sharing_types::PrincipalsCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_sharing_types::PrincipalsOwnerCapability
+pub jmap_sharing_types::PrincipalsOwnerCapability::account_id_for_principal: jmap_types::id::Id
+pub jmap_sharing_types::PrincipalsOwnerCapability::principal_id: jmap_types::id::Id
+impl core::clone::Clone for jmap_sharing_types::PrincipalsOwnerCapability
+pub fn jmap_sharing_types::PrincipalsOwnerCapability::clone(&self) -> jmap_sharing_types::PrincipalsOwnerCapability
+impl core::cmp::Eq for jmap_sharing_types::PrincipalsOwnerCapability
+impl core::cmp::PartialEq for jmap_sharing_types::PrincipalsOwnerCapability
+pub fn jmap_sharing_types::PrincipalsOwnerCapability::eq(&self, &jmap_sharing_types::PrincipalsOwnerCapability) -> bool
+impl core::fmt::Debug for jmap_sharing_types::PrincipalsOwnerCapability
+pub fn jmap_sharing_types::PrincipalsOwnerCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::PrincipalsOwnerCapability
+impl serde_core::ser::Serialize for jmap_sharing_types::PrincipalsOwnerCapability
+pub fn jmap_sharing_types::PrincipalsOwnerCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::PrincipalsOwnerCapability
+pub fn jmap_sharing_types::PrincipalsOwnerCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_sharing_types::ShareNotification
+pub jmap_sharing_types::ShareNotification::changed_by: jmap_sharing_types::ChangedBy
+pub jmap_sharing_types::ShareNotification::created: jmap_types::id::UTCDate
+pub jmap_sharing_types::ShareNotification::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_sharing_types::ShareNotification::id: jmap_types::id::Id
+pub jmap_sharing_types::ShareNotification::name: alloc::string::String
+pub jmap_sharing_types::ShareNotification::new_rights: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+pub jmap_sharing_types::ShareNotification::object_account_id: jmap_types::id::Id
+pub jmap_sharing_types::ShareNotification::object_id: jmap_types::id::Id
+pub jmap_sharing_types::ShareNotification::object_type: alloc::string::String
+pub jmap_sharing_types::ShareNotification::old_rights: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, bool>>
+impl core::clone::Clone for jmap_sharing_types::ShareNotification
+pub fn jmap_sharing_types::ShareNotification::clone(&self) -> jmap_sharing_types::ShareNotification
+impl core::cmp::PartialEq for jmap_sharing_types::ShareNotification
+pub fn jmap_sharing_types::ShareNotification::eq(&self, &jmap_sharing_types::ShareNotification) -> bool
+impl core::fmt::Debug for jmap_sharing_types::ShareNotification
+pub fn jmap_sharing_types::ShareNotification::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::ShareNotification
+impl jmap_types::backend::GetObject for jmap_sharing_types::ShareNotification
+impl jmap_types::backend::JmapObject for jmap_sharing_types::ShareNotification
+pub type jmap_sharing_types::ShareNotification::Property = jmap_sharing_types::ShareNotificationProperty
+pub const jmap_sharing_types::ShareNotification::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_sharing_types::ShareNotification
+pub type jmap_sharing_types::ShareNotification::Comparator = jmap_sharing_types::ShareNotificationComparator
+pub type jmap_sharing_types::ShareNotification::Filter = jmap_types::query::Filter<jmap_sharing_types::ShareNotificationFilterCondition>
+impl jmap_types::backend::SetObject for jmap_sharing_types::ShareNotification
+pub type jmap_sharing_types::ShareNotification::Patch = jmap_types::patch::PatchObject
+pub const jmap_sharing_types::ShareNotification::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_sharing_types::ShareNotification::IMMUTABLE: &'static [&'static str]
+pub const jmap_sharing_types::ShareNotification::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_sharing_types::ShareNotification
+pub fn jmap_sharing_types::ShareNotification::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::ShareNotification
+pub fn jmap_sharing_types::ShareNotification::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_sharing_types::ShareNotificationComparator
+pub jmap_sharing_types::ShareNotificationComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::ShareNotificationComparator::is_ascending: bool
+pub jmap_sharing_types::ShareNotificationComparator::property: jmap_sharing_types::ShareNotificationComparatorProperty
+impl jmap_sharing_types::ShareNotificationComparator
+pub fn jmap_sharing_types::ShareNotificationComparator::new(jmap_sharing_types::ShareNotificationComparatorProperty) -> Self
+impl core::clone::Clone for jmap_sharing_types::ShareNotificationComparator
+pub fn jmap_sharing_types::ShareNotificationComparator::clone(&self) -> jmap_sharing_types::ShareNotificationComparator
+impl core::cmp::Eq for jmap_sharing_types::ShareNotificationComparator
+impl core::cmp::PartialEq for jmap_sharing_types::ShareNotificationComparator
+pub fn jmap_sharing_types::ShareNotificationComparator::eq(&self, &jmap_sharing_types::ShareNotificationComparator) -> bool
+impl core::fmt::Debug for jmap_sharing_types::ShareNotificationComparator
+pub fn jmap_sharing_types::ShareNotificationComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::ShareNotificationComparator
+impl serde_core::ser::Serialize for jmap_sharing_types::ShareNotificationComparator
+pub fn jmap_sharing_types::ShareNotificationComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::ShareNotificationComparator
+pub fn jmap_sharing_types::ShareNotificationComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_sharing_types::ShareNotificationFilterCondition
+pub jmap_sharing_types::ShareNotificationFilterCondition::after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_sharing_types::ShareNotificationFilterCondition::before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_sharing_types::ShareNotificationFilterCondition::object_account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_sharing_types::ShareNotificationFilterCondition::object_type: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_sharing_types::ShareNotificationFilterCondition
+pub fn jmap_sharing_types::ShareNotificationFilterCondition::clone(&self) -> jmap_sharing_types::ShareNotificationFilterCondition
+impl core::cmp::Eq for jmap_sharing_types::ShareNotificationFilterCondition
+impl core::cmp::PartialEq for jmap_sharing_types::ShareNotificationFilterCondition
+pub fn jmap_sharing_types::ShareNotificationFilterCondition::eq(&self, &jmap_sharing_types::ShareNotificationFilterCondition) -> bool
+impl core::default::Default for jmap_sharing_types::ShareNotificationFilterCondition
+pub fn jmap_sharing_types::ShareNotificationFilterCondition::default() -> jmap_sharing_types::ShareNotificationFilterCondition
+impl core::fmt::Debug for jmap_sharing_types::ShareNotificationFilterCondition
+pub fn jmap_sharing_types::ShareNotificationFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_sharing_types::ShareNotificationFilterCondition
+impl serde_core::ser::Serialize for jmap_sharing_types::ShareNotificationFilterCondition
+pub fn jmap_sharing_types::ShareNotificationFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_sharing_types::ShareNotificationFilterCondition
+pub fn jmap_sharing_types::ShareNotificationFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI: &str
+pub const jmap_sharing_types::JMAP_PRINCIPALS_URI: &str
+pub type jmap_sharing_types::PrincipalFilter = jmap_types::query::Filter<jmap_sharing_types::PrincipalFilterCondition>
+pub type jmap_sharing_types::ShareNotificationFilter = jmap_types::query::Filter<jmap_sharing_types::ShareNotificationFilterCondition>

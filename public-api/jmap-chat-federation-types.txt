@@ -1,0 +1,478 @@
+pub mod jmap_chat_federation_types
+#[non_exhaustive] pub enum jmap_chat_federation_types::AnonymousSessionError
+pub jmap_chat_federation_types::AnonymousSessionError::NoPeerSigningKeys
+pub jmap_chat_federation_types::AnonymousSessionError::PrivateKeyMember(usize)
+impl core::clone::Clone for jmap_chat_federation_types::AnonymousSessionError
+pub fn jmap_chat_federation_types::AnonymousSessionError::clone(&self) -> jmap_chat_federation_types::AnonymousSessionError
+impl core::cmp::Eq for jmap_chat_federation_types::AnonymousSessionError
+impl core::cmp::PartialEq for jmap_chat_federation_types::AnonymousSessionError
+pub fn jmap_chat_federation_types::AnonymousSessionError::eq(&self, &jmap_chat_federation_types::AnonymousSessionError) -> bool
+impl core::error::Error for jmap_chat_federation_types::AnonymousSessionError
+impl core::fmt::Debug for jmap_chat_federation_types::AnonymousSessionError
+pub fn jmap_chat_federation_types::AnonymousSessionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_chat_federation_types::AnonymousSessionError
+pub fn jmap_chat_federation_types::AnonymousSessionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::AnonymousSessionError
+#[non_exhaustive] pub enum jmap_chat_federation_types::GroupUpdateAction
+pub jmap_chat_federation_types::GroupUpdateAction::AddMembers
+pub jmap_chat_federation_types::GroupUpdateAction::Close
+pub jmap_chat_federation_types::GroupUpdateAction::Create
+pub jmap_chat_federation_types::GroupUpdateAction::Leave
+pub jmap_chat_federation_types::GroupUpdateAction::RemoveMembers
+pub jmap_chat_federation_types::GroupUpdateAction::UpdateMetadata
+pub jmap_chat_federation_types::GroupUpdateAction::UpdateRoles
+impl core::clone::Clone for jmap_chat_federation_types::GroupUpdateAction
+pub fn jmap_chat_federation_types::GroupUpdateAction::clone(&self) -> jmap_chat_federation_types::GroupUpdateAction
+impl core::cmp::Eq for jmap_chat_federation_types::GroupUpdateAction
+impl core::cmp::PartialEq for jmap_chat_federation_types::GroupUpdateAction
+pub fn jmap_chat_federation_types::GroupUpdateAction::eq(&self, &jmap_chat_federation_types::GroupUpdateAction) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::GroupUpdateAction
+pub fn jmap_chat_federation_types::GroupUpdateAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_federation_types::GroupUpdateAction
+pub fn jmap_chat_federation_types::GroupUpdateAction::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_chat_federation_types::GroupUpdateAction
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::GroupUpdateAction
+impl serde_core::ser::Serialize for jmap_chat_federation_types::GroupUpdateAction
+pub fn jmap_chat_federation_types::GroupUpdateAction::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::GroupUpdateAction
+pub fn jmap_chat_federation_types::GroupUpdateAction::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_chat_federation_types::ReactionAction
+pub jmap_chat_federation_types::ReactionAction::Add
+pub jmap_chat_federation_types::ReactionAction::Remove
+impl core::clone::Clone for jmap_chat_federation_types::ReactionAction
+pub fn jmap_chat_federation_types::ReactionAction::clone(&self) -> jmap_chat_federation_types::ReactionAction
+impl core::cmp::Eq for jmap_chat_federation_types::ReactionAction
+impl core::cmp::PartialEq for jmap_chat_federation_types::ReactionAction
+pub fn jmap_chat_federation_types::ReactionAction::eq(&self, &jmap_chat_federation_types::ReactionAction) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::ReactionAction
+pub fn jmap_chat_federation_types::ReactionAction::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_federation_types::ReactionAction
+pub fn jmap_chat_federation_types::ReactionAction::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_chat_federation_types::ReactionAction
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::ReactionAction
+impl serde_core::ser::Serialize for jmap_chat_federation_types::ReactionAction
+pub fn jmap_chat_federation_types::ReactionAction::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::ReactionAction
+pub fn jmap_chat_federation_types::ReactionAction::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::FederationSession
+pub jmap_chat_federation_types::FederationSession::owner_direct_address: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::FederationSession::owner_user_id: alloc::string::String
+pub jmap_chat_federation_types::FederationSession::peer_signing_keys: alloc::vec::Vec<serde_json::value::Value>
+impl jmap_chat_federation_types::FederationSession
+pub fn jmap_chat_federation_types::FederationSession::from_session_extra(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<Self, serde_json::error::Error>
+pub fn jmap_chat_federation_types::FederationSession::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<serde_json::value::Value>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::FederationSession
+pub fn jmap_chat_federation_types::FederationSession::clone(&self) -> jmap_chat_federation_types::FederationSession
+impl core::cmp::PartialEq for jmap_chat_federation_types::FederationSession
+pub fn jmap_chat_federation_types::FederationSession::eq(&self, &jmap_chat_federation_types::FederationSession) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::FederationSession
+pub fn jmap_chat_federation_types::FederationSession::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::FederationSession
+impl serde_core::ser::Serialize for jmap_chat_federation_types::FederationSession
+pub fn jmap_chat_federation_types::FederationSession::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::FederationSession
+pub fn jmap_chat_federation_types::FederationSession::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerAck
+pub jmap_chat_federation_types::PeerAck::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerAck::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_chat_federation_types::PeerAck
+pub fn jmap_chat_federation_types::PeerAck::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerAck
+pub fn jmap_chat_federation_types::PeerAck::clone(&self) -> jmap_chat_federation_types::PeerAck
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerAck
+pub fn jmap_chat_federation_types::PeerAck::eq(&self, &jmap_chat_federation_types::PeerAck) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerAck
+pub fn jmap_chat_federation_types::PeerAck::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerAck
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerAck
+pub fn jmap_chat_federation_types::PeerAck::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerAck
+pub fn jmap_chat_federation_types::PeerAck::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerAttachment
+pub jmap_chat_federation_types::PeerAttachment::attachment: jmap_chat_types::message::Attachment
+pub jmap_chat_federation_types::PeerAttachment::fetch_url: alloc::string::String
+impl jmap_chat_federation_types::PeerAttachment
+pub fn jmap_chat_federation_types::PeerAttachment::new(jmap_chat_types::message::Attachment, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerAttachment
+pub fn jmap_chat_federation_types::PeerAttachment::clone(&self) -> jmap_chat_federation_types::PeerAttachment
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerAttachment
+pub fn jmap_chat_federation_types::PeerAttachment::eq(&self, &jmap_chat_federation_types::PeerAttachment) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerAttachment
+pub fn jmap_chat_federation_types::PeerAttachment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerAttachment
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerAttachment
+pub fn jmap_chat_federation_types::PeerAttachment::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerAttachment
+pub fn jmap_chat_federation_types::PeerAttachment::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerAvatar
+pub jmap_chat_federation_types::PeerAvatar::content_type: alloc::string::String
+pub jmap_chat_federation_types::PeerAvatar::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerAvatar::fetch_url: alloc::string::String
+pub jmap_chat_federation_types::PeerAvatar::sha256: jmap_cid_types::digest::Sha256
+pub jmap_chat_federation_types::PeerAvatar::size: u64
+impl jmap_chat_federation_types::PeerAvatar
+pub fn jmap_chat_federation_types::PeerAvatar::new(impl core::convert::Into<alloc::string::String>, u64, jmap_cid_types::digest::Sha256, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerAvatar
+pub fn jmap_chat_federation_types::PeerAvatar::clone(&self) -> jmap_chat_federation_types::PeerAvatar
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerAvatar
+pub fn jmap_chat_federation_types::PeerAvatar::eq(&self, &jmap_chat_federation_types::PeerAvatar) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerAvatar
+pub fn jmap_chat_federation_types::PeerAvatar::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerAvatar
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerAvatar
+pub fn jmap_chat_federation_types::PeerAvatar::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerAvatar
+pub fn jmap_chat_federation_types::PeerAvatar::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerChatMember
+pub jmap_chat_federation_types::PeerChatMember::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerChatMember::id: alloc::string::String
+pub jmap_chat_federation_types::PeerChatMember::invited_by: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::PeerChatMember::joined_at: jmap_types::id::UTCDate
+pub jmap_chat_federation_types::PeerChatMember::role: jmap_chat_types::chat::ChatMemberRole
+impl jmap_chat_federation_types::PeerChatMember
+pub fn jmap_chat_federation_types::PeerChatMember::new(impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatMemberRole, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerChatMember
+pub fn jmap_chat_federation_types::PeerChatMember::clone(&self) -> jmap_chat_federation_types::PeerChatMember
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerChatMember
+pub fn jmap_chat_federation_types::PeerChatMember::eq(&self, &jmap_chat_federation_types::PeerChatMember) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerChatMember
+pub fn jmap_chat_federation_types::PeerChatMember::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerChatMember
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerChatMember
+pub fn jmap_chat_federation_types::PeerChatMember::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerChatMember
+pub fn jmap_chat_federation_types::PeerChatMember::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerDeliverArgs
+pub jmap_chat_federation_types::PeerDeliverArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerDeliverArgs::chat_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerDeliverArgs::chat_kind: jmap_chat_types::chat::ChatKind
+pub jmap_chat_federation_types::PeerDeliverArgs::edit: core::option::Option<jmap_chat_federation_types::PeerEdit>
+pub jmap_chat_federation_types::PeerDeliverArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerDeliverArgs::message: core::option::Option<jmap_chat_federation_types::PeerMessage>
+pub jmap_chat_federation_types::PeerDeliverArgs::reaction_update: core::option::Option<jmap_chat_federation_types::PeerReactionUpdate>
+pub jmap_chat_federation_types::PeerDeliverArgs::sender_user_id: alloc::string::String
+impl jmap_chat_federation_types::PeerDeliverArgs
+pub fn jmap_chat_federation_types::PeerDeliverArgs::new_edit(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerEdit) -> Self
+pub fn jmap_chat_federation_types::PeerDeliverArgs::new_message(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerMessage) -> Self
+pub fn jmap_chat_federation_types::PeerDeliverArgs::new_reaction_update(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerReactionUpdate) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerDeliverArgs
+pub fn jmap_chat_federation_types::PeerDeliverArgs::clone(&self) -> jmap_chat_federation_types::PeerDeliverArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerDeliverArgs
+pub fn jmap_chat_federation_types::PeerDeliverArgs::eq(&self, &jmap_chat_federation_types::PeerDeliverArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerDeliverArgs
+pub fn jmap_chat_federation_types::PeerDeliverArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerDeliverArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerDeliverArgs
+pub fn jmap_chat_federation_types::PeerDeliverArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerDeliverArgs
+pub fn jmap_chat_federation_types::PeerDeliverArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerDeliverResponse
+pub jmap_chat_federation_types::PeerDeliverResponse::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerDeliverResponse::canonical_chat_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_federation_types::PeerDeliverResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerDeliverResponse::received_at: jmap_types::id::UTCDate
+pub jmap_chat_federation_types::PeerDeliverResponse::received_msg_id: jmap_types::id::Id
+impl jmap_chat_federation_types::PeerDeliverResponse
+pub fn jmap_chat_federation_types::PeerDeliverResponse::new(jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerDeliverResponse
+pub fn jmap_chat_federation_types::PeerDeliverResponse::clone(&self) -> jmap_chat_federation_types::PeerDeliverResponse
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerDeliverResponse
+pub fn jmap_chat_federation_types::PeerDeliverResponse::eq(&self, &jmap_chat_federation_types::PeerDeliverResponse) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerDeliverResponse
+pub fn jmap_chat_federation_types::PeerDeliverResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerDeliverResponse
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerDeliverResponse
+pub fn jmap_chat_federation_types::PeerDeliverResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerDeliverResponse
+pub fn jmap_chat_federation_types::PeerDeliverResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerEdit
+pub jmap_chat_federation_types::PeerEdit::body: alloc::string::String
+pub jmap_chat_federation_types::PeerEdit::body_type: jmap_chat_types::message::BodyType
+pub jmap_chat_federation_types::PeerEdit::broadcast_mentions: core::option::Option<alloc::vec::Vec<jmap_chat_types::message::BroadcastMention>>
+pub jmap_chat_federation_types::PeerEdit::edited_at: jmap_types::id::UTCDate
+pub jmap_chat_federation_types::PeerEdit::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerEdit::mentions: core::option::Option<alloc::vec::Vec<jmap_chat_federation_types::PeerMention>>
+pub jmap_chat_federation_types::PeerEdit::sender_msg_id: jmap_types::id::Id
+impl jmap_chat_federation_types::PeerEdit
+pub fn jmap_chat_federation_types::PeerEdit::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<jmap_chat_types::message::BodyType>, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerEdit
+pub fn jmap_chat_federation_types::PeerEdit::clone(&self) -> jmap_chat_federation_types::PeerEdit
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerEdit
+pub fn jmap_chat_federation_types::PeerEdit::eq(&self, &jmap_chat_federation_types::PeerEdit) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerEdit
+pub fn jmap_chat_federation_types::PeerEdit::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerEdit
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerEdit
+pub fn jmap_chat_federation_types::PeerEdit::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerEdit
+pub fn jmap_chat_federation_types::PeerEdit::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerGroupUpdateArgs
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::action: jmap_chat_federation_types::GroupUpdateAction
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::added_members: core::option::Option<alloc::vec::Vec<jmap_chat_federation_types::PeerChatMember>>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::avatar: core::option::Option<jmap_chat_types::clearable::Clearable<jmap_chat_federation_types::PeerAvatar>>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::chat_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::description: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::members: core::option::Option<alloc::vec::Vec<jmap_chat_federation_types::PeerChatMember>>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::name: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::removed_member_ids: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::sender_user_id: alloc::string::String
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::updated_roles: core::option::Option<alloc::vec::Vec<jmap_chat_federation_types::PeerRoleUpdate>>
+impl jmap_chat_federation_types::PeerGroupUpdateArgs
+pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_federation_types::GroupUpdateAction) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerGroupUpdateArgs
+pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::clone(&self) -> jmap_chat_federation_types::PeerGroupUpdateArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerGroupUpdateArgs
+pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::eq(&self, &jmap_chat_federation_types::PeerGroupUpdateArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerGroupUpdateArgs
+pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerGroupUpdateArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerGroupUpdateArgs
+pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerGroupUpdateArgs
+pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerMention
+pub jmap_chat_federation_types::PeerMention::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerMention::id: alloc::string::String
+impl jmap_chat_federation_types::PeerMention
+pub fn jmap_chat_federation_types::PeerMention::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerMention
+pub fn jmap_chat_federation_types::PeerMention::clone(&self) -> jmap_chat_federation_types::PeerMention
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerMention
+pub fn jmap_chat_federation_types::PeerMention::eq(&self, &jmap_chat_federation_types::PeerMention) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerMention
+pub fn jmap_chat_federation_types::PeerMention::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerMention
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerMention
+pub fn jmap_chat_federation_types::PeerMention::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerMention
+pub fn jmap_chat_federation_types::PeerMention::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerMessage
+pub jmap_chat_federation_types::PeerMessage::actions: core::option::Option<alloc::vec::Vec<jmap_chat_types::message::MessageAction>>
+pub jmap_chat_federation_types::PeerMessage::attachments: alloc::vec::Vec<jmap_chat_federation_types::PeerAttachment>
+pub jmap_chat_federation_types::PeerMessage::body: alloc::string::String
+pub jmap_chat_federation_types::PeerMessage::body_type: jmap_chat_types::message::BodyType
+pub jmap_chat_federation_types::PeerMessage::broadcast_mentions: core::option::Option<alloc::vec::Vec<jmap_chat_types::message::BroadcastMention>>
+pub jmap_chat_federation_types::PeerMessage::burn_on_read: core::option::Option<bool>
+pub jmap_chat_federation_types::PeerMessage::expires_after_read_seconds: core::option::Option<u64>
+pub jmap_chat_federation_types::PeerMessage::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerMessage::last_seen_sender_msg_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_federation_types::PeerMessage::mentions: core::option::Option<alloc::vec::Vec<jmap_chat_federation_types::PeerMention>>
+pub jmap_chat_federation_types::PeerMessage::reply_to: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_federation_types::PeerMessage::sender_expires_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_federation_types::PeerMessage::sender_msg_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerMessage::sent_at: jmap_types::id::UTCDate
+pub jmap_chat_federation_types::PeerMessage::subject: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::PeerMessage::thread_root_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_federation_types::PeerMessage::topic_id: core::option::Option<alloc::string::String>
+impl jmap_chat_federation_types::PeerMessage
+pub fn jmap_chat_federation_types::PeerMessage::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<jmap_chat_types::message::BodyType>, jmap_types::id::UTCDate, alloc::vec::Vec<jmap_chat_federation_types::PeerAttachment>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerMessage
+pub fn jmap_chat_federation_types::PeerMessage::clone(&self) -> jmap_chat_federation_types::PeerMessage
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerMessage
+pub fn jmap_chat_federation_types::PeerMessage::eq(&self, &jmap_chat_federation_types::PeerMessage) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerMessage
+pub fn jmap_chat_federation_types::PeerMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerMessage
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerMessage
+pub fn jmap_chat_federation_types::PeerMessage::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerMessage
+pub fn jmap_chat_federation_types::PeerMessage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerPresenceArgs
+pub jmap_chat_federation_types::PeerPresenceArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerPresenceArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerPresenceArgs::identity: alloc::string::String
+pub jmap_chat_federation_types::PeerPresenceArgs::last_active_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_federation_types::PeerPresenceArgs::presence: jmap_chat_types::presence::Presence
+pub jmap_chat_federation_types::PeerPresenceArgs::status_emoji: core::option::Option<jmap_chat_types::clearable::Clearable<alloc::string::String>>
+pub jmap_chat_federation_types::PeerPresenceArgs::status_text: core::option::Option<jmap_chat_types::clearable::Clearable<alloc::string::String>>
+impl jmap_chat_federation_types::PeerPresenceArgs
+pub fn jmap_chat_federation_types::PeerPresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::presence::Presence) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerPresenceArgs
+pub fn jmap_chat_federation_types::PeerPresenceArgs::clone(&self) -> jmap_chat_federation_types::PeerPresenceArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerPresenceArgs
+pub fn jmap_chat_federation_types::PeerPresenceArgs::eq(&self, &jmap_chat_federation_types::PeerPresenceArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerPresenceArgs
+pub fn jmap_chat_federation_types::PeerPresenceArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerPresenceArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerPresenceArgs
+pub fn jmap_chat_federation_types::PeerPresenceArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerPresenceArgs
+pub fn jmap_chat_federation_types::PeerPresenceArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerReactionUpdate
+pub jmap_chat_federation_types::PeerReactionUpdate::action: jmap_chat_federation_types::ReactionAction
+pub jmap_chat_federation_types::PeerReactionUpdate::custom_emoji_id: core::option::Option<jmap_types::id::Id>
+pub jmap_chat_federation_types::PeerReactionUpdate::emoji: alloc::string::String
+pub jmap_chat_federation_types::PeerReactionUpdate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerReactionUpdate::sender_msg_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerReactionUpdate::sender_reaction_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerReactionUpdate::sent_at: jmap_types::id::UTCDate
+impl jmap_chat_federation_types::PeerReactionUpdate
+pub fn jmap_chat_federation_types::PeerReactionUpdate::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_federation_types::ReactionAction, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerReactionUpdate
+pub fn jmap_chat_federation_types::PeerReactionUpdate::clone(&self) -> jmap_chat_federation_types::PeerReactionUpdate
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerReactionUpdate
+pub fn jmap_chat_federation_types::PeerReactionUpdate::eq(&self, &jmap_chat_federation_types::PeerReactionUpdate) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerReactionUpdate
+pub fn jmap_chat_federation_types::PeerReactionUpdate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerReactionUpdate
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerReactionUpdate
+pub fn jmap_chat_federation_types::PeerReactionUpdate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerReactionUpdate
+pub fn jmap_chat_federation_types::PeerReactionUpdate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerReceiptArgs
+pub jmap_chat_federation_types::PeerReceiptArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerReceiptArgs::delivered_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_federation_types::PeerReceiptArgs::device_delivered_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_federation_types::PeerReceiptArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerReceiptArgs::read_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_federation_types::PeerReceiptArgs::read_disposition: core::option::Option<jmap_chat_types::message::ReadDisposition>
+pub jmap_chat_federation_types::PeerReceiptArgs::reader_user_id: alloc::string::String
+pub jmap_chat_federation_types::PeerReceiptArgs::sender_msg_id: jmap_types::id::Id
+impl jmap_chat_federation_types::PeerReceiptArgs
+pub fn jmap_chat_federation_types::PeerReceiptArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerReceiptArgs
+pub fn jmap_chat_federation_types::PeerReceiptArgs::clone(&self) -> jmap_chat_federation_types::PeerReceiptArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerReceiptArgs
+pub fn jmap_chat_federation_types::PeerReceiptArgs::eq(&self, &jmap_chat_federation_types::PeerReceiptArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerReceiptArgs
+pub fn jmap_chat_federation_types::PeerReceiptArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerReceiptArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerReceiptArgs
+pub fn jmap_chat_federation_types::PeerReceiptArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerReceiptArgs
+pub fn jmap_chat_federation_types::PeerReceiptArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerRetractArgs
+pub jmap_chat_federation_types::PeerRetractArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerRetractArgs::chat_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerRetractArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerRetractArgs::sender_msg_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerRetractArgs::sender_user_id: alloc::string::String
+impl jmap_chat_federation_types::PeerRetractArgs
+pub fn jmap_chat_federation_types::PeerRetractArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerRetractArgs
+pub fn jmap_chat_federation_types::PeerRetractArgs::clone(&self) -> jmap_chat_federation_types::PeerRetractArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerRetractArgs
+pub fn jmap_chat_federation_types::PeerRetractArgs::eq(&self, &jmap_chat_federation_types::PeerRetractArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerRetractArgs
+pub fn jmap_chat_federation_types::PeerRetractArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerRetractArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerRetractArgs
+pub fn jmap_chat_federation_types::PeerRetractArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerRetractArgs
+pub fn jmap_chat_federation_types::PeerRetractArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerRetractResponse
+pub jmap_chat_federation_types::PeerRetractResponse::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerRetractResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerRetractResponse::retracted_at: jmap_types::id::UTCDate
+impl jmap_chat_federation_types::PeerRetractResponse
+pub fn jmap_chat_federation_types::PeerRetractResponse::new(jmap_types::id::Id, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerRetractResponse
+pub fn jmap_chat_federation_types::PeerRetractResponse::clone(&self) -> jmap_chat_federation_types::PeerRetractResponse
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerRetractResponse
+pub fn jmap_chat_federation_types::PeerRetractResponse::eq(&self, &jmap_chat_federation_types::PeerRetractResponse) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerRetractResponse
+pub fn jmap_chat_federation_types::PeerRetractResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerRetractResponse
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerRetractResponse
+pub fn jmap_chat_federation_types::PeerRetractResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerRetractResponse
+pub fn jmap_chat_federation_types::PeerRetractResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerRoleUpdate
+pub jmap_chat_federation_types::PeerRoleUpdate::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerRoleUpdate::id: alloc::string::String
+pub jmap_chat_federation_types::PeerRoleUpdate::role: jmap_chat_types::chat::ChatMemberRole
+impl jmap_chat_federation_types::PeerRoleUpdate
+pub fn jmap_chat_federation_types::PeerRoleUpdate::new(impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatMemberRole) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerRoleUpdate
+pub fn jmap_chat_federation_types::PeerRoleUpdate::clone(&self) -> jmap_chat_federation_types::PeerRoleUpdate
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerRoleUpdate
+pub fn jmap_chat_federation_types::PeerRoleUpdate::eq(&self, &jmap_chat_federation_types::PeerRoleUpdate) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerRoleUpdate
+pub fn jmap_chat_federation_types::PeerRoleUpdate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerRoleUpdate
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerRoleUpdate
+pub fn jmap_chat_federation_types::PeerRoleUpdate::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerRoleUpdate
+pub fn jmap_chat_federation_types::PeerRoleUpdate::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerSubscribePresenceArgs
+pub jmap_chat_federation_types::PeerSubscribePresenceArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerSubscribePresenceArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerSubscribePresenceArgs::subscriber_id: alloc::string::String
+pub jmap_chat_federation_types::PeerSubscribePresenceArgs::ttl: core::option::Option<u64>
+impl jmap_chat_federation_types::PeerSubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerSubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::clone(&self) -> jmap_chat_federation_types::PeerSubscribePresenceArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerSubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::eq(&self, &jmap_chat_federation_types::PeerSubscribePresenceArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerSubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerSubscribePresenceArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerSubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerSubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerSubscribePresenceResponse
+pub jmap_chat_federation_types::PeerSubscribePresenceResponse::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerSubscribePresenceResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerSubscribePresenceResponse::last_active_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_federation_types::PeerSubscribePresenceResponse::presence: jmap_chat_types::presence::Presence
+pub jmap_chat_federation_types::PeerSubscribePresenceResponse::status_emoji: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::PeerSubscribePresenceResponse::status_text: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::PeerSubscribePresenceResponse::ttl: u64
+impl jmap_chat_federation_types::PeerSubscribePresenceResponse
+pub fn jmap_chat_federation_types::PeerSubscribePresenceResponse::new(jmap_types::id::Id, jmap_chat_types::presence::Presence, u64) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerSubscribePresenceResponse
+pub fn jmap_chat_federation_types::PeerSubscribePresenceResponse::clone(&self) -> jmap_chat_federation_types::PeerSubscribePresenceResponse
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerSubscribePresenceResponse
+pub fn jmap_chat_federation_types::PeerSubscribePresenceResponse::eq(&self, &jmap_chat_federation_types::PeerSubscribePresenceResponse) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerSubscribePresenceResponse
+pub fn jmap_chat_federation_types::PeerSubscribePresenceResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerSubscribePresenceResponse
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerSubscribePresenceResponse
+pub fn jmap_chat_federation_types::PeerSubscribePresenceResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerSubscribePresenceResponse
+pub fn jmap_chat_federation_types::PeerSubscribePresenceResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerTypingArgs
+pub jmap_chat_federation_types::PeerTypingArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerTypingArgs::chat_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerTypingArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerTypingArgs::sender_user_id: alloc::string::String
+pub jmap_chat_federation_types::PeerTypingArgs::typing: bool
+impl jmap_chat_federation_types::PeerTypingArgs
+pub fn jmap_chat_federation_types::PeerTypingArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, bool) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerTypingArgs
+pub fn jmap_chat_federation_types::PeerTypingArgs::clone(&self) -> jmap_chat_federation_types::PeerTypingArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerTypingArgs
+pub fn jmap_chat_federation_types::PeerTypingArgs::eq(&self, &jmap_chat_federation_types::PeerTypingArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerTypingArgs
+pub fn jmap_chat_federation_types::PeerTypingArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerTypingArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerTypingArgs
+pub fn jmap_chat_federation_types::PeerTypingArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerTypingArgs
+pub fn jmap_chat_federation_types::PeerTypingArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+pub jmap_chat_federation_types::PeerUnsubscribePresenceArgs::account_id: jmap_types::id::Id
+pub jmap_chat_federation_types::PeerUnsubscribePresenceArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerUnsubscribePresenceArgs::subscriber_id: alloc::string::String
+impl jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::clone(&self) -> jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+impl core::cmp::PartialEq for jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::eq(&self, &jmap_chat_federation_types::PeerUnsubscribePresenceArgs) -> bool
+impl core::fmt::Debug for jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+impl serde_core::ser::Serialize for jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::PeerUnsubscribePresenceArgs
+pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub fn jmap_chat_federation_types::anonymous_well_known_session(serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_chat_federation_types::FederationSession) -> core::result::Result<serde_json::map::Map<alloc::string::String, serde_json::value::Value>, jmap_chat_federation_types::AnonymousSessionError>
+pub fn jmap_chat_federation_types::contact_direct_address(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::option::Option<&str>
+pub fn jmap_chat_federation_types::contact_server_url(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::option::Option<&str>
+pub fn jmap_chat_federation_types::is_jmap_object_uri(&str) -> bool
+pub fn jmap_chat_federation_types::owner_endpoints(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::option::Option<alloc::vec::Vec<jmap_chat_types::contact::Endpoint>>
