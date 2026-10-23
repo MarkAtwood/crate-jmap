@@ -37,6 +37,7 @@ wiremock = { workspace = true }
 criterion = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring"] }
 
 [[bench]]
 name = "session_and_urls"
