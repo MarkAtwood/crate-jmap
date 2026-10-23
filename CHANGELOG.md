@@ -3309,6 +3309,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-client**: **BREAKING** `ChatSessionExt::vapid_public_key`
+  reads `applicationServerKey` from the `urn:ietf:params:jmap:webpush-vapid`
+  capability, the property RFC 9749 §3 defines. It previously read a
+  non-standard `vapidPublicKey` and returned `None` against every
+  RFC-conformant server.
+
 - **jmap-chat-server**: **BREAKING** `MemoryBackend` `Space/set`
   `removeRoles` also removes every channel's `permissionOverrides`
   entries with `targetType` `"role"` and the removed role's
