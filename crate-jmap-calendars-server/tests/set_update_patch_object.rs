@@ -49,7 +49,7 @@ fn seeded_backend() -> MemoryBackend {
 /// Send one `update` for `ev1` and return the `/set` response.
 async fn update_ev1(backend: &MemoryBackend, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "ev1": patch } });
-    handle_calendar_event_set(backend, &(), &std::collections::BTreeMap::new(), args)
+    handle_calendar_event_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("/set must not return a top-level error")
         .primary

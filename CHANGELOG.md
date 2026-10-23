@@ -14,6 +14,34 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-calendars-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
+  Calendar and CalendarEvent (the types -04 §4.1 names for calendars).
+  `handle_calendar_set`, `handle_calendar_event_set`,
+  `handle_calendar_changes` and `handle_calendar_event_changes` take the
+  request's `using` list as a new last argument
+  (`register_calendars_handlers` passes `CallContext::using`), with the
+  same `/changes` and `/set` checks as jmap-mail-server. Creates store the
+  `metadata` they carry. The in-memory backend opts a type in with
+  `MemoryBackend::with_metadata_info("Calendar" | "CalendarEvent", info)`
+  (panics for other types or `supportsPrivate: true`); nothing is enabled
+  by default. An opted-in type evaluates the -04 §3.6 conditions on
+  `CalendarEvent/query`, validates writes in -04 §3.2 rule order
+  (request-only `invalidPatch`, `notFound`, `forbidden` without
+  `maySetMetadata` on the Calendar or on every Calendar of the event
+  before and after the update, then namespace and `maxDepth` checks),
+  stores an update's `metadata: null` as `{}`, leaves CalendarEvent
+  `updated` alone (-04 §3.1), and drops metadata-only updates from
+  `/changes` under `ignoreMetadataOnlyChanges` without counting them
+  toward `maxChanges`. A type that is not opted in rejects metadata writes
+  with `invalidProperties` and metadata filters with `unsupportedFilter`
+  (bd JMAP-s4kp.3).
+- **jmap-calendars-types**: **BREAKING** draft-ietf-jmap-metadata-04
+  fields on Calendar and CalendarEvent: typed `metadata` and
+  `privateMetadata` (`Option<Map<String, Value>>`, -04 §2; `null` decodes
+  as absent, a non-object fails), classified `CLIENT_SETTABLE`.
+  `CalendarEventFilterCondition` carries the six -04 §3.6 conditions as
+  leaf fields, with `has_metadata_condition`; `deny_unknown_fields` still
+  rejects any other key (bd JMAP-s4kp.3).
 - **jmap-chat-server**: **BREAKING** draft-ietf-jmap-metadata-04 on
   Chat, Message and Space (draft-atwood-jmap-chat-00 lets servers list
   them). `handle_chat_set`, `handle_message_set`, `handle_space_set`,

@@ -222,6 +222,9 @@ impl GetObject for crate::Calendar {}
 /// draft-ietf-jmap-calendars-33 §4 (lines 747, 816, 907): `id` is
 /// "(immutable; server-set)"; `isDefault` and `myRights` are
 /// "(server-set)".
+///
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Calendar {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &["id", "isDefault", "myRights"];
@@ -237,6 +240,8 @@ impl SetObject for crate::Calendar {
         "defaultAlertsWithoutTime",
         "timeZone",
         "shareWith",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
@@ -252,6 +257,9 @@ impl GetObject for crate::CalendarEvent {}
 /// `baseEventId` are "(immutable; server-set)", `isOrigin` is
 /// "(server-set)". No other property, JMAP or JSCalendar, carries either
 /// attribute.
+///
+/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::CalendarEvent {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &["id", "baseEventId", "isOrigin"];
@@ -306,6 +314,8 @@ impl SetObject for crate::CalendarEvent {
         "start",
         "duration",
         "status",
+        "metadata",
+        "privateMetadata",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
@@ -417,6 +427,8 @@ mod tests {
             time_zone: Some("Etc/UTC".into()),
             share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
             my_rights: rights(),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
@@ -479,6 +491,8 @@ mod tests {
             start: Some("2026-01-01T00:00:00".into()),
             duration: Some("PT1H".into()),
             status: Some("confirmed".into()),
+            metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
+            private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

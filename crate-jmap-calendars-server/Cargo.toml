@@ -16,15 +16,20 @@ categories = ["network-programming", "web-programming::http-server"]
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0. Mirrors the canonical
 # jmap-mail-server `memory` feature (JMAP-hwdv.1).
-memory = ["dep:uuid"]
+memory = ["dep:uuid", "dep:jmap-metadata-server"]
 
 [dependencies]
 jmap-types = { workspace = true }
 jmap-calendars-types = { workspace = true }
 jmap-server = { workspace = true }
+# draft-ietf-jmap-metadata-04 capability URI and DataTypeMetadataInfo
+# (serde-only); the /set handlers check `using` against the URI.
+jmap-metadata-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
+# draft-ietf-jmap-metadata-04 helpers the MemoryBackend wires in (JMAP-s4kp.3).
+jmap-metadata-server = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

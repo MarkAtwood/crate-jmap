@@ -37,8 +37,8 @@ use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{Value, json};
 
 use crate::helpers::{
-    SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
+    SetAccumulators, check_metadata_entry, enforce_max_objects_in_get, enforce_max_objects_in_set,
+    extract_account_id, finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
 };
 use crate::{CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend};
 use jmap_server::{
@@ -208,13 +208,20 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<CalendarEvent, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<CalendarEvent, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -358,12 +365,19 @@ async fn prepare_event_patch<B: CalendarsBackend>(
 /// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3). An unknown
 /// reference is `invalidProperties` naming `calendarIds`.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]): a write to `metadata` or
+/// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
+/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
+/// either in a create (-04 §3.2). The backend validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -474,6 +488,13 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
             if let Err(err) = resolve_map_key_refs(&mut obj_val, "calendarIds", created_ids) {
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
@@ -529,6 +550,13 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 .and_then(|m| reject_read_only_patch::<CalendarEvent>(m, None))
             {
                 not_updated.insert(id_str, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Some(Err(err)) = patch_val
+                .as_object()
+                .map(|m| check_metadata_entry(m, false, using))
+            {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
@@ -1452,7 +1480,7 @@ mod tests {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown" });
         let result =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.to_string(), "accountNotFound");
@@ -1750,7 +1778,7 @@ mod tests {
             "update": { "e2": { "title": "renamed" } }
         });
         let resp =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("no method-level error")
                 .primary;
@@ -1779,7 +1807,7 @@ mod tests {
             "destroy": ["e3"]
         });
         let resp =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("no method-level error")
                 .primary;
@@ -1804,7 +1832,7 @@ mod tests {
             "destroy": ["e3"]
         });
         let resp =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("no method-level error")
                 .primary;
@@ -1891,7 +1919,7 @@ mod tests {
             "destroy": [1]
         });
         let err =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect_err("non-string destroy element must be a method error");
         assert_eq!(
@@ -1917,7 +1945,7 @@ mod tests {
             "destroy": ["e1"]
         });
         let err =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect_err("hook error must be a method error");
         assert_eq!(err.error_type, jmap_types::MethodErrorType::ServerFail);
@@ -2013,7 +2041,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect("must not return top-level error");
         assert_eq!(
@@ -2049,7 +2077,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        } = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -2084,7 +2112,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+        } = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -2568,8 +2596,9 @@ mod tests {
                 "ev1": { "keywords": { "$flagged": true } }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.per_user_called.lock().unwrap(),
@@ -2593,8 +2622,9 @@ mod tests {
                 "ev1": { "title": "New Title" }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -2619,8 +2649,9 @@ mod tests {
                 "ev1": { "keywords": { "$flagged": true }, "title": "New Title" }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -2651,8 +2682,9 @@ mod tests {
                 "ev1": { "title": null, "description": null }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -2694,8 +2726,9 @@ mod tests {
                 }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.per_user_called.lock().unwrap(),
@@ -2729,8 +2762,9 @@ mod tests {
                 }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -2760,8 +2794,9 @@ mod tests {
                 "ev1": { "title/foo": "x" }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -2795,8 +2830,9 @@ mod tests {
                 "ev1": { "keywords~1foo": "x" }
             }
         });
-        let _ = handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
-            .await;
+        let _ =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -3510,7 +3546,7 @@ mod tests {
         let backend = MockBackend::new_with_account("acc");
         let args = json!({ "accountId": "acc", "destroy": [{ "note": "CANARY-zegc" }] });
         let err =
-            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
                 .await
                 .expect_err("non-string destroy element must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");

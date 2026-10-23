@@ -33,8 +33,9 @@ use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
 use crate::helpers::{
-    SetAccumulators, apply_default_change_to_response, enforce_max_objects_in_set,
-    extract_account_id, finalize_set_response, resolve_on_success_set_is_default,
+    SetAccumulators, apply_default_change_to_response, check_metadata_entry,
+    enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    resolve_on_success_set_is_default,
 };
 use crate::{CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{
@@ -72,13 +73,20 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
 /// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); with
+/// `urn:ietf:params:jmap:metadata` the request may set
+/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_changes::<Calendar, B>(backend, caller, args, &[]).await
+    jmap_server::handle_changes::<Calendar, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -100,12 +108,18 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 /// - If `false`, any calendar in the `destroy` list that still has events is
 ///   rejected with a `calendarHasEvent` SetError (draft §4.4.1).
 /// - Create and update are forwarded to the backend normally.
+/// - draft-ietf-jmap-metadata-04 §3 and §3.2: a write to `metadata` or
+///   `privateMetadata` is `invalidProperties` without
+///   `urn:ietf:params:jmap:metadata` in `using` (pass
+///   [`jmap_server::CallContext::using`]), as is `null` for either in a
+///   create; the backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -157,6 +171,13 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
         for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Calendar>) {
                 not_created.insert(create_id, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             // `isDefault` and `myRights` are server-set (draft-ietf-jmap-
@@ -245,6 +266,10 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             };
             if let Some(err) = reject_read_only_patch::<Calendar>(patch.as_map(), None) {
                 not_updated.insert(id_str, serde_json::Value::from(&err));
+                continue;
+            }
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
             match backend
@@ -535,7 +560,7 @@ mod tests {
     async fn set_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown" });
-        let result = handle_calendar_set(&backend, &(), args).await;
+        let result = handle_calendar_set(&backend, &(), args, &[]).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
@@ -551,7 +576,7 @@ mod tests {
             "destroy": ["cal1"],
             // onDestroyRemoveEvents defaults to false — not sent
         });
-        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
         let not_destroyed = &resp["notDestroyed"];
@@ -784,7 +809,7 @@ mod tests {
             // onDestroyRemoveEvents defaults to false → handler calls
             // calendar_has_events first.
         });
-        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
         let not_destroyed = &resp["notDestroyed"];
@@ -816,7 +841,7 @@ mod tests {
                 "c1": { "id": "client-chosen-id", "name": "My Calendar" }
             }
         });
-        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -844,7 +869,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
         // cal1 exists in the mock, so destroy should succeed
@@ -882,7 +907,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -943,7 +968,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_calendar_set(&backend, &(), args, &[])
             .await
             .expect("must not return top-level error");
 
@@ -998,7 +1023,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["valid-id", null, "another-id"],
         });
-        let err = handle_calendar_set(&backend, &(), args)
+        let err = handle_calendar_set(&backend, &(), args, &[])
             .await
             .expect_err("destroy with non-string entry must error");
         let err_json = serde_json::to_value(&err).expect("serialize JmapError");

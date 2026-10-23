@@ -7,6 +7,7 @@
 use std::collections::BTreeMap;
 
 use jmap_jscalendar_types::LocalDateTime;
+use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
@@ -331,6 +332,21 @@ pub struct CalendarEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
 
+    // ── draft-ietf-jmap-metadata-04 §2 ────────────────────────────────────────
+    /// Shared metadata, keyed by namespace identifier
+    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
+
+    /// The authenticated user's own metadata, keyed by namespace
+    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// handling as `metadata`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
+
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -378,8 +394,9 @@ fn some_false() -> Option<bool> {
 /// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
 /// `metadata` / `privateMetadata` properties to each listed data type,
 /// filterable through `metadata*` conditions on that type's own `/query`
-/// (draft-ietf-jmap-metadata-04 §2, §3.6). Helpers live in
-/// `jmap-metadata-types`, `jmap-metadata-server`, and
+/// (draft-ietf-jmap-metadata-04 §2, §3.6). This condition carries the six
+/// -04 §3.6 conditions as typed leaf fields (bd JMAP-s4kp.3). Helpers live
+/// in `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///
 /// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
@@ -435,6 +452,51 @@ pub struct CalendarEventFilterCondition {
     /// Event `uid` must be exactly this string.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uid: Option<String>,
+
+    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// present at this path in the object's `metadata`. The path is a
+    /// namespace identifier, optionally followed by an RFC 6901 JSON
+    /// Pointer into the namespace value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_exists: Option<String>,
+
+    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// authenticated user's `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_exists: Option<String>,
+
+    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// `i;unicode-casemap` collation on the `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_contains: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// `metadata_text_contains`, against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_contains: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// `metadata` string at a path.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub metadata_text_equals: Option<MetadataTextMatch>,
+
+    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// against `privateMetadata`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub private_metadata_text_equals: Option<MetadataTextMatch>,
+}
+
+impl CalendarEventFilterCondition {
+    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `metadata*` / `privateMetadata*` fields is set.
+    pub fn has_metadata_condition(&self) -> bool {
+        self.metadata_exists.is_some()
+            || self.private_metadata_exists.is_some()
+            || self.metadata_text_contains.is_some()
+            || self.private_metadata_text_contains.is_some()
+            || self.metadata_text_equals.is_some()
+            || self.private_metadata_text_equals.is_some()
+    }
 }
 
 /// Concrete filter type for CalendarEvent/query

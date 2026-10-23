@@ -1777,6 +1777,8 @@ version = "0.3.0"
 dependencies = [
  "jmap-calendars-server",
  "jmap-calendars-types",
+ "jmap-metadata-server",
+ "jmap-metadata-types",
  "jmap-server",
  "jmap-types",
  "serde",
@@ -1790,6 +1792,7 @@ name = "jmap-calendars-types"
 version = "0.3.0"
 dependencies = [
  "jmap-jscalendar-types",
+ "jmap-metadata-types",
  "jmap-types",
  "serde",
  "serde_json",

@@ -161,11 +161,12 @@ pub fn register_calendars_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>,
 where
     B: CalendarsBackend + 'static,
 {
-    // The optional `$ids` binds `CallContext::created_ids`, the
-    // request-wide creation id map (RFC 8620 §5.3) that `/set` handlers
-    // use to resolve `#creationId` references.
+    // Each optional trailing ident binds the `CallContext` field of that name:
+    // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
+    // `/set` handlers use to resolve `#creationId` references, or `using`,
+    // the request's capability list (draft-ietf-jmap-metadata-04 §3).
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $ids:ident)?| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -174,7 +175,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
-                        $(created_ids: $ids,)?
+                        $($field,)*
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -188,23 +189,27 @@ where
     reg!("Calendar/get", backend, |b, _ci, a, ctx| {
         handle_calendar_get(&*b, &ctx, a).await
     });
-    reg!("Calendar/changes", backend, |b, _ci, a, ctx| {
-        handle_calendar_changes(&*b, &ctx, a).await
+    reg!("Calendar/changes", backend, |b, _ci, a, ctx, using| {
+        handle_calendar_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Calendar/set", backend, |b, _ci, a, ctx| {
-        handle_calendar_set(&*b, &ctx, a).await
+    reg!("Calendar/set", backend, |b, _ci, a, ctx, using| {
+        handle_calendar_set(&*b, &ctx, a, &using).await
     });
 
     // CalendarEvent
     reg!("CalendarEvent/get", backend, |b, _ci, a, ctx| {
         handle_calendar_event_get(&*b, &ctx, a).await
     });
-    reg!("CalendarEvent/changes", backend, |b, _ci, a, ctx| {
-        handle_calendar_event_changes(&*b, &ctx, a).await
+    reg!("CalendarEvent/changes", backend, |b, _ci, a, ctx, using| {
+        handle_calendar_event_changes(&*b, &ctx, a, &using).await
     });
-    reg!("CalendarEvent/set", backend, |b, _ci, a, ctx, ids| {
-        handle_calendar_event_set(&*b, &ctx, &ids, a).await
-    });
+    reg!(
+        "CalendarEvent/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, using| {
+            handle_calendar_event_set(&*b, &ctx, &created_ids, a, &using).await
+        }
+    );
     reg!("CalendarEvent/copy", backend, |b, ci, a, ctx| {
         handle_calendar_event_copy(&*b, &ctx, a, &ci).await
     });
