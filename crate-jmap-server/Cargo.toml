@@ -17,6 +17,7 @@ http = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
@@ -25,6 +26,8 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # wiring is reproducible across the workspace as siblings adopt the same
 # pattern (bd:JMAP-sc1b.18).
 criterion = { workspace = true }
+# Captures the handler-panic `tracing::error!` event in tests/panic_log.rs.
+tracing-subscriber = { workspace = true }
 
 # Each benchmark target in `benches/` needs an explicit `[[bench]]` entry so
 # `cargo bench` discovers it and disables libtest's default harness for the

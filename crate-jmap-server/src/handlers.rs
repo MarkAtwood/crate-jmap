@@ -52,9 +52,8 @@ pub const SERVER_FAIL_INTERNAL_DESC: &str = "internal error";
 /// (`.map_err(|e| server_fail_from_backend(&e))`) — the function never
 /// reads it, logs it, or stashes it. Callers that want their backend
 /// error visible in operator logs MUST log it explicitly at the call
-/// site before invoking this helper; no logging happens here. The
-/// crate's sealed dep set (workspace AGENTS.md) excludes `tracing`,
-/// so a built-in log line is not on the table.
+/// site before invoking this helper; no logging happens here, because
+/// a backend error's text can carry data that must not reach logs.
 ///
 /// The backend error parameter is accepted by reference (and discarded) so
 /// callers retain it for their own structured logging if they wire one. The

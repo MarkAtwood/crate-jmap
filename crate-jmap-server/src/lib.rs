@@ -363,7 +363,8 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     /// Method calls are processed sequentially per RFC 8620 §3.3.  Each
     /// handler runs in a `tokio::task::spawn` for panic isolation: a panicking
     /// handler returns a `serverFail` invocation rather than crashing the
-    /// connection task.
+    /// connection task, and emits one `tracing::error!` event with only the
+    /// `method` and `call_id` fields (never the panic payload or arguments).
     ///
     /// `CallerCtx` must be `Clone + Send + 'static`; see the struct-level doc.
     ///
@@ -538,6 +539,18 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     } else {
                         "internal error"
                     };
+                    // Side channel so operators can tell a caught panic from a
+                    // handler's own serverFail (bd:JMAP-jfia.29). Only the
+                    // method name and call id: the panic payload and the
+                    // arguments may carry secrets. Passed as `&str` so text
+                    // formatters escape the client-chosen call id.
+                    if join_err.is_panic() {
+                        tracing::error!(
+                            method = method.as_str(),
+                            call_id = call_id.as_str(),
+                            "method handler panicked"
+                        );
+                    }
                     method_responses.push(error_invocation(&call_id, JmapError::server_fail(desc)));
                 }
             }
