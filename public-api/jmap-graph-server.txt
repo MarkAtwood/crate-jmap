@@ -69,7 +69,7 @@ pub mod jmap_graph_server::search
 pub struct jmap_graph_server::search::GraphView<'a>
 impl<'a> jmap_graph_server::search::GraphView<'a>
 pub fn jmap_graph_server::search::GraphView<'a>::edge_matches(&self, &jmap_graph_types::search::Expression, &jmap_types::id::Id) -> bool
-pub fn jmap_graph_server::search::GraphView<'a>::new(&'a [jmap_graph_types::node::GraphNode], &'a [jmap_graph_types::edge::GraphEdge]) -> Self
+pub fn jmap_graph_server::search::GraphView<'a>::new(&'a [jmap_graph_types::node::GraphNode], &'a [jmap_graph_types::edge::GraphEdge]) -> core::result::Result<Self, jmap_types::error::JmapError>
 pub fn jmap_graph_server::search::GraphView<'a>::node_matches(&self, &jmap_graph_types::search::Expression, &jmap_types::id::Id) -> bool
 impl<'a> core::fmt::Debug for jmap_graph_server::search::GraphView<'a>
 pub fn jmap_graph_server::search::GraphView<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result

@@ -20,8 +20,7 @@ use crate::edit::check_node_edit;
 use crate::helpers::{
     SetOps, TypeCheck, check_annotations, decode_patch, fetch_one, forbidden, handle_get_visible,
     handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, is_uri,
-    mistyped, not_found, patched, patched_properties, readable_rights, set_error_value,
-    string_or_null, to_map,
+    mistyped, not_found, patched, patched_properties, readable_rights, string_or_null, to_map,
 };
 use crate::{EditLog, GraphBackend, JmapBackend};
 use jmap_server::{
@@ -99,7 +98,7 @@ async fn check_edit<B: GraphBackend>(
         .map_err(fail)?
         .is_some_and(|g| g == *graph_id);
     check_node_edit(current, next, sets_snapshot_seq, log.head, projected)
-        .map_err(|e| set_error_value(&e))?;
+        .map_err(|e| serde_json::Value::from(&*e))?;
     Ok(true)
 }
 
@@ -194,14 +193,18 @@ pub(crate) fn touch<B: GraphBackend>(
 /// or not set to the requested value by the server"). GraphNode and
 /// GraphEdge share their server-set properties (draft-atwood-jmap-graph-00
 /// §GraphEdge: "As defined for GraphNode").
-pub(crate) fn created_entry(id: &Id, stored: &impl serde::Serialize, omitted: &[&str]) -> Value {
-    let stored = to_map(stored);
+pub(crate) fn created_entry(
+    id: &Id,
+    stored: &impl serde::Serialize,
+    omitted: &[&str],
+) -> Result<Value, Value> {
+    let stored = to_map(stored)?;
     let mut created = json!({ "id": id });
     let server_set = GraphNode::SERVER_SET.iter().filter(|k| **k != "id");
     for k in server_set.chain(omitted) {
         created[*k] = stored.get(*k).cloned().unwrap_or(Value::Null);
     }
-    created
+    Ok(created)
 }
 
 /// Handle `GraphNode/get`: standard RFC 8620 §5.1 `/get`, with the nodes of
@@ -309,7 +312,7 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             return Err(invalid(&[], "a GraphNode create must be a JSON object"));
         };
         if let Some(e) = reject_server_set::<GraphNode>(&m) {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &e.with_description("these properties are set by the server"),
             ));
         }
@@ -357,7 +360,7 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             })
             .await
             .map_err(backend_set_error_value)?;
-        Ok(created_entry(&id, &stored, &omitted))
+        created_entry(&id, &stored, &omitted)
     }
 
     async fn update(
@@ -374,8 +377,9 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             .ok_or_else(not_found)?;
         item_graph_writable(backend, caller, account_id, &node.graph_id).await?;
         let keys = patched_properties(&patch);
-        if let Some(e) = reject_read_only_patch::<GraphNode>(patch.as_map(), Some(&to_map(&node))) {
-            return Err(set_error_value(
+        if let Some(e) = reject_read_only_patch::<GraphNode>(patch.as_map(), Some(&to_map(&node)?))
+        {
+            return Err(serde_json::Value::from(
                 &e.with_description("these properties are immutable or server-set"),
             ));
         }
@@ -387,7 +391,7 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             account_id,
             &node.graph_id,
             Some(id),
-            Some(&to_map(&node)),
+            Some(&to_map(&node)?),
             &next,
             keys.iter().any(|k| k == GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY),
         )
@@ -398,7 +402,7 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             .await
             .map_err(backend_set_error_value)?
         {
-            Some(n) => Ok(Value::Object(to_map(&n))),
+            Some(n) => Ok(Value::Object(to_map(&n)?)),
             None => Ok(echo),
         }
     }

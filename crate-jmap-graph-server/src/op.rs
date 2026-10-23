@@ -28,8 +28,7 @@ use serde_json::{Map, Value, json};
 
 use crate::edit::base64url_len;
 use crate::helpers::{
-    SetOps, fetch_one, forbidden, handle_get_visible, handle_set, invalid, readable_rights,
-    set_error_value, to_map,
+    SetOps, fetch_one, forbidden, handle_get_visible, handle_set, invalid, readable_rights, to_map,
 };
 use crate::{GraphBackend, JmapBackend, SetError, SetErrorType};
 
@@ -230,7 +229,7 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
             return Err(invalid(&[], "a GraphNodeOp create must be a JSON object"));
         };
         if let Some(e) = reject_server_set::<GraphNodeOp>(&m) {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &e.with_description("these properties are set by the server"),
             ));
         }
@@ -286,7 +285,7 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
             return Err(invalid(&["data"], "data is not base64url without padding"));
         };
         if len as u64 > cap.max_op_size {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &SetError::new(SetErrorType::TooLarge).with_description("data exceeds maxOpSize"),
             ));
         }
@@ -311,7 +310,7 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
             })
             .await
             .map_err(backend_set_error_value)?;
-        let stored = to_map(&stored);
+        let stored = to_map(&stored)?;
         let mut created = Map::new();
         created.insert("id".to_owned(), json!(id));
         for k in GraphNodeOp::SERVER_SET.iter().filter(|k| **k != "id") {

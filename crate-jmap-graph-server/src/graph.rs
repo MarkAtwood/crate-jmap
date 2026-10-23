@@ -17,7 +17,7 @@ use crate::GraphBackend;
 use crate::helpers::{
     SetOps, TypeCheck, check_annotations, decode_patch, fetch_one, forbidden, handle_get_visible,
     handle_set, invalid, mistyped, not_found, patched, patched_properties, reject_unsupported_sort,
-    set_error_value, to_map,
+    to_map,
 };
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
@@ -137,7 +137,7 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
             return Err(invalid(&[], "a Graph create must be a JSON object"));
         };
         if let Some(e) = reject_server_set::<Graph>(&m) {
-            return Err(set_error_value(
+            return Err(serde_json::Value::from(
                 &e.with_description("these properties are set by the server"),
             ));
         }
@@ -167,7 +167,7 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
             })
             .await
             .map_err(backend_set_error_value)?;
-        let stored = to_map(&stored);
+        let stored = to_map(&stored)?;
         let mut created = json!({
             "id": id,
             "created": stored["created"],
@@ -194,8 +194,8 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
         let mut patch = decode_patch(patch)?;
         let graph = readable(backend, caller, account_id, id).await?;
         let keys = patched_properties(&patch);
-        if let Some(e) = reject_read_only_patch::<Graph>(patch.as_map(), Some(&to_map(&graph))) {
-            return Err(set_error_value(
+        if let Some(e) = reject_read_only_patch::<Graph>(patch.as_map(), Some(&to_map(&graph)?)) {
+            return Err(serde_json::Value::from(
                 &e.with_description("these properties are set by the server"),
             ));
         }
@@ -219,7 +219,7 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
             .await
             .map_err(backend_set_error_value)?
         {
-            Some(g) => Ok(Value::Object(to_map(&g))),
+            Some(g) => Ok(Value::Object(to_map(&g)?)),
             None => Ok(echo),
         }
     }

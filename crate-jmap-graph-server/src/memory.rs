@@ -625,7 +625,7 @@ fn search_hits<'a>(
         return Ok(candidates.cloned().collect());
     };
     let expr = Expression::parse(w, kind).map_err(|e| BackendQueryError::Method(e.into()))?;
-    let view = GraphView::new(nodes, edges);
+    let view = GraphView::new(nodes, edges).map_err(BackendQueryError::Method)?;
     Ok(candidates
         .filter(|id| match kind {
             CandidateKind::Node => view.node_matches(&expr, id),
