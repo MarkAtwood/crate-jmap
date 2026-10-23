@@ -3685,6 +3685,12 @@ wire behaviour that a conforming peer can observe.
   and query position/limit already go through
   `jmap_server::resolve_query_start` / `limit_or_max`.
 
+- **jmap-filenode-server**: the clippy gate now rejects narrowing and
+  sign-changing `as` casts, mirroring jmap-mail-server (bd JMAP-uqhn.8).
+  The audit found none left: the remaining casts widen `usize` to `u64`,
+  and query position/limit already go through
+  `jmap_server::resolve_query_start` / `limit_or_max`.
+
 - **jmap-contacts-server**: the clippy gate now rejects narrowing and
   sign-changing `as` casts, mirroring jmap-mail-server (bd JMAP-uqhn.5).
   The audit found none left: the remaining casts widen `usize` to `u64`,
