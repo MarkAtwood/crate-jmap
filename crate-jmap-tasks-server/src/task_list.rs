@@ -36,8 +36,8 @@ use crate::helpers::{
     set_error_value,
 };
 use jmap_server::{
-    HandlerOutput, QueryParams, backend_set_error_value, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, QueryParams, backend_set_error_value, bool_arg, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -121,10 +121,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
     enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     // Parse onDestroyRemoveTasks (default: false)
-    let on_destroy_remove_tasks = args
-        .get("onDestroyRemoveTasks")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_destroy_remove_tasks = bool_arg(&args, "onDestroyRemoveTasks", false);
 
     let old_state = backend
         .get_state::<TaskList>(caller, &account_id)

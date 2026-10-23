@@ -41,7 +41,7 @@ use crate::helpers::{
     resolve_refs, set_error_value,
 };
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
+    HandlerOutput, backend_set_error_value, bool_arg, reject_read_only_patch, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend,
 };
 
@@ -520,10 +520,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
     // RFC 8620 §5.4 `onSuccessDestroyOriginal` / `destroyFromIfInState`:
     // parsed here so the request payload is consumed in handler-local order
     // and so a clearly-shaped per-feature value is available below.
-    let on_success_destroy_original: bool = args
-        .get("onSuccessDestroyOriginal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_success_destroy_original: bool = bool_arg(&args, "onSuccessDestroyOriginal", false);
     let destroy_from_if_in_state: Option<String> = args
         .get("destroyFromIfInState")
         .and_then(|v| v.as_str())

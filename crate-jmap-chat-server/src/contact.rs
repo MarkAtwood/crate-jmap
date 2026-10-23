@@ -34,7 +34,7 @@ use crate::helpers::{
 };
 use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, QueryParams, backend_set_error_value, filter_arg, is_client_updatable,
+    HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
     query_anchor_args, reject_read_only_patch, server_fail_from_backend,
 };
 
@@ -426,10 +426,7 @@ pub async fn handle_contact_query<B: ChatBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
     let limit: Option<u64> = match args.remove("limit") {
         None | Some(Value::Null) => None,
