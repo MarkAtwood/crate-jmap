@@ -3,7 +3,7 @@
 
 mod common;
 
-use common::{ACCOUNT_ID, MemoryBackend, make_chat_group, make_space, make_space_with_props};
+use common::{ACCOUNT_ID, make_chat_group, make_space, make_space_with_props};
 use jmap_chat_server::message::{handle_message_query, handle_message_set};
 use jmap_chat_server::{handle_chat_set, handle_space_join};
 use jmap_server::HandlerOutput;
@@ -14,7 +14,7 @@ use serde_json::json;
 /// return a SetError of type `forbidden`."
 #[tokio::test]
 async fn chat_set_create_channel_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "S").await;
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
@@ -46,7 +46,7 @@ async fn chat_set_create_channel_is_forbidden() {
 /// reference server's limit is 100,000 bytes.
 #[tokio::test]
 async fn message_set_create_over_long_body_is_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = make_chat_group(&backend, "G").await;
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -75,7 +75,7 @@ async fn message_set_create_over_long_body_is_too_large() {
 /// `unsupportedFilter`." The reference server supports neither.
 #[tokio::test]
 async fn message_query_text_and_thread_root_filters_are_unsupported() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = make_chat_group(&backend, "G").await;
     for (key, value) in [("text", "hello"), ("threadRootId", "m1")] {
         let err = handle_message_query(
@@ -97,7 +97,7 @@ async fn message_query_text_and_thread_root_filters_are_unsupported() {
 /// method error."
 #[tokio::test]
 async fn space_join_unknown_or_private_space_is_not_permitted() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let private_id =
         make_space_with_props(&backend, json!({ "name": "P", "isPublic": false })).await;
     for space_id in [private_id.as_str(), "nosuchspace"] {

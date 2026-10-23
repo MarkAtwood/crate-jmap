@@ -229,6 +229,15 @@ pub async fn handle_invite_set<B: ChatBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
+    // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-fo38).
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.3). Reject
     // unbounded /set batches before touching the storage layer.
     enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;

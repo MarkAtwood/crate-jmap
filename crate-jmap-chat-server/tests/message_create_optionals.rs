@@ -76,7 +76,7 @@ fn attachment(filename: &str, content_type: &str, sha256: &str) -> Value {
 /// survives too.
 #[tokio::test]
 async fn create_stores_optional_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let attachments = json!([attachment("a.txt", "text/plain; charset=utf-8", SHA256)]);
     let mentions = json!([{ "id": "contact-bob", "offset": 3, "length": 4 }]);
@@ -124,7 +124,7 @@ async fn create_stores_optional_properties() {
 /// A 255-byte value is at the limit and accepted.
 #[tokio::test]
 async fn create_accepts_topic_id_of_255_bytes() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let resp = create(&backend, &chat_id, json!({ "topicId": "t".repeat(255) })).await;
     assert!(resp["created"]["m"].is_object(), "{resp}");
@@ -134,7 +134,7 @@ async fn create_accepts_topic_id_of_255_bytes() {
 /// `invalidProperties` naming that property.
 #[tokio::test]
 async fn create_rejects_invalid_optional_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let cases = [
         // "`topicId`: reject an empty value or a value exceeding 255 bytes."
@@ -203,7 +203,7 @@ async fn create_rejects_invalid_optional_properties() {
 /// `invalidProperties` SetError whose `properties` lists each such field".
 #[tokio::test]
 async fn create_rejects_routing_fields_with_encrypted_body_type() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let cases = [
         (
@@ -243,7 +243,7 @@ async fn create_rejects_routing_fields_with_encrypted_body_type() {
 /// `expiresAfterReadSeconds` is not one of them.
 #[tokio::test]
 async fn create_accepts_empty_routing_fields_with_encrypted_body_type() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let resp = create(
         &backend,
@@ -274,7 +274,7 @@ async fn create_accepts_empty_routing_fields_with_encrypted_body_type() {
 /// are asserted.
 #[tokio::test]
 async fn create_stores_broadcast_mentions() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     let broadcast_mentions = json!([
         { "scope": "everyone" },

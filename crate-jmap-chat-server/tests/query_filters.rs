@@ -54,7 +54,7 @@ fn sorted_ids(resp: &Value) -> Vec<String> {
 }
 
 fn seeded(type_name: &'static str, objects: &[(&str, Value)]) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&Id::from(ACCOUNT_ID));
     for (id, obj) in objects {
         let mut obj = obj.clone();
@@ -333,7 +333,7 @@ async fn emoji_set(backend: &MemoryBackend, create: Value) -> Value {
 /// server-global emoji are included.
 #[tokio::test]
 async fn emoji_query_filters_space_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let resp = emoji_set(
         &backend,
         json!({
@@ -368,7 +368,7 @@ async fn emoji_query_filters_space_id() {
 /// filter adds only emoji that the query matches.
 #[tokio::test]
 async fn emoji_query_changes_applies_space_id_filter() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let filter = json!({ "spaceId": "space1" });
     let HandlerOutput {

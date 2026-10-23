@@ -12,7 +12,7 @@
 
 mod common;
 
-use common::{ACCOUNT_ID, MemoryBackend, make_space};
+use common::{ACCOUNT_ID, make_space};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
     handle_ban_set, handle_chat_set, handle_emoji_set, handle_invite_set, handle_space_set,
@@ -31,7 +31,7 @@ fn args(obj: Value) -> Value {
 
 #[tokio::test]
 async fn ban_rejects_non_string_reason_and_expires_at() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
         &backend,
         &(),
@@ -45,7 +45,7 @@ async fn ban_rejects_non_string_reason_and_expires_at() {
 
 #[tokio::test]
 async fn invite_rejects_negative_max_uses() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
@@ -59,7 +59,7 @@ async fn invite_rejects_negative_max_uses() {
 
 #[tokio::test]
 async fn invite_rejects_max_uses_above_unsigned_int_range() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
@@ -73,7 +73,7 @@ async fn invite_rejects_max_uses_above_unsigned_int_range() {
 
 #[tokio::test]
 async fn invite_rejects_non_string_default_channel_and_expires_at() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
         &(),
@@ -91,7 +91,7 @@ async fn invite_rejects_non_string_default_channel_and_expires_at() {
 /// 2^53-1 is the top of the UnsignedInt range, so it is accepted.
 #[tokio::test]
 async fn invite_accepts_max_unsigned_int_max_uses() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let space_id = make_space(&backend, "S").await;
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
         &backend,
@@ -110,7 +110,7 @@ async fn invite_accepts_max_unsigned_int_max_uses() {
 
 #[tokio::test]
 async fn space_rejects_mistyped_optionals() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
@@ -133,7 +133,7 @@ async fn space_rejects_mistyped_optionals() {
 /// succeeds with the defaults (§Space `isPublic`: "Default is `false`").
 #[tokio::test]
 async fn space_accepts_null_optionals() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
@@ -147,7 +147,7 @@ async fn space_accepts_null_optionals() {
 
 #[tokio::test]
 async fn chat_rejects_mistyped_optionals() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -170,7 +170,7 @@ async fn chat_rejects_mistyped_optionals() {
 
 #[tokio::test]
 async fn chat_rejects_non_string_contact_and_space_ids() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,
         &(),
@@ -184,7 +184,7 @@ async fn chat_rejects_non_string_contact_and_space_ids() {
 
 #[tokio::test]
 async fn message_rejects_mistyped_optionals() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
         &(),
@@ -216,7 +216,7 @@ async fn message_rejects_mistyped_optionals() {
 
 #[tokio::test]
 async fn emoji_rejects_non_string_space_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(
         &backend,
         &(),

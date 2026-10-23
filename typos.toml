@@ -36,6 +36,8 @@ extend-ignore-re = [
     # RFC 9421 Appendix B.1.4 test-key-ed25519 JWK `x` (crate-jmap-peer-auth
     # tests). Base64url, not a word.
     "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs",
+    # Beads issue ids (e.g. `JMAP-fo38`): random base36, not words.
+    "JMAP-[0-9a-z]{4}",
 ]
 
 [default.extend-words]

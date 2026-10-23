@@ -58,7 +58,7 @@ async fn chat_get(backend: &MemoryBackend, id: &str) -> Value {
 /// notifications for this chat are suppressed. [...] Default: `false`."
 #[tokio::test]
 async fn chat_muted_null_resets_to_false() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let id = make_chat_group(&backend, "g").await;
     chat_update(&backend, &id, json!({ "muted": true })).await;
 
@@ -72,7 +72,7 @@ async fn chat_muted_null_resets_to_false() {
 /// default."
 #[tokio::test]
 async fn chat_pinned_message_ids_null_resets_to_empty() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let id = make_chat_group(&backend, "g").await;
 
     chat_update(&backend, &id, json!({ "pinnedMessageIds": null })).await;
@@ -84,7 +84,7 @@ async fn chat_pinned_message_ids_null_resets_to_empty() {
 /// "Default: `true`."
 #[tokio::test]
 async fn chat_receive_typing_indicators_null_resets_to_true() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let id = make_chat_group(&backend, "g").await;
     chat_update(&backend, &id, json!({ "receiveTypingIndicators": false })).await;
 
@@ -104,7 +104,7 @@ async fn chat_receive_typing_indicators_null_resets_to_true() {
 /// (bd:JMAP-w9ox.2).
 #[tokio::test]
 async fn chat_receipt_sharing_null_removes_override() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let id = make_chat_group(&backend, "g").await;
     chat_update(&backend, &id, json!({ "receiptSharing": false })).await;
     assert_eq!(
@@ -127,7 +127,7 @@ async fn chat_receipt_sharing_null_removes_override() {
 /// mailbox [...] Default: `false`."
 #[tokio::test]
 async fn contact_blocked_null_resets_to_false() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     // ChatContact objects are server-managed (create is forbidden).
     backend.insert_object_for_test(
         "ChatContact",
@@ -203,7 +203,7 @@ async fn presence_null_then_get(backend: &MemoryBackend, prop: &str) -> Value {
 /// Default is `"online"`."
 #[tokio::test]
 async fn presence_null_resets_to_online() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_presence(&backend);
 
     let ps = presence_null_then_get(&backend, "presence").await;
@@ -216,7 +216,7 @@ async fn presence_null_resets_to_online() {
 /// [...] Default: `true`."
 #[tokio::test]
 async fn presence_receipt_sharing_null_resets_to_true() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_presence(&backend);
 
     let ps = presence_null_then_get(&backend, "receiptSharing").await;
@@ -234,7 +234,7 @@ async fn presence_receipt_sharing_null_resets_to_true() {
 /// `actions` or `reactions` patch. The default-on-absence contract under
 /// test belongs to the stored record, not to the handler.
 async fn message_null_then_get(prop: &str) -> Value {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,

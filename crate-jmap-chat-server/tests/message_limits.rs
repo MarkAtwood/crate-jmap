@@ -8,7 +8,7 @@
 
 mod common;
 
-use common::{ACCOUNT_ID, MemoryBackend, TrackingBackend};
+use common::{ACCOUNT_ID, TrackingBackend};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
     AttachmentBlob, ChatBackend, ChatLimits, SetError, SetErrorType, handle_chat_set,
@@ -108,7 +108,7 @@ fn assert_attachments_invalid(resp: &Value) {
 /// account's configured value, and it counts bytes: "é" is two.
 #[tokio::test]
 async fn body_limit_is_the_configured_max_body_bytes() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(ChatLimits::default().with_max_body_bytes(4)));
     let chat_id = create_group(&backend).await;
 
@@ -123,7 +123,7 @@ async fn body_limit_is_the_configured_max_body_bytes() {
 /// and update time."
 #[tokio::test]
 async fn attachment_count_over_limit_is_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(
         ChatLimits::default().with_max_attachments_per_message(2),
     ));
@@ -142,7 +142,7 @@ async fn attachment_count_over_limit_is_too_large() {
 /// message with three attachments.
 #[tokio::test]
 async fn attachment_count_limit_accepts_unsigned_int_above_u32() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(
         ChatLimits::default().with_max_attachments_per_message(4_294_967_296),
     ));
@@ -157,7 +157,7 @@ async fn attachment_count_limit_accepts_unsigned_int_above_u32() {
 /// attachment blob."
 #[tokio::test]
 async fn attachment_size_over_limit_is_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(ChatLimits::default().with_max_attachment_bytes(3)));
     let chat_id = create_group(&backend).await;
 
@@ -172,7 +172,7 @@ async fn attachment_size_over_limit_is_too_large() {
 /// `tooLarge` even though it also mismatches the stored blob.
 #[tokio::test]
 async fn attachment_size_limit_precedes_blob_check() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_limits_for_test(Some(ChatLimits::default().with_max_attachment_bytes(3)));
     backend.set_attachment_blob_for_test(
         ACCOUNT_ID,
@@ -193,7 +193,7 @@ async fn attachment_size_limit_precedes_blob_check() {
 /// offending property". The fixture blob is the three bytes "abc".
 #[tokio::test]
 async fn attachment_size_and_sha256_are_checked_against_the_blob() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.set_attachment_blob_for_test(
         ACCOUNT_ID,
         "abc",

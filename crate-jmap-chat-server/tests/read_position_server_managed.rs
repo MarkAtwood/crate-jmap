@@ -8,7 +8,7 @@
 
 mod common;
 
-use common::{ACCOUNT_ID, InjectableBackend, MemoryBackend};
+use common::{ACCOUNT_ID, InjectableBackend};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{ChatBackend, handle_chat_set, handle_position_get, handle_position_set};
 use jmap_server::HandlerOutput;
@@ -59,7 +59,7 @@ async fn positions<B: ChatBackend<CallerCtx = ()>>(backend: &B) -> Vec<Value> {
 /// message is delivered." Later deliveries reuse that one record.
 #[tokio::test]
 async fn first_message_in_group_creates_one_read_position() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_group(&backend).await;
     assert!(positions(&backend).await.is_empty());
 
@@ -98,7 +98,7 @@ async fn read_position_create_failure_does_not_fail_message_set() {
 /// of type `forbidden`."
 #[tokio::test]
 async fn read_position_set_create_and_destroy_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let rp_id = "rp1".to_owned();
     backend.insert_object_for_test(
         "ReadPosition",

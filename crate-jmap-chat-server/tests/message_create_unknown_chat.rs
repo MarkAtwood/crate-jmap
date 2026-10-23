@@ -50,7 +50,7 @@ async fn message_count(backend: &MemoryBackend) -> usize {
 
 #[tokio::test]
 async fn create_in_unknown_chat_is_invalid_properties_chat_id() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let resp = create_message(&backend, "nope").await;
 
     assert!(resp.get("created").is_none_or(Value::is_null), "{resp}");
@@ -62,7 +62,7 @@ async fn create_in_unknown_chat_is_invalid_properties_chat_id() {
 
 #[tokio::test]
 async fn create_in_existing_chat_still_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let HandlerOutput { primary: chat, .. } = handle_chat_set(
         &backend,
         &(),

@@ -68,7 +68,7 @@ async fn query_spaces_by_name(backend: &MemoryBackend, is_ascending: bool) -> Ve
 /// order."
 #[tokio::test]
 async fn space_query_sort_descending_reverses_order() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     for name in ["Alpha", "Bravo", "Charlie"] {
         make_space(&backend, name).await;
     }
@@ -82,7 +82,7 @@ async fn space_query_sort_descending_reverses_order() {
 /// name order so creation order cannot satisfy the assertion.
 #[tokio::test]
 async fn space_query_sort_ascending_orders_by_property() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     for name in ["Charlie", "Alpha", "Bravo"] {
         make_space(&backend, name).await;
     }
@@ -96,7 +96,7 @@ async fn space_query_sort_ascending_orders_by_property() {
 /// absent sort last." in both directions.
 #[tokio::test]
 async fn contact_query_sort_last_active_at_absent_sorts_last() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&Id::from(ACCOUNT_ID));
     for (id, last_active_at) in [
         ("c1", None),

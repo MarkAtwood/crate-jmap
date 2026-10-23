@@ -3279,6 +3279,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: the nine `/set` handlers (`Chat`, `Message`,
+  `Space`, `ChatContact`, `PresenceStatus`, `SpaceInvite`, `CustomEmoji`,
+  `ReadPosition`, `SpaceBan`) now call `JmapBackend::account_exists` and
+  return the RFC 8620 §3.6.2 `accountNotFound` method error for an
+  unknown `accountId`, as the canonical jmap-mail-server handlers do (bd
+  JMAP-fo38). Before, they wrote to the unknown account.
 - **jmap-chat-server**, **jmap-tasks-server**, **jmap-sharing-server**:
   `MemoryBackend::get_changes` now omits an id created and destroyed in
   the same window, the RFC 8620 §5.2 SHOULD path, instead of listing it

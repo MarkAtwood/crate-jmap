@@ -120,7 +120,7 @@ async fn create_rich_body_with_broadcast_mentions_in_channel_is_forbidden() {
 /// `broadcastMentions` entry is accepted and stored as sent.
 #[tokio::test]
 async fn create_rich_body_with_broadcast_mentions_when_permitted_is_stored() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = create_channel(&backend).await;
     let resp = create_on(
         &backend,
@@ -203,7 +203,7 @@ async fn edit_adding_rich_broadcast_span_without_array_is_not_gated() {
 /// sent, with no `offset` or `length` added.
 #[tokio::test]
 async fn create_plain_body_with_positionless_mentions_is_stored() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = make_chat_group(&backend, "G").await;
     let resp = create_on(
         &backend,
@@ -232,7 +232,7 @@ async fn create_plain_body_with_positionless_mentions_is_stored() {
 /// span user in `mentions` is accepted and the array is stored as sent.
 #[tokio::test]
 async fn create_rich_body_with_mentions_is_stored() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let chat_id = make_chat_group(&backend, "G").await;
     let resp = create_on(
         &backend,

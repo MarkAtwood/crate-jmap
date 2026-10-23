@@ -43,7 +43,7 @@ fn ids(resp: &Value) -> Vec<String> {
 }
 
 fn seeded(type_name: &'static str, objects: &[(&str, Value)]) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&Id::from(ACCOUNT_ID));
     for (id, obj) in objects {
         let mut obj = obj.clone();
@@ -182,7 +182,7 @@ async fn emoji_query_unsorted_is_name_ascending() {
 /// the created emoji follow their names, not their creation order.
 #[tokio::test]
 async fn emoji_query_changes_unsorted_indexes_by_name_ascending() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let created = emoji_set(
         &backend,
@@ -338,7 +338,7 @@ async fn emoji_set(backend: &MemoryBackend, args: Value) -> Value {
 /// id in the `existingId` field").
 #[tokio::test]
 async fn emoji_create_duplicate_name_in_scope_is_already_exists() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let first = emoji_set(
         &backend,
         json!({ "create": { "a": { "name": "catjam", "blobId": "b1" } } }),
@@ -368,7 +368,7 @@ async fn emoji_create_duplicate_name_in_scope_is_already_exists() {
 /// given is invalid in some way."
 #[tokio::test]
 async fn emoji_update_onto_held_name_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let resp = emoji_set(
         &backend,
         json!({ "create": {
@@ -390,7 +390,7 @@ async fn emoji_update_onto_held_name_is_invalid_properties() {
 /// `updated` has an entry for each record successfully updated.
 #[tokio::test]
 async fn emoji_update_onto_free_or_own_name_is_updated() {
-    let backend = MemoryBackend::new();
+    let backend = common::account_backend();
     let resp = emoji_set(
         &backend,
         json!({ "create": { "a": { "name": "catjam", "blobId": "b1" } } }),
