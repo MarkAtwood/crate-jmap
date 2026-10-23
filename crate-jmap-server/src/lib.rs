@@ -59,7 +59,7 @@ mod parse;
 mod push;
 mod response;
 
-pub use parse::{check_known_capabilities, parse_request, resolve_args};
+pub use parse::{check_known_capabilities, parse_request, parse_request_bytes, resolve_args};
 pub use push::{
     is_deliverable, register_push_subscription_handlers, state_change_for, PushSubscriptionBackend,
     StoredPushSubscription, MAX_PUSH_EXPIRY_SECS,

@@ -43,7 +43,7 @@ let mut dispatcher: Dispatcher<String> = Dispatcher::new();
 dispatcher.register("Foo/get", Arc::new(FooGetHandler));
 
 // In your handler:
-// let request = jmap_server::parse_request(body_json, 16)?;
+// let request = jmap_server::parse_request_bytes(&body_bytes, 16)?;
 // let response = dispatcher.dispatch(request, caller_identity, session_state).await;
 ```
 
@@ -57,14 +57,16 @@ use `Arc<T>` to share non-static data (e.g. a database connection pool).
 ## Request parsing
 
 ```rust
-use jmap_server::{parse_request, request_error};
+use jmap_server::{parse_request_bytes, request_error};
 
-// Parse and validate a JMAP request body.
-let req = parse_request(body_json, /* max_calls */ 16)
+// Parse and validate the raw HTTP request body (after your body-size cap).
+let req = parse_request_bytes(&body_bytes, /* max_calls */ 16)
     .map_err(request_error)?;   // returns RequestError on failure
 ```
 
-`parse_request` validates:
+`parse_request_bytes` returns `notJSON` if the body does not parse as JSON,
+then validates as `parse_request` does. Use `parse_request` directly only
+when you already hold a `serde_json::Value`. `parse_request` validates:
 - The body is a valid JMAP Request object.
 - `using` is non-empty.
 - The number of method calls does not exceed `max_calls`.
@@ -141,7 +143,7 @@ ids.
 ### Other entry points
 
 ```rust
-pub use parse::{check_known_capabilities, parse_request, resolve_args};
+pub use parse::{check_known_capabilities, parse_request, parse_request_bytes, resolve_args};
 pub use response::{error_invocation, error_status, request_error, RequestError};
 pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
 pub use push::{

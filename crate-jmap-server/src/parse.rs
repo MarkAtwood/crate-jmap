@@ -24,6 +24,8 @@ use serde_json::Value;
 /// `notJSON` error response itself — [`crate::error_invocation`] and
 /// [`crate::request_error`] with [`JmapError::not_json()`] handle that case.
 /// `parse_request` only validates the JMAP structure of an already-parsed value.
+/// [`parse_request_bytes`] does the JSON parse and the `notJSON` mapping for
+/// callers that hold the raw body.
 ///
 /// # Caller responsibility: resource limits
 ///
@@ -68,6 +70,27 @@ pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapE
     }
 
     Ok(req)
+}
+
+/// Parse and validate a JMAP request from the raw HTTP request body.
+///
+/// Runs [`serde_json::from_slice`] on `body` and hands the result to
+/// [`parse_request`]. Prefer this over [`parse_request`] when the body comes
+/// straight off the wire: it produces the `notJSON` request error itself and
+/// parses with `serde_json`'s recursion limit (128 levels), so no
+/// hand-built [`Value`] reaches the JMAP layer.
+///
+/// The body-size cap described on [`parse_request`] is still the caller's job:
+/// apply it before reading the body into memory.
+///
+/// # Errors
+///
+/// Returns [`JmapError::not_json()`] if `body` does not parse as JSON
+/// (RFC 8620 §3.6.1 `notJSON`), and otherwise any error [`parse_request`]
+/// returns.
+pub fn parse_request_bytes(body: &[u8], max_calls: usize) -> Result<JmapRequest, JmapError> {
+    let value: Value = serde_json::from_slice(body).map_err(|_| JmapError::not_json())?;
+    parse_request(value, max_calls)
 }
 
 /// Validate that every capability URI in `req.using` is in the `known` set.
@@ -371,6 +394,46 @@ mod tests {
             "notRequest",
             "malformed body does not match Request type — must be notRequest per RFC 8620 §3.6.1"
         );
+    }
+
+    // Oracle: RFC 8620 §3.6.1 — "urn:ietf:params:jmap:error:notJSON: The
+    // content type of the request was not "application/json" or the request
+    // did not parse as I-JSON."
+    #[test]
+    fn parse_request_bytes_invalid_json_is_not_json() {
+        for body in [&b"{\"using\": ["[..], b"", b"\xff\xfe"] {
+            let err = parse_request_bytes(body, 16).unwrap_err();
+            assert_eq!(
+                err.error_type.to_string(),
+                "notJSON",
+                "body {body:?} does not parse as JSON — must be notJSON per RFC 8620 §3.6.1"
+            );
+        }
+    }
+
+    // Oracle: RFC 8620 §3.3 request example shape, hand-written bytes.
+    #[test]
+    fn parse_request_bytes_valid() {
+        let body = br#"{"using":["urn:ietf:params:jmap:core"],"methodCalls":[["Foo/get",{"accountId":"a1"},"c1"]]}"#;
+        let req = parse_request_bytes(body, 16).expect("valid request bytes must parse");
+        assert_eq!(req.using, vec!["urn:ietf:params:jmap:core"]);
+        assert_eq!(req.method_calls.len(), 1);
+    }
+
+    // Oracle: RFC 8620 §3.6.1 — well-formed JSON that is not a Request object
+    // is notRequest, not notJSON.
+    #[test]
+    fn parse_request_bytes_json_not_request_is_not_request() {
+        let err = parse_request_bytes(br#""not an object""#, 16).unwrap_err();
+        assert_eq!(err.error_type.to_string(), "notRequest");
+    }
+
+    // Oracle: RFC 8620 §3.6.1 — exceeding maxCallsInRequest is a limit error.
+    #[test]
+    fn parse_request_bytes_too_many_calls() {
+        let body = br#"{"using":[],"methodCalls":[["A/get",{},"0"],["A/get",{},"1"]]}"#;
+        let err = parse_request_bytes(body, 1).unwrap_err();
+        assert_eq!(err.error_type.to_string(), "limit");
     }
 
     // Oracle: RFC 8620 §3.7 — #ids resolves to prior response's value at path.
