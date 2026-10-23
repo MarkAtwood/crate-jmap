@@ -765,9 +765,10 @@ async fn contact_card_set_create_with_client_id_rejected() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert_eq!(
         resp["notCreated"]["c1"]["type"], "invalidProperties",
@@ -806,9 +807,10 @@ async fn contact_card_create_missing_address_book_ids_rejected() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert_eq!(
         resp["notCreated"]["c1"]["type"], "invalidProperties",
@@ -843,9 +845,10 @@ async fn contact_card_create_empty_address_book_ids_rejected() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert_eq!(
         resp["notCreated"]["c1"]["type"], "invalidProperties",
@@ -882,9 +885,10 @@ async fn contact_card_update_removing_last_address_book_id_rejected() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert_eq!(
         resp["notUpdated"]["card1"]["type"], "invalidProperties",
@@ -946,9 +950,10 @@ async fn contact_card_create_duplicate_uid_rejected() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     // The handler iterates creates in deterministic order; one succeeds,
     // the other fails. Whichever order, one of c1/c2 must end up in
@@ -1008,9 +1013,10 @@ async fn contact_card_create_with_uid_matching_seeded_card_rejected() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert_eq!(
         resp["notCreated"]["c1"]["type"], "invalidProperties",
@@ -1061,9 +1067,10 @@ async fn contact_card_same_uid_different_accounts_allowed() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert!(
         resp["created"]["c1"].is_object(),
@@ -1113,9 +1120,10 @@ async fn contact_card_update_to_duplicate_uid_rejected() {
             "card-b": { "uid": "urn:uuid:a" }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert_eq!(
         resp["notUpdated"]["card-b"]["type"], "invalidProperties",
@@ -1166,9 +1174,10 @@ async fn contact_card_update_with_same_uid_succeeds() {
             "card-a": { "uid": "urn:uuid:a" }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert!(
         resp["notUpdated"].is_null(),
@@ -1202,9 +1211,10 @@ async fn contact_card_update_unrelated_field_preserves_invariant() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_set(&backend, &(), args)
-        .await
-        .expect("/set must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args)
+            .await
+            .expect("/set must succeed");
 
     assert!(
         resp["notUpdated"].is_null(),
