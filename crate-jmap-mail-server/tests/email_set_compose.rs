@@ -332,3 +332,96 @@ async fn create_maintains_thread_and_mailbox_counts() {
         }])
     );
 }
+
+/// RFC 8621 §4.6: "the client must set each header field as an individual
+/// property"; a `header:Date` or `header:Message-ID` property includes the
+/// field, so the server generates neither. Expected fields are
+/// hand-written RFC 5322.
+#[tokio::test]
+async fn create_writes_header_properties() {
+    let backend = backend();
+    let resp = set(
+        &backend,
+        json!({
+            "mailboxIds": { "inbox": true },
+            "header:Date:asDate": "2026-10-23T12:00:00Z",
+            "header:Message-ID:asMessageIds": ["h1@example.com"],
+            "header:X-Mailer:asText": "Mutt",
+            "textBody": [{
+                "partId": "1",
+                "type": "text/plain",
+                "header:X-Part": "p",
+            }],
+            "bodyValues": { "1": { "value": "Hi" } },
+        }),
+    )
+    .await;
+    let created = &resp["created"]["c0"];
+    assert_eq!(
+        stored_message(&backend, created["blobId"].as_str().unwrap()).await,
+        "Date: 23 Oct 2026 12:00:00 +0000\r\n\
+         Message-ID: <h1@example.com>\r\n\
+         X-Mailer: Mutt\r\n\
+         MIME-Version: 1.0\r\n\
+         Content-Type: text/plain; charset=utf-8\r\n\
+         X-Part: p\r\n\
+         Content-Transfer-Encoding: quoted-printable\r\n\
+         \r\n\
+         Hi"
+    );
+    let email = get(
+        &backend,
+        created["id"].as_str().unwrap(),
+        &["header:X-Mailer:asText", "messageId"],
+    )
+    .await;
+    assert_eq!(email["header:X-Mailer:asText"], json!("Mutt"));
+    assert_eq!(email["messageId"], json!(["h1@example.com"]));
+}
+
+/// Each create breaks one RFC 8621 §4.6 constraint, which "SHOULD be
+/// rejected with an "invalidProperties" error".
+#[tokio::test]
+async fn create_rejects_header_properties_breaking_rfc8621_4_6() {
+    let text = json!([{ "partId": "1", "type": "text/plain" }]);
+    let cases = [
+        // "There MUST NOT be two properties that represent the same header
+        // field (e.g., "header:from" and "from")".
+        (
+            json!({ "from": [{ "email": "a@example.com" }], "header:from": " b@example.com" }),
+            Some("header:from"),
+        ),
+        // "Header fields beginning with "Content-" MUST NOT be specified on
+        // the Email object".
+        (
+            json!({ "header:Content-Language": "en" }),
+            Some("header:Content-Language"),
+        ),
+        // "The "headers" property MUST NOT be given".
+        (
+            json!({ "headers": [{ "name": "X-A", "value": " b" }] }),
+            None,
+        ),
+        // "Header fields MUST NOT be specified in parsed forms that are
+        // forbidden for that particular field."
+        (json!({ "header:Date:asAddresses": [] }), None),
+    ];
+    for (extra, property) in cases {
+        let backend = backend();
+        let mut create = json!({
+            "mailboxIds": { "inbox": true },
+            "textBody": text,
+            "bodyValues": { "1": { "value": "x" } },
+        });
+        create
+            .as_object_mut()
+            .unwrap()
+            .extend(extra.as_object().unwrap().clone());
+        let resp = set(&backend, create.clone()).await;
+        let err = &resp["notCreated"]["c0"];
+        assert_eq!(err["type"], json!("invalidProperties"), "{create}");
+        if let Some(property) = property {
+            assert_eq!(err["properties"], json!([property]), "{create}");
+        }
+    }
+}
