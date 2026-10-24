@@ -47,7 +47,7 @@ async fn set_update(backend: &MemoryBackend, patch: Value) -> Value {
 
 async fn get_t1(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["t1"] });
-    let HandlerOutput { primary: resp, .. } = handle_task_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_get(backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     resp["list"][0].clone()

@@ -53,6 +53,7 @@ async fn get_body(backend: &MemoryBackend, id: &str) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": ["body"] }),
+        &[],
     )
     .await
     .expect("get");

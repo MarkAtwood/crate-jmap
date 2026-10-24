@@ -102,6 +102,7 @@ async fn space_create_adds_creator_as_member_with_admin_role() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+        &[],
     )
     .await
     .expect("Space/get");

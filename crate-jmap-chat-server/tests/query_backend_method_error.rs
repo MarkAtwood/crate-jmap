@@ -50,7 +50,7 @@ fn expected() -> Value {
 async fn message_query_passes_backend_unsupported_filter_through() {
     let backend = backend_with_query_fault("Message");
     let args = json!({ "accountId": ACCOUNT_ID, "filter": { "hasMention": true } });
-    let err = handle_message_query(&backend, &(), args)
+    let err = handle_message_query(&backend, &(), args, &[])
         .await
         .expect_err("backend unsupportedFilter must fail Message/query");
     assert_eq!(wire(err), expected());
@@ -59,7 +59,7 @@ async fn message_query_passes_backend_unsupported_filter_through() {
 #[tokio::test]
 async fn space_query_passes_backend_method_error_through() {
     let backend = backend_with_query_fault("Space");
-    let err = handle_space_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+    let err = handle_space_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
         .await
         .expect_err("backend unsupportedFilter must fail Space/query");
     assert_eq!(wire(err), expected());

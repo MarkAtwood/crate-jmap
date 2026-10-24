@@ -80,6 +80,7 @@ async fn chat_query(backend: &MemoryBackend, filter: Value) -> Vec<String> {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": filter }),
+        &[],
     )
     .await
     .expect("Chat/query");
@@ -215,6 +216,7 @@ async fn message_query(backend: &MemoryBackend, extra: Value) -> Vec<String> {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": filter }),
+        &[],
     )
     .await
     .expect("Message/query");
@@ -270,6 +272,7 @@ async fn message_query_changes_refuses_text_filter() {
             "filter": { "chatId": "chat1", "text": "hello" },
             "sinceQueryState": "0",
         }),
+        &[],
     )
     .await
     .expect_err("text filter");
@@ -290,6 +293,7 @@ async fn message_query_changes_requires_chat_id_or_has_mention() {
             "filter": { "topicId": "a" },
             "sinceQueryState": "0",
         }),
+        &[],
     )
     .await
     .expect_err("no chatId");
@@ -311,6 +315,7 @@ async fn space_query_filters_name_substring() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": { "name": "stace" } }),
+        &[],
     )
     .await
     .expect("Space/query");

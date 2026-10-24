@@ -126,6 +126,7 @@ async fn filenode_id_only_entry_is_stored_as_resolved() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": ["attachments"] }),
+        &[],
     )
     .await
     .expect("Message/get");

@@ -125,8 +125,9 @@ fn seed_five(backend: &MemoryBackend) {
 }
 
 async fn unread_counts(backend: &MemoryBackend, args: Value) -> Vec<Value> {
-    let HandlerOutput { primary: resp, .. } =
-        handle_chat_get(backend, &(), args).await.expect("Chat/get");
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(backend, &(), args, &[])
+        .await
+        .expect("Chat/get");
     resp["list"].as_array().expect("list").clone()
 }
 
@@ -479,10 +480,14 @@ async fn space_destroy_destroys_channel_read_positions() {
 }
 
 async fn chat_state(backend: &MemoryBackend) -> String {
-    let HandlerOutput { primary: resp, .. } =
-        handle_chat_get(backend, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }))
-            .await
-            .expect("Chat/get");
+    let HandlerOutput { primary: resp, .. } = handle_chat_get(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [] }),
+        &[],
+    )
+    .await
+    .expect("Chat/get");
     resp["state"].as_str().expect("state").to_owned()
 }
 

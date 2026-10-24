@@ -55,6 +55,7 @@ async fn stored(backend: &MemoryBackend) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT] }),
+        &[],
     )
     .await
     .expect("Chat/get");

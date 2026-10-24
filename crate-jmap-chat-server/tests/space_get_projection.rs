@@ -91,6 +91,7 @@ async fn member_caller_sees_full_space() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -149,6 +150,7 @@ async fn member_caller_honors_properties_filter() {
             "ids": [SPACE_ID],
             "properties": ["id", "name"]
         }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -191,6 +193,7 @@ async fn non_member_caller_sees_restricted_view_on_previewable_space() {
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -257,6 +260,7 @@ async fn non_member_properties_filter_intersected_with_allowed_cap() {
             "ids": [SPACE_ID],
             "properties": ["id", "roles"]
         }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -301,6 +305,7 @@ async fn non_member_properties_filter_full_allowed_set() {
                 "memberCount", "createdAt", "isPublic", "isPubliclyPreviewable"
             ]
         }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -329,6 +334,7 @@ async fn non_member_non_previewable_classified_as_not_found() {
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -367,6 +373,7 @@ async fn non_member_cannot_distinguish_non_previewable_from_nonexistent() {
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get private");
@@ -379,6 +386,7 @@ async fn non_member_cannot_distinguish_non_previewable_from_nonexistent() {
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": ["does-not-exist"] }),
+        &[],
     )
     .await
     .expect("handle_space_get nonexistent");
@@ -424,6 +432,7 @@ async fn member_caller_unaffected_by_non_previewable_classification() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -460,6 +469,7 @@ async fn non_member_previewable_unaffected_by_classification() {
         &backend,
         &outsider,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -517,6 +527,7 @@ async fn single_user_mode_sees_full_space() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");

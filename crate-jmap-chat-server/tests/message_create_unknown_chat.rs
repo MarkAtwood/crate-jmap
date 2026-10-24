@@ -43,6 +43,7 @@ async fn message_count(backend: &MemoryBackend) -> usize {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
+        &[],
     )
     .await
     .expect("Message/get");

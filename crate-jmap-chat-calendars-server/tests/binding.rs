@@ -121,9 +121,14 @@ async fn calendar_get(
     account: &str,
     ids: Value,
 ) -> (Vec<String>, Value) {
-    let out = handle_calendar_get(calendars, &(), json!({ "accountId": account, "ids": ids }))
-        .await
-        .expect("Calendar/get");
+    let out = handle_calendar_get(
+        calendars,
+        &(),
+        json!({ "accountId": account, "ids": ids }),
+        &[],
+    )
+    .await
+    .expect("Calendar/get");
     let listed = out.primary["list"]
         .as_array()
         .expect("list")
@@ -195,10 +200,15 @@ async fn create_bound_space(chat: &ChatMemory) -> (String, Value) {
         .as_str()
         .unwrap_or_else(|| panic!("Space not created: {out}"))
         .to_owned();
-    let got = handle_space_get(chat, &(), json!({ "accountId": ACCOUNT, "ids": [&id] }))
-        .await
-        .expect("Space/get")
-        .primary;
+    let got = handle_space_get(
+        chat,
+        &(),
+        json!({ "accountId": ACCOUNT, "ids": [&id] }),
+        &[],
+    )
+    .await
+    .expect("Space/get")
+    .primary;
     let calendar_id = got["list"][0]
         .get("calendarId")
         .cloned()

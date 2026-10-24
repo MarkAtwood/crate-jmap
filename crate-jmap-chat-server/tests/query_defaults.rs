@@ -71,7 +71,7 @@ async fn chat_query_unsorted_is_last_message_at_descending() {
         ],
     );
     let HandlerOutput { primary: resp, .. } =
-        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
             .await
             .expect("Chat/query");
     assert_eq!(ids(&resp), ["c", "b", "a"]);
@@ -111,6 +111,7 @@ async fn message_query_unsorted_with_chat_id_is_received_at_ascending() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": { "chatId": "chat1" } }),
+        &[],
     )
     .await
     .expect("Message/query");
@@ -125,6 +126,7 @@ async fn message_query_unsorted_without_chat_id_is_received_at_descending() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": { "hasMention": true } }),
+        &[],
     )
     .await
     .expect("Message/query");
@@ -152,7 +154,7 @@ async fn space_query_unsorted_is_name_ascending() {
         ],
     );
     let HandlerOutput { primary: resp, .. } =
-        handle_space_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        handle_space_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
             .await
             .expect("Space/query");
     assert_eq!(ids(&resp), ["s2", "s3", "s1"]);
@@ -243,6 +245,7 @@ async fn space_query_is_public_includes_non_member_previewable_space() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": { "isPublic": true } }),
+        &[],
     )
     .await
     .expect("Space/query");
@@ -286,6 +289,7 @@ async fn space_query_nested_is_public_includes_non_member_space() {
                 "conditions": [{ "isPublic": true }, { "name": "x" }],
             },
         }),
+        &[],
     )
     .await
     .expect("Space/query");
@@ -316,7 +320,7 @@ async fn space_query_unfiltered_hides_non_member_public_space() {
         ],
     );
     let HandlerOutput { primary: resp, .. } =
-        handle_space_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        handle_space_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
             .await
             .expect("Space/query");
     assert_eq!(ids(&resp), ["mine"]);

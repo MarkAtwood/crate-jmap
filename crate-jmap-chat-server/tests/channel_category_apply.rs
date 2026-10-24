@@ -441,6 +441,7 @@ async fn whole_patch_reject_on_channel_permission_failure() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -515,6 +516,7 @@ async fn mixed_channel_category_patch_atomic_reject() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");

@@ -1336,6 +1336,34 @@ pub fn reject_metadata_filter_without_capability<T>(
     Err(err)
 }
 
+/// [`reject_metadata_filter_without_capability`] on the undecoded
+/// `filter` argument of a `Foo/query` or `Foo/queryChanges` request, for
+/// handlers that pass `args` on to [`handle_query`](crate::handle_query)
+/// or [`handle_query_changes`](crate::handle_query_changes) and so never
+/// hold the decoded filter. A `filter` that does not decode is left for
+/// that handler to report.
+///
+/// # Errors
+///
+/// `unsupportedFilter` for a -04 §3.6 condition without
+/// `urn:ietf:params:jmap:metadata` in `using` (-04 §3).
+pub fn reject_metadata_filter_arg<T: serde::de::DeserializeOwned>(
+    args: &Value,
+    is_metadata: fn(&T) -> bool,
+    using: &[String],
+) -> Result<(), JmapError> {
+    if uses_metadata(using) {
+        return Ok(());
+    }
+    let Some(raw) = args.get("filter").filter(|v| !v.is_null()) else {
+        return Ok(());
+    };
+    match serde_json::from_value::<jmap_types::Filter<T>>(raw.clone()) {
+        Ok(filter) => reject_metadata_filter_without_capability(Some(&filter), is_metadata, using),
+        Err(_) => Ok(()),
+    }
+}
+
 /// Which part of one metadata property a `Foo/get` returns.
 #[derive(Debug, Default)]
 enum Selection {

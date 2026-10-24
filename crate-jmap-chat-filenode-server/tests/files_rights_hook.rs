@@ -253,7 +253,7 @@ fn rights(granted: &[&str]) -> Value {
 async fn get_reports_space_role_rights() {
     let deployment = Deployment::with_send_member();
     let args = json!({ "accountId": ACCOUNT, "ids": ["f1", "loose"], "fetchParents": true });
-    let resp = handle_filenode_get(&deployment, &(), args)
+    let resp = handle_filenode_get(&deployment, &(), args, &[])
         .await
         .expect("get")
         .primary;

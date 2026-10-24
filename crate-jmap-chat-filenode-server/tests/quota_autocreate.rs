@@ -145,6 +145,7 @@ async fn auto_created_root_is_the_spaces_root() {
         &files,
         &(),
         json!({ "accountId": ACCOUNT, "filter": { "role": ROLE, "spaceId": "S1" } }),
+        &[],
     )
     .await
     .expect("FileNode/query");

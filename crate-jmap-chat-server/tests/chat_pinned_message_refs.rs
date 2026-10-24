@@ -98,6 +98,7 @@ async fn pinned(backend: &MemoryBackend) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT] }),
+        &[],
     )
     .await
     .expect("Chat/get");
@@ -180,6 +181,7 @@ async fn destroying_pinned_message_unpins_it() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT] }),
+        &[],
     )
     .await
     .expect("Chat/get");
@@ -222,6 +224,7 @@ async fn burn_on_read_unpins_message() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg] }),
+        &[],
     )
     .await
     .expect("Message/get");

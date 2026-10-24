@@ -80,6 +80,7 @@ async fn stored_chat(backend: &IdentityBackend, chat_id: &str) -> Value {
         backend,
         &Id::from("bob"),
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),
+        &[],
     )
     .await
     .expect("Chat/get");
@@ -259,6 +260,7 @@ async fn closed_group_keeps_history_prefs_and_destroy() {
         &backend,
         &Id::from("bob"),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id] }),
+        &[],
     )
     .await
     .expect("Message/get");

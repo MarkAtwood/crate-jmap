@@ -132,8 +132,8 @@ where
         }};
     }
 
-    reg!("FileNode/get", backend, |b, _ci, a, ctx| {
-        handle_filenode_get(&*b, &ctx, a).await
+    reg!("FileNode/get", backend, |b, _ci, a, ctx, using| {
+        handle_filenode_get(&*b, &ctx, a, &using).await
     });
     reg!("FileNode/changes", backend, |b, _ci, a, ctx, using| {
         handle_filenode_changes(&*b, &ctx, a, &using).await
@@ -145,14 +145,14 @@ where
             handle_filenode_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("FileNode/copy", backend, |b, ci, a, ctx| {
-        handle_filenode_copy(&*b, &ctx, a, &ci).await
+    reg!("FileNode/copy", backend, |b, ci, a, ctx, using| {
+        handle_filenode_copy(&*b, &ctx, a, &ci, &using).await
     });
-    reg!("FileNode/query", backend, |b, _ci, a, ctx| {
-        handle_filenode_query(&*b, &ctx, a).await
+    reg!("FileNode/query", backend, |b, _ci, a, ctx, using| {
+        handle_filenode_query(&*b, &ctx, a, &using).await
     });
-    reg!("FileNode/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_filenode_query_changes(&*b, &ctx, a).await
+    reg!("FileNode/queryChanges", backend, |b, _ci, a, ctx, using| {
+        handle_filenode_query_changes(&*b, &ctx, a, &using).await
     });
 }
 

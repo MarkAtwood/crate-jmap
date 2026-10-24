@@ -53,8 +53,8 @@ use crate::helpers::{
 };
 use crate::{CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend};
 use jmap_server::{
-    HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, query_anchor_args,
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
+    HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg, filter_arg,
+    query_anchor_args, reject_read_only_patch, reject_server_set, server_fail_from_backend,
     server_fail_value_from_backend,
 };
 
@@ -86,11 +86,21 @@ use jmap_server::{
 ///   [`get_calendar_events`](crate::CalendarsBackend::get_calendar_events)
 ///   still produces correct UTC fields for the requested time zone.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists CalendarEvent for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see
+/// [`jmap_server::MetadataProjection`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -163,6 +173,15 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
         Some(props) => props.iter().any(|p| p == "utcStart" || p == "utcEnd"),
     };
 
+    let projection = MetadataProjection::new(
+        properties.as_deref(),
+        true,
+        using,
+        backend
+            .metadata_info::<CalendarEvent>(caller, &account_id)
+            .as_ref(),
+    )?;
+
     let ids_slice = ids.as_deref();
     let (events, not_found) = backend
         .get_calendar_events(
@@ -186,6 +205,8 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     let mut list_json: Vec<Value> = Vec::with_capacity(events.len());
     for event in &events {
         let mut item = serde_json::to_value(event).map_err(|e| server_fail_from_backend(&e))?;
+        let source = item.clone();
+        projection.apply(&source, &mut item);
         if want_utc {
             let (utc_start, utc_end) = backend
                 .compute_utc_times(caller, &account_id, event, get_args.time_zone.as_deref())
@@ -759,6 +780,17 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 /// Supports `ifFromInState`, `ifInState`, `onSuccessDestroyOriginal` and
 /// `destroyFromIfInState`.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// the copy keeps the source's `metadata`, and its `privateMetadata` only
+/// with `urn:ietf:params:jmap:metadata` in `using` and when the
+/// destination supports it; neither is copied when the destination does
+/// not list CalendarEvent ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)).
+/// The create object "MAY include metadata and privateMetadata to override
+/// the copied values, with the same rules as a create in Foo/set": the
+/// handler rejects them without the capability and rejects `null`, and
+/// the backend's `create_object` validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
 /// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3. If
 /// `destroyFromIfInState` does not match the source account's CalendarEvent
@@ -769,6 +801,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -864,7 +897,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             };
 
             // Fetch source event from fromAccountId.
-            let source_events: Vec<CalendarEvent> = match backend
+            let mut source_events: Vec<CalendarEvent> = match backend
                 .get_objects::<CalendarEvent>(
                     caller,
                     &from_account_id,
@@ -907,6 +940,29 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 
             // Merge: serialize source to map, overlay client-supplied properties,
             // then strip "id" so the backend assigns a fresh server id.
+            // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+            // Foo/set create rules (§3, §3.2).
+            if let Some(Err(err)) = client_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, Value::from(&*err));
+                continue;
+            }
+            // -04 §3.4: "When the request does not use this capability, only
+            // metadata is copied", "privateMetadata is not copied when the
+            // destination does not support it, and neither property is
+            // copied when the data type is not listed in the destination
+            // account". The overrides are merged in below.
+            let info = backend.metadata_info::<CalendarEvent>(caller, &account_id);
+            if !jmap_server::uses_metadata(using)
+                || !info.as_ref().is_some_and(|i| i.supports_private)
+            {
+                source_events[0].private_metadata = None;
+            }
+            if info.is_none() {
+                source_events[0].metadata = None;
+            }
             let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_events[0]) else {
                 not_created.insert(
                     create_id,
@@ -1100,12 +1156,23 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 /// - `cannotCalculateOccurrences` — when the backend cannot expand a
 ///   recurrence required to return results.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        CalendarEventFilterCondition::has_metadata_condition,
+        using,
+    )?;
     reject_unsupported_sort::<CalendarEventComparator>(args.get("sort"))?;
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -1294,12 +1361,23 @@ fn expand_duration_seconds(f: &CalendarEventFilterCondition) -> Option<i64> {
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        CalendarEventFilterCondition::has_metadata_condition,
+        using,
+    )?;
     reject_unsupported_sort::<CalendarEventComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<CalendarEvent, B>(backend, caller, args).await
 }
@@ -1410,7 +1488,7 @@ mod tests {
     async fn query_unlisted_sort_property_returns_unsupported_sort() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sort": [{ "property": "title" }] });
-        let err = handle_calendar_event_query(&backend, &(), args)
+        let err = handle_calendar_event_query(&backend, &(), args, &[])
             .await
             .expect_err("unlisted sort property must be rejected");
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
@@ -1426,7 +1504,7 @@ mod tests {
             "sinceQueryState": "0",
             "sort": [{ "property": "start" }, { "property": "title" }]
         });
-        let err = handle_calendar_event_query_changes(&backend, &(), args)
+        let err = handle_calendar_event_query_changes(&backend, &(), args, &[])
             .await
             .expect_err("unlisted sort property must be rejected");
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
@@ -1438,7 +1516,7 @@ mod tests {
     async fn query_listed_sort_property_is_accepted() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sort": [{ "property": "start" }] });
-        handle_calendar_event_query(&backend, &(), args)
+        handle_calendar_event_query(&backend, &(), args, &[])
             .await
             .expect("listed sort property must not be rejected");
     }
@@ -1448,7 +1526,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let result = handle_calendar_event_get(&backend, &(), args).await;
+        let result = handle_calendar_event_get(&backend, &(), args, &[]).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
@@ -1470,7 +1548,7 @@ mod tests {
             "ids": null,
             "recurrenceOverridesBefore": "not-a-date"
         });
-        let err = handle_calendar_event_get(&backend, &(), args)
+        let err = handle_calendar_event_get(&backend, &(), args, &[])
             .await
             .expect_err("malformed recurrenceOverridesBefore must return error");
         assert_eq!(
@@ -1491,7 +1569,7 @@ mod tests {
             "ids": null,
             "recurrenceOverridesAfter": "2026-01-15"
         });
-        let err = handle_calendar_event_get(&backend, &(), args)
+        let err = handle_calendar_event_get(&backend, &(), args, &[])
             .await
             .expect_err("malformed recurrenceOverridesAfter must return error");
         assert_eq!(
@@ -1526,7 +1604,7 @@ mod tests {
             "fromAccountId": "missing-src",
             "create": {}
         });
-        let result = handle_calendar_event_copy(&backend, &(), args, "c0").await;
+        let result = handle_calendar_event_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must return error for unknown destination account");
         assert_eq!(
             err.error_type.to_string(),
@@ -1545,7 +1623,7 @@ mod tests {
             "fromAccountId": "no-such-account",
             "create": {}
         });
-        let result = handle_calendar_event_copy(&backend, &(), args, "c0").await;
+        let result = handle_calendar_event_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must return error for unknown fromAccountId");
         assert_eq!(
             err.error_type.to_string(),
@@ -1570,7 +1648,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_copy(&backend, &(), args, "c0")
+        } = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -1617,7 +1695,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_copy(&backend, &(), args, "c0")
+        } = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -1653,7 +1731,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_copy(&backend, &(), args, "c0")
+        } = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -1688,7 +1766,7 @@ mod tests {
             "fromAccountId": "src",
             "create": { "c1": { "id": "ev1", "calendarIds": { "bad id": true } } }
         });
-        let resp = handle_calendar_event_copy(&backend, &(), args, "c0")
+        let resp = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("must not return top-level error")
             .primary;
@@ -1755,7 +1833,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_copy(&backend, &(), args, "c0")
+        } = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty(), "no extra invocations expected");
@@ -1932,7 +2010,7 @@ mod tests {
             })
         };
 
-        let resp = handle_calendar_event_copy(&backend, &(), copy("shared", "priv"), "c0")
+        let resp = handle_calendar_event_copy(&backend, &(), copy("shared", "priv"), "c0", &[])
             .await
             .expect("no method-level error")
             .primary;
@@ -1943,7 +2021,7 @@ mod tests {
         );
 
         for (from, id) in [("shared", "pub"), ("own", "priv")] {
-            let resp = handle_calendar_event_copy(&backend, &(), copy(from, id), "c0")
+            let resp = handle_calendar_event_copy(&backend, &(), copy(from, id), "c0", &[])
                 .await
                 .expect("no method-level error")
                 .primary;
@@ -1954,10 +2032,14 @@ mod tests {
     /// Every event id in account `acc`, from CalendarEvent/get with
     /// `ids: null`.
     async fn event_ids(backend: &MockBackend) -> Value {
-        let HandlerOutput { primary: get, .. } =
-            handle_calendar_event_get(backend, &(), json!({ "accountId": "acc", "ids": null }))
-                .await
-                .expect("get must succeed");
+        let HandlerOutput { primary: get, .. } = handle_calendar_event_get(
+            backend,
+            &(),
+            json!({ "accountId": "acc", "ids": null }),
+            &[],
+        )
+        .await
+        .expect("get must succeed");
         Value::Array(
             get["list"]
                 .as_array()
@@ -2033,7 +2115,7 @@ mod tests {
             "fromAccountId": "src",
             "create": { "c1": { "id": "ev1" } }
         });
-        let resp = handle_calendar_event_copy(&backend, &(), args, "c0")
+        let resp = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("no method-level error")
             .primary;
@@ -2067,7 +2149,7 @@ mod tests {
             json!({ "id": "priv" }),
             json!({ "id": "pub", "privacy": "secret" }),
         ] {
-            let resp = handle_calendar_event_copy(&backend, &(), copy(create.clone()), "c0")
+            let resp = handle_calendar_event_copy(&backend, &(), copy(create.clone()), "c0", &[])
                 .await
                 .expect("no method-level error")
                 .primary;
@@ -2078,10 +2160,11 @@ mod tests {
             );
         }
 
-        let resp = handle_calendar_event_copy(&backend, &(), copy(json!({ "id": "pub" })), "c0")
-            .await
-            .expect("no method-level error")
-            .primary;
+        let resp =
+            handle_calendar_event_copy(&backend, &(), copy(json!({ "id": "pub" })), "c0", &[])
+                .await
+                .expect("no method-level error")
+                .primary;
         assert!(resp["created"]["c1"].is_object(), "{resp}");
     }
 
@@ -2200,7 +2283,7 @@ mod tests {
             "ids": null,
             "properties": ["id", "title"]
         });
-        let result = handle_calendar_event_get(&backend, &(), args).await;
+        let result = handle_calendar_event_get(&backend, &(), args, &[]).await;
         assert!(result.is_ok(), "must not error: {result:?}");
     }
 
@@ -2214,7 +2297,7 @@ mod tests {
             "ids": null,
             "properties": ["id", "utcStart"]
         });
-        let result = handle_calendar_event_get(&backend, &(), args).await;
+        let result = handle_calendar_event_get(&backend, &(), args, &[]).await;
         assert!(result.is_ok(), "must not error: {result:?}");
         let HandlerOutput { primary: resp, .. } = result.unwrap();
         // list is present; utcStart absent from items (default impl returns None).
@@ -2525,7 +2608,7 @@ mod tests {
                 "before": "2025-05-15T00:00:00",
             },
         });
-        let result = handle_calendar_event_query(&backend, &(), args).await;
+        let result = handle_calendar_event_query(&backend, &(), args, &[]).await;
 
         let err = result.expect_err("over-cap duration must be rejected");
         let json = serde_json::to_value(&err).expect("serialize JmapError");
@@ -2556,7 +2639,7 @@ mod tests {
                 "before": "2024-01-31T00:00:00",
             },
         });
-        let result = handle_calendar_event_query(&backend, &(), args).await;
+        let result = handle_calendar_event_query(&backend, &(), args, &[]).await;
 
         result.expect("under-cap duration must be accepted by the pre-check");
         assert_eq!(
@@ -2586,7 +2669,7 @@ mod tests {
                 "before": "2024-01-15T00:00:00",
             },
         });
-        let result = handle_calendar_event_query(&backend, &(), args).await;
+        let result = handle_calendar_event_query(&backend, &(), args, &[]).await;
 
         let err = result.expect_err("over-cap duration must be rejected");
         let json = serde_json::to_value(&err).expect("serialize JmapError");
@@ -2613,7 +2696,7 @@ mod tests {
                 "before": "2024-01-01T00:00:00",
             },
         });
-        let result = handle_calendar_event_query(&backend, &(), args).await;
+        let result = handle_calendar_event_query(&backend, &(), args, &[]).await;
 
         result.expect("non-expanding query is not subject to the cap");
         assert_eq!(
@@ -2637,7 +2720,7 @@ mod tests {
                 "before": "not-a-date-XX-XX",
             },
         });
-        let result = handle_calendar_event_query(&backend, &(), args).await;
+        let result = handle_calendar_event_query(&backend, &(), args, &[]).await;
 
         result.expect("unparseable bound is passed through to backend");
         assert_eq!(
@@ -3031,7 +3114,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_copy(&backend, &(), args, "c0")
+        } = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("must not return top-level error");
         assert!(
@@ -3081,6 +3164,7 @@ mod tests {
                     &backend,
                     &(),
                     json!({ "accountId": "src", "ids": ["ev1"] }),
+                    &[],
                 )
                 .await
                 .expect("get must succeed");
@@ -3098,17 +3182,21 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_calendar_event_copy(&backend, &(), args, "c0")
+        } = handle_calendar_event_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("copy must not return a top-level error");
         assert!(
             resp["created"]["c1"].is_object(),
             "copy must succeed: {resp}"
         );
-        let HandlerOutput { primary: after, .. } =
-            handle_calendar_event_get(&backend, &(), json!({ "accountId": "src", "ids": ["ev1"] }))
-                .await
-                .expect("get must succeed");
+        let HandlerOutput { primary: after, .. } = handle_calendar_event_get(
+            &backend,
+            &(),
+            json!({ "accountId": "src", "ids": ["ev1"] }),
+            &[],
+        )
+        .await
+        .expect("get must succeed");
         (extra, after["list"].clone())
     }
 
@@ -3368,7 +3456,7 @@ mod tests {
 
         let backend = FaultyBackend;
         let args = json!({ "accountId": "acc1" });
-        let err = handle_calendar_event_query(&backend, &(), args)
+        let err = handle_calendar_event_query(&backend, &(), args, &[])
             .await
             .expect_err("backend Other must surface as JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail");

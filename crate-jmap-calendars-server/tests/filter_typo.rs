@@ -35,13 +35,13 @@ fn cases() -> [(&'static str, Handler, Value, Value); 4] {
     [
         (
             "CalendarEvent/query",
-            |b, c, a| Box::pin(handle_calendar_event_query(b, c, a)),
+            |b, c, a| Box::pin(handle_calendar_event_query(b, c, a, &[])),
             json!({ "inCalendar": "cal1" }),
             json!({ "inCalender": "cal1" }),
         ),
         (
             "CalendarEvent/queryChanges",
-            |b, c, a| Box::pin(handle_calendar_event_query_changes(b, c, a)),
+            |b, c, a| Box::pin(handle_calendar_event_query_changes(b, c, a, &[])),
             json!({ "inCalendar": "cal1" }),
             json!({ "inCalender": "cal1" }),
         ),

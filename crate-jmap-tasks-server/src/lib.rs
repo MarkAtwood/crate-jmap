@@ -141,8 +141,8 @@ where
     }
 
     // TaskList
-    reg!("TaskList/get", backend, |b, _ci, a, ctx| {
-        handle_task_list_get(&*b, &ctx, a).await
+    reg!("TaskList/get", backend, |b, _ci, a, ctx, using| {
+        handle_task_list_get(&*b, &ctx, a, &using).await
     });
     reg!("TaskList/changes", backend, |b, _ci, a, ctx, using| {
         handle_task_list_changes(&*b, &ctx, a, &using).await
@@ -152,8 +152,8 @@ where
     });
 
     // Task
-    reg!("Task/get", backend, |b, _ci, a, ctx| {
-        handle_task_get(&*b, &ctx, a).await
+    reg!("Task/get", backend, |b, _ci, a, ctx, using| {
+        handle_task_get(&*b, &ctx, a, &using).await
     });
     reg!("Task/changes", backend, |b, _ci, a, ctx, using| {
         handle_task_changes(&*b, &ctx, a, &using).await
@@ -161,14 +161,14 @@ where
     reg!("Task/set", backend, |b, _ci, a, ctx, created_ids, using| {
         handle_task_set(&*b, &ctx, &created_ids, a, &using).await
     });
-    reg!("Task/copy", backend, |b, ci, a, ctx| {
-        handle_task_copy(&*b, &ctx, a, &ci).await
+    reg!("Task/copy", backend, |b, ci, a, ctx, using| {
+        handle_task_copy(&*b, &ctx, a, &ci, &using).await
     });
-    reg!("Task/query", backend, |b, _ci, a, ctx| {
-        handle_task_query(&*b, &ctx, a).await
+    reg!("Task/query", backend, |b, _ci, a, ctx, using| {
+        handle_task_query(&*b, &ctx, a, &using).await
     });
-    reg!("Task/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_task_query_changes(&*b, &ctx, a).await
+    reg!("Task/queryChanges", backend, |b, _ci, a, ctx, using| {
+        handle_task_query_changes(&*b, &ctx, a, &using).await
     });
 
     // TaskNotification

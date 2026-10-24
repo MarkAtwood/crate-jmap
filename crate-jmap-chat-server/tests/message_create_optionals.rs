@@ -110,6 +110,7 @@ async fn create_stores_optional_properties() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+        &[],
     )
     .await
     .expect("Message/get");
@@ -297,6 +298,7 @@ async fn create_stores_broadcast_mentions() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+        &[],
     )
     .await
     .expect("Message/get");

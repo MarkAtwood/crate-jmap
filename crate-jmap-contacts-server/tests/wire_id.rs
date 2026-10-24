@@ -56,7 +56,7 @@ async fn contact_card_copy_rejects_malformed_from_account_id() {
         "fromAccountId": "bad id",
         "create": {}
     });
-    let err = handle_contact_card_copy(&backend, &(), args, "c0")
+    let err = handle_contact_card_copy(&backend, &(), args, "c0", &[])
         .await
         .expect_err("a malformed fromAccountId must fail the method");
     assert_eq!(err.error_type.to_string(), "invalidArguments");

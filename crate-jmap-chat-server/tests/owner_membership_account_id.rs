@@ -56,6 +56,7 @@ async fn space_get_owner_member_entry_is_account_id_gets_full_view() {
         &backend,
         &caller(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");

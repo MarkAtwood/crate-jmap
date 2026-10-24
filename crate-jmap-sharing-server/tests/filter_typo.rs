@@ -33,13 +33,13 @@ fn cases() -> [(&'static str, Handler, Value, Value); 4] {
     [
         (
             "Principal/query",
-            |b, c, a| Box::pin(handle_principal_query(b, c, a)),
+            |b, c, a| Box::pin(handle_principal_query(b, c, a, &[])),
             json!({ "email": "a@example.com" }),
             json!({ "emails": "a@example.com" }),
         ),
         (
             "Principal/queryChanges",
-            |b, c, a| Box::pin(handle_principal_query_changes(b, c, a)),
+            |b, c, a| Box::pin(handle_principal_query_changes(b, c, a, &[])),
             json!({ "email": "a@example.com" }),
             json!({ "emails": "a@example.com" }),
         ),

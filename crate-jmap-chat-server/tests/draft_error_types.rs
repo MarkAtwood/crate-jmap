@@ -87,6 +87,7 @@ async fn message_query_text_and_thread_root_filters_are_unsupported() {
                 "accountId": ACCOUNT_ID,
                 "filter": { "chatId": chat_id, key: value }
             }),
+            &[],
         )
         .await
         .expect_err(key);

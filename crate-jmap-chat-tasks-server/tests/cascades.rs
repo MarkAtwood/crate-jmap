@@ -94,7 +94,7 @@ async fn create_space(chat: &ChatMemory, task_list_id: &str) -> String {
 
 /// `Space/get` of `id`.
 async fn space_get(chat: &ChatMemory, id: &str) -> (Value, String) {
-    let out = handle_space_get(chat, &(), json!({ "accountId": ACCOUNT, "ids": [id] }))
+    let out = handle_space_get(chat, &(), json!({ "accountId": ACCOUNT, "ids": [id] }), &[])
         .await
         .expect("Space/get")
         .primary;
@@ -106,10 +106,15 @@ async fn space_get(chat: &ChatMemory, id: &str) -> (Value, String) {
 
 /// `Task/get` of every Task: the Tasks by id, and the state.
 async fn task_get(tasks: &TasksMemory) -> (serde_json::Map<String, Value>, String) {
-    let out = handle_task_get(tasks, &(), json!({ "accountId": ACCOUNT, "ids": null }))
-        .await
-        .expect("Task/get")
-        .primary;
+    let out = handle_task_get(
+        tasks,
+        &(),
+        json!({ "accountId": ACCOUNT, "ids": null }),
+        &[],
+    )
+    .await
+    .expect("Task/get")
+    .primary;
     let by_id = out["list"]
         .as_array()
         .expect("list")

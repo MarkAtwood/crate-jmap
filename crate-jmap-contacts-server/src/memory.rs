@@ -592,6 +592,21 @@ impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
+    /// The info set by [`MemoryBackend::with_metadata_info`], the same for
+    /// every account.
+    fn metadata_info<O: JmapObject>(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Option<DataTypeMetadataInfo> {
+        self.inner
+            .lock()
+            .unwrap()
+            .metadata_info
+            .get(O::TYPE_NAME)
+            .cloned()
+    }
+
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
         Ok(inner.known_accounts.contains(account_id.as_ref()))
@@ -995,7 +1010,7 @@ impl ContactsBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
-        check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val)?;
+        check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.known_accounts.insert(account_id.as_ref().to_owned());
 
         // RFC 9610 §3: a ContactCard MUST belong to at least one
@@ -1366,6 +1381,7 @@ impl ContactsBackend for MemoryBackend {
         from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
+        create: &serde_json::Value,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
 
@@ -1393,6 +1409,9 @@ impl ContactsBackend for MemoryBackend {
         let stored: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("deserialize copied object", &e))
         })?;
+        // -04 §3.4: the create object's metadata follows the Foo/set create
+        // rules; the copied values are not revalidated.
+        check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, to_account_id.as_ref());
         // bd:JMAP-ic0j.74 — copy is a create on the destination account;
@@ -1561,8 +1580,12 @@ fn card_update_containers<'a>(
 }
 
 /// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
-/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
-/// on the stored value. A ContactCard needs `maySetMetadata` on the
+/// type `type_name`: rules 1 to 3 on the metadata properties of
+/// `supplied`, the create object, then rule 4 on the values it supplied as
+/// stored in `val`. A `Foo/set` create passes `val` as both; a `/copy`
+/// passes its create object, so the copied values are not revalidated
+/// (-04 §3.4: "maxDepth applies only to values supplied in the create
+/// object"). A ContactCard needs `maySetMetadata` on the
 /// AddressBooks of its `addressBookIds` (-04 §4.1: "on create, on the
 /// containers given in the create"). Types without the -04 properties
 /// pass unchecked.
@@ -1570,12 +1593,17 @@ fn check_metadata_create(
     inner: &Inner,
     type_name: &'static str,
     account_id: &str,
+    supplied: &serde_json::Value,
     val: &serde_json::Value,
 ) -> Result<(), BackendSetError<MemoryError>> {
-    let (Some(type_name), Some(obj)) = (metadata_type_name(type_name), val.as_object()) else {
+    let (Some(type_name), Some(supplied), Some(obj)) = (
+        metadata_type_name(type_name),
+        supplied.as_object(),
+        val.as_object(),
+    ) else {
         return Ok(());
     };
-    let entry: serde_json::Map<String, serde_json::Value> = obj
+    let entry: serde_json::Map<String, serde_json::Value> = supplied
         .iter()
         .filter(|(k, _)| is_metadata_property(k))
         .map(|(k, v)| (k.clone(), v.clone()))

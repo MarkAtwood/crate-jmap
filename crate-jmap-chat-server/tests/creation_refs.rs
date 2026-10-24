@@ -365,6 +365,7 @@ async fn attachment_filenode_reference_resolves() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": ["attachments"] }),
+        &[],
     )
     .await
     .expect("Message/get");

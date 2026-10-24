@@ -191,6 +191,7 @@ async fn space_create_stores_icon_blob_id() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+        &[],
     )
     .await
     .expect("Space/get");

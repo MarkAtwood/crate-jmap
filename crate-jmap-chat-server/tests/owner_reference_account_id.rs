@@ -73,6 +73,7 @@ async fn stored_chat_members(backend: &IdentityBackend) -> Vec<Value> {
         backend,
         &owner(),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT_ID] }),
+        &[],
     )
     .await
     .expect("Chat/get");

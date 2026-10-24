@@ -47,6 +47,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+        &[],
     )
     .await
     .expect("Space/get");

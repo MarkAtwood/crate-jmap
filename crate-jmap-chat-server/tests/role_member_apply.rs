@@ -118,6 +118,7 @@ async fn add_role_stores_server_assigned_id() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -511,6 +512,7 @@ async fn remove_role_cascades_demotion_to_everyone() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -603,6 +605,7 @@ async fn remove_role_cascades_channel_permission_overrides() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [] }),
+        &[],
     )
     .await
     .expect("Chat/get before");
@@ -629,6 +632,7 @@ async fn remove_role_cascades_channel_permission_overrides() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": ["ch-a", "ch-b"] }),
+        &[],
     )
     .await
     .expect("Chat/get after");
@@ -736,6 +740,7 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -915,6 +920,7 @@ async fn whole_patch_reject_on_permission_failure_no_partial_mutation() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -986,6 +992,7 @@ async fn whole_patch_reject_on_hierarchy_failure() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -1084,6 +1091,7 @@ async fn member_lifecycle_with_authenticated_admin() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -1124,6 +1132,7 @@ async fn member_lifecycle_with_authenticated_admin() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -1255,6 +1264,7 @@ async fn update_role_color_preserves_all_three_representations() {
             &backend,
             &caller,
             json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+            &[],
         )
         .await
         .expect("Space/get");
@@ -1339,6 +1349,7 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -1417,6 +1428,7 @@ async fn add_roles_after_remove_does_not_reuse_freed_id() {
                 backend,
                 &(),
                 json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+                &[],
             )
             .await
             .expect("Space/get");

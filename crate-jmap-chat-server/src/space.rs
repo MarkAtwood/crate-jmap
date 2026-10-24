@@ -60,9 +60,9 @@ use crate::helpers::{
 use crate::helpers::{resolve_entry_refs, resolve_ref, resolve_refs};
 use crate::{ChatBackend, ChatLimits, InviteJoinRefusal, SpacePatchOp};
 use jmap_server::{
-    HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
-    query_anchor_args, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg, filter_arg,
+    is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 use jmap_server::{SetError, SetErrorType};
 
@@ -345,11 +345,21 @@ fn parse_add_member_entry(
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists Space for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see
+/// [`jmap_server::MetadataProjection`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -383,6 +393,13 @@ pub async fn handle_space_get<B: ChatBackend>(
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
     };
+
+    let projection = MetadataProjection::new(
+        properties.as_deref(),
+        true,
+        using,
+        backend.metadata_info::<Space>(caller, &account_id).as_ref(),
+    )?;
 
     let ids_slice = ids.as_deref();
     let (list, mut not_found) = backend
@@ -422,7 +439,9 @@ pub async fn handle_space_get<B: ChatBackend>(
 
     let list_json: Vec<Value> = visible_list
         .iter()
-        .map(|space| project_space_for_caller(space, caller_member_id, properties.as_deref()))
+        .map(|space| {
+            project_space_for_caller(space, caller_member_id, properties.as_deref(), &projection)
+        })
         .collect::<Result<Vec<_>, _>>()?;
 
     Ok(HandlerOutput::new(json!({
@@ -505,6 +524,7 @@ fn project_space_for_caller(
     space: &Space,
     caller_member_id: &Id,
     properties: Option<&[String]>,
+    projection: &MetadataProjection,
 ) -> Result<Value, JmapError> {
     let full = serialize_value(space)?;
 
@@ -535,14 +555,21 @@ fn project_space_for_caller(
     // filter, then apply both. Either filter being `None` means
     // "no constraint from this layer".
     let request_filter: Option<&[String]> = properties;
-    match (allowed_fields, request_filter) {
-        (None, None) => Ok(full),
-        (None, Some(props)) => Ok(filter_object_fields(full, |k| props.iter().any(|p| p == k))),
-        (Some(cap), None) => Ok(filter_object_fields(full, |k| cap.contains(&k))),
-        (Some(cap), Some(props)) => Ok(filter_object_fields(full, |k| {
-            cap.contains(&k) && props.iter().any(|p| p == k)
-        })),
+    // draft-ietf-jmap-metadata-04 §2, §3.1 only where the caller sees the
+    // whole Space: metadata is not one of the restricted-view fields.
+    let metadata_source = allowed_fields.is_none().then(|| full.clone());
+    let mut out = match (allowed_fields, request_filter) {
+        (None, None) => full,
+        (None, Some(props)) => filter_object_fields(full, |k| props.iter().any(|p| p == k)),
+        (Some(cap), None) => filter_object_fields(full, |k| cap.contains(&k)),
+        (Some(cap), Some(props)) => {
+            filter_object_fields(full, |k| cap.contains(&k) && props.iter().any(|p| p == k))
+        }
+    };
+    if let Some(source) = &metadata_source {
+        projection.apply(source, &mut out);
     }
+    Ok(out)
 }
 
 /// Retain only the top-level fields of `value` for which `keep`
@@ -605,12 +632,23 @@ pub async fn handle_space_changes<B: ChatBackend>(
 /// Unknown filter clauses and sort properties are refused with
 /// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_chat_types::SpaceFilterCondition::has_metadata_condition,
+        using,
+    )?;
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
@@ -700,12 +738,23 @@ pub async fn handle_space_query<B: ChatBackend>(
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     mut args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_chat_types::SpaceFilterCondition::has_metadata_condition,
+        using,
+    )?;
     // RFC 8620 §5.6: the `filter` and `sort` are those of the original
     // query, so the §Space/query default sort applies here too.
     if let Value::Object(map) = &mut args {

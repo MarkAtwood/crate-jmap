@@ -191,9 +191,10 @@ impl ContactsBackend for FailingBackend {
         from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
+        create: &serde_json::Value,
     ) -> Result<(Id, O), BackendSetError<MemoryError>> {
         self.inner
-            .copy_object(caller, from_account_id, to_account_id, obj)
+            .copy_object(caller, from_account_id, to_account_id, obj, create)
             .await
     }
 
@@ -278,6 +279,7 @@ async fn assert_cascade_failed(resp: &Value, backend: &FailingBackend) {
         &backend.inner,
         &(),
         json!({ "accountId": "acc1", "ids": ["ab1"] }),
+        &[],
     )
     .await
     .expect("AddressBook/get");
@@ -290,6 +292,7 @@ async fn card1_books(backend: &FailingBackend) -> Value {
         &backend.inner,
         &(),
         json!({ "accountId": "acc1", "ids": ["card1"], "properties": ["addressBookIds"] }),
+        &[],
     )
     .await
     .expect("ContactCard/get");

@@ -316,14 +316,24 @@ fn group_update_events(
 /// [`ChatBackend::maintains_unread_count`] is `true` gets its stored
 /// value back instead.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists Chat for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see [`jmap_server::handle_get_with_metadata`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 // NOTE: properties forwarded via handle_get
 pub async fn handle_chat_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    let mut out = jmap_server::handle_get::<Chat, B>(backend, caller, args).await?;
+    let mut out =
+        jmap_server::handle_get_with_metadata::<Chat, B>(backend, caller, args, using).await?;
     fill_unread_counts(backend, caller, &mut out.primary).await?;
     Ok(out)
 }
@@ -485,12 +495,23 @@ pub async fn handle_chat_changes<B: ChatBackend>(
 /// Unknown filter clauses and sort properties are refused with
 /// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     mut args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_chat_types::ChatFilterCondition::has_metadata_condition,
+        using,
+    )?;
     // §Chat/query: "Default sort: `lastMessageAt` descending; chats
     // without messages sort last."
     if let Value::Object(map) = &mut args {
@@ -516,12 +537,23 @@ pub async fn handle_chat_query<B: ChatBackend>(
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     mut args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_chat_types::ChatFilterCondition::has_metadata_condition,
+        using,
+    )?;
     // RFC 8620 §5.6: the `filter` and `sort` are those of the original
     // query, so the §Chat/query default sort applies here too.
     if let Value::Object(map) = &mut args {

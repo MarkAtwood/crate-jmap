@@ -72,9 +72,14 @@ fn set(list: &[&str]) -> HashSet<String> {
 }
 
 async fn not_found(files: &MemoryBackend, list: &[&str]) -> HashSet<String> {
-    let out = handle_filenode_get(files, &(), json!({ "accountId": ACCOUNT, "ids": list }))
-        .await
-        .expect("FileNode/get");
+    let out = handle_filenode_get(
+        files,
+        &(),
+        json!({ "accountId": ACCOUNT, "ids": list }),
+        &[],
+    )
+    .await
+    .expect("FileNode/get");
     ids(&out.primary["notFound"])
 }
 

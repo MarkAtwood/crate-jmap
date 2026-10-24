@@ -33,7 +33,7 @@ async fn query(backend: &MemoryBackend, extra: Value) -> Result<Value, Value> {
     for (k, v) in extra.as_object().expect("extra must be an object") {
         args[k] = v.clone();
     }
-    handle_chat_query(backend, &(), args)
+    handle_chat_query(backend, &(), args, &[])
         .await
         .map(|HandlerOutput { primary: resp, .. }| resp)
         .map_err(|e| serde_json::to_value(&e).expect("JmapError must serialize"))

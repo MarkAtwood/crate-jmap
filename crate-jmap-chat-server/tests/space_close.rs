@@ -72,6 +72,7 @@ async fn space_as(backend: &IdentityBackend, viewer: &str) -> Value {
         backend,
         &Id::from(viewer),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");

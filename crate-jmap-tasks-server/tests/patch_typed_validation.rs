@@ -58,7 +58,7 @@ async fn task_list_null_name_rejected_and_get_still_succeeds() {
     );
 
     let get_args = json!({ "accountId": "acc1", "ids": ["tl1"] });
-    let HandlerOutput { primary: after, .. } = handle_task_list_get(&backend, &(), get_args)
+    let HandlerOutput { primary: after, .. } = handle_task_list_get(&backend, &(), get_args, &[])
         .await
         .expect("/get must not return a top-level error");
     assert_eq!(after["list"][0]["name"], "Chores", "{after}");
@@ -106,7 +106,7 @@ async fn task_null_comment_message_rejected_and_get_still_succeeds() {
     );
 
     let get_args = json!({ "accountId": "acc1", "ids": ["t1"] });
-    let HandlerOutput { primary: after, .. } = handle_task_get(&backend, &(), get_args)
+    let HandlerOutput { primary: after, .. } = handle_task_get(&backend, &(), get_args, &[])
         .await
         .expect("/get must not return a top-level error");
     assert_eq!(

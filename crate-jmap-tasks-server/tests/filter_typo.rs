@@ -34,13 +34,13 @@ fn cases() -> [(&'static str, Handler, Value, Value); 4] {
     [
         (
             "Task/query",
-            |b, c, a| Box::pin(handle_task_query(b, c, a)),
+            |b, c, a| Box::pin(handle_task_query(b, c, a, &[])),
             json!({ "taskListId": "tl1" }),
             json!({ "tasklistId": "tl1" }),
         ),
         (
             "Task/queryChanges",
-            |b, c, a| Box::pin(handle_task_query_changes(b, c, a)),
+            |b, c, a| Box::pin(handle_task_query_changes(b, c, a, &[])),
             json!({ "taskListId": "tl1" }),
             json!({ "tasklistId": "tl1" }),
         ),

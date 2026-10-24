@@ -103,7 +103,7 @@ async fn sweep(b: &MemoryBackend, now: SystemTime) {
 }
 
 async fn message_exists(b: &MemoryBackend, id: &str) -> bool {
-    let resp = handle_message_get(b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [id] }))
+    let resp = handle_message_get(b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [id] }), &[])
         .await
         .expect("Message/get")
         .primary;
@@ -111,7 +111,7 @@ async fn message_exists(b: &MemoryBackend, id: &str) -> bool {
 }
 
 async fn chat(b: &MemoryBackend, id: &str) -> Value {
-    let resp = handle_chat_get(b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [id] }))
+    let resp = handle_chat_get(b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [id] }), &[])
         .await
         .expect("Chat/get")
         .primary;
@@ -130,7 +130,7 @@ async fn sender_expires_at_hard_deletes_at_deadline() {
         "c1",
         json!({ "senderExpiresAt": "2024-01-01T00:00:10Z" }),
     );
-    let state = handle_message_get(&b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }))
+    let state = handle_message_get(&b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }), &[])
         .await
         .expect("Message/get")
         .primary["state"]
@@ -323,7 +323,7 @@ async fn presence_expires_at_resets_status() {
 }
 
 async fn chat_state(b: &MemoryBackend) -> Value {
-    handle_chat_get(b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }))
+    handle_chat_get(b, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }), &[])
         .await
         .expect("Chat/get")
         .primary["state"]

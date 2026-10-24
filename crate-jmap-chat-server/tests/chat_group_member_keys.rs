@@ -86,6 +86,7 @@ async fn stored_chat(backend: &IdentityBackend, chat_id: &str) -> Value {
         backend,
         &Id::from(ACCOUNT_ID),
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),
+        &[],
     )
     .await
     .expect("Chat/get");
