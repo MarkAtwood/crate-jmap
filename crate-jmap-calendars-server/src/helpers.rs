@@ -164,6 +164,33 @@ pub(crate) fn resolve_map_key_refs(
     Ok(())
 }
 
+/// Check that every key of the `property` map (an `Id[...]` such as
+/// `shareWith`) in a create or patch, and the id segment of every
+/// `property/<id>` patch path, is an RFC 8620 §1.2 Id.
+///
+/// # Errors
+///
+/// A boxed `invalidProperties` [`jmap_server::SetError`] naming `property`.
+pub(crate) fn check_map_key_ids(
+    entry: &Map<String, Value>,
+    property: &str,
+) -> Result<(), Box<jmap_server::SetError>> {
+    let prefix = format!("{property}/");
+    let map_keys = entry
+        .get(property)
+        .and_then(Value::as_object)
+        .into_iter()
+        .flat_map(|m| m.keys().map(String::as_str));
+    let path_ids = entry
+        .keys()
+        .filter_map(|k| k.strip_prefix(&prefix))
+        .map(|rest| rest.split_once('/').map_or(rest, |(id, _)| id));
+    for raw in map_keys.chain(path_ids) {
+        jmap_server::parse_wire_id(raw, property)?;
+    }
+    Ok(())
+}
+
 /// Resolve an `onSuccessSetIsDefault` argument value to the target [`Id`].
 ///
 /// Per draft-ietf-jmap-calendars-33 §3.3 / §4.3, a `#`-prefixed string

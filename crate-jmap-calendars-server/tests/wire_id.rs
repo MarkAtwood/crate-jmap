@@ -57,3 +57,38 @@ async fn calendar_event_set_rejects_malformed_destroy_id() {
             .primary;
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
 }
+
+/// draft-ietf-jmap-calendars-26 §4 (txt:849): "shareWith:
+/// Id[CalendarRights]|null", so each key is an Id. A `"bad id"` key on
+/// create, or as the id segment of a `shareWith/<id>/<right>` patch path,
+/// is `invalidProperties` naming `shareWith`. A well-formed segment (`p1`)
+/// passes the check and reaches the backend, which reports RFC 8620 §5.3
+/// `notFound` for the missing calendar.
+#[tokio::test]
+async fn calendar_set_rejects_malformed_share_with_keys() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+    let args = json!({
+        "accountId": account_id.as_ref(),
+        "create": { "c1": { "name": "x", "shareWith": { "bad id": { "mayReadItems": true } } } },
+        "update": {
+            "cal1": { "shareWith/bad id/mayReadItems": true },
+            "cal2": { "shareWith": { "bad id": { "mayReadItems": true } } },
+            "cal3": { "shareWith/p1/mayReadItems": true }
+        }
+    });
+    let resp = handle_calendar_set(&backend, &(), args, &[])
+        .await
+        .expect("/set must not fail as a method")
+        .primary;
+    for entry in [
+        &resp["notCreated"]["c1"],
+        &resp["notUpdated"]["cal1"],
+        &resp["notUpdated"]["cal2"],
+    ] {
+        assert_eq!(entry["type"], "invalidProperties", "{resp}");
+        assert_eq!(entry["properties"], json!(["shareWith"]), "{resp}");
+    }
+    assert_eq!(resp["notUpdated"]["cal3"]["type"], "notFound", "{resp}");
+}

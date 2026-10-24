@@ -40,7 +40,7 @@ use serde_json::{Value, json};
 
 use crate::CalendarsBackend;
 use crate::helpers::{
-    SetAccumulators, apply_default_change_to_response, check_metadata_entry,
+    SetAccumulators, apply_default_change_to_response, check_map_key_ids, check_metadata_entry,
     enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     resolve_on_success_set_is_default,
 };
@@ -187,6 +187,15 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
+            // draft-ietf-jmap-calendars-33 §4 `shareWith`: Id[CalendarRights],
+            // keyed by Principal id.
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_map_key_ids(o, "shareWith"))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
             // `isDefault` and `myRights` are server-set (draft-ietf-jmap-
             // calendars-33 §4) and `Calendar` requires both, so the server
             // supplies them. A new calendar is not the default until
@@ -276,6 +285,10 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 continue;
             }
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
