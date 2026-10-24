@@ -366,14 +366,25 @@ beyond the standard invocation envelope.
 ## CallerCtx
 
 `register_chat_handlers` registers each method as a `ClosureHandler`
-that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
-The standard `handle_*` handler bodies ignore `_ctx` and receive only
-`(Arc<B>, call_id, args)`; the value is still available for backends that
-register handlers individually via `ClosureHandler`. If you need
-per-request auth context inside one of the standard `handle_*` functions
-(e.g., to enforce that a caller can only modify their own `PresenceStatus`),
-implement `JmapHandler<C>` directly for that method instead of relying on
-the registered handler.
+that forwards the dispatcher's `CallerCtx` value into the closure as `ctx`,
+which the closure body then passes by reference (`&ctx`) into the standard
+`handle_*` handler. The handler in turn forwards `caller: &B::CallerCtx` into
+every `ChatBackend` (and inherited `JmapBackend`) method call.
+
+To use this:
+
+1. Pick a `CallerCtx` type for your backend — e.g. `()` if no auth context is
+   needed, or a struct like `AuthCtx { user_id: Id, scopes: Vec<Scope> }`.
+2. Implement `JmapBackend` with `type CallerCtx = AuthCtx;` (the bound is
+   `Clone + Send + Sync + 'static`).
+3. Use the matching `Dispatcher<AuthCtx>` and pass the constructed auth
+   context as the second argument to `Dispatcher::dispatch(request, auth, …)`.
+4. Inside `ChatBackend` method bodies, read `caller: &AuthCtx` to apply
+   per-user visibility rules and the `may_*` permission hooks (e.g., that a
+   caller can only modify their own `PresenceStatus`).
+
+Backends that don't need an auth identity use `type CallerCtx = ();` and a
+`Dispatcher<()>`. Both shapes register the same way.
 
 ## Gotchas
 
