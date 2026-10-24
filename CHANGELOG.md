@@ -3678,6 +3678,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: `Space/set` create now stores `iconBlobId`
+  (draft-atwood-jmap-chat-00 §Space/set "Optional: `description` (String),
+  `iconBlobId` (String)."); it used to accept and drop it. A non-String or
+  malformed Id value is `invalidProperties`.
+
 - **jmap-mail-server**, **jmap-mime**: `Email/set` create now writes the
   `header:{name}[:{form}][:all]` properties of the Email and of each
   EmailBodyPart into the message (RFC 8621 §4.6: "the client must set each
