@@ -193,6 +193,11 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.insert("id".to_owned(), Value::String(String::new()));
+                    // RFC 8620 §5.3: the server fills omitted properties that
+                    // have a default. draft-ietf-jmap-tasks-06 §3:
+                    // `isSubscribed` SHOULD default to true for any new task
+                    // list created by the user themselves.
+                    m.entry("isSubscribed").or_insert(Value::Bool(true));
                     // `myRights` is server-set (draft-ietf-jmap-tasks-06 §3)
                     // and TaskList requires it, so the server supplies it.
                     //

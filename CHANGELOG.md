@@ -3678,6 +3678,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-tasks-server**, **jmap-contacts-server**, **jmap-calendars-server**:
+  `TaskList/set`, `AddressBook/set` and `Calendar/set` creates that omit
+  `isSubscribed` now default it to `true`, and `Calendar/set` creates that
+  omit `includeInAvailability` default it to `"all"`, echoing both in
+  `created` (RFC 8620 §5.3; draft-ietf-jmap-tasks-06 §3, RFC 9610 §2,
+  draft-ietf-jmap-calendars-33 §4: true "for any new [collection] created
+  by the user themself"; "all" "for the calendars in the user's own
+  account"). They used to fail with `invalidProperties`.
+
 - **jmap-chat-server**: `Space/set` create now stores `iconBlobId`
   (draft-atwood-jmap-chat-00 §Space/set "Optional: `description` (String),
   `iconBlobId` (String)."); it used to accept and drop it. A non-String or

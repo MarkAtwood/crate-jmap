@@ -204,7 +204,20 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             // ponytail: the creator holds every right, as the owner of a
             // calendar in their own account; a backend with finer sharing may
             // replace `myRights` in `create_object`.
+            //
+            // RFC 8620 §5.3: the server fills omitted properties that have a
+            // default. draft-ietf-jmap-calendars-33 §4: `isSubscribed` SHOULD
+            // default to true for new Calendars created by the user
+            // themself, and `includeInAvailability` should default to "all"
+            // for calendars in the user's own account.
+            //
+            // ponytail: "all" assumes the creator owns the account, as the
+            // `myRights` default does; a backend that knows the account is
+            // shared may replace it with "none" in `create_object`.
             if let Some(m) = obj_val.as_object_mut() {
+                m.entry("isSubscribed").or_insert(Value::Bool(true));
+                m.entry("includeInAvailability")
+                    .or_insert_with(|| Value::String("all".to_owned()));
                 m.insert("isDefault".to_owned(), Value::Bool(false));
                 m.insert(
                     "myRights".to_owned(),
