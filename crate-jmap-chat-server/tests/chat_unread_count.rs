@@ -432,6 +432,7 @@ async fn remove_channels_destroys_their_read_positions() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeChannels": ["ch1"] } }
@@ -463,6 +464,7 @@ async fn space_destroy_destroys_channel_read_positions() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
         &[],
     )

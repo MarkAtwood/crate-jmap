@@ -107,9 +107,10 @@ fn seeded() -> MemoryBackend {
 }
 
 async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
-    let HandlerOutput { primary, .. } = handle_space_set(backend, &(), args, &[])
-        .await
-        .expect("Space/set");
+    let HandlerOutput { primary, .. } =
+        handle_space_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
+            .await
+            .expect("Space/set");
     primary
 }
 

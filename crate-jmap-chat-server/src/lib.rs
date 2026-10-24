@@ -260,9 +260,13 @@ where
     reg!("Space/queryChanges", backend, |b, _ci, a, ctx| {
         handle_space_query_changes(&*b, &ctx, a).await
     });
-    reg!("Space/set", backend, |b, _ci, a, ctx, using| {
-        handle_space_set(&*b, &ctx, a, &using).await
-    });
+    reg!(
+        "Space/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, using| {
+            handle_space_set(&*b, &ctx, &created_ids, a, &using).await
+        }
+    );
     reg!("Space/join", backend, |b, _ci, a, ctx| {
         handle_space_join(&*b, &ctx, a).await
     });

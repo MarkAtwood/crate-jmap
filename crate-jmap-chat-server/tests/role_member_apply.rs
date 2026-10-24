@@ -59,6 +59,7 @@ async fn owner_without_member_entry_cannot_add_roles() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [{
@@ -94,6 +95,7 @@ async fn add_role_stores_server_assigned_id() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [
@@ -149,6 +151,7 @@ async fn non_member_caller_lacks_all_permissions() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &outsider,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [{
@@ -200,6 +203,7 @@ async fn member_with_only_everyone_role_lacks_permissions() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [{
@@ -228,6 +232,7 @@ async fn admin_with_required_permissions_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [{
@@ -278,6 +283,7 @@ async fn add_role_at_caller_position_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [{
@@ -307,6 +313,7 @@ async fn add_role_at_caller_position_rejected() {
     } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [{
@@ -361,6 +368,7 @@ async fn update_role_hierarchy_checks_both_old_and_new_position() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "updateRoles": [{
@@ -412,6 +420,7 @@ async fn add_member_with_role_above_caller_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addMembers": [{
@@ -481,6 +490,7 @@ async fn remove_role_cascades_demotion_to_everyone() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeRoles": ["r-mod"] }}
@@ -601,6 +611,7 @@ async fn remove_role_cascades_channel_permission_overrides() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeRoles": ["r-mod"] }}
@@ -696,6 +707,7 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID, "u-regular"] }}
@@ -771,6 +783,7 @@ async fn last_admin_protection_disabled_allows_removal() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID, "u-regular"] }}
@@ -818,6 +831,7 @@ async fn last_admin_protection_allows_when_other_admin_remains() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": ["admin-2"] }}
@@ -876,6 +890,7 @@ async fn whole_patch_reject_on_permission_failure_no_partial_mutation() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -946,6 +961,7 @@ async fn whole_patch_reject_on_hierarchy_failure() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addRoles": [
@@ -1021,6 +1037,7 @@ async fn member_lifecycle_with_authenticated_admin() {
     } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addMembers": [{
@@ -1043,6 +1060,7 @@ async fn member_lifecycle_with_authenticated_admin() {
     } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "updateMembers": [{
@@ -1086,6 +1104,7 @@ async fn member_lifecycle_with_authenticated_admin() {
     } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": ["newbie"] }}
@@ -1126,6 +1145,7 @@ async fn add_member_duplicate_user_id_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addMembers": [{
@@ -1153,6 +1173,7 @@ async fn add_member_unknown_role_id_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addMembers": [{
@@ -1212,6 +1233,7 @@ async fn update_role_color_preserves_all_three_representations() {
         let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &caller,
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "update": { SPACE_ID: { "updateRoles": [{
@@ -1292,6 +1314,7 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
         let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "update": { SPACE_ID: { "addRoles": add_roles } }
@@ -1373,6 +1396,7 @@ async fn add_roles_after_remove_does_not_reuse_freed_id() {
             let HandlerOutput { primary: resp, .. } = handle_space_set(
                 backend,
                 &(),
+                &std::collections::BTreeMap::new(),
                 json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
                 &[],
             )

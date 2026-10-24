@@ -56,7 +56,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, iso8601_before, not_found_json,
     now_utc_string, optional_arg, reject_unsupported_sort, serialize_value,
 };
-use crate::helpers::{parents_first, resolved_create};
+use crate::helpers::{parents_first, resolve_entry_refs, resolved_create};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
     query_anchor_args, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
@@ -1061,6 +1061,15 @@ async fn shares_receipts<B: ChatBackend>(
 /// client may set to a `#creationId` reference (RFC 8620 §5.3).
 const MESSAGE_ID_PROPERTIES: &[&str] = &["chatId", "replyTo", "threadRootId"];
 
+/// A Mention `id`, a ChatContact id (draft-atwood-jmap-chat-00 §Mention),
+/// as `(property, entry field, property named on failure)` for
+/// [`resolve_entry_refs`].
+const MENTION_ID: (&str, &str, &str) = ("mentions", "id", "mentions");
+
+/// An Attachment `filenodeId`, a FileNode id; failed validation names
+/// `filenodeId` (draft-atwood-jmap-chat-filenode-00 §filenodeId).
+const ATTACHMENT_FILENODE_ID: (&str, &str, &str) = ("attachments", "filenodeId", "filenodeId");
+
 /// Handle a `Message/set` method call (draft-atwood-jmap-chat-00 §Message).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -1081,8 +1090,10 @@ const MESSAGE_ID_PROPERTIES: &[&str] = &["chatId", "replyTo", "threadRootId"];
 /// reference names a record created earlier in the request and resolves
 /// against `created_ids` (pass [`jmap_server::CallContext::created_ids`]) or
 /// against a create of this call, which runs replied-to messages first (RFC
-/// 8620 §5.3). An unknown reference is `invalidProperties` naming the
-/// property.
+/// 8620 §5.3). So does a Mention `id` in a create or an edit, and an
+/// Attachment `filenodeId` in a create. An unknown reference is
+/// `invalidProperties` naming the property (`filenodeId` for an
+/// Attachment).
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]): a write to `metadata` or
@@ -1140,7 +1151,11 @@ pub async fn handle_message_set<B: ChatBackend>(
         // later creates in this call can reference them.
         let mut created_ids = created_ids.clone();
         for (create_id, obj_val) in parents_first(create_map, &["replyTo", "threadRootId"]) {
-            let resolved = match resolved_create(obj_val, MESSAGE_ID_PROPERTIES, &created_ids) {
+            let resolved = match resolved_create(obj_val, MESSAGE_ID_PROPERTIES, &created_ids)
+                .and_then(|mut v| {
+                    resolve_entry_refs(&mut v, &[MENTION_ID, ATTACHMENT_FILENODE_ID], &created_ids)
+                        .map(|()| v)
+                }) {
                 Ok(v) => v,
                 Err(err) => {
                     not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
@@ -1662,7 +1677,7 @@ pub async fn handle_message_set<B: ChatBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -1670,6 +1685,11 @@ pub async fn handle_message_set<B: ChatBackend>(
                     continue;
                 }
             };
+            // An edit may replace `mentions`; `attachments` is immutable.
+            if let Err(err) = resolve_entry_refs(&mut patch_val, &[MENTION_ID], created_ids) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
 
             // RFC 8620 §5.3: "There MUST NOT be two patches in the
             // PatchObject where the pointer of one is the prefix of the
@@ -2497,6 +2517,7 @@ mod tests {
         crate::space::handle_space_set(
             backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "update": { space_id: { "addChannels": [{ "name": "general" }] } }

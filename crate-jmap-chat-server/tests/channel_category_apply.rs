@@ -71,6 +71,7 @@ async fn owner_without_member_entry_cannot_add_channels() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -105,6 +106,7 @@ async fn non_member_caller_lacks_manage_channels() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &outsider,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addChannels": [{ "name": "general" }] } }
@@ -143,6 +145,7 @@ async fn everyone_only_member_cannot_add_channel() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addChannels": [{ "name": "general" }] } }
@@ -175,6 +178,7 @@ async fn everyone_only_member_cannot_remove_channel() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeChannels": ["any-id"] } }
@@ -207,6 +211,7 @@ async fn everyone_only_member_cannot_update_channel() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -234,6 +239,7 @@ async fn everyone_only_member_cannot_add_category() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -273,6 +279,7 @@ async fn everyone_only_member_cannot_remove_category() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeCategories": ["any-cat"] } }
@@ -298,6 +305,7 @@ async fn everyone_only_member_cannot_update_category() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -345,6 +353,7 @@ async fn member_with_manage_channels_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -407,6 +416,7 @@ async fn whole_patch_reject_on_channel_permission_failure() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -475,6 +485,7 @@ async fn mixed_channel_category_patch_atomic_reject() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {

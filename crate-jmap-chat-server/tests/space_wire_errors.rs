@@ -31,9 +31,15 @@ fn admin_backend() -> IdentityBackend {
 }
 
 async fn space_set(backend: &IdentityBackend, args: Value) -> Result<Value, JmapError> {
-    handle_space_set(backend, &caller(), args, &[])
-        .await
-        .map(|HandlerOutput { primary, .. }| primary)
+    handle_space_set(
+        backend,
+        &caller(),
+        &std::collections::BTreeMap::new(),
+        args,
+        &[],
+    )
+    .await
+    .map(|HandlerOutput { primary, .. }| primary)
 }
 
 async fn update(backend: &IdentityBackend, patch: Value) -> Value {

@@ -72,7 +72,7 @@ fn chat() -> ChatMemory {
 }
 
 async fn space_set(chat: &ChatMemory, args: Value) -> Value {
-    handle_space_set(chat, &(), args, &[])
+    handle_space_set(chat, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("Space/set")
         .primary

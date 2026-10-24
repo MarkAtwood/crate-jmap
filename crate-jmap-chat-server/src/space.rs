@@ -35,6 +35,8 @@
 //! position-0 / cap-exceeded enforcement) surface in the `notCreated` /
 //! `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
+use std::collections::BTreeMap;
+
 use jmap_chat_types::SPEC_PERMISSION_NAMES;
 use jmap_chat_types::{
     CategoryCreate, CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
@@ -55,6 +57,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, iso8601_before,
     not_found_json, now_utc_string, optional_arg, reject_unsupported_sort, serialize_value,
 };
+use crate::helpers::{resolve_entry_refs, resolve_refs};
 use crate::{ChatBackend, ChatLimits, InviteJoinRefusal, SpacePatchOp};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
@@ -899,9 +902,19 @@ const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
 ///   backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `removeMembers` element, or the `id` of an `addMembers` or
+/// `updateMembers` entry, that is a `#creationId` reference names a
+/// ChatContact created earlier in the request and resolves against
+/// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3); an unknown reference is `invalidProperties` naming the patch key.
+/// The channel ids in `removeChannels`, `updateChannels` and category
+/// `channelIds` are not resolved: a channel Chat is created only by
+/// `addChannels`, which has no creation id.
 pub async fn handle_space_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
@@ -1129,7 +1142,7 @@ pub async fn handle_space_set<B: ChatBackend>(
     let space_limits = backend.limits(caller, &account_id);
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -1137,6 +1150,23 @@ pub async fn handle_space_set<B: ChatBackend>(
                     continue;
                 }
             };
+            // draft-atwood-jmap-chat-00 §Space/set "Updating a Space": these
+            // keys name members by ChatContact id.
+            if let Err(err) = resolve_refs(&mut patch_val, &["removeMembers"], created_ids)
+                .and_then(|()| {
+                    resolve_entry_refs(
+                        &mut patch_val,
+                        &[
+                            ("addMembers", "id", "addMembers"),
+                            ("updateMembers", "id", "updateMembers"),
+                        ],
+                        created_ids,
+                    )
+                })
+            {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
 
             // Reject patches to server-set Space properties, including
             // `roles`, `members`, `categories` and `uncategorizedChannelIds`,

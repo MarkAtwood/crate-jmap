@@ -58,6 +58,7 @@ async fn update_as(backend: &IdentityBackend, caller: &str, patch: Value) -> Val
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &Id::from(caller),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
         &[],
     )

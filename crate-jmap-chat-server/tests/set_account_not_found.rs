@@ -71,7 +71,7 @@ account_not_found_test!(ids using message_set_unknown_account, handle_message_se
 account_not_found_test!(presence_set_unknown_account, handle_presence_set);
 account_not_found_test!(ids position_set_unknown_account, handle_position_set);
 account_not_found_test!(contact_set_unknown_account, handle_contact_set);
-account_not_found_test!(using space_set_unknown_account, handle_space_set);
+account_not_found_test!(ids using space_set_unknown_account, handle_space_set);
 account_not_found_test!(ids emoji_set_unknown_account, handle_emoji_set);
 account_not_found_test!(ids invite_set_unknown_account, handle_invite_set);
 account_not_found_test!(ids ban_set_unknown_account, handle_ban_set);

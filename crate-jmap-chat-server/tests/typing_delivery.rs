@@ -183,6 +183,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": RECIPIENT, "create": { "s": { "name": "S" } } }),
         &[],
     )
@@ -195,6 +196,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": RECIPIENT,
             "update": { &space_id: { "addChannels": [{ "name": "general" }] } }

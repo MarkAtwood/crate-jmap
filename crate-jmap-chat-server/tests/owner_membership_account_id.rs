@@ -80,6 +80,7 @@ async fn space_set_metadata_uses_owner_member_entry_permissions() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "renamed" } }
@@ -105,6 +106,7 @@ async fn space_set_add_members_uses_owner_member_entry_permissions() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "addMembers": [{ "id": "u-new", "roleIds": [] }] } }

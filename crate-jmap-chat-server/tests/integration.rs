@@ -4116,6 +4116,7 @@ async fn space_set_create_missing_name() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "isPublic": false } }
@@ -4139,6 +4140,7 @@ async fn space_set_create_success() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "My Server", "isPublic": true } }
@@ -4183,6 +4185,7 @@ async fn space_set_update_readonly_fields_rejected() {
         let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "update": { &space_id: { (*field): [] } }
@@ -4230,6 +4233,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addRoles": [
@@ -4271,6 +4275,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "updateRoles": [
@@ -4290,6 +4295,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addMembers": [
@@ -4309,6 +4315,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "updateMembers": [
@@ -4328,6 +4335,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeMembers": ["u1"] }}
@@ -4345,6 +4353,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeRoles": [role_id] }}
@@ -4362,6 +4371,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeRoles": ["nonexistent"] }}
@@ -4387,6 +4397,7 @@ async fn space_set_update_structural_empty_array_is_empty_patch() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addRoles": [] } }
@@ -4414,6 +4425,7 @@ async fn space_set_update_malformed_structural_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addRoles": ["not-an-object"] } }
@@ -4434,6 +4446,7 @@ async fn space_set_update_malformed_structural_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeMembers": "not-an-array" } }
@@ -4464,6 +4477,7 @@ async fn space_set_add_roles_position_zero_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -4516,6 +4530,7 @@ async fn space_set_add_roles_position_one_passes_handler_check() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -4561,6 +4576,7 @@ async fn space_set_update_roles_position_zero_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -4595,6 +4611,7 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -4650,6 +4667,7 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -4697,6 +4715,7 @@ async fn space_set_update_unknown_property_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "name": "OK", "totallyUnknownProperty": 42 } }
@@ -4773,6 +4792,7 @@ async fn space_set_category_add_assigns_id_and_pushes() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -4836,6 +4856,7 @@ async fn space_set_category_add_without_id_is_accepted() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -4902,6 +4923,7 @@ async fn space_set_category_add_assigns_unique_ids() {
         let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &(),
+            &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
                 "update": {
@@ -4958,6 +4980,7 @@ async fn space_set_category_add_reassigns_existing_channels() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5008,6 +5031,7 @@ async fn space_set_category_add_unknown_channel_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5054,6 +5078,7 @@ async fn space_set_category_remove_unknown_yields_not_found() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeCategories": ["does-not-exist"] } }
@@ -5083,6 +5108,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5108,6 +5134,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeCategories": [cat_id.as_ref()] } }
@@ -5180,6 +5207,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5206,6 +5234,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5314,6 +5343,7 @@ async fn space_set_category_add_moves_channel_out_of_previous_category() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5378,6 +5408,7 @@ async fn space_set_category_update_moves_channel_out_of_previous_category() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5441,6 +5472,7 @@ async fn space_set_category_cascade_emits_chat_changes() {
     let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5507,6 +5539,7 @@ async fn space_set_channel_add_assigns_id_and_lands_uncategorized() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5580,6 +5613,7 @@ async fn space_set_channel_add_into_existing_category() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5603,6 +5637,7 @@ async fn space_set_channel_add_into_existing_category() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5677,6 +5712,7 @@ async fn space_set_channel_add_unknown_category_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5738,6 +5774,7 @@ async fn space_set_channel_remove_unknown_yields_not_found() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeChannels": ["does-not-exist"] } }
@@ -5767,6 +5804,7 @@ async fn space_set_channel_remove_cascades_messages() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5853,6 +5891,7 @@ async fn space_set_channel_remove_cascades_messages() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeChannels": [&general_id] } }
@@ -5929,6 +5968,7 @@ async fn space_set_channel_update_name_and_position() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5957,6 +5997,7 @@ async fn space_set_channel_update_name_and_position() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -5996,6 +6037,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
     let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6023,6 +6065,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6060,6 +6103,7 @@ async fn space_set_channel_update_category_move() {
     let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6096,6 +6140,7 @@ async fn space_set_channel_update_category_move() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6158,6 +6203,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6181,6 +6227,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
     let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6212,6 +6259,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6271,6 +6319,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
     let HandlerOutput { .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "addChannels": [{ "name": "ch" }] } }
@@ -6296,6 +6345,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6333,6 +6383,7 @@ async fn space_set_channel_update_unknown_channel_yields_not_found() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6389,6 +6440,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -6448,6 +6500,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: { "removeChannels": [&ch_id] } }
@@ -6511,6 +6564,7 @@ async fn space_set_update_metadata_success() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -8239,6 +8293,7 @@ async fn space_join_via_invite_code_success() {
     } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "Invite Space" } }
@@ -8357,6 +8412,7 @@ async fn space_join_invite_code_from_other_account_not_found() {
     } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": "a1",
             "create": { "s0": { "name": "Hosted in a1" } }
@@ -8736,6 +8792,7 @@ async fn space_set_create_name_too_long() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": long_name } }
@@ -8823,6 +8880,7 @@ async fn space_set_count_limits_default_caps_allow_normal_patch() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -8863,6 +8921,7 @@ async fn space_set_count_limits_add_categories_over_cap_rejects() {
     let HandlerOutput { primary: resp1, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -8886,6 +8945,7 @@ async fn space_set_count_limits_add_categories_over_cap_rejects() {
     let HandlerOutput { primary: resp2, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -8937,6 +8997,7 @@ async fn space_set_count_limits_atomic_reject_whole_target() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -8990,6 +9051,7 @@ async fn space_set_count_limits_add_channels_over_cap_rejects() {
     let HandlerOutput { primary: resp1, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -9010,6 +9072,7 @@ async fn space_set_count_limits_add_channels_over_cap_rejects() {
     let HandlerOutput { primary: resp2, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -9048,6 +9111,7 @@ async fn space_set_count_limits_first_offender_surfaces() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -9093,6 +9157,7 @@ async fn space_set_count_limits_no_add_ops_bypasses_check() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -9129,6 +9194,7 @@ async fn space_set_count_limits_create_only_unaffected() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "Free Standing" } }
@@ -9278,6 +9344,7 @@ async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
     let _ = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -9297,6 +9364,7 @@ async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
