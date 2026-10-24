@@ -3745,6 +3745,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: **BREAKING** `Mailbox/query`, `Mailbox/queryChanges`,
+  `EmailSubmission/query`, `EmailSubmission/queryChanges` and
+  `SieveScript/query` now reject a comparator `collation` other than
+  `i;octet` with `unsupportedSort` (RFC 8620 §5.5) instead of silently
+  sorting byte-wise.
 - **jmap-metadata-types**: **BREAKING** `is_vendor_namespace` (and so
   `is_valid_namespace`) now requires every label to be a lowercase LDH
   label (letters, digits, hyphens; no leading or trailing hyphen), per

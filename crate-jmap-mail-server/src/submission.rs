@@ -153,8 +153,10 @@ pub async fn handle_submission_changes<B: MailBackend>(
 /// RFC 8621 §7.3 defines `emailId`, `threadId` and `sentAt` as the
 /// EmailSubmission comparator properties; any other property decodes as
 /// [`EmailSubmissionComparatorProperty::Other`] and is unsupportedSort
-/// (RFC 8620 §5.5). A malformed comparator is invalidArguments. An absent
-/// or null `sort` yields an empty vector.
+/// (RFC 8620 §5.5). Ids compare byte-wise and `sentAt` by instant, so
+/// `i;octet` (RFC 4790 §9.3) is the only collation accepted; §5.5 makes "a collation method it
+/// does not recognise" unsupportedSort too. A malformed comparator is
+/// invalidArguments. An absent or null `sort` yields an empty vector.
 fn submission_sort_arg(
     args: &serde_json::Map<String, Value>,
 ) -> Result<Vec<EmailSubmissionComparator>, JmapError> {
@@ -163,10 +165,10 @@ fn submission_sort_arg(
         Some(v) => serde_json::from_value(v.clone())
             .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
     };
-    if sort
-        .iter()
-        .any(|c| matches!(c.property, EmailSubmissionComparatorProperty::Other(_)))
-    {
+    if sort.iter().any(|c| {
+        matches!(c.property, EmailSubmissionComparatorProperty::Other(_))
+            || c.collation.as_deref().is_some_and(|k| k != "i;octet")
+    }) {
         return Err(JmapError::unsupported_sort());
     }
     Ok(sort)

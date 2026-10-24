@@ -189,8 +189,10 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
 /// RFC 8621 §2.3 defines `name` and `sortOrder` as the Mailbox comparator
 /// properties; any other property decodes as
 /// [`MailboxComparatorProperty::Other`] and is unsupportedSort (RFC 8620
-/// §5.5). A malformed comparator is invalidArguments. An absent or null
-/// `sort` yields an empty vector.
+/// §5.5). Names compare byte-wise, so `i;octet` (RFC 4790 §9.3) is the only
+/// collation accepted; §5.5 makes "a collation method it does not
+/// recognise" unsupportedSort too. A malformed comparator is
+/// invalidArguments. An absent or null `sort` yields an empty vector.
 fn mailbox_sort_arg(
     args: &serde_json::Map<String, Value>,
 ) -> Result<Vec<MailboxComparator>, JmapError> {
@@ -199,10 +201,10 @@ fn mailbox_sort_arg(
         Some(v) => serde_json::from_value(v.clone())
             .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
     };
-    if sort
-        .iter()
-        .any(|c| matches!(c.property, MailboxComparatorProperty::Other(_)))
-    {
+    if sort.iter().any(|c| {
+        matches!(c.property, MailboxComparatorProperty::Other(_))
+            || c.collation.as_deref().is_some_and(|k| k != "i;octet")
+    }) {
         return Err(JmapError::unsupported_sort());
     }
     Ok(sort)
