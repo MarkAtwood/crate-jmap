@@ -258,7 +258,8 @@ impl<'de> Deserialize<'de> for EphemeralMessage {
             serde_json::Value::String(s) => s,
             other => {
                 return Err(D::Error::custom(format!(
-                    "@type must be a string, found {other}"
+                    "@type must be a string, found {}",
+                    jmap_types::json_type_name(&other)
                 )));
             }
         };
@@ -329,6 +330,23 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Oracle: hand-written JSON whose `@type` carries a canary. RFC 8620
+    /// §3.6.1 makes an error `description` "unstructured English text
+    /// suitable for displaying to a developer", so the client value must not
+    /// be echoed; only its JSON type (RFC 8259 §3 "object") is named.
+    #[test]
+    fn ephemeral_type_error_does_not_echo_value() {
+        let raw = r#"{"@type":{"note":"CANARY-kwqn"}}"#;
+        let err = serde_json::from_str::<EphemeralMessage>(raw)
+            .unwrap_err()
+            .to_string();
+        assert!(!err.contains("CANARY-kwqn"), "{err}");
+        assert!(
+            err.contains("@type must be a string, found object"),
+            "{err}"
+        );
+    }
 
     #[test]
     fn typing_event_roundtrip() {

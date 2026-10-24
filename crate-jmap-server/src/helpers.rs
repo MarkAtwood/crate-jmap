@@ -2,6 +2,7 @@
 
 use std::borrow::Cow;
 
+pub use jmap_types::json_type_name;
 use jmap_types::{Id, JmapError, SetObject, UTCDate};
 
 use crate::backend::{SetError, SetErrorType};
@@ -15,27 +16,6 @@ use serde_json::{Map, Value};
 /// `created` payload.
 pub fn serialize_value<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
     serde_json::to_value(val).map_err(|e| JmapError::server_fail(e.to_string()))
-}
-
-/// Name the top-level JSON type of `v` (`null`, `boolean`, `number`,
-/// `string`, `array` or `object`) for an error description.
-///
-/// Malformed-argument errors interpolate this tag instead of the value
-/// itself. `Value`'s `Display` re-serialises arbitrary client-supplied JSON,
-/// so echoing it would let a request amplify its own error response and
-/// copy attacker-controlled text into the `description` that RFC 8620
-/// §3.6.1 reserves for "unstructured English text suitable for displaying
-/// to a developer" (and into any log that buffers responses).
-#[must_use]
-pub fn json_type_name(v: &Value) -> &'static str {
-    match v {
-        Value::Null => "null",
-        Value::Bool(_) => "boolean",
-        Value::Number(_) => "number",
-        Value::String(_) => "string",
-        Value::Array(_) => "array",
-        Value::Object(_) => "object",
-    }
 }
 
 /// Convert a slice of [`Id`]s to a JSON `notFound` value.
