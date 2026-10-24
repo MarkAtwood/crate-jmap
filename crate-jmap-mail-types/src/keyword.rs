@@ -21,8 +21,8 @@ use std::ops::Deref;
 use serde::{Deserialize, Serialize};
 
 /// Error returned by [`Keyword::try_new`] when the input violates RFC 8621 §4.1.1.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeywordError {
     /// The keyword string is empty.
     Empty,
@@ -85,9 +85,9 @@ const SYSTEM_KEYWORDS: &[&str] = &[
 ///
 /// No syntax validation is performed at construction time — keyword syntax
 /// validation is the server's responsibility.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[non_exhaustive]
 pub struct Keyword(String);
 
 impl Keyword {

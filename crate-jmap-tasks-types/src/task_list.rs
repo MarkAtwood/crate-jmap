@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// An unrecognised role is preserved via `Other(String)` so the wire value
 /// round-trips without loss and can be echoed back to the server.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskListRole {
     /// The principal's default task list (inbox for new tasks).
     Inbox,

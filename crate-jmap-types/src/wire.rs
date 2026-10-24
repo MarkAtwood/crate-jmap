@@ -64,8 +64,8 @@ impl<'de> Deserialize<'de> for Invocation {
 }
 
 /// JMAP request envelope (RFC 8620 §3.3).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JmapRequest {
     /// Capability URIs this request uses, e.g. `["urn:ietf:params:jmap:core"]`.
     pub using: Vec<String>,
@@ -84,8 +84,8 @@ pub struct JmapRequest {
 }
 
 /// JMAP response envelope (RFC 8620 §3.4).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct JmapResponse {
     /// Ordered list of method responses (same `[name, arguments, callId]`
     /// structure as requests).

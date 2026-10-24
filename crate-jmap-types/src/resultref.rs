@@ -67,8 +67,8 @@ mod sealed {
 /// ```json
 /// {"resultOf": "0", "name": "ChatContact/get", "path": "/list/0/id"}
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ResultReference {
     /// The call-id of the prior method invocation being referenced.
     #[serde(rename = "resultOf")]

@@ -109,9 +109,9 @@ crate::impl_string_enum!(
 ///
 /// See RFC 8620 §3.6.2 for the standard error types.
 /// The JSON key is `"type"` (not `"error_type"`) per RFC 8620.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
 #[error("{error_type}")]
-#[non_exhaustive]
 pub struct JmapError {
     /// Error type per RFC 8620 §3.6.
     #[serde(rename = "type")]

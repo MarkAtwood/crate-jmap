@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// Wire values use the hyphenated form mandated by RFC 8984 (e.g. `"needs-action"`).
 /// Vendor-specific values are preserved via `Other(String)`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskProgress {
     /// Task has not yet been started.
     NeedsAction,

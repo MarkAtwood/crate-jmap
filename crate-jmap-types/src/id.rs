@@ -13,8 +13,8 @@ use std::fmt;
 /// let err = jmap_types::Id::new_validated("").unwrap_err();
 /// let _ = err.0;
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ValidationError(String);
 
 impl fmt::Display for ValidationError {
@@ -31,9 +31,9 @@ impl std::error::Error for ValidationError {}
 /// Clients MUST treat Id values as opaque strings — no parsing of structure.
 // #[non_exhaustive] prevents callers from pattern-matching the inner field
 // (e.g. `let Id(s) = id;`), preserving semver freedom to add fields later.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[non_exhaustive]
 pub struct Id(String);
 
 /// RFC 3339 UTC timestamp string (RFC 8620 §1.4).
@@ -59,9 +59,9 @@ pub struct Id(String);
 /// from a peer as "RFC 8620 timestamp by convention, not by contract".
 // #[non_exhaustive] prevents callers from pattern-matching the inner field,
 // preserving semver freedom to add fields later.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[non_exhaustive]
 pub struct UTCDate(String);
 
 /// RFC 3339 date-time string with any timezone offset (RFC 8620 §1.4).
@@ -84,9 +84,9 @@ pub struct UTCDate(String);
 /// peer as "RFC 8620 timestamp by convention, not by contract".
 // #[non_exhaustive] prevents callers from pattern-matching the inner field,
 // preserving semver freedom to add fields later.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[non_exhaustive]
 pub struct Date(String);
 
 /// Opaque server state token (RFC 8620 §1.2).
@@ -120,9 +120,9 @@ pub struct Date(String);
 /// `state.into_inner()` at insertion / lookup time.
 // #[non_exhaustive] prevents callers from pattern-matching the inner field,
 // preserving semver freedom to add fields later.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-#[non_exhaustive]
 pub struct State(String);
 
 /// Generates `Display`, `From<String>`, `From<&str>`, `AsRef<str>`,

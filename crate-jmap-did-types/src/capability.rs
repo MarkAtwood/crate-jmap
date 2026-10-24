@@ -129,8 +129,8 @@ pub struct DidAccountCapability {
 ///
 /// The JSON `null` value ("does not disclose custody") is
 /// `Option::<KeyCustody>::None`, not a variant of this enum.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum KeyCustody {
     /// `"server"`: the server, or a party operating on its behalf, holds
     /// at least one of the private keys.

@@ -34,8 +34,8 @@ pub struct Person {
 
 /// Type of change recorded by a [`CalendarEventNotification`]
 /// (draft-ietf-jmap-calendars-33 §7).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NotificationType {
     /// A calendar event was created.
     Created,

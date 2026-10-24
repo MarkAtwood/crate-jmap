@@ -15,8 +15,8 @@ use serde_json::Value;
 ///
 /// Implementations MUST handle unknown values gracefully.  The `Other(String)`
 /// variant retains the original wire string for round-tripping.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PrincipalType {
     /// A single person.
     Individual,

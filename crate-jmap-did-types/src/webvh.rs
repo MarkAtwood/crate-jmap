@@ -76,8 +76,8 @@ const MAX_TTL: u64 = 1 << 31;
 
 /// The `witness` parameter in effect: a `threshold` of the listed
 /// `did:key` witnesses must approve each entry.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebvhWitness {
     /// Approvals needed, between 1 and the number of witnesses.
     pub threshold: u64,
@@ -87,8 +87,8 @@ pub struct WebvhWitness {
 
 /// The did:webvh parameters in effect after a log entry, with v1.0
 /// defaults filled in.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebvhParameters {
     /// Multikeys authorized to sign updates.
     pub update_keys: Vec<String>,
@@ -107,8 +107,8 @@ pub struct WebvhParameters {
 }
 
 /// One verified version of a `did:webvh` DID.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebvhVersion {
     /// The entry's `versionId`, `<number>-<entryHash>`.
     pub version_id: String,
@@ -124,8 +124,8 @@ pub struct WebvhVersion {
 
 /// A verified `did:webvh` DID log: the valid versions, oldest first, and
 /// the first invalid entry if there is one.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WebvhLog {
     scid: String,
     earlier: Vec<WebvhVersion>,
@@ -182,8 +182,8 @@ impl WebvhLog {
 /// Why a `did:webvh` log, or one of its entries, does not verify.
 ///
 /// `#[non_exhaustive]`, so new variants stay semver-additive.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WebvhError {
     /// The DID, or an entry's `state.id`, is not a `did:webvh` DID per
     /// the method-specific identifier rules.

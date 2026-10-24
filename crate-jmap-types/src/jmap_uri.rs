@@ -37,8 +37,8 @@ pub struct JmapUri {
 }
 
 /// Why a string or set of parts is not a valid [`JmapUri`].
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JmapUriError {
     /// The URI scheme is not `jmap`.
     NotJmapScheme,

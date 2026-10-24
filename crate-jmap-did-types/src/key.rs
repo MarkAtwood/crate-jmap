@@ -28,8 +28,8 @@ const MAX_MULTIBASE_LEN: usize = 256;
 /// Signature Method Creation Algorithm table.
 ///
 /// `#[non_exhaustive]`, so new key types stay semver-additive.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum KeyType {
     /// `secp256k1-pub` (multicodec `0xe7`), a 33-byte compressed point.
     Secp256k1,
@@ -81,8 +81,8 @@ impl KeyType {
 /// Error from [`DidKey::from_did`].
 ///
 /// `#[non_exhaustive]`, so new variants stay semver-additive.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DidKeyError {
     /// The DID is not a `did:key`: the method is not `key`, there are
     /// not three or four colon-separated components, the version is not
