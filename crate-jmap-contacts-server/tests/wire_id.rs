@@ -61,3 +61,38 @@ async fn contact_card_copy_rejects_malformed_from_account_id() {
         .expect_err("a malformed fromAccountId must fail the method");
     assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
+
+/// RFC 9610 §2: "shareWith: Id[AddressBookRights]|null", so each key is an
+/// Id. A `"bad id"` key on create, or as the id segment of a
+/// `shareWith/<id>/<right>` patch path, is `invalidProperties` naming
+/// `shareWith`. A well-formed segment (`p1`) passes the check and reaches
+/// the backend, which reports RFC 8620 §5.3 `notFound` for the missing
+/// address book.
+#[tokio::test]
+async fn address_book_set_rejects_malformed_share_with_keys() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+    let args = json!({
+        "accountId": account_id.as_ref(),
+        "create": { "c1": { "name": "x", "shareWith": { "bad id": { "mayRead": true } } } },
+        "update": {
+            "ab1": { "shareWith/bad id/mayRead": true },
+            "ab2": { "shareWith": { "bad id": { "mayRead": true } } },
+            "ab3": { "shareWith/p1/mayRead": true }
+        }
+    });
+    let resp = handle_address_book_set(&backend, &(), args, &[])
+        .await
+        .expect("/set must not fail as a method")
+        .primary;
+    for entry in [
+        &resp["notCreated"]["c1"],
+        &resp["notUpdated"]["ab1"],
+        &resp["notUpdated"]["ab2"],
+    ] {
+        assert_eq!(entry["type"], "invalidProperties", "{resp}");
+        assert_eq!(entry["properties"], json!(["shareWith"]), "{resp}");
+    }
+    assert_eq!(resp["notUpdated"]["ab3"]["type"], "notFound", "{resp}");
+}
