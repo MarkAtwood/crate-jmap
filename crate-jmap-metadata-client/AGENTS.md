@@ -59,8 +59,7 @@ Run all four before considering any work done.
 
 ## Restrictions
 
-- Push freely — `git push`, no `pull --rebase` ritual (workspace
-  AGENTS.md "Git Commit and Push Policy")
+- Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add features not in PLAN.md or not explicitly directed
 - Do not add method bindings or transport (draft-04 has no

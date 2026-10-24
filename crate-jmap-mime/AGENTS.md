@@ -66,8 +66,10 @@ rm -rf dir              # NOT: rm -r dir
 
 Commit and push freely — see workspace `AGENTS.md` "Git Commit and Push Policy".
 The agent is the only writer to `origin/main`, so the default is `git push` with
-no `pull --rebase` ritual. Exceptions (force-push, secrets, unrequested files)
-are listed in the workspace policy.
+no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask
+the human; do NOT `pull --rebase`, merge, force-push or `git reset`. Other
+exceptions (force-push, secrets, unrequested files) are listed in the workspace
+policy.
 
 ## Beads Issue Tracker
 

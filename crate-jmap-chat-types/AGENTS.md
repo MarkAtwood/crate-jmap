@@ -152,7 +152,7 @@ diff <(cd ../crate-jmap-types && cargo metadata --no-deps --format-version 1 | j
 
 ## Restrictions
 
-- Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
+- Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond jmap-types, jmap-did-types, jmap-cid-types, serde, serde_json
 - Do not add async, tokio, or axum
