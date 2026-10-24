@@ -147,3 +147,44 @@ async fn unknown_address_book_reference_is_invalid_properties() {
     assert_eq!(err["type"], "invalidProperties", "{}", args(&resp, 0));
     assert_eq!(err["properties"], json!(["addressBookIds"]), "{err}");
 }
+
+/// RFC 8620 §1.2 (rfc8620.txt:290-295): an Id "MUST only contain
+/// characters from the 'URL and Filename Safe' base64 alphabet", so a
+/// literal `addressBookIds` key or `addressBookIds/<id>` path segment
+/// containing a space is `invalidProperties` naming `addressBookIds`.
+#[tokio::test]
+async fn malformed_literal_address_book_id_is_invalid_properties() {
+    let d = dispatcher();
+    let resp = run(
+        &d,
+        json!([
+            ["AddressBook/set", { "accountId": ACCOUNT, "create": { "b": { "name": "Friends", "isSubscribed": true } } }, "0"],
+            ["ContactCard/set", { "accountId": ACCOUNT,
+                "create": { "c": card(json!({ "#b": true })) } }, "1"]
+        ]),
+    )
+    .await;
+    let card_id = args(&resp, 1)["created"]["c"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("card: {}", args(&resp, 1)))
+        .to_owned();
+    let resp = run(
+        &d,
+        json!([
+            ["ContactCard/set", { "accountId": ACCOUNT,
+                "create": { "bad": card(json!({ "bad id": true })) },
+                "update": { (card_id.clone()): { "addressBookIds/bad id": true } } }, "0"],
+            ["ContactCard/set", { "accountId": ACCOUNT,
+                "update": { (card_id.clone()): { "addressBookIds": { "bad id": true } } } }, "1"]
+        ]),
+    )
+    .await;
+    for err in [
+        &args(&resp, 0)["notCreated"]["bad"],
+        &args(&resp, 0)["notUpdated"][&card_id],
+        &args(&resp, 1)["notUpdated"][&card_id],
+    ] {
+        assert_eq!(err["type"], "invalidProperties", "{resp:?}");
+        assert_eq!(err["properties"], json!(["addressBookIds"]), "{resp:?}");
+    }
+}

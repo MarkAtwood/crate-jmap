@@ -97,18 +97,22 @@ where
 /// Resolve an Id-typed property value that may be a `#creationId`
 /// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
 ///
-/// A literal id is returned unchanged; its validation stays with the
-/// caller.
+/// A literal id is checked with [`jmap_server::parse_wire_id`] (RFC 8620
+/// §1.2) and returned unchanged.
 ///
 /// # Errors
 ///
 /// A boxed `invalidProperties` [`jmap_server::SetError`] naming `property` when
-/// the reference matches no record created earlier in the request.
+/// a literal is not a valid Id, or when the reference matches no record
+/// created earlier in the request.
 pub(crate) fn resolve_ref(
     raw: &str,
     property: &str,
     created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
 ) -> Result<jmap_types::Id, Box<jmap_server::SetError>> {
+    if !raw.starts_with('#') {
+        return jmap_server::parse_wire_id(raw, property);
+    }
     jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
         Box::new(
             jmap_server::SetError::new(jmap_server::SetErrorType::InvalidProperties)
@@ -123,7 +127,8 @@ pub(crate) fn resolve_ref(
 /// Replace `#creationId` references among the ids of the `property` map
 /// (an `Id[Boolean]` set such as `addressBookIds`) in a create or patch
 /// with the ids they name (RFC 8620 §5.3): the keys of a `property` object
-/// and the id segment of a `property/<id>` patch path.
+/// and the id segment of a `property/<id>` patch path. A literal key or
+/// path segment that is not an RFC 8620 §1.2 Id is rejected.
 ///
 /// # Errors
 ///
@@ -147,7 +152,7 @@ pub(crate) fn resolve_map_key_refs(
     let prefix = format!("{property}/");
     let ref_paths: Vec<String> = obj
         .keys()
-        .filter(|k| k.strip_prefix(&prefix).is_some_and(|r| r.starts_with('#')))
+        .filter(|k| k.starts_with(&prefix))
         .cloned()
         .collect();
     for path in ref_paths {
