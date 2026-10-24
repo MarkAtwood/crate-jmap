@@ -185,15 +185,14 @@ pub async fn handle_principal_set<B: SharingBackend>(
                 continue;
             }
             // Deserialize the Principal from the client-provided object.
-            // `Principal.id` is required, so the parse fills it with "",
-            // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
-            // of 255 octets"); `build` overwrites it with the minted id.
+            // `Principal.id` is required, so the parse fills it with
+            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
             // `capabilities` and `accounts` are server-set (RFC 9670 §2)
             // and required, so the server supplies them: no capabilities
             // and no accounts until the backend grants some.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.insert("id".to_owned(), Value::String(String::new()));
+                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
                     m.insert("capabilities".to_owned(), json!({}));
                     m.insert("accounts".to_owned(), Value::Null);
                     Value::Object(m)

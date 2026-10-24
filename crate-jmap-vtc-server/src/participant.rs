@@ -391,8 +391,8 @@ async fn create_participant<B: VtcBackend>(
     for (key, value) in fields {
         m.insert(key.to_owned(), value);
     }
-    // `id` is required by the type, so the parse uses "", which is not an
-    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `id` is required by the type, so the parse uses
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; the
     // builder overwrites it with the id the backend mints.
     let mut participant: VtcParticipant = serde_json::from_value(Value::Object(m))
         .map_err(|e| invalid(&[], &format!("invalid VTCParticipant: {e}")))?;
@@ -484,7 +484,7 @@ async fn join_fields<B: VtcBackend>(
         CallRole::Participant
     };
     Ok(vec![
-        ("id", json!("")),
+        ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
         ("userId", json!(me)),
         ("displayName", json!(me)),
         ("role", json!(role)),
@@ -634,7 +634,7 @@ async fn dial_out_fields<B: VtcBackend>(
         ));
     }
     Ok(vec![
-        ("id", json!("")),
+        ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
         ("userId", Value::Null),
         ("displayName", display_name),
         ("role", json!(CallRole::Participant)),

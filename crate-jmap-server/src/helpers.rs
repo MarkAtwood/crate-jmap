@@ -1258,6 +1258,15 @@ pub fn resolve_creation_ref(
     }
 }
 
+/// The `id` a `/set` create handler fills in before parsing the create
+/// object into its typed struct, whose `id` is required.
+///
+/// The builder passed to the backend overwrites it with the minted id, so
+/// it never reaches storage or the wire. It must still satisfy RFC 8620
+/// §1.2 (at least 1 octet, URL-safe base64 alphabet) because deserializing
+/// an [`Id`] validates it.
+pub const CREATE_ID_PLACEHOLDER: &str = "pending";
+
 /// Parse a client-supplied id: a `/set` `update` key, a `destroy` element
 /// or an Id-typed property value.
 ///

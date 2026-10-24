@@ -548,8 +548,8 @@ where
     for (key, value) in defaults {
         m.insert(key.to_owned(), value);
     }
-    // `id` is required by the types, so `defaults` sets it to "", which is
-    // not an Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets").
+    // `id` is required by the types, so `defaults` sets it to
+    // `jmap_server::CREATE_ID_PLACEHOLDER`.
     // This parse validates the create; the builder parses again with the
     // minted id, which differs only in that string.
     serde_json::from_value::<O>(Value::Object(m.clone()))
@@ -598,7 +598,7 @@ async fn create_recording<B: VtcBackend>(
         create_id,
         m,
         vec![
-            ("id", json!("")),
+            ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
             ("state", json!(RecordingState::Recording)),
             ("startedAt", json!(now_utc_string())),
             ("stoppedAt", Value::Null),
@@ -851,7 +851,7 @@ async fn create_livestream<B: VtcBackend>(
         create_id,
         m,
         vec![
-            ("id", json!("")),
+            ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
             ("state", json!(LivestreamState::Starting)),
             ("platform", platform),
             ("startedAt", Value::Null),

@@ -1,10 +1,10 @@
 [["SceneAvatar/set", {
-  "accountId": "alice-account",
+  "accountId": "gallery-account",
   "oldState": "s200",
   "newState": "s201",
   "created": {
     "av0": {
-      "id": "user:alice@example.com",
+      "id": "01JXKR7A9MZQ3T5VWC8DHE2F01",
       "regionId": "01JXKR5M0G3QVTA8N2BWFP7Y01",
       "userId": "user:alice@example.com",
       "displayName": "Alice Chen",

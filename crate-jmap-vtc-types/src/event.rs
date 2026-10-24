@@ -473,13 +473,13 @@ mod tests {
 
     #[test]
     fn in_call_events_round_trip() {
-        // Oracle: field lists of L1454-1537, with participant ids from the
-        // L951-962 example.
+        // Oracle: field lists of L1454-1537; participant ids are ULIDs, as in
+        // the L1487 example (draft-atwood-jmap-vtc-00 at 6c38e2f).
         let ev = round_trip(json!({
             "@type": "VTCParticipantEvent",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-            "participantId": "user:charlie@example.com",
+            "participantId": "01J4XS5WR2VAYY4WWHKNYZ9MC0",
             "event": "joined",
             "displayName": "Charlie",
             "role": "participant"
@@ -492,7 +492,7 @@ mod tests {
             "@type": "VTCMediaStateEvent",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-            "participantId": "user:dave@example.com",
+            "participantId": "01J4XS5WR2VAYY4WWHKNYZ9MD0",
             "mediaState": {"audio": false, "video": true, "screen": false, "raisedHand": false}
         }));
         assert!(matches!(ev, VtcEvent::MediaState(ref e) if !e.media_state.audio));
@@ -501,7 +501,7 @@ mod tests {
             "@type": "VTCActiveSpeakerEvent",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-            "participantId": "user:alice@example.com"
+            "participantId": "01J4XS5WR2VAYY4WWHKNYZ9MA0"
         }));
         assert!(matches!(ev, VtcEvent::ActiveSpeaker(_)));
 
@@ -509,7 +509,7 @@ mod tests {
             "@type": "VTCUnmuteRequestEvent",
             "accountId": "A1",
             "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB",
-            "participantId": "user:dave@example.com",
+            "participantId": "01J4XS5WR2VAYY4WWHKNYZ9MD0",
             "requestedBy": "user:bob@example.com"
         }));
         assert!(

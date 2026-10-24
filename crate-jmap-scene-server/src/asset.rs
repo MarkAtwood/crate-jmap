@@ -383,10 +383,10 @@ async fn create_asset<B: SceneBackend>(
     for key in OPTIONAL_STRINGS {
         m.entry(*key).or_insert(Value::Null);
     }
-    // `id` is required by the type, so the parse uses "", which is not an
-    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `id` is required by the type, so the parse uses
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; the
     // `create_object` builder overwrites it with the minted id.
-    m.insert("id".to_owned(), json!(""));
+    m.insert("id".to_owned(), json!(jmap_server::CREATE_ID_PLACEHOLDER));
     m.insert("accountId".to_owned(), json!(account_id));
     m.insert("ownerId".to_owned(), json!(owner_id));
     m.insert("size".to_owned(), json!(size));

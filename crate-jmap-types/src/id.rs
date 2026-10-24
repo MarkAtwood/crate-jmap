@@ -29,12 +29,38 @@ impl std::error::Error for ValidationError {}
 ///
 /// Character set: URL-safe base64 alphabet (A-Za-z0-9, `-`, `_`), max 255 octets.
 /// Clients MUST treat Id values as opaque strings — no parsing of structure.
+///
+/// # Deserialization is validated
+///
+/// Deserializing an `Id` applies the same check as [`Id::new_validated`],
+/// so a wire value outside the RFC 8620 §1.2 syntax is a deserialization
+/// error rather than an unchecked `Id`:
+///
+/// ```
+/// use jmap_types::Id;
+/// assert!(serde_json::from_str::<Id>("\"abc-_123\"").is_ok());
+/// assert!(serde_json::from_str::<Id>("\"has space\"").is_err());
+/// ```
+///
+/// [`Id::from`] remains an unchecked constructor for values the caller
+/// already trusts.
 // #[non_exhaustive] prevents callers from pattern-matching the inner field
 // (e.g. `let Id(s) = id;`), preserving semver freedom to add fields later.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
 pub struct Id(String);
+
+// A manual impl rather than `#[serde(try_from = "String")]`: the existing
+// `From<String>` makes the blanket `TryFrom<String>` infallible, so a
+// fallible `TryFrom<String>` cannot be added (see the note above
+// `validate_id`).
+impl<'de> Deserialize<'de> for Id {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(deserializer)?;
+        Self::new_validated(s).map_err(serde::de::Error::custom)
+    }
+}
 
 /// RFC 3339 UTC timestamp string (RFC 8620 §1.4).
 ///
@@ -522,6 +548,53 @@ mod tests {
     fn id_deserializes_from_plain_string() {
         let id: Id = serde_json::from_str("\"abc123\"").expect("deserialize Id");
         assert_eq!(id.as_ref(), "abc123");
+    }
+
+    // Oracle: RFC 8620 §1.2 — "MUST be at least 1 character in length and
+    // maximum 255 octets in size" and "MUST only contain characters from the
+    // 'URL and Filename Safe' base64 alphabet ... excluding the pad
+    // character (=)". Hand-written JSON strings outside that rule must fail
+    // to deserialize.
+    #[test]
+    fn id_deserialize_rejects_non_conforming_strings() {
+        let too_long = format!("\"{}\"", "a".repeat(256));
+        for json in [
+            "\"\"",
+            "\"has space\"",
+            "\"#creation\"",
+            "\"a=\"",
+            "\"a/b\"",
+            "\"a.b\"",
+            too_long.as_str(),
+        ] {
+            assert!(
+                serde_json::from_str::<Id>(json).is_err(),
+                "{json} must be rejected"
+            );
+        }
+    }
+
+    // Oracle: RFC 8620 §1.2 — the full alphabet and the 255-octet maximum
+    // are accepted.
+    #[test]
+    fn id_deserialize_accepts_conforming_strings() {
+        let max = format!("\"{}\"", "Z".repeat(255));
+        for json in ["\"AZaz09-_\"", max.as_str()] {
+            assert!(
+                serde_json::from_str::<Id>(json).is_ok(),
+                "{json} must be accepted"
+            );
+        }
+    }
+
+    // Oracle: RFC 8620 §1.2 — Ids used as JSON object keys (e.g. /set
+    // "update") are validated the same way.
+    #[test]
+    fn id_deserialize_validates_map_keys() {
+        use std::collections::HashMap;
+        let ok: HashMap<Id, u8> = serde_json::from_str(r#"{"m1":1}"#).expect("valid key");
+        assert_eq!(ok.get("m1"), Some(&1));
+        assert!(serde_json::from_str::<HashMap<Id, u8>>(r#"{"bad key":1}"#).is_err());
     }
 
     // Oracle: RFC 8620 §1.4 example — "2014-10-30T06:12:00Z".

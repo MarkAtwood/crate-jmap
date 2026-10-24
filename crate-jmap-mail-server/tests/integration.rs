@@ -4994,7 +4994,7 @@ async fn make_identity_and_email(
         .expect("create Identity");
 
     let msg = format!("Subject: Test\r\nFrom: {addr}\r\nTo: {addr}\r\n\r\nBody.");
-    let blob_id = Id::from(format!("blob-{addr}"));
+    let blob_id = Id::from(format!("blob-{mailbox_id}"));
     backend.store_blob(&blob_id, msg.into_bytes());
     let (email_id, _) = backend
         .import_email(

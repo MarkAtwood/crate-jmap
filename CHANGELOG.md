@@ -1743,6 +1743,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-types**: **BREAKING** deserializing an `Id` now applies the
+  `Id::new_validated` rule (RFC 8620 §1.2: 1 to 255 octets of
+  `A-Za-z0-9-_`), so a non-conforming id anywhere in a request or
+  response (`/get` `ids`, typed create bodies, filter conditions, object
+  keys) is a deserialization error instead of an unchecked `Id`. This
+  applies to servers and clients alike. `From<String>` / `From<&str>`
+  remain as unchecked constructors. `/set` create handlers that filled the
+  required `id` with `""` before the typed parse now use the new
+  `jmap_server::CREATE_ID_PLACEHOLDER`; a `CalendarEvent/copy` override
+  whose `calendarIds` keys are not Ids still fails with `invalidProperties`
+  naming `calendarIds` (JMAP-473q).
 - **jmap-mail-server**, **jmap-calendars-server**, **jmap-tasks-server**,
   **jmap-contacts-server**, **jmap-sharing-server**, **jmap-chat-server**,
   **jmap-scene-server**, **jmap-graph-server**, **jmap-vtc-server**,

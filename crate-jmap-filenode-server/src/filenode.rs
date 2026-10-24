@@ -525,12 +525,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
-            // `FileNode.id` is required, so the parse fills it with "",
-            // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
-            // of 255 octets"); `build` overwrites it with the minted id.
+            // `FileNode.id` is required, so the parse fills it with
+            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.insert("id".to_owned(), Value::String(String::new()));
+                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
                     // `name` is required and non-nullable; if missing, serde will
                     // produce an `invalidProperties` error below.
                     Value::Object(m)
