@@ -1497,3 +1497,38 @@ async fn sieve_query_sort_by_name_and_is_active() {
         assert_eq!(ids, expected, "sort {sort}; resp: {resp}");
     }
 }
+
+/// SieveScript/query rejects a collation it does not recognise.
+///
+/// Oracle: RFC 8620 §5.5 — unsupportedSort: "The sort is syntactically
+/// valid, but includes a property the server does not support sorting on
+/// or a collation method it does not recognise." Names compare byte-wise,
+/// so only `i;octet` (RFC 4790 §9.3) is recognised.
+#[tokio::test]
+async fn sieve_query_unrecognised_collation_returns_unsupported_sort() {
+    let backend = MemoryBackend::new();
+    let account_id = setup_account(&backend).await;
+
+    let err = handle_sieve_query(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "sort": [{ "property": "name", "collation": "i;unicode-casemap" }]
+        }),
+    )
+    .await
+    .expect_err("i;unicode-casemap must be rejected");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+
+    handle_sieve_query(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "sort": [{ "property": "name", "collation": "i;octet" }]
+        }),
+    )
+    .await
+    .expect("i;octet must be accepted");
+}

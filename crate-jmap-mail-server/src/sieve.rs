@@ -1022,17 +1022,19 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 
     let calculate_total: bool = take_bool_arg(&mut args, "calculateTotal", false);
 
-    // RFC 8620 §5.5: a sort property the server does not support is
-    // unsupportedSort; RFC 9661 §2.5 requires `name` and `isActive`.
+    // RFC 8620 §5.5: a sort property the server does not support, or "a
+    // collation method it does not recognise", is unsupportedSort; RFC 9661
+    // §2.5 requires `name` and `isActive`. Names compare byte-wise, so
+    // `i;octet` (RFC 4790 §9.3) is the only collation accepted.
     let sort: Vec<SieveScriptComparator> = match args.remove("sort") {
         None | Some(Value::Null) => vec![],
         Some(v) => serde_json::from_value(v)
             .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
     };
-    if sort
-        .iter()
-        .any(|c| matches!(c.property, SieveScriptComparatorProperty::Other(_)))
-    {
+    if sort.iter().any(|c| {
+        matches!(c.property, SieveScriptComparatorProperty::Other(_))
+            || c.collation.as_deref().is_some_and(|k| k != "i;octet")
+    }) {
         return Err(JmapError::unsupported_sort());
     }
 

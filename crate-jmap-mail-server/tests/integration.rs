@@ -15544,3 +15544,88 @@ async fn mailbox_get_rejects_malformed_ids() {
         jmap_types::MethodErrorType::InvalidArguments
     );
 }
+
+/// Oracle: RFC 8620 §5.5 — unsupportedSort: "The sort is syntactically
+/// valid, but includes a property the server does not support sorting on
+/// or a collation method it does not recognise." The server compares
+/// strings byte-wise, so only `i;octet` (RFC 4790 §9.3) is recognised;
+/// `i;unicode-casemap` on a supported property must be refused by
+/// Mailbox/query and Mailbox/queryChanges, and `i;octet` accepted.
+#[tokio::test]
+async fn mailbox_query_unrecognised_collation_returns_unsupported_sort() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let casemap = serde_json::json!([{ "property": "name", "collation": "i;unicode-casemap" }]);
+
+    let err = handle_mailbox_query(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sort": casemap }),
+        &[],
+    )
+    .await
+    .expect_err("Mailbox/query with i;unicode-casemap must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    let err = handle_mailbox_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sinceQueryState": "0", "sort": casemap }),
+        &[],
+    )
+    .await
+    .expect_err("Mailbox/queryChanges with i;unicode-casemap must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    handle_mailbox_query(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sort": [{ "property": "name", "collation": "i;octet" }],
+        }),
+        &[],
+    )
+    .await
+    .expect("Mailbox/query with i;octet must be accepted");
+}
+
+/// Oracle: RFC 8620 §5.5 — unsupportedSort covers "a collation method it
+/// does not recognise"; only `i;octet` (RFC 4790 §9.3) is recognised, so
+/// EmailSubmission/query and /queryChanges refuse `i;ascii-casemap` on
+/// `emailId` and accept `i;octet`.
+#[tokio::test]
+async fn submission_query_unrecognised_collation_returns_unsupported_sort() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let casemap = serde_json::json!([{ "property": "emailId", "collation": "i;ascii-casemap" }]);
+
+    let err = handle_submission_query(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sort": casemap }),
+    )
+    .await
+    .expect_err("EmailSubmission/query with i;ascii-casemap must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    let err = handle_submission_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sinceQueryState": "0", "sort": casemap }),
+    )
+    .await
+    .expect_err("EmailSubmission/queryChanges with i;ascii-casemap must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    handle_submission_query(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sort": [{ "property": "emailId", "collation": "i;octet" }],
+        }),
+    )
+    .await
+    .expect("EmailSubmission/query with i;octet must be accepted");
+}
