@@ -23,7 +23,10 @@
 //! Mention `id` is "The `id` of the mentioned participant's ChatContact";
 //! §Space/set L1352-1363 Space `addMembers` entry "`id` (ChatContact.id,
 //! String)", `removeMembers` "ChatContact.ids to remove", `updateMembers`
-//! entry `id`. draft-atwood-jmap-chat-filenode-00 L186-189: `filenodeId`
+//! entry `id`; L1370 `updateChannels` entries carry `permissionOverrides`,
+//! whose `targetId` (L853) is "A SpaceRole id or a SpaceMember `id`", and a
+//! SpaceMember `id` (L818) is "The participant's ChatContact.id".
+//! draft-atwood-jmap-chat-filenode-00 L186-189: `filenodeId`
 //! is "The `id` of a FileNode"; "If validation fails, the server MUST
 //! return a SetError of type `invalidProperties` naming `filenodeId`."
 //!
@@ -468,4 +471,106 @@ async fn space_member_unknown_reference_names_the_key() {
     let err = &args(&resp, 0)["notUpdated"][space_id.as_str()];
     assert_eq!(err["type"], "invalidProperties", "{}", args(&resp, 0));
     assert_eq!(err["properties"], json!(["addMembers"]), "{err}");
+}
+
+/// Create a Space holding one channel; return `(space_id, channel_id)`.
+async fn space_with_channel(d: &Dispatcher<()>) -> (String, String) {
+    let resp = run(
+        d,
+        json!([["Space/set", { "accountId": ACCOUNT_ID, "create": {
+            "s": { "name": "S" }
+        } }, "0"]]),
+    )
+    .await;
+    let space_id = created(&resp, 0, "s")["id"]
+        .as_str()
+        .expect("space id")
+        .to_owned();
+    let resp = run(
+        d,
+        json!([
+            ["Space/set", { "accountId": ACCOUNT_ID, "update": {
+                (space_id.clone()): { "addChannels": [{ "name": "c" }] }
+            } }, "0"],
+            ["Space/get", { "accountId": ACCOUNT_ID, "ids": [space_id.clone()],
+                "properties": ["uncategorizedChannelIds"] }, "1"]
+        ]),
+    )
+    .await;
+    let channel_id = args(&resp, 1)["list"][0]["uncategorizedChannelIds"][0]
+        .as_str()
+        .unwrap_or_else(|| panic!("channel id in {}", args(&resp, 1)))
+        .to_owned();
+    (space_id, channel_id)
+}
+
+/// draft-atwood-jmap-chat-00 at jmap-chat-spec 29e9a41: L1370
+/// `updateChannels` entries may carry `permissionOverrides`; L853 a
+/// ChannelPermission `targetId` is "A SpaceRole id or a SpaceMember
+/// `id`"; L818 a SpaceMember `id` is "The participant's ChatContact.id".
+/// A `#bob` member override must store bob's server id.
+#[tokio::test]
+async fn space_channel_override_member_reference_resolves() {
+    let d = dispatcher();
+    let (space_id, channel_id) = space_with_channel(&d).await;
+    let resp = run(
+        &d,
+        json!([
+            ["ChatContact/set", { "accountId": ACCOUNT_ID, "create": {
+                "bob": { "identity": "bob@example.net" }
+            } }, "0"],
+            ["Space/set", { "accountId": ACCOUNT_ID, "update": {
+                (space_id.clone()): { "addMembers": [{ "id": "#bob" }] }
+            } }, "1"],
+            ["Space/set", { "accountId": ACCOUNT_ID, "update": {
+                (space_id.clone()): { "updateChannels": [{
+                    "id": channel_id.clone(),
+                    "permissionOverrides": [{
+                        "targetType": "member", "targetId": "#bob",
+                        "allow": ["send_message"], "deny": []
+                    }]
+                }] }
+            } }, "2"],
+            ["Chat/get", { "accountId": ACCOUNT_ID, "ids": [channel_id],
+                "properties": ["permissionOverrides"] }, "3"]
+        ]),
+    )
+    .await;
+    let bob = created(&resp, 0, "bob");
+    for i in [1, 2] {
+        assert!(
+            args(&resp, i)["updated"]
+                .as_object()
+                .is_some_and(|m| m.len() == 1),
+            "{}",
+            args(&resp, i)
+        );
+    }
+    let overrides = &args(&resp, 3)["list"][0]["permissionOverrides"];
+    assert_eq!(overrides[0]["targetId"], bob["id"], "{overrides}");
+    assert_eq!(overrides[0]["targetType"], "member", "{overrides}");
+}
+
+/// An unknown `#creationId` in an override `targetId` is
+/// `invalidProperties` naming the patch key, `updateChannels`.
+#[tokio::test]
+async fn space_channel_override_unknown_reference_names_the_key() {
+    let d = dispatcher();
+    let (space_id, channel_id) = space_with_channel(&d).await;
+    let resp = run(
+        &d,
+        json!([["Space/set", { "accountId": ACCOUNT_ID, "update": {
+            (space_id.clone()): { "updateChannels": [{
+                "id": channel_id,
+                "permissionOverrides": [{
+                    "targetType": "member", "targetId": "#nope",
+                    "allow": [], "deny": ["send_message"]
+                }]
+            }] }
+        } }, "0"]]),
+    )
+    .await;
+    let err = &args(&resp, 0)["notUpdated"][space_id.as_str()];
+    assert_eq!(err["type"], "invalidProperties", "{}", args(&resp, 0));
+    assert_eq!(err["properties"], json!(["updateChannels"]), "{err}");
 }
