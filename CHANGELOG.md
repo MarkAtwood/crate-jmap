@@ -3670,6 +3670,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**, **jmap-calendars-server**,
+  **jmap-contacts-server**: `/set` create and update reject a literal
+  `mailboxIds`, `calendarIds` or `addressBookIds` key, or the id segment
+  of a `mailboxIds/<id>`-style patch path, that is not an RFC 8620 §1.2 Id
+  with `invalidProperties` naming the property; it used to reach the
+  backend unchecked. Only `#creationId` keys were looked at before. Literal
+  `parentId`, `identityId` and `emailId` values go through the same check
+  (bd JMAP-r9qx).
+
 - **jmap-filenode-server**: `MemoryBackend` `FileNode/changes` reports each
   id once per RFC 8620 §5.2: an id created then updated is only in
   `created`, an id updated then destroyed is only in `destroyed`, and an id

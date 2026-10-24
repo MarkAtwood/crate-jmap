@@ -866,9 +866,8 @@ async fn process_create<B: MailBackend>(
                     .with_description("identityId is required"),
             ))
         })?;
-    let identity_id = resolve_ref(identity_id_str, "identityId", created_ids)
-        .and_then(|id| jmap_server::parse_wire_id(id.as_ref(), "identityId"))
-        .map_err(CreateError::SetError)?;
+    let identity_id =
+        resolve_ref(identity_id_str, "identityId", created_ids).map_err(CreateError::SetError)?;
 
     // Validate identityId references an existing Identity.
     let (identities, _) = backend
@@ -900,9 +899,8 @@ async fn process_create<B: MailBackend>(
                     .with_description("emailId is required"),
             ))
         })?;
-    let email_id = resolve_ref(email_id_str, "emailId", created_ids)
-        .and_then(|id| jmap_server::parse_wire_id(id.as_ref(), "emailId"))
-        .map_err(CreateError::SetError)?;
+    let email_id =
+        resolve_ref(email_id_str, "emailId", created_ids).map_err(CreateError::SetError)?;
 
     // Validate emailId references an existing Email and retrieve threadId.
     let (emails, _) = backend

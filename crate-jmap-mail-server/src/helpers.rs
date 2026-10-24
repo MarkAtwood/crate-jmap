@@ -40,18 +40,22 @@ pub(crate) fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value 
 /// Resolve an Id-typed property value that may be a `#creationId`
 /// reference (RFC 8620 §5.3) through [`jmap_server::resolve_creation_ref`].
 ///
-/// A literal id is returned unchanged; its validation stays with the
-/// caller.
+/// A literal id is checked with [`jmap_server::parse_wire_id`] (RFC 8620
+/// §1.2) and returned unchanged.
 ///
 /// # Errors
 ///
 /// A boxed `invalidProperties` [`jmap_server::SetError`] naming `property` when
-/// the reference matches no record created earlier in the request.
+/// a literal is not a valid Id, or when the reference matches no record
+/// created earlier in the request.
 pub(crate) fn resolve_ref(
     raw: &str,
     property: &str,
     created_ids: &std::collections::BTreeMap<Id, Id>,
 ) -> Result<Id, Box<jmap_server::SetError>> {
+    if !raw.starts_with('#') {
+        return jmap_server::parse_wire_id(raw, property);
+    }
     jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
         Box::new(
             jmap_server::SetError::new(jmap_server::SetErrorType::InvalidProperties)

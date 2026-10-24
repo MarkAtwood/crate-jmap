@@ -269,6 +269,38 @@ async fn email_unknown_mailbox_ref_is_invalid_properties() {
     assert_eq!(err["properties"], json!(["mailboxIds"]), "{err:?}");
 }
 
+/// RFC 8621 §4.1.1 types `mailboxIds` as `Id[Boolean]`, and RFC 8620 §1.2
+/// (rfc8620.txt:290-295) says an Id "MUST only contain characters from
+/// the 'URL and Filename Safe' base64 alphabet", so a literal key or
+/// `mailboxIds/<id>` path segment containing a space is not an Id and the
+/// create or update is `invalidProperties` naming `mailboxIds`.
+#[tokio::test]
+async fn email_set_malformed_literal_mailbox_id_is_invalid_properties() {
+    let backend = backend();
+    let email_id = seed_email(&backend).await;
+    let resp = dispatch(
+        backend,
+        json!([["Email/set", {"accountId": ACCOUNT,
+            "create": {"e": {"mailboxIds": {"bad id": true}, "subject": "Hi"}},
+            "update": {
+                email_id.as_ref(): {"mailboxIds/bad id": true}
+            }
+        }, "0"],
+        ["Email/set", {"accountId": ACCOUNT,
+            "update": {email_id.as_ref(): {"mailboxIds": {"bad id": true}}}
+        }, "1"]]),
+    )
+    .await;
+    for err in [
+        &resp.method_responses[0].arguments["notCreated"]["e"],
+        &resp.method_responses[0].arguments["notUpdated"][email_id.as_ref()],
+        &resp.method_responses[1].arguments["notUpdated"][email_id.as_ref()],
+    ] {
+        assert_eq!(err["type"], "invalidProperties", "{resp:?}");
+        assert_eq!(err["properties"], json!(["mailboxIds"]), "{resp:?}");
+    }
+}
+
 /// RFC 8621 §7 (rfc8621.txt:4138, 4151) types EmailSubmission
 /// `identityId` and `emailId` as "Id", so a draft created by Email/set
 /// earlier in the request is submitted by its creation id.

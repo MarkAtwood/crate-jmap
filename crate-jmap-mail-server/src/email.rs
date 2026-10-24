@@ -1608,12 +1608,14 @@ fn validate_and_normalize_keywords(
 
 /// Replace `#creationId` mailbox references in an Email create or patch
 /// with the ids they name (RFC 8620 §5.3): the keys of a `mailboxIds`
-/// object and the id segment of a `mailboxIds/<id>` patch path.
+/// object and the id segment of a `mailboxIds/<id>` patch path. A literal
+/// key or path segment that is not an RFC 8620 §1.2 Id is rejected.
 ///
 /// # Errors
 ///
 /// An `invalidProperties` [`jmap_server::SetError`] naming `mailboxIds` when a
-/// reference matches no record created earlier in the request.
+/// literal is not a valid Id or a reference matches no record created
+/// earlier in the request.
 pub(crate) fn resolve_mailbox_id_refs(
     obj: &mut Value,
     created_ids: &BTreeMap<Id, Id>,
@@ -1631,7 +1633,7 @@ pub(crate) fn resolve_mailbox_id_refs(
     }
     let ref_paths: Vec<String> = obj
         .keys()
-        .filter(|k| k.starts_with("mailboxIds/#"))
+        .filter(|k| k.starts_with("mailboxIds/"))
         .cloned()
         .collect();
     for path in ref_paths {

@@ -148,3 +148,41 @@ async fn unknown_calendar_reference_is_invalid_properties() {
     assert_eq!(err["type"], "invalidProperties", "{}", args(&resp, 0));
     assert_eq!(err["properties"], json!(["calendarIds"]), "{err}");
 }
+
+/// RFC 8620 §1.2 (rfc8620.txt:290-295): an Id "MUST only contain
+/// characters from the 'URL and Filename Safe' base64 alphabet", so a
+/// literal `calendarIds` key or `calendarIds/<id>` path segment containing
+/// a space is `invalidProperties` naming `calendarIds`.
+#[tokio::test]
+async fn malformed_literal_calendar_id_is_invalid_properties() {
+    let d = dispatcher();
+    let resp = run(
+        &d,
+        json!([
+            ["Calendar/set", { "accountId": ACCOUNT, "create": { "k": calendar("Home") } }, "0"],
+            ["CalendarEvent/set", { "accountId": ACCOUNT,
+                "create": { "e": event(json!({ "#k": true })) } }, "1"]
+        ]),
+    )
+    .await;
+    let ev = created_id(&resp, 1, "e");
+    let resp = run(
+        &d,
+        json!([
+            ["CalendarEvent/set", { "accountId": ACCOUNT,
+                "create": { "bad": event(json!({ "bad id": true })) },
+                "update": { (ev.clone()): { "calendarIds/bad id": true } } }, "0"],
+            ["CalendarEvent/set", { "accountId": ACCOUNT,
+                "update": { (ev.clone()): { "calendarIds": { "bad id": true } } } }, "1"]
+        ]),
+    )
+    .await;
+    for err in [
+        &args(&resp, 0)["notCreated"]["bad"],
+        &args(&resp, 0)["notUpdated"][&ev],
+        &args(&resp, 1)["notUpdated"][&ev],
+    ] {
+        assert_eq!(err["type"], "invalidProperties", "{resp:?}");
+        assert_eq!(err["properties"], json!(["calendarIds"]), "{resp:?}");
+    }
+}
