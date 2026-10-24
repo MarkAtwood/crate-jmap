@@ -46,6 +46,8 @@ impl core::marker::StructuralPartialEq for jmap_graph_types::Direction
 pub jmap_graph_types::GraphEdgeSortProperty::Created
 pub jmap_graph_types::GraphEdgeSortProperty::Other(alloc::string::String)
 pub jmap_graph_types::GraphEdgeSortProperty::Updated
+impl jmap_graph_types::GraphEdgeSortProperty
+pub fn jmap_graph_types::GraphEdgeSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_graph_types::GraphEdgeSortProperty
 pub fn jmap_graph_types::GraphEdgeSortProperty::clone(&self) -> jmap_graph_types::GraphEdgeSortProperty
 impl core::cmp::Eq for jmap_graph_types::GraphEdgeSortProperty
@@ -132,6 +134,8 @@ pub fn jmap_graph_types::GraphEditStreamMessage::deserialize<D: serde_core::de::
 #[non_exhaustive] pub enum jmap_graph_types::GraphNodeOpSortProperty
 pub jmap_graph_types::GraphNodeOpSortProperty::Other(alloc::string::String)
 pub jmap_graph_types::GraphNodeOpSortProperty::Seq
+impl jmap_graph_types::GraphNodeOpSortProperty
+pub fn jmap_graph_types::GraphNodeOpSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_graph_types::GraphNodeOpSortProperty
 pub fn jmap_graph_types::GraphNodeOpSortProperty::clone(&self) -> jmap_graph_types::GraphNodeOpSortProperty
 impl core::cmp::Eq for jmap_graph_types::GraphNodeOpSortProperty
@@ -156,6 +160,8 @@ pub fn jmap_graph_types::GraphNodeOpSortProperty::deserialize<D: serde_core::de:
 pub jmap_graph_types::GraphNodeSortProperty::Created
 pub jmap_graph_types::GraphNodeSortProperty::Other(alloc::string::String)
 pub jmap_graph_types::GraphNodeSortProperty::Updated
+impl jmap_graph_types::GraphNodeSortProperty
+pub fn jmap_graph_types::GraphNodeSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_graph_types::GraphNodeSortProperty
 pub fn jmap_graph_types::GraphNodeSortProperty::clone(&self) -> jmap_graph_types::GraphNodeSortProperty
 impl core::cmp::Eq for jmap_graph_types::GraphNodeSortProperty
@@ -181,6 +187,8 @@ pub jmap_graph_types::GraphSortProperty::Created
 pub jmap_graph_types::GraphSortProperty::Name
 pub jmap_graph_types::GraphSortProperty::Other(alloc::string::String)
 pub jmap_graph_types::GraphSortProperty::Updated
+impl jmap_graph_types::GraphSortProperty
+pub fn jmap_graph_types::GraphSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_graph_types::GraphSortProperty
 pub fn jmap_graph_types::GraphSortProperty::clone(&self) -> jmap_graph_types::GraphSortProperty
 impl core::cmp::Eq for jmap_graph_types::GraphSortProperty

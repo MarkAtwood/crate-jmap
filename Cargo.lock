@@ -875,7 +875,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1729,7 +1729,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jmap-base-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "bytes",
@@ -1759,7 +1759,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-base-client",
  "jmap-calendars-types",
@@ -1773,7 +1773,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-calendars-server",
  "jmap-calendars-types",
@@ -1789,7 +1789,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-jscalendar-types",
  "jmap-metadata-types",
@@ -1800,7 +1800,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-calendars-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-calendars-server",
  "jmap-calendars-types",
@@ -1814,7 +1814,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "chrono",
  "futures",
@@ -1832,7 +1832,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-federation-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-chat-federation-types",
  "jmap-chat-server",
@@ -1848,7 +1848,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-federation-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-base-client",
  "jmap-chat-types",
@@ -1861,7 +1861,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-filenode-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
@@ -1875,7 +1875,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-mimi-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-base-client",
  "jmap-chat-mimi-types",
@@ -1892,7 +1892,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-mimi-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "jmap-chat-mimi-server",
@@ -1911,7 +1911,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-mimi-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-chat-types",
  "jmap-types",
@@ -1921,7 +1921,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-scene-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-scene-server",
  "jmap-scene-types",
@@ -1932,7 +1932,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "getrandom 0.3.4",
@@ -1954,7 +1954,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-tasks-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
@@ -1968,7 +1968,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-cid-types",
  "jmap-did-types",
@@ -1980,7 +1980,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-vtc-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
@@ -1994,7 +1994,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-cid-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "serde",
@@ -2003,7 +2003,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-base-client",
  "jmap-contacts-types",
@@ -2016,7 +2016,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-contacts-server",
  "jmap-contacts-types",
@@ -2032,7 +2032,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-jscontact-types",
  "jmap-metadata-types",
@@ -2043,7 +2043,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-did-resolver"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-did-types",
  "reqwest",
@@ -2055,7 +2055,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-did-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "ed25519-dalek 3.0.0",
@@ -2070,7 +2070,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "bytes",
  "jmap-base-client",
@@ -2084,7 +2084,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-cid-types",
  "jmap-filenode-server",
@@ -2099,7 +2099,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-cid-types",
  "jmap-metadata-types",
@@ -2110,7 +2110,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "futures",
  "jmap-base-client",
@@ -2125,7 +2125,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-projection-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-contacts-types",
  "jmap-graph-types",
@@ -2139,7 +2139,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "icu_casemap",
@@ -2156,7 +2156,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -2165,7 +2165,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-jscalendar-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -2174,7 +2174,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-jscontact-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2182,7 +2182,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-base-client",
  "jmap-mail-types",
@@ -2196,7 +2196,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-mail-server",
  "jmap-mail-types",
@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-metadata-types",
  "jmap-types",
@@ -2224,14 +2224,14 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "jmap-metadata-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "icu_casemap",
  "icu_normalizer",
@@ -2242,7 +2242,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2250,7 +2250,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mime"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "criterion",
  "jmap-mail-types",
@@ -2261,7 +2261,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-peer-auth"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "ed25519-dalek 3.0.0",
@@ -2278,7 +2278,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-peer-auth-io"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "hickory-resolver",
  "http",
@@ -2296,7 +2296,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "futures",
  "jmap-base-client",
@@ -2319,7 +2319,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-scene-server",
  "jmap-scene-types",
@@ -2333,7 +2333,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -2342,7 +2342,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-vtc-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-scene-server",
  "jmap-scene-types",
@@ -2356,7 +2356,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "criterion",
  "http",
@@ -2372,7 +2372,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-base-client",
  "jmap-sharing-types",
@@ -2385,7 +2385,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-metadata-server",
  "jmap-metadata-types",
@@ -2400,7 +2400,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-metadata-types",
  "jmap-types",
@@ -2410,7 +2410,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-base-client",
  "jmap-tasks-types",
@@ -2423,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-metadata-server",
  "jmap-metadata-types",
@@ -2439,7 +2439,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-jscalendar-types",
  "jmap-metadata-types",
@@ -2487,7 +2487,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2496,7 +2496,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc-client"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "futures",
  "jmap-base-client",
@@ -2511,7 +2511,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc-server"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-server",
  "jmap-types",
@@ -2525,7 +2525,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -2534,7 +2534,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-web-push"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "base64",
  "ece-native",
@@ -4084,7 +4084,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "3a766e1110788c36f4fa1c2b71b387a7815aa65f88ce0229841826633d93723e"
 dependencies = [
  "libc",
- "windows-sys 0.61.2",
+ "windows-sys 0.60.2",
 ]
 
 [[package]]
@@ -4303,9 +4303,9 @@ dependencies = [
 
 [[package]]
 name = "tokio"
-version = "1.52.1"
+version = "1.53.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67dee974fe86fd92cc45b7a95fdd2f99a36a6d7b0d431a231178d3d670bbcc6"
+checksum = "ce3335fa71841cda333a58d7615b03901380ecf09d59b3296d21f8bbac0dde4e"
 dependencies = [
  "bytes",
  "libc",
@@ -4810,7 +4810,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.61.2",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]

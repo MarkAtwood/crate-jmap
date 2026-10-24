@@ -18,7 +18,7 @@ DID's authentication keys.
 
 ```toml
 [dependencies]
-jmap-did-types = "0.3"
+jmap-did-types = "0.4"
 ```
 
 ```rust

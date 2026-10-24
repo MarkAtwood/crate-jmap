@@ -7,6 +7,8 @@ pub jmap_scene_types::AccessPolicy::Invite
 pub jmap_scene_types::AccessPolicy::Other(alloc::string::String)
 pub jmap_scene_types::AccessPolicy::Public
 pub jmap_scene_types::AccessPolicy::Space
+impl jmap_scene_types::AccessPolicy
+pub fn jmap_scene_types::AccessPolicy::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::AccessPolicy
 pub fn jmap_scene_types::AccessPolicy::clone(&self) -> jmap_scene_types::AccessPolicy
 impl core::cmp::Eq for jmap_scene_types::AccessPolicy
@@ -34,6 +36,8 @@ pub jmap_scene_types::AvatarEventKind::Ejected
 pub jmap_scene_types::AvatarEventKind::Entered
 pub jmap_scene_types::AvatarEventKind::Left
 pub jmap_scene_types::AvatarEventKind::Other(alloc::string::String)
+impl jmap_scene_types::AvatarEventKind
+pub fn jmap_scene_types::AvatarEventKind::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::AvatarEventKind
 pub fn jmap_scene_types::AvatarEventKind::clone(&self) -> jmap_scene_types::AvatarEventKind
 impl core::cmp::Eq for jmap_scene_types::AvatarEventKind
@@ -59,6 +63,8 @@ pub jmap_scene_types::ObjectEventKind::Created
 pub jmap_scene_types::ObjectEventKind::Destroyed
 pub jmap_scene_types::ObjectEventKind::Other(alloc::string::String)
 pub jmap_scene_types::ObjectEventKind::Updated
+impl jmap_scene_types::ObjectEventKind
+pub fn jmap_scene_types::ObjectEventKind::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::ObjectEventKind
 pub fn jmap_scene_types::ObjectEventKind::clone(&self) -> jmap_scene_types::ObjectEventKind
 impl core::cmp::Eq for jmap_scene_types::ObjectEventKind
@@ -85,6 +91,8 @@ pub jmap_scene_types::PhysicsMode::Kinematic
 pub jmap_scene_types::PhysicsMode::None
 pub jmap_scene_types::PhysicsMode::Other(alloc::string::String)
 pub jmap_scene_types::PhysicsMode::Static
+impl jmap_scene_types::PhysicsMode
+pub fn jmap_scene_types::PhysicsMode::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::PhysicsMode
 pub fn jmap_scene_types::PhysicsMode::clone(&self) -> jmap_scene_types::PhysicsMode
 impl core::cmp::Eq for jmap_scene_types::PhysicsMode
@@ -112,6 +120,8 @@ pub jmap_scene_types::SceneAssetSortProperty::CreatedAt
 pub jmap_scene_types::SceneAssetSortProperty::Name
 pub jmap_scene_types::SceneAssetSortProperty::Other(alloc::string::String)
 pub jmap_scene_types::SceneAssetSortProperty::Size
+impl jmap_scene_types::SceneAssetSortProperty
+pub fn jmap_scene_types::SceneAssetSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::SceneAssetSortProperty
 pub fn jmap_scene_types::SceneAssetSortProperty::clone(&self) -> jmap_scene_types::SceneAssetSortProperty
 impl core::cmp::Eq for jmap_scene_types::SceneAssetSortProperty
@@ -136,6 +146,8 @@ pub fn jmap_scene_types::SceneAssetSortProperty::deserialize<D: serde_core::de::
 pub jmap_scene_types::SceneAvatarSortProperty::DisplayName
 pub jmap_scene_types::SceneAvatarSortProperty::JoinedAt
 pub jmap_scene_types::SceneAvatarSortProperty::Other(alloc::string::String)
+impl jmap_scene_types::SceneAvatarSortProperty
+pub fn jmap_scene_types::SceneAvatarSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::SceneAvatarSortProperty
 pub fn jmap_scene_types::SceneAvatarSortProperty::clone(&self) -> jmap_scene_types::SceneAvatarSortProperty
 impl core::cmp::Eq for jmap_scene_types::SceneAvatarSortProperty
@@ -207,6 +219,8 @@ pub fn jmap_scene_types::SceneEventType::deserialize<D: serde_core::de::Deserial
 pub jmap_scene_types::SceneObjectSortProperty::CreatedAt
 pub jmap_scene_types::SceneObjectSortProperty::Name
 pub jmap_scene_types::SceneObjectSortProperty::Other(alloc::string::String)
+impl jmap_scene_types::SceneObjectSortProperty
+pub fn jmap_scene_types::SceneObjectSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::SceneObjectSortProperty
 pub fn jmap_scene_types::SceneObjectSortProperty::clone(&self) -> jmap_scene_types::SceneObjectSortProperty
 impl core::cmp::Eq for jmap_scene_types::SceneObjectSortProperty
@@ -232,6 +246,8 @@ pub jmap_scene_types::SceneRegionSortProperty::ActiveAvatarCount
 pub jmap_scene_types::SceneRegionSortProperty::CreatedAt
 pub jmap_scene_types::SceneRegionSortProperty::Name
 pub jmap_scene_types::SceneRegionSortProperty::Other(alloc::string::String)
+impl jmap_scene_types::SceneRegionSortProperty
+pub fn jmap_scene_types::SceneRegionSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::SceneRegionSortProperty
 pub fn jmap_scene_types::SceneRegionSortProperty::clone(&self) -> jmap_scene_types::SceneRegionSortProperty
 impl core::cmp::Eq for jmap_scene_types::SceneRegionSortProperty
@@ -276,6 +292,8 @@ pub jmap_scene_types::ViewHint::Other(alloc::string::String)
 pub jmap_scene_types::ViewHint::ThreeD
 pub jmap_scene_types::ViewHint::TwoDSide
 pub jmap_scene_types::ViewHint::TwoDTopDown
+impl jmap_scene_types::ViewHint
+pub fn jmap_scene_types::ViewHint::as_str(&self) -> &str
 impl core::clone::Clone for jmap_scene_types::ViewHint
 pub fn jmap_scene_types::ViewHint::clone(&self) -> jmap_scene_types::ViewHint
 impl core::cmp::Eq for jmap_scene_types::ViewHint

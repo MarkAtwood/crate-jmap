@@ -27,6 +27,8 @@ pub jmap_sharing_types::PrincipalType::Individual
 pub jmap_sharing_types::PrincipalType::Location
 pub jmap_sharing_types::PrincipalType::Other(alloc::string::String)
 pub jmap_sharing_types::PrincipalType::Resource
+impl jmap_sharing_types::PrincipalType
+pub fn jmap_sharing_types::PrincipalType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_sharing_types::PrincipalType
 pub fn jmap_sharing_types::PrincipalType::clone(&self) -> jmap_sharing_types::PrincipalType
 impl core::cmp::Eq for jmap_sharing_types::PrincipalType
@@ -50,6 +52,8 @@ pub fn jmap_sharing_types::PrincipalType::deserialize<D: serde_core::de::Deseria
 #[non_exhaustive] pub enum jmap_sharing_types::ShareNotificationComparatorProperty
 pub jmap_sharing_types::ShareNotificationComparatorProperty::Created
 pub jmap_sharing_types::ShareNotificationComparatorProperty::Other(alloc::string::String)
+impl jmap_sharing_types::ShareNotificationComparatorProperty
+pub fn jmap_sharing_types::ShareNotificationComparatorProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_sharing_types::ShareNotificationComparatorProperty
 pub fn jmap_sharing_types::ShareNotificationComparatorProperty::clone(&self) -> jmap_sharing_types::ShareNotificationComparatorProperty
 impl core::cmp::Eq for jmap_sharing_types::ShareNotificationComparatorProperty
@@ -114,8 +118,10 @@ pub jmap_sharing_types::Principal::description: core::option::Option<alloc::stri
 pub jmap_sharing_types::Principal::email: core::option::Option<alloc::string::String>
 pub jmap_sharing_types::Principal::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_sharing_types::Principal::id: jmap_types::id::Id
+pub jmap_sharing_types::Principal::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_sharing_types::Principal::name: alloc::string::String
 pub jmap_sharing_types::Principal::principal_type: jmap_sharing_types::PrincipalType
+pub jmap_sharing_types::Principal::private_metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_sharing_types::Principal::time_zone: core::option::Option<alloc::string::String>
 impl core::clone::Clone for jmap_sharing_types::Principal
 pub fn jmap_sharing_types::Principal::clone(&self) -> jmap_sharing_types::Principal
@@ -143,10 +149,18 @@ pub fn jmap_sharing_types::Principal::deserialize<__D>(__D) -> core::result::Res
 #[non_exhaustive] pub struct jmap_sharing_types::PrincipalFilterCondition
 pub jmap_sharing_types::PrincipalFilterCondition::account_ids: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub jmap_sharing_types::PrincipalFilterCondition::email: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_sharing_types::PrincipalFilterCondition::metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_sharing_types::PrincipalFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::private_metadata_exists: core::option::Option<alloc::string::String>
+pub jmap_sharing_types::PrincipalFilterCondition::private_metadata_text_contains: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
+pub jmap_sharing_types::PrincipalFilterCondition::private_metadata_text_equals: core::option::Option<jmap_metadata_types::filter::MetadataTextMatch>
 pub jmap_sharing_types::PrincipalFilterCondition::text: core::option::Option<alloc::string::String>
 pub jmap_sharing_types::PrincipalFilterCondition::time_zone: core::option::Option<alloc::string::String>
 pub jmap_sharing_types::PrincipalFilterCondition::type_: core::option::Option<jmap_sharing_types::PrincipalType>
+impl jmap_sharing_types::PrincipalFilterCondition
+pub fn jmap_sharing_types::PrincipalFilterCondition::has_metadata_condition(&self) -> bool
 impl core::clone::Clone for jmap_sharing_types::PrincipalFilterCondition
 pub fn jmap_sharing_types::PrincipalFilterCondition::clone(&self) -> jmap_sharing_types::PrincipalFilterCondition
 impl core::cmp::Eq for jmap_sharing_types::PrincipalFilterCondition
