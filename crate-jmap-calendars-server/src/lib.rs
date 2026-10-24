@@ -737,6 +737,42 @@ pub(crate) mod test_support {
             Ok((id, obj))
         }
 
+        /// A copy takes the path of a `CalendarEvent/set` create without
+        /// scheduling messages, so the §5.10 destination privacy rule in
+        /// `create_calendar_event` applies.
+        async fn copy_object<O: SetObject + Send + Sync>(
+            &self,
+            caller: &(),
+            _from_account_id: &Id,
+            to_account_id: &Id,
+            obj: O,
+            _create: &serde_json::Value,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            let roundtrip = |e: serde_json::Error| {
+                BackendSetError::Other(MockError::new(format!("copy round-trip failed: {e}")))
+            };
+            let event: jmap_calendars_types::CalendarEvent =
+                serde_json::from_value(serde_json::to_value(&obj).map_err(roundtrip)?)
+                    .map_err(roundtrip)?;
+            let build = move |id: &Id| {
+                let mut event = event;
+                event.id = Some(id.clone());
+                event
+            };
+            let (id, created) = self
+                .create_calendar_event(
+                    caller,
+                    to_account_id,
+                    "",
+                    build,
+                    &CalendarEventSetArgs::default(),
+                )
+                .await?;
+            let obj = serde_json::from_value(serde_json::to_value(&created).map_err(roundtrip)?)
+                .map_err(roundtrip)?;
+            Ok((id, obj))
+        }
+
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
             _caller: &(),

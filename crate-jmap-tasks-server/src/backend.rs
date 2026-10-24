@@ -95,6 +95,48 @@ pub trait TasksBackend: JmapBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
 
+    /// Store `obj`, a record read from `from_account_id`, as a new record in
+    /// `to_account_id`, for `/copy` (RFC 8620 §5.4).
+    ///
+    /// Called by `Task/copy` after the handler fetched the Task from
+    /// `from_account_id` and applied the request's overrides, including any
+    /// `metadata` and `privateMetadata` it supplies
+    /// (draft-ietf-jmap-metadata-04 §3.4). `create` is the request's create
+    /// object for this copy (RFC 8620 §5.4). -04 §3.4 says its `metadata`
+    /// and `privateMetadata` follow "the same rules as a create in
+    /// Foo/set", so the backend validates them as
+    /// [`create_object`](Self::create_object) does (-04 §3.2 rules 1 to 4,
+    /// `maxDepth` only on these supplied values) and leaves the copied
+    /// values unvalidated ("Copied values are not revalidated against the
+    /// destination account"). Every other rule of
+    /// [`create_object`](Self::create_object) applies to the copy. The
+    /// backend assigns the new `id`, stores the record in `to_account_id`
+    /// and records the create in the state and change log as
+    /// [`create_object`](Self::create_object) does. Returns the new id and
+    /// the stored record.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller read access to `obj` in
+    /// `from_account_id` and write access to `to_account_id` before storing the
+    /// copy, and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
+    /// # Errors
+    ///
+    /// As for [`create_object`](Self::create_object): a
+    /// [`BackendSetError::SetError`] is reported for that copy.
+    fn copy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        from_account_id: &jmap_types::Id,
+        to_account_id: &jmap_types::Id,
+        obj: O,
+        create: &serde_json::Value,
+    ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
+    + Send;
+
     /// Apply a partial update (patch) to an existing object.
     ///
     /// Returns `Some(updated_object)` if the backend modified any properties

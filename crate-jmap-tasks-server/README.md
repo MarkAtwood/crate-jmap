@@ -204,7 +204,7 @@ TaskList (§3).
 6. **Create, update and destroy require `mayWriteAll`, or
    `mayWriteOwn` when the caller is an owner of the task or it has no
    owner** (§3). Moving a task between lists needs the right on both.
-   `Task/copy` writes through `create_object` in the destination
+   `Task/copy` writes through `copy_object` in the destination
    account and treats a source the caller cannot read as `notFound`.
 
 7. **Per-user Task properties.** `keywords`, `color`,

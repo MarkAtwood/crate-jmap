@@ -902,6 +902,71 @@ impl JmapBackend for MemoryBackend {
     }
 }
 
+/// Rebuild `obj` with `id` as its `id` property, for a `/copy` that
+/// stores a record read from another account under a new id.
+fn with_id<O: SetObject>(obj: &O, id: &Id) -> Result<O, BackendSetError<MemoryError>> {
+    let mut val = serde_json::to_value(obj)
+        .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize copied object", &e)))?;
+    if let Some(map) = val.as_object_mut() {
+        map.insert(
+            "id".to_owned(),
+            serde_json::Value::String(id.as_ref().to_owned()),
+        );
+    }
+    serde_json::from_value(val)
+        .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize copied object", &e)))
+}
+
+impl MemoryBackend {
+    /// Store the FileNode `build` returns for a new id in `account_id`: the
+    /// body of [`FileNodeBackend::create_object`] and
+    /// [`FileNodeBackend::copy_object`]. `supplied` is the `/copy` create
+    /// object whose metadata is validated (-04 §3.4); `None` validates the
+    /// stored node itself, as a `FileNode/set` create does.
+    fn store_created<O: SetObject>(
+        &self,
+        account_id: &Id,
+        build: impl FnOnce(&Id) -> Result<O, BackendSetError<MemoryError>>,
+        supplied: Option<&serde_json::Value>,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
+        // Only FileNode is supported.
+        if O::TYPE_NAME != "FileNode" {
+            return Err(BackendSetError::SetError(Box::new(SetError::new(
+                SetErrorType::InvalidProperties,
+            ))));
+        }
+
+        let mut guard = self.inner.lock().unwrap();
+        let metadata_info = guard.metadata_info.clone();
+        let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::InvalidProperties)))
+        })?;
+        let new_id = store.next_node_id();
+        let obj = build(&new_id)?;
+        // Store as a typed FileNode: serialize the built O and read it back.
+        let v = serde_json::to_value(&obj).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde(
+                format_args!("create_object: serialize {}", O::TYPE_NAME),
+                &e,
+            ))
+        })?;
+        if let Some(obj) = v.as_object() {
+            let supplied = supplied.and_then(serde_json::Value::as_object);
+            check_metadata_create(metadata_info.as_ref(), supplied.unwrap_or(obj), obj)?;
+        }
+        let node: FileNode = serde_json::from_value(v).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde(
+                "create_object: deserialize FileNode",
+                &e,
+            ))
+        })?;
+        store.nodes.insert(new_id.clone(), node);
+        store.bump_state(ChangeType::Created, new_id.clone(), None);
+
+        Ok((new_id, obj))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // FileNodeBackend impl
 // ---------------------------------------------------------------------------
@@ -918,40 +983,20 @@ impl FileNodeBackend for MemoryBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&Id) -> O + Send,
     {
-        // Only FileNode is supported.
-        if O::TYPE_NAME != "FileNode" {
-            return Err(BackendSetError::SetError(Box::new(SetError::new(
-                SetErrorType::InvalidProperties,
-            ))));
-        }
+        self.store_created(account_id, |id| Ok(build(id)), None)
+    }
 
-        let mut guard = self.inner.lock().unwrap();
-        let metadata_info = guard.metadata_info.clone();
-        let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
-            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::InvalidProperties)))
-        })?;
-        let new_id = store.next_node_id();
-        let obj = build(&new_id);
-        // Store as a typed FileNode: serialize the built O and read it back.
-        let v = serde_json::to_value(&obj).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                format_args!("create_object: serialize {}", O::TYPE_NAME),
-                &e,
-            ))
-        })?;
-        if let Some(obj) = v.as_object() {
-            check_metadata_create(metadata_info.as_ref(), obj)?;
-        }
-        let node: FileNode = serde_json::from_value(v).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde(
-                "create_object: deserialize FileNode",
-                &e,
-            ))
-        })?;
-        store.nodes.insert(new_id.clone(), node);
-        store.bump_state(ChangeType::Created, new_id.clone(), None);
-
-        Ok((new_id, obj))
+    async fn copy_object<O: SetObject + Send + Sync>(
+        &self,
+        _caller: &(),
+        _from_account_id: &Id,
+        to_account_id: &Id,
+        obj: O,
+        create: &serde_json::Value,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        // -04 §3.4: the create object's metadata follows the Foo/set create
+        // rules; the copied values are not revalidated.
+        self.store_created(to_account_id, |id| with_id(&obj, id), Some(create))
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
@@ -1668,13 +1713,17 @@ fn check_metadata_set<'a>(
 }
 
 /// draft-ietf-jmap-metadata-04 §3.2 checks for a created FileNode `obj`:
-/// rules 1 to 3 on its metadata properties, then rule 4 on the stored
-/// value.
+/// rules 1 to 3 on the metadata properties of `supplied`, the create
+/// object, then rule 4 on the values it supplied as stored in `obj`. A
+/// `FileNode/set` create passes `obj` as both; a `/copy` passes its create
+/// object, so the copied values are not revalidated (-04 §3.4: "maxDepth
+/// applies only to values supplied in the create object").
 fn check_metadata_create(
     info: Option<&DataTypeMetadataInfo>,
+    supplied: &serde_json::Map<String, serde_json::Value>,
     obj: &serde_json::Map<String, serde_json::Value>,
 ) -> Result<(), BackendSetError<MemoryError>> {
-    let entry: serde_json::Map<String, serde_json::Value> = obj
+    let entry: serde_json::Map<String, serde_json::Value> = supplied
         .iter()
         .filter(|(k, _)| is_metadata_property(k))
         .map(|(k, v)| (k.clone(), v.clone()))

@@ -1087,20 +1087,29 @@ fn task_update_containers<'a>(
 }
 
 /// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
-/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
-/// on the stored value. A Task needs `maySetMetadata` on the TaskList of
+/// type `type_name`: rules 1 to 3 on the metadata properties of
+/// `supplied`, the create object, then rule 4 on the values it supplied as
+/// stored in `val`. A `Foo/set` create passes `val` as both; a `/copy`
+/// passes its create object, so the copied values are not revalidated
+/// (-04 §3.4: "maxDepth applies only to values supplied in the create
+/// object"). A Task needs `maySetMetadata` on the TaskList of
 /// its `taskListId` (-04 §4.1: "on create, on the containers given in the
 /// create"). Types without the -04 properties pass unchecked.
 fn check_metadata_create(
     inner: &Inner,
     type_name: &'static str,
     account_id: &str,
+    supplied: &serde_json::Value,
     val: &serde_json::Value,
 ) -> Result<(), BackendSetError<MemoryError>> {
-    let (Some(type_name), Some(obj)) = (metadata_type_name(type_name), val.as_object()) else {
+    let (Some(type_name), Some(supplied), Some(obj)) = (
+        metadata_type_name(type_name),
+        supplied.as_object(),
+        val.as_object(),
+    ) else {
         return Ok(());
     };
-    let entry: serde_json::Map<String, serde_json::Value> = obj
+    let entry: serde_json::Map<String, serde_json::Value> = supplied
         .iter()
         .filter(|(k, _)| is_metadata_property(k))
         .map(|(k, v)| (k.clone(), v.clone()))
@@ -1216,30 +1225,46 @@ fn metadata_matches(
         && equals.is_none_or(|m| metadata_text_equals(metadata, m))
 }
 
-// ---------------------------------------------------------------------------
-// TasksBackend impl
-// ---------------------------------------------------------------------------
+/// Rebuild `obj` with `id` as its `id` property, for a `/copy` that
+/// stores a record read from another account under a new id.
+fn with_id<O: SetObject>(obj: &O, id: &Id) -> Result<O, BackendSetError<MemoryError>> {
+    let mut val = serde_json::to_value(obj)
+        .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize copied object", &e)))?;
+    if let Some(map) = val.as_object_mut() {
+        map.insert(
+            "id".to_owned(),
+            serde_json::Value::String(id.as_ref().to_owned()),
+        );
+    }
+    serde_json::from_value(val)
+        .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize copied object", &e)))
+}
 
-impl TasksBackend for MemoryBackend {
-    async fn create_object<O, F>(
+impl MemoryBackend {
+    /// Store the object `build` returns for a new id in `account_id`: the
+    /// body of [`TasksBackend::create_object`] and
+    /// [`TasksBackend::copy_object`]. `supplied` is the `/copy` create
+    /// object whose metadata is validated (-04 §3.4); `None` validates the
+    /// stored object itself, as a `Foo/set` create does.
+    fn store_created<O: SetObject>(
         &self,
-        _caller: &(),
         account_id: &Id,
-        _create_id: &str,
-        build: F,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>>
-    where
-        O: SetObject + Send + Sync,
-        F: FnOnce(&Id) -> O + Send,
-    {
+        build: impl FnOnce(&Id) -> Result<O, BackendSetError<MemoryError>>,
+        supplied: Option<&serde_json::Value>,
+    ) -> Result<(Id, O), BackendSetError<MemoryError>> {
         let server_id = Id::from(uuid::Uuid::new_v4().to_string());
-        let stored_obj = build(&server_id);
+        let stored_obj = build(&server_id)?;
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
-        check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val)?;
-
+        check_metadata_create(
+            &inner,
+            O::TYPE_NAME,
+            account_id.as_ref(),
+            supplied.unwrap_or(&val),
+            &val,
+        )?;
         inner.known_accounts.insert(account_id.as_ref().to_owned());
 
         let task_list_id = if O::TYPE_NAME == "Task" {
@@ -1267,6 +1292,39 @@ impl TasksBackend for MemoryBackend {
         }
 
         Ok((server_id, stored_obj))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TasksBackend impl
+// ---------------------------------------------------------------------------
+
+impl TasksBackend for MemoryBackend {
+    async fn create_object<O, F>(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        _create_id: &str,
+        build: F,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>>
+    where
+        O: SetObject + Send + Sync,
+        F: FnOnce(&Id) -> O + Send,
+    {
+        self.store_created(account_id, |id| Ok(build(id)), None)
+    }
+
+    async fn copy_object<O: SetObject + Send + Sync>(
+        &self,
+        _caller: &(),
+        _from_account_id: &Id,
+        to_account_id: &Id,
+        obj: O,
+        create: &serde_json::Value,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        // -04 §3.4: the create object's metadata follows the Foo/set create
+        // rules; the copied values are not revalidated.
+        self.store_created(to_account_id, |id| with_id(&obj, id), Some(create))
     }
 
     async fn update_object<O: SetObject + Send + Sync>(

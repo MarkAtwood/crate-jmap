@@ -184,6 +184,55 @@ pub trait CalendarsBackend: JmapBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
 
+    /// Store `obj`, a record read from `from_account_id`, as a new record in
+    /// `to_account_id`, for `/copy` (RFC 8620 §5.4).
+    ///
+    /// Called by `CalendarEvent/copy` after the handler fetched the event
+    /// from `from_account_id`, applied the request's overrides, including
+    /// any `metadata` and `privateMetadata` it supplies
+    /// (draft-ietf-jmap-metadata-04 §3.4), and prepared it as for a
+    /// `CalendarEvent/set` create. `create` is the request's create object
+    /// for this copy (RFC 8620 §5.4). -04 §3.4 says its `metadata` and
+    /// `privateMetadata` follow "the same rules as a create in Foo/set", so
+    /// the backend validates them as [`create_object`](Self::create_object)
+    /// does (-04 §3.2 rules 1 to 4, `maxDepth` only on these supplied
+    /// values) and leaves the copied values unvalidated ("Copied values are
+    /// not revalidated against the destination account"). Every other rule
+    /// of [`create_calendar_event`](Self::create_calendar_event) with
+    /// [`CalendarEventSetArgs::default()`] applies to the copy, and the
+    /// backend also enforces draft-ietf-jmap-calendars-33 §5.10: "If the
+    /// account being copied into does not belong to the user and the
+    /// "privacy" property of the event to be created would be anything
+    /// other than "public" (whether inherited from the event being copied
+    /// or set explicitly in the "create" patch), the server MUST reject the
+    /// copy with an invalidProperties SetError." The backend assigns the
+    /// new `id`, stores the record in `to_account_id` and records the
+    /// create in the state and change log as
+    /// [`create_object`](Self::create_object) does. Returns the new id and
+    /// the stored record.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller read access to `obj` in
+    /// `from_account_id` and write access to `to_account_id` before storing the
+    /// copy, and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
+    ///
+    /// # Errors
+    ///
+    /// As for [`create_object`](Self::create_object): a
+    /// [`BackendSetError::SetError`] is reported for that copy.
+    fn copy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        from_account_id: &jmap_types::Id,
+        to_account_id: &jmap_types::Id,
+        obj: O,
+        create: &serde_json::Value,
+    ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
+    + Send;
+
     /// Apply a partial update (patch) to an existing object of type `O`.
     ///
     /// Returns `Some(updated_object)` if the backend modified any properties
@@ -390,17 +439,12 @@ pub trait CalendarsBackend: JmapBackend {
     /// The same rules apply to
     /// [`update_calendar_event`](Self::update_calendar_event).
     ///
-    /// `CalendarEvent/copy` creates go through this method too, with
-    /// [`CalendarEventSetArgs::default()`]. For those the backend also
-    /// enforces §5.10: "If the account being copied into does not belong
-    /// to the user and the "privacy" property of the event to be created
-    /// would be anything other than "public" (whether inherited from the
-    /// event being copied or set explicitly in the "create" patch), the
-    /// server MUST reject the copy with an invalidProperties SetError."
-    /// Return that as `BackendSetError::SetError` and the handler reports
-    /// it under `notCreated`. The same §5.9 rule ("privacy" MUST NOT be
+    /// The backend enforces the §5.9 rule that "privacy" MUST NOT be
     /// anything other than "public" in a calendar that does not belong to
-    /// the user) covers `CalendarEvent/set` creates.
+    /// the user, returning `BackendSetError::SetError`, which the handler
+    /// reports under `notCreated`. `CalendarEvent/copy` creates go through
+    /// [`copy_object`](Self::copy_object) instead, which applies the same
+    /// rules.
     ///
     /// Receives the per-call [`CalendarEventSetArgs`] in addition to the
     /// builder of the event being created, which the backend calls as for

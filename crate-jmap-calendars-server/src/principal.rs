@@ -414,6 +414,17 @@ mod tests {
                 Ok((id, obj))
             }
 
+            async fn copy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _from_account_id: &Id,
+                _to_account_id: &Id,
+                obj: O,
+                _create: &serde_json::Value,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
             async fn update_object<O: SetObject + Send + Sync>(
                 &self,
                 _caller: &(),

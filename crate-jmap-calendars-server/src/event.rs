@@ -789,7 +789,9 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and
-/// the backend's `create_object` validates the rest.
+/// [`CalendarsBackend::copy_object`] validates the rest against the create
+/// object only: "Copied values are not revalidated against the
+/// destination account".
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
 /// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3. If
@@ -970,10 +972,10 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 );
                 continue;
             };
-            if let Value::Object(client_props) = client_val {
+            if let Value::Object(client_props) = &client_val {
                 for (k, v) in client_props {
                     if k != "id" {
-                        merged.insert(k, v);
+                        merged.insert(k.clone(), v.clone());
                     }
                 }
             }
@@ -1009,22 +1011,12 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 continue;
             }
 
-            let build = move |id: &Id| {
-                event.id = Some(id.clone());
-                event
-            };
-            // The copy is a CalendarEvent create in the destination account,
-            // so it takes the same backend path as CalendarEvent/set creates
-            // (§5.9 create rules, §5.10 destination privacy rule). /copy has
-            // no sendSchedulingMessages argument, hence the default args.
+            // The copy is a CalendarEvent create in the destination account:
+            // the backend applies the §5.9 create rules and the §5.10
+            // destination privacy rule, and validates only the metadata
+            // supplied in the create object (-04 §3.4).
             match backend
-                .create_calendar_event(
-                    caller,
-                    &account_id,
-                    &create_id,
-                    build,
-                    &CalendarEventSetArgs::default(),
-                )
+                .copy_object(caller, &from_account_id, &account_id, event, &client_val)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -2468,6 +2460,17 @@ mod tests {
                 Ok((id, obj))
             }
 
+            async fn copy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _from_account_id: &Id,
+                _to_account_id: &Id,
+                obj: O,
+                _create: &serde_json::Value,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
             async fn update_object<O: SetObject + Send + Sync>(
                 &self,
                 _caller: &(),
@@ -3369,6 +3372,17 @@ mod tests {
                 Ok((id, obj))
             }
 
+            async fn copy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _from_account_id: &Id,
+                _to_account_id: &Id,
+                obj: O,
+                _create: &serde_json::Value,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
             async fn update_object<O: SetObject + Send + Sync>(
                 &self,
                 _caller: &(),
@@ -3592,6 +3606,17 @@ mod tests {
                 let id = Id::from("mock-id");
                 let obj = build(&id);
                 Ok((id, obj))
+            }
+
+            async fn copy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _from_account_id: &Id,
+                _to_account_id: &Id,
+                obj: O,
+                _create: &serde_json::Value,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
             }
 
             async fn update_object<O: SetObject + Send + Sync>(
