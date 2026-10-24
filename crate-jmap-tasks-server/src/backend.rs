@@ -269,14 +269,15 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// # Authorisation contract
     ///
-    /// Implementors MUST verify caller read access to the target Task (per-user
-    /// properties are still scoped to the user, but only users who can see the
-    /// Task can have per-user state on it) and MUST return
-    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise.
-    /// The shared-property write-access rule from [`Self::update_object`] does
-    /// NOT apply here — a user with only read access to the shared Task may
-    /// still mutate their own per-user state. See [`Self::create_object`] for
-    /// the workspace-canonical rationale on backend-as-enforcement-point.
+    /// Implementors MUST verify that the caller may modify per-user properties
+    /// on the target Task and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. That is the TaskList's
+    /// `mayUpdatePrivate` right, which draft-ietf-jmap-tasks-06 §3 defines as:
+    /// "The user may modify the following properties on all tasks in the task
+    /// list, even if they would not otherwise have permission to modify that
+    /// task." The write-access rule of [`Self::update_object`] does NOT apply
+    /// here. See [`Self::create_object`] for the workspace-canonical rationale
+    /// on backend-as-enforcement-point.
     fn update_task_per_user(
         &self,
         caller: &Self::CallerCtx,
