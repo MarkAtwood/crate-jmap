@@ -3803,6 +3803,12 @@ wire behaviour that a conforming peer can observe.
   the `totalEmails`, `unreadEmails`, `totalThreads` and `unreadThreads`
   of its Mailboxes and indexes its `messageId`, as `import_email` does
   (RFC 8621 §2, §3). It used to store only the Email (bd JMAP-p36f).
+- **jmap-mail-server**: the reference `MemoryBackend` `copy_object`
+  (`Email/copy`) now updates the destination Mailboxes' `totalEmails`,
+  `unreadEmails`, `totalThreads` and `unreadThreads` (RFC 8621 §2) and
+  indexes the copy's `messageId`, so a later import of the same message
+  into the destination fails with `alreadyExists` (RFC 8621 §4.8). It
+  used to update only the Thread (bd JMAP-l40v).
 - **jmap-sharing-server**, **jmap-calendars-server**: **BREAKING** the
   reference `MemoryBackend` no longer silently ignores what it cannot
   evaluate in `query_objects` (RFC 8620 §5.5). Both reject a non-empty
