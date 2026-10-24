@@ -15,11 +15,11 @@ db-path = "~/.cargo/advisory-db"
 db-urls = ["https://github.com/rustsec/advisory-db"]
 yanked = "deny"
 ignore = [
-    # webpki-roots 0.26.11 (via tokio-tungstenite 0.29) is a semver-trick
-    # shim that re-exports webpki-roots 1.x; Cargo.lock resolves that to
-    # 1.0.10, which removes the distrusted emSign root. Drop this entry
-    # once tokio-tungstenite depends on webpki-roots 1 directly.
-    { id = "RUSTSEC-2026-0381", reason = "0.26.11 shim re-exports webpki-roots 1.0.10 (fixed)" },
+    # crypto-bigint 0.5.5 (via elliptic-curve 0.13: k256/p256 in
+    # jmap-did-types and jmap-web-push, and openmls_rust_crypto) has
+    # non-constant-time operations. Timing side channels are out of scope
+    # for this workspace (bd:JMAP-z04n).
+    { id = "RUSTSEC-2026-0387", reason = "timing side channels are out of scope for this workspace" },
     # proc-macro-error2 (unmaintained, not a vulnerability) reaches the build
     # only through the dev-dependency openmls_rust_crypto -> hpke-rs ->
     # libcrux -> hax-lib-macros, which jmap-chat-mimi-server's tests use as
