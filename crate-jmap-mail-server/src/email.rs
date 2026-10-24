@@ -1614,7 +1614,7 @@ fn validate_and_normalize_keywords(
 ///
 /// An `invalidProperties` [`jmap_server::SetError`] naming `mailboxIds` when a
 /// reference matches no record created earlier in the request.
-fn resolve_mailbox_id_refs(
+pub(crate) fn resolve_mailbox_id_refs(
     obj: &mut Value,
     created_ids: &BTreeMap<Id, Id>,
 ) -> Result<(), Box<jmap_server::SetError>> {
@@ -2167,10 +2167,16 @@ async fn collapse_by_thread<B: MailBackend>(
 /// Each entry in `emails` must name a blob already uploaded to the account.
 /// The backend parses the raw bytes, assigns a thread, and stores the new email.
 ///
+/// `mailboxIds` keys may be `#creationId` references (RFC 8620 §5.3),
+/// resolved against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]); an unknown reference fails
+/// that entry with `invalidProperties` naming `mailboxIds`.
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_import<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -2200,7 +2206,11 @@ pub async fn handle_email_import<B: MailBackend>(
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
 
-    for (import_id, entry) in emails {
+    for (import_id, mut entry) in emails {
+        if let Err(err) = resolve_mailbox_id_refs(&mut entry, created_ids) {
+            not_created.insert(import_id, Value::from(&*err));
+            continue;
+        }
         let Some(s) = entry.get("blobId").and_then(|v| v.as_str()) else {
             not_created.insert(
                 import_id,
@@ -2514,9 +2524,16 @@ pub async fn handle_email_parse<B: MailBackend>(
 /// values, with the same rules as a create in Foo/set": the handler
 /// rejects them without the capability and rejects `null`, and
 /// [`MailBackend::copy_object`] applies the rest.
+///
+/// `mailboxIds` keys may be `#creationId` references (RFC 8620 §5.3),
+/// resolved against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]) before the entry reaches
+/// the backend; an unknown reference fails that entry with
+/// `invalidProperties` naming `mailboxIds`.
 pub async fn handle_email_copy<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
     call_id: &str,
     using: &[String],
@@ -2582,7 +2599,11 @@ pub async fn handle_email_copy<B: MailBackend>(
     let mut not_created = serde_json::Map::new();
     let mut copied_source_ids: Vec<(String, Id)> = Vec::new(); // (copy_id, source_id)
 
-    for (copy_id, entry) in create {
+    for (copy_id, mut entry) in create {
+        if let Err(err) = resolve_mailbox_id_refs(&mut entry, created_ids) {
+            not_created.insert(copy_id, Value::from(&*err));
+            continue;
+        }
         let Some(s) = entry.get("id").and_then(|v| v.as_str()) else {
             not_created.insert(
                 copy_id,

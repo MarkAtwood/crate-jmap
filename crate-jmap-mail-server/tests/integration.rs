@@ -3971,7 +3971,7 @@ async fn email_import_empty_mailbox_ids_rejected() {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_import(&backend, &(), args)
+    } = handle_email_import(&backend, &(), &Default::default(), args)
         .await
         .expect("Email/import must not return a JmapError");
     assert!(extra.is_empty());
@@ -4030,9 +4030,10 @@ async fn email_import_with_malformed_received_at_rejected() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_email_import(&backend, &(), args)
-        .await
-        .expect("Email/import must not return a JmapError");
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_import(&backend, &(), &Default::default(), args)
+            .await
+            .expect("Email/import must not return a JmapError");
 
     assert!(resp["created"].is_null(), "created must be null");
     let not_created = resp["notCreated"]
@@ -4081,9 +4082,10 @@ async fn email_import_with_keywords_succeeds() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_email_import(&backend, &(), args)
-        .await
-        .expect("Email/import must not return a JmapError");
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_import(&backend, &(), &Default::default(), args)
+            .await
+            .expect("Email/import must not return a JmapError");
 
     // The import should succeed (created, not notCreated).
     assert!(
@@ -4145,9 +4147,10 @@ async fn email_copy_with_keywords_succeeds() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_email_copy(&backend, &(), args, "call-1", &[])
-        .await
-        .expect("Email/copy must not return a JmapError");
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_copy(&backend, &(), &Default::default(), args, "call-1", &[])
+            .await
+            .expect("Email/copy must not return a JmapError");
 
     assert!(
         resp["notCreated"].is_null(),
@@ -4211,7 +4214,7 @@ async fn email_copy_without_keywords_keeps_source_keywords() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_email_copy(&backend, &(), args, "call-keep", &[])
+        handle_email_copy(&backend, &(), &Default::default(), args, "call-keep", &[])
             .await
             .expect("Email/copy must not return a JmapError");
 
@@ -4272,10 +4275,16 @@ async fn email_copy_with_malformed_received_at_rejected() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } =
-        handle_email_copy(&backend, &(), args, "call-malformed", &[])
-            .await
-            .expect("Email/copy must not return a JmapError");
+    let HandlerOutput { primary: resp, .. } = handle_email_copy(
+        &backend,
+        &(),
+        &Default::default(),
+        args,
+        "call-malformed",
+        &[],
+    )
+    .await
+    .expect("Email/copy must not return a JmapError");
 
     assert!(resp["created"].is_null(), "created must be null");
     let not_created = resp["notCreated"]
@@ -4329,7 +4338,7 @@ async fn email_copy_ignores_on_success_update_original() {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_copy(&backend, &(), args, "call-osuo", &[])
+    } = handle_email_copy(&backend, &(), &Default::default(), args, "call-osuo", &[])
         .await
         .expect("Email/copy must not return a top-level JmapError");
     assert!(
@@ -4402,7 +4411,7 @@ async fn email_copy_with_destroy_from_if_in_state(
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_copy(&backend, &(), args, "call-dfis", &[])
+    } = handle_email_copy(&backend, &(), &Default::default(), args, "call-dfis", &[])
         .await
         .expect("Email/copy must not return a top-level JmapError");
     assert!(
@@ -6542,7 +6551,9 @@ async fn email_import_backend_other_goes_to_not_created() {
         }
     });
     let HandlerOutput { primary: resp, .. } =
-        handle_email_import(&backend, &(), args).await.unwrap();
+        handle_email_import(&backend, &(), &Default::default(), args)
+            .await
+            .unwrap();
     assert!(
         resp["created"].is_null(),
         "created must be null; resp: {resp}"
@@ -6930,9 +6941,10 @@ async fn email_import_created_response_has_four_server_set_fields() {
             }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_import(&backend, &(), args)
-        .await
-        .expect("import must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_import(&backend, &(), &Default::default(), args)
+            .await
+            .expect("import must succeed");
 
     let created = resp["created"]["imp1"]
         .as_object()
@@ -7401,7 +7413,7 @@ Body one.
             }
         }
     });
-    handle_email_import(&backend, &(), import1)
+    handle_email_import(&backend, &(), &Default::default(), import1)
         .await
         .expect("first import");
 
@@ -7436,7 +7448,7 @@ Body two.
             }
         }
     });
-    handle_email_import(&backend, &(), import2)
+    handle_email_import(&backend, &(), &Default::default(), import2)
         .await
         .expect("second import");
 
@@ -7509,7 +7521,7 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
 
     // First import must succeed.
     let HandlerOutput { primary: resp1, .. } =
-        handle_email_import(&backend, &(), make_import(&blob_id))
+        handle_email_import(&backend, &(), &Default::default(), make_import(&blob_id))
             .await
             .expect("first import must not return a JmapError");
     assert!(
@@ -7527,7 +7539,7 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
 
     // Second import of the same blob (same Message-ID) must fail with alreadyExists.
     let HandlerOutput { primary: resp2, .. } =
-        handle_email_import(&backend, &(), make_import(&blob_id))
+        handle_email_import(&backend, &(), &Default::default(), make_import(&blob_id))
             .await
             .expect("second import must not return a JmapError");
     assert!(
@@ -13557,7 +13569,7 @@ Message-ID: <new-thread-changes-001@test>\r\nSubject: New thread for changes tes
     let HandlerOutput {
         primary: import_resp,
         ..
-    } = handle_email_import(&backend, &(), import_args)
+    } = handle_email_import(&backend, &(), &Default::default(), import_args)
         .await
         .expect("Email/import must succeed");
 
@@ -13651,7 +13663,7 @@ Subject: Re: Project Alpha Discussion\r\n\r\nAnother reply.\r\n";
             }
         }
     });
-    handle_email_import(&backend, &(), import_args)
+    handle_email_import(&backend, &(), &Default::default(), import_args)
         .await
         .expect("Email/import of reply must succeed");
 

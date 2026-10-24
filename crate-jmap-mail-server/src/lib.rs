@@ -162,7 +162,7 @@ where
     //
     // Each optional trailing ident binds the `CallContext` field of that name:
     // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
-    // `/set` handlers use to resolve `#creationId` references, or `using`,
+    // `/set`, `/copy` and `Email/import` handlers use to resolve `#creationId` references, or `using`,
     // the request's capability list (draft-ietf-jmap-metadata-04 §3).
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
@@ -233,11 +233,15 @@ where
             handle_email_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("Email/copy", backend, |b, ci, a, ctx, using| {
-        handle_email_copy(&*b, &ctx, a, &ci, &using).await
-    });
-    reg!("Email/import", backend, |b, _ci, a, ctx| {
-        handle_email_import(&*b, &ctx, a).await
+    reg!(
+        "Email/copy",
+        backend,
+        |b, ci, a, ctx, created_ids, using| {
+            handle_email_copy(&*b, &ctx, &created_ids, a, &ci, &using).await
+        }
+    );
+    reg!("Email/import", backend, |b, _ci, a, ctx, created_ids| {
+        handle_email_import(&*b, &ctx, &created_ids, a).await
     });
     reg!("Email/parse", backend, |b, _ci, a, ctx| {
         handle_email_parse(&*b, &ctx, a).await

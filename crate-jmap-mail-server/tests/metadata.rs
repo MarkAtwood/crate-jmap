@@ -1005,7 +1005,7 @@ async fn email_copy(backend: &MemoryBackend, create: Value, using: &[String]) ->
         "accountId": OTHER_ID,
         "create": { "c": create }
     });
-    handle_email_copy(backend, &(), args, "call", using)
+    handle_email_copy(backend, &(), &Default::default(), args, "call", using)
         .await
         .expect("Email/copy must not fail at method level")
         .primary

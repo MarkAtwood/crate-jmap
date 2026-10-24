@@ -424,9 +424,10 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. When `onSuccessUpdateEmail` is
 /// present, extra_invocations will contain one `Email/set` invocation.
 ///
-/// A `#creationId` `identityId` or `emailId` on a create resolves against
-/// `created_ids` (pass [`jmap_server::CallContext::created_ids`];
-/// RFC 8620 §5.3).
+/// A `#creationId` `identityId` or `emailId` on a create, and a
+/// `#creationId` Mailbox in an `onSuccessUpdateEmail` `mailboxIds` patch,
+/// resolves against `created_ids` (pass
+/// [`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3).
 pub async fn handle_submission_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -686,7 +687,7 @@ pub async fn handle_submission_set<B: MailBackend>(
         let mut email_not_destroyed = serde_json::Map::new();
 
         // onSuccessUpdateEmail
-        // patch.clone() is required here: args is borrowed as &Value throughout
+        // patch_val.clone() is required here: args is borrowed as &Value throughout
         // handle_submission_set (used in multiple subsequent blocks), so we cannot
         // take ownership of the nested map via remove(). The clone is bounded to
         // the patch object, not the full args.
@@ -696,9 +697,17 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Some(id) => id.clone(),
                     None => continue, // Referenced operation did not succeed; skip.
                 };
+                // RFC 8620 §5.3: `mailboxIds/#m` paths and `mailboxIds`
+                // keys may name a Mailbox created earlier in the request.
+                let mut patch_val = patch_val.clone();
+                if let Err(err) = crate::email::resolve_mailbox_id_refs(&mut patch_val, created_ids)
+                {
+                    email_not_updated.insert(email_id.as_ref().to_owned(), Value::from(&*err));
+                    continue;
+                }
                 // Convert wire-format Value into a typed PatchObject before
                 // the immutable-field guard. RFC 8620 §5.3.
-                let patch = match PatchObject::deserialize(patch_val) {
+                let patch = match PatchObject::deserialize(&patch_val) {
                     Ok(p) => p,
                     Err(e) => {
                         email_not_updated.insert(
