@@ -1801,8 +1801,9 @@ fn validate_body_part(
 /// The builder parses the stored message, so the Email's header and body
 /// properties are the ones the message carries, as for `Email/import`.
 /// `mailboxIds`, `keywords` and `receivedAt` come from the create; the
-/// thread id comes from a stored Email whose `messageId` matches
-/// `inReplyTo` or `references`, else a fresh one. When the create gives
+/// thread id comes from a stored Email whose `messageId` matches an id in
+/// the composed message's In-Reply-To or References header field, however
+/// the create set it, else a fresh one. When the create gives
 /// no `messageId` or `sentAt`, the message gets a generated Message-ID and
 /// a Date equal to `receivedAt`: RFC 8621 §4.6 "If not included, the
 /// server MUST generate and set a Message-ID header field ... and a Date
@@ -1905,18 +1906,6 @@ async fn build_email_from_create<B: MailBackend>(
     };
     let (date_given, message_id_given) = (header_given("Date"), header_given("Message-ID"));
 
-    // Thread assignment: look for an existing email whose messageId matches
-    // any of the inReplyTo/references tokens.
-    let thread_id = assign_thread(
-        backend,
-        caller,
-        account_id,
-        draft.in_reply_to.as_deref().unwrap_or(&[]),
-        draft.references.as_deref().unwrap_or(&[]),
-    )
-    .await
-    .map_err(|e| server_fail_value_from_backend(&e))?;
-
     // receivedAt: use provided value or now (RFC 8621 §5.5.3).
     // The caller is required to have run `parse_received_at_field` to
     // reject malformed values up-front (see handle_email_set), so this
@@ -1967,6 +1956,20 @@ async fn build_email_from_create<B: MailBackend>(
         ComposeError::InvalidHeaderProperty { property, reason } => invalid(&property, reason),
         _ => json!({ "type": "invalidProperties", "description": e.to_string() }),
     })?;
+
+    // RFC 8621 §3 threads by the message's own In-Reply-To and References,
+    // so read them from the composed message: a create may set them via
+    // the `inReplyTo`/`references` properties or any `header:` form.
+    let parsed = crate::parse::parse_rfc5322_headers(&message);
+    let thread_id = assign_thread(
+        backend,
+        caller,
+        account_id,
+        &parsed.in_reply_to,
+        &parsed.references,
+    )
+    .await
+    .map_err(|e| server_fail_value_from_backend(&e))?;
 
     Ok((message, move |id: &Id, blob_id: &Id, bytes: &[u8]| {
         let mut email = Email::new(
