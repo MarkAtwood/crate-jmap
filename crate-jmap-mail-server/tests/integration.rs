@@ -4362,6 +4362,99 @@ async fn email_copy_ignores_on_success_update_original() {
     );
 }
 
+/// Oracle: RFC 8621 §2 — a Mailbox's `totalEmails` is "The number of
+/// Emails in this Mailbox", `unreadEmails` those "that have neither the
+/// $seen keyword nor the $draft keyword", `totalThreads` "The number of
+/// Threads where at least one Email in the Thread is in this Mailbox" and
+/// `unreadThreads` those with an unread Email in it; RFC 8621 §4.8 —
+/// importing a message whose Message-ID matches an existing Email fails
+/// with `alreadyExists`. An Email copied into a destination Mailbox must
+/// count there and block a duplicate import there. Regression for bd
+/// JMAP-l40v.
+#[tokio::test]
+async fn email_copy_maintains_destination_counts_and_message_id() {
+    use jmap_mail_server::handle_email_copy;
+    use jmap_server::BackendSetError;
+
+    let backend = MemoryBackend::new();
+    let src_account = Id::from("src-cnt");
+    let dst_account = Id::from("dst-cnt");
+    backend.register_account(&src_account);
+    backend.register_account(&dst_account);
+    backend.seed_object(
+        &dst_account,
+        "Mailbox",
+        &Id::from("inbox"),
+        serde_json::json!({
+            "id": "inbox", "name": "Inbox", "parentId": null, "role": "inbox",
+            "sortOrder": 0, "totalEmails": 0, "unreadEmails": 0,
+            "totalThreads": 0, "unreadThreads": 0,
+            "myRights": {
+                "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+                "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+                "mayRename": true, "mayDelete": true, "maySubmit": true
+            },
+            "isSubscribed": true,
+        }),
+    );
+    let blob_id = Id::from("blob-cnt");
+    backend.store_blob(
+        &blob_id,
+        b"Message-ID: <copy@example.com>\r\nSubject: cnt\r\n\r\nbody\r\n".to_vec(),
+    );
+    let (src_id, _) = backend
+        .import_email(&(), &src_account, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import source email");
+
+    let args = serde_json::json!({
+        "accountId": "dst-cnt",
+        "fromAccountId": "src-cnt",
+        "create": {
+            "c1": { "id": src_id.as_ref(), "mailboxIds": { "inbox": true } }
+        }
+    });
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_copy(&backend, &(), &Default::default(), args, "call-cnt", &[])
+            .await
+            .expect("Email/copy must not return a top-level JmapError");
+    let copied_id = resp["created"]["c1"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("copy must succeed: {resp}"))
+        .to_owned();
+
+    let HandlerOutput { primary: mbox, .. } = handle_mailbox_get(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "dst-cnt",
+            "ids": ["inbox"],
+            "properties": ["totalEmails", "unreadEmails", "totalThreads", "unreadThreads"],
+        }),
+        &[],
+    )
+    .await
+    .expect("Mailbox/get must succeed");
+    assert_eq!(
+        mbox["list"],
+        serde_json::json!([{
+            "id": "inbox",
+            "totalEmails": 1, "unreadEmails": 1,
+            "totalThreads": 1, "unreadThreads": 1,
+        }])
+    );
+
+    let err = backend
+        .import_email(&(), &dst_account, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect_err("duplicate Message-ID import into the destination must fail");
+    let BackendSetError::SetError(set_err) = err else {
+        panic!("expected a SetError, got {err:?}");
+    };
+    assert_eq!(set_err.error_type, SetErrorType::AlreadyExists);
+    assert_eq!(set_err.existing_id, Some(Id::from(copied_id.as_str())));
+}
+
 /// Import one email into `src`, then Email/copy it to `dst` with
 /// `onSuccessDestroyOriginal` and the given `destroyFromIfInState` (`None` = the state
 /// Email/get reports for `src`). Returns the extra invocations and the

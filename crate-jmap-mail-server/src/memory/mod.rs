@@ -220,8 +220,9 @@ impl Inner {
     }
 
     /// Store a new `email` (serialized as `email_val`) and everything that
-    /// derives from it, for [`import_email`](MailBackend::import_email) and
-    /// [`create_email`](MailBackend::create_email): create or extend its
+    /// derives from it, for [`import_email`](MailBackend::import_email),
+    /// [`create_email`](MailBackend::create_email) and an Email
+    /// [`copy_object`](MailBackend::copy_object): create or extend its
     /// Thread with `emailIds` sorted by `receivedAt` (RFC 8621 §3), add it to
     /// the `totalEmails`/`unreadEmails`/`totalThreads`/`unreadThreads`
     /// counts of every Mailbox in `mailboxIds` (RFC 8621 §2), index its
@@ -2114,10 +2115,12 @@ impl MailBackend for MemoryBackend {
     // -----------------------------------------------------------------------
 
     /// Blob ids are shared across accounts in this backend, so a copied
-    /// Email keeps its `blobId`. A copied Email also joins its `threadId`
-    /// in the destination, creating the Thread when it is new. The
-    /// `metadata` and `privateMetadata` of `create` are checked against
-    /// the destination as a `Foo/set` create is (-04 §3.4).
+    /// Email keeps its `blobId`. A copied Email is stored through
+    /// `Inner::insert_email`, so it joins its `threadId` in the
+    /// destination and updates the destination Mailbox counts and
+    /// Message-ID index as an import does. The `metadata` and
+    /// `privateMetadata` of `create` are checked against the destination
+    /// as a `Foo/set` create is (-04 §3.4).
     async fn copy_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -2139,13 +2142,15 @@ impl MailBackend for MemoryBackend {
         let stored: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("deserialize copied object", &e))
         })?;
-        let thread_id = (O::TYPE_NAME == Email::TYPE_NAME)
-            .then(|| val.get("threadId").and_then(|v| v.as_str()).map(Id::from))
-            .flatten();
 
         let mut inner = self.inner.lock().unwrap();
         if O::TYPE_NAME == Email::TYPE_NAME {
             check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
+            let email = Email::deserialize(&val).map_err(|e| {
+                BackendSetError::Other(MemoryError::serde("deserialize copied Email", &e))
+            })?;
+            inner.insert_email(to_account_id, &email, val);
+            return Ok((new_id, stored));
         }
         inner
             .objects_mut(O::TYPE_NAME, to_account_id.as_ref())
@@ -2160,42 +2165,6 @@ impl MailBackend for MemoryBackend {
                 destroyed: vec![],
                 updated_props: None,
             });
-
-        if let Some(thread_id) = thread_id {
-            let thread_existed = inner
-                .objects_ref("Thread", to_account_id.as_ref())
-                .is_some_and(|s| s.contains_key(&thread_id));
-            inner
-                .objects_mut("Thread", to_account_id.as_ref())
-                .entry(thread_id.clone())
-                .and_modify(|v| {
-                    if let Some(arr) = v.get_mut("emailIds").and_then(|a| a.as_array_mut()) {
-                        arr.push(serde_json::Value::String(new_id.to_string()));
-                    }
-                })
-                .or_insert_with(|| {
-                    serde_json::json!({ "id": thread_id.to_string(), "emailIds": [new_id.to_string()] })
-                });
-            // Re-sort the thread's emailIds by receivedAt ascending (RFC 8621 §3).
-            if thread_existed {
-                inner.sort_thread_email_ids(to_account_id.as_ref(), &thread_id);
-            }
-            let new_thread_state = inner.bump_state("Thread", to_account_id.as_ref());
-            let (created, updated) = if thread_existed {
-                (vec![], vec![thread_id])
-            } else {
-                (vec![thread_id], vec![])
-            };
-            inner
-                .change_log_mut("Thread", to_account_id.as_ref())
-                .push(ChangeEntry {
-                    new_state: new_thread_state,
-                    created,
-                    updated,
-                    destroyed: vec![],
-                    updated_props: None,
-                });
-        }
 
         Ok((new_id, stored))
     }
