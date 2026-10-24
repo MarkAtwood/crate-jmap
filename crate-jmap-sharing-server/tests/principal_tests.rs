@@ -433,3 +433,64 @@ async fn principal_query_empty_filter_matches_all() {
     seeded.sort_by(|x, y| x.as_ref().cmp(y.as_ref()));
     assert_eq!(got, seeded, "{resp}");
 }
+
+// ---------------------------------------------------------------------------
+// Oracle: RFC 8620 §5.6: /queryChanges takes "The filter argument that was
+// used with Foo/query" and "The sort argument that was used with Foo/query",
+// and a server that cannot calculate the changes answers
+// "cannotCalculateChanges". Each filter and sort below is one the reference
+// MemoryBackend refuses on /query (test above), so /queryChanges must not
+// answer as if it were absent. The same call without them succeeds, so the
+// refusal comes from the filter or sort alone. Bead: JMAP-yt1w.48.
+// ---------------------------------------------------------------------------
+
+async fn call(
+    backend: &Arc<MemoryBackend>,
+    method: &str,
+    args: serde_json::Value,
+) -> (String, serde_json::Value) {
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_sharing_handlers(&mut dispatcher, Arc::clone(backend));
+    let resp = dispatcher
+        .dispatch(single_call(method, args, "q0"), (), State::from("s0"))
+        .await;
+    let inv = &resp.method_responses[0];
+    (inv.name.clone(), inv.arguments.clone())
+}
+
+#[tokio::test]
+async fn query_changes_refuses_filter_and_sort_backend_cannot_apply() {
+    let (backend, _) = backend_with_two_principals().await;
+
+    for (type_name, extra) in [
+        ("Principal", json!({ "filter": { "name": "Alice" } })),
+        ("Principal", json!({ "sort": [{ "property": "name" }] })),
+        (
+            "ShareNotification",
+            json!({ "filter": { "objectType": "Principal" } }),
+        ),
+        (
+            "ShareNotification",
+            json!({ "sort": [{ "property": "created" }] }),
+        ),
+    ] {
+        let (_, query) = call(
+            &backend,
+            &format!("{type_name}/query"),
+            json!({ "accountId": "acc1" }),
+        )
+        .await;
+        let mut args = json!({ "accountId": "acc1", "sinceQueryState": query["queryState"] });
+        let method = format!("{type_name}/queryChanges");
+
+        let (name, resp) = call(&backend, &method, args.clone()).await;
+        assert_eq!(name, method, "control must succeed: {resp}");
+
+        args.as_object_mut()
+            .expect("object")
+            .extend(extra.as_object().expect("object").clone());
+        let (name, resp) = call(&backend, &method, args.clone()).await;
+        assert_eq!(name, "error", "{args}: {resp}");
+        assert_eq!(resp["type"], "cannotCalculateChanges", "{args}");
+    }
+}

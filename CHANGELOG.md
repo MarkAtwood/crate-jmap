@@ -3822,6 +3822,14 @@ wire behaviour that a conforming peer can observe.
   filter with a condition set, with `unsupportedFilter`; it used to return
   every id. Only the draft-ietf-jmap-metadata-04 `metadata*` Principal
   conditions are evaluated (bd JMAP-yt1w.47).
+- **jmap-sharing-server**, **jmap-calendars-server**: **BREAKING** the
+  reference `MemoryBackend::query_changes` applies the request's `filter`
+  and `sort` by re-running `query_objects`, as `jmap-tasks-server` does
+  (RFC 8620 §5.6). A filter or sort that `/query` refuses now yields
+  `cannotCalculateChanges` instead of changes to the unfiltered set;
+  `CalendarEvent/queryChanges` with `inCalendar` reports only matching
+  events; `removed` now also lists updated ids, which are re-added when
+  they still match (bd JMAP-yt1w.48).
 
 - **jmap-calendars-server**, **jmap-tasks-server**: `Calendar/set` and
   `TaskList/set` create and update reject a `shareWith` key, or the id

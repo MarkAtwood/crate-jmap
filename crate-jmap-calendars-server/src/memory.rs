@@ -1041,58 +1041,81 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    /// Returns the changes to a `/query` result set since `since_query_state`.
+    ///
+    /// RFC 8620 §5.6: `/queryChanges` reports changes to the results of
+    /// the same query, so `filter` and `sort` are those of the original
+    /// `/query` and are applied by re-running [`Self::query_objects`]. A
+    /// filter or sort it refuses (`unsupportedFilter`/`unsupportedSort`)
+    /// yields `cannotCalculateChanges` here. `removed` holds the destroyed
+    /// and updated ids; `added` holds the created and updated ids that match
+    /// now, with their index in the current result. Mirrors
+    /// `jmap-tasks-server` `MemoryBackend::query_changes`.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &(),
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         let QueryChangesParams {
             since_query_state,
+            filter,
+            sort,
             max_changes,
             ..
         } = params;
         let changes = self
             .get_changes::<O>(
-                &(),
+                caller,
                 account_id,
                 jmap_server::ChangesParams::new(since_query_state).max_changes(max_changes),
             )
             .await?;
 
-        let inner = self.inner.lock().unwrap();
-        let new_query_state = State::from(
-            inner
-                .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string()
-                .as_str(),
-        );
+        // The current result of the same query, unpaginated: `added`
+        // indices are positions in it (RFC 8620 §5.6).
+        let current = self
+            .query_objects::<O>(
+                caller,
+                account_id,
+                QueryParams::new().filter(filter).sort(sort),
+            )
+            .await
+            .map_err(|e| match e {
+                BackendQueryError::Other(e) => BackendChangesError::Other(e),
+                // Changes to a query the server cannot run cannot be
+                // calculated; the client's follow-up /query receives the
+                // method error itself.
+                _ => BackendChangesError::CannotCalculate,
+            })?;
+        let created_set: HashSet<&Id> = changes.created.iter().collect();
+        let updated_set: HashSet<&Id> = changes.updated.iter().collect();
 
-        let current_ids: Vec<Id> = inner
-            .objects_ref(O::TYPE_NAME, account_id.as_ref())
-            .map(|m| {
-                let mut keys: Vec<Id> = m.keys().cloned().collect();
-                keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                keys
-            })
-            .unwrap_or_default();
-
-        let removed: Vec<Id> = changes.destroyed;
-        let added: Vec<AddedItem> = changes
-            .created
+        // Every destroyed or updated id: an update may touch a filter or
+        // sort property, so RFC 8620 §5.6 requires the id in `removed` and,
+        // if it still matches, reinserted via `added`.
+        let mut removed: Vec<Id> = changes
+            .destroyed
             .iter()
-            .filter_map(|id| {
-                current_ids
-                    .iter()
-                    .position(|cur| cur == id)
-                    .map(|idx| AddedItem::new(id.clone(), idx as u64))
-            })
+            .chain(changes.updated.iter())
+            .cloned()
+            .collect();
+        removed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        removed.dedup();
+
+        // Created or updated ids that match the query now.
+        let added: Vec<AddedItem> = current
+            .ids
+            .iter()
+            .enumerate()
+            .filter(|(_, id)| created_set.contains(id) || updated_set.contains(id))
+            .map(|(pos, id)| AddedItem::new(id.clone(), pos as u64))
             .collect();
 
         Ok(QueryChangesResult::new(
             since_query_state.clone(),
-            new_query_state,
-            Some(current_ids.len() as u64),
+            changes.new_state,
+            current.total,
             removed,
             added,
         ))

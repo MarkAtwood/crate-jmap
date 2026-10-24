@@ -14,8 +14,8 @@ use common::MemoryBackend;
 use jmap_calendars_server::{
     handle_calendar_changes, handle_calendar_event_changes, handle_calendar_event_get,
     handle_calendar_event_notification_query, handle_calendar_event_query,
-    handle_calendar_event_set, handle_calendar_get, handle_calendar_set,
-    handle_participant_identity_get, handle_participant_identity_set,
+    handle_calendar_event_query_changes, handle_calendar_event_set, handle_calendar_get,
+    handle_calendar_set, handle_participant_identity_get, handle_participant_identity_set,
 };
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
@@ -810,4 +810,71 @@ async fn calendar_set_create_server_set_properties() {
     let created = &resp["created"]["c1"];
     assert_eq!(created["isDefault"], false, "{resp}");
     assert!(created["myRights"].is_object(), "{resp}");
+}
+
+// ---------------------------------------------------------------------------
+// CalendarEvent/queryChanges applies the /query filter and sort
+// Oracle: RFC 8620 §5.6: /queryChanges takes "filter" and "sort" ("The
+// filter argument that was used with Foo/query" / "The sort argument that
+// was used with Foo/query") and reports changes to the results of that
+// query; "added" gives each id's "index ... in the query results" and
+// "total" is "The number of results in the current query". A server that
+// cannot calculate them answers "cannotCalculateChanges". Expected ids are
+// read off the hand-written creates: only the event in cal1 matches
+// `inCalendar: cal1` (draft-ietf-jmap-calendars-33 §5.11). The reference
+// backend honors no comparator, so a sort makes the changes uncalculable.
+// Bead: JMAP-yt1w.48.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn calendar_event_query_changes_applies_filter_and_sort() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    for (id, name) in [("cal1", "Work"), ("cal2", "Home")] {
+        backend.seed_object(
+            &Id::from("acc1"),
+            "Calendar",
+            &Id::from(id),
+            calendar_fixture(id, name),
+        );
+    }
+    let event = |uid: &str, calendar: &str| json!({ "@type": "Event", "uid": uid, "title": uid, "calendarIds": { calendar: true } });
+    let args = json!({
+        "accountId": "acc1",
+        "create": { "c1": event("u1", "cal1"), "c2": event("u2", "cal2") }
+    });
+    let HandlerOutput { primary: set, .. } =
+        handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+            .await
+            .expect("/set must not return top-level error");
+    let in_cal1 = set["created"]["c1"]["id"].clone();
+    assert!(in_cal1.is_string(), "{set}");
+    let since = set["oldState"].clone();
+
+    let args = json!({
+        "accountId": "acc1",
+        "sinceQueryState": since,
+        "filter": { "inCalendar": "cal1" },
+        "calculateTotal": true
+    });
+    let HandlerOutput { primary: resp, .. } =
+        handle_calendar_event_query_changes(&backend, &(), args, &[])
+            .await
+            .expect("an evaluable filter must not be refused");
+    assert_eq!(
+        resp["added"],
+        json!([{ "id": in_cal1, "index": 0 }]),
+        "{resp}"
+    );
+    assert_eq!(resp["removed"], json!([]), "{resp}");
+    assert_eq!(resp["total"], 1, "{resp}");
+
+    let args = json!({
+        "accountId": "acc1",
+        "sinceQueryState": since,
+        "sort": [{ "property": "start" }]
+    });
+    let err = handle_calendar_event_query_changes(&backend, &(), args, &[])
+        .await
+        .expect_err("a sort the backend cannot apply must be refused");
+    assert_eq!(err.error_type.to_string(), "cannotCalculateChanges");
 }
