@@ -157,8 +157,8 @@ where
     }
 
     // AddressBook
-    reg!("AddressBook/get", backend, |b, _ci, a, ctx| {
-        handle_address_book_get(&*b, &ctx, a).await
+    reg!("AddressBook/get", backend, |b, _ci, a, ctx, using| {
+        handle_address_book_get(&*b, &ctx, a, &using).await
     });
     reg!("AddressBook/changes", backend, |b, _ci, a, ctx, using| {
         handle_address_book_changes(&*b, &ctx, a, &using).await
@@ -168,8 +168,8 @@ where
     });
 
     // ContactCard
-    reg!("ContactCard/get", backend, |b, _ci, a, ctx| {
-        handle_contact_card_get(&*b, &ctx, a).await
+    reg!("ContactCard/get", backend, |b, _ci, a, ctx, using| {
+        handle_contact_card_get(&*b, &ctx, a, &using).await
     });
     reg!("ContactCard/changes", backend, |b, _ci, a, ctx, using| {
         handle_contact_card_changes(&*b, &ctx, a, &using).await
@@ -181,15 +181,17 @@ where
             handle_contact_card_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("ContactCard/copy", backend, |b, ci, a, ctx| {
-        handle_contact_card_copy(&*b, &ctx, a, &ci).await
+    reg!("ContactCard/copy", backend, |b, ci, a, ctx, using| {
+        handle_contact_card_copy(&*b, &ctx, a, &ci, &using).await
     });
-    reg!("ContactCard/query", backend, |b, _ci, a, ctx| {
-        handle_contact_card_query(&*b, &ctx, a).await
+    reg!("ContactCard/query", backend, |b, _ci, a, ctx, using| {
+        handle_contact_card_query(&*b, &ctx, a, &using).await
     });
-    reg!("ContactCard/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_contact_card_query_changes(&*b, &ctx, a).await
-    });
+    reg!(
+        "ContactCard/queryChanges",
+        backend,
+        |b, _ci, a, ctx, using| handle_contact_card_query_changes(&*b, &ctx, a, &using).await
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -588,6 +590,7 @@ pub(crate) mod test_support {
             _from_account_id: &Id,
             _to_account_id: &Id,
             obj: O,
+            _create: &serde_json::Value,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
             *self.copy_called.lock().unwrap() = true;
             Ok((Id::from("copied-id-1"), obj))

@@ -127,6 +127,7 @@ async fn pinned(backend: &IdentityBackend) -> Value {
         backend,
         &Id::from("admin"),
         json!({ "accountId": ACCOUNT_ID, "ids": [CHAT_ID] }),
+        &[],
     )
     .await
     .expect("Chat/get");

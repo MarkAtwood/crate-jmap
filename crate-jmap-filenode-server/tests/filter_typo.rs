@@ -31,13 +31,13 @@ fn cases() -> [(&'static str, Handler, Value, Value); 2] {
     [
         (
             "FileNode/query",
-            |b, c, a| Box::pin(handle_filenode_query(b, c, a)),
+            |b, c, a| Box::pin(handle_filenode_query(b, c, a, &[])),
             json!({ "isTopLevel": true }),
             json!({ "isToplevel": true }),
         ),
         (
             "FileNode/queryChanges",
-            |b, c, a| Box::pin(handle_filenode_query_changes(b, c, a)),
+            |b, c, a| Box::pin(handle_filenode_query_changes(b, c, a, &[])),
             json!({ "isTopLevel": true }),
             json!({ "isToplevel": true }),
         ),

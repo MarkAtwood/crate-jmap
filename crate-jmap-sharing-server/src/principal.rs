@@ -34,7 +34,7 @@
 //! Per-target failures inside `/set` surface in the `notCreated` / `notUpdated`
 //! / `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
-use jmap_sharing_types::Principal;
+use jmap_sharing_types::{Principal, PrincipalFilterCondition};
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
@@ -44,8 +44,8 @@ use crate::helpers::{
     finalize_set_response,
 };
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend,
+    HandlerOutput, backend_set_error_value, reject_metadata_filter_arg, reject_read_only_patch,
+    reject_server_set, server_fail_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -58,13 +58,22 @@ use jmap_server::{
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists Principal for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see [`jmap_server::handle_get_with_metadata`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_get<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_get::<Principal, B>(backend, caller, args).await
+    jmap_server::handle_get_with_metadata::<Principal, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -362,12 +371,23 @@ pub async fn handle_principal_set<B: SharingBackend>(
 /// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
 /// `total`, optional `limit`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_query<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    reject_metadata_filter_arg(
+        &args,
+        PrincipalFilterCondition::has_metadata_condition,
+        using,
+    )?;
     jmap_server::handle_query::<Principal, B>(backend, caller, args).await
 }
 
@@ -388,12 +408,23 @@ pub async fn handle_principal_query<B: SharingBackend>(
 /// [`BackendChangesError::CannotCalculate`](jmap_server::BackendChangesError::CannotCalculate) (bd:JMAP-jfia.31) which
 /// maps to `cannotCalculateChanges`.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_query_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    reject_metadata_filter_arg(
+        &args,
+        PrincipalFilterCondition::has_metadata_condition,
+        using,
+    )?;
     jmap_server::handle_query_changes::<Principal, B>(backend, caller, args).await
 }
 
@@ -419,7 +450,7 @@ mod tests {
             "accountId": "unknown",
             "ids": null
         });
-        let result = handle_principal_get(&backend, &(), args).await;
+        let result = handle_principal_get(&backend, &(), args, &[]).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(
             err.error_type.to_string(),

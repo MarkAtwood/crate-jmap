@@ -32,8 +32,8 @@ use crate::backend::{
     QueryObject, QueryParams,
 };
 use crate::helpers::{
-    enforce_max_objects_in_get, extract_account_id, filter_arg, not_found_json, optional_arg,
-    query_anchor_args, serialize_value,
+    MetadataProjection, enforce_max_objects_in_get, extract_account_id, filter_arg, not_found_json,
+    optional_arg, query_anchor_args, serialize_value,
 };
 
 /// Static description used for every `serverFail` invocation that wraps a
@@ -213,6 +213,70 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
         "list": list_json,
         "notFound": not_found_json(&not_found),
     })))
+}
+
+/// [`handle_get`] for a type the backend may list for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`]).
+///
+/// `using` is the request's capability list ([`crate::CallContext::using`]).
+/// When `O` is listed in `accountId`, `metadata` and `privateMetadata`
+/// follow [`MetadataProjection`]: returned as an object (`{}` when nothing
+/// is stored), included by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, `metadata/<namespace>`
+/// subselectors applied, and `privateMetadata` never returned when
+/// `supportsPrivate` is false (-04 §2, §3, §3.1). The backend is asked for
+/// the root property in place of each subselector. When `O` is not listed
+/// this is exactly [`handle_get`], so an unrelated property that happens to
+/// be named `metadata` is left alone.
+///
+/// # Errors
+///
+/// Those of [`handle_get`], and `invalidArguments` for a malformed
+/// `metadata/` or `privateMetadata/` entry (-04 §3.1).
+pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    mut args: Value,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError> {
+    let info = args
+        .get("accountId")
+        .and_then(Value::as_str)
+        .and_then(|s| Id::new_validated(s).ok())
+        .and_then(|id| backend.metadata_info::<O>(caller, &id));
+    let Some(info) = info else {
+        return handle_get::<O, B>(backend, caller, args).await;
+    };
+    let properties: Option<Vec<String>> = match args.get("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => match serde_json::from_value(v.clone()) {
+            Ok(props) => Some(props),
+            // handle_get reports the malformed argument.
+            Err(_) => return handle_get::<O, B>(backend, caller, args).await,
+        },
+    };
+    let projection = MetadataProjection::new(properties.as_deref(), true, using, Some(&info))?;
+    if let Some(props) = properties {
+        let mut roots: Vec<String> = Vec::with_capacity(props.len());
+        for p in props {
+            let root = match p.split_once('/') {
+                Some((r @ ("metadata" | "privateMetadata"), _)) => r.to_owned(),
+                _ => p,
+            };
+            if !roots.contains(&root) {
+                roots.push(root);
+            }
+        }
+        args["properties"] = json!(roots);
+    }
+    let mut out = handle_get::<O, B>(backend, caller, args).await?;
+    if let Some(Value::Array(list)) = out.primary.get_mut("list") {
+        for item in list {
+            let source = item.clone();
+            projection.apply(&source, item);
+        }
+    }
+    Ok(out)
 }
 
 // ---------------------------------------------------------------------------

@@ -59,7 +59,7 @@ async fn update_ev1(backend: &MemoryBackend, patch: Value) -> Value {
 /// Fetch `ev1` from the store via `CalendarEvent/get`.
 async fn get_ev1(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["ev1"] });
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(backend, &(), args, &[])
         .await
         .expect("/get must not return a top-level error");
     resp["list"][0].clone()

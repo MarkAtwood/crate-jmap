@@ -78,7 +78,7 @@ async fn task_list_get_empty_account_returns_empty_list() {
         "ids": null
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_task_list_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_get(&backend, &(), args, &[])
         .await
         .expect("/get must not return top-level error");
 
@@ -112,7 +112,7 @@ async fn task_list_get_seeded_and_unknown_id() {
         "ids": ["tl1", "missing"]
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_task_list_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_list_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
 
@@ -262,9 +262,14 @@ async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
 
     let HandlerOutput {
         primary: before, ..
-    } = handle_task_get(&backend, &(), json!({ "accountId": "acc1", "ids": null }))
-        .await
-        .expect("Task/get must succeed");
+    } = handle_task_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": null }),
+        &[],
+    )
+    .await
+    .expect("Task/get must succeed");
     let task_state = before["state"].clone();
 
     let args = json!({
@@ -289,6 +294,7 @@ async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": ["t1", "t2", "t3"] }),
+        &[],
     )
     .await
     .expect("Task/get must succeed");
@@ -379,15 +385,20 @@ async fn task_list_set_destroy_remove_tasks_failure_keeps_list() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": ["tl1"] }),
+        &[],
     )
     .await
     .expect("TaskList/get must succeed");
     assert_eq!(lists["list"][0]["id"], "tl1", "list survives: {lists}");
 
-    let HandlerOutput { primary: got, .. } =
-        handle_task_get(&backend, &(), json!({ "accountId": "acc1", "ids": ["t1"] }))
-            .await
-            .expect("Task/get must succeed");
+    let HandlerOutput { primary: got, .. } = handle_task_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": ["t1"] }),
+        &[],
+    )
+    .await
+    .expect("Task/get must succeed");
     assert_eq!(got["list"][0]["id"], "t1", "readable Task survives: {got}");
 }
 
@@ -450,7 +461,7 @@ async fn task_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let HandlerOutput { primary: resp, .. } = handle_task_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
 
@@ -471,7 +482,7 @@ async fn task_query_empty_store_returns_no_ids() {
         "accountId": "acc1",
         "calculateTotal": true
     });
-    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args, &[])
         .await
         .expect("/query must succeed");
 
@@ -732,7 +743,7 @@ async fn task_query_with_filter_fails_loud_on_memory_backend() {
         "accountId": "acc1",
         "filter": { "title": "milk" }
     });
-    let err = handle_task_query(&backend, &(), args)
+    let err = handle_task_query(&backend, &(), args, &[])
         .await
         .expect_err("Task/query with filter must fail loud on the reference MemoryBackend");
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
@@ -773,7 +784,7 @@ async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
         "accountId": "acc1",
         "filter": { "operator": "AND", "conditions": [ { "taskListId": "tl1" } ] }
     });
-    let err = handle_task_query(&backend, &(), args)
+    let err = handle_task_query(&backend, &(), args, &[])
         .await
         .expect_err("Task/query with an operator tree must be rejected");
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
@@ -825,7 +836,7 @@ async fn task_query_with_sort_fails_loud_on_memory_backend() {
         "accountId": "acc1",
         "sort": [ { "property": "start", "isAscending": true } ]
     });
-    let err = handle_task_query(&backend, &(), args)
+    let err = handle_task_query(&backend, &(), args, &[])
         .await
         .expect_err("Task/query with sort must fail loud on the reference MemoryBackend");
     assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
@@ -866,7 +877,7 @@ async fn task_query_with_no_filter_or_sort_succeeds() {
     );
 
     let args = json!({ "accountId": "acc1", "calculateTotal": true });
-    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args, &[])
         .await
         .expect("Task/query with no filter / no sort must succeed");
 
@@ -912,7 +923,7 @@ async fn task_query_extreme_position_and_limit_saturate() {
         "limit": 9_007_199_254_740_991_u64
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -928,7 +939,7 @@ async fn task_query_largest_position_is_empty_page_not_error() {
     let backend = backend_with_two_tasks();
     let args = json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 });
 
-    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_task_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -984,6 +995,7 @@ async fn task_query_changes_honours_task_list_filter() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "filter": filter }),
+        &[],
     )
     .await
     .expect("Task/query must succeed");
@@ -1020,6 +1032,7 @@ async fn task_query_changes_honours_task_list_filter() {
             "filter": filter,
             "sinceQueryState": query["queryState"]
         }),
+        &[],
     )
     .await
     .expect("Task/queryChanges must succeed");

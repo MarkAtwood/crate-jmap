@@ -16,8 +16,9 @@ use std::sync::Arc;
 use common::MemoryBackend;
 use jmap_calendars_server::{
     CalendarsBackend, handle_calendar_changes, handle_calendar_event_changes,
-    handle_calendar_event_get, handle_calendar_event_query, handle_calendar_event_set,
-    handle_calendar_get, handle_calendar_set, register_calendars_handlers,
+    handle_calendar_event_copy, handle_calendar_event_get, handle_calendar_event_query,
+    handle_calendar_event_query_changes, handle_calendar_event_set, handle_calendar_get,
+    handle_calendar_set, register_calendars_handlers,
 };
 use jmap_calendars_types::Calendar;
 use jmap_metadata_types::DataTypeMetadataInfo;
@@ -144,20 +145,23 @@ async fn create_event(backend: &MemoryBackend, calendar: &str, metadata: Value) 
 
 async fn calendar_property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": [property] });
-    let HandlerOutput { primary, .. } = handle_calendar_get(backend, &(), args).await.unwrap();
+    let HandlerOutput { primary, .. } = handle_calendar_get(backend, &(), args, &using())
+        .await
+        .unwrap();
     primary["list"][0][property].clone()
 }
 
 async fn event_property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": [property] });
-    let HandlerOutput { primary, .. } =
-        handle_calendar_event_get(backend, &(), args).await.unwrap();
+    let HandlerOutput { primary, .. } = handle_calendar_event_get(backend, &(), args, &using())
+        .await
+        .unwrap();
     primary["list"][0][property].clone()
 }
 
 async fn event_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
-    handle_calendar_event_query(backend, &(), args)
+    handle_calendar_event_query(backend, &(), args, &using())
         .await
         .map(|o| o.primary["ids"].clone())
 }
@@ -804,4 +808,378 @@ async fn dispatcher_forwards_using() {
             );
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// /get and the /query capability gate (-04 §2, §3, §3.1; bd JMAP-s4kp.9)
+// ---------------------------------------------------------------------------
+
+/// A second vendor namespace for the subselector tests.
+const NS2: &str = "other.example.org";
+
+/// The `type` of a method-level error.
+fn method_error_type(err: &JmapError) -> Value {
+    serde_json::to_value(err).unwrap()["type"].clone()
+}
+
+/// Run Calendar/get with `properties` on `id` and return its one list entry.
+async fn calendar_get_one(
+    b: &MemoryBackend,
+    id: &str,
+    properties: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
+    let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": properties });
+    handle_calendar_get(b, &(), args, using)
+        .await
+        .map(|o| o.primary["list"][0].clone())
+}
+
+/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// MUST include metadata and, where supportsPrivate is true,
+/// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
+/// object ({} when no metadata is set), never null"; §2 (L306-307): "When
+/// supportsPrivate is false for the data type, this property MUST NOT be
+/// returned"; §3 (L461-463): for other requests "metadata and
+/// privateMetadata are not default properties of Foo/get (although they
+/// are still returned when requested by name)".
+#[tokio::test]
+async fn calendar_get_default_properties_follow_capability() {
+    let b = backend();
+    let bare = create_calendar(&b, json!({ "name": "bare" })).await;
+    let tagged = create_calendar(
+        &b,
+        json!({ "name": "tagged", "metadata": json!({ NS: { "k": 1 } }) }),
+    )
+    .await;
+
+    let got = calendar_get_one(&b, &bare, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({}), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+    let got = calendar_get_one(&b, &tagged, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+
+    let without = using_without_metadata();
+    let got = calendar_get_one(&b, &tagged, Value::Null, &without)
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+    let props = json!(["id", "metadata", "privateMetadata"]);
+    let got = calendar_get_one(&b, &tagged, props, &without)
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+}
+
+/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// by union" and "An explicit root entry supersedes subselectors with the
+/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// silently omitted from the response, unless the object has data stored
+/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// with metadata/ or privateMetadata/ MUST be rejected with an
+/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// part of the extension, so without the capability they name no
+/// property.
+#[tokio::test]
+async fn calendar_get_metadata_subselectors() {
+    let b = backend();
+    let id = create_calendar(
+        &b,
+        json!({ "name": "tagged", "metadata": json!({ NS: { "k": 1 }, NS2: { "k": 2 } }) }),
+    )
+    .await;
+    let cases = [
+        (
+            json!(["metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 } }),
+        ),
+        (
+            json!(["metadata/acme.example.com", "metadata/other.example.org"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (
+            json!(["metadata", "metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (json!(["metadata/unlisted.example.net"]), json!({})),
+    ];
+    for (props, want) in cases {
+        let got = calendar_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap();
+        assert_eq!(got["metadata"], want, "{props}: {got}");
+    }
+
+    let props = json!(["metadata/acme.example.com"]);
+    let got = calendar_get_one(&b, &id, props, &using_without_metadata())
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+
+    for props in [
+        json!(["metadata/"]),
+        json!(["metadata/acme.example.com/k"]),
+        json!(["privateMetadata/"]),
+    ] {
+        let err = calendar_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("invalidArguments"),
+            "{props}"
+        );
+    }
+}
+
+/// Run CalendarEvent/get with `properties` on `id` and return its one list entry.
+async fn event_get_one(
+    b: &MemoryBackend,
+    id: &str,
+    properties: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
+    let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": properties });
+    handle_calendar_event_get(b, &(), args, using)
+        .await
+        .map(|o| o.primary["list"][0].clone())
+}
+
+/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// MUST include metadata and, where supportsPrivate is true,
+/// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
+/// object ({} when no metadata is set), never null"; §2 (L306-307): "When
+/// supportsPrivate is false for the data type, this property MUST NOT be
+/// returned"; §3 (L461-463): for other requests "metadata and
+/// privateMetadata are not default properties of Foo/get (although they
+/// are still returned when requested by name)".
+#[tokio::test]
+async fn event_get_default_properties_follow_capability() {
+    let b = backend();
+    let cal = create_calendar(&b, json!({ "name": "c" })).await;
+    let bare = create_event(&b, &cal, json!({})).await;
+    let tagged = create_event(&b, &cal, json!({ NS: { "k": 1 } })).await;
+
+    let got = event_get_one(&b, &bare, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({}), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+    let got = event_get_one(&b, &tagged, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+
+    let without = using_without_metadata();
+    let got = event_get_one(&b, &tagged, Value::Null, &without)
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+    let props = json!(["id", "metadata", "privateMetadata"]);
+    let got = event_get_one(&b, &tagged, props, &without).await.unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+}
+
+/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// by union" and "An explicit root entry supersedes subselectors with the
+/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// silently omitted from the response, unless the object has data stored
+/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// with metadata/ or privateMetadata/ MUST be rejected with an
+/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// part of the extension, so without the capability they name no
+/// property.
+#[tokio::test]
+async fn event_get_metadata_subselectors() {
+    let b = backend();
+    let cal = create_calendar(&b, json!({ "name": "c" })).await;
+    let id = create_event(&b, &cal, json!({ NS: { "k": 1 }, NS2: { "k": 2 } })).await;
+    let cases = [
+        (
+            json!(["metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 } }),
+        ),
+        (
+            json!(["metadata/acme.example.com", "metadata/other.example.org"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (
+            json!(["metadata", "metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (json!(["metadata/unlisted.example.net"]), json!({})),
+    ];
+    for (props, want) in cases {
+        let got = event_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap();
+        assert_eq!(got["metadata"], want, "{props}: {got}");
+    }
+
+    let props = json!(["metadata/acme.example.com"]);
+    let got = event_get_one(&b, &id, props, &using_without_metadata())
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+
+    for props in [
+        json!(["metadata/"]),
+        json!(["metadata/acme.example.com/k"]),
+        json!(["privateMetadata/"]),
+    ] {
+        let err = event_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("invalidArguments"),
+            "{props}"
+        );
+    }
+}
+
+/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// them, "apply to requests whose using includes
+/// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
+/// filter is syntactically valid, but the server cannot process it".
+#[tokio::test]
+async fn event_metadata_filter_requires_capability() {
+    let b = backend();
+    let without = using_without_metadata();
+    for filter in [
+        json!({ "metadataExists": NS }),
+        json!({ "operator": "NOT", "conditions": [json!({ "metadataExists": NS })] }),
+    ] {
+        let args = json!({ "accountId": ACCOUNT_ID, "filter": filter.clone() });
+        let err = handle_calendar_event_query(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+        let args =
+            json!({ "accountId": ACCOUNT_ID, "filter": filter.clone(), "sinceQueryState": "0" });
+        let err = handle_calendar_event_query_changes(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+    }
+    let args = json!({ "accountId": ACCOUNT_ID, "filter": json!({ "metadataExists": NS }) });
+    assert!(
+        handle_calendar_event_query(&b, &(), args, &using())
+            .await
+            .is_ok()
+    );
+}
+
+/// The destination account of the /copy test.
+const OTHER_ID: &str = "a2";
+
+/// Run CalendarEvent/copy of one create entry from [`ACCOUNT_ID`] into
+/// [`OTHER_ID`] and return the response.
+async fn event_copy(b: &MemoryBackend, entry: Value, using: &[String]) -> Value {
+    let args = json!({
+        "fromAccountId": ACCOUNT_ID,
+        "accountId": OTHER_ID,
+        "create": { "k": entry },
+    });
+    handle_calendar_event_copy(b, &(), args, "c0", using)
+        .await
+        .expect("/copy must not fail at method level")
+        .primary
+}
+
+/// -04 §3.4 (L648-655): "Foo/copy copies metadata to the new object" and
+/// "When the request does not use this capability, only metadata is
+/// copied. The create object MAY include metadata and privateMetadata to
+/// override the copied values, with the same rules as a create in
+/// Foo/set"; those rules: without the capability "Foo/set MUST reject any
+/// write to them with an "invalidProperties" SetError" (§3, L463-464), and
+/// on create "A value of null for either property MUST be rejected with
+/// an "invalidProperties" SetError" (§3.2).
+#[tokio::test]
+async fn event_copy_metadata() {
+    let b = backend().with_account(&Id::from(OTHER_ID));
+    let cal = create_calendar(&b, json!({ "name": "c" })).await;
+    let src = create_event(&b, &cal, json!({ NS: { "k": 1 } })).await;
+    let entry = |extra: Value| {
+        let mut e = json!({ "id": &src });
+        if let (Some(e), Some(x)) = (e.as_object_mut(), extra.as_object()) {
+            e.extend(x.clone());
+        }
+        e
+    };
+    let dest_metadata = |resp: &Value| {
+        let id = resp["created"]["k"]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("copy failed: {resp}"))
+            .to_owned();
+        let args = json!({ "accountId": OTHER_ID, "ids": [id], "properties": ["metadata"] });
+        (args, id)
+    };
+
+    let resp = event_copy(&b, entry(json!({})), &using_without_metadata()).await;
+    let (args, _) = dest_metadata(&resp);
+    let got = handle_calendar_event_get(&b, &(), args, &using())
+        .await
+        .unwrap()
+        .primary;
+    assert_eq!(
+        got["list"][0]["metadata"],
+        json!({ NS: { "k": 1 } }),
+        "{got}"
+    );
+
+    let resp = event_copy(
+        &b,
+        entry(json!({ "metadata": { NS: { "k": 2 } } })),
+        &using_without_metadata(),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["k"]["type"],
+        json!("invalidProperties"),
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["k"]["properties"],
+        json!(["metadata"]),
+        "{resp}"
+    );
+
+    let resp = event_copy(&b, entry(json!({ "metadata": null })), &using()).await;
+    assert_eq!(
+        resp["notCreated"]["k"]["type"],
+        json!("invalidProperties"),
+        "{resp}"
+    );
+
+    let resp = event_copy(
+        &b,
+        entry(json!({ "metadata": { NS: { "k": 2 } } })),
+        &using(),
+    )
+    .await;
+    let (args, _) = dest_metadata(&resp);
+    let got = handle_calendar_event_get(&b, &(), args, &using())
+        .await
+        .unwrap()
+        .primary;
+    assert_eq!(
+        got["list"][0]["metadata"],
+        json!({ NS: { "k": 2 } }),
+        "{got}"
+    );
 }

@@ -30,12 +30,14 @@ type Handler = for<'a> fn(
 /// The five `/query` handlers by method name.
 fn handlers() -> [(&'static str, Handler); 5] {
     [
-        ("Chat/query", |b, c, a| Box::pin(handle_chat_query(b, c, a))),
+        ("Chat/query", |b, c, a| {
+            Box::pin(handle_chat_query(b, c, a, &[]))
+        }),
         ("Message/query", |b, c, a| {
-            Box::pin(handle_message_query(b, c, a))
+            Box::pin(handle_message_query(b, c, a, &[]))
         }),
         ("Space/query", |b, c, a| {
-            Box::pin(handle_space_query(b, c, a))
+            Box::pin(handle_space_query(b, c, a, &[]))
         }),
         ("ChatContact/query", |b, c, a| {
             Box::pin(handle_contact_query(b, c, a))
@@ -156,6 +158,7 @@ async fn non_object_filter_is_invalid_arguments() {
             &backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "filter": filter, "sinceQueryState": "0" }),
+            &[],
         )
         .await
         .expect_err("Message/queryChanges");

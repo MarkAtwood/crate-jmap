@@ -68,6 +68,7 @@ async fn get(backend: &InjectableBackend, id: &str) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+        &[],
     )
     .await
     .expect("Message/get")

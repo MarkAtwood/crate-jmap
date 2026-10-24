@@ -210,6 +210,7 @@ async fn receive_typing_indicators_false_does_not_drop_channel() {
         &backend,
         &(),
         json!({ "accountId": RECIPIENT, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("Space/get");

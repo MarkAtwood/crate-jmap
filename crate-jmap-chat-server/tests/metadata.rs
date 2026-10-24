@@ -14,10 +14,13 @@ mod common;
 use std::collections::BTreeMap;
 
 use common::{ACCOUNT_ID, MemoryBackend, seed_group_chat};
-use jmap_chat_server::message::{handle_message_query, handle_message_set};
+use jmap_chat_server::message::{
+    handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
+};
 use jmap_chat_server::{
-    handle_chat_changes, handle_chat_get, handle_chat_query, handle_chat_set, handle_space_get,
-    handle_space_query, handle_space_set,
+    handle_chat_changes, handle_chat_get, handle_chat_query, handle_chat_query_changes,
+    handle_chat_set, handle_space_get, handle_space_query, handle_space_query_changes,
+    handle_space_set,
 };
 use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_server::HandlerOutput;
@@ -97,16 +100,21 @@ async fn update_chat(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
 
 async fn chat_metadata(backend: &MemoryBackend, id: &str) -> Value {
     let HandlerOutput { primary, .. } =
-        handle_chat_get(backend, &(), with_account(json!({ "ids": [id] })))
+        handle_chat_get(backend, &(), with_account(json!({ "ids": [id] })), &using())
             .await
             .expect("Chat/get");
     primary["list"][0]["metadata"].clone()
 }
 
 async fn chat_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
-    handle_chat_query(backend, &(), with_account(json!({ "filter": filter })))
-        .await
-        .map(|o| o.primary["ids"].clone())
+    handle_chat_query(
+        backend,
+        &(),
+        with_account(json!({ "filter": filter })),
+        &using(),
+    )
+    .await
+    .map(|o| o.primary["ids"].clone())
 }
 
 async fn chat_changes(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
@@ -312,7 +320,9 @@ async fn invalid_metadata_writes_are_invalid_properties() {
             "{patch}"
         );
     }
-    assert_eq!(chat_metadata(&backend, &id).await, Value::Null);
+    // -04 §2: "When returned, its value MUST be an object ({} when no
+    // metadata is set), never null".
+    assert_eq!(chat_metadata(&backend, &id).await, json!({}));
 }
 
 /// -04 §1.2.1: "A type that does not appear in this object does not gain
@@ -502,8 +512,7 @@ async fn message_metadata_update_and_query() {
     let ids = handle_message_query(
         &backend,
         &(),
-        with_account(json!({ "filter": { "chatId": "g1", "metadataExists": "acme.example.com/moderationNote" } })),
-    )
+        with_account(json!({ "filter": { "chatId": "g1", "metadataExists": "acme.example.com/moderationNote" } })), &using())
     .await
     .expect("Message/query")
     .primary["ids"]
@@ -534,10 +543,15 @@ async fn space_metadata_create_update_and_query() {
     .await;
     assert!(resp["updated"].get(&id).is_some(), "{resp}");
 
-    let got = handle_space_get(&backend, &(), with_account(json!({ "ids": [&id] })))
-        .await
-        .expect("Space/get")
-        .primary;
+    let got = handle_space_get(
+        &backend,
+        &(),
+        with_account(json!({ "ids": [&id] })),
+        &using(),
+    )
+    .await
+    .expect("Space/get")
+    .primary;
     assert_eq!(
         got["list"][0]["metadata"],
         json!({ NS: { "welcomeMessage": "Hi", "guidelines": "Be kind" } })
@@ -547,8 +561,7 @@ async fn space_metadata_create_update_and_query() {
     let ids = handle_space_query(
         &backend,
         &(),
-        with_account(json!({ "filter": { "metadataTextEquals": { "path": "acme.example.com/welcomeMessage", "value": "Hi" } } })),
-    )
+        with_account(json!({ "filter": { "metadataTextEquals": { "path": "acme.example.com/welcomeMessage", "value": "Hi" } } })), &using())
     .await
     .expect("Space/query")
     .primary["ids"]
@@ -571,4 +584,475 @@ fn private_metadata_capability_is_refused() {
 #[should_panic(expected = "ChatContact")]
 fn unnamed_type_is_refused() {
     let _ = MemoryBackend::new().with_metadata_info("ChatContact", info());
+}
+
+// ---------------------------------------------------------------------------
+// /get and the /query capability gate (-04 §2, §3, §3.1; bd JMAP-s4kp.9)
+// ---------------------------------------------------------------------------
+
+/// A second vendor namespace for the subselector tests.
+const NS2: &str = "other.example.org";
+
+/// The `type` of a method-level error.
+fn method_error_type(err: &JmapError) -> Value {
+    serde_json::to_value(err).unwrap()["type"].clone()
+}
+
+/// Run Chat/get with `properties` on `id` and return its one list entry.
+async fn chat_get_one(
+    b: &MemoryBackend,
+    id: &str,
+    properties: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
+    let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": properties });
+    handle_chat_get(b, &(), args, using)
+        .await
+        .map(|o| o.primary["list"][0].clone())
+}
+
+/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// MUST include metadata and, where supportsPrivate is true,
+/// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
+/// object ({} when no metadata is set), never null"; §2 (L306-307): "When
+/// supportsPrivate is false for the data type, this property MUST NOT be
+/// returned"; §3 (L461-463): for other requests "metadata and
+/// privateMetadata are not default properties of Foo/get (although they
+/// are still returned when requested by name)".
+#[tokio::test]
+async fn chat_get_default_properties_follow_capability() {
+    let b = backend();
+    let bare = create_chat(&b, json!({})).await;
+    let tagged = create_chat(&b, json!({ "metadata": json!({ NS: { "k": 1 } }) })).await;
+
+    let got = chat_get_one(&b, &bare, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({}), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+    let got = chat_get_one(&b, &tagged, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+
+    let without = using_without_metadata();
+    let got = chat_get_one(&b, &tagged, Value::Null, &without)
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+    let props = json!(["id", "metadata", "privateMetadata"]);
+    let got = chat_get_one(&b, &tagged, props, &without).await.unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+}
+
+/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// by union" and "An explicit root entry supersedes subselectors with the
+/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// silently omitted from the response, unless the object has data stored
+/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// with metadata/ or privateMetadata/ MUST be rejected with an
+/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// part of the extension, so without the capability they name no
+/// property.
+#[tokio::test]
+async fn chat_get_metadata_subselectors() {
+    let b = backend();
+    let id = create_chat(
+        &b,
+        json!({ "metadata": json!({ NS: { "k": 1 }, NS2: { "k": 2 } }) }),
+    )
+    .await;
+    let cases = [
+        (
+            json!(["metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 } }),
+        ),
+        (
+            json!(["metadata/acme.example.com", "metadata/other.example.org"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (
+            json!(["metadata", "metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (json!(["metadata/unlisted.example.net"]), json!({})),
+    ];
+    for (props, want) in cases {
+        let got = chat_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap();
+        assert_eq!(got["metadata"], want, "{props}: {got}");
+    }
+
+    let props = json!(["metadata/acme.example.com"]);
+    let got = chat_get_one(&b, &id, props, &using_without_metadata())
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+
+    for props in [
+        json!(["metadata/"]),
+        json!(["metadata/acme.example.com/k"]),
+        json!(["privateMetadata/"]),
+    ] {
+        let err = chat_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("invalidArguments"),
+            "{props}"
+        );
+    }
+}
+
+/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// them, "apply to requests whose using includes
+/// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
+/// filter is syntactically valid, but the server cannot process it".
+#[tokio::test]
+async fn chat_metadata_filter_requires_capability() {
+    let b = backend();
+    let without = using_without_metadata();
+    for filter in [
+        json!({ "metadataExists": NS }),
+        json!({ "operator": "NOT", "conditions": [json!({ "metadataExists": NS })] }),
+    ] {
+        let args = json!({ "accountId": ACCOUNT_ID, "filter": filter.clone() });
+        let err = handle_chat_query(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+        let args =
+            json!({ "accountId": ACCOUNT_ID, "filter": filter.clone(), "sinceQueryState": "0" });
+        let err = handle_chat_query_changes(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+    }
+    let args = json!({ "accountId": ACCOUNT_ID, "filter": json!({ "metadataExists": NS }) });
+    assert!(handle_chat_query(&b, &(), args, &using()).await.is_ok());
+}
+
+/// Run Message/get with `properties` on `id` and return its one list entry.
+async fn message_get_one(
+    b: &MemoryBackend,
+    id: &str,
+    properties: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
+    let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": properties });
+    handle_message_get(b, &(), args, using)
+        .await
+        .map(|o| o.primary["list"][0].clone())
+}
+
+/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// MUST include metadata and, where supportsPrivate is true,
+/// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
+/// object ({} when no metadata is set), never null"; §2 (L306-307): "When
+/// supportsPrivate is false for the data type, this property MUST NOT be
+/// returned"; §3 (L461-463): for other requests "metadata and
+/// privateMetadata are not default properties of Foo/get (although they
+/// are still returned when requested by name)".
+#[tokio::test]
+async fn message_get_default_properties_follow_capability() {
+    let b = backend();
+    seed_group_chat(&b, "g1");
+    let bare = create_message(&b, json!({})).await;
+    let tagged = create_message(&b, json!({ NS: { "k": 1 } })).await;
+
+    let got = message_get_one(&b, &bare, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({}), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+    let got = message_get_one(&b, &tagged, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+
+    let without = using_without_metadata();
+    let got = message_get_one(&b, &tagged, Value::Null, &without)
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+    let props = json!(["id", "metadata", "privateMetadata"]);
+    let got = message_get_one(&b, &tagged, props, &without).await.unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+}
+
+/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// by union" and "An explicit root entry supersedes subselectors with the
+/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// silently omitted from the response, unless the object has data stored
+/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// with metadata/ or privateMetadata/ MUST be rejected with an
+/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// part of the extension, so without the capability they name no
+/// property.
+#[tokio::test]
+async fn message_get_metadata_subselectors() {
+    let b = backend();
+    seed_group_chat(&b, "g1");
+    let id = create_message(&b, json!({ NS: { "k": 1 }, NS2: { "k": 2 } })).await;
+    let cases = [
+        (
+            json!(["metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 } }),
+        ),
+        (
+            json!(["metadata/acme.example.com", "metadata/other.example.org"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (
+            json!(["metadata", "metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (json!(["metadata/unlisted.example.net"]), json!({})),
+    ];
+    for (props, want) in cases {
+        let got = message_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap();
+        assert_eq!(got["metadata"], want, "{props}: {got}");
+    }
+
+    let props = json!(["metadata/acme.example.com"]);
+    let got = message_get_one(&b, &id, props, &using_without_metadata())
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+
+    for props in [
+        json!(["metadata/"]),
+        json!(["metadata/acme.example.com/k"]),
+        json!(["privateMetadata/"]),
+    ] {
+        let err = message_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("invalidArguments"),
+            "{props}"
+        );
+    }
+}
+
+/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// them, "apply to requests whose using includes
+/// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
+/// filter is syntactically valid, but the server cannot process it".
+#[tokio::test]
+async fn message_metadata_filter_requires_capability() {
+    let b = backend();
+    seed_group_chat(&b, "g1");
+    let without = using_without_metadata();
+    for filter in [
+        json!({ "chatId": "g1", "metadataExists": NS }),
+        json!({ "operator": "NOT", "conditions": [json!({ "chatId": "g1", "metadataExists": NS })] }),
+    ] {
+        let args = json!({ "accountId": ACCOUNT_ID, "filter": filter.clone() });
+        let err = handle_message_query(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+        let args =
+            json!({ "accountId": ACCOUNT_ID, "filter": filter.clone(), "sinceQueryState": "0" });
+        let err = handle_message_query_changes(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+    }
+    let args = json!({ "accountId": ACCOUNT_ID, "filter": json!({ "chatId": "g1", "metadataExists": NS }) });
+    assert!(handle_message_query(&b, &(), args, &using()).await.is_ok());
+}
+
+/// Run Space/get with `properties` on `id` and return its one list entry.
+async fn space_get_one(
+    b: &MemoryBackend,
+    id: &str,
+    properties: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
+    let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": properties });
+    handle_space_get(b, &(), args, using)
+        .await
+        .map(|o| o.primary["list"][0].clone())
+}
+
+/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// MUST include metadata and, where supportsPrivate is true,
+/// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
+/// object ({} when no metadata is set), never null"; §2 (L306-307): "When
+/// supportsPrivate is false for the data type, this property MUST NOT be
+/// returned"; §3 (L461-463): for other requests "metadata and
+/// privateMetadata are not default properties of Foo/get (although they
+/// are still returned when requested by name)".
+#[tokio::test]
+async fn space_get_default_properties_follow_capability() {
+    let b = backend();
+    let bare = create_space(&b, json!({})).await;
+    let tagged = create_space(&b, json!({ NS: { "k": 1 } })).await;
+
+    let got = space_get_one(&b, &bare, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({}), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+    let got = space_get_one(&b, &tagged, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+
+    let without = using_without_metadata();
+    let got = space_get_one(&b, &tagged, Value::Null, &without)
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+    let props = json!(["id", "metadata", "privateMetadata"]);
+    let got = space_get_one(&b, &tagged, props, &without).await.unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+}
+
+/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// by union" and "An explicit root entry supersedes subselectors with the
+/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// silently omitted from the response, unless the object has data stored
+/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// with metadata/ or privateMetadata/ MUST be rejected with an
+/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// part of the extension, so without the capability they name no
+/// property.
+#[tokio::test]
+async fn space_get_metadata_subselectors() {
+    let b = backend();
+    let id = create_space(&b, json!({ NS: { "k": 1 }, NS2: { "k": 2 } })).await;
+    let cases = [
+        (
+            json!(["metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 } }),
+        ),
+        (
+            json!(["metadata/acme.example.com", "metadata/other.example.org"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (
+            json!(["metadata", "metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (json!(["metadata/unlisted.example.net"]), json!({})),
+    ];
+    for (props, want) in cases {
+        let got = space_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap();
+        assert_eq!(got["metadata"], want, "{props}: {got}");
+    }
+
+    let props = json!(["metadata/acme.example.com"]);
+    let got = space_get_one(&b, &id, props, &using_without_metadata())
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+
+    for props in [
+        json!(["metadata/"]),
+        json!(["metadata/acme.example.com/k"]),
+        json!(["privateMetadata/"]),
+    ] {
+        let err = space_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("invalidArguments"),
+            "{props}"
+        );
+    }
+}
+
+/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// them, "apply to requests whose using includes
+/// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
+/// filter is syntactically valid, but the server cannot process it".
+#[tokio::test]
+async fn space_metadata_filter_requires_capability() {
+    let b = backend();
+    let without = using_without_metadata();
+    for filter in [
+        json!({ "metadataExists": NS }),
+        json!({ "operator": "NOT", "conditions": [json!({ "metadataExists": NS })] }),
+    ] {
+        let args = json!({ "accountId": ACCOUNT_ID, "filter": filter.clone() });
+        let err = handle_space_query(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+        let args =
+            json!({ "accountId": ACCOUNT_ID, "filter": filter.clone(), "sinceQueryState": "0" });
+        let err = handle_space_query_changes(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+    }
+    let args = json!({ "accountId": ACCOUNT_ID, "filter": json!({ "metadataExists": NS }) });
+    assert!(handle_space_query(&b, &(), args, &using()).await.is_ok());
+}
+
+/// Create a Message in chat "g1" carrying `metadata`.
+async fn create_message(backend: &MemoryBackend, metadata: Value) -> String {
+    let create = json!({
+        "chatId": "g1",
+        "body": "b",
+        "bodyType": "text/plain",
+        "sentAt": "2026-01-01T00:00:00Z",
+        "metadata": metadata,
+    });
+    let resp = message_set(backend, json!({ "create": { "m": create } })).await;
+    resp["created"]["m"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("Message/set create failed: {resp}"))
+        .to_owned()
+}
+
+/// Create a Space, owned by the caller, carrying `metadata`.
+async fn create_space(backend: &MemoryBackend, metadata: Value) -> String {
+    let resp = space_set(
+        backend,
+        json!({ "create": { "s": { "name": "S", "metadata": metadata } } }),
+    )
+    .await;
+    resp["created"]["s"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("Space/set create failed: {resp}"))
+        .to_owned()
 }

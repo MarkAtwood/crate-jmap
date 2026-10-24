@@ -140,13 +140,13 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
     let HandlerOutput {
         primary: before_chats,
         ..
-    } = handle_chat_get(&backend, &(), all_chats.clone())
+    } = handle_chat_get(&backend, &(), all_chats.clone(), &[])
         .await
         .expect("Chat/get");
     let HandlerOutput {
         primary: before_messages,
         ..
-    } = handle_message_get(&backend, &(), all_messages.clone())
+    } = handle_message_get(&backend, &(), all_messages.clone(), &[])
         .await
         .expect("Message/get");
 
@@ -161,13 +161,13 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
     .expect("Space/set");
     assert_eq!(resp["destroyed"], json!([SPACE_ID]), "{resp:?}");
 
-    let HandlerOutput { primary: chats, .. } = handle_chat_get(&backend, &(), all_chats)
+    let HandlerOutput { primary: chats, .. } = handle_chat_get(&backend, &(), all_chats, &[])
         .await
         .expect("Chat/get");
     assert_eq!(sorted_ids(&chats["notFound"]), ["ch1", "ch2"], "{chats:?}");
     let HandlerOutput {
         primary: messages, ..
-    } = handle_message_get(&backend, &(), all_messages)
+    } = handle_message_get(&backend, &(), all_messages, &[])
         .await
         .expect("Message/get");
     assert_eq!(sorted_ids(&messages["notFound"]), ["m1"], "{messages:?}");
@@ -242,6 +242,7 @@ async fn channel_read_failure_leaves_space_and_channels() {
         inner,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ch1", "ch2"] }),
+        &[],
     )
     .await
     .expect("Chat/get");
@@ -298,6 +299,7 @@ async fn destroy_without_manage_space_is_forbidden() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["ch1"] }),
+        &[],
     )
     .await
     .expect("Chat/get");

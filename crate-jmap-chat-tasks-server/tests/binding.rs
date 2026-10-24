@@ -132,7 +132,7 @@ fn capability(may_bind_task_list: bool) -> ChatTasksCapability {
 
 /// `TaskList/get` of `ids` on `account`: the ids listed and not found.
 async fn task_list_get(tasks: &TasksMemory, account: &str, ids: Value) -> (Vec<String>, Value) {
-    let out = handle_task_list_get(tasks, &(), json!({ "accountId": account, "ids": ids }))
+    let out = handle_task_list_get(tasks, &(), json!({ "accountId": account, "ids": ids }), &[])
         .await
         .expect("TaskList/get");
     let listed = out.primary["list"]
@@ -185,10 +185,15 @@ async fn create_bound_space(chat: &ChatMemory) -> (String, Value) {
         .as_str()
         .unwrap_or_else(|| panic!("Space not created: {out}"))
         .to_owned();
-    let got = handle_space_get(chat, &(), json!({ "accountId": ACCOUNT, "ids": [&id] }))
-        .await
-        .expect("Space/get")
-        .primary;
+    let got = handle_space_get(
+        chat,
+        &(),
+        json!({ "accountId": ACCOUNT, "ids": [&id] }),
+        &[],
+    )
+    .await
+    .expect("Space/get")
+    .primary;
     let task_list_id = got["list"][0]
         .get("taskListId")
         .cloned()

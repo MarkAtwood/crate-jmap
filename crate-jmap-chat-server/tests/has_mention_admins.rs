@@ -117,6 +117,7 @@ async fn has_mention_ids(backend: &MemoryBackend) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": { "hasMention": true } }),
+        &[],
     )
     .await
     .expect("Message/query");

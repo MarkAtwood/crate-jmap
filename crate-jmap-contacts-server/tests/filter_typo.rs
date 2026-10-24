@@ -31,13 +31,13 @@ fn cases() -> [(&'static str, Handler, Value, Value); 2] {
     [
         (
             "ContactCard/query",
-            |b, c, a| Box::pin(handle_contact_card_query(b, c, a)),
+            |b, c, a| Box::pin(handle_contact_card_query(b, c, a, &[])),
             json!({ "inAddressBook": "ab1" }),
             json!({ "inAddressbook": "ab1" }),
         ),
         (
             "ContactCard/queryChanges",
-            |b, c, a| Box::pin(handle_contact_card_query_changes(b, c, a)),
+            |b, c, a| Box::pin(handle_contact_card_query_changes(b, c, a, &[])),
             json!({ "inAddressBook": "ab1" }),
             json!({ "inAddressbook": "ab1" }),
         ),

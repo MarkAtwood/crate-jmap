@@ -317,6 +317,7 @@ async fn get_omits_messages_in_channel_without_view() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("Message/get");
@@ -327,6 +328,7 @@ async fn get_omits_messages_in_channel_without_view() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
+        &[],
     )
     .await
     .expect("Message/get");
@@ -345,6 +347,7 @@ async fn get_returns_messages_in_channel_with_view() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("Message/get");
@@ -375,6 +378,7 @@ async fn query_omits_messages_in_channel_without_view() {
             &backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "filter": filter, "calculateTotal": true }),
+            &[],
         )
         .await
         .expect("Message/query");
@@ -398,6 +402,7 @@ async fn query_returns_messages_in_channel_with_view() {
             &backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "filter": filter }),
+            &[],
         )
         .await
         .expect("Message/query");
@@ -420,6 +425,7 @@ async fn handlers_consult_view_hook() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("Message/get");
@@ -436,6 +442,7 @@ async fn handlers_consult_view_hook() {
             "filter": { "chatId": CHANNEL_ID },
             "calculateTotal": true
         }),
+        &[],
     )
     .await
     .expect("Message/query");
@@ -485,6 +492,7 @@ async fn query_changes_in_unviewable_chat_cannot_calculate() {
             "filter": { "chatId": CHANNEL_ID },
             "sinceQueryState": "0"
         }),
+        &[],
     )
     .await
     .expect_err("Message/queryChanges");

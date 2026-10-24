@@ -82,7 +82,7 @@ async fn update_calendar(backend: &MemoryBackend, patch: Value) -> Value {
 
 async fn get_calendar(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["cal1"] });
-    let HandlerOutput { primary: resp, .. } = handle_calendar_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_get(backend, &(), args, &[])
         .await
         .expect("/get must not return a top-level error");
     resp["list"][0].clone()

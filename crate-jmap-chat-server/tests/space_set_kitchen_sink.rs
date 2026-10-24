@@ -266,6 +266,7 @@ async fn space_set_all_twelve_ops_in_one_call() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -357,6 +358,7 @@ async fn space_set_all_twelve_ops_in_one_call() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": ["ch-update"] }),
+        &[],
     )
     .await
     .expect("Chat/get");

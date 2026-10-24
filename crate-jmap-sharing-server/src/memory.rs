@@ -497,6 +497,16 @@ impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
+    /// The info set by [`MemoryBackend::with_metadata_info`] for Principal,
+    /// the same for every account; `None` for any other type.
+    fn metadata_info<O: JmapObject>(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Option<DataTypeMetadataInfo> {
+        metadata_info_for::<O>(&self.inner.lock().unwrap()).cloned()
+    }
+
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
         Ok(inner.known_accounts.contains(account_id.as_ref()))

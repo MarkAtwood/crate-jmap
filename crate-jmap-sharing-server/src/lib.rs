@@ -197,8 +197,8 @@ where
     }
 
     // Principal
-    reg!("Principal/get", backend, |b, _ci, a, ctx| {
-        handle_principal_get(&*b, &ctx, a).await
+    reg!("Principal/get", backend, |b, _ci, a, ctx, using| {
+        handle_principal_get(&*b, &ctx, a, &using).await
     });
     reg!("Principal/changes", backend, |b, _ci, a, ctx, using| {
         handle_principal_changes(&*b, &ctx, a, &using).await
@@ -206,12 +206,14 @@ where
     reg!("Principal/set", backend, |b, _ci, a, ctx, using| {
         handle_principal_set(&*b, &ctx, a, &using).await
     });
-    reg!("Principal/query", backend, |b, _ci, a, ctx| {
-        handle_principal_query(&*b, &ctx, a).await
+    reg!("Principal/query", backend, |b, _ci, a, ctx, using| {
+        handle_principal_query(&*b, &ctx, a, &using).await
     });
-    reg!("Principal/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_principal_query_changes(&*b, &ctx, a).await
-    });
+    reg!(
+        "Principal/queryChanges",
+        backend,
+        |b, _ci, a, ctx, using| handle_principal_query_changes(&*b, &ctx, a, &using).await
+    );
 
     // ShareNotification
     reg!("ShareNotification/get", backend, |b, _ci, a, ctx| {

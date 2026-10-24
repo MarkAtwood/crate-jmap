@@ -140,6 +140,7 @@ async fn chat_get_empty() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
+        &[],
     )
     .await
     .expect("handle_chat_get");
@@ -161,6 +162,7 @@ async fn chat_get_not_found() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["missing1"] }),
+        &[],
     )
     .await
     .expect("handle_chat_get");
@@ -173,7 +175,9 @@ async fn chat_get_not_found() {
 #[tokio::test]
 async fn chat_get_missing_account_id() {
     let backend = common::account_backend();
-    let err = handle_chat_get(&backend, &(), json!({})).await.unwrap_err();
+    let err = handle_chat_get(&backend, &(), json!({}), &[])
+        .await
+        .unwrap_err();
     assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
@@ -405,6 +409,7 @@ async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&chat_id] }),
+        &[],
     )
     .await
     .expect("handle_chat_get");
@@ -566,7 +571,7 @@ async fn chat_query_empty() {
     // handle_query checks this before querying).
     backend.register_account(&jmap_types::Id::from(ACCOUNT_ID));
     let HandlerOutput { primary: resp, .. } =
-        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
             .await
             .expect("handle_chat_query");
 
@@ -592,6 +597,7 @@ async fn chat_query_with_calculate_total() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "calculateTotal": true }),
+        &[],
     )
     .await
     .expect("query");
@@ -610,7 +616,7 @@ async fn chat_query_changes_missing_since() {
     let backend = common::account_backend();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
-    let err = handle_chat_query_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+    let err = handle_chat_query_changes(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
         .await
         .unwrap_err();
     assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -635,6 +641,7 @@ async fn chat_query_changes_after_create() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceQueryState": "0" }),
+        &[],
     )
     .await
     .expect("queryChanges");
@@ -657,7 +664,7 @@ async fn chat_query_changes_reports_updated_id_in_removed_and_added() {
     let chat_id = make_chat_group(&backend, "Original").await;
 
     let HandlerOutput { primary: query, .. } =
-        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        handle_chat_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
             .await
             .expect("handle_chat_query");
     assert_eq!(query["ids"], json!([chat_id]), "{query}");
@@ -680,6 +687,7 @@ async fn chat_query_changes_reports_updated_id_in_removed_and_added() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceQueryState": query["queryState"] }),
+        &[],
     )
     .await
     .expect("queryChanges");
@@ -1238,6 +1246,7 @@ async fn message_get_returns_created() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1299,6 +1308,7 @@ async fn message_query_order() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "calculateTotal": true, "filter": { "chatId": "c1" } }),
+        &[],
     )
     .await
     .expect("query");
@@ -1352,6 +1362,7 @@ async fn message_set_update_body_injects_edited_at() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1407,6 +1418,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1487,6 +1499,7 @@ async fn message_set_update_delete_for_all_purges_content() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1579,6 +1592,7 @@ async fn message_set_update_local_delete_purges_content() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1628,6 +1642,7 @@ async fn message_set_update_delete_for_all_rejects_other_sender() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1673,6 +1688,7 @@ async fn message_set_update_edit_rejects_other_sender() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1734,6 +1750,7 @@ async fn message_set_update_edit_rejects_deleted_message() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1785,6 +1802,7 @@ async fn message_set_update_mark_as_read() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1821,6 +1839,7 @@ async fn message_set_read_at_defaults_disposition() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1859,6 +1878,7 @@ async fn message_set_explicit_disposition_preserved() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1896,6 +1916,7 @@ async fn message_set_extension_disposition_stored_as_is() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1935,6 +1956,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+        &[],
     )
     .await
     .expect("get");
@@ -1994,6 +2016,7 @@ async fn message_set_lone_read_disposition_is_invalid_properties() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+        &[],
     )
     .await
     .expect("get");
@@ -2046,6 +2069,7 @@ async fn message_set_unsupported_body_type_is_invalid_properties() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+        &[],
     )
     .await
     .expect("get");
@@ -2099,6 +2123,7 @@ async fn message_set_read_at_null_clears_read_disposition() {
             &backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "ids": [msg_id.as_str()] }),
+            &[],
         )
         .await
         .expect("get");
@@ -2187,6 +2212,7 @@ async fn message_set_burn_on_read_fires_on_read_at() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -2282,6 +2308,7 @@ async fn message_set_burn_on_read_no_fire_without_read_at() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -2349,6 +2376,7 @@ async fn message_set_no_burn_when_burn_on_read_absent() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -2405,6 +2433,7 @@ async fn message_set_burn_on_read_spares_senders_own_copy() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["own"] }),
+        &[],
     )
     .await
     .expect("get");
@@ -2474,6 +2503,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -2531,6 +2561,7 @@ async fn memory_backend_expire_message_direct_call() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id_str] }),
+        &[],
     )
     .await
     .expect("get");
@@ -3057,6 +3088,7 @@ async fn message_get_default_omits_edit_history() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("handle_message_get");
@@ -3110,6 +3142,7 @@ async fn message_get_with_retention_returns_edit_history() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("handle_message_get");
@@ -3167,6 +3200,7 @@ async fn message_get_properties_does_not_force_edit_history_when_retention_off()
             "ids": ["m1"],
             "properties": ["editHistory"]
         }),
+        &[],
     )
     .await
     .expect("handle_message_get");
@@ -3666,6 +3700,7 @@ async fn message_set_update_reaction_add_overrides_sender_id_to_account_id() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -3737,6 +3772,7 @@ async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -3815,6 +3851,7 @@ async fn message_set_update_reaction_remove_others_rejected_forbidden() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
     )
     .await
     .expect("get");
@@ -4043,6 +4080,7 @@ async fn message_set_update_reaction_remove_self_succeeds() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&msg_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -4167,6 +4205,7 @@ async fn space_get_returns_created() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -4261,6 +4300,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -4641,6 +4681,7 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -4695,6 +4736,7 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -4824,6 +4866,7 @@ async fn space_set_category_add_assigns_id_and_pushes() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -4890,6 +4933,7 @@ async fn space_set_category_add_without_id_is_accepted() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -4949,6 +4993,7 @@ async fn space_set_category_add_assigns_unique_ids() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_a, &space_b] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -5156,6 +5201,7 @@ async fn space_set_category_remove_cascades_channels_to_uncategorized() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -5263,6 +5309,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -5317,6 +5364,7 @@ async fn seed_two_categories(backend: &MemoryBackend, space_id: &str) {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -5373,6 +5421,7 @@ async fn space_set_category_add_moves_channel_out_of_previous_category() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -5433,6 +5482,7 @@ async fn space_set_category_update_moves_channel_out_of_previous_category() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -5564,6 +5614,7 @@ async fn space_set_channel_add_assigns_id_and_lands_uncategorized() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -5669,6 +5720,7 @@ async fn space_set_channel_add_into_existing_category() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -5752,6 +5804,7 @@ async fn space_set_channel_add_unknown_category_rejected() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -5826,6 +5879,7 @@ async fn space_set_channel_remove_cascades_messages() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -5942,6 +5996,7 @@ async fn space_set_channel_remove_cascades_messages() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -5986,6 +6041,7 @@ async fn space_set_channel_update_name_and_position() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6054,6 +6110,7 @@ async fn space_set_channel_update_topic_cleared_by_null() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6129,6 +6186,7 @@ async fn space_set_channel_update_category_move() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6168,6 +6226,7 @@ async fn space_set_channel_update_category_move() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6247,6 +6306,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6285,6 +6345,7 @@ async fn space_set_channel_update_category_cleared_by_null() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6334,6 +6395,7 @@ async fn space_set_channel_update_unknown_category_rejected() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6460,6 +6522,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("space_get");
@@ -6596,6 +6659,7 @@ async fn space_set_update_metadata_success() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -7118,6 +7182,7 @@ async fn chat_get_backend_error_maps_to_server_fail() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
+        &[],
     )
     .await
     .unwrap_err();
@@ -7263,6 +7328,7 @@ async fn accounts_are_isolated() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID_B, "ids": null }),
+        &[],
     )
     .await
     .expect("get from a2");
@@ -8377,6 +8443,7 @@ async fn space_join_via_invite_code_success() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -8607,6 +8674,7 @@ async fn clear_members(backend: &MemoryBackend, space_id: &str) {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+        &[],
     )
     .await
     .expect("get");
@@ -9024,6 +9092,7 @@ async fn space_set_count_limits_atomic_reject_whole_target() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [&space_id] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -9532,6 +9601,7 @@ async fn query_has_mention_matches_broadcast_everyone() {
             "filter": { "hasMention": true },
             "calculateTotal": true
         }),
+        &[],
     )
     .await
     .expect("query");
@@ -9557,6 +9627,7 @@ async fn query_has_mention_matches_broadcast_here() {
             "filter": { "hasMention": true },
             "calculateTotal": true
         }),
+        &[],
     )
     .await
     .expect("query");
@@ -9602,6 +9673,7 @@ async fn query_has_mention_matches_broadcast_admins() {
             "filter": { "hasMention": true },
             "calculateTotal": true
         }),
+        &[],
     )
     .await
     .expect("query");
@@ -9626,6 +9698,7 @@ async fn query_has_mention_no_broadcast_no_mention() {
             "filter": { "hasMention": true },
             "calculateTotal": true
         }),
+        &[],
     )
     .await
     .expect("query");
@@ -9655,6 +9728,7 @@ async fn query_has_mention_unknown_scope_no_match() {
             "filter": { "hasMention": true },
             "calculateTotal": true
         }),
+        &[],
     )
     .await
     .expect("query");

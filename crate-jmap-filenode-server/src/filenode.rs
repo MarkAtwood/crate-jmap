@@ -112,11 +112,20 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 /// [`FileNodeBackend::files_rights`] is `Some` reports that value as its
 /// `myRights`, which draft-ietf-jmap-filenode-16 makes "server-set".
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists FileNode for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see [`jmap_server::handle_get_with_metadata`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_get<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
 
@@ -141,7 +150,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         primary: mut response,
         extra_invocations: tail,
         ..
-    } = jmap_server::handle_get::<FileNode, B>(backend, caller, args).await?;
+    } = jmap_server::handle_get_with_metadata::<FileNode, B>(backend, caller, args, using).await?;
 
     if fetch_parents {
         // Recover account_id from the response shape the generic
@@ -1385,6 +1394,17 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 /// [`FileNodeBackend::files_rights`] in the destination account reports
 /// that value as its `myRights`.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// the copy keeps the source's `metadata`, and its `privateMetadata` only
+/// with `urn:ietf:params:jmap:metadata` in `using` and when the
+/// destination supports it; neither is copied when the destination does
+/// not list FileNode ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)).
+/// The create object "MAY include metadata and privateMetadata to override
+/// the copied values, with the same rules as a create in Foo/set": the
+/// handler rejects them without the capability and rejects `null`, and
+/// the backend's `create_object` validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. When
 /// `onSuccessDestroyOriginal` is true the extra list holds the implicit
 /// `FileNode/set` response (RFC 8620 §5.4, §6.3), or an `error` of type
@@ -1395,6 +1415,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::new_validated(s)
@@ -1554,8 +1575,31 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 continue;
             }
 
-            let source_node = nodes.remove(0);
+            let mut source_node = nodes.remove(0);
 
+            // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+            // Foo/set create rules (§3, §3.2).
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_copied.insert(create_id, Value::from(&*err));
+                continue;
+            }
+            // -04 §3.4: "When the request does not use this capability, only
+            // metadata is copied", "privateMetadata is not copied when the
+            // destination does not support it, and neither property is
+            // copied when the data type is not listed in the destination
+            // account". The overrides are merged in below.
+            let info = backend.metadata_info::<FileNode>(caller, &account_id);
+            if !jmap_server::uses_metadata(using)
+                || !info.as_ref().is_some_and(|i| i.supports_private)
+            {
+                source_node.private_metadata = None;
+            }
+            if info.is_none() {
+                source_node.metadata = None;
+            }
             // Validate parentId override shape before the generic merge:
             // parentId must be a string or null. Silently coercing a
             // non-string non-null value to None would surface as a
@@ -2238,12 +2282,23 @@ fn property_owner(property: &str) -> Option<NodeType> {
 /// When `depth` is absent, `null`, or `0`, the query is a flat one-liner
 /// delegated to [`jmap_server::handle_query`].
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_query<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_filenode_types::FileNodeFilterCondition::has_metadata_condition,
+        using,
+    )?;
     ensure_filenode_supported(backend, caller, &args).await?;
     // Extract depth before delegating — the generic handler strips unrecognised args.
     let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -2322,12 +2377,23 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_filenode_types::FileNodeFilterCondition::has_metadata_condition,
+        using,
+    )?;
     ensure_filenode_supported(backend, caller, &args).await?;
     jmap_server::handle_query_changes::<FileNode, B>(backend, caller, args).await
 }
@@ -3175,7 +3241,7 @@ mod tests {
         for (method, build_args) in cases {
             let args = build_args(json!(null));
             let err = match *method {
-                "FileNode/get" => handle_filenode_get(&backend, &(), args).await.err(),
+                "FileNode/get" => handle_filenode_get(&backend, &(), args, &[]).await.err(),
                 "FileNode/changes" => handle_filenode_changes(&backend, &(), args, &[])
                     .await
                     .err(),
@@ -3188,9 +3254,11 @@ mod tests {
                 )
                 .await
                 .err(),
-                "FileNode/copy" => handle_filenode_copy(&backend, &(), args, "c0").await.err(),
-                "FileNode/query" => handle_filenode_query(&backend, &(), args).await.err(),
-                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args)
+                "FileNode/copy" => handle_filenode_copy(&backend, &(), args, "c0", &[])
+                    .await
+                    .err(),
+                "FileNode/query" => handle_filenode_query(&backend, &(), args, &[]).await.err(),
+                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args, &[])
                     .await
                     .err(),
                 _ => panic!("unknown method: {method}"),
@@ -3231,7 +3299,7 @@ mod tests {
                 "sinceQueryState": "0",
             });
             let err = match method {
-                "FileNode/get" => handle_filenode_get(&backend, &(), args).await.err(),
+                "FileNode/get" => handle_filenode_get(&backend, &(), args, &[]).await.err(),
                 "FileNode/changes" => handle_filenode_changes(&backend, &(), args, &[])
                     .await
                     .err(),
@@ -3249,11 +3317,12 @@ mod tests {
                     &(),
                     json!({"fromAccountId": "acc2", "accountId": "nosuch", "create": {}}),
                     "c0",
+                    &[],
                 )
                 .await
                 .err(),
-                "FileNode/query" => handle_filenode_query(&backend, &(), args).await.err(),
-                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args)
+                "FileNode/query" => handle_filenode_query(&backend, &(), args, &[]).await.err(),
+                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args, &[])
                     .await
                     .err(),
                 _ => panic!("unknown method: {method}"),
@@ -3277,14 +3346,23 @@ mod tests {
                 .with_account(&Id::from("acc1"))
                 .with_account(&Id::from("acc2")),
         );
-        let HandlerOutput { primary: resp, .. } =
-            handle_filenode_get(&backend, &(), json!({"accountId": "acc2", "ids": null}))
-                .await
-                .expect("acc2 supports FileNode");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(
+            &backend,
+            &(),
+            json!({"accountId": "acc2", "ids": null}),
+            &[],
+        )
+        .await
+        .expect("acc2 supports FileNode");
         assert_eq!(resp["accountId"], "acc2");
-        let err = handle_filenode_get(&backend, &(), json!({"accountId": "acc1", "ids": null}))
-            .await
-            .expect_err("acc1 opts out of FileNode");
+        let err = handle_filenode_get(
+            &backend,
+            &(),
+            json!({"accountId": "acc1", "ids": null}),
+            &[],
+        )
+        .await
+        .expect_err("acc1 opts out of FileNode");
         assert_eq!(err.error_type.to_string(), "accountNotSupportedByMethod");
     }
 
@@ -3304,6 +3382,7 @@ mod tests {
             &(),
             json!({"fromAccountId": "acc1", "accountId": "acc2", "create": {}}),
             "c0",
+            &[],
         )
         .await
         .expect_err("source account opts out of FileNode");
@@ -3323,7 +3402,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MemoryBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let err = handle_filenode_get(&backend, &(), args)
+        let err = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(
@@ -3339,7 +3418,7 @@ mod tests {
     async fn get_known_account_returns_empty_list() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "ids": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect("must succeed for known account");
         assert_eq!(resp["accountId"], "acc1");
@@ -3356,7 +3435,7 @@ mod tests {
     async fn get_fetch_parents_false_unchanged() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": false });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -3369,7 +3448,7 @@ mod tests {
     async fn get_fetch_parents_true_no_nodes() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": true });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         assert!(resp["list"].as_array().unwrap().is_empty());
@@ -3397,7 +3476,7 @@ mod tests {
             "ids": ["child"],
             "fetchParents": true
         });
-        let result = handle_filenode_get(&backend, &(), args).await;
+        let result = handle_filenode_get(&backend, &(), args, &[]).await;
         assert!(
             result.is_err(),
             "fetchParents + get_ancestors Err must propagate as JMAP \
@@ -3455,7 +3534,7 @@ mod tests {
         backend.inject_cid_advertised_err("simulated config store timeout");
 
         let args = json!({ "accountId": "acc1", "ids": ["n1"] });
-        let err = handle_filenode_get(&backend, &(), args)
+        let err = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect_err("cid_advertised Err must surface as a JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
@@ -3487,7 +3566,7 @@ mod tests {
         backend.set_files_rights("n1", read_only_rights());
 
         let args = json!({ "accountId": "acc1", "ids": ["n1", "n2"] });
-        let resp = handle_filenode_get(&backend, &(), args)
+        let resp = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect("get")
             .primary;
@@ -3514,7 +3593,7 @@ mod tests {
         backend.set_files_rights("p", read_only_rights());
 
         let args = json!({ "accountId": "acc1", "ids": ["c"], "fetchParents": true });
-        let resp = handle_filenode_get(&backend, &(), args)
+        let resp = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect("get")
             .primary;
@@ -3540,7 +3619,7 @@ mod tests {
         backend.inject_files_rights_err("simulated policy store timeout");
 
         let args = json!({ "accountId": "acc1", "ids": ["n1"], "properties": ["name"] });
-        let resp = handle_filenode_get(&backend, &(), args)
+        let resp = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect("get")
             .primary;
@@ -3557,7 +3636,7 @@ mod tests {
         backend.inject_files_rights_err("simulated policy store timeout");
 
         let args = json!({ "accountId": "acc1", "ids": ["n1"] });
-        let err = handle_filenode_get(&backend, &(), args)
+        let err = handle_filenode_get(&backend, &(), args, &[])
             .await
             .expect_err("files_rights Err must surface as a JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
@@ -3616,6 +3695,7 @@ mod tests {
             &backend,
             &(),
             json!({ "accountId": "acc1", "ids": [created["id"]] }),
+            &[],
         )
         .await
         .expect("get")
@@ -3643,7 +3723,7 @@ mod tests {
             "accountId": "acc1",
             "create": { "c1": { "id": "n1", "parentId": "p" } }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0")
+        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("copy")
             .primary;
@@ -3669,7 +3749,7 @@ mod tests {
             "accountId": "acc1",
             "create": { "c1": { "id": "n1", "parentId": "p" } }
         });
-        let resp = handle_filenode_copy(&backend, &(), args, "c0")
+        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("files_rights Err after the insert must not fail the call")
             .primary;
@@ -3680,6 +3760,7 @@ mod tests {
             &backend,
             &(),
             json!({ "accountId": "acc1", "ids": [created["id"]] }),
+            &[],
         )
         .await
         .expect("get")
@@ -3708,9 +3789,14 @@ mod tests {
             .expect_err("cid_advertised Err must surface as a JmapError");
         assert_eq!(err.error_type.to_string(), "serverFail", "{err:?}");
 
-        let get = handle_filenode_get(&backend, &(), json!({ "accountId": "acc1", "ids": null }))
-            .await
-            .expect("get after failed set");
+        let get = handle_filenode_get(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": null }),
+            &[],
+        )
+        .await
+        .expect("get after failed set");
         assert_eq!(get.primary["list"], json!([]), "{}", get.primary);
     }
 
@@ -3741,7 +3827,7 @@ mod tests {
     async fn query_returns_standard_shape() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -3755,7 +3841,7 @@ mod tests {
     async fn query_depth_absent_flat_query() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed for absent depth");
         assert!(resp["ids"].as_array().unwrap().is_empty());
@@ -3766,7 +3852,7 @@ mod tests {
     async fn query_depth_zero_flat_query() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
         let args = json!({ "accountId": "acc1", "depth": 0, "filter": null, "sort": null });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed for depth=0");
         assert!(resp["ids"].as_array().unwrap().is_empty());
@@ -3793,7 +3879,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed for depth=0 with seeded children");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3825,7 +3911,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed for depth=1");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3859,7 +3945,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3889,7 +3975,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -3917,7 +4003,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids array");
@@ -3952,7 +4038,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let result = handle_filenode_query(&backend, &(), args).await;
+        let result = handle_filenode_query(&backend, &(), args, &[]).await;
         assert!(
             result.is_err(),
             "depth>0 + backend failure during expansion must produce \
@@ -3988,7 +4074,7 @@ mod tests {
             "depth": 1,
             "filter": {"isTopLevel": true},
         });
-        let err = handle_filenode_query(&backend, &(), args)
+        let err = handle_filenode_query(&backend, &(), args, &[])
             .await
             .expect_err("a backend method error during expansion must fail the call");
 
@@ -4792,7 +4878,7 @@ mod tests {
             "onExists": { "note": "CANARY-zegc" },
             "create": {}
         });
-        let err = handle_filenode_copy(&backend, &(), args, "c0")
+        let err = handle_filenode_copy(&backend, &(), args, "c0", &[])
             .await
             .expect_err("object onExists must be a method error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");

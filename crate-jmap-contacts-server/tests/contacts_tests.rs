@@ -64,7 +64,7 @@ async fn address_book_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
 
@@ -90,7 +90,7 @@ async fn address_book_get_seeded_and_unknown_id() {
     );
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1", "missing"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
 
@@ -245,7 +245,7 @@ async fn contact_card_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
 
@@ -262,7 +262,7 @@ async fn contact_card_query_empty_store_returns_no_ids() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "calculateTotal": true });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args, &[])
         .await
         .expect("/query must succeed");
 
@@ -304,7 +304,7 @@ async fn contact_card_query_extreme_position_and_limit_saturate() {
         "limit": 9_007_199_254_740_991_u64
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -320,7 +320,7 @@ async fn contact_card_query_largest_position_is_empty_page_not_error() {
     let backend = backend_with_two_cards();
     let args = json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 });
 
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -427,7 +427,7 @@ async fn address_book_set_on_success_set_is_default_demotes_other_books_in_memor
 
     // Read both books back and check the invariant holds.
     let args = json!({ "accountId": "acc1", "ids": ["ab1", "ab2"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let list = resp["list"].as_array().expect("list must be an array");
@@ -473,7 +473,7 @@ async fn address_book_set_on_success_set_is_default_records_demoted_books_in_cha
     let args = json!({ "accountId": "acc1", "ids": null });
     let HandlerOutput {
         primary: before, ..
-    } = handle_address_book_get(&backend, &(), args)
+    } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let old_state = before["state"].clone();
@@ -538,7 +538,7 @@ async fn address_book_set_on_success_set_is_default_no_op_does_not_demote() {
         .expect("/set must succeed");
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1", "ab2"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let list = resp["list"].as_array().expect("list must be an array");
@@ -592,7 +592,7 @@ async fn address_book_set_create_set_default_demotes_existing_default() {
 
     // Fetch ab1 and confirm it was demoted.
     let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let list = resp["list"].as_array().expect("list must be an array");
@@ -618,7 +618,7 @@ async fn address_book_set_create_set_default_records_demoted_in_changes() {
     let args = json!({ "accountId": "acc1", "ids": null });
     let HandlerOutput {
         primary: before, ..
-    } = handle_address_book_get(&backend, &(), args)
+    } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let old_state = before["state"].clone();
@@ -957,7 +957,7 @@ async fn contact_card_update_removing_last_address_book_id_rejected() {
     let args = json!({ "accountId": "acc1", "ids": ["card1"] });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_contact_card_get(&backend, &(), args)
+    } = handle_contact_card_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let list = get_resp["list"].as_array().unwrap();
@@ -1192,7 +1192,7 @@ async fn contact_card_update_to_duplicate_uid_rejected() {
     let args = json!({ "accountId": "acc1", "ids": ["card-b"] });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_contact_card_get(&backend, &(), args)
+    } = handle_contact_card_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     assert_eq!(
@@ -1333,7 +1333,7 @@ async fn address_book_set_destroy_cascade_destroys_exclusive_card() {
     let args = json!({ "accountId": "acc1", "ids": ["card-exclusive"] });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_contact_card_get(&backend, &(), args)
+    } = handle_contact_card_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let not_found = get_resp["notFound"]
@@ -1397,7 +1397,7 @@ async fn address_book_set_destroy_cascade_patches_shared_card() {
     let args = json!({ "accountId": "acc1", "ids": ["card-shared"] });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_contact_card_get(&backend, &(), args)
+    } = handle_contact_card_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be array");
@@ -1460,7 +1460,7 @@ async fn address_book_set_destroy_cascade_mixed_exclusive_and_shared() {
     let args = json!({ "accountId": "acc1", "ids": ["card-exclusive", "card-shared"] });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_contact_card_get(&backend, &(), args)
+    } = handle_contact_card_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let not_found: Vec<&str> = get_resp["notFound"]
@@ -1554,7 +1554,7 @@ async fn contact_card_query_filter_by_kind_excludes_non_matches() {
         "accountId": "acc1",
         "filter": { "kind": "individual" }
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args, &[])
         .await
         .expect("/query must succeed");
 
@@ -1625,7 +1625,7 @@ async fn contact_card_query_sort_by_created_descending() {
         "accountId": "acc1",
         "sort": [ { "property": "created", "isAscending": false } ]
     });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args, &[])
         .await
         .expect("/query must succeed");
 
@@ -1690,7 +1690,7 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_contact_card_copy(&backend, &(), args, "call-0")
+    } = handle_contact_card_copy(&backend, &(), args, "call-0", &[])
         .await
         .expect("/copy must succeed");
 
@@ -1724,7 +1724,7 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
     let args = json!({ "accountId": "acc1", "ids": ["card-source"] });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_contact_card_get(&backend, &(), args)
+    } = handle_contact_card_get(&backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     let not_found = get_resp["notFound"]
@@ -1786,9 +1786,10 @@ async fn contact_card_query_evaluates_operator_tree() {
         ),
     ] {
         let args = json!({ "accountId": "acc1", "filter": filter });
-        let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
-            .await
-            .expect("/query must succeed");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_query(&backend, &(), args, &[])
+                .await
+                .expect("/query must succeed");
         let mut got: Vec<&str> = resp["ids"]
             .as_array()
             .expect("ids must be array")

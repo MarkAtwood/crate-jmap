@@ -560,6 +560,19 @@ impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
+    /// The info set by [`MemoryBackend::with_metadata_info`] for FileNode,
+    /// the same for every account; `None` for any other type.
+    fn metadata_info<O: JmapObject>(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Option<DataTypeMetadataInfo> {
+        if O::TYPE_NAME != FileNode::TYPE_NAME {
+            return None;
+        }
+        self.inner.lock().unwrap().metadata_info.clone()
+    }
+
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         Ok(self
             .inner

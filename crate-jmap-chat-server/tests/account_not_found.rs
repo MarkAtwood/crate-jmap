@@ -32,12 +32,12 @@ use serde_json::json;
 const UNKNOWN_ACCOUNT: &str = "no-such-account";
 
 macro_rules! account_not_found_test {
-    ($name:ident, $handler:ident, { $($arg:tt)* }) => {
+    ($name:ident, $handler:ident $(, using = $using:expr)?, { $($arg:tt)* }) => {
         #[tokio::test]
         async fn $name() {
             let backend = MemoryBackend::new();
             let args = json!({ "accountId": UNKNOWN_ACCOUNT, $($arg)* });
-            let err = $handler(&backend, &(), args)
+            let err = $handler(&backend, &(), args $(, $using)?)
                 .await
                 .expect_err(concat!(
                     "unknown accountId must be rejected (",
@@ -65,18 +65,29 @@ account_not_found_test!(emoji_changes_unknown_account, handle_emoji_changes, { "
 account_not_found_test!(emoji_query_unknown_account, handle_emoji_query, {});
 account_not_found_test!(invite_get_unknown_account, handle_invite_get, { "ids": null });
 account_not_found_test!(invite_changes_unknown_account, handle_invite_changes, { "sinceState": "0" });
-account_not_found_test!(message_get_unknown_account, handle_message_get, { "ids": null });
-account_not_found_test!(message_query_unknown_account, handle_message_query, {});
+account_not_found_test!(message_get_unknown_account, handle_message_get, using = &[], { "ids": null });
+account_not_found_test!(
+    message_query_unknown_account,
+    handle_message_query,
+    using = &[],
+    {}
+);
 account_not_found_test!(
     message_query_changes_unknown_account,
     handle_message_query_changes,
+    using = &[],
     { "filter": { "chatId": "c1" }, "sinceQueryState": "0" }
 );
 account_not_found_test!(position_get_unknown_account, handle_position_get, { "ids": null });
 account_not_found_test!(position_changes_unknown_account, handle_position_changes, { "sinceState": "0" });
 account_not_found_test!(presence_get_unknown_account, handle_presence_get, { "ids": null });
 account_not_found_test!(presence_changes_unknown_account, handle_presence_changes, { "sinceState": "0" });
-account_not_found_test!(space_get_unknown_account, handle_space_get, { "ids": null });
-account_not_found_test!(space_query_unknown_account, handle_space_query, {});
+account_not_found_test!(space_get_unknown_account, handle_space_get, using = &[], { "ids": null });
+account_not_found_test!(
+    space_query_unknown_account,
+    handle_space_query,
+    using = &[],
+    {}
+);
 account_not_found_test!(chat_typing_unknown_account, handle_chat_typing, { "chatId": "c1", "typing": true });
 account_not_found_test!(space_join_unknown_account, handle_space_join, { "spaceId": "s1" });

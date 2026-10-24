@@ -56,6 +56,7 @@ async fn space_state(backend: &IdentityBackend) -> String {
         backend,
         &caller(),
         json!({ "accountId": ACCOUNT_ID, "ids": [] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -145,6 +146,7 @@ async fn add_members_null_role_ids_adds_member() {
         &backend,
         &caller(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -207,7 +209,7 @@ async fn space_query(backend: &IdentityBackend, extra: Value) -> Result<Value, J
     args.as_object_mut()
         .expect("object")
         .extend(extra.as_object().expect("object").clone());
-    handle_space_query(backend, &caller(), args)
+    handle_space_query(backend, &caller(), args, &[])
         .await
         .map(|HandlerOutput { primary, .. }| primary)
 }
@@ -299,6 +301,7 @@ async fn query_changes_reports_added_space_at_default_sort_index() {
         &backend,
         &caller(),
         json!({ "accountId": ACCOUNT_ID, "sinceQueryState": before["queryState"] }),
+        &[],
     )
     .await
     .expect("Space/queryChanges");
@@ -323,6 +326,7 @@ async fn query_changes_unsupported_sort_is_rejected() {
             "sinceQueryState": "0",
             "sort": [{ "property": "memberCount" }]
         }),
+        &[],
     )
     .await
     .expect_err("unsupported sort");

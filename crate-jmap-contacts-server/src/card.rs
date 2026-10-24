@@ -52,7 +52,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, reject_read_only_patch,
-    reject_server_set, server_fail_from_backend,
+    reject_server_set, server_fail_from_backend, uses_metadata,
 };
 
 // ---------------------------------------------------------------------------
@@ -65,13 +65,22 @@ use jmap_server::{
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists ContactCard for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see [`jmap_server::handle_get_with_metadata`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_get<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_get::<ContactCard, B>(backend, caller, args).await
+    jmap_server::handle_get_with_metadata::<ContactCard, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -369,6 +378,17 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
 /// `destroyFromIfInState` (if supplied) gates the implicit destroy
 /// against the source state at destroy time.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// the copy keeps the source's `metadata`, and its `privateMetadata` only
+/// with `urn:ietf:params:jmap:metadata` in `using` and when the
+/// destination supports it; neither is copied when the destination does
+/// not list ContactCard ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)).
+/// The create object "MAY include metadata and privateMetadata to override
+/// the copied values, with the same rules as a create in Foo/set": the
+/// handler rejects them without the capability and rejects `null`, and
+/// [`ContactsBackend::copy_object`] applies the rest.
+///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
 /// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3. If
 /// `destroyFromIfInState` does not match the source account's ContactCard
@@ -379,6 +399,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (to_account_id, mut args) = extract_account_id(args)?;
 
@@ -472,6 +493,16 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 }
             };
 
+            // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+            // Foo/set create rules (§3, §3.2).
+            if let Some(Err(err)) = spec_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_copied.insert(create_id, Value::from(&*err));
+                continue;
+            }
+
             // Fetch the source card.
             let (mut cards, not_found) = backend
                 .get_objects::<ContactCard>(
@@ -489,6 +520,18 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             }
 
             let mut card = cards.remove(0);
+            // draft-ietf-jmap-metadata-04 §3.4: "When the request does not use
+            // this capability, only metadata is copied", "privateMetadata is
+            // not copied when the destination does not support it, and
+            // neither property is copied when the data type is not listed in
+            // the destination account". Overrides are applied below.
+            let info = backend.metadata_info::<ContactCard>(caller, &to_account_id);
+            if !uses_metadata(using) || !info.as_ref().is_some_and(|i| i.supports_private) {
+                card.private_metadata = None;
+            }
+            if info.is_none() {
+                card.metadata = None;
+            }
 
             // Apply any patch fields from the copy spec (RFC 8620 §6.3).
             // Keys are RFC 8620 §5.3 PatchObject paths; a path the shared
@@ -531,7 +574,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             }
 
             match backend
-                .copy_object(caller, &from_account_id, &to_account_id, card)
+                .copy_object(caller, &from_account_id, &to_account_id, card, &spec_val)
                 .await
             {
                 Ok((_new_id, copied_obj)) => {
@@ -652,12 +695,23 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 /// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
 /// `total`, optional `limit`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_query<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_contacts_types::ContactCardFilterCondition::has_metadata_condition,
+        using,
+    )?;
     reject_unsupported_sort::<ContactCardComparator>(args.get("sort"))?;
     jmap_server::handle_query::<ContactCard, B>(backend, caller, args).await
 }
@@ -675,12 +729,23 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_contacts_types::ContactCardFilterCondition::has_metadata_condition,
+        using,
+    )?;
     reject_unsupported_sort::<ContactCardComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<ContactCard, B>(backend, caller, args).await
 }
@@ -704,7 +769,7 @@ mod tests {
     async fn query_unlisted_sort_property_returns_unsupported_sort() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sort": [{ "property": "kind" }] });
-        let err = handle_contact_card_query(&backend, &(), args)
+        let err = handle_contact_card_query(&backend, &(), args, &[])
             .await
             .expect_err("unlisted sort property must be rejected");
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
@@ -720,7 +785,7 @@ mod tests {
             "sinceQueryState": "0",
             "sort": [{ "property": "name/surname" }, { "property": "kind" }]
         });
-        let err = handle_contact_card_query_changes(&backend, &(), args)
+        let err = handle_contact_card_query_changes(&backend, &(), args, &[])
             .await
             .expect_err("unlisted sort property must be rejected");
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
@@ -732,7 +797,7 @@ mod tests {
     async fn query_listed_sort_property_is_accepted() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sort": [{ "property": "name/surname" }] });
-        handle_contact_card_query(&backend, &(), args)
+        handle_contact_card_query(&backend, &(), args, &[])
             .await
             .expect("listed sort property must not be rejected");
     }
@@ -744,7 +809,7 @@ mod tests {
     async fn query_comparator_without_property_returns_invalid_arguments() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sort": [{ "isAscending": false }] });
-        let err = handle_contact_card_query(&backend, &(), args)
+        let err = handle_contact_card_query(&backend, &(), args, &[])
             .await
             .expect_err("comparator without property must be rejected");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -755,7 +820,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let err = handle_contact_card_get(&backend, &(), args)
+        let err = handle_contact_card_get(&backend, &(), args, &[])
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(err.error_type.to_string(), "accountNotFound");
@@ -778,9 +843,10 @@ mod tests {
     async fn query_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let HandlerOutput { primary: resp, .. } = handle_contact_card_query(&backend, &(), args)
-            .await
-            .expect("must not error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_query(&backend, &(), args, &[])
+                .await
+                .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
     }
 
@@ -790,7 +856,7 @@ mod tests {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceQueryState": "0" });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_query_changes(&backend, &(), args)
+            handle_contact_card_query_changes(&backend, &(), args, &[])
                 .await
                 .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
@@ -805,7 +871,7 @@ mod tests {
             "fromAccountId": "unknown",
             "create": { "c1": { "id": "card1" } }
         });
-        let err = handle_contact_card_copy(&backend, &(), args, "c0")
+        let err = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect_err("must return error for unknown fromAccountId");
         assert_eq!(err.error_type.to_string(), "fromAccountNotFound");
@@ -946,7 +1012,7 @@ mod tests {
             "create": { "c1": { "id": "card1" } }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_copy(&backend, &(), args, "c0")
+            handle_contact_card_copy(&backend, &(), args, "c0", &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -1008,7 +1074,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_copy(&backend, &(), args, "c0")
+            handle_contact_card_copy(&backend, &(), args, "c0", &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -1050,7 +1116,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_copy(&backend, &(), args, "c0")
+            handle_contact_card_copy(&backend, &(), args, "c0", &[])
                 .await
                 .expect("must not return top-level error");
 
@@ -1081,7 +1147,7 @@ mod tests {
             "fromAccountId": "acc1",
             "create": { "c1": { "id": "card1" } }
         });
-        let err = handle_contact_card_copy(&backend, &(), args, "c0")
+        let err = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect_err("same-account copy must error");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
@@ -1103,7 +1169,7 @@ mod tests {
             "ifFromInState": "stale-state-value",
             "create": { "c1": { "id": "card1" } }
         });
-        let err = handle_contact_card_copy(&backend, &(), args, "c0")
+        let err = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect_err("ifFromInState mismatch must error");
         assert_eq!(err.error_type.to_string(), "stateMismatch");
@@ -1124,7 +1190,7 @@ mod tests {
             "create": { "c1": { "id": "card1" } }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_copy(&backend, &(), args, "c0")
+            handle_contact_card_copy(&backend, &(), args, "c0", &[])
                 .await
                 .expect("ifFromInState match must succeed");
         assert!(
@@ -1153,7 +1219,7 @@ mod tests {
         let HandlerOutput {
             extra_invocations: extra,
             ..
-        } = handle_contact_card_copy(&backend, &(), args, "c0")
+        } = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("/copy must succeed");
 
@@ -1198,7 +1264,7 @@ mod tests {
         let HandlerOutput {
             extra_invocations: extra,
             ..
-        } = handle_contact_card_copy(&backend, &(), args, "c0")
+        } = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("/copy must succeed");
         assert!(
@@ -1225,7 +1291,7 @@ mod tests {
         let HandlerOutput {
             extra_invocations: extra,
             ..
-        } = handle_contact_card_copy(&backend, &(), args, "c0")
+        } = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("/copy must succeed");
         assert!(
@@ -1258,7 +1324,7 @@ mod tests {
             primary: resp,
             extra_invocations: extra,
             ..
-        } = handle_contact_card_copy(&backend, &(), args, "c0")
+        } = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("/copy must succeed (mismatch only affects implicit destroy)");
 
@@ -1281,6 +1347,7 @@ mod tests {
             &backend,
             &(),
             json!({ "accountId": "acc1", "ids": ["card1"] }),
+            &[],
         )
         .await
         .expect("get must succeed");
@@ -1315,7 +1382,7 @@ mod tests {
             }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_copy(&backend, &(), args, "c0")
+            handle_contact_card_copy(&backend, &(), args, "c0", &[])
                 .await
                 .expect("/copy must not return a top-level error");
 
@@ -1347,7 +1414,7 @@ mod tests {
             "create": { "c1": spec }
         });
         let HandlerOutput { primary: resp, .. } =
-            handle_contact_card_copy(&backend, &(), args, "c0")
+            handle_contact_card_copy(&backend, &(), args, "c0", &[])
                 .await
                 .expect("/copy must not return a top-level error");
         (resp, backend)
@@ -1454,7 +1521,7 @@ mod tests {
         let HandlerOutput {
             extra_invocations: extra,
             ..
-        } = handle_contact_card_copy(&backend, &(), args, "c0")
+        } = handle_contact_card_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("/copy must succeed");
 

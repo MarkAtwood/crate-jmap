@@ -368,6 +368,7 @@ pub async fn get_chat(backend: &Bound, id: &str) -> Value {
         &backend.chat,
         &(),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
+        &[],
     )
     .await
     .expect("Chat/get");
@@ -380,6 +381,7 @@ pub async fn chat_state(backend: &Bound) -> String {
         &backend.chat,
         &(),
         json!({ "accountId": ACCOUNT, "ids": [] }),
+        &[],
     )
     .await
     .expect("Chat/get");

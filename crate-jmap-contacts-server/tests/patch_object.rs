@@ -76,7 +76,7 @@ async fn update_card1(backend: &MemoryBackend, patch: Value) -> Value {
 /// Fetch `card1` with `ContactCard/get`.
 async fn get_card1(backend: &MemoryBackend) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["card1"] });
-    let HandlerOutput { primary: resp, .. } = handle_contact_card_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_contact_card_get(backend, &(), args, &[])
         .await
         .expect("/get must succeed");
     resp["list"][0].clone()
@@ -195,7 +195,7 @@ async fn update_address_book_sort_order_null_resets_to_default() {
     );
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("AddressBook/get must succeed after sortOrder: null");
     assert_eq!(resp["list"][0]["sortOrder"], json!(0), "{resp}");
@@ -220,7 +220,7 @@ async fn address_book_required_name_null_is_invalid_properties() {
     );
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
-    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_address_book_get(&backend, &(), args, &[])
         .await
         .expect("AddressBook/get must succeed after a rejected update");
     assert_eq!(resp["list"][0]["name"], "ab1", "{resp}");

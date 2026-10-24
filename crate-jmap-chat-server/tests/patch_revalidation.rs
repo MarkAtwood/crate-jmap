@@ -68,7 +68,7 @@ async fn chat_kind_null_rejected_and_get_succeeds() {
     assert_rejected_naming(&resp, &id, "kind");
 
     let HandlerOutput { primary: resp, .. } =
-        handle_chat_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        handle_chat_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
             .await
             .expect("Chat/get");
     assert_eq!(single(resp)["kind"], "group");
@@ -112,7 +112,7 @@ async fn message_body_null_rejected_and_get_succeeds() {
     assert_rejected(&resp, &id);
 
     let HandlerOutput { primary: resp, .. } =
-        handle_message_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+        handle_message_get(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
             .await
             .expect("Message/get");
     assert_eq!(single(resp)["body"], "hi");

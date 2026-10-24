@@ -37,10 +37,14 @@ async fn set(backend: &MemoryBackend, args: Value) -> Value {
 }
 
 async fn get_one(backend: &MemoryBackend, id: &str) -> Value {
-    let HandlerOutput { primary, .. } =
-        handle_filenode_get(backend, &(), json!({ "accountId": "acc1", "ids": [id] }))
-            .await
-            .expect("get must not return a top-level error");
+    let HandlerOutput { primary, .. } = handle_filenode_get(
+        backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [id] }),
+        &[],
+    )
+    .await
+    .expect("get must not return a top-level error");
     primary["list"][0].clone()
 }
 
@@ -304,6 +308,7 @@ async fn get_with_cid_respects_properties() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": ["d1"], "properties": ["name"] }),
+        &[],
     )
     .await
     .expect("get must not return a top-level error");
@@ -350,6 +355,7 @@ async fn get_fetch_parents_with_cid_ancestor_has_null_sha256() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": ["f1"], "fetchParents": true }),
+        &[],
     )
     .await
     .expect("get must not return a top-level error");
@@ -376,6 +382,7 @@ async fn get_with_cid_properties_including_sha256() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": ["d1"], "properties": ["sha256", "name"] }),
+        &[],
     )
     .await
     .expect("get must not return a top-level error");
@@ -397,6 +404,7 @@ async fn get_with_cid_properties_null() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": ["d1"], "properties": null }),
+        &[],
     )
     .await
     .expect("get must not return a top-level error");
@@ -416,6 +424,7 @@ async fn copy(backend: &MemoryBackend, id: &str, overrides: Value) -> Value {
         &(),
         json!({ "fromAccountId": "src", "accountId": "dst", "create": { "c1": entry } }),
         "c0",
+        &[],
     )
     .await
     .expect("copy must not return a top-level error");

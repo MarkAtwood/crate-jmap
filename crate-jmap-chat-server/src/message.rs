@@ -58,8 +58,9 @@ use crate::helpers::{
 };
 use crate::helpers::{parents_first, resolve_entry_refs, resolved_create};
 use jmap_server::{
-    HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
-    query_anchor_args, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg, filter_arg,
+    is_client_updatable, query_anchor_args, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -72,11 +73,21 @@ use jmap_server::{
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists Message for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see
+/// [`jmap_server::MetadataProjection`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -107,6 +118,15 @@ pub async fn handle_message_get<B: ChatBackend>(
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
     };
+
+    let projection = MetadataProjection::new(
+        properties.as_deref(),
+        true,
+        using,
+        backend
+            .metadata_info::<Message>(caller, &account_id)
+            .as_ref(),
+    )?;
 
     let ids_slice = ids.as_deref();
     let (fetched, mut not_found) = backend
@@ -169,20 +189,23 @@ pub async fn handle_message_get<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let list_json: Vec<Value> = if let Some(ref props) = properties {
-        let mut prop_set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
-        prop_set.insert("id");
-        list.iter()
-            .map(|obj| {
-                let val = serialize_value(obj)?;
-                Ok(filter_properties(&val, &prop_set))
-            })
-            .collect::<Result<Vec<_>, JmapError>>()?
-    } else {
-        list.iter()
-            .map(serialize_value)
-            .collect::<Result<Vec<_>, _>>()?
-    };
+    let prop_set: Option<HashSet<&str>> = properties.as_ref().map(|props| {
+        let mut set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
+        set.insert("id");
+        set
+    });
+    let list_json: Vec<Value> = list
+        .iter()
+        .map(|obj| {
+            let val = serialize_value(obj)?;
+            let mut out = match &prop_set {
+                Some(set) => filter_properties(&val, set),
+                None => val.clone(),
+            };
+            projection.apply(&val, &mut out);
+            Ok(out)
+        })
+        .collect::<Result<Vec<_>, JmapError>>()?;
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
@@ -290,12 +313,23 @@ pub async fn handle_message_changes<B: ChatBackend>(
 /// Unknown filter clauses and sort properties are refused with
 /// `unsupportedFilter` / `unsupportedSort` (RFC 8620 §5.5).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_chat_types::MessageFilterCondition::has_metadata_condition,
+        using,
+    )?;
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-dtpe).
@@ -450,12 +484,23 @@ fn check_message_filter(
 /// `cannotCalculateChanges`, so the client re-runs `Message/query`, which
 /// returns nothing for that Chat (see [`handle_message_query`]).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     mut args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_chat_types::MessageFilterCondition::has_metadata_condition,
+        using,
+    )?;
     // RFC 8620 §5.6: the `filter` and `sort` are those of the original
     // query, so the §Message/query default sort applies here too.
     let chat_id = args
@@ -2532,6 +2577,7 @@ mod tests {
             backend,
             &(),
             json!({ "accountId": ACCOUNT_ID, "ids": [space_id] }),
+            &[],
         )
         .await
         .expect("make_channel_chat: Space/get");

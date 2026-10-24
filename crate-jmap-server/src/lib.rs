@@ -44,7 +44,8 @@ pub use backend::{
 };
 pub use handlers::{
     SERVER_FAIL_INTERNAL_DESC, changes_error_from_backend, handle_changes, handle_get,
-    handle_query, handle_query_changes, server_fail_from_backend, server_fail_value_from_backend,
+    handle_get_with_metadata, handle_query, handle_query_changes, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 pub use helpers::{
     CREATE_ID_PLACEHOLDER, MergePatchError, MetadataProjection, PatchPathError, apply_jmap_patch,
@@ -52,10 +53,10 @@ pub use helpers::{
     enforce_max_objects_in_set, extract_account_id, filter_arg, is_client_updatable,
     json_merge_patch, json_type_name, limit_or_max, not_found_json, now_utc_string,
     now_utc_string_checked, optional_arg, parse_max_changes, parse_wire_id, query_anchor_args,
-    reject_did_bearing_properties, reject_metadata_filter_without_capability,
-    reject_read_only_patch, reject_server_set, resolve_creation_ref, resolve_query_offset,
-    resolve_query_start, serialize_value, take_bool_arg, uses_metadata,
-    utc_date_from_epoch_seconds,
+    reject_did_bearing_properties, reject_metadata_filter_arg,
+    reject_metadata_filter_without_capability, reject_read_only_patch, reject_server_set,
+    resolve_creation_ref, resolve_query_offset, resolve_query_start, serialize_value,
+    take_bool_arg, uses_metadata, utc_date_from_epoch_seconds,
 };
 
 mod parse;

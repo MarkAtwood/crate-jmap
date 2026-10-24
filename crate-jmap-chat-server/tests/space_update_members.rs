@@ -50,6 +50,7 @@ async fn nick_of(backend: &IdentityBackend, member: &str) -> Value {
         backend,
         &Id::from("admin-user"),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -155,6 +156,7 @@ async fn role_ids_of(backend: &IdentityBackend, member: &str) -> Value {
         backend,
         &Id::from("admin-user"),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");

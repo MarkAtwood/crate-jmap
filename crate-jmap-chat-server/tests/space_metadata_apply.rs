@@ -47,6 +47,7 @@ async fn read_space_description(backend: &IdentityBackend, caller: &Id) -> Strin
         backend,
         caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -221,6 +222,7 @@ async fn manage_space_holder_can_mutate_all_metadata_fields() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -457,6 +459,7 @@ async fn mixed_patch_metadata_plus_structural_atomic_reject() {
         &backend,
         &admin,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -518,6 +521,7 @@ async fn mixed_patch_metadata_plus_structural_admin_succeeds() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -579,6 +583,7 @@ async fn single_field_metadata_patch_still_gated() {
         &backend,
         &caller,
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("Space/get");

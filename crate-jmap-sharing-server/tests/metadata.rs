@@ -15,8 +15,8 @@ use common::MemoryBackend;
 use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_server::{Dispatcher, HandlerOutput};
 use jmap_sharing_server::{
-    handle_principal_changes, handle_principal_get, handle_principal_query, handle_principal_set,
-    register_sharing_handlers,
+    handle_principal_changes, handle_principal_get, handle_principal_query,
+    handle_principal_query_changes, handle_principal_set, register_sharing_handlers,
 };
 use jmap_types::{Id, JmapError, JmapRequest, State};
 use serde_json::{Value, json};
@@ -92,22 +92,26 @@ async fn update_error(backend: &MemoryBackend, id: &str, patch: Value) -> Value 
 
 async fn property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id] });
-    let HandlerOutput { primary, .. } = handle_principal_get(backend, &(), args).await.unwrap();
+    let HandlerOutput { primary, .. } = handle_principal_get(backend, &(), args, &using())
+        .await
+        .unwrap();
     primary["list"][0][property].clone()
 }
 
 async fn query(backend: &MemoryBackend, filter: Value) -> Result<Vec<String>, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
-    handle_principal_query(backend, &(), args).await.map(|o| {
-        let mut ids: Vec<String> = o.primary["ids"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap().to_owned())
-            .collect();
-        ids.sort();
-        ids
-    })
+    handle_principal_query(backend, &(), args, &using())
+        .await
+        .map(|o| {
+            let mut ids: Vec<String> = o.primary["ids"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_str().unwrap().to_owned())
+                .collect();
+            ids.sort();
+            ids
+        })
 }
 
 fn sorted(mut ids: Vec<String>) -> Vec<String> {
@@ -129,7 +133,9 @@ async fn changes(
 
 async fn state(backend: &MemoryBackend) -> String {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [] });
-    let HandlerOutput { primary, .. } = handle_principal_get(backend, &(), args).await.unwrap();
+    let HandlerOutput { primary, .. } = handle_principal_get(backend, &(), args, &using())
+        .await
+        .unwrap();
     primary["state"].as_str().unwrap().to_owned()
 }
 
@@ -514,4 +520,163 @@ async fn dispatcher_forwards_using() {
             );
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// /get and the /query capability gate (-04 §2, §3, §3.1; bd JMAP-s4kp.9)
+// ---------------------------------------------------------------------------
+
+/// A second vendor namespace for the subselector tests.
+const NS2: &str = "other.example.org";
+
+/// The `type` of a method-level error.
+fn method_error_type(err: &JmapError) -> Value {
+    serde_json::to_value(err).unwrap()["type"].clone()
+}
+
+/// Run Principal/get with `properties` on `id` and return its one list entry.
+async fn principal_get_one(
+    b: &MemoryBackend,
+    id: &str,
+    properties: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
+    let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": properties });
+    handle_principal_get(b, &(), args, using)
+        .await
+        .map(|o| o.primary["list"][0].clone())
+}
+
+/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// MUST include metadata and, where supportsPrivate is true,
+/// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
+/// object ({} when no metadata is set), never null"; §2 (L306-307): "When
+/// supportsPrivate is false for the data type, this property MUST NOT be
+/// returned"; §3 (L461-463): for other requests "metadata and
+/// privateMetadata are not default properties of Foo/get (although they
+/// are still returned when requested by name)".
+#[tokio::test]
+async fn principal_get_default_properties_follow_capability() {
+    let b = backend();
+    let bare = create(&b, "bare", json!({})).await;
+    let tagged = create(&b, "tagged", json!({ NS: { "k": 1 } })).await;
+
+    let got = principal_get_one(&b, &bare, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({}), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+    let got = principal_get_one(&b, &tagged, Value::Null, &using())
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+
+    let without = using_without_metadata();
+    let got = principal_get_one(&b, &tagged, Value::Null, &without)
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+    let props = json!(["id", "metadata", "privateMetadata"]);
+    let got = principal_get_one(&b, &tagged, props, &without)
+        .await
+        .unwrap();
+    assert_eq!(got["metadata"], json!({ NS: { "k": 1 } }), "{got}");
+    assert!(got.get("privateMetadata").is_none(), "{got}");
+}
+
+/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// by union" and "An explicit root entry supersedes subselectors with the
+/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// silently omitted from the response, unless the object has data stored
+/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// with metadata/ or privateMetadata/ MUST be rejected with an
+/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// part of the extension, so without the capability they name no
+/// property.
+#[tokio::test]
+async fn principal_get_metadata_subselectors() {
+    let b = backend();
+    let id = create(&b, "tagged", json!({ NS: { "k": 1 }, NS2: { "k": 2 } })).await;
+    let cases = [
+        (
+            json!(["metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 } }),
+        ),
+        (
+            json!(["metadata/acme.example.com", "metadata/other.example.org"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (
+            json!(["metadata", "metadata/acme.example.com"]),
+            json!({ NS: { "k": 1 }, NS2: { "k": 2 } }),
+        ),
+        (json!(["metadata/unlisted.example.net"]), json!({})),
+    ];
+    for (props, want) in cases {
+        let got = principal_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap();
+        assert_eq!(got["metadata"], want, "{props}: {got}");
+    }
+
+    let props = json!(["metadata/acme.example.com"]);
+    let got = principal_get_one(&b, &id, props, &using_without_metadata())
+        .await
+        .unwrap();
+    assert!(got.get("metadata").is_none(), "{got}");
+
+    for props in [
+        json!(["metadata/"]),
+        json!(["metadata/acme.example.com/k"]),
+        json!(["privateMetadata/"]),
+    ] {
+        let err = principal_get_one(&b, &id, props.clone(), &using())
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("invalidArguments"),
+            "{props}"
+        );
+    }
+}
+
+/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// them, "apply to requests whose using includes
+/// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
+/// filter is syntactically valid, but the server cannot process it".
+#[tokio::test]
+async fn principal_metadata_filter_requires_capability() {
+    let b = backend();
+    let without = using_without_metadata();
+    for filter in [
+        json!({ "metadataExists": NS }),
+        json!({ "operator": "NOT", "conditions": [json!({ "metadataExists": NS })] }),
+    ] {
+        let args = json!({ "accountId": ACCOUNT_ID, "filter": filter.clone() });
+        let err = handle_principal_query(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+        let args =
+            json!({ "accountId": ACCOUNT_ID, "filter": filter.clone(), "sinceQueryState": "0" });
+        let err = handle_principal_query_changes(&b, &(), args, &without)
+            .await
+            .unwrap_err();
+        assert_eq!(
+            method_error_type(&err),
+            json!("unsupportedFilter"),
+            "{filter}"
+        );
+    }
+    let args = json!({ "accountId": ACCOUNT_ID, "filter": json!({ "metadataExists": NS }) });
+    assert!(
+        handle_principal_query(&b, &(), args, &using())
+            .await
+            .is_ok()
+    );
 }

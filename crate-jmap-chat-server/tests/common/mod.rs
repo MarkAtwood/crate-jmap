@@ -1904,6 +1904,7 @@ pub async fn make_received(backend: &MemoryBackend, id: &str) {
         backend,
         &(),
         serde_json::json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+        &[],
     )
     .await
     .expect("Message/get");

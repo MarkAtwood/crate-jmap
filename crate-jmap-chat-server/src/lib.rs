@@ -207,17 +207,17 @@ where
     }
 
     // Chat
-    reg!("Chat/get", backend, |b, _ci, a, ctx| {
-        handle_chat_get(&*b, &ctx, a).await
+    reg!("Chat/get", backend, |b, _ci, a, ctx, using| {
+        handle_chat_get(&*b, &ctx, a, &using).await
     });
     reg!("Chat/changes", backend, |b, _ci, a, ctx, using| {
         handle_chat_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Chat/query", backend, |b, _ci, a, ctx| {
-        handle_chat_query(&*b, &ctx, a).await
+    reg!("Chat/query", backend, |b, _ci, a, ctx, using| {
+        handle_chat_query(&*b, &ctx, a, &using).await
     });
-    reg!("Chat/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_chat_query_changes(&*b, &ctx, a).await
+    reg!("Chat/queryChanges", backend, |b, _ci, a, ctx, using| {
+        handle_chat_query_changes(&*b, &ctx, a, &using).await
     });
     reg!("Chat/set", backend, |b, _ci, a, ctx, created_ids, using| {
         handle_chat_set(&*b, &ctx, &created_ids, a, &using).await
@@ -227,17 +227,17 @@ where
     });
 
     // Message
-    reg!("Message/get", backend, |b, _ci, a, ctx| {
-        message::handle_message_get(&*b, &ctx, a).await
+    reg!("Message/get", backend, |b, _ci, a, ctx, using| {
+        message::handle_message_get(&*b, &ctx, a, &using).await
     });
     reg!("Message/changes", backend, |b, _ci, a, ctx, using| {
         message::handle_message_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Message/query", backend, |b, _ci, a, ctx| {
-        message::handle_message_query(&*b, &ctx, a).await
+    reg!("Message/query", backend, |b, _ci, a, ctx, using| {
+        message::handle_message_query(&*b, &ctx, a, &using).await
     });
-    reg!("Message/queryChanges", backend, |b, _ci, a, ctx| {
-        message::handle_message_query_changes(&*b, &ctx, a).await
+    reg!("Message/queryChanges", backend, |b, _ci, a, ctx, using| {
+        message::handle_message_query_changes(&*b, &ctx, a, &using).await
     });
     reg!(
         "Message/set",
@@ -248,17 +248,17 @@ where
     );
 
     // Space
-    reg!("Space/get", backend, |b, _ci, a, ctx| {
-        handle_space_get(&*b, &ctx, a).await
+    reg!("Space/get", backend, |b, _ci, a, ctx, using| {
+        handle_space_get(&*b, &ctx, a, &using).await
     });
     reg!("Space/changes", backend, |b, _ci, a, ctx, using| {
         handle_space_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Space/query", backend, |b, _ci, a, ctx| {
-        handle_space_query(&*b, &ctx, a).await
+    reg!("Space/query", backend, |b, _ci, a, ctx, using| {
+        handle_space_query(&*b, &ctx, a, &using).await
     });
-    reg!("Space/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_space_query_changes(&*b, &ctx, a).await
+    reg!("Space/queryChanges", backend, |b, _ci, a, ctx, using| {
+        handle_space_query_changes(&*b, &ctx, a, &using).await
     });
     reg!(
         "Space/set",

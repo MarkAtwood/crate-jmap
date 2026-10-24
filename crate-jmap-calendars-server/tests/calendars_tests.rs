@@ -75,7 +75,7 @@ async fn calendar_get_empty_account_returns_empty_list() {
         "ids": null
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_get(&backend, &(), args, &[])
         .await
         .expect("/get must not return top-level error");
 
@@ -113,7 +113,7 @@ async fn calendar_get_seeded_calendar_and_unknown_id() {
         "ids": ["cal1", "does-not-exist"]
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_get(&backend, &(), args, &[])
         .await
         .expect("/get must not return top-level error");
 
@@ -331,7 +331,7 @@ async fn calendar_event_get_empty_account_returns_empty_list() {
         "ids": null
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(&backend, &(), args, &[])
         .await
         .expect("/get must not return top-level error");
 
@@ -361,7 +361,7 @@ async fn calendar_event_query_empty_store_returns_no_ids() {
         "calculateTotal": true
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -546,7 +546,7 @@ async fn calendar_event_query_anchor_selects_page_and_ignores_position() {
         "limit": 2
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -559,7 +559,7 @@ async fn calendar_event_query_negative_anchor_offset_clamps_to_zero() {
     let backend = backend_with_four_events();
     let args = json!({ "accountId": "acc1", "anchor": "e2", "anchorOffset": -5 });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -572,7 +572,7 @@ async fn calendar_event_query_unknown_anchor_is_anchor_not_found() {
     let backend = backend_with_four_events();
     let args = json!({ "accountId": "acc1", "anchor": "missing" });
 
-    let err = handle_calendar_event_query(&backend, &(), args)
+    let err = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect_err("an anchor absent from the results must be rejected");
 
@@ -594,7 +594,7 @@ async fn calendar_event_query_extreme_position_and_limit_saturate() {
         "limit": 9_007_199_254_740_991_u64
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -610,7 +610,7 @@ async fn calendar_event_query_largest_position_is_empty_page_not_error() {
     let backend = backend_with_four_events();
     let args = json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 });
 
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect("/query must not return top-level error");
 
@@ -625,7 +625,7 @@ async fn calendar_event_query_non_id_anchor_is_invalid_arguments() {
     let backend = backend_with_four_events();
     let args = json!({ "accountId": "acc1", "anchor": 7 });
 
-    let err = handle_calendar_event_query(&backend, &(), args)
+    let err = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect_err("a non-Id anchor must be rejected");
 
@@ -687,9 +687,10 @@ async fn calendar_event_query_evaluates_operator_tree() {
         ),
     ] {
         let args = json!({ "accountId": "acc1", "filter": filter });
-        let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
-            .await
-            .expect("/query must not return top-level error");
+        let HandlerOutput { primary: resp, .. } =
+            handle_calendar_event_query(&backend, &(), args, &[])
+                .await
+                .expect("/query must not return top-level error");
         assert_eq!(resp["ids"], want, "filter {filter}: {resp}");
     }
 }
@@ -723,7 +724,7 @@ async fn calendar_query_rejects_filter_backend_cannot_evaluate() {
         json!({ "inCalendar": "cal1", "text": "standup" }),
     ] {
         let args = json!({ "accountId": "acc1", "filter": filter });
-        let err = handle_calendar_event_query(&backend, &(), args)
+        let err = handle_calendar_event_query(&backend, &(), args, &[])
             .await
             .expect_err("an unevaluable CalendarEvent filter must be rejected");
         assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{filter}");
@@ -755,7 +756,7 @@ async fn calendar_query_rejects_sort_backend_cannot_apply() {
     let backend = backend_with_four_events();
 
     let args = json!({ "accountId": "acc1", "sort": [{ "property": "start" }] });
-    let err = handle_calendar_event_query(&backend, &(), args)
+    let err = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect_err("a sort the backend cannot apply must be rejected");
     assert_eq!(err.error_type.to_string(), "unsupportedSort");
@@ -767,7 +768,7 @@ async fn calendar_query_rejects_sort_backend_cannot_apply() {
     assert_eq!(err.error_type.to_string(), "unsupportedSort");
 
     let args = json!({ "accountId": "acc1", "sort": [] });
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args, &[])
         .await
         .expect("an empty sort must not be rejected");
     assert_eq!(resp["ids"], json!(["e1", "e2", "e3", "e4"]), "{resp}");

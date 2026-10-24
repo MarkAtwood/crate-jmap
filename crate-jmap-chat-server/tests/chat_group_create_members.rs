@@ -43,6 +43,7 @@ async fn stored_members(
         backend,
         &Id::from(caller),
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),
+        &[],
     )
     .await
     .expect("Chat/get");

@@ -14,6 +14,35 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-calendars-server**, **jmap-tasks-server**,
+  **jmap-contacts-server**, **jmap-filenode-server**, **jmap-chat-server**,
+  **jmap-sharing-server**: **BREAKING** the rest of draft-ietf-jmap-metadata-04
+  for every listed type (Calendar, CalendarEvent, TaskList, Task,
+  AddressBook, ContactCard, FileNode, Chat, Message, Space, Principal),
+  mirroring jmap-mail-server. Their `/get` handlers, the `/query` and
+  `/queryChanges` handlers of CalendarEvent, Task, ContactCard, FileNode,
+  Chat, Message, Space and Principal, and the `/copy` handlers of
+  CalendarEvent, Task, ContactCard and FileNode take the request's `using`
+  list as a new last argument (the `register_*_handlers` functions pass
+  `CallContext::using`). `ContactsBackend::copy_object` takes the `/copy`
+  create object as a new last argument. Each in-memory backend answers
+  `JmapBackend::metadata_info` with its `with_metadata_info` value. /get
+  returns `metadata` as an object (`{}` when nothing is stored), includes
+  it by default only with the capability in `using` (it used to include
+  stored metadata for every request), applies `metadata/<namespace>`
+  subselectors, rejects a malformed one with `invalidArguments`, and never
+  returns `privateMetadata` when `supportsPrivate` is false (-04 §2, §3.1);
+  a non-member's Space preview still shows no metadata. /query and
+  /queryChanges reject a -04 §3.6 condition with `unsupportedFilter` when
+  `using` lacks the capability (-04 §3). /copy rejects a `metadata` or
+  `privateMetadata` override without the capability or as `null`, copies
+  `privateMetadata` only with the capability and copies neither property
+  into an account that does not list the type (-04 §3.4); ContactCard/copy
+  validates only the supplied overrides (bd JMAP-s4kp.9).
+- **jmap-server**: `handle_get_with_metadata`, the generic /get for a type
+  a backend may list for draft-ietf-jmap-metadata-04, and
+  `reject_metadata_filter_arg`, the -04 §3 `using` gate on an undecoded
+  `filter` argument (bd JMAP-s4kp.9).
 - **jmap-server**: **BREAKING** new `JmapBackend::metadata_info::<O>`
   (default `None`), the draft-ietf-jmap-metadata-04 §1.2.1
   DataTypeMetadataInfo of a type in an account, plus the shared /get and

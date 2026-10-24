@@ -31,6 +31,7 @@ async fn space_names(backend: &MemoryBackend, space_ids: &[String]) -> Vec<Strin
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": space_ids }),
+        &[],
     )
     .await
     .expect("Space/get");
@@ -58,6 +59,7 @@ async fn query_spaces_by_name(backend: &MemoryBackend, is_ascending: bool) -> Ve
             "accountId": ACCOUNT_ID,
             "sort": [{ "property": "name", "isAscending": is_ascending }],
         }),
+        &[],
     )
     .await
     .expect("Space/query");

@@ -87,6 +87,7 @@ async fn messages(backend: &MemoryBackend) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": null }),
+        &[],
     )
     .await
     .expect("Message/get");
@@ -235,6 +236,7 @@ async fn first_message_creates_read_position() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": ["g"] }),
+        &[],
     )
     .await
     .expect("Chat/get");

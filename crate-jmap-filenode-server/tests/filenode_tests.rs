@@ -320,6 +320,7 @@ async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
             "accountId": "acc1",
             "ids": ["A", "B", "C"]
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -416,7 +417,7 @@ async fn filenode_get_returns_created_node() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_filenode_get(&backend, &(), get_args)
+    } = handle_filenode_get(&backend, &(), get_args, &[])
         .await
         .expect("get must succeed");
 
@@ -498,6 +499,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
             "ids": [&child_id],
             "fetchParents": true
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -581,6 +583,7 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
             "ids": [&child_a, &child_b],
             "fetchParents": true
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -663,6 +666,7 @@ async fn filenode_query_depth_one_returns_children() {
             "sort": null,
             "depth": 1
         }),
+        &[],
     )
     .await
     .expect("query must succeed");
@@ -696,7 +700,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
             "accountId": "acc1",
             "ids": []
         });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), get_args)
+        let HandlerOutput { primary: resp, .. } = handle_filenode_get(&backend, &(), get_args, &[])
             .await
             .expect("get must succeed");
         resp["state"]
@@ -793,7 +797,7 @@ async fn filenode_changes_unparseable_since_state_cannot_calculate() {
 
 async fn changes_state(backend: &MemoryBackend) -> String {
     let HandlerOutput { primary, .. } =
-        handle_filenode_get(backend, &(), json!({ "accountId": "acc1", "ids": [] }))
+        handle_filenode_get(backend, &(), json!({ "accountId": "acc1", "ids": [] }), &[])
             .await
             .expect("get must succeed");
     primary["state"].as_str().expect("state").to_owned()
@@ -1125,6 +1129,7 @@ async fn filenode_copy_default_collision_returns_already_exists() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1163,6 +1168,7 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1251,6 +1257,7 @@ async fn filenode_copy_rename_memory_backend_folds_case() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1278,6 +1285,7 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1298,6 +1306,7 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
             "accountId": "dst",
             "ids": [&existing_id]
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -1335,6 +1344,7 @@ async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1400,6 +1410,7 @@ async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
             "create": { "c": { "id": &src_id, "role": null } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1437,6 +1448,7 @@ async fn filenode_copy_newest_replace_lists_destroyed_id() {
             "create": { "c": { "id": "src-1", "role": null } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1465,6 +1477,7 @@ async fn filenode_copy_without_collision_omits_destroyed() {
             "create": { "c": { "id": &src_id, "role": null } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1516,6 +1529,7 @@ async fn filenode_copy_newest_cascade_lists_all_destroyed_ids() {
             "create": { "c": { "id": "src-1", "role": null } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1556,6 +1570,7 @@ async fn filenode_copy_newest_not_later_omits_destroyed() {
             "create": { "c": { "id": "src-1", "role": null } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1590,6 +1605,7 @@ async fn filenode_copy_replace_with_children_without_flag_omits_destroyed() {
             "create": { "c": { "id": &src_id, "role": null } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1624,6 +1640,7 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1680,6 +1697,7 @@ async fn filenode_copy_applies_arbitrary_property_overrides() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1716,6 +1734,7 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -1736,6 +1755,7 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
             "accountId": "dst",
             "ids": [&existing_parent, &existing_child]
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -1784,6 +1804,7 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect_err("ifFromInState mismatch must produce a JmapError");
@@ -1804,6 +1825,7 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
             "accountId": "dst",
             "ids": null
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -1840,6 +1862,7 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
             "accountId": "src",
             "ids": []
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -1860,6 +1883,7 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("matching ifFromInState must allow the copy to proceed");
@@ -1905,6 +1929,7 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("copy must succeed");
@@ -1954,6 +1979,7 @@ async fn filenode_copy_on_success_destroy_original_destroys_source() {
             "accountId": "src",
             "ids": [&src_id]
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -1992,6 +2018,7 @@ async fn copy_with_destroy_from_if_in_state(
             &backend,
             &(),
             json!({ "accountId": "src", "ids": [&src_id] }),
+            &[],
         )
     };
     let state = match destroy_from_if_in_state {
@@ -2016,6 +2043,7 @@ async fn copy_with_destroy_from_if_in_state(
             "create": { "c": { "id": &src_id, "role": null } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("copy must succeed");
@@ -2091,6 +2119,7 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("copy itself must succeed");
@@ -2120,6 +2149,7 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
             "accountId": "src",
             "ids": [&src_parent]
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -2158,6 +2188,7 @@ async fn filenode_copy_same_account_under_own_descendant_returns_invalid_propert
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2192,6 +2223,7 @@ async fn filenode_copy_same_account_to_own_id_returns_invalid_properties() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2228,6 +2260,7 @@ async fn filenode_copy_unknown_from_account_returns_from_account_not_found() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect_err("unknown fromAccountId must produce a JmapError");
@@ -2256,6 +2289,7 @@ async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect_err("unknown accountId must produce a JmapError");
@@ -2303,6 +2337,7 @@ async fn filenode_query_role_filter_excludes_non_matching() {
             "filter": { "role": "documents" },
             "sort": null
         }),
+        &[],
     )
     .await
     .expect("query must succeed");
@@ -2337,6 +2372,7 @@ async fn filenode_query_full_text_filter_is_unsupported_filter() {
                 "filter": filter,
                 "sort": null
             }),
+            &[],
         )
         .await;
 
@@ -2725,6 +2761,7 @@ async fn filenode_copy_on_exists_newest_incoming_wins() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -2745,6 +2782,7 @@ async fn filenode_copy_on_exists_newest_incoming_wins() {
             "accountId": "dst",
             "ids": ["dst-1"]
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -3015,6 +3053,7 @@ async fn filenode_copy_rejects_invalid_type_overrides() {
             }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3126,6 +3165,7 @@ async fn filenode_set_update_rejects_other_type_properties() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "filter": { "mediaType": "text/plain" } }),
+        &[],
     )
     .await
     .expect("query must succeed");
@@ -3266,6 +3306,7 @@ async fn filenode_set_update_rejects_type_change() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [&dir_id], "properties": ["@type"] }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -3317,6 +3358,7 @@ async fn assert_invalid_create_keeps_existing(on_exists: &str) {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [&existing_id] }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -3414,6 +3456,7 @@ async fn filenode_copy_rejects_other_type_property() {
             "create": { "c": { "id": &src_id, "executable": true } }
         }),
         "c0",
+        &[],
     )
     .await
     .expect("must not return top-level error");
@@ -3481,6 +3524,7 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [id], "properties": ["modified", "accessed"] }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -3540,6 +3584,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
             &backend,
             &(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
+            &[],
         )
         .await
         .expect("get must succeed");
@@ -3577,6 +3622,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": [&id], "properties": ["name"] }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -3630,6 +3676,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
             &backend,
             &(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
+            &[],
         )
         .await
         .expect("get must succeed");
@@ -3661,6 +3708,7 @@ async fn filenode_set_create_null_modified_accessed_sets_server_time() {
             "ids": [&ids[0]],
             "properties": ["created", "modified", "accessed"]
         }),
+        &[],
     )
     .await
     .expect("get must succeed");
@@ -3722,6 +3770,7 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
             backend,
             &(),
             json!({ "accountId": "acc1", "ids": [id], "properties": [prop] }),
+            &[],
         )
         .await
         .expect("get must succeed");
@@ -3785,6 +3834,7 @@ async fn filenode_query_space_id_returns_only_matching_space_root() {
                 "accountId": "acc1",
                 "filter": { "role": "chatspace", "spaceId": space_id }
             }),
+            &[],
         )
     };
 
@@ -3841,6 +3891,7 @@ async fn get_space_id(backend: &MemoryBackend, id: &str) -> serde_json::Value {
         backend,
         &(),
         json!({ "accountId": "acc1", "ids": [id], "properties": ["spaceId"] }),
+        &[],
     )
     .await
     .expect("FileNode/get must succeed");
@@ -3983,6 +4034,7 @@ async fn filenode_set_update_role_to_chatspace_rejected() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "ids": ["d1"], "properties": ["role"] }),
+        &[],
     )
     .await
     .expect("FileNode/get must succeed");
@@ -4068,6 +4120,7 @@ async fn filenode_query_evaluates_operator_tree() {
             &backend,
             &(),
             json!({ "accountId": "acc1", "filter": filter, "sort": null }),
+            &[],
         )
         .await
         .expect("query must succeed");
@@ -4093,6 +4146,7 @@ async fn filenode_query_evaluates_operator_tree() {
             ] },
             "sort": null
         }),
+        &[],
     )
     .await
     .expect_err("a nested body condition must not silently match");
@@ -4146,6 +4200,7 @@ async fn filenode_query_applies_sort_or_rejects_it() {
             "accountId": "acc1",
             "sort": [{ "property": "name", "isAscending": false }]
         }),
+        &[],
     )
     .await
     .expect("query must succeed");
@@ -4160,10 +4215,14 @@ async fn filenode_query_applies_sort_or_rejects_it() {
         json!([{ "property": "blobId" }]),
         json!([{ "property": "name", "collation": "i;unicode-casemap" }]),
     ] {
-        let err =
-            handle_filenode_query(&backend, &(), json!({ "accountId": "acc1", "sort": sort }))
-                .await
-                .expect_err("an unappliable sort must not be silently ignored");
+        let err = handle_filenode_query(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "sort": sort }),
+            &[],
+        )
+        .await
+        .expect_err("an unappliable sort must not be silently ignored");
         assert_eq!(
             err.error_type.to_string(),
             "unsupportedSort",
@@ -4231,6 +4290,7 @@ async fn filenode_query_extreme_position_and_limit_saturate() {
             "position": -9_007_199_254_740_991_i64,
             "limit": 9_007_199_254_740_991_u64
         }),
+        &[],
     )
     .await
     .expect("/query must not return top-level error");
@@ -4247,6 +4307,7 @@ async fn filenode_query_largest_position_is_empty_page_not_error() {
         &backend,
         &(),
         json!({ "accountId": "acc1", "position": 9_007_199_254_740_991_i64 }),
+        &[],
     )
     .await
     .expect("/query must not return top-level error");

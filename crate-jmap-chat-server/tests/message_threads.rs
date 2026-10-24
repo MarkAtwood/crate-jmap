@@ -162,10 +162,14 @@ fn reply(chat: &str, reply_to: &str, root: Option<&str>) -> Value {
 }
 
 async fn get(backend: &MemoryBackend, ids: &[&str]) -> Vec<Value> {
-    let HandlerOutput { primary: resp, .. } =
-        handle_message_get(backend, &(), json!({ "accountId": ACCOUNT_ID, "ids": ids }))
-            .await
-            .expect("Message/get");
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ids }),
+        &[],
+    )
+    .await
+    .expect("Message/get");
     resp["list"].as_array().expect("list").clone()
 }
 
@@ -334,6 +338,7 @@ async fn thread_root_id_filter_with_supports_threads() {
             "accountId": ACCOUNT_ID,
             "filter": { "chatId": chat, "threadRootId": ROOT },
         }),
+        &[],
     )
     .await
     .expect("Message/query");
@@ -357,10 +362,14 @@ async fn thread_root_id_filter_with_supports_threads() {
 // ---------------------------------------------------------------------------
 
 async fn message_state(backend: &MemoryBackend) -> String {
-    let HandlerOutput { primary: resp, .. } =
-        handle_message_get(backend, &(), json!({ "accountId": ACCOUNT_ID, "ids": [] }))
-            .await
-            .expect("Message/get");
+    let HandlerOutput { primary: resp, .. } = handle_message_get(
+        backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [] }),
+        &[],
+    )
+    .await
+    .expect("Message/get");
     resp["state"].as_str().expect("state").to_owned()
 }
 

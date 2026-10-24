@@ -73,13 +73,22 @@ pub(crate) const ADDRESS_BOOK_HAS_CONTENTS: &str = "addressBookHasContents";
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists AddressBook for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see [`jmap_server::handle_get_with_metadata`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_address_book_get<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    jmap_server::handle_get::<AddressBook, B>(backend, caller, args).await
+    jmap_server::handle_get_with_metadata::<AddressBook, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -804,7 +813,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let err = handle_address_book_get(&backend, &(), args)
+        let err = handle_address_book_get(&backend, &(), args, &[])
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(err.error_type.to_string(), "accountNotFound");

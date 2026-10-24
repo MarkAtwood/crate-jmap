@@ -103,6 +103,7 @@ async fn space_join_single_user_writes_account_id_into_member_id() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");
@@ -150,6 +151,7 @@ async fn space_join_with_identity_writes_account_id_into_member_id() {
         &backend,
         &Id::from("preseeded-admin"),
         json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+        &[],
     )
     .await
     .expect("handle_space_get");

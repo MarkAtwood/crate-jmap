@@ -189,8 +189,8 @@ where
     }
 
     // Calendar
-    reg!("Calendar/get", backend, |b, _ci, a, ctx| {
-        handle_calendar_get(&*b, &ctx, a).await
+    reg!("Calendar/get", backend, |b, _ci, a, ctx, using| {
+        handle_calendar_get(&*b, &ctx, a, &using).await
     });
     reg!("Calendar/changes", backend, |b, _ci, a, ctx, using| {
         handle_calendar_changes(&*b, &ctx, a, &using).await
@@ -200,8 +200,8 @@ where
     });
 
     // CalendarEvent
-    reg!("CalendarEvent/get", backend, |b, _ci, a, ctx| {
-        handle_calendar_event_get(&*b, &ctx, a).await
+    reg!("CalendarEvent/get", backend, |b, _ci, a, ctx, using| {
+        handle_calendar_event_get(&*b, &ctx, a, &using).await
     });
     reg!("CalendarEvent/changes", backend, |b, _ci, a, ctx, using| {
         handle_calendar_event_changes(&*b, &ctx, a, &using).await
@@ -213,15 +213,17 @@ where
             handle_calendar_event_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("CalendarEvent/copy", backend, |b, ci, a, ctx| {
-        handle_calendar_event_copy(&*b, &ctx, a, &ci).await
+    reg!("CalendarEvent/copy", backend, |b, ci, a, ctx, using| {
+        handle_calendar_event_copy(&*b, &ctx, a, &ci, &using).await
     });
-    reg!("CalendarEvent/query", backend, |b, _ci, a, ctx| {
-        handle_calendar_event_query(&*b, &ctx, a).await
+    reg!("CalendarEvent/query", backend, |b, _ci, a, ctx, using| {
+        handle_calendar_event_query(&*b, &ctx, a, &using).await
     });
-    reg!("CalendarEvent/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_calendar_event_query_changes(&*b, &ctx, a).await
-    });
+    reg!(
+        "CalendarEvent/queryChanges",
+        backend,
+        |b, _ci, a, ctx, using| handle_calendar_event_query_changes(&*b, &ctx, a, &using).await
+    );
     reg!("CalendarEvent/parse", backend, |b, _ci, a, ctx| {
         handle_calendar_event_parse(&*b, &ctx, a).await
     });

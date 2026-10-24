@@ -56,6 +56,7 @@ async fn get_message(backend: &MemoryBackend, id: &str) -> Value {
         backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+        &[],
     )
     .await
     .expect("Message/get");
@@ -232,6 +233,7 @@ async fn has_mention_matches_account_id_and_not_other_mentions() {
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "filter": { "hasMention": true } }),
+        &[],
     )
     .await
     .expect("Message/query");

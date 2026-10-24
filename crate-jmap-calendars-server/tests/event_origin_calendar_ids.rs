@@ -75,7 +75,7 @@ async fn create(backend: &MemoryBackend, ev: Value) -> Value {
 
 async fn get(backend: &MemoryBackend, account: &str, id: &str) -> Value {
     let args = json!({ "accountId": account, "ids": [id] });
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(backend, &(), args, &[])
         .await
         .expect("/get must not return a top-level error");
     resp["list"][0].clone()
@@ -215,9 +215,10 @@ async fn copy_recomputes_is_origin_in_target_account() {
         "accountId": "acc2",
         "create": { "k1": { "id": id } }
     });
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_copy(&backend, &(), args, "c0")
-        .await
-        .expect("/copy must not return a top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_calendar_event_copy(&backend, &(), args, "c0", &[])
+            .await
+            .expect("/copy must not return a top-level error");
     let new_id = resp["created"]["k1"]["id"]
         .as_str()
         .unwrap_or_else(|| panic!("copy failed: {resp}"));
@@ -249,9 +250,10 @@ async fn copy_fills_omitted_type_and_version() {
         "accountId": "acc2",
         "create": { "k1": { "id": "src" } }
     });
-    let HandlerOutput { primary: resp, .. } = handle_calendar_event_copy(&backend, &(), args, "c0")
-        .await
-        .expect("/copy must not return a top-level error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_calendar_event_copy(&backend, &(), args, "c0", &[])
+            .await
+            .expect("/copy must not return a top-level error");
     let new_id = resp["created"]["k1"]["id"]
         .as_str()
         .unwrap_or_else(|| panic!("copy failed: {resp}"));

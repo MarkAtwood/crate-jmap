@@ -192,9 +192,10 @@ impl jmap_contacts_server::ContactsBackend for FaultyBackend {
         from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
+        create: &serde_json::Value,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         self.inner
-            .copy_object(&(), from_account_id, to_account_id, obj)
+            .copy_object(&(), from_account_id, to_account_id, obj, create)
             .await
     }
 

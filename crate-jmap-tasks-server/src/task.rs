@@ -70,11 +70,20 @@ use jmap_server::{
 /// is called for each returned task and the computed values are merged in
 /// (draft-tasks-06 §4, utcStart/utcDue paragraphs).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists Task for
+/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1); see [`jmap_server::handle_get_with_metadata`].
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     // Determine whether utcStart / utcDue are requested.
     let want_utc = match args.get("properties") {
@@ -104,7 +113,7 @@ pub async fn handle_task_get<B: TasksBackend>(
         primary: mut response,
         extra_invocations: tail,
         ..
-    } = jmap_server::handle_get::<Task, B>(backend, caller, args).await?;
+    } = jmap_server::handle_get_with_metadata::<Task, B>(backend, caller, args, using).await?;
 
     // If utcStart or utcDue were requested, augment each returned task.
     if want_utc && let Some(Value::Array(list)) = response.get_mut("list") {
@@ -465,6 +474,17 @@ pub async fn handle_task_set<B: TasksBackend>(
 /// map keys are client-side creation ids; the backend assigns new server-side
 /// ids.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// the copy keeps the source's `metadata`, and its `privateMetadata` only
+/// with `urn:ietf:params:jmap:metadata` in `using` and when the
+/// destination supports it; neither is copied when the destination does
+/// not list Task ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)).
+/// The create object "MAY include metadata and privateMetadata to override
+/// the copied values, with the same rules as a create in Foo/set": the
+/// handler rejects them without the capability and rejects `null`, and
+/// the backend's `create_object` validates the rest.
+///
 /// Returns `(response_args, extra_invocations)`. The extra invocation list
 /// is populated with a follow-up `Task/set` invocation when
 /// `onSuccessDestroyOriginal` is true (RFC 8620 §5.4); otherwise it is
@@ -474,6 +494,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (to_account_id, mut args) = extract_account_id(args)?;
 
@@ -580,7 +601,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
             // Fetch the source Task from `fromAccountId`. RFC 8620 §5.4 frames
             // /copy as a read-from-source-then-create-in-destination operation;
             // unknown source ids surface as `notFound` per-entry SetErrors.
-            let source_tasks: Vec<Task> = match backend
+            let mut source_tasks: Vec<Task> = match backend
                 .get_objects::<Task>(
                     caller,
                     &from_account_id,
@@ -607,6 +628,29 @@ pub async fn handle_task_copy<B: TasksBackend>(
             // on the original." Serialize the source, overlay client-supplied
             // properties, strip the source id so the backend assigns a fresh
             // server id. Pattern mirrors jmap-calendars-server event.rs:610-642.
+            // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+            // Foo/set create rules (§3, §3.2).
+            if let Some(Err(err)) = client_val
+                .as_object()
+                .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, Value::from(&*err));
+                continue;
+            }
+            // -04 §3.4: "When the request does not use this capability, only
+            // metadata is copied", "privateMetadata is not copied when the
+            // destination does not support it, and neither property is
+            // copied when the data type is not listed in the destination
+            // account". The overrides are merged in below.
+            let info = backend.metadata_info::<Task>(caller, &to_account_id);
+            if !jmap_server::uses_metadata(using)
+                || !info.as_ref().is_some_and(|i| i.supports_private)
+            {
+                source_tasks[0].private_metadata = None;
+            }
+            if info.is_none() {
+                source_tasks[0].metadata = None;
+            }
             let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_tasks[0]) else {
                 not_created.insert(
                     create_id,
@@ -769,12 +813,23 @@ pub async fn handle_task_copy<B: TasksBackend>(
 /// response shape (`accountId`, `queryState`, `canCalculateChanges`,
 /// `position`, `ids`, optional `total`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_query<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_tasks_types::TaskFilterCondition::has_metadata_condition,
+        using,
+    )?;
     reject_unsupported_sort::<TaskComparator>(args.get("sort"))?;
     jmap_server::handle_query::<Task, B>(backend, caller, args).await
 }
@@ -792,12 +847,23 @@ pub async fn handle_task_query<B: TasksBackend>(
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_query_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    jmap_server::reject_metadata_filter_arg(
+        &args,
+        jmap_tasks_types::TaskFilterCondition::has_metadata_condition,
+        using,
+    )?;
     reject_unsupported_sort::<TaskComparator>(args.get("sort"))?;
     jmap_server::handle_query_changes::<Task, B>(backend, caller, args).await
 }
@@ -821,7 +887,7 @@ mod tests {
     async fn query_unlisted_sort_property_returns_unsupported_sort() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sort": [{ "property": "title" }] });
-        let err = handle_task_query(&backend, &(), args)
+        let err = handle_task_query(&backend, &(), args, &[])
             .await
             .expect_err("unlisted sort property must be rejected");
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
@@ -837,7 +903,7 @@ mod tests {
             "sinceQueryState": "0",
             "sort": [{ "property": "start" }, { "property": "title" }]
         });
-        let err = handle_task_query_changes(&backend, &(), args)
+        let err = handle_task_query_changes(&backend, &(), args, &[])
             .await
             .expect_err("unlisted sort property must be rejected");
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
@@ -849,7 +915,7 @@ mod tests {
     async fn query_listed_sort_property_is_accepted() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sort": [{ "property": "start" }] });
-        handle_task_query(&backend, &(), args)
+        handle_task_query(&backend, &(), args, &[])
             .await
             .expect("listed sort property must not be rejected");
     }
@@ -859,7 +925,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let result = handle_task_get(&backend, &(), args).await;
+        let result = handle_task_get(&backend, &(), args, &[]).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.to_string(), "accountNotFound");
     }
@@ -872,7 +938,7 @@ mod tests {
             "accountId": "acc1",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args, "c0").await;
+        let result = handle_task_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must return error when fromAccountId missing");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
@@ -889,7 +955,7 @@ mod tests {
             "fromAccountId": "acc1",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args, "c0").await;
+        let result = handle_task_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must reject same-account Task/copy per RFC 8620 §5.4");
         assert_eq!(err.error_type.to_string(), "invalidArguments");
     }
@@ -905,7 +971,7 @@ mod tests {
             "fromAccountId": "no-such-account",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args, "c0").await;
+        let result = handle_task_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must reject unknown fromAccountId");
         assert_eq!(err.error_type.to_string(), "fromAccountNotFound");
     }
@@ -922,7 +988,7 @@ mod tests {
             "ifFromInState": "stale-source-state",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args, "c0").await;
+        let result = handle_task_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must reject stale ifFromInState");
         assert_eq!(err.error_type.to_string(), "stateMismatch");
     }
@@ -939,7 +1005,7 @@ mod tests {
             "ifInState": "stale-destination-state",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args, "c0").await;
+        let result = handle_task_copy(&backend, &(), args, "c0", &[]).await;
         let err = result.expect_err("must reject stale ifInState");
         assert_eq!(err.error_type.to_string(), "stateMismatch");
     }
@@ -957,7 +1023,7 @@ mod tests {
             "fromAccountId": "acc2",
             "create": { "c1": {} }
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_copy(&backend, &(), args, "c0")
+        let HandlerOutput { primary: resp, .. } = handle_task_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("top-level call must succeed");
         let nc = resp["notCreated"].as_object().expect("notCreated present");
@@ -977,7 +1043,7 @@ mod tests {
             "fromAccountId": "acc2",
             "create": { "c1": { "id": "no-such-task" } }
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_copy(&backend, &(), args, "c0")
+        let HandlerOutput { primary: resp, .. } = handle_task_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("top-level call must succeed");
         let nc = resp["notCreated"].as_object().expect("notCreated present");
@@ -1002,7 +1068,7 @@ mod tests {
                 "c1": { "id": "src1", "title": "Overridden title" }
             }
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_copy(&backend, &(), args, "c0")
+        let HandlerOutput { primary: resp, .. } = handle_task_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("top-level call must succeed");
 
@@ -1039,7 +1105,7 @@ mod tests {
         let HandlerOutput {
             extra_invocations: extra,
             ..
-        } = handle_task_copy(&backend, &(), args, "c0")
+        } = handle_task_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("top-level call must succeed");
 
@@ -1087,7 +1153,7 @@ mod tests {
         let HandlerOutput {
             extra_invocations: extra,
             ..
-        } = handle_task_copy(&backend, &(), args, "c0")
+        } = handle_task_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("top-level call must succeed");
 
@@ -1114,7 +1180,7 @@ mod tests {
         let HandlerOutput {
             extra_invocations: extra,
             ..
-        } = handle_task_copy(&backend, &(), args, "c0")
+        } = handle_task_copy(&backend, &(), args, "c0", &[])
             .await
             .expect("top-level call must succeed");
         assert!(
@@ -1254,7 +1320,7 @@ mod tests {
             "ids": null,
             "properties": ["id", "title"]  // utcStart and utcDue NOT listed
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_get(&backend, &(), args, &[])
             .await
             .expect("must succeed");
         // The list is empty (no tasks seeded), but the response itself must be valid.
@@ -1281,7 +1347,7 @@ mod tests {
             "ids": null,
             "properties": ["id", "utcStart", "utcDue"]
         });
-        let HandlerOutput { primary: resp, .. } = handle_task_get(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_task_get(&backend, &(), args, &[])
             .await
             .expect("must succeed with utcStart in properties");
         assert_eq!(resp["accountId"], "acc1");
