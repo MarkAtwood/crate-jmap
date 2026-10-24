@@ -417,13 +417,13 @@ Priority test cases:
 
 ## Source Material
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-26.txt` —
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-26.txt` —
   JMAP Calendars binding (normative for Calendar, notification, participant
   identity, method signatures, error codes)
-- `~/PROJECT/jmap-chat-spec/references/rfc8984.txt` — JSCalendar (normative
+- `~/PROJECT/IETF/specs/rfc8984.txt` — JSCalendar (normative
   for CalendarEvent content: all JSCalendar properties, RecurrenceRule, Alert,
   Participant, Location, etc.)
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — JMAP base protocol (for
+- `~/PROJECT/IETF/specs/rfc8620.txt` — JMAP base protocol (for
   Filter, Comparator, PatchObject, and session types)
 
 ## Dependencies

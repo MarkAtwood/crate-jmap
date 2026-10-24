@@ -39,15 +39,15 @@ storage.
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-33.txt` —
+`~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-33.txt` —
 read the relevant section before implementing each handler. Wire field names
 and method semantics come from the spec, not from memory.
 
-`~/PROJECT/jmap-chat-spec/references/rfc8984.txt` — JSCalendar format. Read
+`~/PROJECT/IETF/specs/rfc8984.txt` — JSCalendar format. Read
 before implementing CalendarEvent/set patch semantics and recurrenceOverrides
 handling.
 
-`~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol. §5.3 for
+`~/PROJECT/IETF/specs/rfc8620.txt` — base protocol. §5.3 for
 set semantics and PatchObject application. §5.4 for copy semantics. §5.5 for
 query. §5.6 for queryChanges.
 
@@ -539,11 +539,11 @@ up.)
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-33.txt` —
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-33.txt` —
   normative for all method handlers
-- `~/PROJECT/jmap-chat-spec/references/rfc8984.txt` — normative for
+- `~/PROJECT/IETF/specs/rfc8984.txt` — normative for
   CalendarEvent content, PatchObject semantics, recurrenceOverrides
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base protocol
   (set semantics §5.3, copy §5.4, query §5.5, queryChanges §5.6)
 
 ## Dependencies (shipped)

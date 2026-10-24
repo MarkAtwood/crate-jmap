@@ -139,7 +139,7 @@ once the initial single-file layout is verified.
 ## Spec reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc9553.txt   ← normative
+~/PROJECT/IETF/specs/rfc9553.txt   ← normative
 ```
 
 ## History

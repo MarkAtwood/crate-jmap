@@ -99,7 +99,7 @@ src/
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt   ← normative
+~/PROJECT/IETF/specs/rfc8620.txt   ← normative
 ```
 
 ## Test Strategy

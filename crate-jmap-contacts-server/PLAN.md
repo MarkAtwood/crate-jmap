@@ -35,14 +35,14 @@ backend handles storage.
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/RFC 9610.txt` — read
+`~/PROJECT/IETF/specs/rfc9610.txt` — read
 the relevant section before implementing each handler.  Wire field names and
 method semantics come from the spec, not from memory.
 
-`~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol
+`~/PROJECT/IETF/specs/rfc8620.txt` — base protocol
 (get/changes/query/queryChanges/set/copy semantics, error types).
 
-`~/PROJECT/jmap-chat-spec/references/rfc9553.txt` — JSContact Card format
+`~/PROJECT/IETF/specs/rfc9553.txt` — JSContact Card format
 (for understanding ContactCard fields used in filters and handlers).
 
 ### Backend trait pattern — follow this exactly

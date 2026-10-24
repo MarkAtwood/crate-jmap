@@ -30,14 +30,14 @@ and the JSCalendar Task subset of RFC 8984. One source module per object type.
 
 ### Normative
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-tasks-06.txt` — JMAP Tasks
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-tasks-06.txt` — JMAP Tasks
   binding: TaskList, Task (JMAP-specific additions), TaskNotification, rights,
   capabilities, and method definitions. Read the relevant section before naming
   any field.
-- `~/PROJECT/jmap-chat-spec/references/rfc8984.txt` — JSCalendar (RFC 8984).
+- `~/PROJECT/IETF/specs/rfc8984.txt` — JSCalendar (RFC 8984).
   The Task wire format is JSCalendar Task. Read §4 (common properties) and §5.2
   (Task-specific properties) for every field in `Task`.
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — JMAP base. Filter,
+- `~/PROJECT/IETF/specs/rfc8620.txt` — JMAP base. Filter,
   Comparator, session types, Id, State, UTCDate.
 
 ### Draft caveat

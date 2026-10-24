@@ -46,7 +46,7 @@ Design pattern to follow:
   module layout, and test approach
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method request/response
   types are structured and how `JmapRequestBuilder` is used
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-26.txt` —
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-26.txt` —
   normative spec for all method signatures, arguments, and response fields
 
 ## Dependencies
@@ -446,7 +446,7 @@ recent design changes that motivate the shipped sketch above).
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-26.txt` —
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-26.txt` —
   all method signatures, extra arguments, and wire format (normative)
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base get/set/changes/query
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base get/set/changes/query
   request and response shapes (normative for structural fields)

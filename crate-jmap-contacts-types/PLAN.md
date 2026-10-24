@@ -347,12 +347,12 @@ Key test cases:
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/RFC 9610.txt` —
+- `~/PROJECT/IETF/specs/rfc9610.txt` —
   JMAP Contacts (normative for AddressBook, ContactCard JMAP binding, filter,
   capability)
-- `~/PROJECT/jmap-chat-spec/references/rfc9553.txt` — RFC 9553 JSContact
+- `~/PROJECT/IETF/specs/rfc9553.txt` — RFC 9553 JSContact
   (normative for all Card sub-object types)
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — JMAP base protocol
+- `~/PROJECT/IETF/specs/rfc8620.txt` — JMAP base protocol
   (for Filter, Comparator, Id, UTCDate, State)
 
 ## Dependencies

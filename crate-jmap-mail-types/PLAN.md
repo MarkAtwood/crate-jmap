@@ -95,8 +95,8 @@ verify serde consistency but are not a substitute for spec-grounded oracle tests
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/rfc8621.txt` — JMAP for Mail (normative)
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — JMAP base protocol (for
+- `~/PROJECT/IETF/specs/rfc8621.txt` — JMAP for Mail (normative)
+- `~/PROJECT/IETF/specs/rfc8620.txt` — JMAP base protocol (for
   Filter, Comparator, and session types)
 
 ## Dependencies
