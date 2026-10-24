@@ -15629,3 +15629,79 @@ async fn submission_query_unrecognised_collation_returns_unsupported_sort() {
     .await
     .expect("EmailSubmission/query with i;octet must be accepted");
 }
+
+/// Oracle: RFC 8620 §5.5 — unsupportedSort: "The sort is syntactically
+/// valid, but includes a property the server does not support sorting on
+/// or a collation method it does not recognise." Strings compare
+/// byte-wise, so only `i;octet` (RFC 4790 §9.3) is recognised;
+/// `i;ascii-casemap` on `subject` must be refused by Email/query and
+/// Email/queryChanges, and `i;octet` accepted.
+#[tokio::test]
+async fn email_query_unrecognised_collation_returns_unsupported_sort() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let casemap = serde_json::json!([{ "property": "subject", "collation": "i;ascii-casemap" }]);
+
+    let err = handle_email_query(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sort": casemap }),
+        &[],
+    )
+    .await
+    .expect_err("Email/query with i;ascii-casemap must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    let err = handle_email_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sinceQueryState": "0", "sort": casemap }),
+        &[],
+    )
+    .await
+    .expect_err("Email/queryChanges with i;ascii-casemap must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    handle_email_query(
+        &backend,
+        &(),
+        serde_json::json!({
+            "accountId": "account1",
+            "sort": [{ "property": "subject", "collation": "i;octet" }],
+        }),
+        &[],
+    )
+    .await
+    .expect("Email/query with i;octet must be accepted");
+}
+
+/// Oracle: RFC 8620 §5.5 — unsupportedSort covers "a property the server
+/// does not support sorting on". `threadId` is not among the RFC 8621
+/// §4.4.2 Email sort properties, so Email/query and Email/queryChanges
+/// must refuse it.
+#[tokio::test]
+async fn email_query_unknown_sort_property_returns_unsupported_sort() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let sort = serde_json::json!([{ "property": "threadId" }]);
+
+    let err = handle_email_query(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sort": sort }),
+        &[],
+    )
+    .await
+    .expect_err("Email/query sorted on threadId must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+
+    let err = handle_email_query_changes(
+        &backend,
+        &(),
+        serde_json::json!({ "accountId": "account1", "sinceQueryState": "0", "sort": sort }),
+        &[],
+    )
+    .await
+    .expect_err("Email/queryChanges sorted on threadId must fail");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
+}
