@@ -124,11 +124,6 @@ pub use hub::{
     handle_group_info_fetch, handle_key_material_fetch, handle_room_send, handle_room_unbind,
     handle_room_update,
 };
-pub use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesParams, ChangesResult,
-    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 pub use keypackage::{check_key_package_create, handle_key_package_get, handle_key_package_set};
 pub use restrict::{may_create_room_message, may_update_room_chat, may_update_room_message};
 pub use room::{check_room_create, handle_room_create};
