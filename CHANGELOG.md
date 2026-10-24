@@ -3745,6 +3745,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-contacts-server**: **BREAKING** `ContactCard/copy` responses now
+  carry the RFC 8620 §5.4 `created` and `notCreated` maps instead of
+  `copied` and `notCopied`, matching every sibling `/copy` handler. Clients
+  that read the old keys must switch.
 - **jmap-chat-server**, **jmap-contacts-server**, **jmap-calendars-server**,
   **jmap-tasks-server**, **jmap-sharing-server**, **jmap-graph-server**,
   **jmap-scene-server**, **jmap-vtc-server**: the `MemoryBackend` `/changes`
