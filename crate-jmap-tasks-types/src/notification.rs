@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use crate::task::Person;
 
 /// Type of change recorded by a [`TaskNotification`] (draft-tasks-06 §5.1).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NotificationType {
     /// A task was created.
     Created,

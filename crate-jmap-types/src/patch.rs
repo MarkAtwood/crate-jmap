@@ -75,9 +75,9 @@ use serde_json::{Map, Value};
 // field is intentionally private so the only construction paths are the
 // explicit constructors below; this matches the `Id`/`UTCDate`/`State`
 // pattern already used in this crate.
+#[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-#[non_exhaustive]
 pub struct PatchObject(Map<String, Value>);
 
 impl PatchObject {

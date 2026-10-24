@@ -35,8 +35,8 @@ const BASE32_LOWER: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
 ///
 /// `#[non_exhaustive]` at the type level and per variant, so new
 /// variants and new fields stay semver-additive.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CidV1Error {
     /// The string does not start with the multibase prefix `b`
     /// (lowercase base32, no padding). Other multibase encodings,

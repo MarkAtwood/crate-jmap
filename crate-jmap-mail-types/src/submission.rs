@@ -80,8 +80,8 @@ impl Envelope {
 }
 
 /// Delivery status of a message to a recipient (RFC 8621 §7, `delivered` field).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Delivered {
     /// The message is in a local mail queue and the status is not yet known.
     Queued,
@@ -105,8 +105,8 @@ impl_string_enum!(Delivered, "a delivery status string",
 );
 
 /// Display status of a message to a recipient (RFC 8621 §7, `displayed` field).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Displayed {
     /// The display status is unknown.
     Unknown,
@@ -124,8 +124,8 @@ impl_string_enum!(Displayed, "a display status string",
 );
 
 /// Whether an [`EmailSubmission`] may still be canceled (RFC 8621 §7).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum UndoStatus {
     /// The message has not yet been relayed; cancellation may be possible.
     Pending,

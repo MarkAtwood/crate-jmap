@@ -13,8 +13,8 @@ use serde::{Deserialize, Serialize, Serializer};
 ///
 /// Values are registered strings.  Any unrecognised value is preserved as
 /// [`NodeType::Other`] so clients do not lose data when the registry gains new entries.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NodeType {
     /// `"File"`: regular file with blob content (§3.1.2).
     File,
@@ -51,8 +51,8 @@ impl NodeType {
 ///
 /// Clients MUST ignore unrecognised role values (§3.1.3).  Unknown values are preserved
 /// as [`NodeRole::Other`] so they round-trip correctly.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NodeRole {
     /// Base of a filesystem; should have `parentId` null.
     Root,

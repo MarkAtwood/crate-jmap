@@ -51,8 +51,8 @@ pub struct Did(String);
 /// §3.1 ABNF.
 ///
 /// `#[non_exhaustive]`, so new variants stay semver-additive.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DidError {
     /// The string does not start with `did:`.
     MissingPrefix,

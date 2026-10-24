@@ -30,8 +30,8 @@ use std::fmt;
 /// variant additions both remain semver-additive (bd:JMAP-sf5h.21
 /// ratified the single-tier shape — no wrapper struct is needed
 /// because no extra context lives on the wrapper).
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sha256DigestError {
     /// The candidate had a length other than 64 UTF-8 bytes.
     ///
@@ -235,9 +235,9 @@ impl std::error::Error for Sha256DigestError {}
 /// opt-in on a wire-format type.
 ///
 /// [`subtle::ConstantTimeEq`]: https://docs.rs/subtle/latest/subtle/trait.ConstantTimeEq.html
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 #[serde(try_from = "String")]
-#[non_exhaustive]
 pub struct Sha256(String);
 
 // Manual Serialize impl — matches the canonical Id newtype pattern

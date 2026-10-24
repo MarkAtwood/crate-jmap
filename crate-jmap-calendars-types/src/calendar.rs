@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 ///
 /// The spec defines exactly three values with no extension mechanism; modelled
 /// as a closed enum (no `Other` variant).  Wire values are lowercase.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum IncludeInAvailability {
     /// All events in this calendar are considered for availability.

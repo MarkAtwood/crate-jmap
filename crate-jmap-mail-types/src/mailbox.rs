@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 /// Values correspond to IMAP Mailbox Name Attributes (RFC 8457), converted to
 /// lowercase.  An account is not required to have Mailboxes with any particular
 /// role, and at most one Mailbox per account may hold each role.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MailboxRole {
     /// The primary inbox for new incoming messages.
     Inbox,

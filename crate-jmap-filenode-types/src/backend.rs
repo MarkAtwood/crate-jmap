@@ -10,8 +10,8 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 // ---------------------------------------------------------------------------
 
 /// Property selector for [`crate::FileNode`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FileNodeProperty {
     /// The `id` property (draft-ietf-jmap-filenode-16 §3.1).
     Id,

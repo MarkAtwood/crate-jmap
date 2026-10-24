@@ -11,8 +11,8 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 // ---------------------------------------------------------------------------
 
 /// Property selector for [`crate::TaskList`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskListProperty {
     /// The `id` property (draft-ietf-jmap-tasks-06 §3).
     Id,
@@ -47,8 +47,8 @@ pub enum TaskListProperty {
 }
 
 /// Property selector for [`crate::Task`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskProperty {
     /// The `id` property (draft-ietf-jmap-tasks-06 §4).
     Id,
@@ -195,8 +195,8 @@ pub fn is_per_user_task_property(name: &str) -> bool {
 }
 
 /// Property selector for [`crate::TaskNotification`] `/get`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TaskNotificationProperty {
     /// The `id` property (draft-ietf-jmap-tasks-06 §5.1).
     Id,

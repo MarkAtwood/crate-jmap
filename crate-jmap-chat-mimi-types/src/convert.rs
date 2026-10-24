@@ -131,8 +131,8 @@ impl fmt::Display for RefKey {
 
 /// A [`RefKey`] already belongs to a different Message in the Chat
 /// (draft §Security Considerations).
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RefKeyCollision;
 
 impl fmt::Display for RefKeyCollision {

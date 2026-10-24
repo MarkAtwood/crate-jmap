@@ -22,8 +22,8 @@ use std::fmt;
 ///
 /// `#[non_exhaustive]` at the type level and per variant, so new
 /// variants and new fields stay semver-additive.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Sha256Base64Error {
     /// The string is not canonical padded RFC 4648 §4 base64.
     #[non_exhaustive]

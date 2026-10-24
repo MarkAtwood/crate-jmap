@@ -11,8 +11,8 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 // ---------------------------------------------------------------------------
 
 /// Property selector for [`crate::Calendar`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalendarProperty {
     /// The `id` property (draft-ietf-jmap-calendars-33 §4).
     Id,
@@ -45,8 +45,8 @@ pub enum CalendarProperty {
 }
 
 /// Property selector for [`crate::CalendarEvent`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalendarEventProperty {
     /// The `id` property (draft-ietf-jmap-calendars-33 §5).
     Id,
@@ -171,8 +171,8 @@ pub fn is_per_user_calendar_event_property(name: &str) -> bool {
 }
 
 /// Property selector for [`crate::CalendarEventNotification`] `/get`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalendarEventNotificationProperty {
     /// The `id` property (draft-ietf-jmap-calendars-33 §7).
     Id,
@@ -195,8 +195,8 @@ pub enum CalendarEventNotificationProperty {
 }
 
 /// Property selector for [`crate::ParticipantIdentity`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ParticipantIdentityProperty {
     /// The `id` property (draft-ietf-jmap-calendars-33 §3).
     Id,

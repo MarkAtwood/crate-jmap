@@ -16,8 +16,8 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 // ---------------------------------------------------------------------------
 
 /// Property selector for [`crate::AddressBook`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AddressBookProperty {
     /// The `id` property (RFC 9610 §2).
     Id,
@@ -38,8 +38,8 @@ pub enum AddressBookProperty {
 }
 
 /// Property selector for [`crate::ContactCard`] `/get`, `/set`, and `/query`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ContactCardProperty {
     /// The `id` property (RFC 9610 §3; JMAP addition).
     Id,

@@ -53,9 +53,9 @@ const BASE32_LOWER: &[u8; 32] = b"abcdefghijklmnopqrstuvwxyz234567";
 /// verification method `signingKey`, `alsoKnownAs` `["at://" + handle]`
 /// and an `atproto_pds` service at `service` (with `https://` prepended
 /// when it has no `http://` or `https://` scheme).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct PlcState {
     /// The DID.
     pub did: Did,
@@ -140,8 +140,8 @@ impl PlcState {
 }
 
 /// One entry of [`PlcState::services`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PlcService {
     /// The service type, for example `AtprotoPersonalDataServer`.
     #[serde(rename = "type")]
@@ -151,8 +151,8 @@ pub struct PlcService {
 }
 
 /// The outcome of a verified audit log.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PlcStatus {
     /// The latest valid operation is a regular or legacy operation.
     Active(PlcState),
@@ -165,8 +165,8 @@ pub enum PlcStatus {
 /// the offending entry in the audit log.
 ///
 /// `#[non_exhaustive]`, so new variants stay semver-additive.
-#[derive(Debug)]
 #[non_exhaustive]
+#[derive(Debug)]
 pub enum PlcError {
     /// The DID's method is not `plc`.
     NotPlc,

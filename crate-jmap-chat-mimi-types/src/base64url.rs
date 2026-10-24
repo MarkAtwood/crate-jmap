@@ -19,8 +19,8 @@ use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 
 /// Parse error produced by [`Base64Url`] construction and deserialize.
-#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Base64UrlError {
     /// A byte outside the RFC 4648 §5 alphabet `[A-Za-z0-9_-]`. Padding
     /// `=` lands here too, because the draft requires the unpadded form.
