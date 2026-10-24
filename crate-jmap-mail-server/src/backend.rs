@@ -212,7 +212,9 @@ pub trait MailBackend: JmapBackend {
     /// Return the bytes of blob `blob_id` in `account_id`, or `None` if the
     /// account has no such blob.
     ///
-    /// The `Email/set` create handler reads the blobs that body parts
+    /// This is the one blob read for every handler in this crate: `MDN/parse`
+    /// and the `SieveScript` handlers call it as well. The `Email/set` create
+    /// handler reads the blobs that body parts
     /// reference by `blobId` and reports the missing ones in a
     /// `blobNotFound` SetError (RFC 8621 §4.6). Return `Err` only for a
     /// storage failure; the handler reports it as `serverFail`.

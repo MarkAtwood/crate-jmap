@@ -3502,6 +3502,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Removed
 
+- **jmap-mail-server**: **BREAKING** `MdnBackend::get_blob_bytes` and
+  `SieveBackend::get_sieve_blob` are removed. `MdnBackend` and
+  `SieveBackend` now have `MailBackend` as a supertrait (it used to be
+  `JmapBackend`), and `MDN/parse` and the `SieveScript` handlers read blobs
+  with `MailBackend::read_blob`. Delete those two methods from your impls;
+  `read_blob` is now the one blob read. The `get_blob_header_bytes`
+  default falls back to `read_blob`.
+
 - **BREAKING** **jmap-metadata-client**: the `jmap-metadata-types`
   re-exports `JMAP_METADATA_URI`, `DataTypeMetadataInfo`,
   `MetadataTextMatch`, `is_registered_namespace`, `is_valid_namespace`

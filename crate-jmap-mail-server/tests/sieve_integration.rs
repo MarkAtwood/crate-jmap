@@ -1305,7 +1305,7 @@ async fn sieve_set_update_null_blob_id_is_invalid_properties() {
 /// even with `maxSizeScript` configured (size check plus syntax check).
 ///
 /// Oracle: the counting `FaultyBackend` wrapper counts real
-/// `get_sieve_blob` calls; the expected count of one per operation is the
+/// `read_blob` calls; the expected count of one per operation is the
 /// JMAP-j7pa.5 requirement, not derived from the handler.
 #[tokio::test]
 async fn sieve_set_and_validate_fetch_blob_once() {
@@ -1334,7 +1334,7 @@ async fn sieve_set_and_validate_fetch_blob_once() {
         .as_str()
         .unwrap_or_else(|| panic!("create must succeed; resp: {resp}"))
         .to_owned();
-    assert_eq!(backend.sieve_blob_fetches(), 1, "create fetches once");
+    assert_eq!(backend.blob_reads(), 1, "create fetches once");
 
     let HandlerOutput { primary: resp, .. } = handle_sieve_set(
         &backend,
@@ -1350,7 +1350,7 @@ async fn sieve_set_and_validate_fetch_blob_once() {
         resp["updated"].get(&id).is_some(),
         "update must succeed; resp: {resp}"
     );
-    assert_eq!(backend.sieve_blob_fetches(), 2, "update fetches once");
+    assert_eq!(backend.blob_reads(), 2, "update fetches once");
 
     let HandlerOutput { primary: resp, .. } = handle_sieve_validate(
         &backend,
@@ -1360,7 +1360,7 @@ async fn sieve_set_and_validate_fetch_blob_once() {
     .await
     .expect("validate must not be a method-level error");
     assert_eq!(resp["error"], serde_json::Value::Null, "resp: {resp}");
-    assert_eq!(backend.sieve_blob_fetches(), 3, "validate fetches once");
+    assert_eq!(backend.blob_reads(), 3, "validate fetches once");
 }
 
 /// A storage failure reading one create's script blob fails only that
@@ -1379,7 +1379,7 @@ async fn sieve_set_create_blob_fetch_failure_is_per_item() {
     backend
         .inner
         .store_blob(&Id::from("blob-a"), VALID_SIEVE_SCRIPT.to_vec());
-    backend.inject("SieveScript", "get_sieve_blob");
+    backend.inject("", "read_blob");
 
     let HandlerOutput { primary: resp, .. } = handle_sieve_set(
         &backend,

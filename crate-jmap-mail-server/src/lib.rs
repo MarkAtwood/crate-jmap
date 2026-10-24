@@ -26,7 +26,8 @@
 //! Enable the `mdn` feature to add support for the JMAP MDN extension
 //! (RFC 9007). This exposes `register_mdn_handlers`, which wires
 //! two additional method names into the dispatcher: `MDN/send` and `MDN/parse`.
-//! Backends must also implement `MdnBackend` in addition to [`MailBackend`].
+//! Backends must also implement `MdnBackend`, which has [`MailBackend`] as a
+//! supertrait.
 //!
 //! # `memory` feature (reference implementation)
 //!

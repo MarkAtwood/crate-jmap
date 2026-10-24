@@ -64,32 +64,20 @@ use jmap_server::{
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
 /// and `SieveScript/validate` operations (RFC 9661).
 ///
-/// Implementors also implement [`MailBackend`] — the generic bounds on
-/// [`register_sieve_handlers`] require both. This separation keeps sieve opt-in.
+/// `MailBackend` is a supertrait, so sieve stays opt-in: existing
+/// `MailBackend` implementors do not need to change.
 ///
 /// # Script access
 ///
-/// `SieveScript/validate` needs raw UTF-8 bytes for the script blob.
-/// [`SieveBackend::get_sieve_blob`] exposes this at the trait level.
+/// The handlers read the script blob with [`MailBackend::read_blob`].
 ///
 /// [`MailBackend`]: crate::MailBackend
 /// [`register_sieve_handlers`]: crate::register_sieve_handlers
-pub trait SieveBackend: jmap_server::JmapBackend {
-    /// Fetch raw bytes for a script blob by ID.
-    ///
-    /// Returns `Ok(Some(bytes))` if found, `Ok(None)` if the blob does not
-    /// exist in this account, and `Err` for storage failures.
-    fn get_sieve_blob(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
-
+pub trait SieveBackend: MailBackend {
     /// Validate the syntax of a Sieve script.
     ///
     /// `script` is the blob content the handler already fetched with
-    /// [`SieveBackend::get_sieve_blob`], so each create, update or validate
+    /// [`MailBackend::read_blob`], so each create, update or validate
     /// reads the blob once. The handler has already rejected a missing blob
     /// and one larger than [`SieveBackend::max_sieve_script_bytes`].
     ///
@@ -1159,7 +1147,7 @@ async fn check_script<B: SieveBackend>(
     blob_id: &Id,
     max_bytes: Option<u64>,
 ) -> Result<Option<SetError>, B::Error> {
-    let Some(script) = backend.get_sieve_blob(caller, account_id, blob_id).await? else {
+    let Some(script) = backend.read_blob(caller, account_id, blob_id).await? else {
         return Ok(Some(
             SetError::new(SetErrorType::from(SIEVE_ERR_INVALID)).with_description("blob not found"),
         ));
