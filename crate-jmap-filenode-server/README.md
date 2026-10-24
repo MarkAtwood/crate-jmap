@@ -331,15 +331,25 @@ semantics as `FileNode/set`.
 
 ## CallerCtx
 
-`register_filenode_handlers` registers each method as a `ClosureHandler` that
-forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`. The standard
-`handle_*` handler bodies ignore `_ctx` and receive only `(Arc<B>, call_id, args)`;
-the value is still available for backends that register handlers individually via
-`ClosureHandler`.
+`register_filenode_handlers` registers each method as a `ClosureHandler`
+that forwards the dispatcher's `CallerCtx` value into the closure as `ctx`,
+which the closure body then passes by reference (`&ctx`) into the standard
+`handle_*` handler. The handler in turn forwards `caller: &B::CallerCtx` into
+every `FileNodeBackend` (and inherited `JmapBackend`) method call.
 
-If you need per-request context — auth identity, tenant id, rate-limit token —
-inside one of the standard `handle_*` functions, implement `JmapHandler<C>` directly
-and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
+To use this:
+
+1. Pick a `CallerCtx` type for your backend — e.g. `()` if no auth context is
+   needed, or a struct like `AuthCtx { user_id: Id, scopes: Vec<Scope> }`.
+2. Implement `JmapBackend` with `type CallerCtx = AuthCtx;` (the bound is
+   `Clone + Send + Sync + 'static`).
+3. Use the matching `Dispatcher<AuthCtx>` and pass the constructed auth
+   context as the second argument to `Dispatcher::dispatch(request, auth, …)`.
+4. Inside `FileNodeBackend` method bodies, read `caller: &AuthCtx` to apply
+   per-user visibility rules, rate limits, etc.
+
+Backends that don't need an auth identity use `type CallerCtx = ();` and a
+`Dispatcher<()>`. Both shapes register the same way.
 
 ## Capability URI
 
