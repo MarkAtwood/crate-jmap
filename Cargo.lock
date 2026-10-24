@@ -1806,6 +1806,7 @@ dependencies = [
  "jmap-calendars-types",
  "jmap-chat-server",
  "jmap-chat-types",
+ "jmap-server",
  "jmap-types",
  "serde_json",
  "tokio",
@@ -1957,6 +1958,7 @@ version = "0.3.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
+ "jmap-server",
  "jmap-tasks-server",
  "jmap-tasks-types",
  "jmap-types",

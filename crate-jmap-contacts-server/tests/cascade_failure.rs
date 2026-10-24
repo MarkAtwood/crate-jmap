@@ -13,12 +13,14 @@ mod common;
 
 use common::{MemoryBackend, MemoryError};
 use jmap_contacts_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ContactsBackend,
-    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetObject, handle_address_book_get, handle_address_book_set,
-    handle_contact_card_get,
+    ContactsBackend, handle_address_book_get, handle_address_book_set, handle_contact_card_get,
 };
 use jmap_server::HandlerOutput;
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetObject,
+};
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
 

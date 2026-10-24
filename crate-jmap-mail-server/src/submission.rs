@@ -51,11 +51,12 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::MailBackend;
 use crate::helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, not_found_json,
     now_utc_string, resolve_ref, serialize_value,
 };
-use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
+use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
     limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_start,

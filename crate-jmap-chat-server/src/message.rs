@@ -34,7 +34,8 @@ use serde_json::{Value, json};
 
 use crate::chat::record_unread_count_changes;
 use crate::outbound::{OutboundEvent, ReactionAction};
-use crate::{BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType};
+use crate::{ChatBackend, ChatLimits};
+use jmap_server::{BackendSetError, SetError, SetErrorType};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use subtle::ConstantTimeEq;
 

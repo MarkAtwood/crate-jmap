@@ -57,16 +57,17 @@ use jmap_vtc_types::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::VtcBackend;
 use crate::query::{
     call_matches, compare_calls, compare_livestreams, compare_participants, compare_recordings,
     livestream_matches, participant_matches, recording_matches,
 };
-use crate::{
+use crate::{StatefulObject, call_already_active_on_chat};
+use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetError, SetErrorType, SetObject, VtcBackend,
+    SetError, SetErrorType, SetObject,
 };
-use crate::{StatefulObject, call_already_active_on_chat};
 
 /// How one id changed in one state step.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

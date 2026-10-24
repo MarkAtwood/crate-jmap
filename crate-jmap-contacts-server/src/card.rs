@@ -1348,7 +1348,7 @@ mod tests {
     /// was never called, and the source card is byte-identical to the
     /// fixture.
     async fn assert_copy_rejected_as_invalid_patch(resp: &Value, backend: &MockBackend) {
-        use crate::JmapBackend;
+        use jmap_server::JmapBackend;
 
         assert_eq!(
             resp["notCopied"]["c1"]["type"], "invalidPatch",

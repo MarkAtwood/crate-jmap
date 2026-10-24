@@ -3,8 +3,9 @@
 use jmap_types::{GetObject, Id, JmapError, JmapObject, State, UTCDate};
 use serde_json::{Map, Value, json};
 
-use crate::{SetError, SetErrorType, VtcBackend};
+use crate::VtcBackend;
 use jmap_server::{HandlerOutput, server_fail_from_backend, server_fail_value_from_backend};
+use jmap_server::{SetError, SetErrorType};
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
@@ -16,16 +17,16 @@ pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 ///
 /// # Errors
 ///
-/// A boxed `invalidProperties` [`crate::SetError`] naming `property` when
+/// A boxed `invalidProperties` [`jmap_server::SetError`] naming `property` when
 /// the reference matches no record created earlier in the request.
 pub(crate) fn resolve_ref(
     raw: &str,
     property: &str,
     created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
-) -> Result<jmap_types::Id, Box<crate::SetError>> {
+) -> Result<jmap_types::Id, Box<jmap_server::SetError>> {
     jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
         Box::new(
-            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+            jmap_server::SetError::new(jmap_server::SetErrorType::InvalidProperties)
                 .with_properties([property])
                 .with_description(
                     "creation id reference matches no record created earlier in this request",
@@ -45,7 +46,7 @@ pub(crate) fn resolve_refs(
     obj: &mut serde_json::Value,
     props: &[&str],
     created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
-) -> Result<(), Box<crate::SetError>> {
+) -> Result<(), Box<jmap_server::SetError>> {
     let Some(m) = obj.as_object_mut() else {
         return Ok(());
     };

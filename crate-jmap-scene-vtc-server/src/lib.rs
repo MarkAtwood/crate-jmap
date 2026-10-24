@@ -14,8 +14,9 @@
 
 #![forbid(unsafe_code)]
 
-use jmap_scene_server::{BackendSetError, JmapBackend, SceneBackend};
+use jmap_scene_server::SceneBackend;
 use jmap_scene_types::SceneRegion;
+use jmap_server::{BackendSetError, JmapBackend};
 use jmap_types::{Id, PatchObject};
 use jmap_vtc_types::{CallState, VtcCall, VtcParticipant};
 use serde_json::Value;

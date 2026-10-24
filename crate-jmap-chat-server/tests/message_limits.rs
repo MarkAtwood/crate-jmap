@@ -10,10 +10,9 @@ mod common;
 
 use common::{ACCOUNT_ID, TrackingBackend};
 use jmap_chat_server::message::handle_message_set;
-use jmap_chat_server::{
-    AttachmentBlob, ChatBackend, ChatLimits, SetError, SetErrorType, handle_chat_set,
-};
+use jmap_chat_server::{AttachmentBlob, ChatBackend, ChatLimits, handle_chat_set};
 use jmap_server::HandlerOutput;
+use jmap_server::{SetError, SetErrorType};
 use serde_json::{Map, Value, json};
 
 /// SHA-256("abc"), FIPS 180-2 Appendix B.1 / RFC 6234 §8.5 TEST1.

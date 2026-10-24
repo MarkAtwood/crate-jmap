@@ -12,16 +12,17 @@ use std::collections::BTreeMap;
 
 use common::{FAULTY_BACKEND_CANARY, FaultyBackend, MemoryBackend, seed::setup_seed_data};
 use jmap_mail_server::{
-    JmapBackend, JmapObject, MailBackend, SetErrorType, handle_email_changes, handle_email_get,
-    handle_email_import, handle_email_query, handle_email_query_changes, handle_email_set,
-    handle_identity_changes, handle_identity_get, handle_identity_set, handle_mailbox_changes,
-    handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes, handle_mailbox_set,
-    handle_search_snippet_get, handle_submission_get, handle_submission_query,
-    handle_submission_query_changes, handle_submission_set, handle_thread_changes,
-    handle_thread_get, handle_vacation_get, handle_vacation_set,
+    MailBackend, handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
+    handle_email_query_changes, handle_email_set, handle_identity_changes, handle_identity_get,
+    handle_identity_set, handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query,
+    handle_mailbox_query_changes, handle_mailbox_set, handle_search_snippet_get,
+    handle_submission_get, handle_submission_query, handle_submission_query_changes,
+    handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
+    handle_vacation_set,
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_server::{HandlerOutput, QueryChangesParams, QueryParams};
+use jmap_server::{JmapBackend, JmapObject, SetErrorType};
 use jmap_types::Id;
 use jmap_types::Invocation;
 
@@ -539,7 +540,7 @@ async fn search_snippet_get_capability_gated() {
             self.0.account_exists(&(), account_id).await
         }
 
-        async fn get_objects<O: jmap_mail_server::GetObject + Send + Sync>(
+        async fn get_objects<O: jmap_server::GetObject + Send + Sync>(
             &self,
             _caller: &(),
             account_id: &Id,
@@ -562,32 +563,27 @@ async fn search_snippet_get_capability_gated() {
             _caller: &(),
             account_id: &Id,
             params: jmap_server::ChangesParams<'_>,
-        ) -> Result<
-            jmap_mail_server::ChangesResult,
-            jmap_mail_server::BackendChangesError<Self::Error>,
-        > {
+        ) -> Result<jmap_server::ChangesResult, jmap_server::BackendChangesError<Self::Error>>
+        {
             self.0.get_changes::<O>(&(), account_id, params).await
         }
 
-        async fn query_objects<O: jmap_mail_server::QueryObject + Send + Sync>(
+        async fn query_objects<O: jmap_server::QueryObject + Send + Sync>(
             &self,
             _caller: &(),
             account_id: &Id,
             params: QueryParams<'_, O>,
-        ) -> Result<jmap_mail_server::QueryResult, jmap_mail_server::BackendQueryError<Self::Error>>
-        {
+        ) -> Result<jmap_server::QueryResult, jmap_server::BackendQueryError<Self::Error>> {
             self.0.query_objects::<O>(&(), account_id, params).await
         }
 
-        async fn query_changes<O: jmap_mail_server::QueryObject + Send + Sync>(
+        async fn query_changes<O: jmap_server::QueryObject + Send + Sync>(
             &self,
             _caller: &(),
             account_id: &Id,
             params: QueryChangesParams<'_, O>,
-        ) -> Result<
-            jmap_mail_server::QueryChangesResult,
-            jmap_mail_server::BackendChangesError<Self::Error>,
-        > {
+        ) -> Result<jmap_server::QueryChangesResult, jmap_server::BackendChangesError<Self::Error>>
+        {
             self.0.query_changes::<O>(&(), account_id, params).await
         }
     }
@@ -599,9 +595,9 @@ async fn search_snippet_get_capability_gated() {
             account_id: &Id,
             create_id: &str,
             build: F,
-        ) -> Result<(Id, O), jmap_mail_server::BackendSetError<Self::Error>>
+        ) -> Result<(Id, O), jmap_server::BackendSetError<Self::Error>>
         where
-            O: jmap_mail_server::SetObject + Send + Sync,
+            O: jmap_server::SetObject + Send + Sync,
             F: FnOnce(&Id) -> O + Send,
         {
             self.0
@@ -616,7 +612,7 @@ async fn search_snippet_get_capability_gated() {
             create_id: &str,
             message: Vec<u8>,
             build: F,
-        ) -> Result<(Id, jmap_mail_types::Email), jmap_mail_server::BackendSetError<Self::Error>>
+        ) -> Result<(Id, jmap_mail_types::Email), jmap_server::BackendSetError<Self::Error>>
         where
             F: FnOnce(&Id, &Id, &[u8]) -> jmap_mail_types::Email + Send,
         {
@@ -634,22 +630,22 @@ async fn search_snippet_get_capability_gated() {
             MailBackend::read_blob(&self.0, &(), account_id, blob_id).await
         }
 
-        async fn update_object<O: jmap_mail_server::SetObject + Send + Sync>(
+        async fn update_object<O: jmap_server::SetObject + Send + Sync>(
             &self,
             _caller: &(),
             account_id: &Id,
             id: &Id,
             patch: O::Patch,
-        ) -> Result<Option<O>, jmap_mail_server::BackendSetError<Self::Error>> {
+        ) -> Result<Option<O>, jmap_server::BackendSetError<Self::Error>> {
             self.0.update_object(&(), account_id, id, patch).await
         }
 
-        async fn destroy_object<O: jmap_mail_server::SetObject + Send + Sync>(
+        async fn destroy_object<O: jmap_server::SetObject + Send + Sync>(
             &self,
             _caller: &(),
             account_id: &Id,
             id: &Id,
-        ) -> Result<(), jmap_mail_server::BackendSetError<Self::Error>> {
+        ) -> Result<(), jmap_server::BackendSetError<Self::Error>> {
             self.0.destroy_object::<O>(&(), account_id, id).await
         }
 
@@ -661,7 +657,7 @@ async fn search_snippet_get_capability_gated() {
             mailbox_ids: &[Id],
             keywords: &[jmap_mail_types::Keyword],
             received_at: Option<&jmap_types::UTCDate>,
-        ) -> Result<(Id, jmap_mail_types::Email), jmap_mail_server::BackendSetError<Self::Error>>
+        ) -> Result<(Id, jmap_mail_types::Email), jmap_server::BackendSetError<Self::Error>>
         {
             self.0
                 .import_email(&(), account_id, blob_id, mailbox_ids, keywords, received_at)
@@ -686,13 +682,13 @@ async fn search_snippet_get_capability_gated() {
             self.0.parse_email(&(), account_id, blob_id).await
         }
 
-        async fn copy_object<O: jmap_mail_server::SetObject + Send + Sync>(
+        async fn copy_object<O: jmap_server::SetObject + Send + Sync>(
             &self,
             _caller: &(),
             from_account_id: &Id,
             to_account_id: &Id,
             obj: O,
-        ) -> Result<(Id, O), jmap_mail_server::BackendSetError<Self::Error>> {
+        ) -> Result<(Id, O), jmap_server::BackendSetError<Self::Error>> {
             self.0
                 .copy_object(&(), from_account_id, to_account_id, obj)
                 .await
@@ -1006,7 +1002,7 @@ async fn vacation_set_destroy_returns_singleton_error() {
     );
 
     // Verify the SetErrorType round-trips correctly through serde.
-    let deserialized: jmap_mail_server::SetError =
+    let deserialized: jmap_server::SetError =
         serde_json::from_value(not_destroyed["singleton"].clone())
             .expect("notDestroyed entry must deserialize as SetError");
     assert_eq!(deserialized.error_type, SetErrorType::Singleton);
@@ -7382,7 +7378,7 @@ Body one.
 
     // Capture thread state before first import.
     let state0 = {
-        use jmap_mail_server::JmapBackend;
+        use jmap_server::JmapBackend;
         backend
             .get_state::<jmap_mail_types::Thread>(&(), &account_id)
             .await
@@ -7405,7 +7401,7 @@ Body one.
 
     // Capture thread state after first import.
     let state1 = {
-        use jmap_mail_server::JmapBackend;
+        use jmap_server::JmapBackend;
         backend
             .get_state::<jmap_mail_types::Thread>(&(), &account_id)
             .await

@@ -114,11 +114,6 @@ pub use jmap_chat_types::{
     ChatContactProperty, ChatProperty, MessageProperty, ReadPositionProperty, SpaceProperty,
 };
 pub use jmap_chat_types::{SpaceMetadataPatch, SpacePatchOp};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 pub use outbound::{GroupUpdateAction, OutboundEvent, ReactionAction};
 pub use permissions::{
     RequiredPermissions, required_permissions_for_op, resolve_channel_permissions,

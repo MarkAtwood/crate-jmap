@@ -27,10 +27,13 @@ use std::sync::{Arc, Mutex};
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
-    AttachmentBlob, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-    ChatBackend, ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend, JmapObject,
-    OpResult, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult,
+    SlowModeError, SpacePatchOp,
+};
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject,
 };
 use jmap_types::{Id, PatchObject, State, UTCDate};
 
@@ -108,10 +111,8 @@ impl ChatBackend for FaultyBackend {
         _caller: &(),
         _account_id: &Id,
         _blob_id: &Id,
-    ) -> Result<
-        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
-        MemoryError,
-    > {
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
         Ok(Ok(None))
     }
 
@@ -986,10 +987,8 @@ impl ChatBackend for IdentityBackend {
         _caller: &Id,
         account_id: &Id,
         blob_id: &Id,
-    ) -> Result<
-        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
-        MemoryError,
-    > {
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
         self.inner.attachment_blob(&(), account_id, blob_id).await
     }
 
@@ -1476,10 +1475,8 @@ impl ChatBackend for InjectableBackend {
         caller: &(),
         account_id: &Id,
         blob_id: &Id,
-    ) -> Result<
-        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
-        MemoryError,
-    > {
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
         self.inner
             .attachment_blob(caller, account_id, blob_id)
             .await

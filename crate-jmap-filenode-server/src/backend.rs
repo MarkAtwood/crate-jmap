@@ -126,7 +126,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// "Permission enforcement (backend canonical)" on [`FileNodeBackend`],
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only, and a backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
@@ -173,7 +173,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](jmap_server::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
@@ -227,7 +227,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Invariants the backend MUST re-verify atomically with the update
@@ -312,7 +312,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Invariants the backend MUST re-verify atomically with the destroy

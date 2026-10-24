@@ -37,7 +37,8 @@ use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort, state_refused,
 };
-use crate::{BackendSetError, StatefulObject, VtcBackend};
+use crate::{StatefulObject, VtcBackend};
+use jmap_server::BackendSetError;
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend,

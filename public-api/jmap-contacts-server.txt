@@ -1,24 +1,7 @@
 pub mod jmap_contacts_server
-pub use jmap_contacts_server::AddedItem
 pub use jmap_contacts_server::AddressBookProperty
-pub use jmap_contacts_server::BackendChangesError
-pub use jmap_contacts_server::BackendQueryError
-pub use jmap_contacts_server::BackendSetError
-pub use jmap_contacts_server::ChangesParams
-pub use jmap_contacts_server::ChangesResult
 pub use jmap_contacts_server::ContactCardProperty
-pub use jmap_contacts_server::GetObject
 pub use jmap_contacts_server::JMAP_CONTACTS_URI
-pub use jmap_contacts_server::JmapBackend
-pub use jmap_contacts_server::JmapObject
-pub use jmap_contacts_server::QueryChangesParams
-pub use jmap_contacts_server::QueryChangesResult
-pub use jmap_contacts_server::QueryObject
-pub use jmap_contacts_server::QueryParams
-pub use jmap_contacts_server::QueryResult
-pub use jmap_contacts_server::SetError
-pub use jmap_contacts_server::SetErrorType
-pub use jmap_contacts_server::SetObject
 pub mod jmap_contacts_server::memory
 #[non_exhaustive] pub struct jmap_contacts_server::memory::MemoryBackend
 impl jmap_contacts_server::memory::MemoryBackend

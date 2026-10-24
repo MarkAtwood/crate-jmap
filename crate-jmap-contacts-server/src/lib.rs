@@ -60,11 +60,6 @@ pub use card::{
     handle_contact_card_query, handle_contact_card_query_changes, handle_contact_card_set,
 };
 pub use jmap_contacts_types::{AddressBookProperty, ContactCardProperty};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 
 /// Capability URI for the JMAP for Contacts extension (RFC 9610 §1.4.1).
 ///

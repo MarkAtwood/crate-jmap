@@ -22,7 +22,8 @@ use crate::helpers::{
     handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, is_uri,
     mistyped, not_found, patched, patched_properties, readable_rights, string_or_null, to_map,
 };
-use crate::{EditLog, GraphBackend, JmapBackend};
+use crate::{EditLog, GraphBackend};
+use jmap_server::JmapBackend;
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
     reject_server_set,

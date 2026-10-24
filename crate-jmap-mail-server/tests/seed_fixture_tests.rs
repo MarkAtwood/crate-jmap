@@ -11,8 +11,8 @@
 mod common;
 
 use common::{MemoryBackend, seed::setup_seed_data};
-use jmap_mail_server::JmapBackend;
 use jmap_mail_types::{Email, Mailbox, MailboxRole};
+use jmap_server::JmapBackend;
 use jmap_types::Id;
 
 const ACCOUNT: &str = "acct1";

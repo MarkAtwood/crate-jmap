@@ -111,10 +111,11 @@ use crate::query::{
     asset_matches, avatar_matches, compare_assets, compare_avatars, compare_objects,
     compare_regions, object_matches, region_local_position, region_matches,
 };
-use crate::{
-    BackendChangesError, BackendQueryError, BackendSetError, BindingProperty, BindingTarget,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SceneBackend, SetError, SetErrorType, SetObject,
+use crate::{BindingProperty, BindingTarget, SceneBackend};
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject,
 };
 
 /// How one id changed in one state step.

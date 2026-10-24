@@ -14,7 +14,7 @@ use jmap_chat_server::message::{
     handle_message_changes, handle_message_get, handle_message_query, handle_message_set,
 };
 use jmap_chat_server::{
-    ChatBackend, JmapBackend, handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get,
+    ChatBackend, handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get,
     handle_chat_query, handle_chat_query_changes, handle_chat_set, handle_contact_changes,
     handle_contact_get, handle_contact_query, handle_contact_query_changes, handle_contact_set,
     handle_invite_get, handle_invite_set, handle_position_get, handle_position_set,
@@ -23,6 +23,7 @@ use jmap_chat_server::{
 };
 use jmap_chat_types::{Chat, ChatKind};
 use jmap_server::HandlerOutput;
+use jmap_server::JmapBackend;
 use jmap_types::Id;
 use serde_json::json;
 
@@ -4744,7 +4745,7 @@ fn seed_channel(
     space_id: &str,
     category_id: Option<&str>,
 ) {
-    use jmap_chat_server::JmapObject;
+    use jmap_server::JmapObject;
     let mut chat = json!({
         "id": chat_id,
         "kind": "channel",
@@ -5825,25 +5826,25 @@ async fn space_set_channel_remove_cascades_messages() {
     // the cascade and observe the `destroyed` ids via `Message/changes`
     // (which returns just id lists, no Message deserialization).
     backend.insert_object_for_test(
-        <jmap_chat_types::Message as jmap_chat_server::JmapObject>::TYPE_NAME,
+        <jmap_chat_types::Message as jmap_server::JmapObject>::TYPE_NAME,
         ACCOUNT_ID,
         "m1",
         json!({ "id": "m1", "chatId": general_id, "body": "one" }),
     );
     backend.insert_object_for_test(
-        <jmap_chat_types::Message as jmap_chat_server::JmapObject>::TYPE_NAME,
+        <jmap_chat_types::Message as jmap_server::JmapObject>::TYPE_NAME,
         ACCOUNT_ID,
         "m2",
         json!({ "id": "m2", "chatId": general_id, "body": "two" }),
     );
     backend.insert_object_for_test(
-        <jmap_chat_types::Message as jmap_chat_server::JmapObject>::TYPE_NAME,
+        <jmap_chat_types::Message as jmap_server::JmapObject>::TYPE_NAME,
         ACCOUNT_ID,
         "m3",
         json!({ "id": "m3", "chatId": general_id, "body": "three" }),
     );
     backend.insert_object_for_test(
-        <jmap_chat_types::Message as jmap_chat_server::JmapObject>::TYPE_NAME,
+        <jmap_chat_types::Message as jmap_server::JmapObject>::TYPE_NAME,
         ACCOUNT_ID,
         "k1",
         json!({ "id": "k1", "chatId": keep_id, "body": "keep" }),
@@ -9192,7 +9193,7 @@ async fn apply_space_patch_direct_call_enforces_roles_cap() {
         .await;
 
     match result {
-        Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {
+        Err(jmap_server::BackendSetError::SetError(set_err)) => {
             let v = serde_json::to_value(&set_err).expect("set_err serializes");
             assert_eq!(
                 v["type"], "overQuota",
@@ -9237,7 +9238,7 @@ async fn apply_space_patch_direct_call_no_add_ops_bypasses_cap_check() {
     // the assertion is specifically that it is NOT overQuota.)
     match result {
         Ok(_) => {}
-        Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {
+        Err(jmap_server::BackendSetError::SetError(set_err)) => {
             let v = serde_json::to_value(&set_err).expect("set_err serializes");
             assert_ne!(
                 v["type"], "overQuota",
@@ -9372,7 +9373,7 @@ async fn apply_space_patch_direct_call_overquota_description_does_not_leak_count
         .await;
 
     match result {
-        Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {
+        Err(jmap_server::BackendSetError::SetError(set_err)) => {
             let v = serde_json::to_value(&set_err).expect("set_err serializes");
             assert_eq!(v["type"], "overQuota");
             let desc = v["description"].as_str().expect("description");

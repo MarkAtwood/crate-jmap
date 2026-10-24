@@ -73,11 +73,6 @@ pub use call::{
     handle_vtc_call_query, handle_vtc_call_query_changes, handle_vtc_call_set,
 };
 pub use ephemeral::{CallScope, VtcEphemeralSubscription, VtcStreamFilter, should_deliver};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 pub use media::{
     handle_vtc_livestream_changes, handle_vtc_livestream_get, handle_vtc_livestream_query,
     handle_vtc_livestream_query_changes, handle_vtc_livestream_set, handle_vtc_recording_changes,

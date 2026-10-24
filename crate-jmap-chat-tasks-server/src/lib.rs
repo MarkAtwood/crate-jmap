@@ -41,7 +41,8 @@ use jmap_chat_types::{
     ChatTasksCapability, JMAP_CHAT_URI, SPACE_TASK_LIST_ID_PROPERTY, Space, TASK_CHAT_ID_PROPERTY,
     task_chat_id,
 };
-use jmap_tasks_server::{BackendSetError, SetError, SetErrorType, TasksBackend};
+use jmap_server::{BackendSetError, SetError, SetErrorType};
+use jmap_tasks_server::TasksBackend;
 use jmap_tasks_types::{JMAP_TASKS_URI, Task, TaskList};
 use jmap_types::{Id, PatchObject};
 use serde_json::Value;

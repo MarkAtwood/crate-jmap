@@ -64,11 +64,7 @@
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
-use crate::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult,
-    ContactsBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
+use crate::ContactsBackend;
 use jmap_contacts_types::{
     AddressBook, ContactCard, ContactCardFilter, ContactCardFilterCondition,
 };
@@ -78,6 +74,11 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
+};
 use jmap_server::{
     PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
 };

@@ -62,7 +62,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// permission model (RFC 9670 `myRights`, `shareWith`,
 /// `isSubscribed`, per-user $seen-style state, vendor ACLs), and
 /// rejects the operation atomically with the storage write via
-/// [`SetError`](crate::SetError) / [`BackendSetError`].
+/// [`SetError`](jmap_server::SetError) / [`BackendSetError`].
 ///
 /// The canonical consumer pattern is `ChatBackend::apply_space_patch`
 /// in jmap-chat-server (bd:JMAP-g7wu.2.4). Future AddressBook ACL
@@ -87,7 +87,7 @@ pub trait ContactsBackend: JmapBackend {
     /// account / AddressBook / ContactCard
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only, and a backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
@@ -119,7 +119,7 @@ pub trait ContactsBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](jmap_server::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
@@ -177,7 +177,7 @@ pub trait ContactsBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Patch format
@@ -234,7 +234,7 @@ pub trait ContactsBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -321,7 +321,7 @@ pub trait ContactsBackend: JmapBackend {
     /// Implementors MUST verify caller read access to `obj` in
     /// `from_account_id` and write access to `to_account_id` before storing the
     /// copy, and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     fn copy_object<O: SetObject + Send + Sync>(
         &self,

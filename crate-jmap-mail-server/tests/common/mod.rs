@@ -23,10 +23,11 @@
 // Re-exports — keep `use common::MemoryBackend;` working for tests.
 pub use jmap_mail_server::memory::{MemoryBackend, MemoryError, seed};
 
-use jmap_mail_server::{
+use jmap_mail_server::MailBackend;
+use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, MailBackend, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetObject,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetObject,
 };
 use jmap_types::{Id, State, UTCDate};
 

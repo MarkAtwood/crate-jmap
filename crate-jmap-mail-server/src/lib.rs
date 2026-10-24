@@ -93,11 +93,6 @@ pub use jmap_mail_types::{
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
 };
 pub use jmap_mail_types::{JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI};
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 pub use mailbox::{
     handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes,
     handle_mailbox_set,

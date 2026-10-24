@@ -11,8 +11,8 @@
 mod common;
 
 use common::*;
-use jmap_scene_server::JmapBackend;
 use jmap_scene_vtc_server::may_see_region_avatars;
+use jmap_server::JmapBackend;
 use jmap_types::Id;
 use jmap_vtc_types::VtcCall;
 use serde_json::{Value, json};

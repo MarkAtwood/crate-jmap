@@ -31,11 +31,12 @@ use jmap_sharing_types::ShareNotification;
 use jmap_types::JmapError;
 use serde_json::Value;
 
+use crate::SharingBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
 };
-use crate::{SetError, SetErrorType, SharingBackend};
 use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
+use jmap_server::{SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
 // ShareNotification/get

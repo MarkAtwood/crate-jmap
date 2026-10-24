@@ -35,6 +35,7 @@ use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::time::SystemTime;
 
+use crate::VtcBackend;
 use crate::call::{deliver_call_end, end_call, is_state_refusal, ring_deadline, set_call_state};
 use crate::helpers::resolve_refs;
 use crate::helpers::{
@@ -42,7 +43,7 @@ use crate::helpers::{
     finalize_set_response, forbidden, invalid, not_found, peek_filter, reject_unsupported_sort,
     utc_key,
 };
-use crate::{BackendSetError, SetError, SetErrorType, VtcBackend};
+use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, now_utc_string,
     reject_read_only_patch, reject_server_set, server_fail_from_backend,

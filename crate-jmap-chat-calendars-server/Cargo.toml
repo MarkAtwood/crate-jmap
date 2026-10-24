@@ -15,6 +15,7 @@ jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
 jmap-calendars-types = { workspace = true }
 jmap-calendars-server = { workspace = true }
+jmap-server = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

@@ -25,16 +25,16 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use jmap_chat_server::memory::{MemoryBackend as ChatMemory, MemoryError};
-use jmap_chat_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
-    ChatLimits, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetObject,
-    SpacePatchOp,
-};
+use jmap_chat_server::{ChatBackend, ChatLimits, InviteJoinRefusal, OpResult, SpacePatchOp};
 use jmap_chat_tasks_server::{check_task_chat_id, redact_task_chat_ids};
 use jmap_chat_types::ChatTasksCapability;
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetObject,
+};
 
-use jmap_tasks_server::SetErrorType;
+use jmap_server::SetErrorType;
 use jmap_tasks_types::Task;
 use jmap_types::{Id, PatchObject, State, UTCDate};
 use serde_json::{Value, json};
@@ -62,7 +62,7 @@ fn task(id: &str, extra: Value) -> Task {
 }
 
 /// Asserts `result` is `invalidProperties` naming exactly `chatId`.
-fn assert_invalid_chat_id(result: Result<(), Box<jmap_tasks_server::SetError>>) {
+fn assert_invalid_chat_id(result: Result<(), Box<jmap_server::SetError>>) {
     let err = result.expect_err("must be refused");
     let v = serde_json::to_value(&err).expect("SetError serializes");
     assert_eq!(err.error_type, SetErrorType::InvalidProperties, "{v}");
@@ -232,7 +232,7 @@ impl JmapBackend for ViewGate {
         &self,
         caller: &(),
         account_id: &Id,
-        params: jmap_chat_server::ChangesParams<'_>,
+        params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         self.inner
             .get_changes::<O>(caller, account_id, params)
@@ -268,10 +268,8 @@ impl ChatBackend for ViewGate {
         caller: &(),
         account_id: &Id,
         blob_id: &Id,
-    ) -> Result<
-        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
-        MemoryError,
-    > {
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
         self.inner
             .attachment_blob(caller, account_id, blob_id)
             .await

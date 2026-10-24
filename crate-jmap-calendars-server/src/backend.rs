@@ -117,7 +117,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// account / Calendar / CalendarEvent
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only, and a backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
@@ -139,7 +139,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](jmap_server::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
@@ -203,7 +203,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Patch format
@@ -260,7 +260,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -357,7 +357,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Implementors MUST verify that the caller may modify per-user properties
     /// on the target event and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. That is the Calendar's
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. That is the Calendar's
     /// `mayUpdatePrivate` right, which draft-ietf-jmap-calendars-33 §4 defines
     /// as: "The user may modify per-user properties (see Section 5.4) on all
     /// events in the calendar, even if they would not otherwise have permission
@@ -420,7 +420,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default delegates to [`Self::create_object`], which carries the check. An
     /// override MUST enforce the same contract as [`Self::create_object`] before
     /// storing the event, returning [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) when the caller lacks write access.
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) when the caller lacks write access.
     fn create_calendar_event<F>(
         &self,
         caller: &Self::CallerCtx,
@@ -469,7 +469,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default delegates to [`Self::update_object`], which carries the check. An
     /// override MUST enforce the same contract as [`Self::update_object`] before
     /// applying the patch, returning [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) when the caller lacks write access.
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) when the caller lacks write access.
     fn update_calendar_event(
         &self,
         caller: &Self::CallerCtx,
@@ -504,7 +504,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default delegates to [`Self::destroy_object`], which carries the check. An
     /// override MUST enforce the same contract as [`Self::destroy_object`] before
     /// destroying the event, returning [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) when the caller lacks write access.
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) when the caller lacks write access.
     fn destroy_calendar_event(
         &self,
         caller: &Self::CallerCtx,
@@ -700,7 +700,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// `utcEnd` are absent from every response. Backends MUST override this
     /// method to provide real §5.2 semantics.
     ///
-    /// [`get_objects`]: crate::JmapBackend::get_objects
+    /// [`get_objects`]: jmap_server::JmapBackend::get_objects
     fn compute_utc_times(
         &self,
         _caller: &Self::CallerCtx,

@@ -32,6 +32,7 @@ use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::ChatBackend;
 use crate::helpers::{PropType, check_metadata_entry, create_metadata, mistyped_create_props};
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
@@ -39,11 +40,11 @@ use crate::helpers::{
 };
 use crate::helpers::{resolve_refs, resolved_create};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
-use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, is_client_updatable, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend,
 };
+use jmap_server::{SetError, SetErrorType};
 
 /// `Chat/set` update keys that change a group Chat's member list
 /// (draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat").

@@ -31,15 +31,16 @@ use jmap_contacts_types::{AddressBook, ContactCard, ContactCardFilterCondition};
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
+use crate::ContactsBackend;
 use crate::helpers::{
     SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response,
 };
-use crate::{ContactsBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, reject_read_only_patch,
     reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
+use jmap_server::{SetError, SetErrorType};
 
 /// RFC 9610 §7.4.1 — IANA-registered JMAP error type for AddressBook/set
 /// destroy attempts that target a non-empty AddressBook while

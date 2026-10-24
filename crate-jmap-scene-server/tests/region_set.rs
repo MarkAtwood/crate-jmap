@@ -9,11 +9,12 @@ mod common;
 use common::*;
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{
-    BindingProperty, BindingTarget, JmapBackend, handle_scene_avatar_changes,
-    handle_scene_avatar_get, handle_scene_object_changes, handle_scene_object_get,
-    handle_scene_region_changes, handle_scene_region_get, handle_scene_region_set,
+    BindingProperty, BindingTarget, handle_scene_avatar_changes, handle_scene_avatar_get,
+    handle_scene_object_changes, handle_scene_object_get, handle_scene_region_changes,
+    handle_scene_region_get, handle_scene_region_set,
 };
 use jmap_scene_types::{SceneAvatar, SceneObject};
+use jmap_server::JmapBackend;
 use jmap_types::Id;
 use serde_json::{Value, json};
 

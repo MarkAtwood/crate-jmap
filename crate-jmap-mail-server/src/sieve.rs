@@ -49,11 +49,12 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 use std::collections::{HashMap, HashSet};
 
+use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     filter_properties, finalize_set_response,
 };
-use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
+use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, filter_arg, limit_or_max, reject_read_only_patch,
     reject_server_set, resolve_query_offset, server_fail_from_backend,

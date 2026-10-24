@@ -38,7 +38,7 @@ pub trait TasksBackend: JmapBackend {
     /// access to the target account / TaskList / Task before performing the
     /// mutation, and MUST return
     /// [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only and the backend MUST re-verify atomically with the mutation. A
     /// backend that trusts the handler is a bug. A backend whose
@@ -50,7 +50,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](jmap_server::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
@@ -105,7 +105,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Patch format
@@ -168,7 +168,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -272,7 +272,7 @@ pub trait TasksBackend: JmapBackend {
     /// Implementors MUST verify caller read access to the target Task (per-user
     /// properties are still scoped to the user, but only users who can see the
     /// Task can have per-user state on it) and MUST return
-    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise.
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise.
     /// The shared-property write-access rule from [`Self::update_object`] does
     /// NOT apply here — a user with only read access to the shared Task may
     /// still mutate their own per-user state. See [`Self::create_object`] for

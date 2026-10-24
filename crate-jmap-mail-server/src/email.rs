@@ -44,17 +44,18 @@ use jmap_types::{Date, Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, check_metadata_entry, create_metadata, enforce_max_objects_in_get,
     enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
     not_found_json, resolve_ref, serialize_value,
 };
-use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
     limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_offset,
     resolve_query_start, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
 };
+use jmap_server::{SetError, SetErrorType};
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
 const DEFAULT_EMAIL_GET_PROPERTIES: &[&str] = &[
@@ -1571,12 +1572,12 @@ fn validate_and_normalize_keywords(
 ///
 /// # Errors
 ///
-/// An `invalidProperties` [`crate::SetError`] naming `mailboxIds` when a
+/// An `invalidProperties` [`jmap_server::SetError`] naming `mailboxIds` when a
 /// reference matches no record created earlier in the request.
 fn resolve_mailbox_id_refs(
     obj: &mut Value,
     created_ids: &BTreeMap<Id, Id>,
-) -> Result<(), Box<crate::SetError>> {
+) -> Result<(), Box<jmap_server::SetError>> {
     let Some(obj) = obj.as_object_mut() else {
         return Ok(());
     };
