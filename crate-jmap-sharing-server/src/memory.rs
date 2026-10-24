@@ -319,8 +319,7 @@ impl MemoryBackend {
     /// condition exactly: the tree may combine metadata conditions with
     /// AND/OR/NOT, and any other Principal condition in it is
     /// `unsupportedFilter` (RFC 8620 §5.5), because this backend evaluates
-    /// no RFC 9670 §2.4.1 condition. A filter without metadata conditions
-    /// is still ignored, as [`JmapBackend::query_objects`] documents.
+    /// no RFC 9670 §2.4.1 condition.
     ///
     /// # Panics
     ///
@@ -678,28 +677,23 @@ impl JmapBackend for MemoryBackend {
 
     /// **Reference-only** implementation of [`JmapBackend::query_objects`].
     ///
-    /// This implementation **ignores `filter` and `sort`**: it returns every
-    /// stored object for the type/account in lexicographic id order,
-    /// independent of any filter expression or comparator list passed by the
-    /// caller. Pagination (`position`, `limit`) is honored.
+    /// It returns the stored objects for the type/account in lexicographic
+    /// id order and honors pagination (`position`, `limit`, `anchor`).
+    ///
+    /// It evaluates only the draft-ietf-jmap-metadata-04 §3.6 conditions of a
+    /// Principal filter (see [`MemoryBackend::with_metadata_info`]) and no
+    /// comparator. Anything else fails loud, per RFC 8620 §5.5: "A server
+    /// MUST reject the call with an unsupportedFilter error if it cannot
+    /// process the given filter" and "with an unsupportedSort error if it
+    /// cannot sort by the given properties". So a Principal filter with an
+    /// RFC 9670 §2.4.1 condition, any non-empty ShareNotification filter,
+    /// and any non-empty `sort` are rejected rather than ignored.
     ///
     /// Production backends MUST evaluate the filter expression and apply the
-    /// comparators per RFC 8620 §5.5 / RFC 9670 §2.4 (Principal/query) and
-    /// §3.4 (ShareNotification/query). Failing to do so causes clients to
-    /// receive ALL objects when they asked for a filtered subset, with no
-    /// loud error signal.
-    ///
-    /// The crate's integration tests wrap this backend in a
-    /// `FilteringBackend` (see `tests/query_changes_tests.rs`) when filter
-    /// evaluation is required. Downstream implementors building a real
-    /// backend should treat that wrapper as the contract, not this method.
-    ///
-    /// Exception: a Principal filter that carries a draft-ietf-jmap-metadata-04
-    /// §3.6 condition is evaluated (see [`MemoryBackend::with_metadata_info`]).
-    ///
-    /// Sibling-scope: six other `MemoryBackend` reference impls
-    /// (chat, calendars, contacts, metadata, tasks, filenode) carry the
-    /// same gap.
+    /// comparators per RFC 9670 §2.4 (Principal/query) and §3.4
+    /// (ShareNotification/query). The crate's integration tests wrap this
+    /// backend in a `FilteringBackend` (see `tests/query_changes_tests.rs`)
+    /// when `accountIds` evaluation is required.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -708,16 +702,24 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let QueryParams {
             filter,
+            sort,
             limit,
             position,
             anchor,
             anchor_offset,
             ..
         } = params;
+        // RFC 8620 §5.5: "A server MUST reject the call with an
+        // unsupportedSort error if it cannot sort by the given properties."
+        // This backend honors no comparator.
+        if sort.is_some_and(|s| !s.is_empty()) {
+            return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
+        }
         let inner = self.inner.lock().unwrap();
 
         // draft-ietf-jmap-metadata-04 §3.6 on Principal: validate the
-        // `metadata*` conditions, then evaluate a filter that has any.
+        // `metadata*` conditions, then evaluate the filter. Any other
+        // non-empty filter is `unsupportedFilter` (RFC 8620 §5.5).
         let metadata_filter = match filter {
             Some(f) if O::TYPE_NAME == Principal::TYPE_NAME => {
                 let v = serde_json::to_value(f)
@@ -725,16 +727,25 @@ impl JmapBackend for MemoryBackend {
                 check_metadata_filter(&v, inner.metadata_info.as_ref())?;
                 let f: PrincipalFilter = serde_json::from_value(v)
                     .map_err(|e| MemoryError::serde("parse filter", &e))?;
-                if has_metadata_condition(&f) {
-                    // Rejects an unevaluable leaf even when no object is
-                    // stored: every leaf is visited, matched against `{}`.
-                    principal_metadata_matches(&f, &serde_json::Map::new())?;
-                    Some(f)
-                } else {
-                    None
-                }
+                // Rejects an unevaluable leaf even when no object is
+                // stored: every leaf is visited, matched against `{}`.
+                principal_metadata_matches(&f, &serde_json::Map::new())?;
+                Some(f)
             }
-            _ => None,
+            Some(f) => {
+                let v = serde_json::to_value(f)
+                    .map_err(|e| MemoryError::serde("serialize filter", &e))?;
+                let empty = v
+                    .as_object()
+                    .is_some_and(|m| m.values().all(serde_json::Value::is_null));
+                if !empty {
+                    return Err(unsupported_filter(
+                        "this backend evaluates no filter condition on this type",
+                    ));
+                }
+                None
+            }
+            None => None,
         };
 
         let empty = serde_json::Map::new();
@@ -789,9 +800,8 @@ impl JmapBackend for MemoryBackend {
     /// **Reference-only** implementation of [`JmapBackend::query_changes`].
     ///
     /// Delegates to [`Self::get_changes`] for the change interval and
-    /// inherits the same filter/sort gap as [`Self::query_objects`]: the
-    /// `filter`, `sort`, `up_to_id`, and `collapse_threads` parameters are
-    /// ignored. Production backends MUST honor them per RFC 8620 §5.6 to
+    /// ignores the `filter`, `sort`, `up_to_id`, and `collapse_threads`
+    /// parameters (it does not reject them as [`Self::query_objects`] does). Production backends MUST honor them per RFC 8620 §5.6 to
     /// produce a coherent `added`/`removed` diff against the filtered,
     /// sorted view.
     async fn query_changes<O: QueryObject + Send + Sync>(
@@ -1216,16 +1226,6 @@ fn check_metadata_filter(
         })
 }
 
-/// Whether any leaf of `filter` carries a draft-ietf-jmap-metadata-04 §3.6
-/// condition.
-fn has_metadata_condition(filter: &PrincipalFilter) -> bool {
-    match filter {
-        Filter::Operator(op) => op.conditions.iter().any(has_metadata_condition),
-        Filter::Condition(c) => c.has_metadata_condition(),
-        _ => false,
-    }
-}
-
 /// Evaluate `filter` against one Principal's `metadata` (absent means
 /// `{}`, -04 §2), with RFC 8620 §5.5 AND/OR/NOT. Every leaf is evaluated,
 /// so an unevaluable one is reported whatever the others match: a leaf
@@ -1261,7 +1261,7 @@ fn principal_metadata_matches(
                 || c.time_zone.is_some()
             {
                 return Err(unsupported_filter(
-                    "this backend evaluates only metadata conditions in a filter that has one",
+                    "this backend evaluates only metadata filter conditions",
                 ));
             }
             Ok(metadata_matches(
