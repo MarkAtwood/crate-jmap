@@ -12,6 +12,14 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-24
+
+The JMAP Chat crates (`jmap-chat-types`, `jmap-chat-server`,
+`jmap-chat-client`, and the new `jmap-chat-*` federation, MIMI and bridge
+crates) remain **pre-stable** in 0.4.x: their API, and the `ChatBackend`
+trait in particular, will keep changing in later minor releases. The other
+crates follow the usual pre-1.0 rule above.
+
 ### Added
 
 - **jmap-calendars-server**, **jmap-tasks-server**,

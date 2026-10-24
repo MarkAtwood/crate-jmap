@@ -335,7 +335,7 @@ impl core::marker::StructuralPartialEq for jmap_types::Id
 impl serde_core::ser::Serialize for jmap_types::Id
 pub fn jmap_types::Id::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_types::Id
-pub fn jmap_types::Id::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub fn jmap_types::Id::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 pub struct jmap_types::Invocation
 pub jmap_types::Invocation::arguments: serde_json::value::Value
 pub jmap_types::Invocation::call_id: alloc::string::String
@@ -809,3 +809,4 @@ pub const jmap_types::PushSubscription::CLIENT_SETTABLE: &'static [&'static str]
 pub const jmap_types::PushSubscription::IMMUTABLE: &'static [&'static str]
 pub const jmap_types::PushSubscription::SERVER_SET: &'static [&'static str]
 pub fn jmap_types::check_property_classification<T: jmap_types::SetObject>(&T) -> core::result::Result<(), alloc::string::String>
+pub fn jmap_types::json_type_name(&serde_json::value::Value) -> &'static str

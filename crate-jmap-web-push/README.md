@@ -15,7 +15,7 @@ servers that deliver Web Push opt in.
 
 ```toml
 [dependencies]
-jmap-web-push = "0.3"
+jmap-web-push = "0.4"
 ```
 
 ```rust,no_run

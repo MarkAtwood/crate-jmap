@@ -358,6 +358,32 @@ impl serde_core::ser::Serialize for jmap_mail_types::SendingMode
 pub fn jmap_mail_types::SendingMode::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SendingMode
 pub fn jmap_mail_types::SendingMode::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub enum jmap_mail_types::SieveScriptComparatorProperty
+pub jmap_mail_types::SieveScriptComparatorProperty::IsActive
+pub jmap_mail_types::SieveScriptComparatorProperty::Name
+pub jmap_mail_types::SieveScriptComparatorProperty::Other(alloc::string::String)
+impl jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::as_str(&self) -> &str
+impl core::clone::Clone for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::clone(&self) -> jmap_mail_types::SieveScriptComparatorProperty
+impl core::cmp::Eq for jmap_mail_types::SieveScriptComparatorProperty
+impl core::cmp::PartialEq for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::eq(&self, &jmap_mail_types::SieveScriptComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_mail_types::SieveScriptComparatorProperty
+impl serde_core::ser::Serialize for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SieveScriptComparatorProperty
+pub fn jmap_mail_types::SieveScriptComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 #[non_exhaustive] pub enum jmap_mail_types::SieveScriptProperty
 pub jmap_mail_types::SieveScriptProperty::BlobId
 pub jmap_mail_types::SieveScriptProperty::Id
@@ -1221,6 +1247,24 @@ impl serde_core::ser::Serialize for jmap_mail_types::SieveScript
 pub fn jmap_mail_types::SieveScript::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SieveScript
 pub fn jmap_mail_types::SieveScript::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_mail_types::SieveScriptComparator
+pub jmap_mail_types::SieveScriptComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_mail_types::SieveScriptComparator::is_ascending: bool
+pub jmap_mail_types::SieveScriptComparator::property: jmap_mail_types::SieveScriptComparatorProperty
+impl jmap_mail_types::SieveScriptComparator
+pub fn jmap_mail_types::SieveScriptComparator::new(jmap_mail_types::SieveScriptComparatorProperty) -> Self
+impl core::clone::Clone for jmap_mail_types::SieveScriptComparator
+pub fn jmap_mail_types::SieveScriptComparator::clone(&self) -> jmap_mail_types::SieveScriptComparator
+impl core::cmp::Eq for jmap_mail_types::SieveScriptComparator
+impl core::cmp::PartialEq for jmap_mail_types::SieveScriptComparator
+pub fn jmap_mail_types::SieveScriptComparator::eq(&self, &jmap_mail_types::SieveScriptComparator) -> bool
+impl core::fmt::Debug for jmap_mail_types::SieveScriptComparator
+pub fn jmap_mail_types::SieveScriptComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_types::SieveScriptComparator
+impl serde_core::ser::Serialize for jmap_mail_types::SieveScriptComparator
+pub fn jmap_mail_types::SieveScriptComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_mail_types::SieveScriptComparator
+pub fn jmap_mail_types::SieveScriptComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_mail_types::SubmissionAccountCapability
 pub jmap_mail_types::SubmissionAccountCapability::max_delayed_send: u64
 pub jmap_mail_types::SubmissionAccountCapability::submission_extensions: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<alloc::string::String>>

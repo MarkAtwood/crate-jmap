@@ -10,6 +10,8 @@ pub jmap_vtc_types::CallEndReason::Failed
 pub jmap_vtc_types::CallEndReason::Missed
 pub jmap_vtc_types::CallEndReason::Other(alloc::string::String)
 pub jmap_vtc_types::CallEndReason::Timeout
+impl jmap_vtc_types::CallEndReason
+pub fn jmap_vtc_types::CallEndReason::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::CallEndReason
 pub fn jmap_vtc_types::CallEndReason::clone(&self) -> jmap_vtc_types::CallEndReason
 impl core::cmp::Eq for jmap_vtc_types::CallEndReason
@@ -35,6 +37,8 @@ pub jmap_vtc_types::CallResponse::Accepted
 pub jmap_vtc_types::CallResponse::Declined
 pub jmap_vtc_types::CallResponse::Other(alloc::string::String)
 pub jmap_vtc_types::CallResponse::Pending
+impl jmap_vtc_types::CallResponse
+pub fn jmap_vtc_types::CallResponse::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::CallResponse
 pub fn jmap_vtc_types::CallResponse::clone(&self) -> jmap_vtc_types::CallResponse
 impl core::cmp::Eq for jmap_vtc_types::CallResponse
@@ -59,6 +63,8 @@ pub fn jmap_vtc_types::CallResponse::deserialize<D: serde_core::de::Deserializer
 pub jmap_vtc_types::CallRole::Moderator
 pub jmap_vtc_types::CallRole::Other(alloc::string::String)
 pub jmap_vtc_types::CallRole::Participant
+impl jmap_vtc_types::CallRole
+pub fn jmap_vtc_types::CallRole::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::CallRole
 pub fn jmap_vtc_types::CallRole::clone(&self) -> jmap_vtc_types::CallRole
 impl core::cmp::Eq for jmap_vtc_types::CallRole
@@ -86,6 +92,8 @@ pub jmap_vtc_types::CallState::Ended
 pub jmap_vtc_types::CallState::Other(alloc::string::String)
 pub jmap_vtc_types::CallState::Pending
 pub jmap_vtc_types::CallState::Ringing
+impl jmap_vtc_types::CallState
+pub fn jmap_vtc_types::CallState::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::CallState
 pub fn jmap_vtc_types::CallState::clone(&self) -> jmap_vtc_types::CallState
 impl core::cmp::Eq for jmap_vtc_types::CallState
@@ -111,6 +119,8 @@ pub jmap_vtc_types::CallType::Other(alloc::string::String)
 pub jmap_vtc_types::CallType::Ring
 pub jmap_vtc_types::CallType::Room
 pub jmap_vtc_types::CallType::Scheduled
+impl jmap_vtc_types::CallType
+pub fn jmap_vtc_types::CallType::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::CallType
 pub fn jmap_vtc_types::CallType::clone(&self) -> jmap_vtc_types::CallType
 impl core::cmp::Eq for jmap_vtc_types::CallType
@@ -136,6 +146,8 @@ pub jmap_vtc_types::GatewayProtocol::H323
 pub jmap_vtc_types::GatewayProtocol::Other(alloc::string::String)
 pub jmap_vtc_types::GatewayProtocol::Pstn
 pub jmap_vtc_types::GatewayProtocol::Sip
+impl jmap_vtc_types::GatewayProtocol
+pub fn jmap_vtc_types::GatewayProtocol::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::GatewayProtocol
 pub fn jmap_vtc_types::GatewayProtocol::clone(&self) -> jmap_vtc_types::GatewayProtocol
 impl core::cmp::Eq for jmap_vtc_types::GatewayProtocol
@@ -162,6 +174,8 @@ pub jmap_vtc_types::JoinMethod::Other(alloc::string::String)
 pub jmap_vtc_types::JoinMethod::Pstn
 pub jmap_vtc_types::JoinMethod::Sip
 pub jmap_vtc_types::JoinMethod::Webrtc
+impl jmap_vtc_types::JoinMethod
+pub fn jmap_vtc_types::JoinMethod::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::JoinMethod
 pub fn jmap_vtc_types::JoinMethod::clone(&self) -> jmap_vtc_types::JoinMethod
 impl core::cmp::Eq for jmap_vtc_types::JoinMethod
@@ -188,6 +202,8 @@ pub jmap_vtc_types::LivestreamState::Live
 pub jmap_vtc_types::LivestreamState::Other(alloc::string::String)
 pub jmap_vtc_types::LivestreamState::Starting
 pub jmap_vtc_types::LivestreamState::Stopped
+impl jmap_vtc_types::LivestreamState
+pub fn jmap_vtc_types::LivestreamState::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::LivestreamState
 pub fn jmap_vtc_types::LivestreamState::clone(&self) -> jmap_vtc_types::LivestreamState
 impl core::cmp::Eq for jmap_vtc_types::LivestreamState
@@ -213,6 +229,8 @@ pub jmap_vtc_types::LobbyState::Admitted
 pub jmap_vtc_types::LobbyState::Other(alloc::string::String)
 pub jmap_vtc_types::LobbyState::Rejected
 pub jmap_vtc_types::LobbyState::Waiting
+impl jmap_vtc_types::LobbyState
+pub fn jmap_vtc_types::LobbyState::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::LobbyState
 pub fn jmap_vtc_types::LobbyState::clone(&self) -> jmap_vtc_types::LobbyState
 impl core::cmp::Eq for jmap_vtc_types::LobbyState
@@ -238,6 +256,8 @@ pub jmap_vtc_types::MediaKind::Audio
 pub jmap_vtc_types::MediaKind::Other(alloc::string::String)
 pub jmap_vtc_types::MediaKind::Screen
 pub jmap_vtc_types::MediaKind::Video
+impl jmap_vtc_types::MediaKind
+pub fn jmap_vtc_types::MediaKind::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::MediaKind
 pub fn jmap_vtc_types::MediaKind::clone(&self) -> jmap_vtc_types::MediaKind
 impl core::cmp::Eq for jmap_vtc_types::MediaKind
@@ -263,6 +283,8 @@ pub jmap_vtc_types::ParticipantEventKind::Joined
 pub jmap_vtc_types::ParticipantEventKind::Kicked
 pub jmap_vtc_types::ParticipantEventKind::Left
 pub jmap_vtc_types::ParticipantEventKind::Other(alloc::string::String)
+impl jmap_vtc_types::ParticipantEventKind
+pub fn jmap_vtc_types::ParticipantEventKind::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::ParticipantEventKind
 pub fn jmap_vtc_types::ParticipantEventKind::clone(&self) -> jmap_vtc_types::ParticipantEventKind
 impl core::cmp::Eq for jmap_vtc_types::ParticipantEventKind
@@ -291,6 +313,8 @@ pub jmap_vtc_types::RecordingState::Paused
 pub jmap_vtc_types::RecordingState::Processing
 pub jmap_vtc_types::RecordingState::Recording
 pub jmap_vtc_types::RecordingState::Stopped
+impl jmap_vtc_types::RecordingState
+pub fn jmap_vtc_types::RecordingState::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::RecordingState
 pub fn jmap_vtc_types::RecordingState::clone(&self) -> jmap_vtc_types::RecordingState
 impl core::cmp::Eq for jmap_vtc_types::RecordingState
@@ -318,6 +342,8 @@ pub jmap_vtc_types::RingEndReason::Declined
 pub jmap_vtc_types::RingEndReason::Failed
 pub jmap_vtc_types::RingEndReason::Other(alloc::string::String)
 pub jmap_vtc_types::RingEndReason::Timeout
+impl jmap_vtc_types::RingEndReason
+pub fn jmap_vtc_types::RingEndReason::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::RingEndReason
 pub fn jmap_vtc_types::RingEndReason::clone(&self) -> jmap_vtc_types::RingEndReason
 impl core::cmp::Eq for jmap_vtc_types::RingEndReason
@@ -342,6 +368,8 @@ pub fn jmap_vtc_types::RingEndReason::deserialize<D: serde_core::de::Deserialize
 pub jmap_vtc_types::SignalDirection::Inbound
 pub jmap_vtc_types::SignalDirection::Other(alloc::string::String)
 pub jmap_vtc_types::SignalDirection::Outbound
+impl jmap_vtc_types::SignalDirection
+pub fn jmap_vtc_types::SignalDirection::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::SignalDirection
 pub fn jmap_vtc_types::SignalDirection::clone(&self) -> jmap_vtc_types::SignalDirection
 impl core::cmp::Eq for jmap_vtc_types::SignalDirection
@@ -366,6 +394,8 @@ pub fn jmap_vtc_types::SignalDirection::deserialize<D: serde_core::de::Deseriali
 pub jmap_vtc_types::VtcCallSortProperty::CreatedAt
 pub jmap_vtc_types::VtcCallSortProperty::EndedAt
 pub jmap_vtc_types::VtcCallSortProperty::Other(alloc::string::String)
+impl jmap_vtc_types::VtcCallSortProperty
+pub fn jmap_vtc_types::VtcCallSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::VtcCallSortProperty
 pub fn jmap_vtc_types::VtcCallSortProperty::clone(&self) -> jmap_vtc_types::VtcCallSortProperty
 impl core::cmp::Eq for jmap_vtc_types::VtcCallSortProperty
@@ -447,6 +477,8 @@ pub fn jmap_vtc_types::VtcEventType::deserialize<D: serde_core::de::Deserializer
 #[non_exhaustive] pub enum jmap_vtc_types::VtcMediaSortProperty
 pub jmap_vtc_types::VtcMediaSortProperty::Other(alloc::string::String)
 pub jmap_vtc_types::VtcMediaSortProperty::StartedAt
+impl jmap_vtc_types::VtcMediaSortProperty
+pub fn jmap_vtc_types::VtcMediaSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::VtcMediaSortProperty
 pub fn jmap_vtc_types::VtcMediaSortProperty::clone(&self) -> jmap_vtc_types::VtcMediaSortProperty
 impl core::cmp::Eq for jmap_vtc_types::VtcMediaSortProperty
@@ -471,6 +503,8 @@ pub fn jmap_vtc_types::VtcMediaSortProperty::deserialize<D: serde_core::de::Dese
 pub jmap_vtc_types::VtcParticipantSortProperty::DisplayName
 pub jmap_vtc_types::VtcParticipantSortProperty::JoinedAt
 pub jmap_vtc_types::VtcParticipantSortProperty::Other(alloc::string::String)
+impl jmap_vtc_types::VtcParticipantSortProperty
+pub fn jmap_vtc_types::VtcParticipantSortProperty::as_str(&self) -> &str
 impl core::clone::Clone for jmap_vtc_types::VtcParticipantSortProperty
 pub fn jmap_vtc_types::VtcParticipantSortProperty::clone(&self) -> jmap_vtc_types::VtcParticipantSortProperty
 impl core::cmp::Eq for jmap_vtc_types::VtcParticipantSortProperty

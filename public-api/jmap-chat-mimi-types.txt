@@ -22,6 +22,8 @@ pub jmap_chat_mimi_types::GroupInfoCode::NoSuchRoom
 pub jmap_chat_mimi_types::GroupInfoCode::NotAuthorized
 pub jmap_chat_mimi_types::GroupInfoCode::Other(alloc::string::String)
 pub jmap_chat_mimi_types::GroupInfoCode::Success
+impl jmap_chat_mimi_types::GroupInfoCode
+pub fn jmap_chat_mimi_types::GroupInfoCode::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_mimi_types::GroupInfoCode
 pub fn jmap_chat_mimi_types::GroupInfoCode::clone(&self) -> jmap_chat_mimi_types::GroupInfoCode
 impl core::cmp::Eq for jmap_chat_mimi_types::GroupInfoCode
@@ -47,6 +49,8 @@ pub jmap_chat_mimi_types::KeyMaterialClientCode::KeyMaterialExhausted
 pub jmap_chat_mimi_types::KeyMaterialClientCode::NothingCompatible
 pub jmap_chat_mimi_types::KeyMaterialClientCode::Other(alloc::string::String)
 pub jmap_chat_mimi_types::KeyMaterialClientCode::Success
+impl jmap_chat_mimi_types::KeyMaterialClientCode
+pub fn jmap_chat_mimi_types::KeyMaterialClientCode::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_mimi_types::KeyMaterialClientCode
 pub fn jmap_chat_mimi_types::KeyMaterialClientCode::clone(&self) -> jmap_chat_mimi_types::KeyMaterialClientCode
 impl core::cmp::Eq for jmap_chat_mimi_types::KeyMaterialClientCode
@@ -77,6 +81,8 @@ pub jmap_chat_mimi_types::KeyMaterialUserCode::PartialSuccess
 pub jmap_chat_mimi_types::KeyMaterialUserCode::Success
 pub jmap_chat_mimi_types::KeyMaterialUserCode::UserDeleted
 pub jmap_chat_mimi_types::KeyMaterialUserCode::UserUnknown
+impl jmap_chat_mimi_types::KeyMaterialUserCode
+pub fn jmap_chat_mimi_types::KeyMaterialUserCode::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_mimi_types::KeyMaterialUserCode
 pub fn jmap_chat_mimi_types::KeyMaterialUserCode::clone(&self) -> jmap_chat_mimi_types::KeyMaterialUserCode
 impl core::cmp::Eq for jmap_chat_mimi_types::KeyMaterialUserCode
@@ -117,6 +123,8 @@ pub jmap_chat_mimi_types::SubmitResponseCode::Accepted
 pub jmap_chat_mimi_types::SubmitResponseCode::EpochTooOld
 pub jmap_chat_mimi_types::SubmitResponseCode::NotAllowed
 pub jmap_chat_mimi_types::SubmitResponseCode::Other(alloc::string::String)
+impl jmap_chat_mimi_types::SubmitResponseCode
+pub fn jmap_chat_mimi_types::SubmitResponseCode::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_mimi_types::SubmitResponseCode
 pub fn jmap_chat_mimi_types::SubmitResponseCode::clone(&self) -> jmap_chat_mimi_types::SubmitResponseCode
 impl core::cmp::Eq for jmap_chat_mimi_types::SubmitResponseCode
@@ -143,6 +151,8 @@ pub jmap_chat_mimi_types::UpdateResponseCode::NotAllowed
 pub jmap_chat_mimi_types::UpdateResponseCode::Other(alloc::string::String)
 pub jmap_chat_mimi_types::UpdateResponseCode::Success
 pub jmap_chat_mimi_types::UpdateResponseCode::WrongEpoch
+impl jmap_chat_mimi_types::UpdateResponseCode
+pub fn jmap_chat_mimi_types::UpdateResponseCode::as_str(&self) -> &str
 impl core::clone::Clone for jmap_chat_mimi_types::UpdateResponseCode
 pub fn jmap_chat_mimi_types::UpdateResponseCode::clone(&self) -> jmap_chat_mimi_types::UpdateResponseCode
 impl core::cmp::Eq for jmap_chat_mimi_types::UpdateResponseCode

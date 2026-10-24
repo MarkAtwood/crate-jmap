@@ -38,8 +38,8 @@ below). A crate's own self-dev-dependency is not an ordering edge.
 
 | Layer | Crates |
 |---|---|
-| 1 | `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-types`, `jmap-types` |
-| 2 | `jmap-contacts-types`, `jmap-did-types`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-jscalendar-types`, `jmap-mail-types`, `jmap-metadata-client`, `jmap-metadata-server`, `jmap-scene-types`, `jmap-server`, `jmap-sharing-types`, `jmap-vtc-types`, `jmap-web-push` |
+| 1 | `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-client`, `jmap-metadata-types`, `jmap-types` |
+| 2 | `jmap-contacts-types`, `jmap-did-types`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-jscalendar-types`, `jmap-mail-types`, `jmap-metadata-server`, `jmap-scene-types`, `jmap-server`, `jmap-sharing-types`, `jmap-vtc-types`, `jmap-web-push` |
 | 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-server`, `jmap-did-resolver`, `jmap-filenode-server`, `jmap-graph-server`, `jmap-mime`, `jmap-peer-auth`, `jmap-scene-server`, `jmap-sharing-server`, `jmap-tasks-types`, `jmap-vtc-server` |
 | 4 | `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-scene-server`, `jmap-chat-server`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-graph-client`, `jmap-mail-client`, `jmap-mail-server`, `jmap-peer-auth-io`, `jmap-scene-client`, `jmap-scene-vtc-server`, `jmap-sharing-client`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client` |
 | 5 | `jmap-chat-calendars-server`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-graph-projection-server` |
@@ -53,6 +53,7 @@ that are not also normal dependencies are listed separately):
 | `jmap-cid-types` | 1 | (none) | (none) |
 | `jmap-jscontact-types` | 1 | (none) | (none) |
 | `jmap-metadata-types` | 1 | (none) | (none) |
+| `jmap-metadata-client` | 1 | (none) | (none) |
 | `jmap-types` | 1 | (none) | (none) |
 | `jmap-contacts-types` | 2 | `jmap-jscontact-types`, `jmap-types` | (none) |
 | `jmap-did-types` | 2 | `jmap-types` | (none) |
@@ -60,7 +61,6 @@ that are not also normal dependencies are listed separately):
 | `jmap-graph-types` | 2 | `jmap-types` | (none) |
 | `jmap-jscalendar-types` | 2 | `jmap-types` | (none) |
 | `jmap-mail-types` | 2 | `jmap-types` | (none) |
-| `jmap-metadata-client` | 2 | `jmap-metadata-types` | (none) |
 | `jmap-metadata-server` | 2 | `jmap-metadata-types` | (none) |
 | `jmap-scene-types` | 2 | `jmap-types` | (none) |
 | `jmap-server` | 2 | `jmap-types` | (none) |
@@ -201,9 +201,9 @@ six new crates (`jmap-jscalendar-types`, `jmap-jscontact-types`,
 `jmap-cid-types`, `jmap-metadata-types`, `jmap-metadata-server`,
 `jmap-metadata-client`) and hit the limit twice. Plan the publish
 order so first-time publishes are spread across multiple ten-minute
-windows when introducing more than five new crates. The first publish of
-the Scene, VTC and Graph crates (layers 2 to 5 above) introduces
-13 new crates, so it spans at least three windows.
+windows when introducing more than five new crates. The 0.4.0 wave
+introduces 26 new crates (the Scene, VTC, Graph, DID, peer-auth,
+web-push, MIMI and chat-bridge crates), so it spans at least six windows.
 
 ### 4. Uncommitted changes block `cargo publish`
 
@@ -278,6 +278,15 @@ and `BackendQueryError`, new required `PushSubscriptionBackend` and
 other `jmap-chat-types` field changes), so the shared line is now `0.3.x`
 and the workspace dependency requirements are `"0.3"`. `CHANGELOG.md` lists
 every break.
+
+The 2026-10-24 wave moved every publishable crate to `0.4.0`. Changes since
+`0.3.0` break the 0.3 API (metadata-04 handling hoisted into `jmap-server`
+with `JmapBackend::metadata_info`, `using` arguments on the extension
+servers' handlers, new required `copy_object` methods on the Tasks,
+Calendars and FileNode backends, stricter wire validation of Ids, sorts
+and metadata namespaces), so the shared line is now `0.4.x` and the
+workspace dependency requirements are `"0.4"`. `CHANGELOG.md` lists every
+break.
 
 ### Third-party majors in public APIs
 

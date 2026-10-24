@@ -14,6 +14,7 @@ impl core::fmt::Debug for jmap_mime::writer::Body
 pub fn jmap_mime::writer::Body::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mime::writer::Body
 #[non_exhaustive] pub enum jmap_mime::writer::HeaderValue
+pub jmap_mime::writer::HeaderValue::Groups(alloc::vec::Vec<jmap_mime::writer::Group>)
 pub jmap_mime::writer::HeaderValue::Mailboxes(alloc::vec::Vec<jmap_mime::writer::Mailbox>)
 pub jmap_mime::writer::HeaderValue::MessageIds(alloc::vec::Vec<alloc::string::String>)
 pub jmap_mime::writer::HeaderValue::Raw(alloc::string::String)
@@ -42,6 +43,17 @@ pub fn jmap_mime::writer::WriteError::fmt(&self, &mut core::fmt::Formatter<'_>) 
 impl core::fmt::Display for jmap_mime::writer::WriteError
 pub fn jmap_mime::writer::WriteError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mime::writer::WriteError
+pub struct jmap_mime::writer::Group
+pub jmap_mime::writer::Group::mailboxes: alloc::vec::Vec<jmap_mime::writer::Mailbox>
+pub jmap_mime::writer::Group::name: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_mime::writer::Group
+pub fn jmap_mime::writer::Group::clone(&self) -> jmap_mime::writer::Group
+impl core::cmp::Eq for jmap_mime::writer::Group
+impl core::cmp::PartialEq for jmap_mime::writer::Group
+pub fn jmap_mime::writer::Group::eq(&self, &jmap_mime::writer::Group) -> bool
+impl core::fmt::Debug for jmap_mime::writer::Group
+pub fn jmap_mime::writer::Group::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mime::writer::Group
 pub struct jmap_mime::writer::Header
 pub jmap_mime::writer::Header::name: alloc::string::String
 pub jmap_mime::writer::Header::value: jmap_mime::writer::HeaderValue
@@ -85,6 +97,9 @@ pub fn jmap_mime::writer::write_message(&[jmap_mime::writer::Header], &jmap_mime
 pub jmap_mime::ComposeError::BlobNotFound(alloc::vec::Vec<jmap_types::id::Id>)
 pub jmap_mime::ComposeError::EmptyPart
 pub jmap_mime::ComposeError::InvalidDate(alloc::string::String)
+pub jmap_mime::ComposeError::InvalidHeaderProperty
+pub jmap_mime::ComposeError::InvalidHeaderProperty::property: alloc::string::String
+pub jmap_mime::ComposeError::InvalidHeaderProperty::reason: alloc::string::String
 pub jmap_mime::ComposeError::MissingBodyValue(alloc::string::String)
 pub jmap_mime::ComposeError::Write(jmap_mime::writer::WriteError)
 impl core::clone::Clone for jmap_mime::ComposeError
@@ -108,6 +123,7 @@ pub jmap_mime::EmailDraft::body_structure: core::option::Option<jmap_mail_types:
 pub jmap_mime::EmailDraft::body_values: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_mail_types::email::EmailBodyValue>
 pub jmap_mime::EmailDraft::cc: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
 pub jmap_mime::EmailDraft::from: core::option::Option<alloc::vec::Vec<jmap_mail_types::email::EmailAddress>>
+pub jmap_mime::EmailDraft::header_properties: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_mime::EmailDraft::html_body: alloc::vec::Vec<jmap_mail_types::email::EmailBodyPart>
 pub jmap_mime::EmailDraft::in_reply_to: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub jmap_mime::EmailDraft::message_id: core::option::Option<alloc::vec::Vec<alloc::string::String>>

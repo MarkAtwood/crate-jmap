@@ -37,6 +37,8 @@ impl core::marker::StructuralPartialEq for jmap_did_types::DidKeyError
 pub jmap_did_types::KeyCustody::Other(alloc::string::String)
 pub jmap_did_types::KeyCustody::Server
 pub jmap_did_types::KeyCustody::User
+impl jmap_did_types::KeyCustody
+pub fn jmap_did_types::KeyCustody::as_str(&self) -> &str
 impl core::clone::Clone for jmap_did_types::KeyCustody
 pub fn jmap_did_types::KeyCustody::clone(&self) -> jmap_did_types::KeyCustody
 impl core::cmp::Eq for jmap_did_types::KeyCustody
