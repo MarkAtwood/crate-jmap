@@ -47,12 +47,13 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, iso8601_before,
     not_found_json, now_utc_string, optional_arg, reject_unsupported_sort, serialize_value,
 };
-use crate::{ChatBackend, ChatLimits, InviteJoinRefusal, SetError, SetErrorType, SpacePatchOp};
+use crate::{ChatBackend, ChatLimits, InviteJoinRefusal, SpacePatchOp};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
     query_anchor_args, reject_read_only_patch, reject_server_set, server_fail_from_backend,
     server_fail_value_from_backend,
 };
+use jmap_server::{SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
 // Space/set structural-mutation parsing

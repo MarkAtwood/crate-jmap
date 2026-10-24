@@ -12,12 +12,13 @@
 mod common;
 
 use common::{ACCOUNT_ID, MemoryBackend, SPACE_ID, TrackingBackend};
+use jmap_chat_server::ChatBackend;
 use jmap_chat_server::message::{
     handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
 };
-use jmap_chat_server::{ChatBackend, JmapBackend, QueryChangesParams};
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
+use jmap_server::{JmapBackend, QueryChangesParams};
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
 use std::collections::HashSet;

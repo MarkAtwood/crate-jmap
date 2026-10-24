@@ -62,11 +62,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::sync::{Arc, Mutex};
 
-use crate::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, FileNodeBackend,
-    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
+use crate::FileNodeBackend;
 use jmap_cid_types::Sha256;
 use jmap_filenode_types::{
     FileNode, FileNodeComparator, FileNodeComparatorProperty, FileNodeFilter, NodeRole, NodeType,
@@ -77,6 +73,11 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject,
+};
 use jmap_server::{
     PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
 };

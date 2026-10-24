@@ -13,7 +13,7 @@
 
 use jmap_scene_types::{SceneAsset, SceneAvatar, SceneObject, SceneRegion};
 
-use crate::JmapObject;
+use jmap_server::JmapObject;
 
 /// The Web Push `Urgency` header (RFC 8030 §5.3) that [`push_urgency`]
 /// picks; the same type `jmap-web-push` sends.

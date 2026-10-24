@@ -100,7 +100,7 @@ pub trait MailBackend: JmapBackend {
     /// "Permission enforcement (backend canonical)" on [`MailBackend`],
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only, and a backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
@@ -134,7 +134,7 @@ pub trait MailBackend: JmapBackend {
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
     /// [`BackendSetError::SetError`] carrying the matching
-    /// [`SetErrorType`](crate::SetErrorType); the handler places it verbatim in `notCreated`.
+    /// [`SetErrorType`](jmap_server::SetErrorType); the handler places it verbatim in `notCreated`.
     /// For create these are `forbidden`, `overQuota`, `tooLarge`,
     /// `rateLimit` and `invalidProperties`. An `invalidProperties` error
     /// SHOULD name in `properties` "*all* the properties that were
@@ -242,7 +242,7 @@ pub trait MailBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Patch format
@@ -299,7 +299,7 @@ pub trait MailBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -345,7 +345,7 @@ pub trait MailBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to `account_id` and to
     /// every Mailbox in `mailbox_ids` before storing the Email, and MUST return
-    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden)
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden)
     /// otherwise. See [`Self::create_object`] for the workspace-canonical
     /// rationale; the same rule applies here.
     ///
@@ -560,7 +560,7 @@ pub trait MailBackend: JmapBackend {
     /// Implementors MUST verify caller read access to `obj` in
     /// `from_account_id` and write access to `to_account_id` before storing the
     /// copy, and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -693,7 +693,7 @@ pub trait MailBackend: JmapBackend {
     /// The default calls [`Self::destroy_object`] per id, which carries the
     /// check. An override MUST verify caller write-access to each Email before
     /// destroying it and MUST report [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) for that id otherwise.
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) for that id otherwise.
     fn batch_destroy_emails(
         &self,
         caller: &Self::CallerCtx,

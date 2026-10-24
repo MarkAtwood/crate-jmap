@@ -18,11 +18,12 @@ mod common;
 
 use common::{ACCOUNT_ID, IdentityBackend, SPACE_ID, seed_space};
 use jmap_chat_server::{
-    JmapBackend, handle_ban_set, handle_chat_get, handle_chat_set, handle_emoji_set,
-    handle_invite_set, handle_space_join, handle_space_set,
+    handle_ban_set, handle_chat_get, handle_chat_set, handle_emoji_set, handle_invite_set,
+    handle_space_join, handle_space_set,
 };
 use jmap_chat_types::Space;
 use jmap_server::HandlerOutput;
+use jmap_server::JmapBackend;
 use jmap_types::Id;
 use serde_json::{Value, json};
 

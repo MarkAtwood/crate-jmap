@@ -30,15 +30,16 @@ use jmap_chat_types::PresenceStatus;
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{Value, json};
 
+use crate::ChatBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value,
 };
 use crate::outbound::OutboundEvent;
-use crate::{ChatBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, reject_read_only_patch, server_fail_from_backend,
 };
+use jmap_server::{SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
 // PresenceStatus/get

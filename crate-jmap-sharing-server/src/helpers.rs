@@ -106,13 +106,13 @@ where
 ///
 /// # Errors
 ///
-/// A boxed `invalidProperties` [`crate::SetError`] naming the offending
+/// A boxed `invalidProperties` [`jmap_server::SetError`] naming the offending
 /// key.
 pub(crate) fn check_metadata_entry(
     entry: &Map<String, Value>,
     is_create: bool,
     using: &[String],
-) -> Result<(), Box<crate::SetError>> {
+) -> Result<(), Box<jmap_server::SetError>> {
     let uses_metadata = using
         .iter()
         .any(|u| u == jmap_metadata_types::JMAP_METADATA_URI);
@@ -128,7 +128,7 @@ pub(crate) fn check_metadata_entry(
             continue;
         };
         return Err(Box::new(
-            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+            jmap_server::SetError::new(jmap_server::SetErrorType::InvalidProperties)
                 .with_properties([key.as_str()])
                 .with_description(description),
         ));

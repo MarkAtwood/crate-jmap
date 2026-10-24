@@ -119,7 +119,7 @@ async fn destroy_read_failure_is_per_id_server_fail() {
             .is_some_and(|d| d.contains(&json!(GROUP))),
         "{resp}"
     );
-    let (chats, _) = jmap_chat_server::JmapBackend::get_objects::<jmap_chat_types::Chat>(
+    let (chats, _) = jmap_server::JmapBackend::get_objects::<jmap_chat_types::Chat>(
         backend.inner(),
         &(),
         &Id::from(ACCOUNT_ID),

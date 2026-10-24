@@ -22,12 +22,13 @@ use jmap_chat_filenode_server::space_files_rights;
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_filenode_server::handle_filenode_get;
 use jmap_filenode_server::memory::{MemoryBackend as FilesMemory, MemoryError};
-use jmap_filenode_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, CaseFolding, ChangesResult,
-    FileNodeBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetObject,
-};
+use jmap_filenode_server::{CaseFolding, FileNodeBackend};
 use jmap_filenode_types::{FileNode, FilesRights};
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetObject,
+};
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
 

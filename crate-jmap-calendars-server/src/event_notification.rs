@@ -41,12 +41,13 @@ use jmap_calendars_types::{CalendarEventNotification, CalendarEventNotificationC
 use jmap_types::JmapError;
 use serde_json::Value;
 
+use crate::CalendarsBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     reject_unsupported_sort,
 };
-use crate::{CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
+use jmap_server::{SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
 // CalendarEventNotification/get

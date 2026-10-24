@@ -39,17 +39,18 @@ use jmap_mail_types::{
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{Value, json};
 
+use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, check_metadata_entry, create_metadata, enforce_max_objects_in_get,
     enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
     not_found_json, resolve_ref, serialize_value,
 };
-use crate::{MailBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
     limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_start,
     server_fail_from_backend,
 };
+use jmap_server::{SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)

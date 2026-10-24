@@ -1,23 +1,6 @@
 pub mod jmap_filenode_server
-pub use jmap_filenode_server::AddedItem
-pub use jmap_filenode_server::BackendChangesError
-pub use jmap_filenode_server::BackendQueryError
-pub use jmap_filenode_server::BackendSetError
-pub use jmap_filenode_server::ChangesParams
-pub use jmap_filenode_server::ChangesResult
 pub use jmap_filenode_server::FileNodeProperty
-pub use jmap_filenode_server::GetObject
 pub use jmap_filenode_server::JMAP_FILENODE_URI
-pub use jmap_filenode_server::JmapBackend
-pub use jmap_filenode_server::JmapObject
-pub use jmap_filenode_server::QueryChangesParams
-pub use jmap_filenode_server::QueryChangesResult
-pub use jmap_filenode_server::QueryObject
-pub use jmap_filenode_server::QueryParams
-pub use jmap_filenode_server::QueryResult
-pub use jmap_filenode_server::SetError
-pub use jmap_filenode_server::SetErrorType
-pub use jmap_filenode_server::SetObject
 pub mod jmap_filenode_server::memory
 #[non_exhaustive] pub struct jmap_filenode_server::memory::MemoryBackend
 impl jmap_filenode_server::memory::MemoryBackend
@@ -39,6 +22,7 @@ pub async fn jmap_filenode_server::memory::MemoryBackend::create_object<O, F>(&s
 pub async fn jmap_filenode_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
 pub fn jmap_filenode_server::memory::MemoryBackend::files_rights(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_filenode_types::filenode::FileNode) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_filenode_types::filenode::FilesRights>, Self::Error>> + core::marker::Send
 pub async fn jmap_filenode_server::memory::MemoryBackend::find_sibling_by_name(&self, &(), &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, &str, jmap_filenode_server::CaseFolding) -> core::result::Result<core::option::Option<jmap_types::id::Id>, Self::Error>
+pub async fn jmap_filenode_server::memory::MemoryBackend::find_unique_name(&self, &(), &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, &str, jmap_filenode_server::CaseFolding) -> core::result::Result<core::option::Option<alloc::string::String>, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend::get_ancestors(&self, &(), &jmap_types::id::Id, &[jmap_types::id::Id]) -> core::result::Result<alloc::vec::Vec<jmap_filenode_types::filenode::FileNode>, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend::get_descendant_ids(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, Self::Error>
 pub fn jmap_filenode_server::memory::MemoryBackend::query_subtree(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id], u64) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
@@ -86,6 +70,7 @@ pub fn jmap_filenode_server::FileNodeBackend::create_object<O, F>(&self, &Self::
 pub fn jmap_filenode_server::FileNodeBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_filenode_server::FileNodeBackend::files_rights(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_filenode_types::filenode::FileNode) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_filenode_types::filenode::FilesRights>, Self::Error>> + core::marker::Send
 pub fn jmap_filenode_server::FileNodeBackend::find_sibling_by_name(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, &str, jmap_filenode_server::CaseFolding) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_types::id::Id>, Self::Error>> + core::marker::Send
+pub fn jmap_filenode_server::FileNodeBackend::find_unique_name(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, &str, jmap_filenode_server::CaseFolding) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::string::String>, Self::Error>> + core::marker::Send
 pub fn jmap_filenode_server::FileNodeBackend::get_ancestors(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_filenode_types::filenode::FileNode>, Self::Error>> + core::marker::Send
 pub fn jmap_filenode_server::FileNodeBackend::get_descendant_ids(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, Self::Error>> + core::marker::Send
 pub fn jmap_filenode_server::FileNodeBackend::query_subtree(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id], u64) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
@@ -99,6 +84,7 @@ pub async fn jmap_filenode_server::memory::MemoryBackend::create_object<O, F>(&s
 pub async fn jmap_filenode_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
 pub fn jmap_filenode_server::memory::MemoryBackend::files_rights(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_filenode_types::filenode::FileNode) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_filenode_types::filenode::FilesRights>, Self::Error>> + core::marker::Send
 pub async fn jmap_filenode_server::memory::MemoryBackend::find_sibling_by_name(&self, &(), &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, &str, jmap_filenode_server::CaseFolding) -> core::result::Result<core::option::Option<jmap_types::id::Id>, Self::Error>
+pub async fn jmap_filenode_server::memory::MemoryBackend::find_unique_name(&self, &(), &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, &str, jmap_filenode_server::CaseFolding) -> core::result::Result<core::option::Option<alloc::string::String>, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend::get_ancestors(&self, &(), &jmap_types::id::Id, &[jmap_types::id::Id]) -> core::result::Result<alloc::vec::Vec<jmap_filenode_types::filenode::FileNode>, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend::get_descendant_ids(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, Self::Error>
 pub fn jmap_filenode_server::memory::MemoryBackend::query_subtree(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id], u64) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send

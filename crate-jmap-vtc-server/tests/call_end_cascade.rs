@@ -8,11 +8,12 @@
 mod common;
 
 use common::*;
+use jmap_server::{BackendSetError, SetErrorType};
 use jmap_types::Id;
 use jmap_vtc_server::memory::MemoryBackend;
 use jmap_vtc_server::{
-    BackendSetError, SetErrorType, end_call, handle_vtc_call_changes, handle_vtc_call_get,
-    handle_vtc_livestream_get, handle_vtc_recording_get, handle_vtc_recording_set,
+    end_call, handle_vtc_call_changes, handle_vtc_call_get, handle_vtc_livestream_get,
+    handle_vtc_recording_get, handle_vtc_recording_set,
 };
 use jmap_vtc_types::{CallEndReason, CallState, VtcEvent};
 use serde_json::{Value, json};

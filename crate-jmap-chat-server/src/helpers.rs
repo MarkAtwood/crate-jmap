@@ -42,13 +42,13 @@ pub(crate) enum PropType {
 ///
 /// # Errors
 ///
-/// A boxed `invalidProperties` [`crate::SetError`] naming the offending
+/// A boxed `invalidProperties` [`jmap_server::SetError`] naming the offending
 /// key.
 pub(crate) fn check_metadata_entry(
     entry: &Map<String, Value>,
     is_create: bool,
     using: &[String],
-) -> Result<(), Box<crate::SetError>> {
+) -> Result<(), Box<jmap_server::SetError>> {
     let uses_metadata = using
         .iter()
         .any(|u| u == jmap_metadata_types::JMAP_METADATA_URI);
@@ -64,7 +64,7 @@ pub(crate) fn check_metadata_entry(
             continue;
         };
         return Err(Box::new(
-            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+            jmap_server::SetError::new(jmap_server::SetErrorType::InvalidProperties)
                 .with_properties([key.as_str()])
                 .with_description(description),
         ));
@@ -96,7 +96,7 @@ pub(crate) fn create_metadata(entry: &Value) -> Result<MetadataMaps, Value> {
         None | Some(Value::Null) => Ok(None),
         Some(Value::Object(m)) => Ok(Some(m.clone())),
         Some(_) => Err(Value::from(
-            &crate::SetError::new(crate::SetErrorType::InvalidProperties)
+            &jmap_server::SetError::new(jmap_server::SetErrorType::InvalidProperties)
                 .with_properties([property])
                 .with_description("value must be an object"),
         )),
@@ -335,16 +335,16 @@ pub(crate) fn iso8601_before(a: &jmap_types::UTCDate, b: &jmap_types::UTCDate) -
 ///
 /// # Errors
 ///
-/// A boxed `invalidProperties` [`crate::SetError`] naming `property` when
+/// A boxed `invalidProperties` [`jmap_server::SetError`] naming `property` when
 /// the reference matches no record created earlier in the request.
 pub(crate) fn resolve_ref(
     raw: &str,
     property: &str,
     created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
-) -> Result<jmap_types::Id, Box<crate::SetError>> {
+) -> Result<jmap_types::Id, Box<jmap_server::SetError>> {
     jmap_server::resolve_creation_ref(raw, created_ids).ok_or_else(|| {
         Box::new(
-            crate::SetError::new(crate::SetErrorType::InvalidProperties)
+            jmap_server::SetError::new(jmap_server::SetErrorType::InvalidProperties)
                 .with_properties([property])
                 .with_description(
                     "creation id reference matches no record created earlier in this request",
@@ -365,7 +365,7 @@ pub(crate) fn resolve_refs(
     obj: &mut serde_json::Value,
     props: &[&str],
     created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
-) -> Result<(), Box<crate::SetError>> {
+) -> Result<(), Box<jmap_server::SetError>> {
     let Some(m) = obj.as_object_mut() else {
         return Ok(());
     };
@@ -395,7 +395,7 @@ pub(crate) fn resolved_create(
     obj: &serde_json::Value,
     props: &[&str],
     created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
-) -> Result<serde_json::Value, Box<crate::SetError>> {
+) -> Result<serde_json::Value, Box<jmap_server::SetError>> {
     let mut obj = obj.clone();
     resolve_refs(&mut obj, props, created_ids)?;
     Ok(obj)

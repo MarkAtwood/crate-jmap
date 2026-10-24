@@ -32,7 +32,8 @@ use jmap_graph_types::{DATA_TYPE_CURSORS, DATA_TYPE_OPS, GraphEditEvent, GraphEd
 use jmap_graph_types::{Graph, GraphNode};
 use jmap_types::{Id, JmapError};
 
-use crate::{GraphBackend, JmapBackend};
+use crate::GraphBackend;
+use jmap_server::JmapBackend;
 
 /// Capability URI of draft-atwood-jmap-chat-00, which gates the
 /// blocked-sender rule.

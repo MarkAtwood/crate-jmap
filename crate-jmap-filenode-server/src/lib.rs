@@ -56,11 +56,6 @@ pub use filenode::{
     handle_filenode_query_changes, handle_filenode_set,
 };
 pub use jmap_filenode_types::FileNodeProperty;
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 
 /// Capability URI for `urn:ietf:params:jmap:filenode`.
 pub use jmap_filenode_types::JMAP_FILENODE_URI;

@@ -73,11 +73,6 @@ pub use jmap_calendars_types::{
     CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,
     ParticipantIdentityProperty,
 };
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 pub use participant_identity::{
     handle_participant_identity_changes, handle_participant_identity_get,
     handle_participant_identity_set,

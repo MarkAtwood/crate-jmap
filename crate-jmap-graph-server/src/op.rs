@@ -26,11 +26,12 @@ use jmap_types::{Id, JmapError, SetObject};
 use serde::Deserialize as _;
 use serde_json::{Map, Value, json};
 
+use crate::GraphBackend;
 use crate::edit::base64url_len;
 use crate::helpers::{
     SetOps, fetch_one, forbidden, handle_get_visible, handle_set, invalid, readable_rights, to_map,
 };
-use crate::{GraphBackend, JmapBackend, SetError, SetErrorType};
+use jmap_server::{JmapBackend, SetError, SetErrorType};
 
 /// The edit capability of the call's account: `accountNotFound` for an
 /// unknown account, `accountNotSupportedByMethod` without the capability.

@@ -33,9 +33,10 @@
 mod common;
 
 use common::{ACCOUNT_ID, IdentityBackend, MemoryBackend, SPACE_ID, seed_space};
-use jmap_chat_server::{JmapBackend, handle_space_get, handle_space_set};
+use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_chat_types::Space;
 use jmap_server::HandlerOutput;
+use jmap_server::JmapBackend;
 use jmap_types::Id;
 use serde_json::json;
 

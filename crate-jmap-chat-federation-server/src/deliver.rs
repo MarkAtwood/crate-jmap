@@ -20,9 +20,7 @@ use jmap_chat_federation_types::{
 use jmap_chat_server::message::{
     StoreOutcome, find_message_by_sender_msg_id, store_server_message,
 };
-use jmap_chat_server::{
-    BackendSetError, ChatBackend, ChatLimits, SetErrorType, resolve_channel_permissions,
-};
+use jmap_chat_server::{ChatBackend, ChatLimits, resolve_channel_permissions};
 use jmap_chat_types::CHAT_CAP_TASK;
 use jmap_chat_types::{
     BROADCAST_MENTION_SCOPES, BroadcastMention, Chat, ChatContact, ChatKind, ChatPermission,
@@ -30,6 +28,7 @@ use jmap_chat_types::{
 };
 use jmap_cid_types::Sha256;
 use jmap_peer_auth::{IdentityBinding, PeerDomain, bind_identity};
+use jmap_server::{BackendSetError, SetErrorType};
 use jmap_server::{HandlerOutput, now_utc_string, serialize_value, server_fail_from_backend};
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
 use serde_json::{Map, Value, json};
@@ -1435,7 +1434,7 @@ async fn deliver_reaction<B: FederationBackend>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jmap_chat_server::SetError;
+    use jmap_server::SetError;
 
     /// Oracle: draft-atwood-jmap-chat-federation-00 (spec 6c38e2f) line
     /// 897: a placeholder limit "rejects, with `rateLimited`, any request

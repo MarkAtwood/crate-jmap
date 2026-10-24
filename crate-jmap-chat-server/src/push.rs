@@ -23,8 +23,9 @@ use jmap_server::state_change_for;
 use jmap_types::{Id, PushSubscription, State, StateChange, UTCDate, Urgency};
 use serde_json::{Map, Value};
 
+use crate::ChatBackend;
 use crate::chat::unread_count;
-use crate::{ChatBackend, SetError, SetErrorType};
+use jmap_server::{SetError, SetErrorType};
 
 /// The `PushSubscription` property this extension adds.
 pub(crate) const CHAT_PUSH: &str = "chatPush";

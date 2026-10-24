@@ -10,7 +10,7 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_graph_types::{GRAPH_NODE_EDIT_FORMAT_PROPERTY, GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY};
 use serde_json::{Map, Value};
 
-use crate::{SetError, SetErrorType};
+use jmap_server::{SetError, SetErrorType};
 
 const EDIT_FORMAT: &str = GRAPH_NODE_EDIT_FORMAT_PROPERTY;
 const SNAPSHOT_SEQ: &str = GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY;

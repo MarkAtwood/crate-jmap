@@ -13,8 +13,9 @@
 //! lose nor double the increment.
 
 use jmap_chat_server::memory::MemoryBackend;
-use jmap_chat_server::{ChatBackend, InviteJoinRefusal, JmapBackend, handle_space_join};
+use jmap_chat_server::{ChatBackend, InviteJoinRefusal, handle_space_join};
 use jmap_chat_types::{Space, SpaceInvite};
+use jmap_server::JmapBackend;
 use jmap_types::{Id, UTCDate};
 use serde_json::json;
 

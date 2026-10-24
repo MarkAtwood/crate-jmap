@@ -1,24 +1,7 @@
 pub mod jmap_sharing_server
-pub use jmap_sharing_server::AddedItem
-pub use jmap_sharing_server::BackendChangesError
-pub use jmap_sharing_server::BackendQueryError
-pub use jmap_sharing_server::BackendSetError
-pub use jmap_sharing_server::ChangesParams
-pub use jmap_sharing_server::ChangesResult
-pub use jmap_sharing_server::GetObject
 pub use jmap_sharing_server::JMAP_PRINCIPALS_OWNER_URI
 pub use jmap_sharing_server::JMAP_PRINCIPALS_URI
-pub use jmap_sharing_server::JmapBackend
-pub use jmap_sharing_server::JmapObject
 pub use jmap_sharing_server::PrincipalProperty
-pub use jmap_sharing_server::QueryChangesParams
-pub use jmap_sharing_server::QueryChangesResult
-pub use jmap_sharing_server::QueryObject
-pub use jmap_sharing_server::QueryParams
-pub use jmap_sharing_server::QueryResult
-pub use jmap_sharing_server::SetError
-pub use jmap_sharing_server::SetErrorType
-pub use jmap_sharing_server::SetObject
 pub use jmap_sharing_server::ShareNotificationProperty
 pub mod jmap_sharing_server::memory
 #[non_exhaustive] pub struct jmap_sharing_server::memory::MemoryBackend
@@ -27,6 +10,7 @@ pub fn jmap_sharing_server::memory::MemoryBackend::new() -> Self
 pub fn jmap_sharing_server::memory::MemoryBackend::new_with_accounts(&[&str]) -> Self
 pub fn jmap_sharing_server::memory::MemoryBackend::seed_object(&self, &jmap_types::id::Id, &'static str, &jmap_types::id::Id, serde_json::value::Value)
 pub fn jmap_sharing_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
+pub fn jmap_sharing_server::memory::MemoryBackend::with_metadata_info(self, &str, jmap_metadata_types::capability::DataTypeMetadataInfo) -> Self
 impl core::clone::Clone for jmap_sharing_server::memory::MemoryBackend
 pub fn jmap_sharing_server::memory::MemoryBackend::clone(&self) -> Self
 impl core::default::Default for jmap_sharing_server::memory::MemoryBackend
@@ -64,11 +48,11 @@ pub async fn jmap_sharing_server::memory::MemoryBackend::create_object<O, F>(&se
 pub async fn jmap_sharing_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
 pub fn jmap_sharing_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub async fn jmap_sharing_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
-pub async fn jmap_sharing_server::handle_principal_changes<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_sharing_server::handle_principal_changes<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_sharing_server::handle_principal_get<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_sharing_server::handle_principal_query<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_sharing_server::handle_principal_query_changes<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
-pub async fn jmap_sharing_server::handle_principal_set<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_sharing_server::handle_principal_set<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_sharing_server::handle_share_notification_changes<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_sharing_server::handle_share_notification_get<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_sharing_server::handle_share_notification_query<B: jmap_sharing_server::SharingBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>

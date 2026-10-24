@@ -32,16 +32,17 @@ use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilterCondition
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
+use crate::CalendarsBackend;
 use crate::helpers::{
     SetAccumulators, apply_default_change_to_response, check_metadata_entry,
     enforce_max_objects_in_set, extract_account_id, finalize_set_response,
     resolve_on_success_set_is_default,
 };
-use crate::{CalendarsBackend, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, reject_read_only_patch,
     reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
+use jmap_server::{SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
 // Calendar/get

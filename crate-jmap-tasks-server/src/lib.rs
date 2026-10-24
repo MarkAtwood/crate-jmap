@@ -53,11 +53,6 @@ mod task_list;
 mod task_notification;
 
 pub use backend::TasksBackend;
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 pub use jmap_tasks_types::{TaskListProperty, TaskNotificationProperty, TaskProperty};
 pub use task::{
     handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,
@@ -895,9 +890,9 @@ mod tests {
         use std::sync::Mutex;
 
         use jmap_server::{
-            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-            JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-            QueryResult, SetObject,
+            BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+            JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
+            QueryParams, QueryResult, SetObject,
         };
         use jmap_tasks_types::Task;
         use jmap_types::{Id, UTCDate};

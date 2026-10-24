@@ -12,12 +12,13 @@ mod common;
 use jmap_types::Invocation;
 use std::sync::Arc;
 
-use jmap_server::{Dispatcher, JmapRequest, State};
-use jmap_sharing_server::{
+use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetObject, SharingBackend, register_sharing_handlers,
+    SetObject,
 };
+use jmap_server::{Dispatcher, JmapRequest, State};
+use jmap_sharing_server::{SharingBackend, register_sharing_handlers};
 use jmap_sharing_types::{Principal, PrincipalFilterCondition, ShareNotification};
 use jmap_types::Id;
 use serde_json::json;

@@ -9,7 +9,7 @@
 //! # Caller context and rights
 //!
 //! `CallerCtx` is the caller's Principal id, which
-//! [`JmapBackend::principal_id`] returns, so `createdBy` and `updatedBy` are
+//! [`JmapBackend::principal_id`](jmap_server::JmapBackend::principal_id) returns, so `createdBy` and `updatedBy` are
 //! the caller. Each account is registered with an owner, who "implicitly
 //! has all rights" on its Graphs and is the only user who may create one.
 //! Every other user has the rights the Graph's `shareWith` gives their id,
@@ -90,10 +90,11 @@ use crate::query::{
     compare_edges, compare_graphs, compare_nodes, edge_matches, graph_matches, node_matches,
 };
 use crate::search::GraphView;
-use crate::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, EditLog, GetObject,
-    GraphBackend, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+use crate::{EditLog, GraphBackend};
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject,
 };
 
 /// How one id changed in one state step.

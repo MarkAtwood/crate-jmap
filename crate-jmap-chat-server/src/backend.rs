@@ -546,7 +546,7 @@ pub trait ChatBackend: JmapBackend {
     /// (draft-atwood-jmap-chat §Terminology). Implementors MUST verify that
     /// `caller` may act as the owner of `account_id` before performing the
     /// mutation, and MUST return [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do no
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do no
     /// account-access checking, so a backend that trusts the handler lets any
     /// caller write any account. Space permission and role-hierarchy gates
     /// resolve against the owner's member entry through the `may_*` hooks (for
@@ -697,7 +697,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before applying the patch and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Patch format
@@ -754,7 +754,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before destroying it and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Errors
@@ -1133,7 +1133,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before setting `readAt` and deleting the Message and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Atomicity contract
@@ -1215,7 +1215,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before applying any op, and MUST return
-    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden)
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden)
     /// for the whole call otherwise; the handler reports it in `notUpdated`.
     /// The per-op permission and role-hierarchy gates under "Per-op error
     /// semantics" are also enforced here, atomically with the mutation. See
@@ -1437,7 +1437,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before applying the patch and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Permission and atomicity

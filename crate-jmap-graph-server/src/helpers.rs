@@ -8,13 +8,14 @@ use serde_json::{Map, Value, json};
 
 use jmap_graph_types::CandidateKind;
 
+use crate::GraphBackend;
 use crate::search::{check_search_filter, uses_search};
-use crate::{GraphBackend, QueryObject, SetError, SetErrorType};
 use jmap_server::{
     HandlerOutput, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     not_found_json, optional_arg, serialize_value, server_fail_from_backend,
     server_fail_value_from_backend,
 };
+use jmap_server::{QueryObject, SetError, SetErrorType};
 
 /// An `invalidProperties` SetError naming `properties` (none when empty).
 pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {

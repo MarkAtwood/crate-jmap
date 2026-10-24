@@ -34,11 +34,12 @@ use jmap_mail_types::VacationResponse;
 use jmap_types::{Id, JmapError, PatchObject};
 use serde_json::{Value, json};
 
+use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response,
 };
-use crate::{BackendSetError, MailBackend, SetError, SetErrorType};
+use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{HandlerOutput, reject_read_only_patch, server_fail_from_backend};
 
 const SINGLETON_ID: &str = "singleton";

@@ -15,16 +15,16 @@ use jmap_chat_federation_server::{
 };
 use jmap_chat_federation_types::{PeerAttachment, PeerAvatar};
 use jmap_chat_server::memory::{MemoryBackend, MemoryError};
-use jmap_chat_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, ChatBackend,
-    ChatLimits, GetObject, InviteJoinRefusal, JmapBackend, JmapObject, OpResult,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
-    SetErrorType, SetObject, SpacePatchOp,
-};
+use jmap_chat_server::{ChatBackend, ChatLimits, InviteJoinRefusal, OpResult, SpacePatchOp};
 use jmap_chat_types::{
     Chat, ChatContact, ChatPresenceEvent, ChatTypingEvent, Message, Space, SpaceMetadataPatch,
 };
 use jmap_peer_auth::PeerDomain;
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType, SetObject,
+};
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{Value, json};
 
@@ -377,10 +377,8 @@ impl ChatBackend for Fed {
         caller: &(),
         account_id: &Id,
         blob_id: &Id,
-    ) -> Result<
-        Result<Option<jmap_chat_server::AttachmentBlob>, jmap_chat_server::SetError>,
-        MemoryError,
-    > {
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
         self.chat.attachment_blob(caller, account_id, blob_id).await
     }
 

@@ -63,11 +63,8 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AddedItem, AttachmentBlob, BackendChangesError, BackendQueryError, BackendSetError,
-    ChangesResult, ChatBackend, ChatLimits, EmojiSetOp, GetObject, InviteJoinRefusal, JmapBackend,
-    JmapObject, OpResult, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
-    strip_unsupported_chat_push, validate_chat_push,
+    AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult,
+    SlowModeError, SpacePatchOp, strip_unsupported_chat_push, validate_chat_push,
 };
 use jmap_chat_types::{ChatPermission, ChatPushCapability};
 use jmap_metadata_server::{
@@ -75,6 +72,11 @@ use jmap_metadata_server::{
     changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
 };
 use jmap_metadata_types::DataTypeMetadataInfo;
+use jmap_server::{
+    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, SetError, SetErrorType, SetObject,
+};
 use jmap_server::{
     MergePatchError, PatchPathError, PushSubscriptionBackend, StoredPushSubscription,
     apply_patch_object, check_patch_paths, json_merge_patch, limit_or_max, now_utc_string,

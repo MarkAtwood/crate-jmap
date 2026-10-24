@@ -29,11 +29,12 @@
 
 use std::collections::BTreeMap;
 
-use crate::{MailBackend, SetError, SetErrorType};
+use crate::MailBackend;
 use jmap_mail_types::{Email, Identity, Mdn, MdnParseRequest, MdnSendRequest};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, reject_read_only_patch, server_fail_from_backend,
 };
+use jmap_server::{SetError, SetErrorType};
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{Value, json};
 
@@ -238,7 +239,7 @@ pub trait MdnBackend: jmap_server::JmapBackend {
     /// `MailBackend::update_object` after this method returns — the backend
     /// does NOT stamp the keyword.
     ///
-    /// Returns [`BackendSetError::Other`](crate::BackendSetError::Other) only for catastrophic storage
+    /// Returns [`BackendSetError::Other`](jmap_server::BackendSetError::Other) only for catastrophic storage
     /// failures; per-entry failures are reported inside
     /// [`MdnSendResult::not_sent`].
     fn send_mdns(

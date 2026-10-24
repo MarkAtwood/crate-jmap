@@ -83,7 +83,7 @@ pub trait SharingBackend: JmapBackend {
     /// account / Principal / ShareNotification
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. Handlers in this crate do NO
     /// permission checking; any handler-layer pre-check is defense-in-depth
     /// only, and a backend that trusts the handler is a bug. A backend whose
     /// `principal_id` returns `None` permits every write (fail-open,
@@ -216,7 +216,7 @@ pub trait SharingBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Return value
@@ -337,7 +337,7 @@ pub trait SharingBackend: JmapBackend {
     ///
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
-    /// [`SetErrorType::Forbidden`](crate::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
+    /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Error contract (RFC 8620 §5.3)
@@ -404,7 +404,7 @@ pub trait SharingBackend: JmapBackend {
     /// always forwards `create_object` / `update_object` / `destroy_object`
     /// to the backend regardless of this return value, and per-object
     /// authorization is the backend's own responsibility (returning a
-    /// `forbidden` [`SetError`](crate::SetError) is the wire-visible enforcement
+    /// `forbidden` [`SetError`](jmap_server::SetError) is the wire-visible enforcement
     /// mechanism). Backends that support all types unconditionally
     /// SHOULD return `true` always; both in-tree reference impls
     /// (`memory::MemoryBackend` and the test `MockBackend`) do exactly

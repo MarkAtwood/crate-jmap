@@ -1720,6 +1720,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**, **jmap-calendars-server**, **jmap-tasks-server**,
+  **jmap-contacts-server**, **jmap-sharing-server**, **jmap-chat-server**,
+  **jmap-scene-server**, **jmap-graph-server**, **jmap-vtc-server**,
+  **jmap-filenode-server**: **BREAKING** the crate-root re-exports of
+  `jmap_server` types are gone: `AddedItem`, `BackendChangesError`,
+  `BackendQueryError`, `BackendSetError`, `ChangesParams`, `ChangesResult`,
+  `GetObject`, `JmapBackend`, `JmapObject`, `QueryChangesParams`,
+  `QueryChangesResult`, `QueryObject`, `QueryParams`, `QueryResult`,
+  `SetError`, `SetErrorType` and `SetObject`. Depend on `jmap-server` and
+  import them from `jmap_server`, so a `jmap-server` major release no
+  longer breaks these crates' own surface. Crate-specific items (backend
+  traits, handlers, property types, capability URIs) stay
+  (bd JMAP-510h.39).
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-sharing-server**,
   **jmap-calendars-server**, **jmap-contacts-server**,
   **jmap-tasks-server**, **jmap-filenode-server**: **BREAKING** (`memory`

@@ -55,9 +55,6 @@
 //! - **URI re-exports** ([`JMAP_PRINCIPALS_URI`],
 //!   [`JMAP_PRINCIPALS_OWNER_URI`]) are stable, normative values from
 //!   RFC 9670 and follow IANA registry semantics.
-//! - **Re-exports from [`jmap_server`]** (`crate::*` block) pin
-//!   the upstream type's major-version contract into this crate's surface.
-//!   A breaking change in [`jmap_server`] is a breaking change here.
 //! - **`memory` module**: opt-in, may break in any minor release. See
 //!   above.
 //!
@@ -90,11 +87,6 @@ mod notification;
 mod principal;
 
 pub use backend::SharingBackend;
-pub use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
-};
 pub use jmap_sharing_types::{PrincipalProperty, ShareNotificationProperty};
 pub use notification::{
     handle_share_notification_changes, handle_share_notification_get,

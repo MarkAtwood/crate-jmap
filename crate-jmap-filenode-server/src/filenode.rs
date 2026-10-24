@@ -2342,13 +2342,13 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    use crate::CaseFolding;
     use crate::memory::{MemoryBackend, MemoryError};
-    use crate::{
-        BackendChangesError, BackendQueryError, CaseFolding, ChangesResult, GetObject, JmapBackend,
-        JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-        SetObject,
-    };
     use jmap_server::BackendSetError;
+    use jmap_server::{
+        BackendChangesError, BackendQueryError, ChangesResult, GetObject, JmapBackend, JmapObject,
+        QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetObject,
+    };
     use jmap_types::State;
 
     // -----------------------------------------------------------------------
