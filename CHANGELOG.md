@@ -3683,6 +3683,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-server**: a pre-epoch system clock with a sub-second part now
+  formats as the right instant: 1.2 s before the epoch is
+  `1969-12-31T23:59:58.800Z`, not `23:59:59.200Z`. Milliseconds are
+  floored, as they already are after the epoch.
 - **jmap-types**, **jmap-chat-types**, **jmap-scene-types**,
   **jmap-vtc-types**: a non-string `@type` no longer echoes the client's
   JSON value into the serde error text, which servers forward as an
