@@ -21,8 +21,8 @@
 //! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
 //!   `maxObjectsInSet`;
 //! - `/set`: `stateMismatch`;
-//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`,
-//!   `tooManyChanges`;
+//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`;
+//! - `/queryChanges`: `tooManyChanges`;
 //! - `/query`, `/queryChanges`: `unsupportedFilter`, `unsupportedSort`;
 //! - `/query`: `anchorNotFound`.
 //!

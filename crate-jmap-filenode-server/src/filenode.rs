@@ -32,8 +32,8 @@
 //!   `maxObjectsInSet`;
 //! - `/set`, `/copy`: `stateMismatch`;
 //! - `/copy`: `fromAccountNotFound`, `fromAccountNotSupportedByMethod`;
-//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`,
-//!   `tooManyChanges`;
+//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`;
+//! - `/queryChanges`: `tooManyChanges`;
 //! - `/query`, `/queryChanges`: `unsupportedFilter`;
 //! - `/query`: `unsupportedSort`, `anchorNotFound`.
 //!

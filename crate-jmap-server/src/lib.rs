@@ -43,8 +43,8 @@ pub use backend::{
     backend_set_error_value,
 };
 pub use handlers::{
-    SERVER_FAIL_INTERNAL_DESC, handle_changes, handle_get, handle_query, handle_query_changes,
-    server_fail_from_backend, server_fail_value_from_backend,
+    SERVER_FAIL_INTERNAL_DESC, changes_error_from_backend, handle_changes, handle_get,
+    handle_query, handle_query_changes, server_fail_from_backend, server_fail_value_from_backend,
 };
 pub use helpers::{
     MergePatchError, PatchPathError, apply_jmap_patch, apply_patch_object, bool_arg,

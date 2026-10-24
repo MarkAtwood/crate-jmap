@@ -94,6 +94,40 @@ async fn changes_without_since_state_is_invalid_arguments() {
     assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
 }
 
+/// RFC 8620 §5.2 (rfc8620.txt L1766-1768): over `maxChanges`, a server
+/// "unable to calculate an intermediate state ... MUST return a
+/// "cannotCalculateChanges" error response instead"; `tooManyChanges` is a
+/// §5.6 `/queryChanges` error only. The memory backend cannot produce an
+/// intermediate state, so two creates against `maxChanges` 1 must fail
+/// with `cannotCalculateChanges`.
+#[tokio::test]
+async fn changes_over_max_changes_is_cannot_calculate_changes() {
+    let backend = injectable();
+    let resp = set(
+        &backend,
+        json!({ "create": {
+            "e0": { "name": "catjam", "blobId": "blob1" },
+            "e1": { "name": "partyparrot", "blobId": "blob1" },
+        } }),
+    )
+    .await
+    .expect("CustomEmoji/set");
+    assert_eq!(
+        resp["created"].as_object().map(|m| m.len()),
+        Some(2),
+        "{resp}"
+    );
+    let err = handle_emoji_changes(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "sinceState": resp["oldState"], "maxChanges": 1 }),
+    )
+    .await
+    .expect_err("two changes exceed maxChanges 1");
+    let wire = serde_json::to_value(&err).expect("JmapError must serialize");
+    assert_eq!(wire["type"], "cannotCalculateChanges", "{wire}");
+}
+
 /// RFC 8620 §5.3 `ifInState`: "If supplied, the string must match the
 /// current state; otherwise, the method will be aborted and a
 /// "stateMismatch" error returned."

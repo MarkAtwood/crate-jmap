@@ -104,8 +104,9 @@ pub fn backend_set_error_value<E: std::fmt::Display>(err: BackendSetError<E>) ->
 /// Error type returned by [`JmapBackend::get_changes`] and
 /// [`JmapBackend::query_changes`].
 ///
-/// The two non-`Other` variants map to the two distinct RFC 8620 §5.2 and
-/// §5.6 wire errors, `cannotCalculateChanges` and `tooManyChanges`.
+/// The two non-`Other` variants map to the RFC 8620 §5.6 wire errors
+/// `cannotCalculateChanges` and `tooManyChanges`; `/changes` (§5.2) has
+/// only the former (see [`changes_error_from_backend`](crate::changes_error_from_backend)).
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum BackendChangesError<E> {
@@ -119,9 +120,13 @@ pub enum BackendChangesError<E> {
     /// `mail-model.js`).
     CannotCalculate,
     /// The change window exceeds what the server can supply in a
-    /// single `/changes` response. Maps to `tooManyChanges` with the
-    /// `limit` as the suggested maximum — the client may retry with
-    /// a smaller window.
+    /// single response. Maps to `tooManyChanges` with the `limit` as the
+    /// suggested maximum for `/queryChanges` (RFC 8620 §5.6). `/changes`
+    /// has no such error (§5.2), so
+    /// [`changes_error_from_backend`](crate::changes_error_from_backend)
+    /// maps it to `cannotCalculateChanges` there; a `get_changes` backend
+    /// over `maxChanges` SHOULD instead return an intermediate state with
+    /// `has_more_changes` set.
     TooManyChanges {
         /// Maximum window size the server can supply in a single
         /// `/changes` response, the suggested maximum the client may

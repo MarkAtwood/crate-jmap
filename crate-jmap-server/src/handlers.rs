@@ -28,7 +28,8 @@ use jmap_types::{Id, JmapError, State};
 use serde_json::{Value, json};
 
 use crate::backend::{
-    ChangesParams, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryObject, QueryParams,
+    BackendChangesError, ChangesParams, GetObject, JmapBackend, JmapObject, QueryChangesParams,
+    QueryObject, QueryParams,
 };
 use crate::helpers::{
     enforce_max_objects_in_get, extract_account_id, filter_arg, not_found_json, optional_arg,
@@ -82,6 +83,24 @@ pub const SERVER_FAIL_INTERNAL_DESC: &str = "internal error";
 /// ```
 pub fn server_fail_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -> JmapError {
     JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)
+}
+
+/// Map a [`JmapBackend::get_changes`](crate::JmapBackend::get_changes)
+/// error to the `Foo/changes` method error (RFC 8620 §5.2).
+///
+/// `tooManyChanges` is a `Foo/queryChanges` error only (§5.6); §5.2 lists
+/// `cannotCalculateChanges` as the sole changes-specific error, and a
+/// server over `maxChanges` that "is unable to calculate an intermediate
+/// state ... MUST return a "cannotCalculateChanges" error response
+/// instead". So [`BackendChangesError::TooManyChanges`] becomes
+/// `cannotCalculateChanges` here; every other variant maps as its
+/// [`From`] impl does. Every `/changes` handler uses this instead of
+/// `JmapError::from`; `/queryChanges` handlers keep `JmapError::from`.
+pub fn changes_error_from_backend<E: std::error::Error>(err: BackendChangesError<E>) -> JmapError {
+    match err {
+        BackendChangesError::TooManyChanges { .. } => JmapError::cannot_calculate_changes(),
+        other => JmapError::from(other),
+    }
 }
 
 /// Construct the per-id `serverFail` [`Value`] used inside the
@@ -263,7 +282,7 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
                 .ignore_metadata_only_changes(ignore_metadata_only_changes),
         )
         .await
-        .map_err(JmapError::from)?;
+        .map_err(changes_error_from_backend)?;
     let updated_properties = if result.updated.is_empty() {
         None
     } else {
@@ -1644,18 +1663,27 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.2 (rfc8620.txt L1822-1829) lists only
     /// `cannotCalculateChanges` as an error returned "instead of the
-    /// Foo/changes response"; §5.6 (L2806-2813) adds `tooManyChanges` for
-    /// Foo/queryChanges only, so that case is not asserted for /changes.
-    /// An internal backend failure is neither and MUST surface as the
-    /// redacted `serverFail` (the
-    /// [`server_fail_from_backend_drops_display_text`] contract).
+    /// Foo/changes response", and L1766-1768: a server over `maxChanges`
+    /// that "is unable to calculate an intermediate state ... MUST return a
+    /// "cannotCalculateChanges" error response instead"; §5.6 (L2806-2813)
+    /// adds `tooManyChanges` for Foo/queryChanges only. An internal backend
+    /// failure is neither and MUST surface as the redacted `serverFail`
+    /// (the [`server_fail_from_backend_drops_display_text`] contract).
     #[tokio::test]
     async fn changes_backend_errors_map_to_rfc_errors() {
         const CANARY: &str = "TOKEN-DO-NOT-LEAK-changes-b0a710ad";
-        for (outcome, expected_type, check_changes) in [
-            (Canned::CannotCalculate, "cannotCalculateChanges", true),
-            (Canned::TooManyChanges(10), "tooManyChanges", false),
-            (Canned::Internal(CANARY), "serverFail", true),
+        for (outcome, changes_type, query_changes_type) in [
+            (
+                Canned::CannotCalculate,
+                "cannotCalculateChanges",
+                "cannotCalculateChanges",
+            ),
+            (
+                Canned::TooManyChanges(10),
+                "cannotCalculateChanges",
+                "tooManyChanges",
+            ),
+            (Canned::Internal(CANARY), "serverFail", "serverFail"),
         ] {
             let backend = CannedBackend {
                 account_exists: true,
@@ -1674,12 +1702,9 @@ mod tests {
                 json!({"accountId": "a1", "sinceQueryState": "q1"}),
             )
             .await;
-            let results = if check_changes {
-                vec![changes, query_changes]
-            } else {
-                vec![query_changes]
-            };
-            for result in results {
+            for (result, expected_type) in
+                [(changes, changes_type), (query_changes, query_changes_type)]
+            {
                 let err = result.expect_err("backend error must fail the call");
                 let wire = serde_json::to_value(&err).expect("JmapError must serialize");
                 assert_eq!(wire["type"], expected_type, "{wire}");
