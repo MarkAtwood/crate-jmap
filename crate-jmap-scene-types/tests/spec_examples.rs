@@ -56,6 +56,17 @@ fn round_trip<T: DeserializeOwned + Serialize>(json: &Value) -> T {
     typed
 }
 
+/// [`round_trip`] for an RFC 8620 §5.5 Comparator, whose `isAscending` is
+/// "(optional; default: true)": a verbatim `true` is omitted on re-encode.
+fn comparator_round_trip<T: DeserializeOwned + Serialize>(json: &Value) {
+    let typed: T = serde_json::from_value(json.clone()).unwrap();
+    let mut expected = json.clone();
+    if expected["isAscending"] == json!(true) {
+        expected.as_object_mut().unwrap().remove("isAscending");
+    }
+    assert_eq!(serde_json::to_value(&typed).unwrap(), expected);
+}
+
 fn parse(text: &str) -> Value {
     serde_json::from_str(text).unwrap()
 }
@@ -225,7 +236,7 @@ fn asset_query_example() {
     let args = first_call_args(&parse(&asset_query())).clone();
     round_trip::<SceneAssetFilter>(&args["filter"]);
     for c in args["sort"].as_array().unwrap() {
-        round_trip::<SceneAssetComparator>(c);
+        comparator_round_trip::<SceneAssetComparator>(c);
     }
 }
 
@@ -239,7 +250,7 @@ fn region_query_examples() {
         let args = first_call_args(&parse(text)).clone();
         round_trip::<SceneRegionFilter>(&args["filter"]);
         for c in args["sort"].as_array().unwrap() {
-            round_trip::<SceneRegionComparator>(c);
+            comparator_round_trip::<SceneRegionComparator>(c);
         }
     }
 }
@@ -257,7 +268,7 @@ fn object_query_examples() {
         Some(WithinRadius::new([5.0, 0.0, -2.0], 20.0))
     );
     for c in args["sort"].as_array().unwrap() {
-        round_trip::<SceneObjectComparator>(c);
+        comparator_round_trip::<SceneObjectComparator>(c);
     }
 
     let args = first_call_args(&parse(&object_query_bounds())).clone();
@@ -270,7 +281,7 @@ fn object_query_examples() {
         Some(WithinBounds::new([-15.0, 0.0, -15.0], [15.0, 10.0, 15.0]))
     );
     for c in args["sort"].as_array().unwrap() {
-        round_trip::<SceneObjectComparator>(c);
+        comparator_round_trip::<SceneObjectComparator>(c);
     }
 }
 
@@ -287,7 +298,7 @@ fn avatar_query_example() {
         Some(WithinRadius::new([10.0, 0.0, -5.0], 30.0))
     );
     for c in args["sort"].as_array().unwrap() {
-        round_trip::<SceneAvatarComparator>(c);
+        comparator_round_trip::<SceneAvatarComparator>(c);
     }
 }
 

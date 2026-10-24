@@ -239,7 +239,8 @@ async fn graph_node_op_query_changes_sends_rfc8620_shape() {
             "accountId": "A1",
             "sinceQueryState": "q1",
             "filter": { "nodeId": "N1" },
-            "sort": [{ "property": "seq", "isAscending": true }]
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{ "property": "seq" }]
         }])
     );
 }

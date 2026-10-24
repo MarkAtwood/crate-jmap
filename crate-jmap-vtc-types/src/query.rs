@@ -107,7 +107,7 @@ pub struct VtcCallComparator {
     /// The property to sort by.
     pub property: VtcCallSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -127,6 +127,10 @@ impl VtcCallComparator {
 
 fn default_true() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }
 
 /// Filter for `VTCParticipant/query`.
@@ -192,7 +196,7 @@ pub struct VtcParticipantComparator {
     /// The property to sort by.
     pub property: VtcParticipantSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -287,7 +291,7 @@ pub struct VtcMediaComparator {
     /// The property to sort by.
     pub property: VtcMediaSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]

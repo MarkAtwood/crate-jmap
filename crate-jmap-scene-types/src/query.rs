@@ -141,7 +141,7 @@ pub struct SceneAssetComparator {
     /// The property to sort by.
     pub property: SceneAssetSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -161,6 +161,10 @@ impl SceneAssetComparator {
 
 pub(crate) fn default_true() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }
 
 /// Filter for `SceneRegion/query`.
@@ -231,7 +235,7 @@ pub struct SceneRegionComparator {
     /// The property to sort by.
     pub property: SceneRegionSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -330,7 +334,7 @@ pub struct SceneObjectComparator {
     /// The property to sort by.
     pub property: SceneObjectSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -408,7 +412,7 @@ pub struct SceneAvatarComparator {
     /// The property to sort by.
     pub property: SceneAvatarSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]

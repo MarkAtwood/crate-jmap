@@ -43,6 +43,10 @@ fn default_true() -> bool {
     true
 }
 
+fn is_true(b: &bool) -> bool {
+    *b
+}
+
 /// Filter for `Graph/query`.
 pub type GraphFilter = Filter<GraphFilterCondition>;
 
@@ -89,7 +93,7 @@ pub struct GraphComparator {
     /// The property to sort by.
     pub property: GraphSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -192,7 +196,7 @@ pub struct GraphNodeComparator {
     /// The property to sort by.
     pub property: GraphNodeSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -294,7 +298,7 @@ pub struct GraphEdgeComparator {
     /// The property to sort by.
     pub property: GraphEdgeSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]

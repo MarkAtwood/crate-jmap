@@ -1923,6 +1923,12 @@ wire behaviour that a conforming peer can observe.
   key still decodes as ascending (RFC 8620 §5.5 "default: true"). Byte
   comparisons, snapshots or hashes of an ascending sort change (bd
   JMAP-18qe).
+- **BREAKING** (wire): **jmap-scene-types**, **jmap-vtc-types** and
+  **jmap-graph-types** comparators (including `GraphNodeOpComparator`) omit
+  `isAscending` when it is `true`, matching the rest of the extension-types
+  family; `false` is still sent and an absent key still decodes as ascending
+  (RFC 8620 §5.5 "default: true"). The three crates join the extension-types
+  row of the AGENTS.md Canonical Templates table (bd JMAP-fyhb).
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-calendars-server**,
   **jmap-tasks-server**, **jmap-sharing-server**, **jmap-scene-server**,
   **jmap-vtc-server**, **jmap-graph-server**, **jmap-chat-mimi-server**:

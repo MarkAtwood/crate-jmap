@@ -428,7 +428,8 @@ async fn scene_object_query_within_radius_matches_example() {
                 "interactable": true,
                 "withinRadius": { "center": [5.0, 0.0, -2.0], "radius": 20.0 }
             },
-            "sort": [{"property": "name", "isAscending": true}],
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{"property": "name"}],
             "position": 0,
             "limit": 25
         }])
@@ -632,7 +633,8 @@ async fn scene_avatar_query_matches_example() {
                 "isActive": true,
                 "withinRadius": { "center": [10.0, 0.0, -5.0], "radius": 30.0 }
             },
-            "sort": [{"property": "joinedAt", "isAscending": true}],
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{"property": "joinedAt"}],
             "position": 0,
             "limit": 50
         }])
@@ -718,7 +720,8 @@ async fn scene_region_query_changes_sends_rfc8620_shape() {
         json!(["SceneRegion/queryChanges", {
             "accountId": "acct-001",
             "sinceQueryState": "q1",
-            "sort": [{"property": "activeAvatarCount", "isAscending": true}],
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{"property": "activeAvatarCount"}],
             "calculateTotal": true
         }])
     );

@@ -370,7 +370,8 @@ async fn graph_node_query_changes_sends_rfc8620_shape() {
             "sinceQueryState": "q1",
             "maxChanges": 50,
             "filter": { "graphId": "G1" },
-            "sort": [{ "property": "created", "isAscending": true }],
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{ "property": "created" }],
             "calculateTotal": true
         }])
     );
@@ -405,7 +406,8 @@ async fn graph_query_sends_filter_and_sort() {
         json!(["Graph/query", {
             "accountId": "A1",
             "filter": { "isSubscribed": true },
-            "sort": [{ "property": "name", "isAscending": true }],
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{ "property": "name" }],
             "position": 0,
             "limit": 10
         }])

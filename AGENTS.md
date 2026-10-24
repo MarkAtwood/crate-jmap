@@ -315,7 +315,7 @@ not reproduce the flaw for consistency's sake.
 | Family | Canonical | Siblings (must mirror) |
 |---|---|---|
 | Foundation types | `jmap-types` | (none — sole foundation) |
-| Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types` |
+| Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types`, `jmap-scene-types`, `jmap-vtc-types`, `jmap-graph-types` |
 | Foundation server | `jmap-server` | (none — sole foundation) |
 | Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server`, `jmap-vtc-server`, `jmap-scene-server`, `jmap-graph-server` |
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
