@@ -444,6 +444,31 @@ async fn invalid_metadata_writes_are_invalid_properties() {
     assert_eq!(mailbox_metadata(&backend, &id).await, json!({}));
 }
 
+/// -04 §2.1 (L341-348): a vendor namespace is a domain name "in DNS form",
+/// and "Servers MUST reject, with an "invalidProperties" SetError, a /set
+/// operation that uses a key that is not a valid namespace identifier".
+/// A '/' cannot appear in a DNS label, so a complete-replacement key such
+/// as `a.b/c` is not a namespace identifier.
+#[tokio::test]
+async fn non_dns_namespace_key_is_invalid_properties() {
+    let backend = backend();
+    let id = create_mailbox(&backend, json!({ "name": "m" })).await;
+    for key in ["a.b/c", "a.b~c", "acme.example.com/k"] {
+        let resp = mailbox_set(
+            &backend,
+            json!({ "update": { &id: { "metadata": { key: {} } } } }),
+            &using(),
+        )
+        .await;
+        assert_eq!(
+            resp["notUpdated"][&id]["type"],
+            json!("invalidProperties"),
+            "{key}: {resp}"
+        );
+    }
+    assert_eq!(mailbox_metadata(&backend, &id).await, json!({}));
+}
+
 /// -04 §1.2.1: "A type that does not appear in this object does not gain
 /// the metadata or privateMetadata properties in this account", so a
 /// backend that did not opt in rejects the write.

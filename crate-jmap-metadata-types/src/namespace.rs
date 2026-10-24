@@ -33,11 +33,13 @@ pub fn is_registered_namespace(name: &str) -> bool {
 /// identifier (draft-ietf-jmap-metadata-04 §2.1).
 ///
 /// A domain-name namespace contains at least one dot (`.`) and is in DNS
-/// form (e.g. `example.com`, `acme.example.org`). This function validates
-/// the structural requirement (contains a dot, non-empty labels, printable
-/// ASCII, no uppercase letters) but does **not** perform DNS resolution or
-/// full RFC 5321 validation. Internationalized labels must be in A-label
-/// form, which is ASCII, so non-ASCII input is rejected.
+/// form (e.g. `example.com`, `acme.example.org`). Every label must be a
+/// lowercase LDH label: non-empty, only lowercase US-ASCII letters, digits
+/// and hyphens, and not starting or ending with a hyphen. This rejects
+/// uppercase ("Domain-name identifiers MUST be in lowercase"), U-labels
+/// (internationalized labels must be "in A-label form") and characters
+/// such as `/` that would collide with `/set` patch paths and `/get`
+/// subselectors (§3.1). No DNS resolution is performed.
 ///
 /// ```
 /// use jmap_metadata_types::is_vendor_namespace;
@@ -49,18 +51,19 @@ pub fn is_registered_namespace(name: &str) -> bool {
 /// assert!(!is_vendor_namespace("trailing.dot.")); // empty label
 /// assert!(!is_vendor_namespace("")); // empty
 /// assert!(!is_vendor_namespace("Acme.example.com")); // uppercase
+/// assert!(!is_vendor_namespace("acme.example.com/k")); // not LDH
 /// ```
 pub fn is_vendor_namespace(name: &str) -> bool {
     if name.is_empty() || !name.contains('.') {
         return false;
     }
-    // Every label must be non-empty and contain only printable ASCII
-    // (no whitespace, no control chars) with no uppercase letters.
     name.split('.').all(|label| {
         !label.is_empty()
+            && !label.starts_with('-')
+            && !label.ends_with('-')
             && label
                 .bytes()
-                .all(|b| b.is_ascii_graphic() && !b.is_ascii_uppercase())
+                .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
     })
 }
 
@@ -187,6 +190,33 @@ mod tests {
     fn vendor_accepts_a_label_rejects_u_label() {
         assert!(is_vendor_namespace("xn--mnchen-3ya.example"));
         assert!(!is_vendor_namespace("münchen.example"));
+    }
+
+    // -04 §2.1 (L342): a domain name "in DNS form"; §3.1 (L487-491): '/'
+    // separates the namespace from the key in patch paths and
+    // subselectors, so it cannot appear inside one.
+    #[test]
+    fn vendor_rejects_non_ldh_chars() {
+        for bad in [
+            "acme.example.com/k",
+            "a.b~c",
+            "a.b\"x",
+            "a_b.example",
+            "a.b:c",
+            "a@b.c",
+        ] {
+            assert!(!is_vendor_namespace(bad), "{bad}");
+            assert!(!is_valid_namespace(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn vendor_rejects_edge_hyphens() {
+        assert!(!is_vendor_namespace("-acme.example"));
+        assert!(!is_vendor_namespace("acme-.example"));
+        assert!(!is_vendor_namespace("acme.example-"));
+        assert!(is_vendor_namespace("my-acme.example"));
+        assert!(is_vendor_namespace("0day.example"));
     }
 
     // -- is_valid_namespace --------------------------------------------------
