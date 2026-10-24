@@ -1106,6 +1106,29 @@ pub trait JmapBackend: Send + Sync + 'static {
         let _ = (caller, account_id);
         500
     }
+
+    /// The draft-ietf-jmap-metadata-04 §1.2.1 DataTypeMetadataInfo of `O`
+    /// in `account_id`, as seen by `caller`, or [`None`] when the account's
+    /// `urn:ietf:params:jmap:metadata` capability does not list `O`.
+    ///
+    /// Handlers use it where the wire shape depends on it: `Foo/get`
+    /// returns `metadata` as an object (`{}` when nothing is stored),
+    /// applies the `metadata/` subselectors and never returns
+    /// `privateMetadata` when `supportsPrivate` is false (-04 §2, §3.1,
+    /// through [`MetadataProjection`](crate::MetadataProjection));
+    /// `Foo/copy` copies neither property into an account that does not
+    /// list `O` (-04 §3.4). Keep it in step with the `dataTypes`
+    /// advertised in the Session object.
+    ///
+    /// Default: [`None`], a backend without metadata.
+    fn metadata_info<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
+        let _ = (caller, account_id);
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------
