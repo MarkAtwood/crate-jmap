@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 
 const REGION: &str = "01J5ABC0000000000000000001";
 const OTHER_REGION: &str = "01J5ABC0000000000000000002";
-/// The two ids of the L2538-2541 response (jmap-chat-spec 6c38e2f).
+/// The two ids of the L2538-2541 response (jmap-chat-spec 7787c51).
 const BOB_AV: &str = "01J5AVB0000000000000000002";
 const CAROL_AV: &str = "01J5AVC0000000000000000003";
 /// Active, 40 m from the L2273 center `[10.0, 0, -5.0]`.
