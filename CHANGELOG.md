@@ -3649,6 +3649,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-tasks-server**: the `TasksBackend::update_task_per_user`
+  authorisation contract now requires the TaskList's `mayUpdatePrivate`
+  right instead of read access to the Task, matching draft-ietf-jmap-tasks-06
+  §3 ("The user may modify the following properties on all tasks in the
+  task list, even if they would not otherwise have permission to modify
+  that task.") and `CalendarsBackend::update_per_user_properties`. Docs
+  only; no signature change. Multi-user backends that let read-only users
+  write per-user properties should check `mayUpdatePrivate`.
 - **jmap-server**, **jmap-mail-server**, **jmap-chat-server**: **BREAKING**
   (wire) every `Foo/changes` handler (`handle_changes`,
   `handle_identity_changes` and the chat ChatContact, CustomEmoji,
