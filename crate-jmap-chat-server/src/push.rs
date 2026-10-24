@@ -675,8 +675,6 @@ fn mention_scopes(msg: &Message, owner: OwnerFlags) -> Vec<BroadcastScope> {
     scopes
 }
 
-/// `body` without control characters, cut to at most `max_bytes` bytes on
-/// a UTF-8 character boundary.
 /// The plaintext of an `application/jmap-chat-rich` body: its span `text`
 /// values joined in order, or `None` when `body` is not a rich body. The
 /// spans only render the preview; servers must not validate the body or
@@ -687,6 +685,8 @@ fn rich_text(body: &str) -> Option<String> {
     Some(rich.spans.into_iter().map(|s| s.text).collect())
 }
 
+/// `body` without control characters, cut to at most `max_bytes` bytes on
+/// a UTF-8 character boundary.
 fn snippet(body: &str, max_bytes: u64) -> String {
     let mut text: String = body.chars().filter(|c| !c.is_control()).collect();
     let mut end = usize::try_from(max_bytes).map_or(text.len(), |max| max.min(text.len()));
