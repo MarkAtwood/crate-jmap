@@ -38,8 +38,8 @@ use serde_json::{Value, json};
 
 use crate::TasksBackend;
 use crate::helpers::{
-    SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response,
+    SetAccumulators, check_map_key_ids, check_metadata_entry, enforce_max_objects_in_set,
+    extract_account_id, finalize_set_response,
 };
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, reject_read_only_patch,
@@ -178,6 +178,15 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
+            // draft-ietf-jmap-tasks-06 §3 `shareWith`: Id[TaskRights], keyed
+            // by Principal id.
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_map_key_ids(o, "shareWith"))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
             // `TaskList.id` is required, so the parse fills it with "",
             // which is not an Id (RFC 8620 §1.2: 1 to 255 octets); `build`
             // overwrites it with the id the backend mints.
@@ -268,6 +277,10 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 continue;
             }
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }

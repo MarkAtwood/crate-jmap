@@ -67,3 +67,32 @@ async fn task_set_rejects_malformed_task_list_id() {
     assert_invalid_property(&resp["notCreated"]["c1"], &resp, "taskListId");
     assert_invalid_property(&resp["notUpdated"]["t1"], &resp, "taskListId");
 }
+
+/// draft-ietf-jmap-tasks-06 §3 (txt:487): "shareWith: Id[TaskRights]|null",
+/// so each key is an Id. A `"bad id"` key on create, or as the id segment
+/// of a `shareWith/<id>/<right>` patch path, is `invalidProperties` naming
+/// `shareWith`. A well-formed segment (`p1`) passes the check and reaches
+/// the backend, which reports RFC 8620 §5.3 `notFound` for the missing list.
+#[tokio::test]
+async fn task_list_set_rejects_malformed_share_with_keys() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    backend.register_account(&account_id);
+    let args = json!({
+        "accountId": account_id.as_ref(),
+        "create": { "c1": { "name": "x", "shareWith": { "bad id": { "mayReadItems": true } } } },
+        "update": {
+            "tl1": { "shareWith/bad id/mayReadItems": true },
+            "tl2": { "shareWith": { "bad id": { "mayReadItems": true } } },
+            "tl3": { "shareWith/p1/mayReadItems": true }
+        }
+    });
+    let resp = handle_task_list_set(&backend, &(), args, &[])
+        .await
+        .expect("/set must not fail as a method")
+        .primary;
+    assert_invalid_property(&resp["notCreated"]["c1"], &resp, "shareWith");
+    assert_invalid_property(&resp["notUpdated"]["tl1"], &resp, "shareWith");
+    assert_invalid_property(&resp["notUpdated"]["tl2"], &resp, "shareWith");
+    assert_eq!(resp["notUpdated"]["tl3"]["type"], "notFound", "{resp}");
+}

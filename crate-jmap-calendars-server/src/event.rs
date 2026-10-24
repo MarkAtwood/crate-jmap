@@ -241,8 +241,15 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 
 /// draft-ietf-jmap-calendars-33 §5 `calendarIds`: "An event MUST belong to
 /// one or more Calendars at all times" and each value "MUST be true".
+/// Each key is a Calendar id, so it must be an RFC 8620 §1.2 Id; this
+/// catches a `/copy` override, which does not pass through
+/// [`resolve_map_key_refs`].
 fn valid_calendar_ids(ids: Option<&BTreeMap<Id, bool>>) -> bool {
-    ids.is_some_and(|m| !m.is_empty() && m.values().all(|v| *v))
+    ids.is_some_and(|m| {
+        !m.is_empty()
+            && m.iter()
+                .all(|(k, v)| *v && Id::new_validated(k.as_ref()).is_ok())
+    })
 }
 
 /// draft-ietf-jmap-calendars-33 §5 `isOrigin`: true if, and only if, the
@@ -1644,6 +1651,41 @@ mod tests {
             resp["notCreated"]["c1"]["type"], "notFound",
             "wrong notCreated type: {resp}"
         );
+    }
+
+    /// Oracle: RFC 8620 §1.2, an Id "MUST only contain characters from
+    /// the 'URL and Filename Safe' base64 alphabet", and calendarIds is
+    /// `Id[Boolean]` (draft-ietf-jmap-calendars-33 §5). A /copy override
+    /// `calendarIds: {"bad id": true}` fails that entry with
+    /// invalidProperties naming calendarIds (bd:JMAP-9bio).
+    #[tokio::test]
+    async fn copy_rejects_malformed_calendar_ids_override() {
+        let mut backend = MockBackend::new_with_account("src");
+        backend.add_object(
+            "src",
+            "CalendarEvent",
+            "ev1",
+            json!({ "id": "ev1", "title": "t", "calendarIds": { "cal1": true } }),
+        );
+        backend.add_object(
+            "dst",
+            "CalendarEvent",
+            "_placeholder_",
+            json!({"id": "_placeholder_"}),
+        );
+        let args = json!({
+            "accountId": "dst",
+            "fromAccountId": "src",
+            "create": { "c1": { "id": "ev1", "calendarIds": { "bad id": true } } }
+        });
+        let resp = handle_calendar_event_copy(&backend, &(), args, "c0")
+            .await
+            .expect("must not return top-level error")
+            .primary;
+        assert_eq!(resp["created"], Value::Null, "{resp}");
+        let err = &resp["notCreated"]["c1"];
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["calendarIds"]), "{resp}");
     }
 
     /// Oracle: RFC 8620 §5.4 — a successful copy merges client-supplied

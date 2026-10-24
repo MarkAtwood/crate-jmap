@@ -3670,6 +3670,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-calendars-server**, **jmap-tasks-server**: `Calendar/set` and
+  `TaskList/set` create and update reject a `shareWith` key, or the id
+  segment of a `shareWith/<id>/...` patch path, that is not an RFC 8620
+  §1.2 Id with `invalidProperties` naming `shareWith`. `CalendarEvent/copy`
+  rejects a `calendarIds` override with such a key the same way, naming
+  `calendarIds` (bd JMAP-9bio).
+
 - **jmap-mail-server**, **jmap-calendars-server**,
   **jmap-contacts-server**: `/set` create and update reject a literal
   `mailboxIds`, `calendarIds` or `addressBookIds` key, or the id segment
