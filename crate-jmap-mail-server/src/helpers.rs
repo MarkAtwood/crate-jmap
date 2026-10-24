@@ -381,12 +381,9 @@ impl MetadataProjection {
                         None => *sel = Selection::All,
                         Some(_) if !uses => {}
                         // A subselector names one namespace: nothing below
-                        // it ("metadata/<namespace>/<key>" is an error).
-                        // is_valid_namespace alone accepts '/' in a domain
-                        // label.
-                        Some(ns)
-                            if !ns.contains('/') && jmap_metadata_types::is_valid_namespace(ns) =>
-                        {
+                        // it ("metadata/<namespace>/<key>" is an error, and
+                        // no namespace identifier contains '/').
+                        Some(ns) if jmap_metadata_types::is_valid_namespace(ns) => {
                             sel.add_namespace(ns);
                         }
                         Some(_) => {

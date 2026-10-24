@@ -3707,6 +3707,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-metadata-types**: **BREAKING** `is_vendor_namespace` (and so
+  `is_valid_namespace`) now requires every label to be a lowercase LDH
+  label (letters, digits, hyphens; no leading or trailing hyphen), per
+  draft-ietf-jmap-metadata-04 §2.1 "in DNS form". Keys such as `a.b/c` or
+  `a.b~c` were accepted before, so every server took them as namespace
+  identifiers in `/set`; they are now rejected with `invalidProperties`.
+  jmap-mail-server drops its local `'/'` guard in the `/get` subselector
+  parser.
+
 - **jmap-server**: a pre-epoch system clock with a sub-second part now
   formats as the right instant: 1.2 s before the epoch is
   `1969-12-31T23:59:58.800Z`, not `23:59:59.200Z`. Milliseconds are
