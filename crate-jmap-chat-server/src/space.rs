@@ -1049,6 +1049,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                 obj_val,
                 &[
                     ("description", PropType::Str),
+                    ("iconBlobId", PropType::Str),
                     ("isPublic", PropType::Bool),
                     ("isPubliclyPreviewable", PropType::Bool),
                 ],
@@ -1056,6 +1057,20 @@ pub async fn handle_space_set<B: ChatBackend>(
                 not_created.insert(create_id.clone(), err);
                 continue;
             }
+            // draft-atwood-jmap-chat-00 §Space/set "Creating a Space":
+            // "Optional: `description` (String), `iconBlobId` (String)."
+            // The value is a blob Id, so it must be a valid RFC 8620 §1.2
+            // Id. Whether the blob exists is left to the backend.
+            let icon_blob_id = match obj_val.get("iconBlobId").and_then(|v| v.as_str()) {
+                None => None,
+                Some(raw) => match jmap_server::parse_wire_id(raw, "iconBlobId") {
+                    Ok(id) => Some(id),
+                    Err(err) => {
+                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
+                        continue;
+                    }
+                },
+            };
             let name = match obj_val.get("name").and_then(|v| v.as_str()) {
                 Some(s) if !s.is_empty() => s.to_owned(),
                 _ => {
@@ -1129,6 +1144,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                 if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
                     space.description = Some(desc.to_owned());
                 }
+                space.icon_blob_id = icon_blob_id;
                 space.metadata = metadata;
                 space.private_metadata = private_metadata;
                 for &key in &extension_props {

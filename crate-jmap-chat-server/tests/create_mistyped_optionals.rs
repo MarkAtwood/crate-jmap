@@ -15,7 +15,8 @@ mod common;
 use common::{ACCOUNT_ID, make_space};
 use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{
-    handle_ban_set, handle_chat_set, handle_emoji_set, handle_invite_set, handle_space_set,
+    handle_ban_set, handle_chat_set, handle_emoji_set, handle_invite_set, handle_space_get,
+    handle_space_set,
 };
 use jmap_server::HandlerOutput;
 use serde_json::{Value, json};
@@ -129,6 +130,71 @@ async fn space_rejects_mistyped_optionals() {
         resp["notCreated"]["c"],
         invalid(&["description", "isPublic", "isPubliclyPreviewable"])
     );
+}
+
+/// draft-atwood-jmap-chat-00 §Space/set "Creating a Space": "Optional:
+/// `description` (String), `iconBlobId` (String)." A non-String value is
+/// invalidProperties.
+#[tokio::test]
+async fn space_rejects_non_string_icon_blob_id() {
+    let backend = common::account_backend();
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        args(json!({ "name": "S", "iconBlobId": 42 })),
+        &[],
+    )
+    .await
+    .expect("Space/set");
+    assert_eq!(resp["notCreated"]["c"], invalid(&["iconBlobId"]));
+}
+
+/// RFC 8620 §1.2: an Id "MUST only contain characters from the
+/// URL and Filename Safe base64 alphabet", so `"a b"` is not a blob Id.
+#[tokio::test]
+async fn space_rejects_malformed_icon_blob_id() {
+    let backend = common::account_backend();
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        args(json!({ "name": "S", "iconBlobId": "a b" })),
+        &[],
+    )
+    .await
+    .expect("Space/set");
+    assert_eq!(
+        resp["notCreated"]["c"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(resp["notCreated"]["c"]["properties"], json!(["iconBlobId"]));
+}
+
+/// A create carrying `iconBlobId` stores it: Space/get returns the value
+/// the client sent (§Space `iconBlobId`).
+#[tokio::test]
+async fn space_create_stores_icon_blob_id() {
+    let backend = common::account_backend();
+    let HandlerOutput { primary: resp, .. } = handle_space_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        args(json!({ "name": "S", "iconBlobId": "Bicon1" })),
+        &[],
+    )
+    .await
+    .expect("Space/set");
+    let id = resp["created"]["c"]["id"].clone();
+    assert!(id.is_string(), "{resp}");
+    let HandlerOutput { primary: got, .. } = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [id] }),
+    )
+    .await
+    .expect("Space/get");
+    assert_eq!(got["list"][0]["iconBlobId"], json!("Bicon1"), "{got}");
 }
 
 /// `null` for an optional property is read as absent, so the create
