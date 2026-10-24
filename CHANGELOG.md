@@ -3649,6 +3649,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-filenode-server**: `MemoryBackend` `FileNode/changes` reports each
+  id once per RFC 8620 §5.2: an id created then updated is only in
+  `created`, an id updated then destroyed is only in `destroyed`, and an id
+  created then destroyed is left out. When `maxChanges` truncates the
+  response (`hasMoreChanges: true`), `newState` is now the state of the last
+  change included, not the current state, which made a client following it
+  skip the cut-off changes (bd JMAP-d3mx).
+
 - **jmap-mail-server**: `SieveScript/query` now honours `sort` on `name`
   and `isActive` (RFC 9661 §2.5), including `isAscending` and multi-key
   order, and rejects any other sort property with `unsupportedSort` (RFC

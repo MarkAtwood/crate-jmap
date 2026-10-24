@@ -153,13 +153,29 @@ impl std::error::Error for MemoryError {}
 /// workspace AGENTS.md "Canonical Templates" rule, this stays
 /// `pub(crate)` so filenode-server matches the canonical shape.
 /// Tests do not reference this enum directly (bd:JMAP-510h.35).
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum ChangeType {
     /// Object was created.
     Created,
     /// Object was updated.
     Updated,
     /// Object was destroyed.
+    Destroyed,
+}
+
+/// Per-ID fate tracker for RFC 8620 §5.2 ID deduplication across change log
+/// entries in one `/changes` window.
+///
+/// - created+updated → `Created`
+/// - created+destroyed → omitted (the client never knew the object)
+/// - updated+destroyed → `Destroyed`
+/// - updated+updated → `Updated`
+///
+/// Mirrors the canonical jmap-mail-server `IdFate` enum.
+#[derive(Debug, Clone, Copy)]
+enum IdFate {
+    Created,
+    Updated,
     Destroyed,
 }
 
@@ -678,27 +694,55 @@ impl JmapBackend for MemoryBackend {
             .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
             .collect();
 
-        // Apply max_changes limit.
-        let has_more_changes = if let Some(max) = max_changes {
-            all.len() as u64 > max
-        } else {
-            false
+        // RFC 8620 §5.2: over maxChanges, return an intermediate state
+        // with hasMoreChanges=true. newState is then the state of the last
+        // included entry, so the next call resumes at the first cut-off one.
+        let limit = limit_or_max(max_changes);
+        let has_more_changes = all.len() > limit;
+        let entries = &all[..all.len().min(limit)];
+        let new_state = match entries.last() {
+            Some(e) if has_more_changes => State::from(e.state.to_string()),
+            _ => current_state,
         };
-        let entries: Vec<&ChangeEntry> = all.into_iter().take(limit_or_max(max_changes)).collect();
+
+        // RFC 8620 §5.2 ID deduplication across the window, using the
+        // canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
+        // order so the response lists are deterministic.
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
+        let mut order: Vec<Id> = Vec::new();
+        let mut window_props = ChangedProperties::new();
+        for e in entries {
+            let fate = match (e.change_type, fates.get(&e.id)) {
+                (ChangeType::Created, _) => IdFate::Created,
+                (ChangeType::Updated, Some(&f @ (IdFate::Created | IdFate::Destroyed))) => f,
+                (ChangeType::Updated, _) => IdFate::Updated,
+                // "If a record has been created AND destroyed since the old
+                // state, the server SHOULD remove the id from the response
+                // entirely." (RFC 8620 §5.2)
+                (ChangeType::Destroyed, Some(IdFate::Created)) => {
+                    fates.remove(&e.id);
+                    continue;
+                }
+                (ChangeType::Destroyed, _) => IdFate::Destroyed,
+            };
+            if e.change_type == ChangeType::Updated {
+                window_props.record(e.id.as_ref(), e.updated_props.as_ref());
+            }
+            if fates.insert(e.id.clone(), fate).is_none() {
+                order.push(e.id.clone());
+            }
+        }
 
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
         let mut destroyed: Vec<Id> = Vec::new();
-        let mut window_props = ChangedProperties::new();
-
-        for e in entries {
-            match e.change_type {
-                ChangeType::Created => created.push(e.id.clone()),
-                ChangeType::Updated => {
-                    window_props.record(e.id.as_ref(), e.updated_props.as_ref());
-                    updated.push(e.id.clone());
-                }
-                ChangeType::Destroyed => destroyed.push(e.id.clone()),
+        // `fates.remove` emits each id once and skips ids omitted above.
+        for id in order {
+            match fates.remove(&id) {
+                Some(IdFate::Created) => created.push(id),
+                Some(IdFate::Updated) => updated.push(id),
+                Some(IdFate::Destroyed) => destroyed.push(id),
+                None => {}
             }
         }
 
@@ -706,7 +750,7 @@ impl JmapBackend for MemoryBackend {
         // §2.2 count properties that only Mailbox/changes may list.
         let updated_properties = window_props.updated_properties(&updated, mode, &[]);
         Ok(
-            ChangesResult::new(created, updated, destroyed, has_more_changes, current_state)
+            ChangesResult::new(created, updated, destroyed, has_more_changes, new_state)
                 .with_updated_properties(updated_properties),
         )
     }

@@ -13,7 +13,7 @@ use jmap_filenode_types::FileNode;
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use jmap_types::Invocation;
-use serde_json::json;
+use serde_json::{Value, json};
 
 // ---------------------------------------------------------------------------
 // Helper: build a minimal valid FileNode for seeding.
@@ -783,6 +783,120 @@ async fn filenode_changes_unparseable_since_state_cannot_calculate() {
         "unparseable sinceState must surface as cannotCalculateChanges, not silently \
          fall back to state=0 (see bd:JMAP-510h.62); got: {err:?}"
     );
+}
+
+// ---------------------------------------------------------------------------
+// Test 9c/9d: FileNode/changes per-id dedup and intermediate states.
+// Oracle: RFC 8620 §5.2 (rfc8620.txt L1745-1760, L1720-1724, L1763-1769).
+// Regression for bd JMAP-d3mx.
+// ---------------------------------------------------------------------------
+
+async fn changes_state(backend: &MemoryBackend) -> String {
+    let HandlerOutput { primary, .. } =
+        handle_filenode_get(backend, &(), json!({ "accountId": "acc1", "ids": [] }))
+            .await
+            .expect("get must succeed");
+    primary["state"].as_str().expect("state").to_owned()
+}
+
+async fn changes_set(backend: &MemoryBackend, args: Value) -> Value {
+    let HandlerOutput { primary, .. } =
+        handle_filenode_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
+            .await
+            .expect("set must succeed");
+    primary
+}
+
+async fn changes_create_dir(backend: &MemoryBackend, name: &str) -> String {
+    let resp = changes_set(
+        backend,
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c": { "@type": "Directory", "name": name, "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await;
+    resp["created"]["c"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("create {name} must succeed: {resp}"))
+        .to_owned()
+}
+
+async fn changes_since(backend: &MemoryBackend, args: Value) -> Value {
+    let HandlerOutput { primary, .. } = handle_filenode_changes(backend, &(), args, &[])
+        .await
+        .expect("changes must succeed");
+    primary
+}
+
+#[tokio::test]
+async fn filenode_changes_dedups_ids_across_window() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let pre_state = changes_state(&backend).await;
+
+    let kept = changes_create_dir(&backend, "kept").await;
+    let gone = changes_create_dir(&backend, "gone").await;
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { &kept: { "name": "renamed" } } }),
+    )
+    .await;
+    changes_set(&backend, json!({ "accountId": "acc1", "destroy": [&gone] })).await;
+
+    let resp = changes_since(
+        &backend,
+        json!({ "accountId": "acc1", "sinceState": &pre_state }),
+    )
+    .await;
+    // "If a record has been created AND updated since the old state, the
+    // server SHOULD just return the id in the "created" list". "If a record
+    // has been created AND destroyed since the old state, the server SHOULD
+    // remove the id from the response entirely."
+    assert_eq!(resp["created"], json!([&kept]), "{resp}");
+    assert_eq!(resp["updated"], json!([]), "{resp}");
+    assert_eq!(resp["destroyed"], json!([]), "{resp}");
+    assert_eq!(resp["hasMoreChanges"], json!(false), "{resp}");
+    assert_eq!(
+        resp["newState"],
+        json!(changes_state(&backend).await),
+        "{resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_changes_truncated_new_state_is_intermediate() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let pre_state = changes_state(&backend).await;
+    let first = changes_create_dir(&backend, "first").await;
+    let second = changes_create_dir(&backend, "second").await;
+    let current = changes_state(&backend).await;
+
+    let page1 = changes_since(
+        &backend,
+        json!({ "accountId": "acc1", "sinceState": &pre_state, "maxChanges": 1 }),
+    )
+    .await;
+    assert_eq!(page1["created"], json!([&first]), "{page1}");
+    assert_eq!(page1["hasMoreChanges"], json!(true), "{page1}");
+    // "newState: ... the state the client will be in after applying the set
+    // of changes to the old state": not the current state, which would
+    // make the client skip `second`.
+    let mid = page1["newState"].as_str().expect("newState").to_owned();
+    assert_ne!(mid, current, "{page1}");
+
+    // "If true, the client may call "Foo/changes" again with the "newState"
+    // returned to get further updates. If false, "newState" is the current
+    // server state."
+    let page2 = changes_since(
+        &backend,
+        json!({ "accountId": "acc1", "sinceState": &mid, "maxChanges": 1 }),
+    )
+    .await;
+    assert_eq!(page2["created"], json!([&second]), "{page2}");
+    assert_eq!(page2["hasMoreChanges"], json!(false), "{page2}");
+    assert_eq!(page2["newState"], json!(current), "{page2}");
 }
 
 // ---------------------------------------------------------------------------
