@@ -62,9 +62,9 @@ still compile.
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc9610.txt    ← normative (JMAP Contacts)
-~/PROJECT/jmap-chat-spec/references/rfc9553.txt    ← JSContact Card format
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt    ← base protocol
+~/PROJECT/IETF/specs/rfc9610.txt    ← normative (JMAP Contacts)
+~/PROJECT/IETF/specs/rfc9553.txt    ← JSContact Card format
+~/PROJECT/IETF/specs/rfc8620.txt    ← base protocol
 ```
 
 **Before naming any field or type**, grep the relevant RFC text

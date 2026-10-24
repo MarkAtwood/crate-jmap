@@ -58,8 +58,8 @@ still compile.
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-filenode-14.txt   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt                       ← base protocol
+~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-14.txt   ← normative
+~/PROJECT/IETF/specs/rfc8620.txt                       ← base protocol
 ```
 
 **Before naming any field or type**, grep the relevant draft text

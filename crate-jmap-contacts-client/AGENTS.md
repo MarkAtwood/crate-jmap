@@ -52,12 +52,12 @@ Run all four before considering any work done.
 
 ## Source Material
 
-- `~/PROJECT/jmap-chat-spec/references/rfc9610.txt` — normative
+- `~/PROJECT/IETF/specs/rfc9610.txt` — normative
   (JMAP Contacts) for all method signatures, arguments, and response
   fields
-- `~/PROJECT/jmap-chat-spec/references/rfc9553.txt` — JSContact Card
+- `~/PROJECT/IETF/specs/rfc9553.txt` — JSContact Card
   format
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base
   get/set/changes/query request and response shapes (normative for
   structural fields)
 

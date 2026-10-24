@@ -52,12 +52,12 @@ Run all four before considering any work done.
 
 ## Source Material
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-calendars-33.txt`
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-33.txt`
   — normative for all method signatures, arguments, and response
   fields
-- `~/PROJECT/jmap-chat-spec/references/rfc8984.txt` — JSCalendar
+- `~/PROJECT/IETF/specs/rfc8984.txt` — JSCalendar
   format
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base
   get/set/changes/query request and response shapes (normative for
   structural fields)
 

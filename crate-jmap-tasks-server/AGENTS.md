@@ -51,8 +51,8 @@ jmap-types
 
 ```
 draft-ietf-jmap-tasks (revision pinned in PLAN.md)   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8984.txt                    ← JSCalendar format
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt                    ← base protocol
+~/PROJECT/IETF/specs/rfc8984.txt                    ← JSCalendar format
+~/PROJECT/IETF/specs/rfc8620.txt                    ← base protocol
 ```
 
 Before implementing any method, read its section in the relevant

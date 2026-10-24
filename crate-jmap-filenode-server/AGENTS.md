@@ -51,8 +51,8 @@ jmap-types
 
 ```
 draft-ietf-jmap-filenode (revision pinned in PLAN.md)   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt                       ← base protocol
-~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-blobext-01.txt    ← Blob/upload, Blob/get
+~/PROJECT/IETF/specs/rfc8620.txt                       ← base protocol
+~/PROJECT/IETF/specs/draft-ietf-jmap-blobext-01.txt    ← Blob/upload, Blob/get
 ```
 
 Before implementing any method, read its section in the relevant

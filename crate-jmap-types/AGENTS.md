@@ -65,7 +65,7 @@ Do NOT copy kith-specific items: `Role`, `Identity`, `AuthError`, `KithError`.
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt   ← normative
+~/PROJECT/IETF/specs/rfc8620.txt   ← normative
 ```
 
 ## Non-Interactive Shell Commands

@@ -54,7 +54,7 @@ Run all four before considering any work done.
 
 - `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-00.md` — normative
   for all method signatures, arguments, and response fields
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base
   get/set/changes/query request and response shapes (normative for
   structural fields)
 
