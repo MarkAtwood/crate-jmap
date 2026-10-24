@@ -636,22 +636,39 @@ impl JmapBackend for MemoryBackend {
             .map(Vec::as_slice)
             .unwrap_or(&[]);
 
-        let relevant: Vec<&ChangeEntry> = log.iter().filter(|e| e.new_state > since_n).collect();
+        let mut relevant: Vec<&ChangeEntry> =
+            log.iter().filter(|e| e.new_state > since_n).collect();
 
         let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
 
-        // Each entry counts as one change toward the limit, except a
-        // metadata-only update under Ignore: -04 §3.3 "Excluded ids do not
-        // count toward maxChanges".
-        let counted = relevant
-            .iter()
-            .filter(|e| !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()))
-            .count();
-        if let Some(max) = max_changes
-            && counted as u64 > max
-        {
-            return Err(BackendChangesError::TooManyChanges { limit: max });
+        // RFC 8620 §5.2: over maxChanges "the server SHOULD generate an
+        // update to take the client to an intermediate state", and only
+        // when "unable to calculate an intermediate state" return
+        // cannotCalculateChanges. Whole entries are taken, oldest first,
+        // while their ids fit; an entry's ids bound what it adds after the
+        // dedup below. A metadata-only update under Ignore adds none: -04
+        // §3.3 "Excluded ids do not count toward maxChanges". The first
+        // entry alone over the limit has no intermediate state.
+        let mut has_more = false;
+        if let Some(max) = max_changes {
+            let mut ids = 0u64;
+            if let Some(cut) = relevant.iter().position(|e| {
+                if !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()) {
+                    ids += (e.created.len() + e.updated.len() + e.destroyed.len()) as u64;
+                }
+                ids > max
+            }) {
+                if cut == 0 {
+                    return Err(BackendChangesError::TooManyChanges { limit: max });
+                }
+                relevant.truncate(cut);
+                has_more = true;
+            }
         }
+        let new_state = match relevant.last() {
+            Some(e) if has_more => e.new_state,
+            _ => current_state,
+        };
 
         // RFC 8620 §5.2 ID deduplication across the window, using the
         // canonical jmap-mail-server `IdFate` rules. `order` keeps first-seen
@@ -714,8 +731,8 @@ impl JmapBackend for MemoryBackend {
             created,
             updated,
             destroyed,
-            false,
-            State::from(current_state.to_string()),
+            has_more,
+            State::from(new_state.to_string()),
         )
         .with_updated_properties(updated_properties))
     }
@@ -1680,5 +1697,88 @@ mod changes_tests {
         assert_eq!(changes.created, vec![id("fresh")]);
         assert_eq!(changes.updated, vec![id("old")]);
         assert_eq!(changes.destroyed, vec![id("doomed"), id("gone")]);
+    }
+}
+
+#[cfg(test)]
+mod max_changes_tests {
+    use super::*;
+    use jmap_tasks_types::Task as T;
+
+    const CALLER: () = ();
+
+    /// A backend whose `T` log holds one state per element of `states`,
+    /// each creating the listed ids.
+    fn with_creates(states: &[&[&str]]) -> MemoryBackend {
+        let backend = MemoryBackend::new();
+        let mut inner = backend.inner.lock().unwrap();
+        for ids in states {
+            let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
+            inner
+                .change_log_mut(T::TYPE_NAME, "acc1")
+                .push(ChangeEntry {
+                    new_state,
+                    created: ids.iter().map(|s| Id::from(*s)).collect(),
+                    updated: vec![],
+                    destroyed: vec![],
+                    updated_props: None,
+                });
+        }
+        drop(inner);
+        backend
+    }
+
+    /// Oracle: RFC 8620 §5.2, expected pages written by hand: "the server
+    /// MUST ensure the number of ids returned across "created", "updated",
+    /// and "destroyed" does not exceed this limit. If there are more
+    /// changes than this ..., the server SHOULD generate an update to take
+    /// the client to an intermediate state, from which the client can
+    /// continue to call "Foo/changes" until it is fully up to date." Three
+    /// one-create states against `maxChanges` 2 page as states 1-2, then 3.
+    #[tokio::test]
+    async fn over_max_changes_pages_through_intermediate_state() {
+        let backend = with_creates(&[&["a"], &["b"], &["c"]]);
+
+        let first = changes(&backend, "0", 2).await.expect("first page");
+        assert_eq!(sorted(first.created), [Id::from("a"), Id::from("b")]);
+        assert!(first.has_more_changes);
+        assert_eq!(first.new_state.as_ref(), "2");
+
+        let rest = changes(&backend, "2", 2).await.expect("second page");
+        assert_eq!(rest.created, [Id::from("c")]);
+        assert!(!rest.has_more_changes);
+        assert_eq!(rest.new_state.as_ref(), "3");
+    }
+
+    /// Oracle: RFC 8620 §5.2 "If it is unable to calculate an intermediate
+    /// state, it MUST return a "cannotCalculateChanges" error response
+    /// instead." One state creating three ids cannot be split under
+    /// `maxChanges` 2.
+    #[tokio::test]
+    async fn one_state_over_max_changes_cannot_calculate() {
+        let backend = with_creates(&[&["a", "b", "c"]]);
+        assert!(matches!(
+            changes(&backend, "0", 2).await,
+            Err(BackendChangesError::TooManyChanges { limit: 2 })
+        ));
+    }
+
+    fn sorted(mut ids: Vec<Id>) -> Vec<Id> {
+        ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        ids
+    }
+
+    async fn changes(
+        backend: &MemoryBackend,
+        since: &str,
+        max: u64,
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapBackend>::Error>> {
+        backend
+            .get_changes::<T>(
+                &CALLER,
+                &Id::from("acc1"),
+                jmap_server::ChangesParams::new(&State::from(since)).max_changes(Some(max)),
+            )
+            .await
     }
 }

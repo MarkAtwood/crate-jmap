@@ -3745,6 +3745,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**, **jmap-contacts-server**, **jmap-calendars-server**,
+  **jmap-tasks-server**, **jmap-sharing-server**, **jmap-graph-server**,
+  **jmap-scene-server**, **jmap-vtc-server**: the `MemoryBackend` `/changes`
+  over `maxChanges` now returns an intermediate `newState` with
+  `hasMoreChanges: true` (RFC 8620 §5.2 SHOULD), mirroring jmap-mail-server,
+  instead of `cannotCalculateChanges`. That error remains only when the
+  first state alone holds more ids than `maxChanges`.
 - **jmap-mail-server**: **BREAKING** `Mailbox/query`, `Mailbox/queryChanges`,
   `EmailSubmission/query`, `EmailSubmission/queryChanges` and
   `SieveScript/query` now reject a comparator `collation` other than
