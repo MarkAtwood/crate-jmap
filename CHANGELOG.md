@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: **BREAKING** new `JmapBackend::metadata_info::<O>`
+  (default `None`), the draft-ietf-jmap-metadata-04 §1.2.1
+  DataTypeMetadataInfo of a type in an account, plus the shared /get and
+  /query helpers `MetadataProjection` (-04 §2, §3.1 defaults and
+  `metadata/<namespace>` subselectors), `uses_metadata` and
+  `reject_metadata_filter_without_capability` (-04 §3). A backend that
+  already has an inherent or trait method named `metadata_info` must
+  disambiguate calls (bd JMAP-s4kp.9).
 - **jmap-mail-server**: **BREAKING** the rest of draft-ietf-jmap-metadata-04
   for Email and Mailbox. `handle_mailbox_get`, `handle_email_get`,
   `handle_mailbox_query`, `handle_mailbox_query_changes`,
@@ -21,8 +29,9 @@ wire behaviour that a conforming peer can observe.
   `using` list as a new last argument, and `handle_email_copy` takes it
   after `call_id` (`register_mail_handlers` passes `CallContext::using`).
   `MailBackend::copy_object` takes the `/copy` create object as a new last
-  argument. New `MailBackend::metadata_info::<O>` (default `None`; the
-  in-memory backend returns the `with_metadata_info` value). For a listed
+  argument. The in-memory backend answers
+  `JmapBackend::metadata_info::<O>` with the `with_metadata_info` value
+  (the hook moved to jmap-server in JMAP-s4kp.9). For a listed
   type, /get returns `metadata` as an object (`{}` when nothing is stored)
   and never returns `privateMetadata` when `supportsPrivate` is false;
   `Mailbox/get` includes `metadata` by default only with the capability in

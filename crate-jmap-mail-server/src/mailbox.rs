@@ -65,7 +65,7 @@ use jmap_server::{SetError, SetErrorType};
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Mailbox
-/// for draft-ietf-jmap-metadata-04 ([`MailBackend::metadata_info`]),
+/// for draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
 /// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,

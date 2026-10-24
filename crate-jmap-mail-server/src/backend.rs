@@ -636,29 +636,6 @@ pub trait MailBackend: JmapBackend {
         account_id: &jmap_types::Id,
     ) -> bool;
 
-    /// The draft-ietf-jmap-metadata-04 §1.2.1 DataTypeMetadataInfo of `O`
-    /// in `account_id`, as seen by `caller`, or [`None`] when the account's
-    /// `urn:ietf:params:jmap:metadata` capability does not list `O`.
-    ///
-    /// The handlers use it where the wire shape depends on it: `Mailbox/get`
-    /// and `Email/get` return `metadata` as an object (`{}` when nothing is
-    /// stored), include it by default for Mailbox, apply the `metadata/`
-    /// subselectors, and never return `privateMetadata` when
-    /// `supportsPrivate` is false (-04 §2, §3.1); `Email/copy` copies
-    /// neither property into an account that does not list Email (-04
-    /// §3.4). Keep it in step with the `dataTypes` advertised in the
-    /// Session object.
-    ///
-    /// Default: [`None`], a backend without metadata.
-    fn metadata_info<O: JmapObject>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
-        let _ = (caller, account_id);
-        None
-    }
-
     /// Maximum number of email IDs to fetch from the backend when
     /// `collapseThreads=true`. Fetching stops at this limit; the response
     /// will omit `total` when this limit is reached.
