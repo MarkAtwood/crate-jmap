@@ -260,8 +260,8 @@ Key cases to cover:
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-filenode-14.txt` — normative
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol (Id, UTCDate,
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-14.txt` — normative
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base protocol (Id, UTCDate,
   Filter, Comparator, State)
 
 ## Dependencies

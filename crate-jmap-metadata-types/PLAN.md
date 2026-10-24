@@ -84,7 +84,7 @@ draft revs, update or replace them rather than mutating them silently.
 ## Spec References
 
 - https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04 — normative
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base protocol
 
 ## Dependencies
 

@@ -127,7 +127,7 @@ this extraction is verified, to keep blast radius narrow.
 ## Spec reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc8984.txt   ← normative
+~/PROJECT/IETF/specs/rfc8984.txt   ← normative
 ```
 
 ## History

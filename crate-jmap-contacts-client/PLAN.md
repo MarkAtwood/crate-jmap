@@ -41,9 +41,9 @@ Design pattern to follow:
   module layout, and test strategy
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs/outputs
   are structured and how `JmapRequestBuilder` is used to issue calls
-- `~/PROJECT/jmap-chat-spec/references/RFC 9610.txt` —
+- `~/PROJECT/IETF/specs/rfc9610.txt` —
   normative spec (§2–§4 for method arguments and responses)
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol (get/set/
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base protocol (get/set/
   query/changes/queryChanges/copy request and response structures)
 
 ## Dependencies

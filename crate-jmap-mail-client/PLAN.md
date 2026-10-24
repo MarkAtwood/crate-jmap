@@ -41,7 +41,7 @@ This is **greenfield** — no existing Rust implementation to extract from.
 Design pattern to follow:
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs/outputs are
   structured and how `JmapRequestBuilder` is used to issue calls
-- `~/PROJECT/jmap-chat-spec/references/rfc8621.txt` — normative spec
+- `~/PROJECT/IETF/specs/rfc8621.txt` — normative spec
 
 ## Dependencies
 

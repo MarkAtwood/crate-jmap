@@ -58,7 +58,7 @@ Design pattern to follow:
   pattern, identical `JmapMailExt` structure
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method
   inputs/outputs are structured and how `JmapRequestBuilder` is used
-- `~/PROJECT/jmap-chat-spec/references/rfc9670.txt` — normative spec
+- `~/PROJECT/IETF/specs/rfc9670.txt` — normative spec
 
 ## Dependencies
 

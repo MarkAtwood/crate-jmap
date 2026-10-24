@@ -48,7 +48,7 @@ Two small RFC 8621-adjacent extensions belong here rather than in their own crat
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/rfc8621.txt` — read the relevant section
+`~/PROJECT/IETF/specs/rfc8621.txt` — read the relevant section
 before implementing each handler. Wire field names come from the spec, not from
 memory or reference code.
 

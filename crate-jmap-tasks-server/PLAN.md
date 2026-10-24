@@ -35,11 +35,11 @@ handles storage.
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-tasks-06.txt` — read the
+`~/PROJECT/IETF/specs/draft-ietf-jmap-tasks-06.txt` — read the
 relevant section before implementing each handler. Wire field names and error
 types come from the spec, not from memory.
 
-`~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol method
+`~/PROJECT/IETF/specs/rfc8620.txt` — base protocol method
 semantics (§5.1 get, §5.2 changes, §5.3 set, §5.4 copy, §5.5 query, §5.6
 queryChanges).
 

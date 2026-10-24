@@ -43,7 +43,7 @@ to expose the sharing framework — registered on the same `Dispatcher`.
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/rfc9670.txt` — read the relevant
+`~/PROJECT/IETF/specs/rfc9670.txt` — read the relevant
 section before implementing each handler. Wire field names come from the
 spec, not from memory or reference code.
 

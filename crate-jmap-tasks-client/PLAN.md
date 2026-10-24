@@ -42,7 +42,7 @@ Design pattern to follow:
   and response types are declared per module
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs and
   outputs are structured in the reference jmapchat client
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-tasks-06.txt` —
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-tasks-06.txt` —
   normative spec; read the relevant section before writing each method
 
 ## Extension Trait Pattern

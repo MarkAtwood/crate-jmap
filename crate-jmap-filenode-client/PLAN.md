@@ -39,7 +39,7 @@ Design pattern to follow:
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs/outputs are
   structured and how `JmapRequestBuilder` is used
 
-Normative spec: `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-filenode-13.txt`
+Normative spec: `~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-13.txt`
 
 ## Extension Trait Pattern
 
