@@ -7,8 +7,19 @@
 //! sort and the `chatId` / `spaceId` capability rule before the standard
 //! RFC 8620 §5.5 and §5.6 handling.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures; per-
-//! record failures inside `/set` land in `notCreated` / `notUpdated` /
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
+//!   `maxObjectsInSet`;
+//! - `/set`: `stateMismatch`;
+//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`;
+//! - `/queryChanges`: `tooManyChanges`;
+//! - `/query`, `/queryChanges`: `unsupportedFilter`;
+//! - `/query`: `unsupportedSort`, `anchorNotFound`.
+//!
+//! Per-record failures inside `/set` land in `notCreated` / `notUpdated` /
 //! `notDestroyed`. The extra-invocation list is always empty.
 
 use jmap_types::{Id, JmapError, PatchObject, UTCDate};
