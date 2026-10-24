@@ -1133,7 +1133,7 @@ async fn card_copy_metadata() {
         e
     };
     let dest_metadata = |resp: &Value| {
-        let id = resp["copied"]["k"]["id"]
+        let id = resp["created"]["k"]["id"]
             .as_str()
             .unwrap_or_else(|| panic!("copy failed: {resp}"))
             .to_owned();
@@ -1160,19 +1160,19 @@ async fn card_copy_metadata() {
     )
     .await;
     assert_eq!(
-        resp["notCopied"]["k"]["type"],
+        resp["notCreated"]["k"]["type"],
         json!("invalidProperties"),
         "{resp}"
     );
     assert_eq!(
-        resp["notCopied"]["k"]["properties"],
+        resp["notCreated"]["k"]["properties"],
         json!(["metadata"]),
         "{resp}"
     );
 
     let resp = card_copy(&b, entry(json!({ "metadata": null })), &using()).await;
     assert_eq!(
-        resp["notCopied"]["k"]["type"],
+        resp["notCreated"]["k"]["type"],
         json!("invalidProperties"),
         "{resp}"
     );

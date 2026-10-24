@@ -367,7 +367,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
 /// `newState`, `created` / `notCreated` maps).
 ///
 /// Fetches cards from `fromAccountId`, delegates copy to the backend, and
-/// returns `copied`/`notCopied` maps.
+/// returns `created`/`notCreated` maps.
 ///
 /// Implements the RFC 8620 §5.4 mandates inherited by ContactCard/copy:
 /// `fromAccountId` MUST differ from `accountId` (rejected with
@@ -606,8 +606,8 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         "accountId": to_account_id.as_ref(),
         "oldState": old_state.as_ref(),
         "newState": new_state.as_ref(),
-        "copied":    if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
-        "notCopied": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
+        "created":    if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
+        "notCreated": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
     });
 
     // RFC 8620 §5.4: onSuccessDestroyOriginal — destroy each successfully
@@ -877,7 +877,7 @@ mod tests {
         assert_eq!(err.error_type.to_string(), "fromAccountNotFound");
     }
 
-    /// Oracle: ContactCard/copy with unknown source id returns notCopied with
+    /// Oracle: ContactCard/copy with unknown source id returns notCreated with
     /// type "notFound" (RFC 8620 §6.3).
     ///
     /// Uses the dispatcher path (register_contacts_handlers) so that the full
@@ -921,11 +921,11 @@ mod tests {
             "must not be a top-level error: {args}"
         );
         assert!(
-            args["copied"].is_null(),
+            args["created"].is_null(),
             "copied must be null when source not found: {args}"
         );
         assert_eq!(
-            args["notCopied"]["c1"]["type"], "notFound",
+            args["notCreated"]["c1"]["type"], "notFound",
             "unknown source id must yield notFound: {args}"
         );
     }
@@ -980,7 +980,7 @@ mod tests {
             args.get("type").is_none(),
             "must not be a top-level error: {args}"
         );
-        let copied = &args["copied"];
+        let copied = &args["created"];
         assert!(copied.is_object(), "copied must be present: {args}");
         let c1 = &copied["c1"];
         assert!(c1.is_object(), "c1 must appear in copied: {args}");
@@ -1016,7 +1016,7 @@ mod tests {
                 .await
                 .expect("must not return top-level error");
 
-        let copied = &resp["copied"];
+        let copied = &resp["created"];
         assert!(
             copied.is_object(),
             "copied must be present when copy succeeds: {resp}"
@@ -1078,7 +1078,7 @@ mod tests {
                 .await
                 .expect("must not return top-level error");
 
-        let copied = &resp["copied"];
+        let copied = &resp["created"];
         assert!(copied.is_object(), "copied must be present: {resp}");
         let c1 = &copied["c1"];
         assert!(c1.is_object(), "c1 must appear in copied: {resp}");
@@ -1099,9 +1099,9 @@ mod tests {
     }
 
     /// Oracle: ContactCard/copy with a source id not found in fromAccountId
-    /// returns notCopied with type "notFound".
+    /// returns notCreated with type "notFound".
     ///
-    /// Source: RFC 8620 §6.3 — unknown source ids must appear in notCopied.
+    /// Source: RFC 8620 §6.3 — unknown source ids must appear in notCreated.
     #[tokio::test]
     async fn copy_source_not_found() {
         let mut backend = MockBackend::new_with_account("acc1");
@@ -1121,11 +1121,11 @@ mod tests {
                 .expect("must not return top-level error");
 
         assert!(
-            resp["copied"].is_null(),
+            resp["created"].is_null(),
             "copied must be null when source not found: {resp}"
         );
         assert_eq!(
-            resp["notCopied"]["c1"]["type"], "notFound",
+            resp["notCreated"]["c1"]["type"], "notFound",
             "unknown source id must yield notFound: {resp}"
         );
     }
@@ -1194,7 +1194,7 @@ mod tests {
                 .await
                 .expect("ifFromInState match must succeed");
         assert!(
-            resp["copied"]["c1"].is_object(),
+            resp["created"]["c1"].is_object(),
             "copy must succeed when ifFromInState matches: {resp}"
         );
     }
@@ -1329,7 +1329,7 @@ mod tests {
             .expect("/copy must succeed (mismatch only affects implicit destroy)");
 
         assert!(
-            resp["copied"]["c1"].is_object(),
+            resp["created"]["c1"].is_object(),
             "copy must succeed despite destroyFromIfInState mismatch: {resp}"
         );
 
@@ -1361,7 +1361,7 @@ mod tests {
 
     /// Oracle (bd:JMAP-qz9v.54): a patch that produces a structurally
     /// invalid ContactCard (e.g. addressBookIds set to a non-Object
-    /// value) must surface as `invalidProperties` in notCopied, not be
+    /// value) must surface as `invalidProperties` in notCreated, not be
     /// silently swallowed via `unwrap_or(card)` while claiming success.
     #[tokio::test]
     async fn copy_patch_producing_invalid_card_yields_invalid_properties() {
@@ -1387,11 +1387,11 @@ mod tests {
                 .expect("/copy must not return a top-level error");
 
         assert!(
-            resp["copied"].is_null(),
+            resp["created"].is_null(),
             "invalid-patch copy must not appear in copied: {resp}"
         );
         assert_eq!(
-            resp["notCopied"]["c1"]["type"], "invalidProperties",
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
             "structurally invalid patched card must surface as invalidProperties: {resp}"
         );
     }
@@ -1421,17 +1421,17 @@ mod tests {
     }
 
     /// Assert that a rejected copy left everything as it was: `c1` is
-    /// `invalidPatch` in notCopied, nothing was copied, the backend copy
+    /// `invalidPatch` in notCreated, nothing was copied, the backend copy
     /// was never called, and the source card is byte-identical to the
     /// fixture.
     async fn assert_copy_rejected_as_invalid_patch(resp: &Value, backend: &MockBackend) {
         use jmap_server::JmapBackend;
 
         assert_eq!(
-            resp["notCopied"]["c1"]["type"], "invalidPatch",
+            resp["notCreated"]["c1"]["type"], "invalidPatch",
             "patch must be rejected as invalidPatch: {resp}"
         );
-        assert!(resp["copied"].is_null(), "nothing may be copied: {resp}");
+        assert!(resp["created"].is_null(), "nothing may be copied: {resp}");
         assert!(
             !*backend.copy_called.lock().unwrap(),
             "backend copy must not be called for a rejected patch"
@@ -1497,7 +1497,7 @@ mod tests {
     async fn copy_patch_through_existing_parent_adds_member() {
         let (resp, _backend) = copy_card1_with_patch(json!({ "addressBookIds/ab2": true })).await;
         assert_eq!(
-            resp["copied"]["c1"]["addressBookIds"],
+            resp["created"]["c1"]["addressBookIds"],
             json!({ "ab1": true, "ab2": true }),
             "pointer patch must add the member to the existing map: {resp}"
         );

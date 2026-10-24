@@ -1696,7 +1696,7 @@ async fn contact_card_copy_on_success_destroy_original_actually_destroys_source(
 
     // The /copy itself succeeded.
     assert!(
-        resp["copied"]["c1"].is_object(),
+        resp["created"]["c1"].is_object(),
         "copy must succeed: {resp}"
     );
 
