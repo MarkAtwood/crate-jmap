@@ -548,8 +548,15 @@ pub trait MailBackend: JmapBackend {
     ///
     /// The handler has already applied the request's overrides; for
     /// `Email/copy` (RFC 8621 §4.7) that is `mailboxIds`, any given
-    /// `keywords` and `receivedAt`, and the `threadId` assigned in
-    /// `to_account_id`. The backend assigns the new `id`, makes every blob
+    /// `keywords` and `receivedAt`, any given `metadata` and
+    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.4), and the
+    /// `threadId` assigned in `to_account_id`. `create` is the request's
+    /// create object for this copy (RFC 8620 §5.4). -04 §3.4 says its
+    /// `metadata` and `privateMetadata` follow "the same rules as a create
+    /// in Foo/set", so the backend validates them as
+    /// [`create_object`](Self::create_object) does (-04 §3.2 rules 1 to 4,
+    /// `maxDepth` only on these supplied values) and leaves the copied
+    /// values unvalidated. The backend assigns the new `id`, makes every blob
     /// the record references available in `to_account_id`, stores it and
     /// records the create in the state and change log as
     /// [`create_object`](Self::create_object) does. Returns the new id and
@@ -574,6 +581,7 @@ pub trait MailBackend: JmapBackend {
         from_account_id: &jmap_types::Id,
         to_account_id: &jmap_types::Id,
         obj: O,
+        create: &serde_json::Value,
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
     + Send;
 
@@ -625,6 +633,29 @@ pub trait MailBackend: JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> bool;
+
+    /// The draft-ietf-jmap-metadata-04 §1.2.1 DataTypeMetadataInfo of `O`
+    /// in `account_id`, as seen by `caller`, or [`None`] when the account's
+    /// `urn:ietf:params:jmap:metadata` capability does not list `O`.
+    ///
+    /// The handlers use it where the wire shape depends on it: `Mailbox/get`
+    /// and `Email/get` return `metadata` as an object (`{}` when nothing is
+    /// stored), include it by default for Mailbox, apply the `metadata/`
+    /// subselectors, and never return `privateMetadata` when
+    /// `supportsPrivate` is false (-04 §2, §3.1); `Email/copy` copies
+    /// neither property into an account that does not list Email (-04
+    /// §3.4). Keep it in step with the `dataTypes` advertised in the
+    /// Session object.
+    ///
+    /// Default: [`None`], a backend without metadata.
+    fn metadata_info<O: JmapObject>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
+        let _ = (caller, account_id);
+        None
+    }
 
     /// Maximum number of email IDs to fetch from the backend when
     /// `collapseThreads=true`. Fetching stops at this limit; the response

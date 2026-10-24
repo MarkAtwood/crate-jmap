@@ -46,9 +46,10 @@ use serde_json::{Value, json};
 
 use crate::MailBackend;
 use crate::helpers::{
-    SetAccumulators, check_metadata_entry, create_metadata, enforce_max_objects_in_get,
-    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
-    not_found_json, resolve_ref, serialize_value,
+    MetadataProjection, SetAccumulators, check_metadata_entry, create_metadata,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
+    finalize_set_response, not_found_json, reject_metadata_filter_without_capability, resolve_ref,
+    serialize_value, uses_metadata,
 };
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
@@ -593,11 +594,20 @@ fn extract_header_values(
 /// returned `Value` is the §5.1 `/get` response shape (`accountId`,
 /// `state`, `list`, `notFound`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists Email for
+/// draft-ietf-jmap-metadata-04 ([`MailBackend::metadata_info`]), a
+/// requested `metadata` is returned as an object, and with
+/// `urn:ietf:params:jmap:metadata` in `using` `properties` may hold
+/// `metadata/<namespace>` subselectors; the default property list is
+/// unchanged (-04 §2, §3.1).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -693,6 +703,13 @@ pub async fn handle_email_get<B: MailBackend>(
         set
     };
 
+    let projection = MetadataProjection::new(
+        properties.as_deref(),
+        false,
+        using,
+        backend.metadata_info::<Email>(caller, &account_id).as_ref(),
+    )?;
+
     // Build the body-properties set once before the per-email loop so it is
     // not rebuilt on every call into apply_body_value_args.
     let body_prop_set: HashSet<&str> = body_properties.iter().map(|s| s.as_str()).collect();
@@ -721,6 +738,7 @@ pub async fn handle_email_get<B: MailBackend>(
             // Apply body-value filtering and truncation before property filtering.
             apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
             let mut obj = filter_properties(&val, &effective_props);
+            projection.apply(&val, &mut obj);
 
             // Inject dynamic header: property results into the filtered object.
             if !parsed_header_reqs.is_empty() {
@@ -792,11 +810,17 @@ pub async fn handle_email_changes<B: MailBackend>(
 /// (`accountId`, `queryState`, `canCalculateChanges`, `position`, `ids`,
 /// optional `total`, optional `limit`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -808,6 +832,11 @@ pub async fn handle_email_query<B: MailBackend>(
     }
 
     let filter: Option<jmap_mail_types::EmailFilter> = filter_arg(&mut args)?;
+    reject_metadata_filter_without_capability(
+        filter.as_ref(),
+        jmap_mail_types::EmailFilterCondition::has_metadata_condition,
+        using,
+    )?;
 
     let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
         None | Some(Value::Null) => None,
@@ -1024,11 +1053,17 @@ pub async fn handle_email_query<B: MailBackend>(
 /// shape (`accountId`, `oldQueryState`, `newQueryState`, optional
 /// `total`, `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -1045,6 +1080,11 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     };
 
     let filter: Option<jmap_mail_types::EmailFilter> = filter_arg(&mut args)?;
+    reject_metadata_filter_without_capability(
+        filter.as_ref(),
+        jmap_mail_types::EmailFilterCondition::has_metadata_condition,
+        using,
+    )?;
 
     let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
         None | Some(Value::Null) => None,
@@ -2463,11 +2503,23 @@ pub async fn handle_email_parse<B: MailBackend>(
 /// generated when `onSuccessDestroyOriginal` is true, per RFC 8620 §6.3. If `destroyFromIfInState` does not match
 /// the source account's Email state, the single extra invocation is an
 /// `error` of type `stateMismatch` and the originals are left untouched.
+///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// the copy keeps the source's `metadata`, and its `privateMetadata` only
+/// with `urn:ietf:params:jmap:metadata` in `using` and when the
+/// destination supports it; neither is copied when the destination does
+/// not list Email ([`MailBackend::metadata_info`]). The create object
+/// "MAY include metadata and privateMetadata to override the copied
+/// values, with the same rules as a create in Foo/set": the handler
+/// rejects them without the capability and rejects `null`, and
+/// [`MailBackend::copy_object`] applies the rest.
 pub async fn handle_email_copy<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -2580,6 +2632,24 @@ pub async fn handle_email_copy<B: MailBackend>(
             }
         };
 
+        // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+        // Foo/set create rules (§3, §3.2).
+        if let Some(Err(err)) = entry
+            .as_object()
+            .map(|o| check_metadata_entry(o, true, using))
+        {
+            not_created.insert(copy_id, Value::from(&*err));
+            continue;
+        }
+        let (metadata, private_metadata) = match entry.as_object().map(create_metadata).transpose()
+        {
+            Ok(maps) => maps.unwrap_or_default(),
+            Err(err) => {
+                not_created.insert(copy_id, err);
+                continue;
+            }
+        };
+
         let mut email = match backend
             .get_objects::<Email>(
                 caller,
@@ -2606,6 +2676,24 @@ pub async fn handle_email_copy<B: MailBackend>(
         if let Some(received_at) = received_at {
             email.received_at = received_at;
         }
+        // draft-ietf-jmap-metadata-04 §3.4: "When the request does not use
+        // this capability, only metadata is copied", "privateMetadata is
+        // not copied when the destination does not support it, and
+        // neither property is copied when the data type is not listed in
+        // the destination account".
+        let info = backend.metadata_info::<Email>(caller, &account_id);
+        if !uses_metadata(using) || !info.as_ref().is_some_and(|i| i.supports_private) {
+            email.private_metadata = None;
+        }
+        if info.is_none() {
+            email.metadata = None;
+        }
+        if metadata.is_some() {
+            email.metadata = metadata;
+        }
+        if private_metadata.is_some() {
+            email.private_metadata = private_metadata;
+        }
         // The thread is per account (RFC 8621 §3): assign it in the
         // destination, as Email/set create does.
         email.thread_id = match assign_thread(
@@ -2625,7 +2713,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         };
 
         match backend
-            .copy_object(caller, &from_account_id, &account_id, email)
+            .copy_object(caller, &from_account_id, &account_id, email, &entry)
             .await
         {
             Ok((new_id, new_email)) => {

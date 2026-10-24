@@ -688,9 +688,10 @@ async fn search_snippet_get_capability_gated() {
             from_account_id: &Id,
             to_account_id: &Id,
             obj: O,
+            create: &serde_json::Value,
         ) -> Result<(Id, O), jmap_server::BackendSetError<Self::Error>> {
             self.0
-                .copy_object(&(), from_account_id, to_account_id, obj)
+                .copy_object(&(), from_account_id, to_account_id, obj, create)
                 .await
         }
 
@@ -1048,7 +1049,7 @@ async fn mailbox_set_create_and_get() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_mailbox_get(&backend, &(), get_args)
+    } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -3074,7 +3075,7 @@ async fn email_set_create_and_get() {
         primary: get_resp,
         extra_invocations: extra,
         ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must succeed");
     assert!(extra.is_empty());
@@ -3158,7 +3159,7 @@ async fn email_set_create_keyword_false_value_not_stored() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -3376,7 +3377,7 @@ async fn email_get_not_found_is_empty_array_when_all_found() {
         "accountId": account_id.as_ref(),
         "ids": [email_id],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get");
 
@@ -3433,7 +3434,7 @@ async fn email_get_with_property_filter() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get");
 
@@ -3488,7 +3489,7 @@ async fn email_get_default_properties_excludes_headers() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get");
 
@@ -3553,7 +3554,7 @@ async fn email_get_body_value_fetch_args_parsed() {
     // Must not return an error — the args are well-formed.
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get with body-value fetch args must not fail");
 
@@ -3593,7 +3594,7 @@ async fn email_get_max_body_value_bytes_zero_accepted() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("maxBodyValueBytes=0 must be accepted");
 
@@ -3909,7 +3910,7 @@ async fn email_query_by_mailbox() {
         primary: query_resp,
         extra_invocations: extra,
         ..
-    } = handle_email_query(&backend, &(), query_args)
+    } = handle_email_query(&backend, &(), query_args, &[])
         .await
         .expect("Email/query must succeed");
     assert!(extra.is_empty());
@@ -4144,7 +4145,7 @@ async fn email_copy_with_keywords_succeeds() {
         }
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_email_copy(&backend, &(), args, "call-1")
+    let HandlerOutput { primary: resp, .. } = handle_email_copy(&backend, &(), args, "call-1", &[])
         .await
         .expect("Email/copy must not return a JmapError");
 
@@ -4209,9 +4210,10 @@ async fn email_copy_without_keywords_keeps_source_keywords() {
             "c2": { "id": "no-such-email", "mailboxIds": { "archive": true } }
         }
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_copy(&backend, &(), args, "call-keep")
-        .await
-        .expect("Email/copy must not return a JmapError");
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_copy(&backend, &(), args, "call-keep", &[])
+            .await
+            .expect("Email/copy must not return a JmapError");
 
     assert_eq!(resp["notCreated"]["c2"]["type"], "notFound", "{resp}");
     let new_id = Id::from(resp["created"]["c1"]["id"].as_str().expect("c1 created"));
@@ -4271,7 +4273,7 @@ async fn email_copy_with_malformed_received_at_rejected() {
     });
 
     let HandlerOutput { primary: resp, .. } =
-        handle_email_copy(&backend, &(), args, "call-malformed")
+        handle_email_copy(&backend, &(), args, "call-malformed", &[])
             .await
             .expect("Email/copy must not return a JmapError");
 
@@ -4327,7 +4329,7 @@ async fn email_copy_ignores_on_success_update_original() {
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_copy(&backend, &(), args, "call-osuo")
+    } = handle_email_copy(&backend, &(), args, "call-osuo", &[])
         .await
         .expect("Email/copy must not return a top-level JmapError");
     assert!(
@@ -4340,6 +4342,7 @@ async fn email_copy_ignores_on_success_update_original() {
         &backend,
         &(),
         serde_json::json!({ "accountId": "src-osuo", "ids": [src_id.as_ref()] }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -4375,6 +4378,7 @@ async fn email_copy_with_destroy_from_if_in_state(
             &backend,
             &(),
             serde_json::json!({ "accountId": "src-dfis", "ids": [src_id.as_ref()] }),
+            &[],
         )
     };
     let state = match destroy_from_if_in_state {
@@ -4398,7 +4402,7 @@ async fn email_copy_with_destroy_from_if_in_state(
         primary: resp,
         extra_invocations: extra,
         ..
-    } = handle_email_copy(&backend, &(), args, "call-dfis")
+    } = handle_email_copy(&backend, &(), args, "call-dfis", &[])
         .await
         .expect("Email/copy must not return a top-level JmapError");
     assert!(
@@ -4792,7 +4796,7 @@ async fn keyword_normalized_to_lowercase() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must not return a JmapError");
     let keywords = &get_resp["list"][0]["keywords"];
@@ -4925,7 +4929,7 @@ async fn mailbox_query_invalid_limit_rejected() {
         "limit": "not-a-number",
     });
 
-    let err = handle_mailbox_query(&backend, &(), args)
+    let err = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect_err("Mailbox/query must fail with invalidArguments");
     assert_eq!(
@@ -6129,9 +6133,10 @@ async fn mailbox_query_calculate_total_controls_total_field() {
 
     // Default (no calculateTotal) — total must be absent.
     let args_no_total = serde_json::json!({ "accountId": account_id.as_ref() });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_no_total)
-        .await
-        .expect("Mailbox/query must not error");
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_query(&backend, &(), args_no_total, &[])
+            .await
+            .expect("Mailbox/query must not error");
     assert!(
         !resp.as_object().unwrap().contains_key("total"),
         "total must be absent when calculateTotal is not set; got resp={resp}"
@@ -6142,7 +6147,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
         "accountId": account_id.as_ref(),
         "calculateTotal": false,
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_false)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_false, &[])
         .await
         .expect("Mailbox/query must not error");
     assert!(
@@ -6155,7 +6160,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
         "accountId": account_id.as_ref(),
         "calculateTotal": true,
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_true)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args_true, &[])
         .await
         .expect("Mailbox/query must not error");
     assert!(
@@ -6184,7 +6189,7 @@ async fn email_query_changes_non_string_up_to_id_returns_error() {
         "upToId": 42,  // invalid: must be a string Id or null
     });
 
-    let result = handle_email_query_changes(&backend, &(), args).await;
+    let result = handle_email_query_changes(&backend, &(), args, &[]).await;
     assert!(
         result.is_err(),
         "non-string upToId must return an error; got Ok"
@@ -6211,7 +6216,7 @@ async fn mailbox_query_changes_non_string_up_to_id_returns_error() {
         "upToId": true,  // invalid: must be a string Id or null
     });
 
-    let result = handle_mailbox_query_changes(&backend, &(), args).await;
+    let result = handle_mailbox_query_changes(&backend, &(), args, &[]).await;
     assert!(
         result.is_err(),
         "non-string upToId must return an error; got Ok"
@@ -6236,7 +6241,7 @@ async fn email_query_calculate_total_controls_total_field() {
 
     // Default — total must be absent.
     let args = serde_json::json!({ "accountId": account_id.as_ref() });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must not error");
     assert!(
@@ -6249,7 +6254,7 @@ async fn email_query_calculate_total_controls_total_field() {
         "accountId": account_id.as_ref(),
         "calculateTotal": true,
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args_true)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args_true, &[])
         .await
         .expect("Email/query must not error");
     // The backend may return None for total on empty account; only check if present.
@@ -6277,7 +6282,7 @@ async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
         "position": i64::MIN,
     });
 
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must not panic or error with position=i64::MIN");
 
@@ -6964,7 +6969,7 @@ async fn email_query_changes_omits_total_by_default() {
         "accountId": "acct1",
         "sinceQueryState": "0",
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query_changes(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query_changes(&backend, &(), args, &[])
         .await
         .expect("handler must succeed");
     assert!(
@@ -6983,9 +6988,10 @@ async fn mailbox_query_changes_omits_total_by_default() {
         "accountId": "acct1",
         "sinceQueryState": "0",
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query_changes(&backend, &(), args)
-        .await
-        .expect("handler must succeed");
+    let HandlerOutput { primary: resp, .. } =
+        handle_mailbox_query_changes(&backend, &(), args, &[])
+            .await
+            .expect("handler must succeed");
     assert!(
         resp.get("total").is_none(),
         "total must be absent when calculateTotal not sent; resp: {resp}"
@@ -7021,7 +7027,7 @@ async fn email_query_anchor_resolves_position() {
     let q1 = serde_json::json!({ "accountId": account_id });
     let HandlerOutput {
         primary: q1_resp, ..
-    } = handle_email_query(&backend, &(), q1)
+    } = handle_email_query(&backend, &(), q1, &[])
         .await
         .expect("first query must succeed");
     let all_ids: Vec<String> = q1_resp["ids"]
@@ -7041,7 +7047,7 @@ async fn email_query_anchor_resolves_position() {
     });
     let HandlerOutput {
         primary: q2_resp, ..
-    } = handle_email_query(&backend, &(), q2)
+    } = handle_email_query(&backend, &(), q2, &[])
         .await
         .expect("anchor query must succeed");
 
@@ -7093,7 +7099,7 @@ async fn email_query_in_mailbox_filter() {
         "accountId": account_id,
         "filter": { "inMailbox": "inbox" },
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), q_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), q_args, &[])
         .await
         .expect("Email/query with inMailbox filter must succeed");
 
@@ -7109,7 +7115,7 @@ async fn email_query_in_mailbox_filter() {
         "accountId": account_id,
         "filter": { "inMailbox": "trash" },
     });
-    let HandlerOutput { primary: resp2, .. } = handle_email_query(&backend, &(), q_args2)
+    let HandlerOutput { primary: resp2, .. } = handle_email_query(&backend, &(), q_args2, &[])
         .await
         .expect("Email/query with inMailbox=trash filter must succeed");
 
@@ -7131,7 +7137,7 @@ async fn email_query_anchor_not_found_returns_error() {
         "accountId": "acct1",
         "anchor": "does-not-exist",
     });
-    let result = handle_email_query(&backend, &(), args).await;
+    let result = handle_email_query(&backend, &(), args, &[]).await;
     assert!(result.is_err(), "nonexistent anchor must return an error");
     let err = result.unwrap_err();
     assert_eq!(
@@ -7167,7 +7173,7 @@ async fn mailbox_query_anchor_resolves_position() {
     let q1 = serde_json::json!({ "accountId": account_id });
     let HandlerOutput {
         primary: q1_resp, ..
-    } = handle_mailbox_query(&backend, &(), q1)
+    } = handle_mailbox_query(&backend, &(), q1, &[])
         .await
         .expect("first query must succeed");
     let all_ids: Vec<String> = q1_resp["ids"]
@@ -7183,7 +7189,7 @@ async fn mailbox_query_anchor_resolves_position() {
     let q2 = serde_json::json!({ "accountId": account_id, "anchor": anchor });
     let HandlerOutput {
         primary: q2_resp, ..
-    } = handle_mailbox_query(&backend, &(), q2)
+    } = handle_mailbox_query(&backend, &(), q2, &[])
         .await
         .expect("anchor query must succeed");
 
@@ -7220,7 +7226,7 @@ async fn email_query_changes_accepts_collapse_threads() {
         "sinceQueryState": "0",
         "collapseThreads": true,
     });
-    let result = handle_email_query_changes(&backend, &(), args).await;
+    let result = handle_email_query_changes(&backend, &(), args, &[]).await;
     assert!(
         result.is_ok(),
         "collapseThreads=true must not error; got: {:?}",
@@ -7977,7 +7983,7 @@ async fn email_get_header_subject_raw() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:Subject"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8016,7 +8022,7 @@ async fn email_get_header_subject_as_text() {
         "ids": [email_id.as_ref()],
         "properties": ["header:Subject:asText"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8046,7 +8052,7 @@ async fn email_get_header_from_as_date_rejected() {
         "ids": [],
         "properties": ["header:From:asDate"],
     });
-    let result = handle_email_get(&backend, &(), args).await;
+    let result = handle_email_get(&backend, &(), args, &[]).await;
     assert!(
         result.is_err(),
         "header:From:asDate must return invalidArguments; got Ok"
@@ -8075,7 +8081,7 @@ async fn email_get_header_all_form() {
         "ids": [email_id.as_ref()],
         "properties": ["header:Subject:all"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8112,7 +8118,7 @@ async fn email_get_header_unknown_form_rejected() {
         "ids": [],
         "properties": ["header:Subject:asWhatever"],
     });
-    let result = handle_email_get(&backend, &(), args).await;
+    let result = handle_email_get(&backend, &(), args, &[]).await;
     assert!(
         result.is_err(),
         "unknown form must return invalidArguments; got Ok"
@@ -8137,7 +8143,7 @@ async fn email_get_header_empty_name_rejected() {
         "ids": [],
         "properties": ["header::asText"],
     });
-    let result = handle_email_get(&backend, &(), args).await;
+    let result = handle_email_get(&backend, &(), args, &[]).await;
     assert!(
         result.is_err(),
         "empty header name must return invalidArguments; got Ok"
@@ -8179,7 +8185,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["from", "header:From:asAddresses"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8257,7 +8263,7 @@ Body.";
             "header:From:asGroupedAddresses",
         ],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8342,7 +8348,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:Date:asDate"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8371,7 +8377,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:Date:asDate"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8408,7 +8414,7 @@ Body.";
             "header:References:asMessageIds",
         ],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8446,7 +8452,7 @@ Body.";
         "ids": [email_id.as_ref()],
         "properties": ["id", "header:List-Help:asURLs"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -8518,7 +8524,7 @@ async fn mailbox_query_wrongly_typed_args_do_not_echo_value() {
     for name in ["limit", "position", "anchor", "anchorOffset"] {
         let mut args = serde_json::json!({ "accountId": "account1" });
         args[name] = serde_json::json!({ "note": "CANARY-zegc" });
-        let err = handle_mailbox_query(&backend, &(), args)
+        let err = handle_mailbox_query(&backend, &(), args, &[])
             .await
             .expect_err("wrongly typed argument must be rejected");
         assert_eq!(err.error_type.to_string(), "invalidArguments", "{name}");
@@ -8811,7 +8817,7 @@ async fn email_query_collapse_threads_deduplicates() {
     let HandlerOutput {
         primary: resp_uncollapsed,
         ..
-    } = handle_email_query(&backend, &(), args_uncollapsed)
+    } = handle_email_query(&backend, &(), args_uncollapsed, &[])
         .await
         .expect("Email/query without collapseThreads must succeed");
     let ids_uncollapsed = resp_uncollapsed["ids"]
@@ -8833,7 +8839,7 @@ async fn email_query_collapse_threads_deduplicates() {
     let HandlerOutput {
         primary: resp_collapsed,
         ..
-    } = handle_email_query(&backend, &(), args_collapsed)
+    } = handle_email_query(&backend, &(), args_collapsed, &[])
         .await
         .expect("Email/query with collapseThreads must succeed");
     let ids_collapsed = resp_collapsed["ids"].as_array().expect("ids must be array");
@@ -8853,7 +8859,7 @@ async fn mailbox_query_anchor_not_found_returns_error() {
         "accountId": "acct1",
         "anchor": "does-not-exist",
     });
-    let result = handle_mailbox_query(&backend, &(), args).await;
+    let result = handle_mailbox_query(&backend, &(), args, &[]).await;
     assert!(result.is_err(), "nonexistent anchor must return an error");
     let err = result.unwrap_err();
     assert_eq!(
@@ -9200,7 +9206,7 @@ async fn email_get_properties_filtering_restricts_fields() {
         "ids": [email_id],
         "properties": ["id", "subject"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9285,7 +9291,7 @@ async fn email_get_no_properties_returns_default_fields() {
         "accountId": account_id.as_ref(),
         "ids": [email_id],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9354,7 +9360,7 @@ async fn mailbox_get_properties_filtering_restricts_fields() {
         "ids": [mailbox_id],
         "properties": ["id", "name"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), get_args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get must succeed");
 
@@ -9517,7 +9523,7 @@ async fn conformance_email_get_by_id() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "threadId", "blobId", "size"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9565,7 +9571,7 @@ async fn conformance_email_get_not_found_is_empty_array() {
         "accountId": account_id.as_ref(),
         "ids": ["nonexistent-email-xyz"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9600,7 +9606,7 @@ async fn conformance_email_get_not_found_empty_when_all_found() {
         "accountId": account_id.as_ref(),
         "ids": [email_id.as_ref()],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9629,7 +9635,7 @@ async fn conformance_email_get_properties_filter() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "subject"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9673,7 +9679,7 @@ async fn conformance_email_get_state_returned() {
         "accountId": account_id.as_ref(),
         "ids": [],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9702,7 +9708,7 @@ async fn conformance_email_get_has_attachment_true() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "hasAttachment"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9741,7 +9747,7 @@ async fn conformance_email_get_thread_id_consistent() {
         ],
         "properties": ["id", "threadId"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9782,7 +9788,7 @@ async fn conformance_email_get_header_from() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "from"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9816,7 +9822,7 @@ async fn conformance_email_get_header_to() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "to"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9850,7 +9856,7 @@ async fn conformance_email_get_header_cc() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "cc"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9882,7 +9888,7 @@ async fn conformance_email_get_header_subject() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "subject"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9915,7 +9921,7 @@ async fn conformance_email_get_header_message_id() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "messageId"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9955,7 +9961,7 @@ async fn conformance_email_get_header_in_reply_to() {
         "ids": [email_id.as_ref()],
         "properties": ["id", "inReplyTo"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -9994,7 +10000,7 @@ async fn conformance_mailbox_get_all_ids_null() {
         "accountId": "acct1",
         "ids": null,
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -10031,7 +10037,7 @@ async fn conformance_mailbox_get_by_ids() {
         "accountId": "acct1",
         "ids": [inbox_id, folder_a_id],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -10075,7 +10081,7 @@ async fn conformance_mailbox_get_not_found() {
         "accountId": "acct1",
         "ids": ["missing-id"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -10111,7 +10117,7 @@ async fn conformance_mailbox_get_inbox_has_role() {
         "accountId": "acct1",
         "ids": [inbox_id],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -10140,7 +10146,7 @@ async fn conformance_mailbox_get_child_has_parent_id() {
         "accountId": "acct1",
         "ids": [child1_id],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -10170,7 +10176,7 @@ async fn conformance_mailbox_get_properties_filter() {
         "ids": [inbox_id],
         "properties": ["id", "name"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -10210,7 +10216,7 @@ async fn conformance_mailbox_get_total_emails() {
         "accountId": "acct1",
         "ids": [folder_a_id],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_get(&backend, &(), args, &[])
         .await
         .expect("Mailbox/get must not error");
 
@@ -10238,7 +10244,7 @@ async fn conformance_mailbox_query_all() {
         "accountId": "acct1",
         "calculateTotal": true,
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect("Mailbox/query must not error");
 
@@ -10263,7 +10269,7 @@ async fn conformance_mailbox_query_filter_parent_id_null() {
         "accountId": "acct1",
         "filter": { "parentId": null },
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect("Mailbox/query must not error");
 
@@ -10309,7 +10315,7 @@ async fn conformance_mailbox_query_filter_has_any_role() {
         "accountId": "acct1",
         "filter": { "hasAnyRole": true },
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect("Mailbox/query must not error");
 
@@ -10352,7 +10358,7 @@ async fn conformance_mailbox_query_filter_role() {
         "filter": { "role": "inbox" },
         "calculateTotal": true,
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect("Mailbox/query with filter.role=inbox must not error");
 
@@ -10388,7 +10394,7 @@ async fn conformance_mailbox_query_filter_role() {
     let HandlerOutput {
         primary: resp_no_match,
         ..
-    } = handle_mailbox_query(&backend, &(), args_no_match)
+    } = handle_mailbox_query(&backend, &(), args_no_match, &[])
         .await
         .expect("Mailbox/query with filter.role=trash must not error");
 
@@ -10424,7 +10430,7 @@ async fn conformance_mailbox_query_filter_role_null() {
         "accountId": "acct1",
         "filter": { "role": null },
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect("Mailbox/query with filter.role=null must not error");
 
@@ -10540,7 +10546,7 @@ async fn conformance_mailbox_query_sort_by_name() {
         "accountId": "acct1",
         "sort": [{ "property": "name", "isAscending": true }],
     });
-    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect("Mailbox/query with sort=[{property:name}] must not error");
 
@@ -10560,7 +10566,7 @@ async fn conformance_mailbox_query_sort_by_name() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_mailbox_get(&backend, &(), get_args)
+    } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get for name verification must succeed");
 
@@ -10607,7 +10613,7 @@ async fn conformance_mailbox_query_anchor_not_found() {
         "accountId": "acct1",
         "anchor": "nonexistent",
     });
-    let result = handle_mailbox_query(&backend, &(), args).await;
+    let result = handle_mailbox_query(&backend, &(), args, &[]).await;
     assert!(result.is_err(), "nonexistent anchor must return an error");
     let err = result.unwrap_err();
     assert_eq!(
@@ -10646,7 +10652,7 @@ async fn conformance_email_body_plain_text_body() {
         "properties": ["id", "textBody"],
         "bodyProperties": ["partId", "type"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must not error");
 
@@ -10691,7 +10697,7 @@ async fn conformance_email_body_html_attachment_body_structure() {
         "properties": ["id", "bodyStructure"],
         "bodyProperties": ["partId", "type", "name", "disposition", "size", "subParts"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must not error");
 
@@ -10732,7 +10738,7 @@ async fn conformance_email_body_preview() {
         "ids": [email_id],
         "properties": ["id", "preview"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must not error");
 
@@ -10767,7 +10773,7 @@ async fn conformance_email_body_size() {
         "ids": [email_id],
         "properties": ["id", "size"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must not error");
 
@@ -10805,7 +10811,7 @@ async fn conformance_email_body_html_only_both_bodies() {
         "properties": ["id", "textBody", "htmlBody"],
         "bodyProperties": ["partId", "type"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must not error");
 
@@ -10851,7 +10857,7 @@ async fn conformance_email_body_attachment_detected() {
         "properties": ["id", "attachments"],
         "bodyProperties": ["partId", "type", "name", "disposition", "size"],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_get(&backend, &(), args, &[])
         .await
         .expect("Email/get must not error");
 
@@ -10921,7 +10927,7 @@ async fn conformance_mailbox_set_create_basic() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_mailbox_get(&backend, &(), get_args)
+    } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get must succeed after create");
     let list = get_resp["list"].as_array().expect("list must be an array");
@@ -10979,7 +10985,7 @@ async fn conformance_mailbox_set_create_with_parent() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_mailbox_get(&backend, &(), get_args)
+    } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be an array");
@@ -11031,7 +11037,7 @@ async fn conformance_mailbox_set_update_name() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_mailbox_get(&backend, &(), get_args)
+    } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be an array");
@@ -11398,7 +11404,7 @@ async fn conformance_mailbox_changes_from_current_state() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_mailbox_get(&backend, &(), get_args)
+    } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get must succeed");
     let current_state = get_resp["state"]
@@ -11496,7 +11502,7 @@ async fn conformance_email_query_all() {
         "accountId": account_id.as_ref(),
         "calculateTotal": true,
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11530,7 +11536,7 @@ async fn conformance_email_query_filter_in_mailbox() {
         "filter": { "inMailbox": inbox_id.as_ref() },
         "calculateTotal": true,
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11570,7 +11576,7 @@ async fn conformance_email_query_filter_has_keyword() {
         "accountId": account_id.as_ref(),
         "filter": { "hasKeyword": "$flagged" },
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11609,7 +11615,7 @@ async fn conformance_email_query_filter_not_keyword() {
         "accountId": account_id.as_ref(),
         "filter": { "notKeyword": "$seen" },
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11654,7 +11660,7 @@ async fn conformance_email_query_filter_after() {
         "accountId": account_id.as_ref(),
         "filter": { "after": "2025-12-20T00:00:00Z" },
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11696,7 +11702,7 @@ async fn conformance_email_query_filter_before() {
         "accountId": account_id.as_ref(),
         "filter": { "before": "2025-12-10T00:00:00Z" },
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11733,7 +11739,7 @@ async fn conformance_email_query_filter_min_size() {
         "accountId": account_id.as_ref(),
         "filter": { "minSize": 10000 },
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11767,7 +11773,7 @@ async fn conformance_email_query_limit() {
         "limit": 3,
         "calculateTotal": true,
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query must succeed");
 
@@ -11799,7 +11805,7 @@ async fn conformance_email_query_position() {
     let all_args = serde_json::json!({ "accountId": account_id.as_ref() });
     let HandlerOutput {
         primary: all_resp, ..
-    } = handle_email_query(&backend, &(), all_args)
+    } = handle_email_query(&backend, &(), all_args, &[])
         .await
         .expect("all-email query must succeed");
     let all_ids: Vec<String> = all_resp["ids"]
@@ -11818,7 +11824,7 @@ async fn conformance_email_query_position() {
     let HandlerOutput {
         primary: paged_resp,
         ..
-    } = handle_email_query(&backend, &(), paged_args)
+    } = handle_email_query(&backend, &(), paged_args, &[])
         .await
         .expect("paged query must succeed");
 
@@ -11866,7 +11872,7 @@ async fn conformance_email_query_anchor() {
     });
     let HandlerOutput {
         primary: all_resp, ..
-    } = handle_email_query(&backend, &(), all_args)
+    } = handle_email_query(&backend, &(), all_args, &[])
         .await
         .expect("all-email query must succeed");
     let all_ids: Vec<String> = all_resp["ids"]
@@ -11892,7 +11898,7 @@ async fn conformance_email_query_anchor() {
     let HandlerOutput {
         primary: anchor_resp,
         ..
-    } = handle_email_query(&backend, &(), anchor_args)
+    } = handle_email_query(&backend, &(), anchor_args, &[])
         .await
         .expect("anchor query must succeed");
 
@@ -11927,7 +11933,7 @@ async fn conformance_email_query_anchor_not_found() {
         "accountId": account_id.as_ref(),
         "anchor": "nonexistent-id",
     });
-    let result = handle_email_query(&backend, &(), args).await;
+    let result = handle_email_query(&backend, &(), args, &[]).await;
 
     assert!(
         result.is_err(),
@@ -11958,7 +11964,7 @@ async fn conformance_email_query_sort_received_at_desc() {
         "accountId": account_id.as_ref(),
         "sort": [{ "property": "receivedAt", "isAscending": false }],
     });
-    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args)
+    let HandlerOutput { primary: resp, .. } = handle_email_query(&backend, &(), args, &[])
         .await
         .expect("Email/query with sort must succeed");
 
@@ -12133,7 +12139,7 @@ async fn conformance_email_set_create_with_keywords() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must succeed");
 
@@ -12227,6 +12233,7 @@ async fn conformance_email_set_update_keywords() {
             "ids": [email_id],
             "properties": ["keywords"],
         }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -12320,6 +12327,7 @@ async fn conformance_email_set_update_mailbox_ids() {
             "ids": [email_id],
             "properties": ["mailboxIds"],
         }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -12414,6 +12422,7 @@ async fn conformance_email_set_update_adds_keyword() {
             "ids": [email_id],
             "properties": ["keywords"],
         }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -12502,6 +12511,7 @@ async fn conformance_email_set_update_removes_keyword() {
             "ids": [email_id],
             "properties": ["keywords"],
         }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -12591,6 +12601,7 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
             "ids": [email_id],
             "properties": ["keywords", "mailboxIds"],
         }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -12678,6 +12689,7 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
             "ids": [email_id],
             "properties": ["keywords"],
         }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -12761,6 +12773,7 @@ async fn conformance_email_set_destroy_basic() {
             "accountId": account_id.as_ref(),
             "ids": [email_id.clone()],
         }),
+        &[],
     )
     .await
     .expect("Email/get must succeed");
@@ -13203,7 +13216,7 @@ async fn conformance_email_changes_from_current_state() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must succeed");
     let current_state = get_resp["state"]
@@ -13451,7 +13464,7 @@ async fn conformance_mailbox_changes_after_email_count_change() {
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_mailbox_get(&backend, &(), get_args)
+    } = handle_mailbox_get(&backend, &(), get_args, &[])
         .await
         .expect("Mailbox/get must succeed");
     let state_before = get_resp["state"]
@@ -13560,7 +13573,7 @@ Message-ID: <new-thread-changes-001@test>\r\nSubject: New thread for changes tes
     });
     let HandlerOutput {
         primary: get_resp, ..
-    } = handle_email_get(&backend, &(), get_args)
+    } = handle_email_get(&backend, &(), get_args, &[])
         .await
         .expect("Email/get must succeed");
     let new_thread_id = get_resp["list"][0]["threadId"]
@@ -13944,7 +13957,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
     let state_args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
     let HandlerOutput {
         primary: s1_resp, ..
-    } = handle_email_query_changes(&backend, &(), state_args)
+    } = handle_email_query_changes(&backend, &(), state_args, &[])
         .await
         .expect("initial queryChanges must succeed");
     let s1 = s1_resp["newQueryState"]
@@ -13978,7 +13991,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
     });
     let HandlerOutput {
         primary: qc_resp, ..
-    } = handle_email_query_changes(&backend, &(), qc_args)
+    } = handle_email_query_changes(&backend, &(), qc_args, &[])
         .await
         .expect("filtered queryChanges must succeed");
 
@@ -14041,6 +14054,7 @@ async fn query_changes_reports_updated_id_in_removed_and_added() {
         &backend,
         &(),
         serde_json::json!({ "accountId": "acct1", "filter": filter }),
+        &[],
     )
     .await
     .expect("query must succeed");
@@ -14068,6 +14082,7 @@ async fn query_changes_reports_updated_id_in_removed_and_added() {
             "filter": filter,
             "sinceQueryState": query["queryState"]
         }),
+        &[],
     )
     .await
     .expect("queryChanges must succeed");
@@ -14105,7 +14120,7 @@ async fn query_changes_up_to_id_truncates_added() {
     // Capture state S1.
     let s1_resp = {
         let args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
-        let HandlerOutput { primary: r, .. } = handle_email_query_changes(&backend, &(), args)
+        let HandlerOutput { primary: r, .. } = handle_email_query_changes(&backend, &(), args, &[])
             .await
             .expect("initial queryChanges must succeed");
         r
@@ -14137,7 +14152,7 @@ async fn query_changes_up_to_id_truncates_added() {
     });
     let HandlerOutput {
         primary: sort_resp, ..
-    } = handle_email_query(&backend, &(), sort_args)
+    } = handle_email_query(&backend, &(), sort_args, &[])
         .await
         .expect("query must succeed");
     let all_ids: Vec<String> = sort_resp["ids"]
@@ -14166,7 +14181,7 @@ async fn query_changes_up_to_id_truncates_added() {
     });
     let HandlerOutput {
         primary: qc_resp, ..
-    } = handle_email_query_changes(&backend, &(), qc_args)
+    } = handle_email_query_changes(&backend, &(), qc_args, &[])
         .await
         .expect("queryChanges with upToId must succeed");
 
@@ -14242,7 +14257,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
     // Capture state S1.
     let s1 = {
         let args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
-        let HandlerOutput { primary: r, .. } = handle_email_query_changes(&backend, &(), args)
+        let HandlerOutput { primary: r, .. } = handle_email_query_changes(&backend, &(), args, &[])
             .await
             .expect("initial queryChanges");
         r["newQueryState"]
@@ -14258,6 +14273,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
         &backend,
         &(),
         serde_json::json!({ "accountId": account_id }),
+        &[],
     )
     .await
     .expect("query for destroy ids");
@@ -14299,7 +14315,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
         "sinceQueryState": s1,
         "maxChanges": 3,
     });
-    let result = handle_email_query_changes(&backend, &(), qc_args).await;
+    let result = handle_email_query_changes(&backend, &(), qc_args, &[]).await;
     assert!(
         result.is_err(),
         "maxChanges exceeded must return an error; got Ok: {:?}",
@@ -14533,6 +14549,7 @@ async fn mailbox_set_update_sort_order_null_resets_to_default() {
         &backend,
         &(),
         serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+        &[],
     )
     .await
     .expect("Mailbox/get after null update");
@@ -14667,6 +14684,7 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
         &backend,
         &(),
         serde_json::json!({ "accountId": "acct1", "ids": [&id] }),
+        &[],
     )
     .await
     .expect("Mailbox/get must succeed after rejected update");
@@ -14725,6 +14743,7 @@ async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
         &backend,
         &(),
         serde_json::json!({ "accountId": "account1", "ids": [&id], "properties": ["mailboxIds"] }),
+        &[],
     )
     .await
     .expect("Email/get must succeed after rejected update");
@@ -14879,7 +14898,7 @@ async fn email_query_unknown_filter_keys_return_unsupported_filter() {
         }),
     ] {
         let args = serde_json::json!({ "accountId": "account1", "filter": filter });
-        let err = handle_email_query(&backend, &(), args)
+        let err = handle_email_query(&backend, &(), args, &[])
             .await
             .expect_err("unknown filter key must be refused");
         assert_eq!(
@@ -14897,7 +14916,7 @@ async fn email_query_unknown_filter_keys_return_unsupported_filter() {
             "conditions": [{ "inMailbox": "inbox" }, { "hasKeyword": "$seen" }],
         },
     });
-    handle_email_query(&backend, &(), args)
+    handle_email_query(&backend, &(), args, &[])
         .await
         .expect("known filter keys must be accepted");
 }
@@ -14913,7 +14932,7 @@ async fn email_query_changes_unknown_filter_key_returns_unsupported_filter() {
         "sinceQueryState": "0",
         "filter": { "has_keyword": "$seen" },
     });
-    let err = handle_email_query_changes(&backend, &(), args)
+    let err = handle_email_query_changes(&backend, &(), args, &[])
         .await
         .expect_err("unknown filter key must be refused");
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
@@ -14932,7 +14951,7 @@ async fn mailbox_query_changes_unknown_filter_key_returns_unsupported_filter() {
         "sinceQueryState": "0",
         "filter": { "isSubscribedd": true },
     });
-    let err = handle_mailbox_query_changes(&backend, &(), args)
+    let err = handle_mailbox_query_changes(&backend, &(), args, &[])
         .await
         .expect_err("unknown filter key must be refused");
     assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{err:?}");
@@ -14957,7 +14976,7 @@ async fn mailbox_query_non_id_parent_id_filter_returns_unsupported_filter() {
             "accountId": "account1",
             "filter": { "parentId": parent },
         });
-        let err = handle_mailbox_query(&backend, &(), args)
+        let err = handle_mailbox_query(&backend, &(), args, &[])
             .await
             .expect_err("non-Id parentId filter must be refused");
         assert_eq!(
@@ -14973,7 +14992,7 @@ async fn mailbox_query_non_id_parent_id_filter_returns_unsupported_filter() {
             "accountId": "account1",
             "filter": { "parentId": parent },
         });
-        handle_mailbox_query(&backend, &(), args)
+        handle_mailbox_query(&backend, &(), args, &[])
             .await
             .expect("Id or null parentId filter must be accepted");
     }
@@ -14991,7 +15010,7 @@ async fn mailbox_query_changes_unknown_sort_property_returns_unsupported_sort() 
         "sinceQueryState": "0",
         "sort": [{ "property": "totalEmails" }],
     });
-    let err = handle_mailbox_query_changes(&backend, &(), args)
+    let err = handle_mailbox_query_changes(&backend, &(), args, &[])
         .await
         .expect_err("unknown sort property must be refused");
     assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
@@ -15029,6 +15048,7 @@ async fn mailbox_query_state(backend: &MemoryBackend) -> String {
         backend,
         &(),
         serde_json::json!({ "accountId": "acct1", "sinceQueryState": "0" }),
+        &[],
     )
     .await
     .expect("initial queryChanges must succeed");
@@ -15058,6 +15078,7 @@ async fn mailbox_query_changes_applies_filter() {
             "sinceQueryState": since,
             "filter": { "name": "Proj" },
         }),
+        &[],
     )
     .await
     .expect("filtered queryChanges must succeed");
@@ -15093,6 +15114,7 @@ async fn mailbox_query_changes_applies_sort() {
                 "sinceQueryState": since,
                 "sort": [{ "property": "name", "isAscending": ascending }],
             }),
+            &[],
         )
         .await
         .expect("sorted queryChanges must succeed");
@@ -15126,7 +15148,7 @@ async fn mailbox_query_unknown_key_returns_unsupported_filter() {
         serde_json::json!({ "operator": "AND", "conditions": [{ "has_any_role": true }] }),
     ] {
         let args = serde_json::json!({ "accountId": "account1", "filter": filter });
-        let err = handle_mailbox_query(&backend, &(), args)
+        let err = handle_mailbox_query(&backend, &(), args, &[])
             .await
             .expect_err("filter must be refused");
         assert_eq!(
@@ -15136,7 +15158,7 @@ async fn mailbox_query_unknown_key_returns_unsupported_filter() {
         );
     }
     let args = serde_json::json!({ "accountId": "account1", "filter": { "role": "inbox" } });
-    handle_mailbox_query(&backend, &(), args)
+    handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect("known filter key must be accepted");
 }
@@ -15169,7 +15191,7 @@ async fn mailbox_query_evaluates_operator_tree() {
     ];
     for (filter, mut want) in cases {
         let args = serde_json::json!({ "accountId": "account1", "filter": filter });
-        let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args)
+        let HandlerOutput { primary: resp, .. } = handle_mailbox_query(&backend, &(), args, &[])
             .await
             .expect("operator tree must be accepted");
         let mut got: Vec<String> = resp["ids"]
@@ -15266,7 +15288,7 @@ async fn mailbox_query_non_boolean_is_ascending_returns_invalid_arguments() {
         "accountId": "account1",
         "sort": [{ "property": "name", "isAscending": "yes" }],
     });
-    let err = handle_mailbox_query(&backend, &(), args)
+    let err = handle_mailbox_query(&backend, &(), args, &[])
         .await
         .expect_err("non-boolean isAscending must be refused");
     assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
@@ -15388,7 +15410,7 @@ async fn mailbox_set_and_query_reject_malformed_ids() {
     );
 
     let query_args = serde_json::json!({ "accountId": "acct1", "anchor": "bad id" });
-    let err = handle_mailbox_query(&backend, &(), query_args)
+    let err = handle_mailbox_query(&backend, &(), query_args, &[])
         .await
         .expect_err("a malformed anchor must be rejected");
     assert_eq!(

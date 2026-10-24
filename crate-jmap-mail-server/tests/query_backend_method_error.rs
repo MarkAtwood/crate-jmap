@@ -44,7 +44,7 @@ fn expected() -> Value {
 #[tokio::test]
 async fn email_query_passes_backend_method_error_through() {
     let backend = backend_with_query_fault("Email");
-    let err = handle_email_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+    let err = handle_email_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
         .await
         .expect_err("backend unsupportedFilter must fail Email/query");
     assert_eq!(wire(err), expected());
@@ -53,7 +53,7 @@ async fn email_query_passes_backend_method_error_through() {
 #[tokio::test]
 async fn mailbox_query_passes_backend_method_error_through() {
     let backend = backend_with_query_fault("Mailbox");
-    let err = handle_mailbox_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }))
+    let err = handle_mailbox_query(&backend, &(), json!({ "accountId": ACCOUNT_ID }), &[])
         .await
         .expect_err("backend unsupportedFilter must fail Mailbox/query");
     assert_eq!(wire(err), expected());

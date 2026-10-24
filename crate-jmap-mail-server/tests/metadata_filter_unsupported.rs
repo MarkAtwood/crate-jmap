@@ -23,6 +23,11 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 const ACCOUNT_ID: &str = "acct1";
+/// The requests use the capability, so the rejection is the unlisted
+/// type's, not the -04 §3 one for a request without it.
+fn using() -> Vec<String> {
+    vec!["urn:ietf:params:jmap:metadata".to_owned()]
+}
 
 fn backend() -> MemoryBackend {
     let backend = MemoryBackend::new();
@@ -46,7 +51,7 @@ async fn email_query_rejects_nested_metadata_condition() {
             ]
         }
     });
-    let err = handle_email_query(&backend(), &(), args)
+    let err = handle_email_query(&backend(), &(), args, &using())
         .await
         .expect_err("a metadata condition must fail Email/query");
     assert_eq!(error_type(err), json!("unsupportedFilter"));
@@ -58,7 +63,7 @@ async fn mailbox_query_rejects_metadata_condition() {
         "accountId": ACCOUNT_ID,
         "filter": { "metadataExists": "acme.example.com" }
     });
-    let err = handle_mailbox_query(&backend(), &(), args)
+    let err = handle_mailbox_query(&backend(), &(), args, &using())
         .await
         .expect_err("a metadata condition must fail Mailbox/query");
     assert_eq!(error_type(err), json!("unsupportedFilter"));
@@ -70,7 +75,7 @@ async fn email_query_without_metadata_condition_still_succeeds() {
         "accountId": ACCOUNT_ID,
         "filter": { "operator": "NOT", "conditions": [{ "hasKeyword": "$seen" }] }
     });
-    handle_email_query(&backend(), &(), args)
+    handle_email_query(&backend(), &(), args, &using())
         .await
         .expect("a filter without metadata conditions must succeed");
 }

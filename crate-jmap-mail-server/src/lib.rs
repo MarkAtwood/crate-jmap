@@ -185,17 +185,17 @@ where
     }
 
     // Mailbox
-    reg!("Mailbox/get", backend, |b, _ci, a, ctx| {
-        handle_mailbox_get(&*b, &ctx, a).await
+    reg!("Mailbox/get", backend, |b, _ci, a, ctx, using| {
+        handle_mailbox_get(&*b, &ctx, a, &using).await
     });
     reg!("Mailbox/changes", backend, |b, _ci, a, ctx, using| {
         handle_mailbox_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Mailbox/query", backend, |b, _ci, a, ctx| {
-        handle_mailbox_query(&*b, &ctx, a).await
+    reg!("Mailbox/query", backend, |b, _ci, a, ctx, using| {
+        handle_mailbox_query(&*b, &ctx, a, &using).await
     });
-    reg!("Mailbox/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_mailbox_query_changes(&*b, &ctx, a).await
+    reg!("Mailbox/queryChanges", backend, |b, _ci, a, ctx, using| {
+        handle_mailbox_query_changes(&*b, &ctx, a, &using).await
     });
     reg!(
         "Mailbox/set",
@@ -214,17 +214,17 @@ where
     });
 
     // Email
-    reg!("Email/get", backend, |b, _ci, a, ctx| {
-        handle_email_get(&*b, &ctx, a).await
+    reg!("Email/get", backend, |b, _ci, a, ctx, using| {
+        handle_email_get(&*b, &ctx, a, &using).await
     });
     reg!("Email/changes", backend, |b, _ci, a, ctx, using| {
         handle_email_changes(&*b, &ctx, a, &using).await
     });
-    reg!("Email/query", backend, |b, _ci, a, ctx| {
-        handle_email_query(&*b, &ctx, a).await
+    reg!("Email/query", backend, |b, _ci, a, ctx, using| {
+        handle_email_query(&*b, &ctx, a, &using).await
     });
-    reg!("Email/queryChanges", backend, |b, _ci, a, ctx| {
-        handle_email_query_changes(&*b, &ctx, a).await
+    reg!("Email/queryChanges", backend, |b, _ci, a, ctx, using| {
+        handle_email_query_changes(&*b, &ctx, a, &using).await
     });
     reg!(
         "Email/set",
@@ -233,8 +233,8 @@ where
             handle_email_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("Email/copy", backend, |b, ci, a, ctx| {
-        handle_email_copy(&*b, &ctx, a, &ci).await
+    reg!("Email/copy", backend, |b, ci, a, ctx, using| {
+        handle_email_copy(&*b, &ctx, a, &ci, &using).await
     });
     reg!("Email/import", backend, |b, _ci, a, ctx| {
         handle_email_import(&*b, &ctx, a).await

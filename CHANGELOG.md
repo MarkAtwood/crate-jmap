@@ -14,6 +14,29 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-server**: **BREAKING** the rest of draft-ietf-jmap-metadata-04
+  for Email and Mailbox. `handle_mailbox_get`, `handle_email_get`,
+  `handle_mailbox_query`, `handle_mailbox_query_changes`,
+  `handle_email_query` and `handle_email_query_changes` take the request's
+  `using` list as a new last argument, and `handle_email_copy` takes it
+  after `call_id` (`register_mail_handlers` passes `CallContext::using`).
+  `MailBackend::copy_object` takes the `/copy` create object as a new last
+  argument. New `MailBackend::metadata_info::<O>` (default `None`; the
+  in-memory backend returns the `with_metadata_info` value). For a listed
+  type, /get returns `metadata` as an object (`{}` when nothing is stored)
+  and never returns `privateMetadata` when `supportsPrivate` is false;
+  `Mailbox/get` includes `metadata` by default only with the capability in
+  `using` (it used to include stored metadata for every request), while
+  `Email/get` defaults stay unchanged; with the capability,
+  `metadata/<namespace>` subselectors combine by union, a root entry
+  supersedes them, and a malformed one is `invalidArguments` (-04 §2,
+  §3.1). `Email/copy` copies `privateMetadata` only with the capability
+  and copies neither property into an account that does not list Email,
+  and the create object may override `metadata` and `privateMetadata`
+  under the `Email/set` create rules, validated by the backend (-04 §3.4).
+  `Email/query`, `Mailbox/query` and their `/queryChanges` reject a -04
+  §3.6 condition with `unsupportedFilter` when `using` lacks the
+  capability (-04 §3) (bd JMAP-s4kp.8).
 - **jmap-scene-client**: `SessionClient::scene_object_interact` binds
   `SceneObject/interact` (draft-atwood-jmap-scene-00 §SceneObject/interact),
   returning `SceneObjectInteractResponse` with the `accepted` ids and the
