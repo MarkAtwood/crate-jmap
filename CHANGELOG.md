@@ -3838,6 +3838,12 @@ wire behaviour that a conforming peer can observe.
   events; `removed` now also lists updated ids, which are re-added when
   they still match (bd JMAP-yt1w.48).
 
+- **jmap-contacts-server**, **jmap-filenode-server**: `AddressBook/set`
+  and `FileNode/set` create and update reject a `shareWith` key, or the id
+  segment of a `shareWith/<id>/...` patch path, that is not an RFC 8620
+  §1.2 Id with `invalidProperties` naming `shareWith`. `Graph/set` already
+  did; a regression test now covers it (bd JMAP-z5dp).
+
 - **jmap-calendars-server**, **jmap-tasks-server**: `Calendar/set` and
   `TaskList/set` create and update reject a `shareWith` key, or the id
   segment of a `shareWith/<id>/...` patch path, that is not an RFC 8620

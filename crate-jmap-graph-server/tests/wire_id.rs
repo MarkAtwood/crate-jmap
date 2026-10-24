@@ -80,3 +80,40 @@ fn register_account_rejects_empty_id() {
         cap,
     );
 }
+
+/// draft-atwood-jmap-graph-00 §Graph (L159): "`shareWith`
+/// (Id[GraphRights]|null, default: `null`)", so each key is an Id. A
+/// `"bad id"` key on create, in a whole-map update, or as the id segment
+/// of a `shareWith/<id>` patch path is `invalidProperties` naming
+/// `shareWith`.
+#[tokio::test]
+async fn graph_set_rejects_malformed_share_with_keys() {
+    let backend = backend();
+    let args = json!({ "create": {
+        "bad": { "shareWith": { "bad id": rights(true, false, false) } },
+        "ok": { "shareWith": { "bob": rights(true, false, false) } }
+    } });
+    let resp = call!(handle_graph_set, &backend, ALICE, args);
+    let bad = &resp["notCreated"]["bad"];
+    assert_eq!(bad["type"], "invalidProperties", "{resp}");
+    assert_eq!(bad["properties"], json!(["shareWith"]), "{resp}");
+    let id = resp["created"]["ok"]["id"]
+        .as_str()
+        .expect("created")
+        .to_owned();
+
+    for patch in [
+        json!({ "shareWith/bad id": rights(true, false, false) }),
+        json!({ "shareWith": { "bad id": rights(true, false, false) } }),
+    ] {
+        let resp = call!(
+            handle_graph_set,
+            &backend,
+            ALICE,
+            json!({ "update": { &id: patch } })
+        );
+        let entry = &resp["notUpdated"][&id];
+        assert_eq!(entry["type"], "invalidProperties", "{resp}");
+        assert_eq!(entry["properties"], json!(["shareWith"]), "{resp}");
+    }
+}

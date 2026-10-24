@@ -39,8 +39,8 @@ use serde_json::{Value, json};
 
 use crate::ContactsBackend;
 use crate::helpers::{
-    SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response,
+    SetAccumulators, check_map_key_ids, check_metadata_entry, enforce_max_objects_in_set,
+    extract_account_id, finalize_set_response,
 };
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, reject_read_only_patch,
@@ -256,6 +256,15 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
+            // RFC 9610 §2 `shareWith`: Id[AddressBookRights], keyed by
+            // Principal id.
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_map_key_ids(o, "shareWith"))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
             // `AddressBook.id` is required, so the parse fills it with
             // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
             let obj_with_id = match obj_val {
@@ -347,6 +356,10 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 continue;
             }
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }

@@ -88,3 +88,40 @@ async fn filenode_get_rejects_malformed_ids() {
     .expect_err("a malformed id in ids must be rejected");
     assert_eq!(err.error_type, MethodErrorType::InvalidArguments);
 }
+
+/// draft-ietf-jmap-filenode-16 types `shareWith` "Id[FilesRights]|null",
+/// so each key is an Id. A `"bad id"` key on create, or as the id segment
+/// of a `shareWith/<id>/<right>` patch path, is `invalidProperties` naming
+/// `shareWith`. A well-formed segment (`p1`) passes the check and reaches
+/// the backend, which reports RFC 8620 §5.3 `notFound` for the missing
+/// node.
+#[tokio::test]
+async fn filenode_set_rejects_malformed_share_with_keys() {
+    let backend = MemoryBackend::new().with_account(&Id::from("account1"));
+    let args = json!({
+        "accountId": "account1",
+        "create": { "c1": {
+            "@type": "Directory",
+            "name": "d",
+            "shareWith": { "bad id": { "mayRead": true } }
+        } },
+        "update": {
+            "n1": { "shareWith/bad id/mayRead": true },
+            "n2": { "shareWith": { "bad id": { "mayRead": true } } },
+            "n3": { "shareWith/p1/mayRead": true }
+        }
+    });
+    let resp = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+        .await
+        .expect("/set must not fail as a method")
+        .primary;
+    for entry in [
+        &resp["notCreated"]["c1"],
+        &resp["notUpdated"]["n1"],
+        &resp["notUpdated"]["n2"],
+    ] {
+        assert_eq!(entry["type"], "invalidProperties", "{resp}");
+        assert_eq!(entry["properties"], json!(["shareWith"]), "{resp}");
+    }
+    assert_eq!(resp["notUpdated"]["n3"]["type"], "notFound", "{resp}");
+}

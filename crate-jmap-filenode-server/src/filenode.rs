@@ -49,8 +49,8 @@ use serde_json::{Value, json};
 
 use crate::FileNodeBackend;
 use crate::helpers::{
-    SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, parents_first, resolve_refs,
+    SetAccumulators, check_map_key_ids, check_metadata_entry, enforce_max_objects_in_set,
+    extract_account_id, finalize_set_response, parents_first, resolve_refs,
 };
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
@@ -530,6 +530,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
+            // draft-ietf-jmap-filenode-16 `shareWith`: Id[FilesRights], keyed
+            // by Principal id.
+            if let Some(Err(err)) = obj_val
+                .as_object()
+                .map(|o| check_map_key_ids(o, "shareWith"))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
             if let Err(err) = resolve_refs(&mut obj_val, FILENODE_ID_PROPERTIES, &created_ids) {
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
@@ -942,6 +951,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             };
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
