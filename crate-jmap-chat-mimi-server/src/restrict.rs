@@ -7,9 +7,8 @@
 //! unbound Chat "keeps its `roomId`", so it stays restricted.
 
 use jmap_chat_mimi_types::chat_room_id;
+use jmap_server::{SetError, SetErrorType};
 use serde_json::{Map, Value};
-
-use crate::{SetError, SetErrorType};
 
 /// The property a patch key changes: the key up to its first `/`.
 fn property(patch_key: &str) -> &str {

@@ -1767,6 +1767,13 @@ wire behaviour that a conforming peer can observe.
   longer breaks these crates' own surface. Crate-specific items (backend
   traits, handlers, property types, capability URIs) stay
   (bd JMAP-510h.39).
+- **jmap-chat-mimi-server**: **BREAKING** the same crate-root
+  `jmap_server` re-exports are gone: `BackendChangesError`,
+  `BackendQueryError`, `BackendSetError`, `ChangesParams`, `ChangesResult`,
+  `GetObject`, `JmapBackend`, `JmapObject`, `QueryChangesParams`,
+  `QueryChangesResult`, `QueryObject`, `QueryParams`, `QueryResult`,
+  `SetError`, `SetErrorType` and `SetObject`. Import them from
+  `jmap_server` (bd JMAP-rxs1).
 - **jmap-mail-server**, **jmap-chat-server**, **jmap-sharing-server**,
   **jmap-calendars-server**, **jmap-contacts-server**,
   **jmap-tasks-server**, **jmap-filenode-server**: **BREAKING** (`memory`

@@ -67,6 +67,11 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use jmap_chat_mimi_types::{
     ClientKeyMaterial, KeyMaterialClientCode, KeyPackage, MIMI_FANOUT_BODY_TYPE, MimiCapability,
 };
+use jmap_server::{
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    SetError, SetErrorType,
+};
 use jmap_types::{Id, JmapError, State};
 use openmls::prelude::OpenMlsCrypto;
 use serde_json::json;
@@ -74,11 +79,9 @@ use serde_json::json;
 use crate::fanout::{Fanout, FanoutRecipients};
 use crate::handout::{KeyMaterialRequirements, KeyPackageFit};
 use crate::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, HubReply,
-    HubUnavailable, JmapBackend, JmapObject, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
-    SetErrorType, group_id_in_use, key_package_over_quota, key_package_ref_in_use, room_id_in_use,
-    room_signature_key_not_bound, signature_key_bound_elsewhere,
+    HubReply, HubUnavailable, MimiBackend, MimiEndpoint, NewKeyPackage, NewRoom, group_id_in_use,
+    key_package_over_quota, key_package_ref_in_use, room_id_in_use, room_signature_key_not_bound,
+    signature_key_bound_elsewhere,
 };
 
 /// One stored KeyPackage record and the signature key of its client.

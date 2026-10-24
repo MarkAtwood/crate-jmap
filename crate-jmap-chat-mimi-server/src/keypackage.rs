@@ -4,8 +4,8 @@ use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use jmap_chat_mimi_types::{Base64Url, KeyPackage, KeyPackageCreate, MimiCapability};
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, enforce_max_objects_in_set, extract_account_id,
-    server_fail_from_backend,
+    HandlerOutput, SetError, SetErrorType, backend_set_error_value, enforce_max_objects_in_set,
+    extract_account_id, server_fail_from_backend,
 };
 use jmap_types::{JmapError, SetObject};
 use openmls::ciphersuite::hash_ref::make_key_package_ref;
@@ -17,7 +17,7 @@ use openmls::prelude::{
 use serde_json::{Map, Value, json};
 use tls_codec::{Deserialize as _, Serialize as _};
 
-use crate::{MimiBackend, NewKeyPackage, SetError, SetErrorType};
+use crate::{MimiBackend, NewKeyPackage};
 
 /// An `invalidProperties` SetError naming `property`.
 fn invalid(property: &str, description: &str) -> SetError {
