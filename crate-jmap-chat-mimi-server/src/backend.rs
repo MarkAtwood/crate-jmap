@@ -6,8 +6,9 @@
 //! the KeyPackage hand-out, rooms, FanoutMessage storage and the MIMI
 //! requests sent to a room's hub.
 //!
-//! Every public item here, and the [`jmap_server`] backend types a
-//! downstream impl needs, are re-exported once at the crate root.
+//! Every public item here is re-exported once at the crate root; the
+//! [`jmap_server`] backend types a downstream impl needs are imported from
+//! `jmap_server` directly.
 
 use jmap_server::{BackendSetError, JmapBackend, SetError, SetErrorType};
 
