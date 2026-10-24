@@ -1398,7 +1398,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 ///
 /// `FileNode/copy` uses its own wire shape (source account + destination account),
 /// separate from `*/set`. This handler parses the wire arguments and delegates
-/// each copy entry to [`FileNodeBackend::create_object`] in the destination
+/// each copy entry to [`FileNodeBackend::copy_object`] in the destination
 /// account, using the source node's properties.
 ///
 /// The source nodes are fetched with `get_objects` before copying.
@@ -1416,7 +1416,9 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and
-/// the backend's `create_object` validates the rest.
+/// [`FileNodeBackend::copy_object`] validates the rest against the create
+/// object only: "Copied values are not revalidated against the
+/// destination account".
 ///
 /// Returns `(response_args, extra_invocations)`. When
 /// `onSuccessDestroyOriginal` is true the extra list holds the implicit
@@ -1958,13 +1960,11 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 }
             }
 
-            // Create in the destination account, under the id it assigns.
-            let build = move |id: &Id| {
-                source_node.id = id.clone();
-                source_node
-            };
+            // Create in the destination account, under the id it assigns;
+            // the backend validates only the metadata supplied in the create
+            // object (-04 §3.4).
             match backend
-                .create_object::<FileNode, _>(caller, &account_id, &create_id, build)
+                .copy_object(caller, &from_account_id, &account_id, source_node, &obj_val)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -2772,6 +2772,19 @@ mod tests {
                 .await
         }
 
+        async fn copy_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            from_account_id: &Id,
+            to_account_id: &Id,
+            obj: O,
+            create: &serde_json::Value,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            self.inner
+                .copy_object(&(), from_account_id, to_account_id, obj, create)
+                .await
+        }
+
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -3133,6 +3146,19 @@ mod tests {
         {
             self.0
                 .create_object(&(), account_id, create_id, build)
+                .await
+        }
+
+        async fn copy_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            from_account_id: &Id,
+            to_account_id: &Id,
+            obj: O,
+            create: &serde_json::Value,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            self.0
+                .copy_object(&(), from_account_id, to_account_id, obj, create)
                 .await
         }
 

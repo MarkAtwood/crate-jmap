@@ -904,3 +904,51 @@ async fn node_copy_metadata() {
         "{got}"
     );
 }
+
+/// -04 §3.4 (L657-660): "Copied values are not revalidated against the
+/// destination account: data in a copied namespace that is not supported
+/// there is handled as described in Section 2.1.1, and maxDepth applies
+/// only to values supplied in the create object." §2.1.1 (L411-412): such
+/// data "MUST continue to be returned by /get". The source node carries a
+/// value of depth 3 (maxDepth is 2) and the registered namespace
+/// `photography`, which the capability does not list; both are seeded,
+/// since no /set may write them. The copy keeps both, while a create
+/// object value deeper than maxDepth is still rejected (-04 §3.2 rule 4).
+#[tokio::test]
+async fn node_copy_does_not_revalidate_copied_metadata() {
+    let b = backend().with_account(&Id::from(OTHER_ID));
+    let deep = json!({ "a": { "b": { "c": 1 } } });
+    let copied = json!({ NS: deep, "photography": { "k": 1 } });
+    b.seed_object(
+        &Id::from(ACCOUNT_ID),
+        "FileNode",
+        &Id::from("src"),
+        json!({
+            "id": "src", "@type": "Directory", "name": "src", "parentId": null,
+            "metadata": copied,
+        }),
+    );
+
+    let resp = node_copy(&b, json!({ "id": "src" }), &using()).await;
+    let id = resp["created"]["k"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("copy failed: {resp}"));
+    let args = json!({ "accountId": OTHER_ID, "ids": [id], "properties": ["metadata"] });
+    let got = handle_filenode_get(&b, &(), args, &using())
+        .await
+        .unwrap()
+        .primary;
+    assert_eq!(got["list"][0]["metadata"], copied, "{got}");
+
+    let resp = node_copy(
+        &b,
+        json!({ "id": "src", "name": "other", "metadata": { NS: deep } }),
+        &using(),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["k"]["type"],
+        json!("invalidProperties"),
+        "{resp}"
+    );
+}

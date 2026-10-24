@@ -156,6 +156,19 @@ impl FileNodeBackend for Deployment {
             .await
     }
 
+    async fn copy_object<O: SetObject + Send + Sync>(
+        &self,
+        _caller: &(),
+        from_account_id: &Id,
+        to_account_id: &Id,
+        obj: O,
+        create: &serde_json::Value,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        self.files
+            .copy_object(&(), from_account_id, to_account_id, obj, create)
+            .await
+    }
+
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &(),

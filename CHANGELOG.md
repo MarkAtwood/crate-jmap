@@ -1781,6 +1781,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-tasks-server**, **jmap-calendars-server**,
+  **jmap-filenode-server**: **BREAKING** new required trait methods
+  `TasksBackend::copy_object`, `CalendarsBackend::copy_object` and
+  `FileNodeBackend::copy_object(caller, from_account_id, to_account_id,
+  obj, create)`, mirroring `MailBackend::copy_object` and
+  `ContactsBackend::copy_object`. Task/copy, CalendarEvent/copy and
+  FileNode/copy store the copy through it instead of `create_object`
+  (CalendarEvent/copy: instead of `create_calendar_event`, whose §5.10
+  destination privacy rule `copy_object` now carries), passing the
+  request's create object so the backend validates only the `metadata`
+  and `privateMetadata` it supplies. A copied value in a namespace the
+  destination does not support, or deeper than its `maxDepth`, no longer
+  fails the copy: draft-ietf-jmap-metadata-04 §3.4 "Copied values are not
+  revalidated against the destination account". Each in-memory backend
+  implements it on the `create_object` path (bd JMAP-s4kp.10).
 - **jmap-types**: **BREAKING** deserializing an `Id` now applies the
   `Id::new_validated` rule (RFC 8620 §1.2: 1 to 255 octets of
   `A-Za-z0-9-_`), so a non-conforming id anywhere in a request or

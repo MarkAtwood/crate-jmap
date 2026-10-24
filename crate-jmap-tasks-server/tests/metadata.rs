@@ -1164,3 +1164,52 @@ async fn task_copy_metadata() {
         "{got}"
     );
 }
+
+/// -04 §3.4 (L657-660): "Copied values are not revalidated against the
+/// destination account: data in a copied namespace that is not supported
+/// there is handled as described in Section 2.1.1, and maxDepth applies
+/// only to values supplied in the create object." §2.1.1 (L411-412): such
+/// data "MUST continue to be returned by /get". The source Task carries a
+/// value of depth 3 (maxDepth is 2) and the registered namespace
+/// `photography`, which the capability does not list; both are seeded,
+/// since no /set may write them. The copy keeps both, while a create
+/// object value deeper than maxDepth is still rejected (-04 §3.2 rule 4).
+#[tokio::test]
+async fn task_copy_does_not_revalidate_copied_metadata() {
+    let b = backend().with_account(&Id::from(OTHER_ID));
+    let list = create_list(&b, json!({ "name": "l" })).await;
+    let deep = json!({ "a": { "b": { "c": 1 } } });
+    let copied = json!({ NS: deep, "photography": { "k": 1 } });
+    b.seed_object(
+        &Id::from(ACCOUNT_ID),
+        "Task",
+        &Id::from("src"),
+        json!({
+            "@type": "Task", "id": "src", "taskListId": list, "title": "t",
+            "metadata": copied,
+        }),
+    );
+
+    let resp = task_copy(&b, json!({ "id": "src" }), &using()).await;
+    let id = resp["created"]["k"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("copy failed: {resp}"));
+    let args = json!({ "accountId": OTHER_ID, "ids": [id], "properties": ["metadata"] });
+    let got = handle_task_get(&b, &(), args, &using())
+        .await
+        .unwrap()
+        .primary;
+    assert_eq!(got["list"][0]["metadata"], copied, "{got}");
+
+    let resp = task_copy(
+        &b,
+        json!({ "id": "src", "metadata": { NS: deep } }),
+        &using(),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["k"]["type"],
+        json!("invalidProperties"),
+        "{resp}"
+    );
+}

@@ -475,6 +475,17 @@ pub(crate) mod test_support {
             }
         }
 
+        async fn copy_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _from_account_id: &Id,
+            _to_account_id: &Id,
+            obj: O,
+            _create: &serde_json::Value,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            Ok((Id::from("mock-id-1"), obj))
+        }
+
         /// Rejects every update with `forbidden`, except that a Task patch
         /// setting `isDraft: true` on a stored Task that is not a draft is
         /// `invalidProperties` naming `isDraft`: the backend half of
@@ -1011,6 +1022,17 @@ mod tests {
                     let obj = build(&id);
                     Ok((id, obj))
                 }
+            }
+
+            async fn copy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _from_account_id: &Id,
+                _to_account_id: &Id,
+                obj: O,
+                _create: &serde_json::Value,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("t1"), obj))
             }
 
             async fn update_object<O: SetObject + Send + Sync>(

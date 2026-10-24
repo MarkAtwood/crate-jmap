@@ -483,7 +483,9 @@ pub async fn handle_task_set<B: TasksBackend>(
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and
-/// the backend's `create_object` validates the rest.
+/// [`TasksBackend::copy_object`] validates the rest against the create
+/// object only: "Copied values are not revalidated against the
+/// destination account".
 ///
 /// Returns `(response_args, extra_invocations)`. The extra invocation list
 /// is populated with a follow-up `Task/set` invocation when
@@ -661,16 +663,16 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 );
                 continue;
             };
-            if let Value::Object(client_props) = client_val {
+            if let Value::Object(client_props) = &client_val {
                 for (k, v) in client_props {
                     if k != "id" {
-                        merged.insert(k, v);
+                        merged.insert(k.clone(), v.clone());
                     }
                 }
             }
             merged.remove("id");
 
-            let mut task: Task = match serde_json::from_value(Value::Object(merged)) {
+            let task: Task = match serde_json::from_value(Value::Object(merged)) {
                 Ok(t) => t,
                 Err(e) => {
                     not_created.insert(
@@ -681,12 +683,10 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 }
             };
 
-            let build = move |id: &Id| {
-                task.id = Some(id.clone());
-                task
-            };
+            // -04 §3.4: the backend validates only the metadata supplied in
+            // the create object; the copied values are not revalidated.
             match backend
-                .create_object::<Task, _>(caller, &to_account_id, &create_id, build)
+                .copy_object(caller, &from_account_id, &to_account_id, task, &client_val)
                 .await
             {
                 Ok((_new_id, created_task)) => {
