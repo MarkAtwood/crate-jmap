@@ -421,7 +421,7 @@ fn sort_properties_match_draft() {
     // L292, L330: GraphNode and GraphEdge sort by `created`, `updated` only.
     for p in ["created", "updated"] {
         let _: GraphNodeComparator = round_trip(&json!({ "property": p, "isAscending": false }));
-        let _: GraphEdgeComparator = round_trip(&json!({ "property": p, "isAscending": true }));
+        let _: GraphEdgeComparator = round_trip(&json!({ "property": p }));
     }
     assert_eq!(
         serde_json::from_value::<GraphNodeComparator>(json!({"property": "name"}))

@@ -220,7 +220,8 @@ async fn vtc_livestream_query_sends_filter_and_sort() {
                 "state": "live",
                 "platform": "youtube"
             },
-            "sort": [{ "property": "startedAt", "isAscending": true }]
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{ "property": "startedAt" }]
         }])
     );
 }

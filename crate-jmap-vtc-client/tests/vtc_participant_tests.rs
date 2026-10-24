@@ -416,7 +416,8 @@ async fn vtc_participant_query_sends_filter_and_sort() {
         json!(["VTCParticipant/query", {
             "accountId": "bob-account",
             "filter": { "callId": "01J4XKZQN4MWVT8PPBEHTJ3AB0", "isActive": true },
-            "sort": [{ "property": "joinedAt", "isAscending": true }]
+            // RFC 8620 §5.5 isAscending "(default: true)": the default is omitted.
+            "sort": [{ "property": "joinedAt" }]
         }])
     );
     assert_eq!(resp.ids.len(), 2);

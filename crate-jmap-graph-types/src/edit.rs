@@ -211,7 +211,7 @@ pub struct GraphNodeOpComparator {
     /// The property to sort by.
     pub property: GraphNodeOpSortProperty,
     /// Sort ascending when `true`, descending when `false`.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_true", skip_serializing_if = "is_true")]
     pub is_ascending: bool,
     /// Collation algorithm for string comparison (RFC 8620 §5.5).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -231,6 +231,10 @@ impl GraphNodeOpComparator {
 
 fn default_true() -> bool {
     true
+}
+
+fn is_true(b: &bool) -> bool {
+    *b
 }
 
 /// Request arguments for `GraphNode/cursor` (draft-atwood-jmap-graph-edit-00
