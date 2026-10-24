@@ -63,7 +63,7 @@ Use `-o BatchMode=yes` for scp/ssh. Use `-y` for apt-get.
 
 ## Restrictions
 
-- Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
+- Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add async, tokio, or axum
 - Do not add a `jmap-server` or `jmap-base-client` dependency — this
