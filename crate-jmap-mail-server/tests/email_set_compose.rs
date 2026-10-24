@@ -333,6 +333,43 @@ async fn create_maintains_thread_and_mailbox_counts() {
     );
 }
 
+/// RFC 8621 §3 threads by the message's In-Reply-To and References header
+/// fields, and §4.6 lets a create set any header field as a `header:`
+/// property, so a reply that names its parent only through
+/// `header:In-Reply-To:asMessageIds` or a raw `header:References` joins
+/// the parent's thread (bd:JMAP-uahy).
+#[tokio::test]
+async fn create_threads_by_header_properties() {
+    let backend = backend();
+    let root = set(
+        &backend,
+        json!({ "mailboxIds": { "inbox": true }, "messageId": ["root@example.com"] }),
+    )
+    .await;
+    let root_thread = &root["created"]["c0"]["threadId"];
+    assert!(root_thread.is_string(), "root create failed: {root}");
+
+    let parsed_form = set(
+        &backend,
+        json!({
+            "mailboxIds": { "inbox": true },
+            "header:In-Reply-To:asMessageIds": ["root@example.com"],
+        }),
+    )
+    .await;
+    assert_eq!(&parsed_form["created"]["c0"]["threadId"], root_thread);
+
+    let raw_form = set(
+        &backend,
+        json!({
+            "mailboxIds": { "inbox": true },
+            "header:References": " <root@example.com>",
+        }),
+    )
+    .await;
+    assert_eq!(&raw_form["created"]["c0"]["threadId"], root_thread);
+}
+
 /// RFC 8621 §4.6: "the client must set each header field as an individual
 /// property"; a `header:Date` or `header:Message-ID` property includes the
 /// field, so the server generates neither. Expected fields are
