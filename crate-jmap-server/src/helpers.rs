@@ -359,13 +359,19 @@ pub(crate) fn signed_seconds_since_epoch(now: std::time::SystemTime) -> Option<(
             Some((s, d.subsec_millis()))
         }
         Err(e) => {
-            // Pre-epoch clock — negate after the fallible widen so we
-            // can return a real (negative) epoch offset rather than
-            // silently snapping to 1970-01-01T00:00:00Z.
+            // Pre-epoch clock: the instant is -d. Floor it to whole
+            // milliseconds (as truncation does post-epoch), then split
+            // it so `millis` counts forward from the floored second:
+            // -1.2 s is (-2, 800), not (-1, 200) (bd:JMAP-yt1w.46).
             let d = e.duration();
             let s = i64::try_from(d.as_secs()).ok()?;
-            let neg = s.checked_neg()?;
-            Some((neg, d.subsec_millis()))
+            match d.subsec_nanos() {
+                0 => Some((s.checked_neg()?, 0)),
+                nanos => Some((
+                    s.checked_add(1)?.checked_neg()?,
+                    (1_000_000_000 - nanos) / 1_000_000,
+                )),
+            }
         }
     }
 }
@@ -1285,7 +1291,7 @@ mod tests {
         now_utc_string, parse_max_changes, parse_wire_id, query_anchor_args,
         reject_did_bearing_properties, reject_read_only_patch, reject_server_set,
         resolve_creation_ref, resolve_query_offset, resolve_query_start,
-        utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
+        signed_seconds_since_epoch, utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
     };
     use jmap_types::{Id, PushSubscription, UTCDate};
     use serde_json::json;
@@ -1808,6 +1814,28 @@ mod tests {
         ] {
             let d = utc_date_from_epoch_millis(secs, 0).unwrap();
             assert_eq!(d.as_ref(), expected, "secs = {secs}");
+        }
+    }
+
+    /// Oracle: GNU `date -u -d @<secs> +%FT%T.%3NZ` (coreutils), which
+    /// floors to the millisecond. Pre-epoch sub-second clocks used to
+    /// format as -s + millis instead of -s - millis (bd:JMAP-yt1w.46).
+    #[test]
+    fn signed_seconds_since_epoch_pre_epoch_subsec() {
+        use std::time::{Duration, UNIX_EPOCH};
+        for (before, expected) in [
+            (Duration::from_millis(1200), "1969-12-31T23:59:58.800Z"),
+            (Duration::from_millis(500), "1969-12-31T23:59:59.500Z"),
+            (Duration::from_micros(1_200_500), "1969-12-31T23:59:58.799Z"),
+            (
+                Duration::from_millis(86_400_001),
+                "1969-12-30T23:59:59.999Z",
+            ),
+            (Duration::from_secs(1), "1969-12-31T23:59:59Z"),
+        ] {
+            let (secs, millis) = signed_seconds_since_epoch(UNIX_EPOCH - before).unwrap();
+            let d = utc_date_from_epoch_millis(secs, millis).unwrap();
+            assert_eq!(d.as_ref(), expected, "before = {before:?}");
         }
     }
 
