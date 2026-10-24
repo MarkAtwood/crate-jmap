@@ -62,7 +62,7 @@ still compile.
 
 ```
 https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt                     ← base protocol
+~/PROJECT/IETF/specs/rfc8620.txt                     ← base protocol
 ```
 
 **Before naming any field or type**, grep the draft text to confirm

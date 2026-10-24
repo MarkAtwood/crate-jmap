@@ -51,8 +51,8 @@ When changing a public type or field, check that `jmap-mail-server` still compil
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc8621.txt   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt   ← base protocol context
+~/PROJECT/IETF/specs/rfc8621.txt   ← normative
+~/PROJECT/IETF/specs/rfc8620.txt   ← base protocol context
 ```
 
 **Before naming any field or type**, grep the RFC 8621 text to confirm the exact name.

@@ -54,7 +54,7 @@ Run all four before considering any work done.
 - https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
   — normative for property names, the `/changes` argument, and filter
   condition shapes
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base
   get/changes/query request shapes and filter operators
 
 ## Restrictions

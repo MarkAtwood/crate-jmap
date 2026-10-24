@@ -49,7 +49,7 @@ jmap-metadata-types    data types
 
 ```
 draft-ietf-jmap-metadata (revision pinned in PLAN.md)   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt                     ← base protocol
+~/PROJECT/IETF/specs/rfc8620.txt                     ← base protocol
 ```
 
 Before changing a helper, read its section in the draft. Semantics

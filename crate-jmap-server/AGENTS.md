@@ -78,11 +78,11 @@ All types and logic exist in kith — this crate is an extraction, not a greenfi
 This crate implements **RFC 8620** (JMAP base protocol):
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt   ← primary normative reference
-~/PROJECT/jmap-chat-spec/references/rfc8621.txt   ← JMAP for Mail (structural analogue)
+~/PROJECT/IETF/specs/rfc8620.txt   ← primary normative reference
+~/PROJECT/IETF/specs/rfc8621.txt   ← JMAP for Mail (structural analogue)
 ```
 
-Additional IETF drafts are in `~/PROJECT/jmap-chat-spec/references/` (blobext, quotas, etc.).
+Additional IETF drafts are in `~/PROJECT/IETF/specs/` (blobext, quotas, etc.).
 
 The JMAP Chat extension drafts (for `kith`/`stoa` consumers, not this crate):
 

@@ -57,8 +57,8 @@ still compile.
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc9670.txt    ← normative (JMAP Sharing)
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt    ← base protocol
+~/PROJECT/IETF/specs/rfc9670.txt    ← normative (JMAP Sharing)
+~/PROJECT/IETF/specs/rfc8620.txt    ← base protocol
 ```
 
 **Before naming any field or type**, grep the relevant RFC text

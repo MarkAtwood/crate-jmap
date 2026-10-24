@@ -60,9 +60,9 @@ Run all four before considering any work done.
 
 ## Source Material
 
-- `~/PROJECT/jmap-chat-spec/references/rfc8621.txt` — normative for all
+- `~/PROJECT/IETF/specs/rfc8621.txt` — normative for all
   method signatures, arguments, and response fields
-- `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base get/set/changes/query
+- `~/PROJECT/IETF/specs/rfc8620.txt` — base get/set/changes/query
   request and response shapes (normative for structural fields)
 
 ## Restrictions

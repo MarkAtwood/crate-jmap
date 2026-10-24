@@ -47,8 +47,8 @@ jmap-types
 ## Spec Reference
 
 ```
-~/PROJECT/jmap-chat-spec/references/rfc8621.txt   ← normative
-~/PROJECT/jmap-chat-spec/references/rfc8620.txt   ← base protocol
+~/PROJECT/IETF/specs/rfc8621.txt   ← normative
+~/PROJECT/IETF/specs/rfc8620.txt   ← base protocol
 ```
 
 Before implementing any method, read its section in RFC 8621. Method names,
