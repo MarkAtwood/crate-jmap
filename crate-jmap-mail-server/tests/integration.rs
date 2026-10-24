@@ -15430,3 +15430,24 @@ async fn mailbox_set_and_query_reject_malformed_ids() {
         jmap_types::MethodErrorType::InvalidArguments
     );
 }
+
+/// Oracle: RFC 8620 §5.1 types the /get `ids` argument "Id[]|null" and the
+/// response `notFound` "Id[]"; §1.2 says an Id "MUST only contain
+/// characters from the 'URL and Filename Safe' base64 alphabet"; §3.9:
+/// "In case of invalid arguments (unknown/insufficient/wrong type for
+/// data, etc.), the method MUST return an 'invalidArguments' error". So
+/// `"bad id"` (space) fails the whole call rather than landing in
+/// `notFound`, which could not carry a non-Id.
+#[tokio::test]
+async fn mailbox_get_rejects_malformed_ids() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+    let get_args = serde_json::json!({ "accountId": "acct1", "ids": ["bad id"] });
+    let err = handle_mailbox_get(&backend, &(), get_args, &[])
+        .await
+        .expect_err("a malformed id in ids must be rejected");
+    assert_eq!(
+        err.error_type,
+        jmap_types::MethodErrorType::InvalidArguments
+    );
+}

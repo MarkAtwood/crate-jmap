@@ -160,6 +160,21 @@ async fn add_members_null_role_ids_adds_member() {
     assert_eq!(bob["roleIds"], json!([]), "{bob:?}");
 }
 
+/// L1352-1353: `roleIds` holds role ids, and L786-787 makes a SpaceRole
+/// `id` an "Opaque server-assigned JMAP identifier", i.e. an RFC 8620 §1.2
+/// Id that "MUST only contain characters from the 'URL and Filename Safe'
+/// base64 alphabet". `"bad id"` (space) is not one, so the entry is refused.
+#[tokio::test]
+async fn add_members_malformed_role_id_is_invalid_properties() {
+    let backend = admin_backend();
+    let resp = update(
+        &backend,
+        json!({ "addMembers": [{ "id": "bob", "roleIds": ["bad id"] }] }),
+    )
+    .await;
+    assert_invalid_key(&resp, "addMembers");
+}
+
 /// RFC 8620 §5.3 "invalidPatch": "The PatchObject given to update the
 /// record was not a valid patch." A PatchObject is a JSON object.
 #[tokio::test]
