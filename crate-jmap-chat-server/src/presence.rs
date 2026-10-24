@@ -19,12 +19,18 @@
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
-//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5). Per-target
-//! failures inside `/set` (including the singleton create/destroy
-//! rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
-//! maps within `Ok((Value, ...))`, not as `Err`.
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
+//!   `maxObjectsInSet`;
+//! - `/set`: `stateMismatch`;
+//! - `/changes`: `cannotCalculateChanges`.
+//!
+//! Per-target failures inside `/set` (including the singleton create/destroy
+//! rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed` maps
+//! within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::PresenceStatus;
 use jmap_types::{Id, JmapError, PatchObject, State};

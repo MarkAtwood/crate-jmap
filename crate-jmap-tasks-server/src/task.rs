@@ -21,12 +21,22 @@
 //! `Task/set` follow-up invocations when `onSuccessDestroyOriginal` is
 //! true (RFC 8620 §5.4).
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
-//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
-//! per RFC 8620 §3.6 and §5). Per-target failures inside a `/set` or
-//! `/copy` call surface in the `notCreated` / `notUpdated` /
-//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
+//!   `maxObjectsInSet`;
+//! - `/set`, `/copy`: `stateMismatch`;
+//! - `/copy`: `fromAccountNotFound`;
+//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`;
+//! - `/queryChanges`: `tooManyChanges`;
+//! - `/query`, `/queryChanges`: `unsupportedFilter`;
+//! - `/query`: `unsupportedSort`, `anchorNotFound`.
+//!
+//! Per-target failures inside a `/set` or `/copy` call surface in the
+//! `notCreated` / `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`,
+//! not as `Err`.
 
 use std::collections::BTreeMap;
 

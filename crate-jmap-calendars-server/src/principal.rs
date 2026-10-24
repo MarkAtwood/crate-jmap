@@ -16,9 +16,12 @@
 //! that this handler injected into the request stream (RFC 8620 §6.3);
 //! for the handlers in this module the vector is **always empty**.
 //!
-//! Each handler returns `Err(JmapError)` for method-level failures
-//! (`accountNotFound`, `invalidArguments`, `serverFail`, plus the
-//! Calendars-specific `notFound` / `forbidden` shapes — per draft §2.2).
+//! Each handler returns `Err(JmapError)` for method-level failures (RFC 8620
+//! §3.6.2 and §5):
+//!
+//! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
+//! - `/getAvailability`: `notFound`, `forbidden`, `tooLarge`, `rateLimit`
+//!   (draft-ietf-jmap-calendars §2.2), passed through from the backend.
 
 use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{Value, json};
