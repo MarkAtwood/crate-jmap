@@ -94,14 +94,13 @@ async fn changes_without_since_state_is_invalid_arguments() {
     assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
 }
 
-/// RFC 8620 §5.2 (rfc8620.txt L1766-1768): over `maxChanges`, a server
-/// "unable to calculate an intermediate state ... MUST return a
-/// "cannotCalculateChanges" error response instead"; `tooManyChanges` is a
-/// §5.6 `/queryChanges` error only. The memory backend cannot produce an
-/// intermediate state, so two creates against `maxChanges` 1 must fail
-/// with `cannotCalculateChanges`.
+/// RFC 8620 §5.2 (rfc8620.txt L1761-1768): over `maxChanges` "the server
+/// SHOULD generate an update to take the client to an intermediate state,
+/// from which the client can continue to call "Foo/changes" until it is
+/// fully up to date." Two creates against `maxChanges` 1 come back as two
+/// pages of one id each.
 #[tokio::test]
-async fn changes_over_max_changes_is_cannot_calculate_changes() {
+async fn changes_over_max_changes_returns_intermediate_state() {
     let backend = injectable();
     let resp = set(
         &backend,
@@ -112,20 +111,44 @@ async fn changes_over_max_changes_is_cannot_calculate_changes() {
     )
     .await
     .expect("CustomEmoji/set");
-    assert_eq!(
-        resp["created"].as_object().map(|m| m.len()),
-        Some(2),
-        "{resp}"
-    );
-    let err = handle_emoji_changes(
+    let created: Vec<Value> = resp["created"]
+        .as_object()
+        .expect("created map")
+        .values()
+        .map(|e| e["id"].clone())
+        .collect();
+    assert_eq!(created.len(), 2, "{resp}");
+
+    let first = handle_emoji_changes(
         &backend,
         &(),
         json!({ "accountId": ACCOUNT_ID, "sinceState": resp["oldState"], "maxChanges": 1 }),
     )
     .await
-    .expect_err("two changes exceed maxChanges 1");
-    let wire = serde_json::to_value(&err).expect("JmapError must serialize");
-    assert_eq!(wire["type"], "cannotCalculateChanges", "{wire}");
+    .map(|HandlerOutput { primary, .. }| primary)
+    .expect("first page");
+    assert_eq!(first["hasMoreChanges"], json!(true), "{first}");
+    assert_eq!(
+        first["created"].as_array().map(Vec::len),
+        Some(1),
+        "{first}"
+    );
+
+    let rest = handle_emoji_changes(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "sinceState": first["newState"], "maxChanges": 1 }),
+    )
+    .await
+    .map(|HandlerOutput { primary, .. }| primary)
+    .expect("second page");
+    assert_eq!(rest["hasMoreChanges"], json!(false), "{rest}");
+    assert_eq!(rest["newState"], resp["newState"], "{rest}");
+    let mut paged = vec![first["created"][0].clone(), rest["created"][0].clone()];
+    let mut want = created;
+    paged.sort_by_key(Value::to_string);
+    want.sort_by_key(Value::to_string);
+    assert_eq!(paged, want);
 }
 
 /// RFC 8620 §5.3 `ifInState`: "If supplied, the string must match the

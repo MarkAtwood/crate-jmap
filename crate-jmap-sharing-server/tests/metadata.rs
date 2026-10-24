@@ -475,16 +475,18 @@ async fn excluded_ids_do_not_count_toward_max_changes() {
     .await
     .unwrap();
     assert_eq!(ignored["updated"], json!([]), "{ignored}");
-    assert!(
-        changes(
-            &b,
-            json!({ "sinceState": since, "maxChanges": 1 }),
-            &using()
-        )
-        .await
-        .is_err(),
-        "two reported updates exceed maxChanges 1"
-    );
+    // Reported, the two updates exceed maxChanges 1: RFC 8620 §5.2 "the
+    // server SHOULD generate an update to take the client to an
+    // intermediate state".
+    let reported = changes(
+        &b,
+        json!({ "sinceState": since, "maxChanges": 1 }),
+        &using(),
+    )
+    .await
+    .unwrap();
+    assert_eq!(reported["updated"], json!([p1]), "{reported}");
+    assert_eq!(reported["hasMoreChanges"], json!(true), "{reported}");
 }
 
 // ---------------------------------------------------------------------------

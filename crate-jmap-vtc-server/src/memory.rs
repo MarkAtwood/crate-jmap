@@ -613,28 +613,50 @@ impl JmapBackend for MemoryBackend {
             return Err(BackendChangesError::CannotCalculate);
         }
 
+        let window = || {
+            inner
+                .log
+                .get(O::TYPE_NAME)
+                .and_then(|m| m.get(account_id.as_ref()))
+                .into_iter()
+                .flatten()
+                .filter(move |(s, _, _)| *s > since)
+        };
+
+        // RFC 8620 §5.2: over maxChanges "the server SHOULD generate an
+        // update to take the client to an intermediate state", and only
+        // when "unable to calculate an intermediate state" return
+        // cannotCalculateChanges. One commit logs all its ids under one
+        // state, so the intermediate state is the last whose whole commit
+        // fits, oldest first. Each distinct id is one entry of `net` below.
+        let mut upto = current;
+        if let Some(max) = max_changes {
+            let mut seen: HashSet<&Id> = HashSet::new();
+            let (mut fits, mut commit) = (since, since);
+            for (s, id, _) in window() {
+                if *s != commit {
+                    (fits, commit) = (commit, *s);
+                }
+                if seen.insert(id) && seen.len() as u64 > max {
+                    if fits == since {
+                        return Err(BackendChangesError::TooManyChanges { limit: max });
+                    }
+                    upto = fits;
+                    break;
+                }
+            }
+        }
+
         // RFC 8620 §5.2: each id appears once, in the bucket of its net
         // change since `since_state`. A create followed by an update stays
         // created; a later destroy or re-create overrides.
         let mut net: Vec<(Id, Change)> = Vec::new();
-        for (_, id, change) in inner
-            .log
-            .get(O::TYPE_NAME)
-            .and_then(|m| m.get(account_id.as_ref()))
-            .into_iter()
-            .flatten()
-            .filter(|(s, _, _)| *s > since)
-        {
+        for (_, id, change) in window().filter(|(s, _, _)| *s <= upto) {
             match net.iter_mut().find(|(seen, _)| seen == id) {
                 Some((_, prev)) if *prev == Change::Created && *change == Change::Updated => {}
                 Some((_, prev)) => *prev = *change,
                 None => net.push((id.clone(), *change)),
             }
-        }
-        if max_changes.is_some_and(|max| net.len() as u64 > max) {
-            return Err(BackendChangesError::TooManyChanges {
-                limit: max_changes.unwrap_or_default(),
-            });
         }
         let bucket = |want: Change| -> Vec<Id> {
             net.iter()
@@ -646,8 +668,8 @@ impl JmapBackend for MemoryBackend {
             bucket(Change::Created),
             bucket(Change::Updated),
             bucket(Change::Destroyed),
-            false,
-            State::from(current.to_string()),
+            upto < current,
+            State::from(upto.to_string()),
         ))
     }
 
@@ -1150,5 +1172,83 @@ mod clone_tests {
         let a = MemoryBackend::new();
         assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
         assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+    }
+}
+
+#[cfg(test)]
+mod max_changes_tests {
+    use super::*;
+    use jmap_vtc_types::VtcCall as T;
+
+    const CALLER: String = String::new();
+
+    /// A backend whose `T` log holds one commit per element of `states`,
+    /// each creating the listed ids under one state.
+    fn with_creates(states: &[&[&str]]) -> MemoryBackend {
+        let backend = MemoryBackend::new();
+        let mut inner = backend.lock();
+        for ids in states {
+            let changes = ids
+                .iter()
+                .map(|s| (Id::from(*s), Change::Created))
+                .collect();
+            inner.commit(T::TYPE_NAME, &Id::from("acc1"), changes);
+        }
+        drop(inner);
+        backend
+    }
+
+    /// Oracle: RFC 8620 §5.2, expected pages written by hand: "the server
+    /// MUST ensure the number of ids returned across "created", "updated",
+    /// and "destroyed" does not exceed this limit. If there are more
+    /// changes than this ..., the server SHOULD generate an update to take
+    /// the client to an intermediate state, from which the client can
+    /// continue to call "Foo/changes" until it is fully up to date." Three
+    /// one-create states against `maxChanges` 2 page as states 1-2, then 3.
+    #[tokio::test]
+    async fn over_max_changes_pages_through_intermediate_state() {
+        let backend = with_creates(&[&["a"], &["b"], &["c"]]);
+
+        let first = changes(&backend, "0", 2).await.expect("first page");
+        assert_eq!(sorted(first.created), [Id::from("a"), Id::from("b")]);
+        assert!(first.has_more_changes);
+        assert_eq!(first.new_state.as_ref(), "2");
+
+        let rest = changes(&backend, "2", 2).await.expect("second page");
+        assert_eq!(rest.created, [Id::from("c")]);
+        assert!(!rest.has_more_changes);
+        assert_eq!(rest.new_state.as_ref(), "3");
+    }
+
+    /// Oracle: RFC 8620 §5.2 "If it is unable to calculate an intermediate
+    /// state, it MUST return a "cannotCalculateChanges" error response
+    /// instead." One state creating three ids cannot be split under
+    /// `maxChanges` 2.
+    #[tokio::test]
+    async fn one_state_over_max_changes_cannot_calculate() {
+        let backend = with_creates(&[&["a", "b", "c"]]);
+        assert!(matches!(
+            changes(&backend, "0", 2).await,
+            Err(BackendChangesError::TooManyChanges { limit: 2 })
+        ));
+    }
+
+    fn sorted(mut ids: Vec<Id>) -> Vec<Id> {
+        ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        ids
+    }
+
+    async fn changes(
+        backend: &MemoryBackend,
+        since: &str,
+        max: u64,
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapBackend>::Error>> {
+        backend
+            .get_changes::<T>(
+                &CALLER,
+                &Id::from("acc1"),
+                jmap_server::ChangesParams::new(&State::from(since)).max_changes(Some(max)),
+            )
+            .await
     }
 }
