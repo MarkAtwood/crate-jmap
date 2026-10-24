@@ -33,7 +33,10 @@ pub(crate) fn with_tag(value: Value, tag: &str) -> Result<Value, serde_json::Err
 pub(crate) fn take_tag<E: serde::de::Error>(map: &mut Map<String, Value>) -> Result<String, E> {
     match map.remove("@type") {
         Some(Value::String(s)) => Ok(s),
-        Some(other) => Err(E::custom(format!("@type must be a string, found {other}"))),
+        Some(other) => Err(E::custom(format!(
+            "@type must be a string, found {}",
+            jmap_types::json_type_name(&other)
+        ))),
         None => Err(E::missing_field("@type")),
     }
 }
@@ -45,4 +48,26 @@ where
     D: Deserializer<'de>,
 {
     serde_json::from_value(Value::Object(map)).map_err(D::Error::custom)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Oracle: hand-written JSON whose `@type` carries a canary. RFC 8620
+    /// §3.6.1 makes an error `description` "unstructured English text
+    /// suitable for displaying to a developer", so the client value must not
+    /// be echoed; only its JSON type (RFC 8259 §3 "object") is named.
+    #[test]
+    fn take_tag_error_does_not_echo_value() {
+        let mut map = serde_json::json!({ "@type": { "note": "CANARY-kwqn" } })
+            .as_object()
+            .cloned()
+            .unwrap_or_default();
+        let err = take_tag::<serde_json::Error>(&mut map)
+            .unwrap_err()
+            .to_string();
+        assert!(!err.contains("CANARY-kwqn"), "{err}");
+        assert_eq!(err, "@type must be a string, found object");
+    }
 }

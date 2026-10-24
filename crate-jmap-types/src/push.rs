@@ -326,8 +326,12 @@ fn take_type<E: serde::de::Error>(
     match map.remove("@type") {
         None => Ok(()),
         Some(serde_json::Value::String(s)) if s == expected => Ok(()),
+        Some(serde_json::Value::String(_)) => {
+            Err(E::custom(format!("@type must be \"{expected}\"")))
+        }
         Some(other) => Err(E::custom(format!(
-            "@type must be \"{expected}\", found {other}"
+            "@type must be a string, found {}",
+            crate::json_type_name(&other)
         ))),
     }
 }
@@ -344,6 +348,30 @@ fn take_field<T: DeserializeOwned, E: serde::de::Error>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Oracle: hand-written JSON whose `@type` carries a canary. RFC 8620
+    /// §3.6.1 makes an error `description` "unstructured English text
+    /// suitable for displaying to a developer", so the client value must not
+    /// be echoed; only its JSON type (RFC 8259 §3 "object") is named.
+    #[test]
+    fn push_verification_type_error_does_not_echo_value() {
+        for (raw, want) in [
+            (
+                r#"{"@type":{"note":"CANARY-kwqn"},"pushSubscriptionId":"p","verificationCode":"c"}"#,
+                "@type must be a string, found object",
+            ),
+            (
+                r#"{"@type":"CANARY-kwqn","pushSubscriptionId":"p","verificationCode":"c"}"#,
+                "@type must be \"PushVerification\"",
+            ),
+        ] {
+            let err = serde_json::from_str::<PushVerification>(raw)
+                .unwrap_err()
+                .to_string();
+            assert!(!err.contains("CANARY-kwqn"), "{err}");
+            assert!(err.contains(want), "{err}");
+        }
+    }
 
     /// Every `PushSubscription` property RFC 8620 §7.2 defines is classified
     /// once. The struct literal makes a new field a compile error here.

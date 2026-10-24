@@ -3678,6 +3678,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-types**, **jmap-chat-types**, **jmap-scene-types**,
+  **jmap-vtc-types**: a non-string `@type` no longer echoes the client's
+  JSON value into the serde error text, which servers forward as an
+  `invalidArguments` description (RFC 8620 §3.6.1); the error names only
+  the JSON type. `json_type_name` moves to `jmap-types` (re-exported
+  unchanged as `jmap_server::json_type_name`).
 - **jmap-mail-server**: the in-memory backend's `MemoryError` no longer
   echoes a client-supplied `sinceState` ("invalid state token") or
   Email/parse `blobId` ("blob not found") in its `Display` text, which

@@ -279,7 +279,8 @@ impl<'de> Deserialize<'de> for ChatMessagePush {
             }
             Some(other) => {
                 return Err(D::Error::custom(format!(
-                    "@type must be a string, found {other}"
+                    "@type must be a string, found {}",
+                    jmap_types::json_type_name(&other)
                 )));
             }
             None => {
@@ -386,6 +387,23 @@ impl ChatMessageEntry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Oracle: hand-written JSON whose `@type` carries a canary. RFC 8620
+    /// §3.6.1 makes an error `description` "unstructured English text
+    /// suitable for displaying to a developer", so the client value must not
+    /// be echoed; only its JSON type (RFC 8259 §3 "object") is named.
+    #[test]
+    fn chat_message_push_type_error_does_not_echo_value() {
+        let raw = r#"{"@type":{"note":"CANARY-kwqn"},"accountId":"u1","state":"s","messages":[]}"#;
+        let err = serde_json::from_str::<ChatMessagePush>(raw)
+            .unwrap_err()
+            .to_string();
+        assert!(!err.contains("CANARY-kwqn"), "{err}");
+        assert!(
+            err.contains("@type must be a string, found object"),
+            "{err}"
+        );
+    }
 
     // Oracle: hand-crafted JSON matching the spec full example.
     // Asserts field mapping (camelCase → snake_case) and nested entry fields.

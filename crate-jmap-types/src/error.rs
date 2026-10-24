@@ -429,6 +429,27 @@ impl JmapError {
     }
 }
 
+/// Name the top-level JSON type of `v` (`null`, `boolean`, `number`,
+/// `string`, `array` or `object`) for an error description.
+///
+/// Malformed-argument errors interpolate this tag instead of the value
+/// itself. `Value`'s `Display` re-serialises arbitrary client-supplied JSON,
+/// so echoing it would let a request amplify its own error response and
+/// copy attacker-controlled text into the `description` that RFC 8620
+/// §3.6.1 reserves for "unstructured English text suitable for displaying
+/// to a developer" (and into any log that buffers responses).
+#[must_use]
+pub fn json_type_name(v: &serde_json::Value) -> &'static str {
+    match v {
+        serde_json::Value::Null => "null",
+        serde_json::Value::Bool(_) => "boolean",
+        serde_json::Value::Number(_) => "number",
+        serde_json::Value::String(_) => "string",
+        serde_json::Value::Array(_) => "array",
+        serde_json::Value::Object(_) => "object",
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
