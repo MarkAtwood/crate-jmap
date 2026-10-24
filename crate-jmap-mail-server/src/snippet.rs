@@ -28,7 +28,7 @@ use serde_json::{Value, json};
 
 use crate::MailBackend;
 use crate::helpers::extract_account_id;
-use jmap_server::{HandlerOutput, server_fail_from_backend};
+use jmap_server::{HandlerOutput, filter_arg, server_fail_from_backend};
 
 /// Handle a `SearchSnippet/get` method call (RFC 8621 §5.1).
 ///
@@ -49,6 +49,8 @@ use jmap_server::{HandlerOutput, server_fail_from_backend};
 /// as `Email/query`. Only a plain `Condition` variant is forwarded to the
 /// backend; operator trees (`AND`/`OR`/`NOT`) are passed as `None` (no
 /// highlight — valid per RFC 8621 §5.1 which allows `null` snippets).
+/// A non-object `filter` is `invalidArguments`; an object that does not
+/// decode as an `EmailFilter` is `unsupportedFilter`.
 ///
 /// # Request size
 ///
@@ -64,7 +66,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    let (account_id, args) = extract_account_id(args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
         .await
@@ -100,16 +102,12 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     // Parse the optional filter as EmailFilter (operator tree or plain condition).
     // Only a plain Condition is forwarded to the backend; operator trees produce
     // no highlights (null subject/preview), which is valid per RFC 8621 §5.9.
-    let condition = match args.get("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => {
-            let filter =
-                EmailFilter::deserialize(v).map_err(|_| JmapError::unsupported_filter())?;
-            match filter {
-                jmap_mail_types::Filter::Condition(c) => Some(c),
-                _ => None,
-            }
-        }
+    // RFC 8621 §5.1 types `filter` as FilterOperator|FilterCondition|null: a
+    // non-object is invalidArguments, while unsupportedFilter (RFC 8620 §5.5)
+    // stays for an object the server cannot process (bd:JMAP-ytux).
+    let condition = match filter_arg::<EmailFilter>(&mut args)? {
+        Some(jmap_mail_types::Filter::Condition(c)) => Some(c),
+        _ => None,
     };
 
     let snippets = backend

@@ -2082,6 +2082,11 @@ wire behaviour that a conforming peer can observe.
   an object that fails to decode is still `unsupportedFilter`. Graph
   handlers keep `unsupportedFilter`, as the graph draft mandates for any
   filter other than its single condition (bd JMAP-98zb).
+- **BREAKING** **jmap-mail-server**: a non-object `filter` on
+  `SearchSnippet/get` is now `invalidArguments`, not `unsupportedFilter`.
+  RFC 8621 §5.1 types it "FilterOperator|FilterCondition|null"; the
+  handler now uses `jmap_server::filter_arg` like Email/query, so an
+  object that fails to decode is still `unsupportedFilter` (bd JMAP-ytux).
 - **jmap-server**: the `Dispatcher::dispatch` docs now state the
   cancellation contract as intended behaviour: dropping the dispatch
   future does not cancel method calls already running in their spawned
