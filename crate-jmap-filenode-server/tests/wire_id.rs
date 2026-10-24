@@ -7,14 +7,16 @@
 //! 'URL and Filename Safe' base64 alphabet". `"bad id"` contains a space,
 //! so a `/set` `update` key or `destroy` element naming it fails that
 //! entry with `invalidProperties` naming `id`, written out by hand below.
+//! The same check covers Id-typed properties of a create body and the
+//! `ids` argument of `/get`.
 
 #![allow(async_fn_in_trait)]
 
 mod common;
 
 use common::MemoryBackend;
-use jmap_filenode_server::handle_filenode_set;
-use jmap_types::Id;
+use jmap_filenode_server::{handle_filenode_get, handle_filenode_set};
+use jmap_types::{Id, MethodErrorType};
 use serde_json::{Value, json};
 
 /// Asserts the hand-written RFC 8620 §5.3 SetError for a malformed id.
@@ -47,4 +49,42 @@ async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
     .primary;
     assert_invalid_id(&resp["notUpdated"]["bad id"], &resp);
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
+}
+
+/// draft-ietf-jmap-filenode-16 `parentId` is "Id|null"; a create naming
+/// `"bad id"` there fails with `invalidProperties` and creates nothing.
+#[tokio::test]
+async fn filenode_set_create_rejects_malformed_parent_id() {
+    let backend = MemoryBackend::new().with_account(&Id::from("account1"));
+    let args = json!({
+        "accountId": "account1",
+        "create": { "c": { "@type": "Directory", "name": "d", "parentId": "bad id" } }
+    });
+    let resp = handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+        .await
+        .expect("/set must not fail as a method")
+        .primary;
+    assert_eq!(
+        resp["notCreated"]["c"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert!(resp["created"].get("c").is_none(), "{resp}");
+}
+
+/// RFC 8620 §5.1 types `ids` "Id[]|null" and `notFound` "Id[]"; §3.9: "In
+/// case of invalid arguments (unknown/insufficient/wrong type for data,
+/// etc.), the method MUST return an 'invalidArguments' error". `"bad id"`
+/// is not an Id, so the call fails instead of listing it in `notFound`.
+#[tokio::test]
+async fn filenode_get_rejects_malformed_ids() {
+    let backend = MemoryBackend::new().with_account(&Id::from("account1"));
+    let err = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "account1", "ids": ["bad id"] }),
+        &[],
+    )
+    .await
+    .expect_err("a malformed id in ids must be rejected");
+    assert_eq!(err.error_type, MethodErrorType::InvalidArguments);
 }
