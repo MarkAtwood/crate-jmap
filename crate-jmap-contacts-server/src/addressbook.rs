@@ -257,6 +257,12 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     // and AddressBook requires both, so the server supplies
                     // them. A new book is not the default until
                     // `onSuccessSetIsDefault` makes it one.
+                    //
+                    // RFC 8620 §5.3: the server fills omitted properties that
+                    // have a default. RFC 9610 §2: `isSubscribed` SHOULD
+                    // default to true for new AddressBooks created by the
+                    // user themself.
+                    m.entry("isSubscribed").or_insert(Value::Bool(true));
                     m.insert("isDefault".to_owned(), Value::Bool(false));
                     m.insert(
                         "myRights".to_owned(),
