@@ -62,10 +62,16 @@ impl EditLog {
 /// handler checks are defense in depth. `createdBy` and `updatedBy` come
 /// from [`JmapBackend::principal_id`].
 ///
-/// `query_objects` and `query_changes` MUST omit every Graph the caller
-/// may not read and every GraphNode and GraphEdge in one: "A Graph the
-/// user may not read SHOULD be indistinguishable from one that does not
-/// exist: ... absence from `/query` results".
+/// `query_objects` SHOULD omit every Graph the caller may not read and
+/// every GraphNode and GraphEdge in one: "A Graph the user may not read
+/// SHOULD be indistinguishable from one that does not exist: ...
+/// absence from `/query` results" (draft §Security Considerations).
+/// `query_changes` is filtered for the same caller, not per account:
+/// RFC 8620 §5.6 defines `/queryChanges` as the update of a cached
+/// `/query` result, so its `added` and `removed` describe the results
+/// this caller's `/query` returns. Unlike draft-atwood-jmap-scene-00
+/// §Visibility Contract, the Graph draft does not make `/queryChanges`
+/// report changes for the whole account.
 ///
 /// [`JmapBackend::get_changes`] for `Graph`, `GraphNode`, `GraphEdge` and
 /// `GraphNodeOp` SHOULD be scoped to the caller the same way: the draft
