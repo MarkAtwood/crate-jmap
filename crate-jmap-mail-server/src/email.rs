@@ -800,6 +800,32 @@ pub async fn handle_email_changes<B: MailBackend>(
 // Email/query (RFC 8621 §4.4)
 // ---------------------------------------------------------------------------
 
+/// Decode the optional `sort` argument of `Email/query` and
+/// `Email/queryChanges`.
+///
+/// RFC 8621 §4.4.2 lists the Email comparator properties; any other property
+/// decodes as [`jmap_mail_types::ComparatorProperty::Other`] and is
+/// unsupportedSort (RFC 8620 §5.5). Strings compare byte-wise, so `i;octet`
+/// (RFC 4790 §9.3) is the only collation accepted; §5.5 makes "a collation
+/// method it does not recognise" unsupportedSort too. A malformed comparator
+/// is invalidArguments. An absent or null `sort` yields `None`.
+fn email_sort_arg(
+    args: &mut serde_json::Map<String, Value>,
+) -> Result<Option<Vec<jmap_mail_types::EmailComparator>>, JmapError> {
+    let sort: Vec<jmap_mail_types::EmailComparator> = match args.remove("sort") {
+        None | Some(Value::Null) => return Ok(None),
+        Some(v) => serde_json::from_value(v)
+            .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
+    };
+    if sort.iter().any(|c| {
+        matches!(c.property, jmap_mail_types::ComparatorProperty::Other(_))
+            || c.collation.as_deref().is_some_and(|k| k != "i;octet")
+    }) {
+        return Err(JmapError::unsupported_sort());
+    }
+    Ok(Some(sort))
+}
+
 /// Handle an `Email/query` method call (RFC 8621 §4.4).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
@@ -838,13 +864,7 @@ pub async fn handle_email_query<B: MailBackend>(
         using,
     )?;
 
-    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
-        ),
-    };
+    let sort = email_sort_arg(&mut args)?;
 
     // effective_limit is always a concrete u64 after parsing (default 256 when absent).
     // requested_limit tracks what the client sent so we know when to echo limit back.
@@ -1086,13 +1106,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         using,
     )?;
 
-    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v)
-                .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
-        ),
-    };
+    let sort = email_sort_arg(&mut args)?;
 
     let max_changes = jmap_server::parse_max_changes(args.remove("maxChanges").as_ref())?;
 

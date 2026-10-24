@@ -3756,6 +3756,10 @@ wire behaviour that a conforming peer can observe.
   `hasMoreChanges: true` (RFC 8620 §5.2 SHOULD), mirroring jmap-mail-server,
   instead of `cannotCalculateChanges`. That error remains only when the
   first state alone holds more ids than `maxChanges`.
+- **jmap-mail-server**: **BREAKING** `Email/query` and `Email/queryChanges`
+  now reject a comparator `property` outside RFC 8621 §4.4.2 or a
+  `collation` other than `i;octet` with `unsupportedSort` (RFC 8620 §5.5)
+  instead of passing the sort to the backend unchecked.
 - **jmap-mail-server**: **BREAKING** `Mailbox/query`, `Mailbox/queryChanges`,
   `EmailSubmission/query`, `EmailSubmission/queryChanges` and
   `SieveScript/query` now reject a comparator `collation` other than
