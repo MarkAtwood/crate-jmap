@@ -316,3 +316,164 @@ async fn submission_email_id_resolves_creation_and_unknown_ref_fails() {
         assert_eq!(err["properties"], json!([property]), "{create_id}: {err:?}");
     }
 }
+
+/// The id the server reported for creation id `m` in a Mailbox/set
+/// response.
+fn created_mailbox_id(resp: &JmapResponse, index: usize) -> String {
+    resp.method_responses[index].arguments["created"]["m"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{:?}", resp.method_responses[index]))
+        .to_owned()
+}
+
+/// RFC 8621 §4.8 (rfc8621.txt:3005) types EmailImport `mailboxIds`
+/// as "Id[Boolean]", so its keys take creation id references.
+#[tokio::test]
+async fn email_import_mailbox_ids_key_resolves_creation_and_unknown_ref_fails() {
+    let backend = backend();
+    let blob_id = Id::from("blob-import-refs");
+    backend.store_blob(
+        &blob_id,
+        b"Subject: Hi\r\nFrom: alice@example.com\r\n\r\nBody.".to_vec(),
+    );
+    let resp = dispatch(
+        backend,
+        json!([
+            ["Mailbox/set", {"accountId": ACCOUNT, "create": {"m": {"name": "One"}}}, "0"],
+            ["Email/import", {"accountId": ACCOUNT, "emails": {
+                "ok": {"blobId": blob_id.as_ref(), "mailboxIds": {"#m": true}},
+                "bad": {"blobId": blob_id.as_ref(), "mailboxIds": {"#nope": true}}
+            }}, "1"],
+            ["Email/get", {"accountId": ACCOUNT, "properties": ["mailboxIds"]}, "2"]
+        ]),
+    )
+    .await;
+    let m = created_mailbox_id(&resp, 0);
+    let args = &resp.method_responses[1].arguments;
+    assert!(args["created"]["ok"].is_object(), "{args:?}");
+    let err = &args["notCreated"]["bad"];
+    assert_eq!(err["type"], "invalidProperties", "{err:?}");
+    assert_eq!(err["properties"], json!(["mailboxIds"]), "{err:?}");
+    assert_eq!(
+        resp.method_responses[2].arguments["list"],
+        json!([{"id": args["created"]["ok"]["id"], "mailboxIds": {m.as_str(): true}}]),
+        "{:?}",
+        resp.method_responses[2]
+    );
+}
+
+/// RFC 8621 §4.7 makes Email/copy a standard RFC 8620 §5.4 /copy whose
+/// create objects may override `mailboxIds`, an "Id[Boolean]" (§4.1.1,
+/// rfc8621.txt:1331).
+#[tokio::test]
+async fn email_copy_mailbox_ids_key_resolves_creation_and_unknown_ref_fails() {
+    const DEST: &str = "account2";
+    let backend = backend();
+    backend.register_account(&Id::from(DEST));
+    let source_id = seed_email(&backend).await;
+    let resp = dispatch(
+        backend,
+        json!([
+            ["Mailbox/set", {"accountId": DEST, "create": {"m": {"name": "One"}}}, "0"],
+            ["Email/copy", {"fromAccountId": ACCOUNT, "accountId": DEST, "create": {
+                "ok": {"id": source_id.as_ref(), "mailboxIds": {"#m": true}},
+                "bad": {"id": source_id.as_ref(), "mailboxIds": {"#nope": true}}
+            }}, "1"],
+            ["Email/get", {"accountId": DEST, "properties": ["mailboxIds"]}, "2"]
+        ]),
+    )
+    .await;
+    let m = created_mailbox_id(&resp, 0);
+    let args = &resp.method_responses[1].arguments;
+    assert!(args["created"]["ok"].is_object(), "{args:?}");
+    let err = &args["notCreated"]["bad"];
+    assert_eq!(err["type"], "invalidProperties", "{err:?}");
+    assert_eq!(err["properties"], json!(["mailboxIds"]), "{err:?}");
+    assert_eq!(
+        resp.method_responses[2].arguments["list"],
+        json!([{"id": args["created"]["ok"]["id"], "mailboxIds": {m.as_str(): true}}]),
+        "{:?}",
+        resp.method_responses[2]
+    );
+}
+
+/// RFC 8621 §7.5 (rfc8621.txt:4525-4531): onSuccessUpdateEmail values are
+/// "PatchObject"s applied by an implicit Email/set, so a `mailboxIds/#m`
+/// path names the Mailbox created earlier in the request.
+#[tokio::test]
+async fn submission_on_success_update_email_resolves_mailbox_creation() {
+    let backend = backend();
+    let (identity_id, _) = backend
+        .create_object::<Identity, _>(&(), &Id::from(ACCOUNT), "i0", |id: &Id| {
+            Identity::new(id.clone(), "alice@example.com", true)
+        })
+        .await
+        .expect("create Identity");
+    let email_id = seed_email(&backend).await;
+    let resp = dispatch(
+        backend,
+        json!([
+            ["Mailbox/set", {"accountId": ACCOUNT, "create": {"m": {"name": "Sent"}}}, "0"],
+            ["EmailSubmission/set", {"accountId": ACCOUNT,
+                "create": {"s": {
+                    "identityId": identity_id.as_ref(),
+                    "emailId": email_id.as_ref(),
+                    "envelope": {
+                        "mailFrom": {"email": "alice@example.com"},
+                        "rcptTo": [{"email": "bob@example.com"}]
+                    }
+                }},
+                "onSuccessUpdateEmail": {"#s": {"mailboxIds/#m": true}}
+            }, "1"],
+            ["Email/get", {"accountId": ACCOUNT, "ids": [email_id.as_ref()],
+                "properties": ["mailboxIds"]}, "2"]
+        ]),
+    )
+    .await;
+    let m = created_mailbox_id(&resp, 0);
+    let implicit = &resp.method_responses[2];
+    assert_eq!(implicit.name, "Email/set", "{:?}", resp.method_responses);
+    assert!(
+        implicit.arguments["updated"]
+            .get(email_id.as_ref())
+            .is_some(),
+        "{implicit:?}"
+    );
+    let mailbox_ids = &resp.method_responses[3].arguments["list"][0]["mailboxIds"];
+    assert_eq!(mailbox_ids[m.as_str()], true, "{mailbox_ids:?}");
+    assert!(mailbox_ids.get("#m").is_none(), "{mailbox_ids:?}");
+}
+
+/// An unknown reference in an onSuccessUpdateEmail patch fails that
+/// Email update with the same SetError Email/set gives (RFC 8620 §5.3).
+#[tokio::test]
+async fn submission_on_success_update_email_unknown_mailbox_ref_fails() {
+    let backend = backend();
+    let (identity_id, _) = backend
+        .create_object::<Identity, _>(&(), &Id::from(ACCOUNT), "i0", |id: &Id| {
+            Identity::new(id.clone(), "alice@example.com", true)
+        })
+        .await
+        .expect("create Identity");
+    let email_id = seed_email(&backend).await;
+    let resp = dispatch(
+        backend,
+        json!([["EmailSubmission/set", {"accountId": ACCOUNT,
+            "create": {"s": {
+                "identityId": identity_id.as_ref(),
+                "emailId": email_id.as_ref(),
+                "envelope": {
+                    "mailFrom": {"email": "alice@example.com"},
+                    "rcptTo": [{"email": "bob@example.com"}]
+                }
+            }},
+            "onSuccessUpdateEmail": {"#s": {"mailboxIds/#nope": true}}
+        }, "0"]]),
+    )
+    .await;
+    let implicit = &resp.method_responses[1];
+    assert_eq!(implicit.name, "Email/set", "{:?}", resp.method_responses);
+    let err = &implicit.arguments["notUpdated"][email_id.as_ref()];
+    assert_eq!(err["type"], "invalidProperties", "{err:?}");
+    assert_eq!(err["properties"], json!(["mailboxIds"]), "{err:?}");
+}

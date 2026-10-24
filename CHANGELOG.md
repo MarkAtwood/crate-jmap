@@ -1964,6 +1964,16 @@ wire behaviour that a conforming peer can observe.
   the create `k` of the same call, as §5.3 requires. A reference that
   matches no earlier creation fails that entry with `invalidProperties`
   naming the property (bd JMAP-j7uo).
+- **BREAKING** **jmap-mail-server**: `handle_email_import` and
+  `handle_email_copy` take a new third argument, `created_ids:
+  &BTreeMap<Id, Id>` (pass `CallContext::created_ids`;
+  `register_mail_handlers` does). Email/import and Email/copy `mailboxIds`
+  keys, and `mailboxIds` keys and `mailboxIds/<id>` paths in
+  EmailSubmission/set `onSuccessUpdateEmail` patches, now resolve
+  `#creationId` references (RFC 8620 §5.3) instead of treating `#x` as a
+  literal id. An unknown reference fails that entry (or that implicit
+  Email/set update) with `invalidProperties` naming `mailboxIds`
+  (bd JMAP-443k).
 - **BREAKING** **jmap-server**: `Dispatcher::dispatch` now answers a method
   call whose `filter` nests FilterOperator `conditions` more than 32 levels
   deep with `unsupportedFilter` (RFC 8620 §5.5, rfc8620.txt:2626-2629),
