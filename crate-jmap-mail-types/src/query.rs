@@ -532,6 +532,66 @@ impl EmailSubmissionComparator {
     }
 }
 
+/// The property to sort by in a [`SieveScriptComparator`].
+///
+/// RFC 9661 §2.5: "The following SieveScript properties MUST be supported
+/// for sorting: name, isActive". Unknown names are kept in
+/// [`Other`](SieveScriptComparatorProperty::Other) so they round-trip; a
+/// server answers one it does not support with `unsupportedSort` (RFC 8620
+/// §5.5).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SieveScriptComparatorProperty {
+    /// Sort by `name`.
+    Name,
+    /// Sort by `isActive`.
+    IsActive,
+    /// A property not listed above, kept so it round-trips; a server
+    /// answers it with `unsupportedSort` (RFC 8620 §5.5).
+    Other(String),
+}
+
+impl_string_enum!(SieveScriptComparatorProperty, "a SieveScript sort property string",
+    "name"     => Name,
+    "isActive" => IsActive,
+);
+
+/// Sort comparator for `SieveScript/query` (RFC 9661 §2.5).
+///
+/// Out of scope for extras preservation for the same reason as
+/// [`EmailComparator`]: servers dispatch on `property`.
+///
+/// Build one with [`SieveScriptComparator::new`]; the struct is
+/// `#[non_exhaustive]`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SieveScriptComparator {
+    /// The property to sort by.
+    pub property: SieveScriptComparatorProperty,
+
+    /// If `true`, sort ascending; if `false`, sort descending.
+    /// Defaults to `true` per RFC 8620 §5.5.
+    #[serde(default = "bool_true", skip_serializing_if = "is_true")]
+    pub is_ascending: bool,
+
+    /// Collation algorithm (e.g. `"i;unicode-casemap"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub collation: Option<String>,
+}
+
+impl SieveScriptComparator {
+    /// An ascending comparator on `property` with no collation
+    /// (`isAscending` defaults to `true`, RFC 8620 §5.5).
+    pub fn new(property: SieveScriptComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+        }
+    }
+}
+
 fn bool_true() -> bool {
     true
 }

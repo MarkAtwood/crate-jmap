@@ -92,6 +92,7 @@ pub use query::{
     ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition,
     EmailSubmissionComparator, EmailSubmissionComparatorProperty, EmailSubmissionFilter, Filter,
     FilterOperator, MailboxComparator, MailboxComparatorProperty, MailboxFilter, Operator,
+    SieveScriptComparator, SieveScriptComparatorProperty,
 };
 pub use snippet::{SearchSnippet, SearchSnippetGetResponse};
 pub use submission::{

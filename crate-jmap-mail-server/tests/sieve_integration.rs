@@ -1406,3 +1406,94 @@ async fn sieve_set_create_blob_fetch_failure_is_per_item() {
         "backend error text must not reach the wire; resp: {resp}"
     );
 }
+
+/// SieveScript/query rejects a sort property it does not support.
+///
+/// Oracle: RFC 8620 §5.5 — "unsupportedSort: The "sort" is syntactically
+/// valid, but it includes a property the server does not support sorting
+/// on"; RFC 9661 §2.5 lists only `name` and `isActive` for sorting.
+#[tokio::test]
+async fn sieve_query_unknown_sort_property_returns_unsupported_sort() {
+    let backend = MemoryBackend::new();
+    let account_id = setup_account(&backend).await;
+
+    let query_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sort": [{ "property": "blobId" }]
+    });
+    let err = handle_sieve_query(&backend, &(), query_args)
+        .await
+        .expect_err("sort by blobId must be rejected");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+}
+
+/// SieveScript/query honours `sort` on `name` and `isActive`, including
+/// `isAscending: false` and multi-key ordering.
+///
+/// Oracle: RFC 9661 §2.5 — "The following SieveScript properties MUST be
+/// supported for sorting: name, isActive"; RFC 8620 §5.5 — "If true, sort
+/// in ascending order. If false, reverse the comparator's results to sort
+/// in descending order", and later comparators break ties. Expected ids
+/// are worked out by hand from `alpha` (active), `beta`, `gamma`.
+#[tokio::test]
+async fn sieve_query_sort_by_name_and_is_active() {
+    let backend = MemoryBackend::new();
+    let account_id = setup_account(&backend).await;
+    store_valid_blob(&backend);
+
+    let create_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "A": { "name": "alpha", "blobId": "valid-script-blob" },
+            "B": { "name": "beta", "blobId": "valid-script-blob" },
+            "G": { "name": "gamma", "blobId": "valid-script-blob" }
+        },
+        "onSuccessActivateScript": "#A"
+    });
+    let created = handle_sieve_set(&backend, &(), create_args)
+        .await
+        .expect("create must succeed")
+        .primary;
+    let id = |k: &str| {
+        created["created"][k]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("created.{k}.id missing: {created}"))
+            .to_owned()
+    };
+    let (a, b, g) = (id("A"), id("B"), id("G"));
+
+    let cases = [
+        (
+            serde_json::json!([{ "property": "name", "isAscending": false }]),
+            vec![g.clone(), b.clone(), a.clone()],
+        ),
+        (
+            serde_json::json!([{ "property": "isActive" }, { "property": "name" }]),
+            vec![b.clone(), g.clone(), a.clone()],
+        ),
+        (
+            serde_json::json!([
+                { "property": "isActive", "isAscending": false },
+                { "property": "name", "isAscending": false }
+            ]),
+            vec![a.clone(), g.clone(), b.clone()],
+        ),
+    ];
+    for (sort, expected) in cases {
+        let query_args = serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "sort": sort
+        });
+        let resp = handle_sieve_query(&backend, &(), query_args)
+            .await
+            .unwrap_or_else(|e| panic!("sort {sort} must be accepted: {e:?}"))
+            .primary;
+        let ids: Vec<&str> = resp["ids"]
+            .as_array()
+            .expect("ids must be an array")
+            .iter()
+            .map(|v| v.as_str().expect("id must be a string"))
+            .collect();
+        assert_eq!(ids, expected, "sort {sort}; resp: {resp}");
+    }
+}

@@ -3649,6 +3649,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: `SieveScript/query` now honours `sort` on `name`
+  and `isActive` (RFC 9661 §2.5), including `isAscending` and multi-key
+  order, and rejects any other sort property with `unsupportedSort` (RFC
+  8620 §5.5); it used to ignore `sort` and always order by name.
+  **jmap-mail-types** adds `SieveScriptComparator` and
+  `SieveScriptComparatorProperty`. (JMAP-6hv3)
+
 - **jmap-tasks-server**: the `TasksBackend::update_task_per_user`
   authorisation contract now requires the TaskList's `mayUpdatePrivate`
   right instead of read access to the Task, matching draft-ietf-jmap-tasks-06
