@@ -19,8 +19,10 @@ mod common;
 use std::collections::BTreeMap;
 
 use common::MemoryBackend;
-use jmap_mail_server::{MailBackend, handle_email_get, handle_email_set};
-use jmap_server::HandlerOutput;
+use jmap_mail_server::{
+    MailBackend, handle_email_get, handle_email_set, handle_mailbox_get, handle_thread_get,
+};
+use jmap_server::{HandlerOutput, JmapBackend};
 use jmap_types::Id;
 use serde_json::{Value, json};
 
@@ -242,4 +244,91 @@ async fn create_rejects_header_injection() {
     .await;
     assert_eq!(resp["notCreated"]["c0"]["type"], json!("invalidProperties"));
     assert!(resp["created"].as_object().is_none_or(|m| m.is_empty()));
+}
+
+/// RFC 8621 §3: "Every email belongs to a Thread"; `emailIds` is "The ids
+/// of the Emails in the Thread, sorted by the receivedAt date of the Email,
+/// oldest first". RFC 8621 §2: `totalEmails` is "The number of Emails in
+/// this Mailbox", `unreadEmails` those "that have neither the $seen
+/// keyword nor the $draft keyword", `totalThreads` "The number of Threads
+/// where at least one Email in the Thread is in this Mailbox", and
+/// `unreadThreads` those with an unread Email in it. An `Email/set` create
+/// must maintain all of these as `Email/import` does (bd:JMAP-p36f).
+#[tokio::test]
+async fn create_maintains_thread_and_mailbox_counts() {
+    let backend = backend();
+    let account = Id::from("a1");
+    backend.seed_object(
+        &account,
+        "Mailbox",
+        &Id::from("inbox"),
+        json!({
+            "id": "inbox", "name": "Inbox", "parentId": null, "role": "inbox",
+            "sortOrder": 0, "totalEmails": 0, "unreadEmails": 0,
+            "totalThreads": 0, "unreadThreads": 0,
+            "myRights": {
+                "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+                "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+                "mayRename": true, "mayDelete": true, "maySubmit": true
+            },
+            "isSubscribed": true,
+        }),
+    );
+    let thread_state_before = backend
+        .get_state::<jmap_mail_types::Thread>(&(), &account)
+        .await
+        .unwrap();
+
+    let first = set(
+        &backend,
+        json!({
+            "mailboxIds": { "inbox": true },
+            "messageId": ["root@example.com"],
+            "receivedAt": "2026-10-23T10:00:00Z",
+            "subject": "Lunch",
+        }),
+    )
+    .await;
+    let first = &first["created"]["c0"];
+    let reply = set(
+        &backend,
+        json!({
+            "mailboxIds": { "inbox": true },
+            "keywords": { "$seen": true },
+            "messageId": ["reply@example.com"],
+            "inReplyTo": ["root@example.com"],
+            "receivedAt": "2026-10-23T11:00:00Z",
+            "subject": "Re: Lunch",
+        }),
+    )
+    .await;
+    let reply = &reply["created"]["c0"];
+    assert_eq!(reply["threadId"], first["threadId"]);
+
+    let args = json!({ "accountId": "a1", "ids": [first["threadId"]] });
+    let HandlerOutput { primary, .. } = handle_thread_get(&backend, &(), args)
+        .await
+        .expect("Thread/get must succeed");
+    assert_eq!(
+        primary["list"],
+        json!([{ "id": first["threadId"], "emailIds": [first["id"], reply["id"]] }])
+    );
+    assert_ne!(primary["state"], json!(thread_state_before.as_ref()));
+
+    let args = json!({
+        "accountId": "a1",
+        "ids": ["inbox"],
+        "properties": ["totalEmails", "unreadEmails", "totalThreads", "unreadThreads"],
+    });
+    let HandlerOutput { primary, .. } = handle_mailbox_get(&backend, &(), args, &[])
+        .await
+        .expect("Mailbox/get must succeed");
+    assert_eq!(
+        primary["list"],
+        json!([{
+            "id": "inbox",
+            "totalEmails": 2, "unreadEmails": 1,
+            "totalThreads": 1, "unreadThreads": 1,
+        }])
+    );
 }
