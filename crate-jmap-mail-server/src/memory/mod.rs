@@ -219,6 +219,92 @@ impl Inner {
             .or_default()
     }
 
+    /// Store a new `email` (serialized as `email_val`) and everything that
+    /// derives from it, for [`import_email`](MailBackend::import_email) and
+    /// [`create_email`](MailBackend::create_email): create or extend its
+    /// Thread with `emailIds` sorted by `receivedAt` (RFC 8621 §3), add it to
+    /// the `totalEmails`/`unreadEmails`/`totalThreads`/`unreadThreads`
+    /// counts of every Mailbox in `mailboxIds` (RFC 8621 §2), index its
+    /// `messageId` for duplicate detection (RFC 8621 §4.8), and advance the
+    /// Email and Thread states.
+    fn insert_email(&mut self, account_id: &Id, email: &Email, email_val: serde_json::Value) {
+        let account = account_id.as_ref();
+        let email_id = &email.id;
+        let thread_id = &email.thread_id;
+
+        let thread_store = self.objects_mut("Thread", account);
+        let thread_existed = thread_store.contains_key(thread_id);
+        thread_store
+            .entry(thread_id.clone())
+            .and_modify(|v| {
+                if let Some(arr) = v.get_mut("emailIds").and_then(|a| a.as_array_mut()) {
+                    arr.push(serde_json::Value::String(email_id.to_string()));
+                }
+            })
+            .or_insert_with(|| {
+                serde_json::json!({ "id": thread_id.to_string(), "emailIds": [email_id.to_string()] })
+            });
+
+        self.objects_mut("Email", account)
+            .insert(email_id.clone(), email_val);
+
+        // Only needed when joining an existing thread; new threads have one element.
+        if thread_existed {
+            self.sort_thread_email_ids(account, thread_id);
+        }
+
+        let is_unread = !email.keywords.keys().any(|k| k.as_ref() == "$seen");
+        let mailboxes = self.objects_mut("Mailbox", account);
+        for (mbox_id, _) in email.mailbox_ids.iter().filter(|(_, in_mbox)| **in_mbox) {
+            let Some(obj) = mailboxes.get_mut(mbox_id).and_then(|v| v.as_object_mut()) else {
+                continue;
+            };
+            let mut bump = |key: &str| {
+                let n = obj.get(key).and_then(|x| x.as_u64()).unwrap_or(0);
+                obj.insert(key.to_owned(), (n + 1).into());
+            };
+            bump("totalEmails");
+            if is_unread {
+                bump("unreadEmails");
+            }
+            if !thread_existed {
+                bump("totalThreads");
+                if is_unread {
+                    bump("unreadThreads");
+                }
+            }
+        }
+
+        if let Some(msg_ids) = &email.message_id {
+            let account_index = self.message_id_index.entry(account.to_owned()).or_default();
+            for msg_id in msg_ids {
+                account_index.insert(msg_id.clone(), email_id.clone());
+            }
+        }
+
+        let new_email_state = self.bump_state("Email", account);
+        self.change_log_mut("Email", account).push(ChangeEntry {
+            new_state: new_email_state,
+            created: vec![email_id.clone()],
+            updated: vec![],
+            destroyed: vec![],
+            updated_props: None,
+        });
+        let new_thread_state = self.bump_state("Thread", account);
+        let (created, updated) = if thread_existed {
+            (vec![], vec![thread_id.clone()])
+        } else {
+            (vec![thread_id.clone()], vec![])
+        };
+        self.change_log_mut("Thread", account).push(ChangeEntry {
+            new_state: new_thread_state,
+            created,
+            updated,
+            destroyed: vec![],
+            updated_props: None,
+        });
+    }
+
     /// Re-sort a Thread's `emailIds` by the `receivedAt` of each member email.
     ///
     /// RFC 8621 §3 requires `emailIds` to be sorted oldest-first by `receivedAt`.
@@ -1662,19 +1748,7 @@ impl MailBackend for MemoryBackend {
         let mut inner = self.inner.lock().unwrap();
         check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.blobs.insert(blob_id, message);
-        inner
-            .objects_mut("Email", account_id.as_ref())
-            .insert(email_id.clone(), val);
-        let new_state = inner.bump_state("Email", account_id.as_ref());
-        inner
-            .change_log_mut("Email", account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![email_id.clone()],
-                updated: vec![],
-                destroyed: vec![],
-                updated_props: None,
-            });
+        inner.insert_email(account_id, &email, val);
         Ok((email_id, email))
     }
 
@@ -1921,113 +1995,10 @@ impl MailBackend for MemoryBackend {
             email.keywords = kw_map;
             crate::parse::fill_from_message(&mut email, parsed, &bytes, blob_id);
 
-            // Ensure the Thread object exists.
-            let thread_val = serde_json::json!({
-                "id": thread_id.to_string(),
-                "emailIds": [email_id.to_string()]
-            });
-
             // Serialize the email for storage.
             let email_val = serde_json::to_value(&email)
                 .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
-
-            // Insert or update Thread (append email_id if thread exists).
-            let thread_store = inner.objects_mut("Thread", account_id.as_ref());
-            let thread_existed = thread_store.contains_key(&thread_id);
-            thread_store
-                .entry(thread_id.clone())
-                .and_modify(|v| {
-                    if let Some(arr) = v.get_mut("emailIds").and_then(|a| a.as_array_mut()) {
-                        arr.push(serde_json::Value::String(email_id.to_string()));
-                    }
-                })
-                .or_insert(thread_val);
-
-            // Insert Email.
-            inner
-                .objects_mut("Email", account_id.as_ref())
-                .insert(email_id.clone(), email_val);
-
-            // Re-sort the thread's emailIds by receivedAt ascending (RFC 8621 §3).
-            // Only needed when joining an existing thread; new threads have one element.
-            if thread_existed {
-                inner.sort_thread_email_ids(account_id.as_ref(), &thread_id);
-            }
-
-            // Update Mailbox aggregate counts (RFC 8621 §2).
-            let is_unread = !keywords.iter().any(|k| k.as_ref() == "$seen");
-            for mbox_id in mailbox_ids {
-                if let Some(v) = inner
-                    .objects_mut("Mailbox", account_id.as_ref())
-                    .get_mut(mbox_id)
-                    && let Some(obj) = v.as_object_mut()
-                {
-                    let te = obj.get("totalEmails").and_then(|x| x.as_u64()).unwrap_or(0);
-                    obj.insert("totalEmails".to_owned(), (te + 1).into());
-                    if is_unread {
-                        let ue = obj
-                            .get("unreadEmails")
-                            .and_then(|x| x.as_u64())
-                            .unwrap_or(0);
-                        obj.insert("unreadEmails".to_owned(), (ue + 1).into());
-                    }
-                    if !thread_existed {
-                        let tt = obj
-                            .get("totalThreads")
-                            .and_then(|x| x.as_u64())
-                            .unwrap_or(0);
-                        obj.insert("totalThreads".to_owned(), (tt + 1).into());
-                        if is_unread {
-                            let ut = obj
-                                .get("unreadThreads")
-                                .and_then(|x| x.as_u64())
-                                .unwrap_or(0);
-                            obj.insert("unreadThreads".to_owned(), (ut + 1).into());
-                        }
-                    }
-                }
-            }
-
-            // Update Message-ID index for future duplicate detection.
-            if let Some(msg_ids) = &email.message_id {
-                let account_index = inner
-                    .message_id_index
-                    .entry(account_id.to_string())
-                    .or_default();
-                for msg_id in msg_ids {
-                    account_index.insert(msg_id.clone(), email_id.clone());
-                }
-            }
-
-            // Bump state for both Email and Thread.
-            let new_email_state = inner.bump_state("Email", account_id.as_ref());
-            inner
-                .change_log_mut("Email", account_id.as_ref())
-                .push(ChangeEntry {
-                    new_state: new_email_state,
-                    created: vec![email_id.clone()],
-                    updated: vec![],
-                    destroyed: vec![],
-                    updated_props: None,
-                });
-            let new_thread_state = inner.bump_state("Thread", account_id.as_ref());
-            inner
-                .change_log_mut("Thread", account_id.as_ref())
-                .push(ChangeEntry {
-                    new_state: new_thread_state,
-                    created: if thread_existed {
-                        vec![]
-                    } else {
-                        vec![thread_id.clone()]
-                    },
-                    updated: if thread_existed {
-                        vec![thread_id]
-                    } else {
-                        vec![]
-                    },
-                    destroyed: vec![],
-                    updated_props: None,
-                });
+            inner.insert_email(account_id, &email, email_val);
 
             (email, email_id)
         };

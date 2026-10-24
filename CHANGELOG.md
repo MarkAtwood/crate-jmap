@@ -3670,6 +3670,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: the reference `MemoryBackend` `create_email`
+  (`Email/set` create) now creates or extends the Email's Thread, updates
+  the `totalEmails`, `unreadEmails`, `totalThreads` and `unreadThreads`
+  of its Mailboxes and indexes its `messageId`, as `import_email` does
+  (RFC 8621 §2, §3). It used to store only the Email (bd JMAP-p36f).
 - **jmap-sharing-server**, **jmap-calendars-server**: **BREAKING** the
   reference `MemoryBackend` no longer silently ignores what it cannot
   evaluate in `query_objects` (RFC 8620 §5.5). Both reject a non-empty
