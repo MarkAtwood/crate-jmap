@@ -41,6 +41,15 @@ pub struct Mailbox {
     pub address: String,
 }
 
+/// One entry of an RFC 5322 §3.4 `address-list` that may hold groups.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Group {
+    /// The group's display name. `None` writes the mailboxes ungrouped.
+    pub name: Option<String>,
+    /// The group's mailboxes.
+    pub mailboxes: Vec<Mailbox>,
+}
+
 /// The value of a header field, by the RFC 5322 syntax it is written in.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -50,6 +59,9 @@ pub enum HeaderValue {
     Text(String),
     /// A `mailbox-list` or `address-list` without groups (RFC 5322 §3.4).
     Mailboxes(Vec<Mailbox>),
+    /// An `address-list` with groups (RFC 5322 §3.4): a named [`Group`]
+    /// is written `display-name: mailbox, ...;`.
+    Groups(Vec<Group>),
     /// A list of `msg-id`s (RFC 5322 §3.6.4), each given without the angle
     /// brackets.
     MessageIds(Vec<String>),
@@ -297,24 +309,33 @@ fn write_header(out: &mut Vec<u8>, header: &Header) -> Result<(), WriteError> {
     }
     let tokens: Vec<String> = match &header.value {
         HeaderValue::Text(text) => text_tokens(text),
-        HeaderValue::Mailboxes(list) => {
-            let mut tokens = Vec::new();
-            for (i, mailbox) in list.iter().enumerate() {
-                no_line_break(name, &mailbox.address)?;
-                let mut words = match mailbox.name.as_deref().filter(|n| !n.is_empty()) {
-                    Some(display) => {
-                        let mut w = phrase_tokens(display);
-                        w.push(format!("<{}>", mailbox.address));
-                        w
-                    }
-                    None => vec![mailbox.address.clone()],
-                };
-                if i + 1 < list.len()
-                    && let Some(last) = words.last_mut()
-                {
+        HeaderValue::Mailboxes(list) => mailbox_tokens(name, list)?,
+        HeaderValue::Groups(groups) => {
+            let mut tokens: Vec<String> = Vec::new();
+            for group in groups {
+                if group.name.is_none() && group.mailboxes.is_empty() {
+                    continue;
+                }
+                if let Some(last) = tokens.last_mut() {
                     last.push(',');
                 }
-                tokens.append(&mut words);
+                let mut members = mailbox_tokens(name, &group.mailboxes)?;
+                match &group.name {
+                    // RFC 5322 §3.4 `group = display-name ":" [group-list] ";"`.
+                    // `phrase_tokens` never returns an empty list.
+                    Some(display) => {
+                        let mut words = phrase_tokens(display);
+                        if let Some(last) = words.last_mut() {
+                            last.push(':');
+                        }
+                        words.append(&mut members);
+                        if let Some(last) = words.last_mut() {
+                            last.push(';');
+                        }
+                        tokens.append(&mut words);
+                    }
+                    None => tokens.append(&mut members),
+                }
             }
             tokens
         }
@@ -347,6 +368,29 @@ fn write_header(out: &mut Vec<u8>, header: &Header) -> Result<(), WriteError> {
     }
     out.extend_from_slice(b"\r\n");
     Ok(())
+}
+
+/// A comma-separated `mailbox-list` (RFC 5322 §3.4) as fold tokens.
+fn mailbox_tokens(field: &str, list: &[Mailbox]) -> Result<Vec<String>, WriteError> {
+    let mut tokens = Vec::new();
+    for (i, mailbox) in list.iter().enumerate() {
+        no_line_break(field, &mailbox.address)?;
+        let mut words = match mailbox.name.as_deref().filter(|n| !n.is_empty()) {
+            Some(display) => {
+                let mut w = phrase_tokens(display);
+                w.push(format!("<{}>", mailbox.address));
+                w
+            }
+            None => vec![mailbox.address.clone()],
+        };
+        if i + 1 < list.len()
+            && let Some(last) = words.last_mut()
+        {
+            last.push(',');
+        }
+        tokens.append(&mut words);
+    }
+    Ok(tokens)
 }
 
 /// Split `unstructured` text at spaces, or encode it whole as RFC 2047
@@ -476,6 +520,59 @@ mod tests {
 
     fn written(headers: &[Header], body: &Part) -> String {
         String::from_utf8(write_message(headers, body).unwrap()).unwrap()
+    }
+
+    /// The group fields of RFC 5322 Appendix A.1.3, with the writer's
+    /// single space after each `:` and `,` (FWS, RFC 5322 §3.2.2).
+    #[test]
+    fn groups_match_rfc5322_appendix_a13() {
+        let mailbox = |name: Option<&str>, address: &str| Mailbox {
+            name: name.map(str::to_owned),
+            address: address.into(),
+        };
+        let headers = [
+            Header::new(
+                "To",
+                HeaderValue::Groups(vec![Group {
+                    name: Some("A Group".into()),
+                    mailboxes: vec![
+                        mailbox(Some("Ed Jones"), "c@a.test"),
+                        mailbox(None, "joe@where.test"),
+                        mailbox(Some("John"), "jdoe@one.test"),
+                    ],
+                }]),
+            ),
+            Header::new(
+                "Cc",
+                HeaderValue::Groups(vec![Group {
+                    name: Some("Undisclosed recipients".into()),
+                    mailboxes: Vec::new(),
+                }]),
+            ),
+            Header::new(
+                "Bcc",
+                HeaderValue::Groups(vec![
+                    Group {
+                        name: None,
+                        mailboxes: vec![mailbox(None, "a@x.test")],
+                    },
+                    Group {
+                        name: None,
+                        mailboxes: Vec::new(),
+                    },
+                    Group {
+                        name: Some("G".into()),
+                        mailboxes: vec![mailbox(None, "b@x.test")],
+                    },
+                ]),
+            ),
+        ];
+        let message = written(&headers, &text_part("text/plain", ""));
+        assert!(message.starts_with(
+            "To: A Group: Ed Jones <c@a.test>, joe@where.test, John <jdoe@one.test>;\r\n\
+             Cc: Undisclosed recipients:;\r\n\
+             Bcc: a@x.test, G: b@x.test;\r\n"
+        ));
     }
 
     /// RFC 4648 §10 test vectors: the base64 of each prefix of "foobar".

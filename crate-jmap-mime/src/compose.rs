@@ -8,10 +8,11 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
-use jmap_mail_types::{EmailAddress, EmailBodyPart, EmailBodyValue};
+use jmap_mail_types::{EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue};
 use jmap_types::{Date, Id};
+use serde_json::{Map, Value};
 
-use crate::writer::{self, Body, Header, HeaderValue, Mailbox, Part, WriteError};
+use crate::writer::{self, Body, Group, Header, HeaderValue, Mailbox, Part, WriteError};
 
 /// The parts of an `Email` create that determine the message bytes.
 ///
@@ -54,6 +55,11 @@ pub struct EmailDraft {
     pub body_structure: Option<EmailBodyPart>,
     /// Content of the parts that give a `partId`.
     pub body_values: BTreeMap<String, EmailBodyValue>,
+    /// The Email's `header:{name}[:{form}][:all]` properties (RFC 8621
+    /// §4.1.3), keyed by property name. Keys without the `header:` prefix
+    /// are ignored. A body part's own `header:` properties are read from
+    /// its `extra` map.
+    pub header_properties: Map<String, Value>,
 }
 
 impl EmailDraft {
@@ -94,6 +100,15 @@ pub enum ComposeError {
     EmptyPart,
     /// `sent_at` is not an RFC 3339 date-time.
     InvalidDate(String),
+    /// A `header:` property is malformed, sets a header field that
+    /// another property of the same object also sets, or sets a field its
+    /// object must not carry (RFC 8621 §4.6).
+    InvalidHeaderProperty {
+        /// The property name, e.g. `header:Content-Type`.
+        property: String,
+        /// Why it was rejected.
+        reason: String,
+    },
     /// The writer rejected a header field.
     Write(WriteError),
 }
@@ -110,6 +125,7 @@ impl fmt::Display for ComposeError {
             }
             Self::EmptyPart => f.write_str("body part has no partId, blobId or subParts"),
             Self::InvalidDate(date) => write!(f, "sentAt {date:?} is not an RFC 3339 date-time"),
+            Self::InvalidHeaderProperty { property, reason } => write!(f, "{property}: {reason}"),
             Self::Write(e) => write!(f, "cannot write message: {e}"),
         }
     }
@@ -136,8 +152,10 @@ impl From<WriteError> for ComposeError {
 ///
 /// Header fields come in the order `Date`, `From`, `Sender`, `Reply-To`,
 /// `To`, `Cc`, `Bcc`, `Message-ID`, `In-Reply-To`, `References`,
-/// `Subject`; absent or empty ones are left out. Body parts map as
-/// follows:
+/// `Subject`; absent or empty ones are left out. The fields of
+/// `header_properties` follow, one per value (an `:all` property's array
+/// gives one field per non-null element; a null value gives none). Body
+/// parts map as follows:
 ///
 /// - A part with `subParts` is a multipart of its `type` (default
 ///   `multipart/mixed`).
@@ -151,14 +169,32 @@ impl From<WriteError> for ComposeError {
 ///   `filename`; `cid`, `language` and `location` become `Content-ID`,
 ///   `Content-Language` and `Content-Location`.
 ///
+/// - A part's `header:` properties add header fields to it, except that
+///   `header:Content-Type` and `header:Content-Disposition` (one value, in
+///   the Raw or `asText` form) replace the fields built from `type`,
+///   `charset`, `name` and `disposition`.
+///
 /// Without `body_structure`, a text and an HTML part form a
 /// `multipart/alternative`, and attachments follow it in a
 /// `multipart/mixed`.
 ///
+/// Each `header:` property value takes the JSON shape of its form (RFC
+/// 8621 §4.1.2): a string for Raw, `asText` and `asDate`, an
+/// `EmailAddress` list for `asAddresses`, an `EmailAddressGroup` list for
+/// `asGroupedAddresses`, and a string list for `asMessageIds` and
+/// `asURLs`. Which forms a field allows is not checked here.
+///
 /// # Errors
 ///
 /// [`ComposeError::BlobNotFound`] lists every referenced blob missing from
-/// `blobs`. The other variants report a malformed draft.
+/// `blobs`. [`ComposeError::InvalidHeaderProperty`] reports a `header:`
+/// property that breaks an RFC 8621 §4.6 rule: two properties of one
+/// object set the same field (e.g. `from` and `header:From`); a
+/// `Content-*` field or `MIME-Version` is set on the Email; a
+/// `Content-Transfer-Encoding` is set on a part; the message's root part
+/// sets a field the Email sets; or a replaced `Content-Type` gives the
+/// `charset` of a `partId` part or a multipart `boundary`, which the
+/// server picks. The other variants report a malformed draft.
 pub fn compose_email(
     draft: &EmailDraft,
     blobs: &BTreeMap<Id, Vec<u8>>,
@@ -211,15 +247,59 @@ pub fn compose_email(
         headers.push(Header::new("Subject", HeaderValue::Text(subject.clone())));
     }
 
-    let to_part = |p: &EmailBodyPart| body_part(p, &draft.body_values, blobs);
+    let taken = [
+        ("date", "sentAt", draft.sent_at.is_some()),
+        ("from", "from", draft.from.is_some()),
+        ("sender", "sender", draft.sender.is_some()),
+        ("reply-to", "replyTo", draft.reply_to.is_some()),
+        ("to", "to", draft.to.is_some()),
+        ("cc", "cc", draft.cc.is_some()),
+        ("bcc", "bcc", draft.bcc.is_some()),
+        ("message-id", "messageId", draft.message_id.is_some()),
+        ("in-reply-to", "inReplyTo", draft.in_reply_to.is_some()),
+        ("references", "references", draft.references.is_some()),
+        ("subject", "subject", draft.subject.is_some()),
+    ];
+    // The fields the Email sets, which the root part must not set again
+    // (RFC 8621 §4.6).
+    let mut outer: Vec<String> = taken
+        .iter()
+        .filter(|(_, _, set)| *set)
+        .map(|(field, _, _)| (*field).to_owned())
+        .collect();
+    for (property, field, fields) in header_fields(&draft.header_properties, &taken)? {
+        // RFC 8621 §4.6: "Header fields beginning with "Content-" MUST
+        // NOT be specified on the Email object, only on EmailBodyPart
+        // objects." The writer emits MIME-Version itself.
+        if field.starts_with("content-") || field == "mime-version" {
+            return Err(invalid_header(
+                &property,
+                "this header field is set on body parts, not on the Email",
+            ));
+        }
+        headers.extend(fields);
+        outer.push(field);
+    }
+
+    // The root part is `body_structure`, or the only text part when there
+    // are no attachments.
+    let lone = draft.text_body.len() + draft.html_body.len() == 1 && draft.attachments.is_empty();
+    let to_part = |p: &EmailBodyPart| body_part(p, &draft.body_values, blobs, &[]);
     let body = match &draft.body_structure {
-        Some(structure) => to_part(structure)?,
+        Some(structure) => body_part(structure, &draft.body_values, blobs, &outer)?,
         None => {
             let texts = draft
                 .text_body
                 .iter()
                 .chain(&draft.html_body)
-                .map(to_part)
+                .map(|p| {
+                    body_part(
+                        p,
+                        &draft.body_values,
+                        blobs,
+                        if lone { &outer } else { &[] },
+                    )
+                })
                 .collect::<Result<Vec<_>, _>>()?;
             let main = match texts.len() {
                 0 => None,
@@ -248,6 +328,135 @@ pub fn compose_email(
     Ok(writer::write_message(&headers, &body)?)
 }
 
+fn invalid_header(property: &str, reason: &str) -> ComposeError {
+    ComposeError::InvalidHeaderProperty {
+        property: property.to_owned(),
+        reason: reason.to_owned(),
+    }
+}
+
+/// The `header:` properties of one object as `(property, lower-case
+/// field name, fields)`, after checking that no two of them, and no
+/// convenience property in `taken` (`(field, property, given)`), set the
+/// same field (RFC 8621 §4.6).
+fn header_fields(
+    props: &Map<String, Value>,
+    taken: &[(&str, &str, bool)],
+) -> Result<Vec<(String, String, Vec<Header>)>, ComposeError> {
+    let mut out: Vec<(String, String, Vec<Header>)> = Vec::new();
+    for (property, value) in props {
+        let Some(rest) = property.strip_prefix("header:") else {
+            continue;
+        };
+        let err = |reason: String| ComposeError::InvalidHeaderProperty {
+            property: property.clone(),
+            reason,
+        };
+        let (name, form, all) = match rest.split(':').collect::<Vec<_>>().as_slice() {
+            [name] => (*name, "", false),
+            [name, "all"] => (*name, "", true),
+            [name, form] => (*name, *form, false),
+            [name, form, "all"] => (*name, *form, true),
+            _ => return Err(err("expected header:{name}[:{form}][:all]".into())),
+        };
+        if name.is_empty() {
+            return Err(err("empty header field name".into()));
+        }
+        let field = name.to_ascii_lowercase();
+        if let Some((_, other, _)) = taken.iter().find(|(f, _, set)| *set && *f == field) {
+            return Err(err(format!("{other} sets the same header field")));
+        }
+        if let Some((other, _, _)) = out.iter().find(|(_, f, _)| *f == field) {
+            return Err(err(format!("{other} sets the same header field")));
+        }
+        let values: Vec<&Value> = match value {
+            Value::Null => Vec::new(),
+            Value::Array(items) if all => items.iter().filter(|v| !v.is_null()).collect(),
+            _ if all => return Err(err("an :all property takes an array".into())),
+            v => vec![v],
+        };
+        let fields = values
+            .into_iter()
+            .map(|v| header_value(form, v).map(|hv| Header::new(name, hv)))
+            .collect::<Result<_, _>>()
+            .map_err(err)?;
+        out.push((property.clone(), field, fields));
+    }
+    Ok(out)
+}
+
+/// One header field value given in `form` (RFC 8621 §4.1.2; `""` is Raw).
+fn header_value(form: &str, v: &Value) -> Result<HeaderValue, String> {
+    fn mailbox(a: &EmailAddress) -> Mailbox {
+        Mailbox {
+            name: a.name.clone(),
+            address: a.email.clone(),
+        }
+    }
+    let text = || v.as_str().ok_or_else(|| "expected a string".to_owned());
+    let strings = || serde_json::from_value::<Vec<String>>(v.clone()).map_err(|e| e.to_string());
+    Ok(match form {
+        // RFC 8621 §4.1.2.1: the raw value runs from after the colon, so
+        // it may start with whitespace and be folded; RFC 5322 §2.2.3
+        // unfolds by removing each CRLF that precedes WSP. Email/get
+        // returns the value with LF for CRLF, so a bare LF unfolds too.
+        "" => HeaderValue::Raw(
+            text()?
+                .replace("\r\n ", " ")
+                .replace("\r\n\t", "\t")
+                .replace("\n ", " ")
+                .replace("\n\t", "\t")
+                .trim_start_matches([' ', '\t'])
+                .to_owned(),
+        ),
+        "asText" => HeaderValue::Text(text()?.to_owned()),
+        "asAddresses" => HeaderValue::Mailboxes(
+            serde_json::from_value::<Vec<EmailAddress>>(v.clone())
+                .map_err(|e| e.to_string())?
+                .iter()
+                .map(mailbox)
+                .collect(),
+        ),
+        "asGroupedAddresses" => HeaderValue::Groups(
+            serde_json::from_value::<Vec<EmailAddressGroup>>(v.clone())
+                .map_err(|e| e.to_string())?
+                .iter()
+                .map(|g| Group {
+                    name: g.name.clone(),
+                    mailboxes: g.addresses.iter().map(mailbox).collect(),
+                })
+                .collect(),
+        ),
+        "asMessageIds" => HeaderValue::MessageIds(strings()?),
+        "asDate" => HeaderValue::Raw(
+            rfc5322_date(text()?).ok_or_else(|| "expected an RFC 3339 date-time".to_owned())?,
+        ),
+        // RFC 2369 §2: each URL in angle brackets, separated by commas.
+        // NUL marks the fold points of a Raw value.
+        "asURLs" => HeaderValue::Raw(
+            strings()?
+                .iter()
+                .map(|u| format!("<{u}>"))
+                .collect::<Vec<_>>()
+                .join(",\u{0}"),
+        ),
+        other => return Err(format!("unknown header form {other:?}")),
+    })
+}
+
+/// Whether the parameters of a Content-Type value name `param`.
+fn has_param(value: &str, param: &str) -> bool {
+    value.split(';').skip(1).any(|p| {
+        let p = p.trim_start();
+        p.get(..param.len())
+            .is_some_and(|n| n.eq_ignore_ascii_case(param))
+            && matches!(
+                p.as_bytes().get(param.len()),
+                Some(b'=' | b'*' | b' ' | b'\t')
+            )
+    })
+}
+
 fn leaf(content_type: &str, body: Body) -> Part {
     Part {
         content_type: content_type.to_owned(),
@@ -262,16 +471,81 @@ fn multipart(content_type: &str, parts: Vec<Part>) -> Part {
     leaf(content_type, Body::Multipart(parts))
 }
 
+/// `outer` lists the lower-case header fields that the Email sets, which
+/// this part must not set again; it is empty below the root.
 fn body_part(
     part: &EmailBodyPart,
     values: &BTreeMap<String, EmailBodyValue>,
     blobs: &BTreeMap<Id, Vec<u8>>,
+    outer: &[String],
 ) -> Result<Part, ComposeError> {
+    let taken = [
+        ("content-type", "type", part.type_.is_some()),
+        ("content-type", "charset", part.charset.is_some()),
+        ("content-type", "name", part.name.is_some()),
+        (
+            "content-disposition",
+            "disposition",
+            part.disposition.is_some(),
+        ),
+        ("content-disposition", "name", part.name.is_some()),
+        ("content-id", "cid", part.cid.is_some()),
+        ("content-language", "language", part.language.is_some()),
+        ("content-location", "location", part.location.is_some()),
+    ];
+    let mut type_override: Option<(String, String)> = None;
+    let mut disposition_override = None;
+    let mut extra_headers = Vec::new();
+    for (property, field, fields) in header_fields(&part.extra, &taken)? {
+        if outer.contains(&field) {
+            return Err(invalid_header(
+                &property,
+                "the Email already sets this header field",
+            ));
+        }
+        match field.as_str() {
+            "content-transfer-encoding" => {
+                return Err(invalid_header(
+                    &property,
+                    "the server picks the Content-Transfer-Encoding",
+                ));
+            }
+            "content-type" | "content-disposition" => {
+                let value = match fields.as_slice() {
+                    [] => continue,
+                    [
+                        Header {
+                            value: HeaderValue::Raw(v) | HeaderValue::Text(v),
+                            ..
+                        },
+                    ] => v.clone(),
+                    _ => {
+                        return Err(invalid_header(
+                            &property,
+                            "expected one value in the Raw or asText form",
+                        ));
+                    }
+                };
+                if field == "content-type" {
+                    type_override = Some((property, value));
+                } else {
+                    disposition_override = Some(value);
+                }
+            }
+            _ => extra_headers.extend(fields),
+        }
+    }
+    // The media type, without parameters, that decides the body encoding.
+    let media = type_override
+        .as_ref()
+        .map(|(_, v)| v.split(';').next().unwrap_or_default().trim())
+        .or(part.type_.as_deref());
+
     let mut params = Vec::new();
     let (default_type, body) = if let Some(subs) = &part.sub_parts {
         let children = subs
             .iter()
-            .map(|p| body_part(p, values, blobs))
+            .map(|p| body_part(p, values, blobs, &[]))
             .collect::<Result<_, _>>()?;
         ("multipart/mixed", Body::Multipart(children))
     } else if let Some(part_id) = &part.part_id {
@@ -284,7 +558,7 @@ fn body_part(
             .get(blob_id)
             .ok_or_else(|| ComposeError::BlobNotFound(vec![blob_id.clone()]))?
             .clone();
-        let is_message = part.type_.as_deref().is_some_and(|t| {
+        let is_message = media.is_some_and(|t| {
             t.get(..8)
                 .is_some_and(|p| p.eq_ignore_ascii_case("message/"))
         });
@@ -300,25 +574,41 @@ fn body_part(
     } else {
         return Err(ComposeError::EmptyPart);
     };
-    let content_type = part.type_.as_deref().unwrap_or(default_type);
-    if matches!(body, Body::Text(_))
-        && content_type
+    let media = media.unwrap_or(default_type);
+    let is_text = matches!(body, Body::Text(_))
+        && media
             .get(..5)
-            .is_some_and(|p| p.eq_ignore_ascii_case("text/"))
-    {
+            .is_some_and(|p| p.eq_ignore_ascii_case("text/"));
+    if let Some((property, value)) = &type_override {
+        // RFC 8621 §4.6: a `partId` part's charset is the server's choice,
+        // and so is a multipart's boundary.
+        if (is_text && has_param(value, "charset"))
+            || (matches!(body, Body::Multipart(_)) && has_param(value, "boundary"))
+        {
+            return Err(invalid_header(
+                property,
+                "the server picks the charset of a partId part and a multipart boundary",
+            ));
+        }
+    }
+    if is_text {
         params.push(("charset".to_owned(), "utf-8".to_owned()));
     }
     if let Some(name) = &part.name {
         params.push(("name".to_owned(), name.clone()));
     }
-    let disposition = part.disposition.as_ref().map(|d| {
-        let dparams = part
-            .name
-            .iter()
-            .map(|n| ("filename".to_owned(), n.clone()))
-            .collect();
-        (d.clone(), dparams)
-    });
+    let disposition = part
+        .disposition
+        .as_ref()
+        .map(|d| {
+            let dparams = part
+                .name
+                .iter()
+                .map(|n| ("filename".to_owned(), n.clone()))
+                .collect();
+            (d.clone(), dparams)
+        })
+        .or(disposition_override.map(|d| (d, Vec::new())));
     let mut headers = Vec::new();
     if let Some(cid) = &part.cid {
         headers.push(Header::new(
@@ -338,8 +628,10 @@ fn body_part(
             HeaderValue::Raw(location.clone()),
         ));
     }
+    headers.extend(extra_headers);
+    let content_type = type_override.as_ref().map_or(media, |(_, v)| v).to_owned();
     Ok(Part {
-        content_type: content_type.to_owned(),
+        content_type,
         params,
         disposition,
         headers,
@@ -405,6 +697,7 @@ fn rfc5322_date(rfc3339: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_json::json;
 
     fn addr(name: Option<&str>, email: &str) -> EmailAddress {
         let mut a = EmailAddress::new(email);
@@ -667,5 +960,203 @@ mod tests {
         let part = msg.part_index.find_by_id(text_id).unwrap();
         let decoded = mime_tree::decode_body_value(&raw, part, None).unwrap();
         assert_eq!(decoded.value, "Ünïcödé body\r\nline two");
+    }
+
+    fn props(pairs: &[(&str, Value)]) -> Map<String, Value> {
+        pairs
+            .iter()
+            .map(|(k, v)| ((*k).to_owned(), v.clone()))
+            .collect()
+    }
+
+    fn header_error(draft: &EmailDraft, blobs: &BTreeMap<Id, Vec<u8>>) -> String {
+        match compose_email(draft, blobs) {
+            Err(ComposeError::InvalidHeaderProperty { property, .. }) => property,
+            other => panic!("expected InvalidHeaderProperty, got {other:?}"),
+        }
+    }
+
+    /// RFC 8621 §4.6: "the client must set each header field as an
+    /// individual property". Each form takes the JSON shape of RFC 8621
+    /// §4.1.2; the expected fields are hand-written RFC 5322 / RFC 2369.
+    /// Keys are in sorted order, the order the map iterates.
+    #[test]
+    fn email_header_properties_in_every_form() {
+        let draft = EmailDraft {
+            header_properties: props(&[
+                ("header:Comments", json!(" folded\r\n value")),
+                (
+                    "header:List-Unsubscribe:asURLs",
+                    json!(["mailto:u@example.com", "https://example.com/u"]),
+                ),
+                (
+                    "header:Resent-Date:asDate",
+                    json!("2026-10-23T12:00:00-07:00"),
+                ),
+                (
+                    "header:Resent-Message-ID:asMessageIds",
+                    json!(["r1@example.com"]),
+                ),
+                (
+                    "header:Resent-To:asGroupedAddresses",
+                    json!([
+                        {"name": null, "addresses": [{"email": "a@example.com"}]},
+                        {"name": "Team", "addresses": [{"name": "Bo", "email": "b@example.com"}]}
+                    ]),
+                ),
+                (
+                    "header:Sender:asAddresses",
+                    json!([{"name": "Al", "email": "al@example.com"}]),
+                ),
+                ("header:X-Absent", Value::Null),
+                ("header:X-Tag:all", json!(["one", null, "two"])),
+                ("header:X-Text:asText", json!("Grüße")),
+            ]),
+            ..Default::default()
+        };
+        // `R3LDvMOfZQ==` is Python `base64.b64encode("Grüße".encode())`.
+        assert_eq!(
+            composed(&draft, &BTreeMap::new()),
+            "Comments: folded value\r\n\
+             List-Unsubscribe: <mailto:u@example.com>, <https://example.com/u>\r\n\
+             Resent-Date: 23 Oct 2026 12:00:00 -0700\r\n\
+             Resent-Message-ID: <r1@example.com>\r\n\
+             Resent-To: a@example.com, Team: Bo <b@example.com>;\r\n\
+             Sender: Al <al@example.com>\r\n\
+             X-Tag: one\r\n\
+             X-Tag: two\r\n\
+             X-Text: =?UTF-8?B?R3LDvMOfZQ==?=\r\n\
+             MIME-Version: 1.0\r\n\
+             Content-Type: text/plain; charset=utf-8\r\n\
+             Content-Transfer-Encoding: quoted-printable\r\n\
+             \r\n"
+        );
+    }
+
+    /// A part's `header:` properties: Content-Type and Content-Disposition
+    /// replace the built fields, others are added after them. The lone
+    /// text part is the root, and may set fields the Email does not.
+    #[test]
+    fn part_header_properties() {
+        let mut attachment = EmailBodyPart::default();
+        attachment.blob_id = Some(Id::from("B1"));
+        attachment.extra = props(&[
+            ("header:Content-Disposition", json!("inline")),
+            ("header:Content-Type", json!("application/x-foo; x=1")),
+            ("header:X-Part:asText", json!("p")),
+        ]);
+        let draft = EmailDraft {
+            text_body: vec![text_part("t", "text/plain")],
+            attachments: vec![attachment],
+            body_values: BTreeMap::from([("t".into(), EmailBodyValue::new("Hi"))]),
+            ..Default::default()
+        };
+        let blobs = BTreeMap::from([(Id::from("B1"), b"hello".to_vec())]);
+        assert!(composed(&draft, &blobs).contains(
+            "Content-Type: application/x-foo; x=1\r\n\
+             Content-Disposition: inline\r\n\
+             X-Part: p\r\n\
+             Content-Transfer-Encoding: base64\r\n\
+             \r\n\
+             aGVsbG8=\r\n"
+        ));
+
+        let mut text = text_part("t", "text/plain");
+        text.extra = props(&[("header:X-Root", json!("r"))]);
+        let draft = EmailDraft {
+            subject: Some("S".into()),
+            text_body: vec![text],
+            body_values: BTreeMap::from([("t".into(), EmailBodyValue::new("Hi"))]),
+            ..Default::default()
+        };
+        assert!(composed(&draft, &BTreeMap::new()).contains(
+            "Content-Type: text/plain; charset=utf-8\r\n\
+             X-Root: r\r\n"
+        ));
+    }
+
+    /// Each case breaks one RFC 8621 §4.6 constraint, quoted beside it.
+    #[test]
+    fn header_properties_breaking_rfc8621_4_6_are_rejected() {
+        let blobs = BTreeMap::new();
+        let email = |pairs: &[(&str, Value)]| EmailDraft {
+            header_properties: props(pairs),
+            ..Default::default()
+        };
+
+        // "There MUST NOT be two properties that represent the same header
+        // field (e.g., "header:from" and "from")".
+        let mut draft = email(&[("header:from", json!(" a@example.com"))]);
+        draft.from = Some(vec![addr(None, "b@example.com")]);
+        assert_eq!(header_error(&draft, &blobs), "header:from");
+        let draft = email(&[
+            ("header:Subject", json!("a")),
+            ("header:subject:asText", json!("b")),
+        ]);
+        assert_eq!(header_error(&draft, &blobs), "header:subject:asText");
+
+        // "Header fields beginning with "Content-" MUST NOT be specified
+        // on the Email object, only on EmailBodyPart objects."
+        let draft = email(&[("header:Content-Language", json!("en"))]);
+        assert_eq!(header_error(&draft, &blobs), "header:Content-Language");
+
+        // "A Content-Transfer-Encoding header field MUST NOT be given."
+        let mut part = text_part("1", "text/plain");
+        part.extra = props(&[("header:Content-Transfer-Encoding", json!("7bit"))]);
+        let draft = EmailDraft {
+            body_structure: Some(part.clone()),
+            body_values: BTreeMap::from([("1".into(), EmailBodyValue::new("x"))]),
+            ..Default::default()
+        };
+        assert_eq!(
+            header_error(&draft, &blobs),
+            "header:Content-Transfer-Encoding"
+        );
+
+        // "the "bodyStructure" EmailBodyPart MUST NOT contain a property
+        // representing a header field that is already defined on the
+        // top-level Email object."
+        part.extra = props(&[("header:Subject:asText", json!("again"))]);
+        let mut draft = EmailDraft {
+            subject: Some("S".into()),
+            body_structure: Some(part.clone()),
+            body_values: BTreeMap::from([("1".into(), EmailBodyValue::new("x"))]),
+            ..Default::default()
+        };
+        assert_eq!(header_error(&draft, &blobs), "header:Subject:asText");
+        draft.subject = None;
+        draft.header_properties = props(&[("header:subject", json!("S"))]);
+        assert_eq!(header_error(&draft, &blobs), "header:Subject:asText");
+
+        // Within a part, `type` and header:Content-Type are the same field.
+        part.extra = props(&[("header:Content-Type", json!("text/html"))]);
+        let draft = EmailDraft {
+            body_structure: Some(part.clone()),
+            body_values: BTreeMap::from([("1".into(), EmailBodyValue::new("x"))]),
+            ..Default::default()
+        };
+        assert_eq!(header_error(&draft, &blobs), "header:Content-Type");
+
+        // "The "charset" property MUST be omitted if a partId is given
+        // (... the server may choose any appropriate encoding)."
+        part.type_ = None;
+        part.extra = props(&[("header:Content-Type", json!("text/plain; charset=latin1"))]);
+        let draft = EmailDraft {
+            body_structure: Some(part),
+            body_values: BTreeMap::from([("1".into(), EmailBodyValue::new("x"))]),
+            ..Default::default()
+        };
+        assert_eq!(header_error(&draft, &blobs), "header:Content-Type");
+
+        // Malformed properties.
+        for (property, value) in [
+            ("header:X-Tag:all", json!("not an array")),
+            ("header:X-Tag:asBogus", json!("x")),
+            ("header:X-Tag:asText:all:extra", json!(["x"])),
+            ("header:Resent-Date:asDate", json!("yesterday")),
+            ("header:Sender:asAddresses", json!("al@example.com")),
+        ] {
+            assert_eq!(header_error(&email(&[(property, value)]), &blobs), property);
+        }
     }
 }

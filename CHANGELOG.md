@@ -3670,6 +3670,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**, **jmap-mime**: `Email/set` create now writes the
+  `header:{name}[:{form}][:all]` properties of the Email and of each
+  EmailBodyPart into the message (RFC 8621 §4.6: "the client must set each
+  header field as an individual property"); it used to ignore them. New
+  `EmailDraft::header_properties`, `ComposeError::InvalidHeaderProperty`,
+  and `writer::HeaderValue::Groups` with `writer::Group` for the
+  `asGroupedAddresses` form. A part's `header:Content-Type` or
+  `header:Content-Disposition` replaces the field built from `type` /
+  `disposition`. The create is rejected with `invalidProperties` when it
+  gives `headers`, a forbidden form, two properties for one header field,
+  a `Content-*` or `MIME-Version` field on the Email, a
+  `Content-Transfer-Encoding` on a part, a root-part field the Email
+  already sets, or a `charset` / `boundary` the server picks. A
+  `header:Date` or `header:Message-ID` property stops the server from
+  generating that field (bd JMAP-2o2i).
 - **jmap-mail-server**: the reference `MemoryBackend` `create_email`
   (`Email/set` create) now creates or extends the Email's Thread, updates
   the `totalEmails`, `unreadEmails`, `totalThreads` and `unreadThreads`

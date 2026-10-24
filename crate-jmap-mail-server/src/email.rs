@@ -1744,6 +1744,7 @@ fn validate_body_part(
     part: &Value,
     body_values: Option<&serde_json::Map<String, Value>>,
 ) -> Result<(), String> {
+    validate_create_header_properties(part)?;
     let has_part_id = part.get("partId").map(|v| !v.is_null()).unwrap_or(false);
     let has_blob_id = part.get("blobId").map(|v| !v.is_null()).unwrap_or(false);
     if has_part_id && has_blob_id {
@@ -1884,6 +1885,25 @@ async fn build_email_from_create<B: MailBackend>(
     draft.attachments = field(obj_val, "attachments")?.unwrap_or_default();
     draft.body_structure = field(obj_val, "bodyStructure")?;
     draft.body_values = field(obj_val, "bodyValues")?.unwrap_or_default();
+    draft.header_properties = obj_val
+        .as_object()
+        .into_iter()
+        .flatten()
+        .filter(|(k, _)| k.starts_with("header:"))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    // Whether a non-null `header:` property sets `field`; the server then
+    // leaves that field to the client.
+    let header_given = |field: &str| {
+        draft.header_properties.iter().any(|(k, v)| {
+            !v.is_null()
+                && k["header:".len()..]
+                    .split(':')
+                    .next()
+                    .is_some_and(|n| n.eq_ignore_ascii_case(field))
+        })
+    };
+    let (date_given, message_id_given) = (header_given("Date"), header_given("Message-ID"));
 
     // Thread assignment: look for an existing email whose messageId matches
     // any of the inReplyTo/references tokens.
@@ -1907,10 +1927,10 @@ async fn build_email_from_create<B: MailBackend>(
         .map(UTCDate::from)
         .unwrap_or_else(|| UTCDate::from(crate::helpers::now_utc_string().as_ref()));
 
-    if draft.sent_at.is_none() {
+    if draft.sent_at.is_none() && !date_given {
         draft.sent_at = Some(Date::from(received_at.as_ref()));
     }
-    if draft.message_id.is_none() {
+    if draft.message_id.is_none() && !message_id_given {
         // RFC 5322 §3.6.4: a unique id-left at a domain; the sender's
         // domain when the create names one.
         let domain = draft
@@ -1944,6 +1964,7 @@ async fn build_email_from_create<B: MailBackend>(
 
     let message = compose_email(&draft, &blobs).map_err(|e| match e {
         ComposeError::InvalidDate(_) => invalid("sentAt", e),
+        ComposeError::InvalidHeaderProperty { property, reason } => invalid(&property, reason),
         _ => json!({ "type": "invalidProperties", "description": e.to_string() }),
     })?;
 
@@ -1965,6 +1986,28 @@ async fn build_email_from_create<B: MailBackend>(
     }))
 }
 
+/// Check the header properties of one Email or EmailBodyPart in a create
+/// (RFC 8621 §4.6): "The "headers" property MUST NOT be given ... the
+/// client must set each header field as an individual property", and
+/// "Header fields MUST NOT be specified in parsed forms that are
+/// forbidden for that particular field." `compose_email` checks the
+/// other header constraints.
+fn validate_create_header_properties(obj: &Value) -> Result<(), String> {
+    if obj.get("headers").is_some_and(|v| !v.is_null()) {
+        return Err("headers must not be given on create; set header: properties instead".into());
+    }
+    for key in obj
+        .as_object()
+        .into_iter()
+        .flat_map(|m| m.keys())
+        .filter(|k| k.starts_with("header:"))
+    {
+        let req = parse_header_property(key).map_err(|e| format!("{key}: {e}"))?;
+        validate_header_form(&req.name_lower, &req.form).map_err(|e| format!("{key}: {e}"))?;
+    }
+    Ok(())
+}
+
 /// Validate the body-related fields of an Email creation payload (RFC 8621 §4.6).
 ///
 /// Checks:
@@ -1974,6 +2017,7 @@ async fn build_email_from_create<B: MailBackend>(
 /// - All body parts satisfy `validate_body_part`: `partId`/`blobId` rules, and
 ///   `bodyValues` entries must not have `isEncodingProblem` or `isTruncated` true.
 fn validate_email_body(obj_val: &Value) -> Result<(), String> {
+    validate_create_header_properties(obj_val)?;
     // bodyStructure is mutually exclusive with textBody, htmlBody, and attachments.
     if obj_val.get("bodyStructure").is_some_and(|v| !v.is_null())
         && (obj_val.get("textBody").is_some_and(|v| !v.is_null())
