@@ -243,17 +243,24 @@ single-default invariant to enforce.
 
 ## Capability URIs
 
-Include these in your Session object's `capabilities` map:
-
 ```rust
 // Re-exported from jmap-sharing-types:
 pub const JMAP_PRINCIPALS_URI: &str       = "urn:ietf:params:jmap:principals";
 pub const JMAP_PRINCIPALS_OWNER_URI: &str = "urn:ietf:params:jmap:principals:owner";
 ```
 
-`JMAP_PRINCIPALS_URI` indicates the server supports Principal and
-ShareNotification objects. `JMAP_PRINCIPALS_OWNER_URI` indicates the server
-also supports creating and managing Principals (not just reading them).
+`JMAP_PRINCIPALS_URI` indicates support for the Principal and
+ShareNotification data types (RFC 9670 §1.5.1). Put it in the Session
+`capabilities` map with an empty object as its value, and in the
+`accountCapabilities` of each Account that holds Principals, with a
+`currentUserPrincipalId` value.
+
+`JMAP_PRINCIPALS_OWNER_URI` is never a Session capability (RFC 9670
+§1.5.2). It is a key in an Account's `accountCapabilities` meaning that
+Account (and the data therein) is owned by a Principal. Its value carries
+`accountIdForPrincipal` (the Account holding that Principal) and
+`principalId` (the owning Principal). Omit it for Accounts no Principal
+owns, such as the Account holding the Principals themselves.
 
 ## CallerCtx
 
