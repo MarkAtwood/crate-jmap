@@ -3670,6 +3670,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-sharing-server**, **jmap-calendars-server**: **BREAKING** the
+  reference `MemoryBackend` no longer silently ignores what it cannot
+  evaluate in `query_objects` (RFC 8620 §5.5). Both reject a non-empty
+  `sort` with `unsupportedSort`. The sharing backend rejects a Principal
+  filter with an RFC 9670 §2.4.1 condition, and any ShareNotification
+  filter with a condition set, with `unsupportedFilter`; it used to return
+  every id. Only the draft-ietf-jmap-metadata-04 `metadata*` Principal
+  conditions are evaluated (bd JMAP-yt1w.47).
+
 - **jmap-calendars-server**, **jmap-tasks-server**: `Calendar/set` and
   `TaskList/set` create and update reject a `shareWith` key, or the id
   segment of a `shareWith/<id>/...` patch path, that is not an RFC 8620

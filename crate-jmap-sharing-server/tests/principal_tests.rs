@@ -358,3 +358,78 @@ async fn principal_query_largest_position_is_empty_page_not_error() {
     assert!(resp.get("type").is_none(), "must not be an error: {resp}");
     assert_eq!(resp["ids"], json!([]), "{resp}");
 }
+
+// ---------------------------------------------------------------------------
+// Oracle: RFC 8620 §5.5: "A server MUST reject the call with an
+// unsupportedFilter error if it cannot process the given filter" and "with
+// an unsupportedSort error if it cannot sort by the given properties." The
+// reference MemoryBackend evaluates no RFC 9670 §2.4.1 Principal condition,
+// no §3.4.1 ShareNotification condition and no comparator, so each request
+// below must fail loud instead of returning every id. A filter with no
+// condition set matches everything, so it is not an error. Bead: JMAP-yt1w.47.
+// ---------------------------------------------------------------------------
+
+async fn query_error_type(
+    backend: &Arc<MemoryBackend>,
+    method: &str,
+    args: serde_json::Value,
+) -> serde_json::Value {
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_sharing_handlers(&mut dispatcher, Arc::clone(backend));
+    let resp = dispatcher
+        .dispatch(single_call(method, args, "q0"), (), State::from("s0"))
+        .await;
+    let inv = &resp.method_responses[0];
+    assert_eq!(inv.name, "error", "{method} must fail: {:?}", inv.arguments);
+    inv.arguments["type"].clone()
+}
+
+#[tokio::test]
+async fn query_rejects_filter_and_sort_backend_cannot_apply() {
+    let (backend, _) = backend_with_two_principals().await;
+
+    for (method, args, expected) in [
+        (
+            "Principal/query",
+            json!({ "accountId": "acc1", "filter": { "name": "Alice" } }),
+            "unsupportedFilter",
+        ),
+        (
+            "Principal/query",
+            json!({ "accountId": "acc1", "filter": {
+                "operator": "NOT", "conditions": [{ "type": "group" }]
+            } }),
+            "unsupportedFilter",
+        ),
+        (
+            "Principal/query",
+            json!({ "accountId": "acc1", "sort": [{ "property": "name" }] }),
+            "unsupportedSort",
+        ),
+        (
+            "ShareNotification/query",
+            json!({ "accountId": "acc1", "filter": { "objectType": "Principal" } }),
+            "unsupportedFilter",
+        ),
+        (
+            "ShareNotification/query",
+            json!({ "accountId": "acc1", "sort": [{ "property": "created" }] }),
+            "unsupportedSort",
+        ),
+    ] {
+        let got = query_error_type(&backend, method, args.clone()).await;
+        assert_eq!(got, expected, "{method} {args}");
+    }
+}
+
+#[tokio::test]
+async fn principal_query_empty_filter_matches_all() {
+    let (backend, mut seeded) = backend_with_two_principals().await;
+
+    let resp = principal_query(&backend, json!({ "accountId": "acc1", "filter": {} })).await;
+
+    let mut got: Vec<Id> = serde_json::from_value(resp["ids"].clone()).expect("ids array");
+    got.sort_by(|x, y| x.as_ref().cmp(y.as_ref()));
+    seeded.sort_by(|x, y| x.as_ref().cmp(y.as_ref()));
+    assert_eq!(got, seeded, "{resp}");
+}

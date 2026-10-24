@@ -418,13 +418,13 @@ impl Inner {
 /// following limitations are intentional and would need to be addressed
 /// by a production-grade `CalendarsBackend` implementor:
 ///
-/// - **Sort is not honored.** `query_calendar_events` and the generic
-///   `query_objects` ignore the `sort` parameter; ids are returned in
-///   lexical-by-id order regardless of what the client requested. RFC
-///   8620 §5.5 and draft-ietf-jmap-calendars-33 §5.4 require honoring
-///   `CalendarEventComparator` properties (`start`, `sortOrder`, etc.).
-///   The integration tests do not exercise sort, so this gap is invisible
-///   in CI; production tests must.
+/// - **Sort is not supported.** `query_calendar_events` and the generic
+///   `query_objects` honor no comparator: ids are returned in lexical-by-id
+///   order, and a non-empty `sort` is rejected with `unsupportedSort` (RFC
+///   8620 §5.5: "A server MUST reject the call with an unsupportedSort
+///   error if it cannot sort by the given properties"). A production
+///   backend must honor the draft-ietf-jmap-calendars-33 §5.11.2 sort
+///   properties.
 /// - **Filter coverage is narrow.** Only the `inCalendar` condition (alone
 ///   or in an operator tree) is honored on `CalendarEvent/query` (used by
 ///   `Calendar/set` cleanup), plus the draft-ietf-jmap-metadata-04 §3.6
@@ -911,19 +911,20 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
         let QueryParams {
             filter,
+            sort,
             limit,
             position,
             anchor,
             anchor_offset,
             ..
         } = params;
-        // bd:JMAP-ic0j.16 — sort is NOT honored. The `_sort` parameter is
-        // prefixed with `_` and never consulted; ids are returned in
-        // lexical-by-id order. Production backends that override
-        // `CalendarsBackend::query_calendar_events` MUST honor sort per
-        // RFC 8620 §5.5 and draft-ietf-jmap-calendars-33 §5.4. The
-        // reference impl's sort-ignoring shape is documented in the
-        // crate-level MemoryBackend rustdoc.
+        // bd:JMAP-ic0j.16 — this backend honors no comparator and returns
+        // ids in lexical-by-id order, so a non-empty sort fails loud. RFC
+        // 8620 §5.5: "A server MUST reject the call with an unsupportedSort
+        // error if it cannot sort by the given properties."
+        if sort.is_some_and(|s| !s.is_empty()) {
+            return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
+        }
         let inner = self.inner.lock().unwrap();
 
         // For CalendarEvent, evaluate the RFC 8620 §5.5 filter tree over

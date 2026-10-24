@@ -741,6 +741,38 @@ async fn calendar_query_rejects_filter_backend_cannot_evaluate() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Oracle: RFC 8620 §5.5: "A server MUST reject the call with an
+// unsupportedSort error if it cannot sort by the given properties." The
+// reference MemoryBackend honors no comparator, so a sort the handler accepts
+// as listed (draft-ietf-jmap-calendars-33 §5.11.2: "id, uid, start") must
+// still fail loud at the backend rather than come back in id order. An empty
+// sort asks for no comparator, so it is not an error. Bead: JMAP-yt1w.47.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn calendar_query_rejects_sort_backend_cannot_apply() {
+    let backend = backend_with_four_events();
+
+    let args = json!({ "accountId": "acc1", "sort": [{ "property": "start" }] });
+    let err = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect_err("a sort the backend cannot apply must be rejected");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+
+    let args = json!({ "accountId": "acc1", "sort": [{ "property": "created" }] });
+    let err = handle_calendar_event_notification_query(&backend, &(), args)
+        .await
+        .expect_err("a sort the backend cannot apply must be rejected");
+    assert_eq!(err.error_type.to_string(), "unsupportedSort");
+
+    let args = json!({ "accountId": "acc1", "sort": [] });
+    let HandlerOutput { primary: resp, .. } = handle_calendar_event_query(&backend, &(), args)
+        .await
+        .expect("an empty sort must not be rejected");
+    assert_eq!(resp["ids"], json!(["e1", "e2", "e3", "e4"]), "{resp}");
+}
+
 /// draft-ietf-jmap-calendars-33 §4: `isDefault` and `myRights` are
 /// "(server-set)". RFC 8620 §1.1: "The client MUST NOT send this property
 /// when creating", and RFC 8620 §5.3 lists that under `invalidProperties`;
