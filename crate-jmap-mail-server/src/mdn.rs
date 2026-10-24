@@ -159,42 +159,22 @@ impl MdnParseResult {
 
 /// Backend trait for `MDN/send` and `MDN/parse` operations.
 ///
-/// Implementors also implement [`MailBackend`] on the same struct — the
-/// generic bounds on any future `register_mdn_handlers` helper will require
-/// both. This separation keeps MDN opt-in: existing `MailBackend` implementors
-/// do not need to change.
+/// `MailBackend` is a supertrait, so MDN stays opt-in: existing
+/// `MailBackend` implementors do not need to change.
 ///
 /// # Blob access
 ///
-/// `MDN/parse` needs raw RFC 5322 bytes for each blob. Implementors are
-/// expected to have direct access to the blob store (the same store used by
-/// `MailBackend`). The required method [`MdnBackend::get_blob_bytes`]
-/// exposes this access at the trait level so handlers need not assume a
-/// concrete struct type.
-pub trait MdnBackend: jmap_server::JmapBackend {
-    /// Fetch raw bytes for a blob by ID.
-    ///
-    /// Returns `Ok(Some(bytes))` if found, `Ok(None)` if the blob does not
-    /// exist in this account, and `Err` for storage failures.
-    ///
-    /// # Performance note
-    ///
-    /// This method returns the **complete** blob. For `MDN/parse`, the handler
-    /// calls [`MdnBackend::get_blob_header_bytes`] first for a cheap
-    /// parsability check; implementors should override that method to avoid
-    /// loading large attachment blobs into memory before the check.
-    fn get_blob_bytes(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
-
+/// `MDN/parse` reads the raw RFC 5322 bytes of each blob with
+/// [`MailBackend::read_blob`]. That method returns the **complete** blob;
+/// the handler calls [`MdnBackend::get_blob_header_bytes`] first for a cheap
+/// parsability check, and implementors should override that method to avoid
+/// loading large attachment blobs into memory before the check.
+pub trait MdnBackend: MailBackend {
     /// Fetch at most the first `limit` bytes of a blob by ID.
     ///
     /// Used by [`handle_mdn_parse`] for the cheap header-presence check before
     /// fetching the full blob. The default implementation falls back to
-    /// [`MdnBackend::get_blob_bytes`] and truncates in memory; override this
+    /// [`MailBackend::read_blob`] and truncates in memory; override this
     /// method in production backends to perform a partial read at the storage
     /// layer (e.g. a ranged `GET` against object storage or a `LIMIT` on a
     /// streaming read).
@@ -209,7 +189,7 @@ pub trait MdnBackend: jmap_server::JmapBackend {
         limit: usize,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
         async move {
-            let bytes = self.get_blob_bytes(caller, account_id, blob_id).await?;
+            let bytes = self.read_blob(caller, account_id, blob_id).await?;
             Ok(bytes.map(|mut v| {
                 v.truncate(limit);
                 v
@@ -255,7 +235,7 @@ pub trait MdnBackend: jmap_server::JmapBackend {
     /// Parse one or more raw RFC 5322 blobs as MDN messages.
     ///
     /// For each blob ID:
-    /// - Fetch raw bytes via [`MdnBackend::get_blob_bytes`].
+    /// - Fetch raw bytes via [`MailBackend::read_blob`].
     /// - Attempt to parse as `multipart/report` containing a
     ///   `message/disposition-notification` part.
     /// - Normalize `actionMode`, `sendingMode`, and `type` to lowercase

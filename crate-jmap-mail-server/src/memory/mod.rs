@@ -2835,20 +2835,6 @@ use jmap_mail_types::Mdn;
 #[cfg(feature = "mdn")]
 impl MdnBackend for MemoryBackend {
     // -----------------------------------------------------------------------
-    // get_blob_bytes
-    // -----------------------------------------------------------------------
-
-    fn get_blob_bytes(
-        &self,
-        _caller: &(),
-        _account_id: &jmap_types::Id,
-        blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
-        let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();
-        async move { Ok(bytes) }
-    }
-
-    // -----------------------------------------------------------------------
     // send_mdns
     // -----------------------------------------------------------------------
 
@@ -3042,7 +3028,7 @@ impl MdnBackend for MemoryBackend {
             }
 
             // Full fetch for actual parsing.
-            let bytes = self.get_blob_bytes(&(), account_id, &blob_id).await?;
+            let bytes = self.read_blob(&(), account_id, &blob_id).await?;
             match bytes {
                 None => {
                     not_found.push(blob_id);
@@ -3209,18 +3195,6 @@ impl SieveBackend for MemoryBackend {
     ) -> impl std::future::Future<Output = Result<usize, Self::Error>> + Send {
         let limit = self.inner.lock().unwrap().max_sieve_scripts_limit;
         async move { Ok(limit.unwrap_or(100)) }
-    }
-
-    fn get_sieve_blob(
-        &self,
-        _caller: &(),
-        _account_id: &jmap_types::Id,
-        blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
-        // Same pattern as MdnBackend::get_blob_bytes:
-        // lock, clone, release lock, return async move
-        let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();
-        async move { Ok(bytes) }
     }
 
     fn validate_sieve_script(

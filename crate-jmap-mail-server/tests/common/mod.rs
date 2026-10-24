@@ -71,7 +71,7 @@ pub struct FaultyBackend {
     pub inner: MemoryBackend,
     failures:
         std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
-    sieve_blob_fetches: std::sync::Arc<std::sync::atomic::AtomicUsize>,
+    blob_reads: std::sync::Arc<std::sync::atomic::AtomicUsize>,
 }
 
 impl FaultyBackend {
@@ -79,14 +79,13 @@ impl FaultyBackend {
         Self {
             inner: MemoryBackend::new(),
             failures: Default::default(),
-            sieve_blob_fetches: Default::default(),
+            blob_reads: Default::default(),
         }
     }
 
-    /// Number of `SieveBackend::get_sieve_blob` calls made so far.
-    pub fn sieve_blob_fetches(&self) -> usize {
-        self.sieve_blob_fetches
-            .load(std::sync::atomic::Ordering::SeqCst)
+    /// Number of `MailBackend::read_blob` calls made so far.
+    pub fn blob_reads(&self) -> usize {
+        self.blob_reads.load(std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Schedule a `BackendSetError::Other` for the next call to `op` on `type_name`.
@@ -219,7 +218,14 @@ impl MailBackend for FaultyBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
-        MailBackend::read_blob(&self.inner, &(), account_id, blob_id).await
+        self.blob_reads
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        if self.take_fault("", "read_blob") {
+            return Err(MemoryError::new(format!(
+                "injected read_blob failure {FAULTY_BACKEND_CANARY}"
+            )));
+        }
+        self.inner.read_blob(&(), account_id, blob_id).await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
@@ -340,26 +346,9 @@ impl MailBackend for FaultyBackend {
 // SieveBackend impl for FaultyBackend (feature = "sieve")
 // ---------------------------------------------------------------------------
 
-/// Counts `get_sieve_blob` calls and injects a fault on
-/// `("SieveScript", "get_sieve_blob")`; everything else delegates.
+/// Delegates every method to the inner `MemoryBackend`.
 #[cfg(feature = "sieve")]
 impl jmap_mail_server::SieveBackend for FaultyBackend {
-    async fn get_sieve_blob(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Option<Vec<u8>>, Self::Error> {
-        self.sieve_blob_fetches
-            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-        if self.take_fault("SieveScript", "get_sieve_blob") {
-            return Err(MemoryError::new(format!(
-                "injected get_sieve_blob failure {FAULTY_BACKEND_CANARY}"
-            )));
-        }
-        self.inner.get_sieve_blob(&(), account_id, blob_id).await
-    }
-
     async fn validate_sieve_script(
         &self,
         _caller: &(),
