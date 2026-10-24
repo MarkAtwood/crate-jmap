@@ -158,15 +158,14 @@ fn require_write(rights: &GraphRights) -> Result<(), Value> {
     }
 }
 
-/// Fill the server-set properties of create `m`: `id` (`""`, which is not
-/// an Id under RFC 8620 §1.2 "at least 1 and a maximum of 255 octets"; the
+/// Fill the server-set properties of create `m`: `id` ([`jmap_server::CREATE_ID_PLACEHOLDER`]; the
 /// `create_object` builder overwrites it with the minted id), `created`, `updated`, and `createdBy`/`updatedBy` from
 /// [`JmapBackend::principal_id`] ("or `null` if the server does not
 /// support Principals or cannot determine it").
 pub(crate) fn fill_server_set<B: GraphBackend>(caller: &B::CallerCtx, m: &mut Map<String, Value>) {
     let now = now_utc_string();
     let principal = json!(<B as JmapBackend>::principal_id(caller));
-    m.insert("id".to_owned(), json!(""));
+    m.insert("id".to_owned(), json!(jmap_server::CREATE_ID_PLACEHOLDER));
     m.insert("created".to_owned(), json!(now));
     m.insert("updated".to_owned(), json!(now));
     m.insert("createdBy".to_owned(), principal.clone());

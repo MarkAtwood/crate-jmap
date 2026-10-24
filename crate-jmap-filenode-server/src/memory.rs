@@ -1993,7 +1993,7 @@ mod tests {
         // "node-4" (next-after-the-highest-seed) so both fixtures
         // survive AND the create succeeds with a fresh id.
         let new_node: FileNode = serde_json::from_value(json!({
-            "id": "",
+            "id": jmap_server::CREATE_ID_PLACEHOLDER,
             "name": "freshly-created",
             "parentId": null,
             "role": null,
@@ -2090,7 +2090,7 @@ mod tests {
         );
 
         let new_node: FileNode = serde_json::from_value(json!({
-            "id": "",
+            "id": jmap_server::CREATE_ID_PLACEHOLDER,
             "name": "first-create",
             "parentId": null,
             "role": null,

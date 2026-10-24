@@ -431,7 +431,7 @@ async fn create_call<B: VtcBackend>(
         .map_err(|e| server_fail_value_from_backend(&e))?;
 
     for (key, value) in [
-        ("id", json!("")),
+        ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
         ("accountId", json!(account_id)),
         ("state", json!(initial_state)),
         ("createdAt", json!(now)),
@@ -444,8 +444,8 @@ async fn create_call<B: VtcBackend>(
         m.insert(key.to_owned(), value);
     }
 
-    // `id` is required by the type, so the parse uses "", which is not an
-    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `id` is required by the type, so the parse uses
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; the
     // builder overwrites it with the id the backend mints.
     let mut call: VtcCall = serde_json::from_value(Value::Object(m))
         .map_err(|e| invalid(&[], &format!("invalid VTCCall: {e}")))?;

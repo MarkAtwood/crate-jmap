@@ -546,10 +546,10 @@ async fn create_scene_object<B: SceneBackend>(
         echo_orientation = true;
     }
     let now = now_utc_string();
-    // `id` is required by the type, so the parse uses "", which is not an
-    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `id` is required by the type, so the parse uses
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; the
     // `create_object` builder overwrites it with the minted id.
-    m.insert("id".to_owned(), json!(""));
+    m.insert("id".to_owned(), json!(jmap_server::CREATE_ID_PLACEHOLDER));
     m.insert("ownerId".to_owned(), Value::Null);
     m.insert("createdAt".to_owned(), json!(now));
     m.insert("updatedAt".to_owned(), json!(now));

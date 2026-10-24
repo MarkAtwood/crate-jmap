@@ -14,15 +14,15 @@ use serde_json::{Value, json};
 
 const REGION: &str = "01J5ABC0000000000000000001";
 const OTHER_REGION: &str = "01J5ABC0000000000000000002";
-/// The two ids of the L2297-2300 response.
-const BOB_AV: &str = "user:bob@example.com";
-const CAROL_AV: &str = "user:carol@example.com";
+/// The two ids of the L2538-2541 response (jmap-chat-spec 6c38e2f).
+const BOB_AV: &str = "01J5AVB0000000000000000002";
+const CAROL_AV: &str = "01J5AVC0000000000000000003";
 /// Active, 40 m from the L2273 center `[10.0, 0, -5.0]`.
-const DAVE_AV: &str = "user:dave@example.com";
+const DAVE_AV: &str = "01J5AVD0000000000000000004";
 /// At the L2273 center, but has left.
-const ERIN_AV: &str = "user:erin@example.com";
+const ERIN_AV: &str = "01J5AVE0000000000000000005";
 /// At the L2273 center, but in [`OTHER_REGION`].
-const FRANK_AV: &str = "user:frank@example.com";
+const FRANK_AV: &str = "01J5AVF0000000000000000006";
 
 /// A stored avatar, hand-written from the field list at L550-581.
 fn avatar(

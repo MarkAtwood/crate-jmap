@@ -187,12 +187,12 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
-            // `TaskList.id` is required, so the parse fills it with "",
-            // which is not an Id (RFC 8620 §1.2: 1 to 255 octets); `build`
+            // `TaskList.id` is required, so the parse fills it with
+            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build`
             // overwrites it with the id the backend mints.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.insert("id".to_owned(), Value::String(String::new()));
+                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
                     // RFC 8620 §5.3: the server fills omitted properties that
                     // have a default. draft-ietf-jmap-tasks-06 §3:
                     // `isSubscribed` SHOULD default to true for any new task

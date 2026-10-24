@@ -58,7 +58,7 @@ mod tests {
     /// draft-atwood-jmap-scene-00 L550-581.
     fn departed() -> serde_json::Value {
         json!({
-            "id": "user:bob@example.com",
+            "id": "01J5AVB0000000000000000002",
             "regionId": "01J5ABC0000000000000000001",
             "userId": "user:bob@example.com",
             "displayName": "Bob",

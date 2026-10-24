@@ -332,7 +332,7 @@ fn scene_object() -> String {
     common::fixture("scene_object.json")
 }
 
-/// SceneAvatar example (draft-atwood-jmap-scene-00 L586-L601).
+/// SceneAvatar example (draft-atwood-jmap-scene-00 at 6c38e2f, L652-L667).
 fn scene_avatar() -> String {
     common::fixture("scene_avatar.json")
 }
@@ -393,7 +393,7 @@ fn lifecycle_region_get() -> String {
     common::fixture("lifecycle_region_get.json")
 }
 
-/// SceneAvatar/set response, lifecycle Step 3 (draft-atwood-jmap-scene-00 L2891-L2918).
+/// SceneAvatar/set response, lifecycle Step 3 (draft-atwood-jmap-scene-00 at 6c38e2f, L3187-L3214).
 fn lifecycle_avatar_created() -> String {
     common::fixture("lifecycle_avatar_created.json")
 }

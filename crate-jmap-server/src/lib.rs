@@ -47,13 +47,13 @@ pub use handlers::{
     handle_query, handle_query_changes, server_fail_from_backend, server_fail_value_from_backend,
 };
 pub use helpers::{
-    MergePatchError, PatchPathError, apply_jmap_patch, apply_patch_object, bool_arg,
-    check_patch_paths, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_arg, is_client_updatable, json_merge_patch, json_type_name, limit_or_max,
-    not_found_json, now_utc_string, now_utc_string_checked, optional_arg, parse_max_changes,
-    parse_wire_id, query_anchor_args, reject_did_bearing_properties, reject_read_only_patch,
-    reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
-    serialize_value, take_bool_arg, utc_date_from_epoch_seconds,
+    CREATE_ID_PLACEHOLDER, MergePatchError, PatchPathError, apply_jmap_patch, apply_patch_object,
+    bool_arg, check_patch_paths, enforce_max_objects_in_get, enforce_max_objects_in_set,
+    extract_account_id, filter_arg, is_client_updatable, json_merge_patch, json_type_name,
+    limit_or_max, not_found_json, now_utc_string, now_utc_string_checked, optional_arg,
+    parse_max_changes, parse_wire_id, query_anchor_args, reject_did_bearing_properties,
+    reject_read_only_patch, reject_server_set, resolve_creation_ref, resolve_query_offset,
+    resolve_query_start, serialize_value, take_bool_arg, utc_date_from_epoch_seconds,
 };
 
 mod parse;

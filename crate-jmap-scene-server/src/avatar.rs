@@ -437,10 +437,10 @@ async fn enter_region<B: SceneBackend>(
     for key in ["visualRef", "visualType", "worldState"] {
         m.entry(key).or_insert(Value::Null);
     }
-    // `id` is required by the type, so the parse uses "", which is not an
-    // Id (RFC 8620 §1.2: "at least 1 and a maximum of 255 octets"); the
+    // `id` is required by the type, so the parse uses
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; the
     // `create_object` builder overwrites it with the minted id.
-    m.insert("id".to_owned(), json!(""));
+    m.insert("id".to_owned(), json!(jmap_server::CREATE_ID_PLACEHOLDER));
     m.insert("userId".to_owned(), json!(user_id));
     m.insert("joinedAt".to_owned(), json!(now_utc_string()));
     m.insert("leftAt".to_owned(), Value::Null);

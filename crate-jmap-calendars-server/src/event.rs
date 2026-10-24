@@ -241,15 +241,10 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 
 /// draft-ietf-jmap-calendars-33 §5 `calendarIds`: "An event MUST belong to
 /// one or more Calendars at all times" and each value "MUST be true".
-/// Each key is a Calendar id, so it must be an RFC 8620 §1.2 Id; this
-/// catches a `/copy` override, which does not pass through
-/// [`resolve_map_key_refs`].
+/// Each key is a Calendar id; deserializing an [`Id`] already checks
+/// RFC 8620 §1.2.
 fn valid_calendar_ids(ids: Option<&BTreeMap<Id, bool>>) -> bool {
-    ids.is_some_and(|m| {
-        !m.is_empty()
-            && m.iter()
-                .all(|(k, v)| *v && Id::new_validated(k.as_ref()).is_ok())
-    })
+    ids.is_some_and(|m| !m.is_empty() && m.values().all(|v| *v))
 }
 
 /// draft-ietf-jmap-calendars-33 §5 `isOrigin`: true if, and only if, the
@@ -927,6 +922,21 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 }
             }
             merged.remove("id");
+
+            // A `/copy` override does not pass through
+            // [`resolve_map_key_refs`], so a `calendarIds` key that is not an
+            // RFC 8620 §1.2 Id is reported here, naming the property, before
+            // the typed parse turns it into an unattributed error.
+            if merged
+                .get("calendarIds")
+                .is_some_and(|v| serde_json::from_value::<BTreeMap<Id, bool>>(v.clone()).is_err())
+            {
+                not_created.insert(
+                    create_id,
+                    json!({ "type": "invalidProperties", "properties": ["calendarIds"] }),
+                );
+                continue;
+            }
 
             let mut event: CalendarEvent = match serde_json::from_value(Value::Object(merged)) {
                 Ok(e) => e,

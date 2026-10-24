@@ -247,12 +247,11 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
-            // `AddressBook.id` is required, so the parse fills it with "",
-            // which is not an Id (RFC 8620 §1.2: "at least 1 and a maximum
-            // of 255 octets"); `build` overwrites it with the minted id.
+            // `AddressBook.id` is required, so the parse fills it with
+            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
-                    m.insert("id".to_owned(), Value::String(String::new()));
+                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
                     // `isDefault` and `myRights` are server-set (RFC 9610 §2)
                     // and AddressBook requires both, so the server supplies
                     // them. A new book is not the default until
