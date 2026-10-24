@@ -1174,11 +1174,12 @@ impl JmapBackend for MemoryBackend {
         } else {
             MetadataOnlyChanges::Report
         };
-        let since: u64 = since_state.as_ref().parse().map_err(|_| {
-            BackendChangesError::Other(MemoryError::new(format!(
-                "invalid state token: {since_state}"
-            )))
-        })?;
+        // The token is client text; the `JmapBackend::Error` contract keeps
+        // it out of `Display` (bd:JMAP-gfqj).
+        let since: u64 = since_state
+            .as_ref()
+            .parse()
+            .map_err(|_| BackendChangesError::Other(MemoryError::new("invalid state token")))?;
 
         // Snapshot relevant change log entries under a brief lock, then release.
         let (relevant, has_more, new_state) = {
@@ -2065,7 +2066,7 @@ impl MailBackend for MemoryBackend {
                 .blobs
                 .get(blob_id)
                 .cloned()
-                .ok_or_else(|| MemoryError::new(format!("blob not found: {blob_id}")))?
+                .ok_or_else(|| MemoryError::new("blob not found"))?
         };
 
         let parsed = crate::parse::parse_rfc5322_headers(&bytes);
@@ -3381,7 +3382,48 @@ mod retype_tests {
 
 #[cfg(test)]
 mod memory_error_tests {
-    use super::MemoryError;
+    use super::{MemoryBackend, MemoryError};
+    use crate::MailBackend;
+    use jmap_mail_types::Email;
+    use jmap_server::{BackendChangesError, ChangesParams, JmapBackend};
+    use jmap_types::{Id, State};
+
+    /// Client-chosen text that must never reach operator logs.
+    const CANARY: &str = "alice@example.com";
+
+    /// RFC 8620 §5.2: `sinceState` is client-supplied. The
+    /// `JmapBackend::Error` contract forbids "PII shaped like an email
+    /// address" in `Display`, so an unparseable token must not be echoed
+    /// (bd:JMAP-gfqj).
+    #[tokio::test]
+    async fn invalid_state_token_display_omits_token() {
+        let backend = MemoryBackend::new();
+        let since = State::from(CANARY);
+        let err = backend
+            .get_changes::<Email>(&(), &Id::from("account1"), ChangesParams::new(&since))
+            .await
+            .expect_err("a non-numeric state token is rejected");
+        let BackendChangesError::Other(e) = err else {
+            panic!("expected Other, got {err:?}");
+        };
+        let shown = e.to_string();
+        assert!(!shown.contains(CANARY), "canary leaked: {shown}");
+        assert!(shown.contains("invalid state token"), "{shown}");
+    }
+
+    /// RFC 8621 §5.8: Email/parse `blobIds` are client-supplied; a missing
+    /// blob's id must not be echoed into `Display` (bd:JMAP-gfqj).
+    #[tokio::test]
+    async fn blob_not_found_display_omits_blob_id() {
+        let backend = MemoryBackend::new();
+        let e = backend
+            .parse_email(&(), &Id::from("account1"), &Id::from(CANARY))
+            .await
+            .expect_err("no blob was uploaded");
+        let shown = e.to_string();
+        assert!(!shown.contains(CANARY), "canary leaked: {shown}");
+        assert!(shown.contains("blob not found"), "{shown}");
+    }
 
     /// The `JmapBackend::Error` contract: "Implementations MUST NOT
     /// include ... PII shaped like an email address" in `Display`
