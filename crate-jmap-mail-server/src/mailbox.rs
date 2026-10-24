@@ -34,16 +34,17 @@ use std::collections::{BTreeMap, HashSet};
 
 use jmap_mail_types::{
     Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxComparator,
-    MailboxComparatorProperty, MailboxFilter,
+    MailboxComparatorProperty, MailboxFilter, MailboxFilterCondition,
 };
 use jmap_types::{Id, JmapError, PatchObject, State};
 use serde_json::{Value, json};
 
 use crate::MailBackend;
 use crate::helpers::{
-    SetAccumulators, check_metadata_entry, create_metadata, enforce_max_objects_in_get,
-    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
-    not_found_json, resolve_ref, serialize_value,
+    MetadataProjection, SetAccumulators, check_metadata_entry, create_metadata,
+    enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
+    finalize_set_response, not_found_json, reject_metadata_filter_without_capability, resolve_ref,
+    serialize_value,
 };
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
@@ -62,11 +63,20 @@ use jmap_server::{SetError, SetErrorType};
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]). When the backend lists Mailbox
+/// for draft-ietf-jmap-metadata-04 ([`MailBackend::metadata_info`]),
+/// `metadata` is returned as an object, by default only with
+/// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
+/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// §3.1).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -96,6 +106,15 @@ pub async fn handle_mailbox_get<B: MailBackend>(
         ),
     };
 
+    let projection = MetadataProjection::new(
+        properties.as_deref(),
+        true,
+        using,
+        backend
+            .metadata_info::<Mailbox>(caller, &account_id)
+            .as_ref(),
+    )?;
+
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
         .get_objects::<Mailbox>(caller, &account_id, ids_slice, properties.as_deref())
@@ -107,21 +126,24 @@ pub async fn handle_mailbox_get<B: MailBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let list_json: Vec<Value> = if let Some(ref props) = properties {
-        // Build the effective property set once; always include "id" per RFC 8620 §5.1.
-        let mut prop_set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
-        prop_set.insert("id");
-        list.iter()
-            .map(|obj| {
-                let val = serialize_value(obj)?;
-                Ok(filter_properties(&val, &prop_set))
-            })
-            .collect::<Result<Vec<_>, JmapError>>()?
-    } else {
-        list.iter()
-            .map(serialize_value)
-            .collect::<Result<Vec<_>, _>>()?
-    };
+    // Build the effective property set once; always include "id" per RFC 8620 §5.1.
+    let prop_set: Option<HashSet<&str>> = properties.as_ref().map(|props| {
+        let mut set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
+        set.insert("id");
+        set
+    });
+    let list_json: Vec<Value> = list
+        .iter()
+        .map(|obj| {
+            let val = serialize_value(obj)?;
+            let mut out = match &prop_set {
+                Some(set) => filter_properties(&val, set),
+                None => val.clone(),
+            };
+            projection.apply(&val, &mut out);
+            Ok(out)
+        })
+        .collect::<Result<Vec<_>, JmapError>>()?;
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
@@ -198,11 +220,17 @@ fn mailbox_sort_arg(
 /// Applies simple in-process filtering for the filter fields defined in
 /// RFC 8621 §2.3: `parentId`, `name`, `role`, `hasAnyRole`, `isSubscribed`.
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -286,6 +314,11 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // `parent_id: Option<Option<Id>>` keeps the three-way absent / null / Id
     // distinction, and a non-Id `parentId` fails the decode.
     let filter: Option<MailboxFilter> = filter_arg(&mut args)?;
+    reject_metadata_filter_without_capability(
+        filter.as_ref(),
+        MailboxFilterCondition::has_metadata_condition,
+        using,
+    )?;
 
     let sort_slice = if sort_values.is_empty() {
         None
@@ -376,11 +409,17 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
 ///
+/// `using` is the request's capability list (pass
+/// [`jmap_server::CallContext::using`]); without
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
+/// filter condition is `unsupportedFilter` (-04 §3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -418,6 +457,11 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
     // as in handle_mailbox_query.
     let sort_values = mailbox_sort_arg(&args)?;
     let filter: Option<MailboxFilter> = filter_arg(&mut args)?;
+    reject_metadata_filter_without_capability(
+        filter.as_ref(),
+        MailboxFilterCondition::has_metadata_condition,
+        using,
+    )?;
 
     let result = backend
         .query_changes::<Mailbox>(

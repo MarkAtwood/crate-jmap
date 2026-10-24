@@ -40,7 +40,7 @@ async fn set(backend: &MemoryBackend, create: Value) -> Value {
 
 async fn get(backend: &MemoryBackend, id: &str, properties: &[&str]) -> Value {
     let args = json!({ "accountId": "a1", "ids": [id], "properties": properties });
-    let HandlerOutput { primary, .. } = handle_email_get(backend, &(), args)
+    let HandlerOutput { primary, .. } = handle_email_get(backend, &(), args, &[])
         .await
         .expect("Email/get must succeed");
     primary["list"][0].clone()

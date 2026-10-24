@@ -940,18 +940,23 @@ fn email_update_containers<'a>(
 }
 
 /// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
-/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
-/// on the stored value.
+/// type `type_name`: rules 1 to 3 on the metadata properties of
+/// `supplied`, the create object, then rule 4 on the values it supplied
+/// as stored in `val`. A `Foo/set` create passes `val` as both; a `/copy`
+/// passes its create object, so the copied values are not revalidated
+/// (-04 §3.4: "maxDepth applies only to values supplied in the create
+/// object").
 fn check_metadata_create(
     inner: &Inner,
     type_name: &'static str,
     account_id: &str,
+    supplied: &serde_json::Value,
     val: &serde_json::Value,
 ) -> Result<(), BackendSetError<MemoryError>> {
-    let Some(obj) = val.as_object() else {
+    let (Some(supplied), Some(obj)) = (supplied.as_object(), val.as_object()) else {
         return Ok(());
     };
-    let entry: serde_json::Map<String, serde_json::Value> = obj
+    let entry: serde_json::Map<String, serde_json::Value> = supplied
         .iter()
         .filter(|(k, _)| is_metadata_property(k))
         .map(|(k, v)| (k.clone(), v.clone()))
@@ -1606,7 +1611,7 @@ impl MailBackend for MemoryBackend {
 
         let mut inner = self.inner.lock().unwrap();
         if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
-            check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val)?;
+            check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         }
         let objects = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
         // Singleton types (backend.rs "# Singleton types"): an existing object
@@ -1655,7 +1660,7 @@ impl MailBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
-        check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val)?;
+        check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.blobs.insert(blob_id, message);
         inner
             .objects_mut("Email", account_id.as_ref())
@@ -2123,13 +2128,16 @@ impl MailBackend for MemoryBackend {
 
     /// Blob ids are shared across accounts in this backend, so a copied
     /// Email keeps its `blobId`. A copied Email also joins its `threadId`
-    /// in the destination, creating the Thread when it is new.
+    /// in the destination, creating the Thread when it is new. The
+    /// `metadata` and `privateMetadata` of `create` are checked against
+    /// the destination as a `Foo/set` create is (-04 §3.4).
     async fn copy_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &(),
         _from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
+        create: &serde_json::Value,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let new_id = Id::from(uuid::Uuid::new_v4().to_string());
         let mut val = serde_json::to_value(&obj).map_err(|e| {
@@ -2149,6 +2157,9 @@ impl MailBackend for MemoryBackend {
             .flatten();
 
         let mut inner = self.inner.lock().unwrap();
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
+        }
         inner
             .objects_mut(O::TYPE_NAME, to_account_id.as_ref())
             .insert(new_id.clone(), val);
@@ -2301,6 +2312,21 @@ impl MailBackend for MemoryBackend {
 
     fn supports_type<O: JmapObject>(&self, _caller: &(), _account_id: &Id) -> bool {
         true
+    }
+
+    /// The info set by [`MemoryBackend::with_metadata_info`], the same for
+    /// every account.
+    fn metadata_info<O: JmapObject>(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Option<DataTypeMetadataInfo> {
+        self.inner
+            .lock()
+            .unwrap()
+            .metadata_info
+            .get(O::TYPE_NAME)
+            .cloned()
     }
 }
 
