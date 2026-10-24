@@ -3678,6 +3678,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: the in-memory backend's `MemoryError` no longer
+  echoes a client-supplied `sinceState` ("invalid state token") or
+  Email/parse `blobId` ("blob not found") in its `Display` text, which
+  the `JmapBackend::Error` contract keeps free of PII.
+
 - **jmap-tasks-server**, **jmap-contacts-server**, **jmap-calendars-server**:
   `TaskList/set`, `AddressBook/set` and `Calendar/set` creates that omit
   `isSubscribed` now default it to `true`, and `Calendar/set` creates that
