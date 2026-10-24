@@ -31,7 +31,7 @@
 //! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
 //!   `maxObjectsInSet`;
 //! - `/set`: `stateMismatch`;
-//! - `/query`: `unsupportedFilter`, `anchorNotFound`.
+//! - `/query`: `unsupportedFilter`, `unsupportedSort`, `anchorNotFound`.
 //!
 //! Per-target failures inside `/set` (including the `invalidSieve` and
 //! `sieveIsActive` Sieve-specific SetError types defined by RFC 9661) surface
@@ -43,7 +43,7 @@ pub(crate) const SIEVE_ERR_INVALID: &str = "invalidSieve";
 /// IANA-registered JMAP Sieve error type for active-script destroy attempts.
 pub(crate) const SIEVE_ERR_IS_ACTIVE: &str = "sieveIsActive";
 
-use jmap_mail_types::SieveScript;
+use jmap_mail_types::{SieveScript, SieveScriptComparator, SieveScriptComparatorProperty};
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -1034,6 +1034,20 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 
     let calculate_total: bool = take_bool_arg(&mut args, "calculateTotal", false);
 
+    // RFC 8620 §5.5: a sort property the server does not support is
+    // unsupportedSort; RFC 9661 §2.5 requires `name` and `isActive`.
+    let sort: Vec<SieveScriptComparator> = match args.remove("sort") {
+        None | Some(Value::Null) => vec![],
+        Some(v) => serde_json::from_value(v)
+            .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
+    };
+    if sort
+        .iter()
+        .any(|c| matches!(c.property, SieveScriptComparatorProperty::Other(_)))
+    {
+        return Err(JmapError::unsupported_sort());
+    }
+
     // Step 4: fetch all scripts for the account.
     let (all_scripts, _not_found) = backend
         .get_objects::<SieveScript>(caller, &account_id, None, None)
@@ -1050,10 +1064,30 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         })
         .collect();
 
-    // Step 6: sort by name ascending (None sorts before Some, then alphabetic).
-    // This is the default and only supported sort order for this handler.
+    // Step 6: sort by the comparators in order; with no `sort`, by name
+    // ascending (the order is server-dependent, RFC 8620 §5.5). A null name
+    // sorts before any string; `false` sorts before `true`.
     let mut sorted: Vec<&SieveScript> = filtered;
-    sorted.sort_by(|a, b| a.name.as_deref().cmp(&b.name.as_deref()));
+    if sort.is_empty() {
+        sorted.sort_by(|a, b| a.name.as_deref().cmp(&b.name.as_deref()));
+    } else {
+        sorted.sort_by(|a, b| {
+            sort.iter()
+                .map(|c| {
+                    let ord = match c.property {
+                        SieveScriptComparatorProperty::IsActive => a.is_active.cmp(&b.is_active),
+                        SieveScriptComparatorProperty::Name => {
+                            a.name.as_deref().cmp(&b.name.as_deref())
+                        }
+                        // `Other` was rejected above; the enum is non_exhaustive.
+                        _ => std::cmp::Ordering::Equal,
+                    };
+                    if c.is_ascending { ord } else { ord.reverse() }
+                })
+                .find(|o| o.is_ne())
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+    }
 
     // Build the ordered Id list.
     let all_ids: Vec<&Id> = sorted.iter().map(|s| &s.id).collect();
