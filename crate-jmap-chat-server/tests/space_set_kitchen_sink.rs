@@ -185,6 +185,7 @@ async fn space_set_all_twelve_ops_in_one_call() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
@@ -466,6 +467,7 @@ async fn space_set_all_twelve_ops_single_user_mode() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {

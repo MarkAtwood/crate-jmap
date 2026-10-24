@@ -46,7 +46,7 @@ use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, now_utc_string, reject_unsupported_sort,
 };
-use crate::helpers::{resolve_refs, resolved_create};
+use crate::helpers::{resolve_entry_refs, resolve_refs, resolved_create};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, is_client_updatable, reject_server_set,
@@ -547,6 +547,15 @@ const CHAT_ID_PROPERTIES: &[&str] = &[
     "removeMembers",
 ];
 
+/// The Chat update entry fields that hold a ChatContact id, as
+/// `(patch key, entry field, property named on failure)`: draft-atwood-jmap-chat-00
+/// §Chat/set "Updating a Chat" gives each `addMembers` and
+/// `updateMemberRoles` entry an `id`, a ChatContact id.
+const CHAT_ENTRY_ID_PROPERTIES: &[(&str, &str, &str)] = &[
+    ("addMembers", "id", "addMembers"),
+    ("updateMemberRoles", "id", "updateMemberRoles"),
+];
+
 /// Handle a `Chat/set` method call (draft-atwood-jmap-chat-00 §Chat).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -572,8 +581,9 @@ const CHAT_ID_PROPERTIES: &[&str] = &[
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 ///
-/// A `contactId`, or a `memberIds`, `pinnedMessageIds` or `removeMembers`
-/// element, that is a `#creationId` reference names a record created earlier in the request and resolves against
+/// A `contactId`, a `memberIds`, `pinnedMessageIds` or `removeMembers`
+/// element, or the `id` of an `addMembers` or `updateMemberRoles` entry,
+/// that is a `#creationId` reference names a record created earlier in the request and resolves against
 /// `created_ids` (pass [`jmap_server::CallContext::created_ids`]; RFC 8620
 /// §5.3); an unknown reference is `invalidProperties` naming the property.
 ///
@@ -1121,7 +1131,11 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             };
-            if let Err(err) = resolve_refs(&mut patch_val, CHAT_ID_PROPERTIES, created_ids) {
+            if let Err(err) = resolve_refs(&mut patch_val, CHAT_ID_PROPERTIES, created_ids)
+                .and_then(|()| {
+                    resolve_entry_refs(&mut patch_val, CHAT_ENTRY_ID_PROPERTIES, created_ids)
+                })
+            {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }

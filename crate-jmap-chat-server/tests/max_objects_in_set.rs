@@ -116,7 +116,7 @@ over_limit_test!(
 );
 
 over_limit_test!(
-    using space_set_over_limit,
+    ids using space_set_over_limit,
     handle_space_set,
     [("create", create_map_of_size(DEFAULT_CAP + 1))]
 );

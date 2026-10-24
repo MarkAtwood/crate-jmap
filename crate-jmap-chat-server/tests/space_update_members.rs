@@ -32,6 +32,7 @@ async fn update_members(backend: &IdentityBackend, caller: &str, entries: Value)
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &Id::from(caller),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "updateMembers": entries }}

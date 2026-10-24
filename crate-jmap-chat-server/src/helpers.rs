@@ -384,6 +384,33 @@ pub(crate) fn resolve_refs(
     Ok(())
 }
 
+/// Rewrite each string `field` of an object entry in the array property
+/// `prop` of `obj`, a create or an update patch, that is a `#creationId`
+/// reference to the id it names, through [`resolve_ref`]; a failure names
+/// `named`. For example `("addMembers", "id", "addMembers")` resolves
+/// `addMembers[].id`. Other values are left for the caller to validate.
+///
+/// # Errors
+///
+/// As [`resolve_ref`], for the first unresolvable entry.
+pub(crate) fn resolve_entry_refs(
+    obj: &mut serde_json::Value,
+    entries: &[(&str, &str, &str)],
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+) -> Result<(), Box<jmap_server::SetError>> {
+    for &(prop, field, named) in entries {
+        let Some(serde_json::Value::Array(items)) = obj.get_mut(prop) else {
+            continue;
+        };
+        for item in items {
+            if let Some(serde_json::Value::String(raw)) = item.get_mut(field) {
+                *raw = resolve_ref(raw, named, created_ids)?.as_ref().to_owned();
+            }
+        }
+    }
+    Ok(())
+}
+
 /// A copy of the create `obj` with its `props` resolved by
 /// [`resolve_refs`], for a handler that iterates the create map by
 /// reference.

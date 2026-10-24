@@ -153,6 +153,7 @@ async fn destroying_space_destroys_its_channels_and_their_messages() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
         &[],
     )
@@ -219,6 +220,7 @@ async fn channel_read_failure_leaves_space_and_channels() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
         &[],
     )
@@ -275,6 +277,7 @@ async fn destroy_without_manage_space_is_forbidden() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "destroy": [SPACE_ID] }),
         &[],
     )

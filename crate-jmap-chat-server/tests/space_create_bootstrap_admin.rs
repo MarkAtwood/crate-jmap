@@ -43,6 +43,7 @@ async fn create_space(backend: &MemoryBackend) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s0": { "name": "New" } } }),
         &[],
     )
@@ -135,6 +136,7 @@ async fn space_create_creator_can_administer_new_space() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s0": { "name": "New" } } }),
         &[],
     )
@@ -148,6 +150,7 @@ async fn space_create_creator_can_administer_new_space() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { &space_id: {
@@ -179,6 +182,7 @@ async fn space_create_creator_member_entry_is_account_id_not_principal() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &Id::from("user-alice"),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s0": { "name": "New" } } }),
         &[],
     )

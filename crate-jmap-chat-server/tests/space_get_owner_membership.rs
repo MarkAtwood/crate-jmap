@@ -115,6 +115,7 @@ async fn owner_without_identity_sees_full_view_of_created_space() {
     } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": "Mine", "isPubliclyPreviewable": false } }

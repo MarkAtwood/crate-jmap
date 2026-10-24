@@ -92,6 +92,7 @@ async fn owner_without_member_entry_cannot_mutate_metadata() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "renamed" } }
@@ -149,6 +150,7 @@ async fn manage_space_holder_can_mutate_description() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "renamed" } }
@@ -193,6 +195,7 @@ async fn manage_space_holder_can_mutate_all_metadata_fields() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -264,6 +267,7 @@ async fn everyone_only_member_cannot_mutate_description() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "should not stick" } }
@@ -314,6 +318,7 @@ async fn non_member_caller_cannot_mutate_metadata() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &outsider,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "should not stick" } }
@@ -369,6 +374,7 @@ async fn other_permissions_do_not_subsume_manage_space() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "description": "should not stick" } }
@@ -423,6 +429,7 @@ async fn mixed_patch_metadata_plus_structural_atomic_reject() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -486,6 +493,7 @@ async fn mixed_patch_metadata_plus_structural_admin_succeeds() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: {
@@ -550,6 +558,7 @@ async fn single_field_metadata_patch_still_gated() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "isPublic": true } }

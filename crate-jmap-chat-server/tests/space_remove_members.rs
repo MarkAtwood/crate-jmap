@@ -59,6 +59,7 @@ async fn self_removal_without_manage_members_is_permitted() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID] }}
@@ -83,6 +84,7 @@ async fn last_admin_self_removal_bypasses_last_admin_protection() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &caller,
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": [ACCOUNT_ID] }}
@@ -137,6 +139,7 @@ async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { SPACE_ID: { "removeMembers": ["admin-user", ACCOUNT_ID] }}
@@ -189,6 +192,7 @@ async fn patch_sole_admin_space(patch: serde_json::Value) -> serde_json::Value {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
         &[],
     )

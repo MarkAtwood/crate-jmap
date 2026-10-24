@@ -124,10 +124,16 @@ async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
 }
 
 async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
-    handle_space_set(backend, &(), with_account(args), &using())
-        .await
-        .expect("Space/set must not fail at method level")
-        .primary
+    handle_space_set(
+        backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        with_account(args),
+        &using(),
+    )
+    .await
+    .expect("Space/set must not fail at method level")
+    .primary
 }
 
 // ---------------------------------------------------------------------------

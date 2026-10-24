@@ -24,6 +24,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "create": { "s": { "name": "S" } } }),
         &[],
     )
@@ -33,6 +34,7 @@ async fn create_channel(backend: &MemoryBackend) -> String {
     handle_space_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": { space_id: { "addChannels": [{ "name": "general" }] } }

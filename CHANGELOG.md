@@ -1820,10 +1820,20 @@ wire behaviour that a conforming peer can observe.
   SpaceBan and CustomEmoji `spaceId`. `Message/set` runs a create whose
   `replyTo` or `threadRootId` is `#k` after the create `k` of the same
   call, as §5.3 requires. An unknown reference fails that entry with
-  `invalidProperties` naming the property. Ids nested inside entry objects
-  (`addMembers`, `updateMemberRoles`, Message `mentions` and
-  `attachments`, `Space/set` patch entries) are not resolved yet (bd
-  JMAP-3x9e) (bd JMAP-1p88).
+  `invalidProperties` naming the property. The next entry covers ids
+  nested inside entry objects (bd JMAP-1p88).
+- **BREAKING** **jmap-chat-server**: `handle_space_set` takes a new third
+  argument, `created_ids: &BTreeMap<Id, Id>` (pass
+  `CallContext::created_ids`; `register_chat_handlers` does). `#creationId`
+  references (RFC 8620 §5.3) now also resolve in ids nested inside entry
+  objects: Chat/set update `addMembers[].id` and `updateMemberRoles[].id`,
+  Message/set Mention `id` (create and edit) and Attachment `filenodeId`
+  (create), and Space/set update `addMembers[].id`, `updateMembers[].id`
+  and `removeMembers` elements. An unknown reference is
+  `invalidProperties` naming the patch key, or `filenodeId` for an
+  Attachment (draft-atwood-jmap-chat-filenode-00 §filenodeId). Space/set
+  channel ids are left literal: a channel Chat is created only by
+  `addChannels`, which has no creation id (bd JMAP-3x9e).
 - **BREAKING** **jmap-scene-server**: `handle_scene_region_set`,
   `handle_scene_object_set` and `handle_scene_avatar_set` take a new third
   argument, `created_ids: &BTreeMap<Id, Id>` (pass

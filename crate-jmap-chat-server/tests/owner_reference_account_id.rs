@@ -104,6 +104,7 @@ async fn space_set_update(backend: &IdentityBackend, patch: Value) -> Value {
     handle_space_set(
         backend,
         &owner(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
         &[],
     )

@@ -47,6 +47,7 @@ async fn update_space(backend: &MemoryBackend, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         json!({ "accountId": ACCOUNT_ID, "update": { SPACE_ID: patch } }),
         &[],
     )

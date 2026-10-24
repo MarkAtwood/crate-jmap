@@ -1808,6 +1808,7 @@ pub async fn make_space(backend: &MemoryBackend, name: &str) -> String {
     let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_space_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         serde_json::json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": { "name": name } }
@@ -1831,6 +1832,7 @@ pub async fn make_space_with_props(backend: &MemoryBackend, props: serde_json::V
     let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_space_set(
         backend,
         &(),
+        &std::collections::BTreeMap::new(),
         serde_json::json!({
             "accountId": ACCOUNT_ID,
             "create": { "s0": props }

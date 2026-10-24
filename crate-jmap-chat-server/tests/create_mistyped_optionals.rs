@@ -114,6 +114,7 @@ async fn space_rejects_mistyped_optionals() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({
             "name": "S",
             "description": 42,
@@ -138,6 +139,7 @@ async fn space_accepts_null_optionals() {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,
         &(),
+        &std::collections::BTreeMap::new(),
         args(json!({ "name": "S", "description": null, "isPublic": null })),
         &[],
     )
