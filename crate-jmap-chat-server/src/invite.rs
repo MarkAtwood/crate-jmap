@@ -167,7 +167,7 @@ pub async fn handle_invite_changes<B: ChatBackend>(
             jmap_server::ChangesParams::new(&since_state).max_changes(max_changes),
         )
         .await
-        .map_err(JmapError::from)?;
+        .map_err(jmap_server::changes_error_from_backend)?;
 
     // Keep only created/updated ids whose invite still resolves and passes
     // the SpaceInvite/get visibility gate.

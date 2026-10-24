@@ -20,7 +20,7 @@
 //! - `/get`, `/set`: `requestTooLarge` past `maxObjectsInGet` /
 //!   `maxObjectsInSet`;
 //! - `/set`: `stateMismatch`;
-//! - `/changes`: `cannotCalculateChanges`, `tooManyChanges`.
+//! - `/changes`: `cannotCalculateChanges`.
 //!
 //! Per-target failures inside `/set` surface in the `notCreated` /
 //! `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not as
@@ -163,7 +163,7 @@ pub async fn handle_identity_changes<B: MailBackend>(
             jmap_server::ChangesParams::new(&since_state).max_changes(max_changes),
         )
         .await
-        .map_err(JmapError::from)?;
+        .map_err(jmap_server::changes_error_from_backend)?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),

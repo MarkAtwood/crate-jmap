@@ -3649,6 +3649,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-server**, **jmap-mail-server**, **jmap-chat-server**: **BREAKING**
+  (wire) every `Foo/changes` handler (`handle_changes`,
+  `handle_identity_changes` and the chat ChatContact, CustomEmoji,
+  PresenceStatus, SpaceInvite and ReadPosition handlers) now answers
+  `BackendChangesError::TooManyChanges` with `cannotCalculateChanges`
+  instead of `tooManyChanges`. RFC 8620 §5.2 defines no `tooManyChanges`
+  for `/changes` (it is a §5.6 `/queryChanges` error), and a server over
+  `maxChanges` that "is unable to calculate an intermediate state ... MUST
+  return a "cannotCalculateChanges" error response instead". New
+  `jmap_server::changes_error_from_backend` does the mapping for custom
+  `/changes` handlers; `/queryChanges` is unchanged.
+
 - **jmap-scene-server**: **BREAKING** (wire) `SceneObject/set` `created`
   entries now carry `orientation` when the create omitted it (stored as
   the identity `[0, 0, 0, 1]`) or normalizing changed it, as RFC 8620 §5.3

@@ -146,7 +146,7 @@ pub async fn handle_emoji_changes<B: ChatBackend>(
             jmap_server::ChangesParams::new(&since_state).max_changes(max_changes),
         )
         .await
-        .map_err(JmapError::from)?;
+        .map_err(jmap_server::changes_error_from_backend)?;
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),

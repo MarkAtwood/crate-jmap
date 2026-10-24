@@ -27,8 +27,8 @@
 //!   `maxObjectsInSet`;
 //! - `/set`, `/import`, `/copy`: `stateMismatch`;
 //! - `/copy`: `fromAccountNotFound`;
-//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`,
-//!   `tooManyChanges`;
+//! - `/changes`, `/queryChanges`: `cannotCalculateChanges`;
+//! - `/queryChanges`: `tooManyChanges`;
 //! - `/query`, `/queryChanges`: `unsupportedFilter`;
 //! - `/query`: `unsupportedSort`, `anchorNotFound`.
 //!

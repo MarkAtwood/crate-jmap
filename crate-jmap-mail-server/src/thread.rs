@@ -18,7 +18,7 @@
 //!
 //! - every handler: `accountNotFound`, `invalidArguments`, `serverFail`;
 //! - `/get`: `requestTooLarge` past `maxObjectsInGet`;
-//! - `/changes`: `cannotCalculateChanges`, `tooManyChanges`.
+//! - `/changes`: `cannotCalculateChanges`.
 
 use std::collections::HashSet;
 
