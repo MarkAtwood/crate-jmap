@@ -1828,8 +1828,9 @@ wire behaviour that a conforming peer can observe.
   references (RFC 8620 §5.3) now also resolve in ids nested inside entry
   objects: Chat/set update `addMembers[].id` and `updateMemberRoles[].id`,
   Message/set Mention `id` (create and edit) and Attachment `filenodeId`
-  (create), and Space/set update `addMembers[].id`, `updateMembers[].id`
-  and `removeMembers` elements. An unknown reference is
+  (create), and Space/set update `addMembers[].id`, `updateMembers[].id`,
+  `removeMembers` elements and `updateChannels[].permissionOverrides[].targetId`
+  (a SpaceMember id is a ChatContact id). An unknown reference is
   `invalidProperties` naming the patch key, or `filenodeId` for an
   Attachment (draft-atwood-jmap-chat-filenode-00 §filenodeId). Space/set
   channel ids are left literal: a channel Chat is created only by

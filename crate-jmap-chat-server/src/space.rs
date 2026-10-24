@@ -57,7 +57,7 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, iso8601_before,
     not_found_json, now_utc_string, optional_arg, reject_unsupported_sort, serialize_value,
 };
-use crate::helpers::{resolve_entry_refs, resolve_refs};
+use crate::helpers::{resolve_entry_refs, resolve_ref, resolve_refs};
 use crate::{ChatBackend, ChatLimits, InviteJoinRefusal, SpacePatchOp};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
@@ -868,6 +868,37 @@ const BOOTSTRAP_ADMIN_ROLE_ID: &str = "admin";
 /// `UnsignedInt` (RFC 8620 §1.3), so no later role can outrank it.
 const BOOTSTRAP_ADMIN_ROLE_POSITION: u64 = 9_007_199_254_740_991;
 
+/// Resolve `#creationId` references in each `updateChannels[]` entry's
+/// `permissionOverrides[].targetId` (RFC 8620 §5.3).
+///
+/// draft-atwood-jmap-chat-00 §ChannelPermission: `targetId` is "A
+/// SpaceRole id or a SpaceMember `id`", or the Space id for `@everyone`;
+/// a SpaceMember id is a ChatContact id. SpaceRole ids are server-set and
+/// never start with `#`, so every `targetId` is resolved regardless of
+/// `targetType`. An unknown reference is `invalidProperties` naming
+/// `updateChannels`.
+fn resolve_override_targets(
+    patch: &mut Value,
+    created_ids: &std::collections::BTreeMap<Id, Id>,
+) -> Result<(), Box<jmap_server::SetError>> {
+    let Some(Value::Array(channels)) = patch.get_mut("updateChannels") else {
+        return Ok(());
+    };
+    for channel in channels {
+        let Some(Value::Array(overrides)) = channel.get_mut("permissionOverrides") else {
+            continue;
+        };
+        for entry in overrides {
+            if let Some(Value::String(raw)) = entry.get_mut("targetId") {
+                *raw = resolve_ref(raw, "updateChannels", created_ids)?
+                    .as_ref()
+                    .to_owned();
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Handle a `Space/set` method call (draft-atwood-jmap-chat-00 §Space).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -1163,6 +1194,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                         created_ids,
                     )
                 })
+                .and_then(|()| resolve_override_targets(&mut patch_val, created_ids))
             {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
