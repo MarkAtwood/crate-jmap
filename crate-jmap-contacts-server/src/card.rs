@@ -204,13 +204,19 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             }
             // `ContactCard.id` is optional, so the create parses without
             // one and `build` sets the id the backend mints.
-            let mut card: ContactCard = match serde_json::from_value(obj_val) {
+            let mut card: ContactCard = match serde_path_to_error::deserialize(obj_val) {
                 Ok(c) => c,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -1556,5 +1562,31 @@ mod tests {
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
         assert!(!desc.contains("CANARY"), "{desc}");
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property.
+    #[tokio::test]
+    async fn set_create_typed_parse_failure_names_property() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "badKind": { "kind": 5 },
+                "badKeywords": { "keywords": "x" }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for (cid, prop) in [("badKind", "kind"), ("badKeywords", "keywords")] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
     }
 }

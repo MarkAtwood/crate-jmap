@@ -27,6 +27,7 @@ jmap-server = { workspace = true }
 jmap-metadata-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_path_to_error = { workspace = true }
 uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
 # draft-ietf-jmap-metadata-04 helpers the MemoryBackend wires in (JMAP-s4kp.3).
 jmap-metadata-server = { workspace = true, optional = true }

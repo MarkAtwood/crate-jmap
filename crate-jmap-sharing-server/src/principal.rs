@@ -209,13 +209,38 @@ pub async fn handle_principal_set<B: SharingBackend>(
                 other => other,
             };
 
-            let mut principal: Principal = match serde_json::from_value(obj_with_id) {
+            // RFC 9670 §2: `type` and `name` are required. serde reports a
+            // missing field at the root, not on a property path, so name them
+            // here (RFC 8620 §5.3 invalidProperties).
+            let missing: Vec<&str> = ["type", "name"]
+                .into_iter()
+                .filter(|p| obj_with_id.get(p).is_none())
+                .collect();
+            if !missing.is_empty() {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": missing,
+                        "description": "required property missing on create",
+                    }),
+                );
+                continue;
+            }
+
+            let mut principal: Principal = match serde_path_to_error::deserialize(obj_with_id) {
                 Ok(p) => p,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -570,5 +595,37 @@ mod tests {
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
         assert!(!desc.contains("CANARY"), "{desc}");
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property (`type` and `name` are required Strings, RFC 9670 §2).
+    #[tokio::test]
+    async fn set_create_typed_parse_failure_names_property() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "missingName": { "type": "individual" },
+                "missingType": { "name": "A" },
+                "numericType": { "type": 5, "name": "A" },
+                "numericName": { "type": "individual", "name": 5 }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } = handle_principal_set(&backend, &(), args, &[])
+            .await
+            .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for (cid, prop) in [
+            ("missingName", "name"),
+            ("missingType", "type"),
+            ("numericType", "type"),
+            ("numericName", "name"),
+        ] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
     }
 }
