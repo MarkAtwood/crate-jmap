@@ -15783,3 +15783,40 @@ async fn email_set_create_body_errors_name_property() {
         assert_eq!(err["properties"], expected, "resp={resp}");
     }
 }
+
+/// Oracle: RFC 8621 §4.1.4: an EmailBodyPart's `partId` and `blobId` are
+/// "null if, and only if, the part is of type "multipart/*"", and
+/// `subParts` "contains the body parts of each child" of a multipart.
+/// RFC 8621 §4.6 lets a create give the whole tree as `bodyStructure`. The
+/// hand-written multipart/alternative root below has only `type` and
+/// `subParts`, so it is a valid create and must be created.
+#[tokio::test]
+async fn email_set_create_multipart_body_structure_without_ids() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let args = serde_json::json!({
+        "accountId": "account1",
+        "create": {
+            "e1": {
+                "mailboxIds": { "inbox": true },
+                "bodyStructure": {
+                    "type": "multipart/alternative",
+                    "subParts": [
+                        { "type": "text/plain", "partId": "1" },
+                        { "type": "text/html", "partId": "2" }
+                    ]
+                },
+                "bodyValues": {
+                    "1": { "value": "Hello" },
+                    "2": { "value": "<p>Hello</p>" }
+                }
+            }
+        }
+    });
+    let HandlerOutput { primary: resp, .. } =
+        handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
+            .await
+            .expect("Email/set must return a response");
+    assert!(resp["notCreated"]["e1"].is_null(), "resp={resp}");
+    assert!(resp["created"]["e1"]["id"].is_string(), "resp={resp}");
+}
