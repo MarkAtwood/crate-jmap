@@ -145,9 +145,15 @@ pub enum Rejection {
     #[error("DNSSEC answer is bogus")]
     DnssecBogus,
     /// §Replay: "A receiving server whose nonce cache is lost, for
-    /// example on restart, SHOULD reject requests whose `created`
-    /// precedes the restart, since it can no longer detect their
-    /// replay."
+    /// example on restart, SHOULD reject requests whose `created` is
+    /// earlier than the restart time plus the 60 seconds by which check 4
+    /// of {{request-signing}} lets `created` lead the receiver's clock,
+    /// since it can no longer detect their replay."
+    ///
+    /// Unlike the other variants, §Request Signing has the receiving
+    /// server answer a request rejected only by this rule with HTTP
+    /// status 503 (Service Unavailable), not 403, and the sender retries
+    /// it with a new signature.
     #[error("created precedes the replay store's memory")]
     PrecedesRestart,
 }

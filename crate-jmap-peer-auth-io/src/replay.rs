@@ -39,10 +39,13 @@ pub trait ReplayStore: Send + Sync {
     /// `None` if it has never lost one.
     ///
     /// §Replay: "A receiving server whose nonce cache is lost, for
-    /// example on restart, SHOULD reject requests whose `created`
-    /// precedes the restart, since it can no longer detect their
-    /// replay." [`authenticate`](crate::authenticate) rejects a request
-    /// whose `created` is before this time. A store that survives
+    /// example on restart, SHOULD reject requests whose `created` is
+    /// earlier than the restart time plus the 60 seconds by which check 4
+    /// of {{request-signing}} lets `created` lead the receiver's clock,
+    /// since it can no longer detect their replay."
+    /// [`authenticate`](crate::authenticate) rejects a request whose
+    /// `created` is earlier than this time plus
+    /// [`CLOCK_SKEW_SECS`](jmap_peer_auth::CLOCK_SKEW_SECS). A store that survives
     /// restarts returns `None`, or the time it last lost its contents.
     fn remembers_since(&self) -> Option<SystemTime>;
 }
@@ -84,7 +87,8 @@ impl Default for MemoryReplayStore {
 
 impl MemoryReplayStore {
     /// An empty store that remembers pairs from now on: call it at
-    /// startup, so requests created before the restart are rejected
+    /// startup, so requests created before the restart, or less than
+    /// 60 seconds after it, are rejected
     /// ([`ReplayStore::remembers_since`]).
     pub fn new() -> Self {
         Self::started_at(SystemTime::now())

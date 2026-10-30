@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-peer-auth-io** (security): `authenticate` now applies the
+  draft-atwood-jmap-chat-federation-00 §Replay restart rule as revised in
+  spec 30dea91, rejecting with `Rejection::PrecedesRestart` a request
+  whose `created` is earlier than `ReplayStore::remembers_since()` plus
+  `CLOCK_SKEW_SECS` (60 s), not earlier than `remembers_since()` alone.
+  Check 4 lets `created` lead the receiver's clock by 60 s, so a request
+  accepted just before a restart could be replayed into the emptied nonce
+  cache for up to 60 s. Honest requests signed in the first 60 s after a
+  restart are now rejected too; §Request Signing (spec 3cdd8e6) has the
+  receiver answer this rejection with HTTP 503, and the sender retries
+  with a new signature.
 - **jmap-mail-server**: an `Email/set` create whose body fails validation
   (RFC 8621 §4.6) now lists the top-level property it failed on
   (`textBody`, `htmlBody`, `attachments`, `bodyStructure`, `headers` or the

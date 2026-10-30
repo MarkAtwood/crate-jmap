@@ -48,9 +48,11 @@ mod fetch;
 mod keys;
 mod replay;
 
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
-use jmap_peer_auth::{PeerDomain, PeerSigningKey, Rejection, Request, SignedRequest};
+use jmap_peer_auth::{
+    CLOCK_SKEW_SECS, PeerDomain, PeerSigningKey, Rejection, Request, SignedRequest,
+};
 
 pub use dns::{DnsAnswer, DnssecLookup, HickoryLookup, NoDnssec};
 pub use fetch::{
@@ -68,7 +70,9 @@ pub use {hickory_resolver, jmap_peer_auth, reqwest};
 /// signature does not verify", with HTTP status 403. Every variant means
 /// the request is not authenticated; [`Error::Fetch`],
 /// [`Error::InvalidSession`] and [`Error::ReplayStore`] are failures to
-/// find out, which a server may answer with a 5xx status instead.
+/// find out, which a server may answer with a 5xx status instead. A
+/// request rejected only by [`Rejection::PrecedesRestart`] MUST be
+/// answered with HTTP status 503.
 ///
 /// `#[non_exhaustive]`, so new variants stay semver-additive.
 #[derive(Debug, thiserror::Error)]
@@ -121,7 +125,8 @@ pub struct Authenticated {
 ///
 /// An [`Error`] for the first check that fails; [`Rejection::Replayed`]
 /// when `replay` already holds the pair; [`Rejection::PrecedesRestart`]
-/// when `created` is before [`ReplayStore::remembers_since`].
+/// when `created` is earlier than [`ReplayStore::remembers_since`] plus
+/// [`CLOCK_SKEW_SECS`] (§Replay).
 pub async fn authenticate<F: Fetch, D: DnssecLookup, S: ReplayStore>(
     request: Request<'_>,
     now: SystemTime,
@@ -133,10 +138,15 @@ pub async fn authenticate<F: Fetch, D: DnssecLookup, S: ReplayStore>(
     let accepted = signed.verify(&set.keys, now)?;
     // Check 5: the atomic insert below, so two concurrent requests with
     // the same nonce cannot both pass.
-    if replay
-        .remembers_since()
-        .is_some_and(|since| accepted.created < since)
-    {
+    // §Replay restart rule: `created` may lead the receiver's clock by
+    // check 4's skew, so a request accepted just before the restart can
+    // carry a `created` up to that much after it. An unrepresentable
+    // limit is past every `created`.
+    if replay.remembers_since().is_some_and(|since| {
+        since
+            .checked_add(Duration::from_secs(CLOCK_SKEW_SECS))
+            .is_none_or(|limit| accepted.created < limit)
+    }) {
         return Err(Rejection::PrecedesRestart.into());
     }
     if !replay
