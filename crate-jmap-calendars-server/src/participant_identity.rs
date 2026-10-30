@@ -164,13 +164,34 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             }
             // `ParticipantIdentity.id` is optional, so the create parses without one
             // and `build` sets the id the backend mints.
-            let mut pi: ParticipantIdentity = match serde_json::from_value(obj_val) {
+            // draft-ietf-jmap-calendars-33 §3: `calendarAddress` is required. serde reports a missing
+            // field at the root, not on a property path, so name it here
+            // (RFC 8620 §5.3 invalidProperties).
+            if obj_val.get("calendarAddress").is_none() {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["calendarAddress"],
+                        "description": "calendarAddress is required on create",
+                    }),
+                );
+                continue;
+            }
+
+            let mut pi: ParticipantIdentity = match serde_path_to_error::deserialize(obj_val) {
                 Ok(p) => p,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -386,5 +407,37 @@ mod tests {
             resp["created"].is_null(),
             "must not have created any participant identity: {resp}"
         );
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property (`calendarAddress` is a required String, draft-ietf-jmap-calendars-33
+    /// §3).
+    #[tokio::test]
+    async fn set_create_typed_parse_failure_names_property() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "missingAddress": { "name": "A" },
+                "numericAddress": { "calendarAddress": 5 },
+                "numericName": { "name": 5, "calendarAddress": "mailto:a@example.com" }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_participant_identity_set(&backend, &(), args)
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for (cid, prop) in [
+            ("missingAddress", "calendarAddress"),
+            ("numericAddress", "calendarAddress"),
+            ("numericName", "name"),
+        ] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
     }
 }

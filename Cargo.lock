@@ -1783,6 +1783,7 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "tokio",
  "uuid",
 ]
@@ -2026,6 +2027,7 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "tokio",
  "uuid",
 ]
@@ -2395,6 +2397,7 @@ dependencies = [
  "jmap-sharing-types",
  "jmap-types",
  "serde_json",
+ "serde_path_to_error",
  "tokio",
  "uuid",
 ]
@@ -2434,6 +2437,7 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
+ "serde_path_to_error",
  "tokio",
  "uuid",
 ]

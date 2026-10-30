@@ -282,13 +282,19 @@ pub async fn handle_task_set<B: TasksBackend>(
             }
             // `Task.id` is optional, so the create parses without one and
             // `build` sets the id the backend mints.
-            let mut task: Task = match serde_json::from_value(obj_val) {
+            let mut task: Task = match serde_path_to_error::deserialize(obj_val) {
                 Ok(t) => t,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -694,13 +700,19 @@ pub async fn handle_task_copy<B: TasksBackend>(
             }
             merged.remove("id");
 
-            let task: Task = match serde_json::from_value(Value::Object(merged)) {
+            let task: Task = match serde_path_to_error::deserialize(Value::Object(merged)) {
                 Ok(t) => t,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -1532,5 +1544,56 @@ mod tests {
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
         assert!(!desc.contains("CANARY"), "{desc}");
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property.
+    #[tokio::test]
+    async fn set_create_typed_parse_failure_names_property() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "badTitle": { "title": 5 },
+                "badSequence": { "sequence": "x" }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for (cid, prop) in [("badTitle", "title"), ("badSequence", "sequence")] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property override.
+    #[tokio::test]
+    async fn copy_typed_parse_failure_names_property() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.seed_task("acc2", "src1", true);
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "create": {
+                "badTitle": { "id": "src1", "title": 5 }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } = handle_task_copy(&backend, &(), args, "c0", &[])
+            .await
+            .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        let err = &resp["notCreated"]["badTitle"];
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["title"]), "{resp}");
     }
 }

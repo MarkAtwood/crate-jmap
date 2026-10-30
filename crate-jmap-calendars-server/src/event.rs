@@ -536,13 +536,19 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
             // `CalendarEvent.id` is optional, so the create parses without one
             // and `build` sets the id the backend mints.
-            let mut event: CalendarEvent = match serde_json::from_value(obj_val) {
+            let mut event: CalendarEvent = match serde_path_to_error::deserialize(obj_val) {
                 Ok(e) => e,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -996,16 +1002,24 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 continue;
             }
 
-            let mut event: CalendarEvent = match serde_json::from_value(Value::Object(merged)) {
-                Ok(e) => e,
-                Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
+            let mut event: CalendarEvent =
+                match serde_path_to_error::deserialize(Value::Object(merged)) {
+                    Ok(e) => e,
+                    Err(e) => {
+                        // RFC 8620 §5.3: invalidProperties SHOULD list the
+                        // invalid properties; the first path segment is the
+                        // top-level property whose value failed to parse.
+                        let mut err =
+                            json!({ "type": "invalidProperties", "description": e.to_string() });
+                        if let Some(serde_path_to_error::Segment::Map { key }) =
+                            e.path().iter().next()
+                        {
+                            err["properties"] = json!([key]);
+                        }
+                        not_created.insert(create_id, err);
+                        continue;
+                    }
+                };
             if let Err(err) = prepare_new_event(backend, caller, &account_id, &mut event).await {
                 not_created.insert(create_id, err);
                 continue;
@@ -3729,5 +3743,67 @@ mod tests {
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
         assert!(!desc.contains("CANARY"), "{desc}");
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property.
+    #[tokio::test]
+    async fn set_create_typed_parse_failure_names_property() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "badTitle": { "calendarIds": { "cal1": true }, "title": 5 },
+                "badSequence": { "calendarIds": { "cal1": true }, "sequence": "x" }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for (cid, prop) in [("badTitle", "title"), ("badSequence", "sequence")] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property override.
+    #[tokio::test]
+    async fn copy_typed_parse_failure_names_property() {
+        let mut backend = MockBackend::new_with_account("src");
+        backend.add_object(
+            "src",
+            "CalendarEvent",
+            "ev1",
+            json!({ "id": "ev1", "title": "t", "calendarIds": { "cal1": true } }),
+        );
+        backend.add_object(
+            "dst",
+            "CalendarEvent",
+            "_placeholder_",
+            json!({"id": "_placeholder_"}),
+        );
+        let args = json!({
+            "accountId": "dst",
+            "fromAccountId": "src",
+            "create": {
+                "badTitle": { "id": "ev1", "title": 5 }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_calendar_event_copy(&backend, &(), args, "c0", &[])
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        let err = &resp["notCreated"]["badTitle"];
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["title"]), "{resp}");
     }
 }

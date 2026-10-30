@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-calendars-server**, **jmap-contacts-server**,
+  **jmap-sharing-server**, **jmap-tasks-server**: a `/set` create (and a
+  `CalendarEvent/copy` or `Task/copy`) whose properties fail to parse now
+  lists the offending property in the `invalidProperties` SetError's
+  `properties` array (RFC 8620 §5.3), as `FileNode/set` already does.
+  A missing required property is named too: AddressBook, Calendar and
+  TaskList `name`, ParticipantIdentity `calendarAddress`, and Principal
+  `type` and `name`. Previously only a serde description was returned.
 - **jmap-contacts-server**: the `MemoryBackend` reference backend's
   `ContactCard/copy` now runs the same checks as `ContactCard/set`
   create on the merged copy: `addressBookIds` must map at least one id,

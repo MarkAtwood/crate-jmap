@@ -230,13 +230,34 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 other => other,
             };
 
-            let mut task_list: TaskList = match serde_json::from_value(obj_with_id) {
+            // draft-ietf-jmap-tasks-06 §3: `name` is required. serde reports a missing
+            // field at the root, not on a property path, so name it here
+            // (RFC 8620 §5.3 invalidProperties).
+            if obj_with_id.get("name").is_none() {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["name"],
+                        "description": "name is required on create",
+                    }),
+                );
+                continue;
+            }
+
+            let mut task_list: TaskList = match serde_path_to_error::deserialize(obj_with_id) {
                 Ok(tl) => tl,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -549,5 +570,35 @@ mod tests {
             .expect("must not return top-level error");
         assert_eq!(resp["accountId"], "acc1");
         assert!(resp["destroyed"].is_null());
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property (`name` is a required String, draft-ietf-jmap-tasks-06 §3).
+    #[tokio::test]
+    async fn set_create_typed_parse_failure_names_property() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "missingName": {},
+                "nullName": { "name": null },
+                "badSortOrder": { "name": "l", "sortOrder": "x" }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } = handle_task_list_set(&backend, &(), args, &[])
+            .await
+            .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for (cid, prop) in [
+            ("missingName", "name"),
+            ("nullName", "name"),
+            ("badSortOrder", "sortOrder"),
+        ] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
     }
 }
