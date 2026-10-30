@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-jfia.7",
+  "title": "method/call_id clone-per-call: Arc\u003cstr\u003e would shave allocations on hot path",
+  "description": "crate-jmap-server/src/lib.rs:256-257 — every dispatched method call performs:\n\n  let method_clone = method.clone();    // String alloc\n  let call_id_clone = call_id.clone();  // String alloc\n\nThese are required because the spawned task captures by move and task::spawn needs static.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T16:36:43Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-server/src/lib.rs:256-257 — every dispatched method call performs:\n\n  let method_clone = method.clone();    // String alloc\n  let call_id_clone = call_id.clone();  // String alloc\n\nThese are required because the spawned task captures by move and task::spawn needs static.",
-  "ephemeral": false,
-  "id": "JMAP-jfia.7",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T23:02:41.164742026Z",
+  "closed_at": "2026-10-22T23:02:41.164742026Z",
+  "close_reason": "Mark 2026-10-22: won't fix. Spawn stays (JMAP-wlip.34 decision), so the 'static owned method/call_id copies stay; unmeasured cost next to the spawn.",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "method/call_id clone-per-call: Arc<str> would shave allocations on hot path",
-  "updated_at": "2026-05-14T17:28:47Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T09:36:42Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-jfia",
-      "id": "c3cbd1aa-e6ed-5190-8aa3-6b098101a20f",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

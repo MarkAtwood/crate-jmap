@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.4",
+  "title": "base-client: MethodError carries JmapError",
+  "description": "error.rs:693 ClientError::MethodError { error_type: String, description } drops limit (RFC 8620 §5.6 MUST on tooManyChanges) and other fields; client.rs:1206 invents 'serverError' (not an RFC type). Make it MethodError(JmapError) (after the MethodErrorType retype lands, carry the typed value); a response missing 'type' is a parse error. BREAKING.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:26.493091697Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:56.157571629Z",
+  "closed_at": "2026-10-22T03:35:56.157571629Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.4",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:27.589716692Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

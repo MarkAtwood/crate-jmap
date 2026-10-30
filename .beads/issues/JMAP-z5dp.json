@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-z5dp",
+  "title": "contacts/graph/filenode-server: validate shareWith keys as wire Ids",
+  "description": "Found while landing JMAP-9bio. AddressBook/set (jmap-contacts-server), Graph/set (jmap-graph-server) and FileNode/set (jmap-filenode-server) accept shareWith keys (Principal Ids, RFC 9670 shareWith: Id[...]) and shareWith/\u003cid\u003e/... patch-path segments without RFC 8620 §1.2 Id validation. JMAP-9bio added check_map_key_ids to jmap-calendars-server and jmap-tasks-server helpers.rs for Calendar/TaskList; mirror it with a tests/wire_id.rs negative test per crate.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T01:51:09.867516149Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:23.681565194Z",
+  "closed_at": "2026-10-24T06:43:23.681565194Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed"
+}

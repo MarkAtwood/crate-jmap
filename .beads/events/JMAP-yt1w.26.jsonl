@@ -1,1 +1,2 @@
 {"id":"01a15265-899c-70bb-817d-e422c84ff981","issue_id":"JMAP-yt1w.26","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-19T04:22:28.508049092Z"}
+{"id":"01a16015-68e2-7752-9817-cd7dcf394bba","issue_id":"JMAP-yt1w.26","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 11: committed and adversarially verified (or already fixed); CI green at cc87669d","created_at":"2026-10-21T20:09:38.274480954Z"}

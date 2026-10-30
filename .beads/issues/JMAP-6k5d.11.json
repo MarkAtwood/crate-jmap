@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-6k5d.11",
+  "title": "mimi-server: accept /notify for a room only from its hub",
+  "description": "parse_fanout_messages/store_fanout (JMAP-6k5d.6) take room_id and hub_uri from the caller and store for any authenticated hub. draft-ietf-mimi-protocol-06 §5.5 has the hub fan out to followers; a follower should refuse a /notify for a room whose hub is a different provider, or any authenticated provider can inject Messages into any room's bound Chats. Needs a decision on where a follower learns a room's hub (room_uri authority, the Welcome's GroupContext, or a stored room record) before a check can be written.",
+  "notes": "Mark 2026-10-21: option A. Hub = provider named by the room ID's authority (mimi://\u003cauthority\u003e/r/...). Library check (e.g. a notify_from_hub(room_id, hub_uri) helper / store_fanout precondition, trait docs) rejects /notify whose authenticated sender authority differs. Spec sentence in draft-atwood-jmap-chat-mimi-00 §application/mimi-fanout (landed with this decision). Upstream MIMI issue/PR tracked in mimid.\nSpec landed: jmap-chat-spec 29e9a41 (mimi-00 §application/mimi-fanout hub rule).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T04:41:42.914189186Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T21:16:29.654277669Z",
+  "closed_at": "2026-10-21T21:16:29.654277669Z",
+  "close_reason": "Batch 12: committed and adversarially verified; CI green at 1a26cf40",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6k5d.11",
+      "depends_on_id": "JMAP-6k5d",
+      "type": "parent-child",
+      "created_at": "2026-10-21T04:41:43.027437384Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

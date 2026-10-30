@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-1mr0",
+  "title": "mail-types: 5 types put #[derive] before #[non_exhaustive]",
+  "description": "crate-jmap-mail-types/AGENTS.md Design Constraints (Attribute order, lifted by JMAP-ops7.43) requires #[non_exhaustive] -\u003e #[derive] -\u003e #[serde]. Outliers at HEAD: src/mailbox.rs:14-15 (MailboxRole), src/keyword.rs:24-25, src/submission.rs:83-84, 108-109, 127-128. Reorder attributes; no behavior change.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T05:22:43.6147236Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:31.995522336Z",
+  "closed_at": "2026-10-24T03:55:31.995522336Z",
+  "close_reason": "Batch 21: already fixed at HEAD (j31d by ff168a9d; 1mr0 by da5b3e45/otw0)"
+}

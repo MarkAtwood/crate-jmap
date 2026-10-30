@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.63",
+  "title": "federation: bad avatar rejects groupUpdate pre-auth",
+  "description": "federation-server: a structurally malformed Peer/groupUpdate avatar rejects the whole request before authorization (batch 8b review, JMAP-0x0q.43).\n\ncrate-jmap-chat-federation-types/src/peer.rs:618-650: PeerGroupUpdateArgs.avatar is a strict Option\u003cClearable\u003cPeerAvatar\u003e\u003e. A negative/non-integer size, missing fetchUrl or non-string contentType fails deserialization, so handle_peer_group_update returns invalidArguments before the authorization and closedAt checks.\n\nSpec draft-atwood-jmap-chat-federation-00 L676: \"After the authorization and `closedAt` checks above succeed, and only then, if `avatar` is an Object, the receiving server validates `contentType` and `size` ... A failed avatar never causes the request to be rejected.\" So an authorized update with a bad avatar should apply its other fields, and an unauthorized peer should get the authorization error, not invalidArguments. Fix: deserialize avatar loosely (Value or lenient struct) and validate after authorization; add tests for both orderings (tests/peer_methods.rs:851/928 cover only fetch failures).\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:37.539134735Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:25.266102775Z",
+  "closed_at": "2026-10-21T16:19:25.266102775Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.63",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:37.65417719Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-yt1w.47",
+  "title": "sharing/calendars MemoryBackend silently ignore filter/sort",
+  "description": "Found auditing JMAP-yt1w.25. crate-jmap-sharing-server/src/memory.rs query_objects ignores filter AND sort (documented, returns all ids); crate-jmap-calendars-server/src/memory.rs query_objects ignores sort (bd:JMAP-ic0j.16). RFC 8620 §5.5: a server MUST reject with unsupportedFilter/unsupportedSort if it cannot process them. Reference impls should return BackendQueryError::Method(JmapError::unsupported_filter()/unsupported_sort()) like jmap-tasks-server. Filenode sort is JMAP-yt1w.27.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T21:52:09.025068161Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:26.680253954Z",
+  "closed_at": "2026-10-24T03:55:26.680253954Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.47",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-23T21:52:09.138407356Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-a6ic",
+  "title": "AGENTS.md cite nonexistent jmap-chat-spec/references/ RFC paths",
+  "description": "23 crate AGENTS.md files (mail-server canonical template first, then siblings: mail-client, mail-types, types, server, metadata-*, tasks-*, sharing-*, filenode-*, contacts-*, calendars-*, chat-client) cite ~/PROJECT/jmap-chat-spec/references/rfc86xx.txt. That directory does not exist on disk and has no history in jmap-chat-spec git. RFC 8620/8621 texts live at ~/PROJECT/IETF/specs/. Found while doing JMAP-ops7.41, which fixed only crate-jmap-chat-server's path. Fix: rewrite the paths to ~/PROJECT/IETF/specs/ (or decide on a different canonical location).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T06:59:26.812160551Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:30.116898273Z",
+  "closed_at": "2026-10-24T03:55:30.116898273Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

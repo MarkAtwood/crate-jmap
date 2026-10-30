@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-6uqz",
+  "title": "mail-server memory backend ignores Email sort except receivedAt",
+  "description": "crate-jmap-mail-server/src/memory/mod.rs (~line 1529) honours only the receivedAt EmailComparator; size/from/to/subject/sentAt/hasKeyword/allInThreadHaveKeyword/someInThreadHaveKeyword are silently ignored (ids fall back to id order). RFC 8620 §5.5 unsupportedSort: 'includes a property the server does not support sorting on'. Either implement them (RFC 8621 §4.4.2 SHOULD) or have the backend return unsupportedSort. Found while fixing JMAP-0bee (handler now rejects only Other(_) and non-i;octet collations).",
+  "notes": "CHECKPOINT 2026-10-30: in batch 24 (0.4.x, must be semver-compatible with published 0.4.0), run wf_05ff1b01-172, script ~/Cache/crate-jmap-handoff-2026-10-22/batch24.js, base dc3720b6.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T06:49:38.369482596Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T12:44:56.718223896Z",
+  "closed_at": "2026-10-30T12:44:56.718223896Z",
+  "close_reason": "batch 24 (0.4.x): implemented, adversarially verified, local CI green at 66ed14e3 incl. public-api and fresh deny, pushed"
+}

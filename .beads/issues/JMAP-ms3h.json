@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-ms3h",
+  "title": "metadata-types: is_vendor_namespace accepts non-DNS chars",
+  "description": "crate-jmap-metadata-types/src/namespace.rs is_vendor_namespace accepts any is_ascii_graphic byte in a label, so 'acme.example.com/k', 'a.b~c' or 'a.b\"x' count as valid namespace identifiers. draft-ietf-jmap-metadata-04 §2.1 (L341-347): a domain name 'in DNS form', 'Domain-name identifiers MUST be in lowercase, with internationalized labels in A-label form'; '/' in particular collides with /set patch paths and /get subselectors (§3.1 L487-491). Effect today: Foo/set complete-replacement keys like {\"a.b/c\": {}} pass check_metadata_write in every server; jmap-mail-server's /get subselector parser guards '/' locally (helpers.rs MetadataProjection::new, JMAP-s4kp.8). Fix: restrict labels to LDH (lowercase letters, digits, hyphen; no leading/trailing hyphen), then drop the local guard.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T00:24:20.66533607Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:21.887074426Z",
+  "closed_at": "2026-10-24T06:43:21.887074426Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ms3h",
+      "depends_on_id": "JMAP-s4kp.8",
+      "type": "discovered-from",
+      "created_at": "2026-10-24T00:24:20.79296779Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

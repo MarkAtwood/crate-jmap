@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-6k5d.10",
+  "title": "mimi-server: refuse client mimi-fanout Message/set create",
+  "description": "draft-atwood-jmap-chat-mimi-00 (6bcd9d8) L435: 'Only servers create such Messages; the server MUST reject a Message/set create with this body type with an invalidProperties SetError naming bodyType.' This applies in any Chat, not only room-bound ones. chat-server's ChatBackend::may_create_message (JMAP-dfo4) receives only the target Chat, not the Message, so a ChatBackend cannot enforce it with that hook. Also L425: application/mimi-fanout 'is an encrypted body type for the purposes of JMAP-CHAT'. Needs either a hook that sees the create's bodyType or a configurable server-only/encrypted body type set in chat-server. Found while implementing JMAP-6k5d.4.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T04:28:23.166830949Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T20:09:33.633877674Z",
+  "closed_at": "2026-10-21T20:09:33.633877674Z",
+  "close_reason": "Batch 11: committed and adversarially verified (or already fixed); CI green at cc87669d",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6k5d.10",
+      "depends_on_id": "JMAP-6k5d",
+      "type": "parent-child",
+      "created_at": "2026-10-21T04:28:23.277965804Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

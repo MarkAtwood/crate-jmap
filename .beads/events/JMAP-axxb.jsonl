@@ -1,0 +1,2 @@
+{"id":"01a16076-c8f1-7689-811f-d7cc926d4500","issue_id":"JMAP-axxb","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-21T21:55:59.857429216Z"}
+{"id":"01a1681e-77f0-7802-89bc-94d953945fc1","issue_id":"JMAP-axxb","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 17/17b (runs wf_311f1744-fb4, wf_3357d9e1-cc5): implemented, adversarially verified, full CI green; pushed 770d02b4","created_at":"2026-10-23T09:36:29.680525671Z"}

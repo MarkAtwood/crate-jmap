@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.68",
+  "title": "scene-server: access/cap test gaps, spec decisions",
+  "description": "scene-server: test gaps and two spec-reading decisions (batch 8b review, JMAP-0x0q.17/.20/.21/.22/.23/.24).\n\n1. src/interact.rs: the `interactions.len() \u003e max_objects_in_set` requestTooLarge cap (ponytail choice, not in spec) has no test; tests/object_interact.rs never exceeds it. Add a one-entry test with max_objects_in_set=0.\n2. src/memory.rs:333-344 Inner::admits: grants access to an avatar only when left_at.is_none() (draft-atwood-jmap-scene-00 L2595 \"an active SceneAvatar\"), but no test checks that a departed/ejected avatar in an \"invite\" region loses access (L3602 ejection walkthrough: record is notFound after eject). Removing the condition fails no test.\n3. tests/asset_capability.rs:80-85 supported_account_is_not_gated checks only get/set/query; add changes/queryChanges asserting any error is not unknownMethod.\n4. tests/avatar_set.rs: SceneBackend::may_enter_region returning false (re-entry branch of update_avatar and the create path -\u003e forbidden, spec L2363) is unreachable with MemoryBackend; no test mentions may_enter_region. Add a wrapper backend that denies it.\n5. src/asset.rs:456: update_asset keeps vendor extension properties patchable on purpose. Spec L698 (\"All other properties are immutable or server-set\") and L844 (changing a property other than name/assetUri/sha256 is invalidProperties) read literally reject them. Record a decision if extras-preservation is meant to win.\n6. tests/avatar_set.rs spec_leave_example / spec_eject_example: code echoes `updated: {id: {leftAt: \u003cnow\u003e}}` (RFC 8620 §5.3 server-set echo), but the spec examples (after L2318, Step 6 L3296-3310, Step 4 eject L3571-3585) show `updated: {id: null}`. Code is right; file a jmap-chat-spec bead so the examples echo leftAt, and note the conflict in the tests.\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:39.033868972Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:25.681801375Z",
+  "closed_at": "2026-10-21T16:19:25.681801375Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.68",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:39.15079224Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

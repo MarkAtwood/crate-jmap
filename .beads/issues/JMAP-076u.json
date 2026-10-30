@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-076u",
+  "title": "sharing-server README misdescribes principals:owner capability",
+  "description": "crate-jmap-sharing-server/README.md '## Capability URIs' says JMAP_PRINCIPALS_OWNER_URI 'indicates the server also supports creating and managing Principals'. RFC 9670 §1.5.2: the key in an Account's accountCapabilities means 'that Account (and the data therein) is owned by a Principal', with accountIdForPrincipal and principalId; it is never a Session capability. Fix the text. Found during JMAP-9tp3.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T11:31:04.057478636Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:29.612408846Z",
+  "closed_at": "2026-10-24T03:55:29.612408846Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

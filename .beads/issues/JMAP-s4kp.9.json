@@ -1,0 +1,32 @@
+{
+  "id": "JMAP-s4kp.9",
+  "title": "sweep: mirror metadata-04 /get, /copy, query-using to siblings",
+  "description": "Canonical-template sweep for JMAP-s4kp.8 (AGENTS.md Canonical Templates: 'propagate the change to every sibling ... or file a follow-up sweep bead'). jmap-mail-server now: (1) MailBackend::metadata_info::\u003cO\u003e hook (default None); (2) helpers.rs MetadataProjection applied in Foo/get: metadata returned as {} when unset (-04 §2 L296-297), default inclusion only with urn:ietf:params:jmap:metadata in using (§3 L461-463, §3.1 L475-478), metadata/\u003cns\u003e subselectors union/root-supersedes/invalidArguments (§3.1 L487-512), privateMetadata never returned when supportsPrivate=false (§2 L306-307); (3) Email/copy create overrides validated by the backend via copy_object's new create arg (§3.4 L649-666); (4) Foo/query and Foo/queryChanges reject §3.6 leaves with unsupportedFilter without the capability (§3 L460-461). Siblings with metadata wired by s4kp.2-.7 (calendars, tasks, contacts, filenode, chat, sharing) still lack (2) and (4), and ContactCard/copy (jmap-contacts-server) lacks (3). Recommendation: hoist metadata_info to jmap_server::JmapBackend (default None) and MetadataProjection to a shared home so siblings do not copy them; jmap-metadata-server is optional in mail-server because it pulls icu_*, so check that before moving the helper there.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T00:24:20.389949591Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:22.110738205Z",
+  "closed_at": "2026-10-24T06:43:22.110738205Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-s4kp.9",
+      "depends_on_id": "JMAP-s4kp",
+      "type": "parent-child",
+      "created_at": "2026-10-24T00:24:20.501552448Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-s4kp.9",
+      "depends_on_id": "JMAP-s4kp.8",
+      "type": "discovered-from",
+      "created_at": "2026-10-24T00:24:20.615470034Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

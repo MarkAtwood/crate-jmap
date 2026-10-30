@@ -1,0 +1,2 @@
+{"id":"01a15d83-e8c9-7d3a-87d8-ad747f2dbe39","issue_id":"JMAP-38uq.15","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-21T08:11:28.329867567Z"}
+{"id":"01a16b21-1129-73c2-a857-949f0142ec3d","issue_id":"JMAP-38uq.15","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3","created_at":"2026-10-23T23:38:11.625246889Z"}

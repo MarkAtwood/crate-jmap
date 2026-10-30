@@ -2,11 +2,14 @@
   "id": "JMAP-lulg",
   "title": "Mobile client size audit and transport features",
   "description": "Idea 2026-10-20. Checked: jmap-chat-client normal deps = 184 crates (cargo tree), pulling jmap-types, base-client, chat-types, cid-types, did-types; no server/support/memory crates (good). But jmap-base-client and jmap-chat-client have NO [features]: tokio-tungstenite (WebSocket), reqwest+hyper+rustls+ring are always compiled. Do: (1) cargo bloat on a minimal chat client for aarch64-linux-android / aarch64-apple-ios release, record a size baseline; (2) feature-gate base-client transports (ws, eventsource) and TLS backend choice, defaults preserving current behaviour; (3) check chat-client's did-types/cid-types deps are needed by default; (4) set a size budget and a CI check. Breaking if default features change, so decide before the client freeze (JMAP-lrgt covers chat-client).",
-  "status": "open",
+  "notes": "AUDIT 2026-10-21 (agent). Probe: scratchpad bin, jmap-chat-client + base-client @ c59916d8, NoneAuth, fetch_session + Chat/get (+ connect_ws_session/next_frame with --features ws). Profile: opt-level=z, lto=true, codegen-units=1, panic=abort, strip. Target aarch64-linux-android (NDK 28.2.13676358, API 24). Stripped sizes: HTTP-only 1,846,360 B; HTTP+WS 1,980,984 B (+134,624 B; .text 986,736 -\u003e 1,083,248). HTTP-only .text by crate (cargo-bloat 0.12.1, 964 KiB total): std 252K, rustls 185K, reqwest 95K, ring 87K, hyper_util 30K, http 28K, webpki 27K, tokio 26K, jmap_chat_client 21K, url 21K, serde_json 20K, idna 15K, jmap_did_types 8.7K, jmap_base_client 4.8K. .rodata 457,812 B, .eh_frame 181,076 B. FINDINGS: (a) LTO already removes all tungstenite code from apps that never call WS: a ws feature saves 0 B for them; it only drops ~8 build-only crates (tokio-tungstenite, tungstenite, sha1, rand, rand_chacha, ppv-lite86, data-encoding, zerocopy) of 138 in base-client normal tree. (b) SSE has no unique deps (reqwest stream + in-crate parser): gating saves nothing; not justified. (c) TLS: rustls+ring+webpki ~300K .text plus roots in .rodata is the dominant cost; only one backend exists, so a 'choice' means adding native-tls or rustls-platform-verifier (new code, conflicts with rustls-first stance bd:JMAP-sc1b.89). (d) did-types (ed25519-dalek/k256/p256/idna) costs 8.7K in binary after LTO; compile-time only; keep. (e) aarch64-apple-ios not measurable on this Linux host (no Xcode SDK/ld64). (f) A CI size budget needs NDK in CI. No code changed; needs Mark's decision.",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-20T15:38:17.45931985Z",
   "created_by": "agent",
-  "updated_at": "2026-10-20T15:38:17.45931985Z"
+  "updated_at": "2026-10-21T14:52:52.223987289Z",
+  "closed_at": "2026-10-21T14:52:52.223987289Z",
+  "close_reason": "Mark 2026-10-21: no transport size flags (LTO already strips unused ws/sse; 0 B saving); no CI size job. Measurements in notes."
 }

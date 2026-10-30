@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-38uq.15",
+  "title": "scene-server: SceneObject create omits normalized orientation from created",
+  "description": "RFC 8620 §5.3: the created entry holds 'any properties that were omitted or not set to the requested value by the server'. crate-jmap-scene-server/src/object.rs create_scene_object normalizes orientation (draft-atwood-jmap-scene-00 6bcd9d8 L196) and defaults an absent one to identity, but returns only id/ownerId/createdAt/updatedAt. SceneRegion create now echoes a normalized spawnOrientation (JMAP-38uq.11). Found while implementing JMAP-38uq.11.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T08:11:28.324684066Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T23:38:11.618532496Z",
+  "closed_at": "2026-10-23T23:38:11.618532496Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-38uq.15",
+      "depends_on_id": "JMAP-38uq",
+      "type": "parent-child",
+      "created_at": "2026-10-21T08:11:28.435196964Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

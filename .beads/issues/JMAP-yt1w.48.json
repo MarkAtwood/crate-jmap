@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-yt1w.48",
+  "title": "sharing/calendars MemoryBackend query_changes ignore filter/sort",
+  "description": "Found implementing JMAP-yt1w.47. crate-jmap-sharing-server/src/memory.rs and crate-jmap-calendars-server/src/memory.rs query_changes ignore filter and sort (QueryChangesParams destructured with ..), while query_objects now rejects them with unsupportedFilter/unsupportedSort. RFC 8620 §5.6 queryChanges carries the same filter/sort as /query; the reference impls should reject what they cannot evaluate the same way so /query and /queryChanges agree.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T01:56:41.49625922Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:23.238985912Z",
+  "closed_at": "2026-10-24T06:43:23.238985912Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-yt1w.48",
+      "depends_on_id": "JMAP-yt1w",
+      "type": "parent-child",
+      "created_at": "2026-10-24T01:56:41.618089211Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

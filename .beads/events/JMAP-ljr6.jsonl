@@ -1,0 +1,1 @@
+{"id":"01a1661b-998f-7b0f-9888-8e6df13036bc","issue_id":"JMAP-ljr6","event_type":"closed","actor":"agent","old_value":"","new_value":"Mark 2026-10-22: won't fix. missing_const_for_fn is a nursery lint; 237 sites would each become a permanent const API promise with no consumer asking for const construction.","created_at":"2026-10-23T00:14:07.247725689Z"}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.7",
+  "title": "jmap-server: CallContext and query params struct",
+  "description": "JmapHandler::call(method, call_id, args, caller) (lib.rs:145) and BackendCallFn cannot carry the creation-id map JMAP-8ypy needs; query_objects 8 args / query_changes 9 args (backend.rs:1163-1192). Add #[non_exhaustive] CallContext and query params structs; mirror to every server crate. Covers JMAP-jfia.28 and JMAP-jfia.26; unblocks JMAP-8ypy (do 8ypy right after if small). BREAKING, M.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:29.216345082Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:54.605748619Z",
+  "closed_at": "2026-10-22T03:35:54.605748619Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.7",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:29.38678623Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

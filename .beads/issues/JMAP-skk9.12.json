@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.12",
+  "title": "metadata-server exceeds_max_depth/value_depth use u32 while DataTypeMetadataInfo.max_depth is Option\u003cu64\u003e",
+  "description": "Completeness-critic finding: NOT voted by skeptics; verify before acting.\n\n## metadata-server exceeds_max_depth/value_depth use u32 while DataTypeMetadataInfo.max_depth is Option\u003cu64\u003e\nCrates: jmap-metadata-server (vs jmap-metadata-types)\nEvidence: crate-jmap-metadata-types/src/capability.rs:74 `pub max_depth: Option\u003cu64\u003e`; crate-jmap-metadata-server/src/validate.rs:38 `pub fn value_depth(value: \u0026Value) -\u003e u32` and :68 `pub fn exceeds_max_depth(value: \u0026Value, max_depth: u32) -\u003e bool`. draft-ietf-jmap-metadata-04 line 262: `maxDepth: UnsignedInt|null`, and UnsignedInt goes up to 2^53-1. The sibling depth fields in the workspace are u64: graph-types search.rs:76,280 and filenode-server backend.rs:600.\nWhy breaking later: The intended call is `info.max_depth.map(|d| exceeds_max_depth(v, d as u32))`. An `as` cast wraps: a server or peer that advertises maxDepth 4294967296 becomes 0, so every write is rejected as too deep. A checked conversion has to pick a policy for the overflow case at each call site. Changing the parameter and return types to u64 later is a signature break on two public functions.\nFix: Before 0.4, change `value_depth` to return u64 and `exceeds_max_depth` to take `max_depth: u64`, or take `\u0026DataTypeMetadataInfo` and handle the None case inside, so the types match the capability field and the workspace's other depth fields.\nSize: S",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T06:07:26.162249019Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:19.806640576Z",
+  "closed_at": "2026-10-22T16:43:19.806640576Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.12",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T06:07:26.284014231Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

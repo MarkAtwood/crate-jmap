@@ -1,0 +1,32 @@
+{
+  "id": "JMAP-ef3q.9",
+  "title": "graph-projection-server: mail/contacts projection",
+  "description": "draft-atwood-jmap-graph-projection-00: new binding crate jmap-graph-projection-server. urn:ietf:params:jmap:graph:projection (graphId), project Mail and Contacts objects as nodes with objectUri (jmap: URIs via jmap-types JmapUri), Id/Id[]/Id[T] properties as edges typed \u003cDataType\u003e/\u003cprop\u003e, per-user visibility via native /get rights, objectUri /query filter, writes server-defined (pick the minimal: reject with forbidden unless spec says otherwise; document with ponytail:). Oracle: draft text at jmap-chat-spec 6bcd9d8 (/home/mark/PROJECT/jmap-chat-spec). Crates start publish = false (draft, Mark review before publishing). Copy crate metadata exactly from a sibling family (e.g. jmap-filenode-*). Follow AGENTS.md canonical templates.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T23:00:16.145403076Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:20.471859297Z",
+  "closed_at": "2026-10-21T10:10:20.471859297Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ef3q.9",
+      "depends_on_id": "JMAP-ef3q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T23:00:16.260596911Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-ef3q.9",
+      "depends_on_id": "JMAP-ef3q.2",
+      "type": "blocks",
+      "created_at": "2026-10-20T23:00:21.545536704Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

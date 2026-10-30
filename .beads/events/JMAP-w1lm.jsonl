@@ -1,0 +1,2 @@
+{"id":"01a16015-78b7-7ba0-a845-6396779d4fa6","issue_id":"JMAP-w1lm","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-21T20:09:42.327762456Z"}
+{"id":"01a16052-a034-7679-a343-f235a1170782","issue_id":"JMAP-w1lm","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 12: committed and adversarially verified; CI green at 1a26cf40","created_at":"2026-10-21T21:16:30.132424723Z"}

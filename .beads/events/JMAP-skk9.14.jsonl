@@ -1,0 +1,2 @@
+{"id":"01a16489-0f28-75b7-9907-092c3db3b2b4","issue_id":"JMAP-skk9.14","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-22T16:54:26.344375437Z"}
+{"id":"01a164cf-e7bf-7cff-849e-8cdff9fe5427","issue_id":"JMAP-skk9.14","event_type":"closed","actor":"agent","old_value":"","new_value":"fixed by wf92.23: jmap-types lib.rs:33 'mod backend' (e8a7b911), jmap-server lib.rs:35-36 private backend/handlers (6c357533); no pub mod left in either","created_at":"2026-10-22T18:11:49.311852469Z"}

@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-510h.16",
+  "title": "FileNode/set OnExists::Rename: O(100) sequential backend round-trips for collision retry",
+  "description": "src/filenode.rs:307-353: the rename loop iterates suffix 1..=100, calling find_sibling_by_name once per suffix. Worst case: 100 sequential backend calls (each typically a DB query) just to construct one create_id's name.\n\nFor high-collision scenarios — e.g., a shared 'untitled' import folder where many siblings start as 'untitled-N' — the worst case is the common case. 100 sequential round-trips at ~1ms each = 100ms latency per create entry. A /set request with 50 creates colliding similarly = 5 seconds.\n\nPer the trait, find_sibling_by_name is the only collision primitive. The handler has no way to ask 'give me a unique name efficiently'.\n\nSuggested fix: add a new backend method find_unique_name(parent_id, base_name, case_insensitive) -\u003e Result\u003cString, _\u003e that the backend implements with a single query (e.g., 'SELECT name FROM filenodes WHERE parent_id = ? AND name LIKE ?' then compute the next free suffix from the result). Default impl falls back to the current loop for backends that do not override.\n\nThe 100-attempt cap also has no spec basis — it is a workspace choice. Surfacing as 'serverFail: could not find unique name after 100 attempts' is user-hostile and Section 4 will flag the error message. The fix should remove the artificial cap when a single-query find_unique_name is available.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T19:51:29Z",
   "created_by": "Mark Atwood",
-  "description": "src/filenode.rs:307-353: the rename loop iterates suffix 1..=100, calling find_sibling_by_name once per suffix. Worst case: 100 sequential backend calls (each typically a DB query) just to construct one create_id's name.\n\nFor high-collision scenarios — e.g., a shared 'untitled' import folder where many siblings start as 'untitled-N' — the worst case is the common case. 100 sequential round-trips at ~1ms each = 100ms latency per create entry. A /set request with 50 creates colliding similarly = 5 seconds.\n\nPer the trait, find_sibling_by_name is the only collision primitive. The handler has no way to ask 'give me a unique name efficiently'.\n\nSuggested fix: add a new backend method find_unique_name(parent_id, base_name, case_insensitive) -> Result<String, _> that the backend implements with a single query (e.g., 'SELECT name FROM filenodes WHERE parent_id = ? AND name LIKE ?' then compute the next free suffix from the result). Default impl falls back to the current loop for backends that do not override.\n\nThe 100-attempt cap also has no spec basis — it is a workspace choice. Surfacing as 'serverFail: could not find unique name after 100 attempts' is user-hostile and Section 4 will flag the error message. The fix should remove the artificial cap when a single-query find_unique_name is available.",
-  "ephemeral": false,
-  "id": "JMAP-510h.16",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T23:38:09.696527519Z",
+  "closed_at": "2026-10-23T23:38:09.696527519Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "FileNode/set OnExists::Rename: O(100) sequential backend round-trips for collision retry",
-  "updated_at": "2026-05-17T10:41:52Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T12:51:29Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-510h",
-      "id": "c73d987c-12ea-5110-a8f6-fc67dcfc99dd",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

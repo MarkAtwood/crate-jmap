@@ -1,0 +1,1 @@
+{"id":"01a1641b-cfb2-730e-a89c-fbb5c220bcfc","issue_id":"JMAP-ayoz.28","event_type":"closed","actor":"agent","old_value":"","new_value":"moot: MetadataBackend and create_object removed in b34a07bf (crate-jmap-metadata-server/src/lib.rs:30-37)","created_at":"2026-10-22T14:55:06.674200924Z"}

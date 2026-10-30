@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-8ypy",
+  "title": "jmap-server: resolve #creationId refs across method calls",
+  "description": "RFC 8620 §5.3: a creation id may be referenced as \"#\u003ccreationId\u003e\" in any later method call of the same request. Dispatcher::dispatch accumulates createdIds only when the client sent createdIds and never rewrites #refs in later calls' arguments, so no handler can resolve them. draft-atwood-jmap-graph-00 (jmap-chat-spec 6bcd9d8) L277 and L306 rely on it (\"graphId: #g\" in GraphNode/set after Graph/set; fromId/toId \"#a\"/\"#b\" in GraphEdge/set), as does its L354-393 example; RFC 8621 Email/set mailboxIds \"#m\" has the same gap. Fix in jmap-server (canonical foundation): track creation-id -\u003e id for every /set response in the request and substitute #refs in later calls' Id-typed arguments (or expose the map to handlers). Found while implementing JMAP-ef3q.2.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T08:43:00.643262833Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:55.03482709Z",
+  "closed_at": "2026-10-22T03:35:55.03482709Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6"
+}

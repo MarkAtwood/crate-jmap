@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.14",
+  "title": "Bump ed25519-dalek 3 and reqwest 0.13",
+  "description": "Third-party types in public APIs: ed25519-dalek 2.x in jmap-peer-auth (3.0.0 released), reqwest 0.12 in did-resolver, peer-auth-io, web-push (0.13.5 released). Bump now so 0.4 doesn't lock old majors. Check MSRV 1.91, cargo deny (licenses/advisories), rustls/ring feature compatibility; if a bump is impossible (MSRV or ecosystem), document 'a dependency major bump is our minor bump' in RELEASING.md instead and say why. openmls =0.9.1 stays pinned. BREAKING.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:39.008509493Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:58.482736525Z",
+  "closed_at": "2026-10-22T03:35:58.482736525Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.14",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:39.832989472Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

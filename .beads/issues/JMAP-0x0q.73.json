@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.73",
+  "title": "filenode: FileNode/copy omits sha256 under jmap:cid",
+  "description": "handle_filenode_copy (crate-jmap-filenode-server/src/filenode.rs, fn at ~L1352) never touches sha256: a copied file keeps or drops whatever the source carried and a copied directory's created entry has no sha256 when urn:ietf:params:jmap:cid is advertised. draft-atwood-jmap-cid-00 at jmap-chat-spec 33702a5 L200-213: FileNode objects 'MUST include' sha256, 'MUST be null for directory FileNodes', and the server 'MUST NOT return null for any file FileNode created or updated while this capability is active'. RFC 8620 §5.4 created carries server-set properties. Mirror the FileNode/set create handling (cid_advertised once before mutation; blob_sha256 for files). Found while implementing JMAP-0x0q.65.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T15:45:59.351857265Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T17:15:54.468362912Z",
+  "closed_at": "2026-10-21T17:15:54.468362912Z",
+  "close_reason": "Batch 10: committed and adversarially verified; CI green at d9d4d6af",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.73",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T15:45:59.483814654Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

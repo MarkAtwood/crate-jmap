@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-jfia.20",
+  "title": "JmapBackend::Error Display contract is doc-only MUST-NOT; no type-level enforcement of credential/blob/PII redaction",
+  "description": "crate-jmap-server/src/backend.rs:747-791 — JmapBackend::Error is bound\nas `std::error::Error + Send + Sync + 'static`. The doc comment lays\nout an extensive contract that the type's Display impl MUST NOT\ninclude credential material, blob content, or PII shaped like an\nemail address. The runtime guard `server_fail_from_backend` at\nhandlers.rs:69-71 ensures the Display output never reaches the JMAP\nwire response — but only for the handlers in jmap-server's own\nhandlers.rs.\n\nWhat callers cannot depend on:\n\n1. That a third-party backend implementor reads the doc comment.\n   The Display contract is hundreds of words of prose, two levels\n   deep in trait-associated-type documentation. The first time a\n   backend implementor reads it is when they hit the contract\n   violation in code review — if ever.\n\n2. That the kit's defense-in-depth covers every leakage path. The\n   server_fail_from_backend runtime guard covers handlers.rs but\n   not:\n   - Extension *-server crates that build their own per-method\n     handlers (mail, chat, calendars, tasks, contacts, filenode,\n     sharing, metadata — 8 today).\n   - Consumer-side `tracing::error!(err = ?backend_err)` logging that\n     formats the Display string into operator logs verbatim.\n   - Test assertions that print the error for diagnostic purposes\n     and end up in CI logs.\n   - Any future tracing-instrumented call that interpolates the\n     error with `{}` or `{err}` format specifiers.\n\n3. That a future contributor adds a new server-side surface (e.g. a\n   metrics path that emits the Display string as a label) without\n   re-reading the contract.\n\nWhat goes wrong when this stays as-is: a backend implementor wraps a\ndownstream service error (Postgres, S3, Redis) that interpolates the\ncaller's bearer token into its error text. The kit's\n`server_fail_from_backend` strips it from the wire, but the\nconsumer's structured logger captures it in operator logs because\nthe contract is doc-only.\n\nResolution paths (one or more):\n\n- Make the trait bound enforce a marker trait `RedactedError: Display`\n  whose `Display` impl is constrained at the type level. Implementors\n  derive or hand-write the Display. The bound makes the contract a\n  compile-time requirement.\n\n- Type-erase the error at the trait surface: `type Error = Box\u003cdyn\n  std::error::Error + Send + Sync\u003e` so consumers never see the\n  concrete Display; or `type Error: SafeDisplay` where SafeDisplay\n  has a narrower contract.\n\n- Provide a `redact()` helper method on the trait with a default\n  impl that returns a static string; backends override only if they\n  want to expose more.\n\n- At minimum: ship a workspace-level lint or canary test that\n  checks every concrete `JmapBackend::Error` impl produces a Display\n  containing none of a set of canary credentials inserted by the\n  test harness. The existing pattern (bd:JMAP-sc1b.79, bd:JMAP-sc1b.102)\n  is a precedent — extend it to backend errors.\n\nThe current contract is a docs-only commitment in a position where\nthe consumer's incentives are misaligned (rich error info helps\ndebugging at the cost of accidental leak). Type-level or test-level\nenforcement closes that gap.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T16:45:31Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-server/src/backend.rs:747-791 — JmapBackend::Error is bound\nas `std::error::Error + Send + Sync + 'static`. The doc comment lays\nout an extensive contract that the type's Display impl MUST NOT\ninclude credential material, blob content, or PII shaped like an\nemail address. The runtime guard `server_fail_from_backend` at\nhandlers.rs:69-71 ensures the Display output never reaches the JMAP\nwire response — but only for the handlers in jmap-server's own\nhandlers.rs.\n\nWhat callers cannot depend on:\n\n1. That a third-party backend implementor reads the doc comment.\n   The Display contract is hundreds of words of prose, two levels\n   deep in trait-associated-type documentation. The first time a\n   backend implementor reads it is when they hit the contract\n   violation in code review — if ever.\n\n2. That the kit's defense-in-depth covers every leakage path. The\n   server_fail_from_backend runtime guard covers handlers.rs but\n   not:\n   - Extension *-server crates that build their own per-method\n     handlers (mail, chat, calendars, tasks, contacts, filenode,\n     sharing, metadata — 8 today).\n   - Consumer-side `tracing::error!(err = ?backend_err)` logging that\n     formats the Display string into operator logs verbatim.\n   - Test assertions that print the error for diagnostic purposes\n     and end up in CI logs.\n   - Any future tracing-instrumented call that interpolates the\n     error with `{}` or `{err}` format specifiers.\n\n3. That a future contributor adds a new server-side surface (e.g. a\n   metrics path that emits the Display string as a label) without\n   re-reading the contract.\n\nWhat goes wrong when this stays as-is: a backend implementor wraps a\ndownstream service error (Postgres, S3, Redis) that interpolates the\ncaller's bearer token into its error text. The kit's\n`server_fail_from_backend` strips it from the wire, but the\nconsumer's structured logger captures it in operator logs because\nthe contract is doc-only.\n\nResolution paths (one or more):\n\n- Make the trait bound enforce a marker trait `RedactedError: Display`\n  whose `Display` impl is constrained at the type level. Implementors\n  derive or hand-write the Display. The bound makes the contract a\n  compile-time requirement.\n\n- Type-erase the error at the trait surface: `type Error = Box<dyn\n  std::error::Error + Send + Sync>` so consumers never see the\n  concrete Display; or `type Error: SafeDisplay` where SafeDisplay\n  has a narrower contract.\n\n- Provide a `redact()` helper method on the trait with a default\n  impl that returns a static string; backends override only if they\n  want to expose more.\n\n- At minimum: ship a workspace-level lint or canary test that\n  checks every concrete `JmapBackend::Error` impl produces a Display\n  containing none of a set of canary credentials inserted by the\n  test harness. The existing pattern (bd:JMAP-sc1b.79, bd:JMAP-sc1b.102)\n  is a precedent — extend it to backend errors.\n\nThe current contract is a docs-only commitment in a position where\nthe consumer's incentives are misaligned (rich error info helps\ndebugging at the cost of accidental leak). Type-level or test-level\nenforcement closes that gap.",
-  "ephemeral": false,
-  "id": "JMAP-jfia.20",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T23:00:31.2125252Z",
+  "closed_at": "2026-10-22T23:00:31.2125252Z",
+  "close_reason": "Mark 2026-10-22: close. Wire leak closed workspace-wide (server_fail_from_backend / server_fail_value_from_backend in handlers.rs + redaction canary); consumer-side logging of its own backend errors is the deployment's responsibility. No type-level bound.",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "JmapBackend::Error Display contract is doc-only MUST-NOT; no type-level enforcement of credential/blob/PII redaction",
-  "updated_at": "2026-05-14T17:28:59Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T09:45:31Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-jfia",
-      "id": "820062fb-8996-55df-b9c9-87e3c00b7136",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

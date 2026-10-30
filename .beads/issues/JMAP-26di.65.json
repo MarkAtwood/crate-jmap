@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-26di.65",
+  "title": "MessageQueryInput::with_sort_ascending(bool) is bool-as-enum at call sites",
+  "description": "methods/mod.rs:377-380 — 'pub fn with_sort_ascending(mut self, v: bool) -\u003e Self'. At call sites: 'input.with_sort_ascending(true)' or 'input.with_sort_ascending(false)' — the meaning of the bool is opaque without consulting the doc-string. The Rust review guide explicitly calls out this anti-pattern: 'bool parameters that are really two-variant enums in disguise. fn process(input: \u0026str, verbose: bool) — the caller cannot tell at the call site what true means.' Idiomatic form: 'pub enum SortDirection { Ascending, Descending }' with 'with_sort_direction(SortDirection::Ascending)'. The underlying MessageQueryInput.sort_ascending field can stay as bool (since the wire serialization to 'isAscending: bool' matches), and the conversion happens in the setter. Counter-argument: this is purely call-site readability; sort_ascending is a near-universal builder convention name. The counter-argument has some weight — bool-for-sort-direction is widely tolerated. Marking as P4 + opinion because the engineering basis (call-site readability) is weak relative to the API churn cost (introducing a new enum + setter rename).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-15T20:53:08Z",
   "created_by": "Mark Atwood",
-  "description": "methods/mod.rs:377-380 — 'pub fn with_sort_ascending(mut self, v: bool) -> Self'. At call sites: 'input.with_sort_ascending(true)' or 'input.with_sort_ascending(false)' — the meaning of the bool is opaque without consulting the doc-string. The Rust review guide explicitly calls out this anti-pattern: 'bool parameters that are really two-variant enums in disguise. fn process(input: &str, verbose: bool) — the caller cannot tell at the call site what true means.' Idiomatic form: 'pub enum SortDirection { Ascending, Descending }' with 'with_sort_direction(SortDirection::Ascending)'. The underlying MessageQueryInput.sort_ascending field can stay as bool (since the wire serialization to 'isAscending: bool' matches), and the conversion happens in the setter. Counter-argument: this is purely call-site readability; sort_ascending is a near-universal builder convention name. The counter-argument has some weight — bool-for-sort-direction is widely tolerated. Marking as P4 + opinion because the engineering basis (call-site readability) is weak relative to the API churn cost (introducing a new enum + setter rename).",
-  "ephemeral": false,
-  "id": "JMAP-26di.65",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-21T21:18:12.844640857Z",
+  "closed_at": "2026-10-21T21:18:12.844640857Z",
+  "close_reason": "Moot: MessageQueryInput and with_sort_ascending removed in 14c2765c; chat-client message_query now takes sort: Option\u003c\u0026[MessageComparator]\u003e (crate-jmap-chat-client/src/methods/message.rs:140)",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 4,
-  "status": "open",
-  "title": "MessageQueryInput::with_sort_ascending(bool) is bool-as-enum at call sites",
-  "updated_at": "2026-05-15T20:53:08Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-15T13:53:08Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-26di",
-      "id": "0fe1aed3-06bf-52e4-8135-bc9021f081ad",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

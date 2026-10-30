@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-0x0q.51",
+  "title": "SceneObject create: bad regionId is invalidProperties",
+  "description": "Oracle: jmap-chat-spec 6bcd9d8 (quoted text). Mapped by wf_6712c4f8-c2b.\n\n[scene] SceneObject/set create: regionId missing or inaccessible must be invalidProperties naming regionId\nSpec (): draft-atwood-jmap-scene-00.md L1576: \"The server MUST return `invalidProperties` naming `regionId` when `regionId` does not exist, and SHOULD return the same error (not `forbidden`) when the caller does not have access to the region (see {{access-control}}).\" L1767: \"| `regionId` does not exist or caller lacks access | The server returns the same error in both cases (not `forbidden`) per the enumeration-safe access-control rule. |\" L2606: \"`invalidProperties` naming `regionId` for a `/set` create that names the region, the same error as for a region that does not exist ({{RFC8620}} Section 5.3 allows `notFound` only for update and destroy)\"\nCode: crate-jmap-scene-server/src/object.rs:472-483 (comment + fetch_one ...ok_or_else(not_found) + may_access_region -\u003e not_found()); crate-jmap-scene-server/tests/object_set.rs:308-314 unknown_region_is_not_found (oracle L1472 old text); crate-jmap-scene-server/tests/visibility.rs:334-356 object_create_without_region_access_is_not_found (asserts notFound for hidden and missing)\nNow: A create naming a nonexistent region, or one the caller cannot access, returns SetError notFound with no properties.\nChange: Return invalid(\u0026[\"regionId\"], \"regionId is not an accessible SceneRegion\") in both branches (same error for missing and inaccessible). Update the code comment, and update the two tests' oracles to quote L1576/L1767/L2606 and assert type invalidProperties with properties [\"regionId\"]. The spec text changed, so this is an oracle update, not a weakened test.",
+  "notes": "Mark 2026-10-20 DECISION: Scene: policy access via existing may_access_region -\u003e invalidProperties(regionId); narrow may_enter_region to ban/cooldown -\u003e forbidden. Dangling parentId/visualRef on update -\u003e invalidProperties, same as create.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T22:55:05.120134862Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:16.345705963Z",
+  "closed_at": "2026-10-21T10:10:16.345705963Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.51",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T22:55:05.226925408Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

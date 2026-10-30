@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-kgx2",
+  "title": "chat-server: drop \u0026str permission canon for ChatPermission",
+  "description": "Follow-up from JMAP-do5p. jmap-chat-types now has ChatPermission (impl_string_enum!), but crate-jmap-chat-server/src/permissions.rs still exports a parallel pub const \u0026str canon (MANAGE_SPACE, MANAGE_ROLES, MANAGE_MEMBERS, MANAGE_CHANNELS, PIN, BAN, MENTION_BROADCAST, VIEW, SEND; re-exported from lib.rs), RequiredPermissions::Known carries \u0026'static [\u0026'static str], and resolve_channel_permissions / ChatBackend::everyone_permissions plus the vtc, federation and filenode servers use HashSet\u003cString\u003e permission sets. JMAP-do5p's description asked for this canon to go; do5p kept it to limit the change to the five type-crate fields (consumers compare via ChatPermission::as_str()). Decide before the 0.4 freeze whether to (a) move these public surfaces to ChatPermission / HashSet\u003cChatPermission\u003e, or (b) freeze them as wire strings. The ChatPermission::Other forging caveat (Other(\"view\") != View) argues for keeping set membership on wire strings if (a) is chosen.",
+  "notes": "Mark 2026-10-21: switch to the enum. Remove the \u0026str permission constants; public permission APIs (RequiredPermissions, everyone_permissions, resolve_channel_permissions, consumers in vtc/federation/filenode servers) take/return ChatPermission. Internal set membership may still compare wire strings (as_str) so Other(\"view\") never equals View.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T01:49:16.156833197Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:23.503262556Z",
+  "closed_at": "2026-10-21T16:19:23.503262556Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035"
+}

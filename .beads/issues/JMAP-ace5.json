@@ -2,11 +2,14 @@
   "id": "JMAP-ace5",
   "title": "vtc-server: state transitions checked outside the backend's atomic step",
   "description": "VTCCall/set, VTCRecording/set and VTCLivestream/set validate a state transition against a read (fetch_one) and then send update_object a plain PatchObject. Two concurrent updates (for example pause and stop of one recording) can both pass the check, and the second patch then applies an unlisted transition (stopped -\u003e paused), against draft-atwood-jmap-vtc-00 L1098 / L706. Fix: pass the expected current state to the backend (compare-and-set) or move the transition check into VtcBackend. Found while implementing JMAP-8mem.4.",
-  "status": "open",
+  "notes": "Batch 8b review (JMAP-8mem.3), same pattern on the participant path: (1) crate-jmap-vtc-server/src/participant.rs:379-382 VTCParticipant create activates a pending call from the call snapshot read before create_object; set_call_state (call.rs raw update_object, no transition check) can overwrite a concurrent moderator end back to active. Reload the call and skip if ended. (2) call_transitions L1020-1023 decides activate from the pre-commit snapshot but applies it to the reloaded call, and the ? on a failed activate skips the later declined/left transitions; re-check call.state on the reloaded call. The newState/mutated part of (1) is filed as JMAP-0x0q.64.",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-20T13:34:31.68329613Z",
   "created_by": "agent",
-  "updated_at": "2026-10-20T13:34:31.68329613Z"
+  "updated_at": "2026-10-22T03:35:55.955354617Z",
+  "closed_at": "2026-10-22T03:35:55.955354617Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6"
 }

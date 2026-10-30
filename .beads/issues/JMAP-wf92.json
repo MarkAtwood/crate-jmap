@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-wf92",
+  "title": "0.4 breaking-change sweep (2026-10-21)",
+  "description": "Mark 2026-10-21: today is the day for all breaking changes; do everything found by the breaking-change sweep, including the L items, with the recommended answers to the judgment calls. Includes JMAP-dpbp.",
+  "notes": "2026-10-22: Mark chose batch 14 = all freeze-audit survivors (epic JMAP-skk9) + wf92.23-.27.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:08:40.479317989Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T20:45:38.246883327Z",
+  "closed_at": "2026-10-22T20:45:38.246883327Z",
+  "close_reason": "All children landed (batches 13, D, 14-14d); origin/main 4c90ff26."
+}

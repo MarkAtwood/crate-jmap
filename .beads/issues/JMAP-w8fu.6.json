@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-w8fu.6",
+  "title": "Test coverage: chat-client session.rs (38.9%)",
+  "description": "crate-jmap-chat-client/src/session.rs has 7/18 lines covered (38.9%). Contains ChatSessionExt trait methods (supports_chat_websocket, supports_quotas, supports_refplus). Uncovered paths are the negative cases (capability absent) and the Some-but-empty-object cases. Need wiremock tests with session fixtures that omit or include these capabilities.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@wolfssl.com",
   "created_at": "2026-06-13T21:49:04Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-chat-client/src/session.rs has 7/18 lines covered (38.9%). Contains ChatSessionExt trait methods (supports_chat_websocket, supports_quotas, supports_refplus). Uncovered paths are the negative cases (capability absent) and the Some-but-empty-object cases. Need wiremock tests with session fixtures that omit or include these capabilities.",
-  "ephemeral": false,
-  "id": "JMAP-w8fu.6",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T17:16:16.311595436Z",
+  "closed_at": "2026-10-23T17:16:16.311595436Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@wolfssl.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "Test coverage: chat-client session.rs (38.9%)",
-  "updated_at": "2026-06-13T21:49:04Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-06-13T14:49:04Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-w8fu",
-      "id": "1c70927f-05eb-53f0-9a02-0d057886f8c6",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.43",
+  "title": "Peer/groupUpdate avatar object with fetchUrl",
+  "description": "Oracle: jmap-chat-spec 6bcd9d8 (quoted text). Mapped by wf_6712c4f8-c2b.\n\n[chat-ext] Peer/groupUpdate avatarBlobId replaced by avatar object with fetchUrl\nSpec (ff6b3b9): draft-atwood-jmap-chat-federation-00.md L667-668: \"`avatar` (Object\\|null, optional): : The group avatar image. MAY be present for `\"create\"` or `\"updateMetadata\"` actions. An Object carries the `contentType`, `size`, and `sha256` fields of an Attachment ({{JMAP-CHAT}}) plus `fetchUrl` (String) ... For `\"updateMetadata\"`, `null` removes the group avatar; absent leaves it unchanged.\"; L676: \"After the authorization and `closedAt` checks above succeed, and only then, if `avatar` is an Object, the receiving server validates `contentType` and `size` ..., fetches the blob from `fetchUrl` with a signed request ... The avatar is best-effort ... A failed avatar never causes the request to be rejected\"; L678: \"it stores the fetched blob and sets the Chat's `avatarBlobId` to the local blobId; when `avatar` is `null`, it removes `avatarBlobId`.\"\nCode: crate-jmap-chat-federation-types/src/peer.rs:552,653-655,680 PeerGroupUpdateArgs.avatar_blob_id; crate-jmap-chat-federation-server/src/group_update.rs:24,37,43-45 (docs); crate-jmap-chat-federation-server/src/group_update.rs:100 (create stores remote blob id as-is); crate-jmap-chat-federation-server/src/group_update.rs:147-150 (updateMetadata patches avatarBlobId; cannot express null removal); crate-jmap-chat-federation-server/src/outbound.rs:202,270-274 set_metadata sends local avatarBlobId; crate-jmap-chat-federation-server/src/deliver.rs:124-139 (fetch hook takes PeerAttachment only)\nNow: The code sends and receives `avatarBlobId` (a sender-local blob id) and stores it verbatim on the receiver's Chat. A conformant peer's `avatar` object lands in `extra` and is ignored, so no avatar is ever fetched. `avatar: null` cannot remove an avatar.\nChange: Replace avatar_blob_id with `avatar: Option\u003cOption\u003cPeerAvatar\u003e\u003e` carrying contentType/size/sha256/fetchUrl, so absent, null, and Object stay distinct. Inbound: after the auth and closedAt checks, validate contentType and size, fetch through a backend hook (generalise fetch_attachment or add fetch_avatar), and verify size and sha256. On any failure, apply the rest of the request and leave the avatar absent or current; never reject. On success set avatarBlobId to the local blob; null removes it. Outbound: build the avatar object from the local blob through a hook that mints the fetchUrl and records the grant before sending.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T22:55:02.898620425Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:05.246752312Z",
+  "closed_at": "2026-10-21T10:10:05.246752312Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.43",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T22:55:03.014959795Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

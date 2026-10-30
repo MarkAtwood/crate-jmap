@@ -1,38 +1,42 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-s4kp.4",
+  "title": "tasks-server: wire metadata-04 helpers into MemoryBackend",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-tasks-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to tasks-server's type set (Task, TaskList). See JMAP-s4kp.1 for canonical pattern.",
+  "notes": "DECISION Mark 2026-10-22: implement (wire metadata-04 into this MemoryBackend; mail first), using the reusable stub in jmap-metadata-server (JMAP-5kpy). Mark's words: 'implement it, and also stub it and bead it into the helper crate'.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-06-05T03:57:02Z",
   "created_by": "Mark Atwood",
-  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-tasks-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to tasks-server's type set (Task, TaskList). See JMAP-s4kp.1 for canonical pattern.",
-  "ephemeral": false,
-  "id": "JMAP-s4kp.4",
-  "is_blocked": true,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T23:38:07.67831226Z",
+  "closed_at": "2026-10-23T23:38:07.67831226Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "tasks-server: wire metadata-02 helpers into MemoryBackend",
-  "updated_at": "2026-06-26T19:57:36Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-06-04T20:57:13Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-s4kp.1",
-      "id": "89d2ed08-b1f6-59b0-9301-cb99c40b6ac1",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-06-04T20:57:02Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-s4kp",
-      "id": "ac3df5a9-c915-5f73-a6e5-90238894fccd",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-s4kp.4",
+      "depends_on_id": "JMAP-5kpy",
+      "type": "blocks",
+      "created_at": "2026-10-22T22:51:37.022287625Z",
+      "created_by": "agent",
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

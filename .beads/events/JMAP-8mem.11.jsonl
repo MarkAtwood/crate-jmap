@@ -1,0 +1,2 @@
+{"id":"01a15cda-e196-7dab-bb68-f8014225040e","issue_id":"JMAP-8mem.11","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-21T05:06:50.902896363Z"}
+{"id":"01a16054-2bb7-7bd4-bbab-e45eb22c87c1","issue_id":"JMAP-8mem.11","event_type":"closed","actor":"agent","old_value":"","new_value":"Done: VtcParticipant.breakout_call_id: Option\u003cId\u003e (crate-jmap-vtc-types/src/participant.rs:150), round-trip test at :269-285","created_at":"2026-10-21T21:18:11.383775857Z"}

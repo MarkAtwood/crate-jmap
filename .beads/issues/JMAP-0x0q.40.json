@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-0x0q.40",
+  "title": "Strip jmap: MessageActions/Endpoints from peer data",
+  "description": "Oracle: jmap-chat-spec 6bcd9d8 (quoted text). Mapped by wf_6712c4f8-c2b.\n\n[chat-ext] Strip jmap: MessageActions/Endpoints from data received from peers\nSpec (42c244b): draft-atwood-jmap-chat-federation-00.md L337: \"A receiving server removes every MessageAction and every Endpoint whose `uri` is a JMAP object URI (a URI with the scheme `jmap`) from data it receives from a peer, whether in a Peer/* call or from the peer's Session object (such as `ownerEndpoints`), before storing the data or delivering it to its clients. The remaining entries keep their order, and an array left empty is stored as absent.\"; L367: \"MessageActions whose `uri` is a JMAP object URI are removed, per {{identity-mapping}}.\"\nCode: crate-jmap-chat-federation-server/src/deliver.rs:825-838 Commit::actions (maps assignees, keeps every action); crate-jmap-chat-federation-server/src/deliver.rs:1170 (call site); crate-jmap-chat-federation-types/src/session.rs:109-117 owner_endpoints (keeps every parsed Endpoint); crate-jmap-chat-federation-types/src/session.rs:84-93 (doc says unknown entries are kept)\nNow: Inbound Peer/deliver actions and probed ownerEndpoints are stored as received, including jmap:\u003ctype\u003e:\u003cpeerAccount\u003e:\u003cid\u003e URIs that would resolve against the wrong server's accounts.\nChange: In Commit::actions, drop actions whose uri scheme is `jmap` (ASCII case-insensitive; test the scheme, not a full parse), preserving order, and return None/absent when the result is empty. Apply the same filter in owner_endpoints, returning None when nothing remains. Optionally omit them outbound (MAY). PeerEdit carries no actions, so only these two sites need it. Add tests quoting L337.\nVerifier correction: As stated. Do the jmap-scheme removal before or together with the assignee mapping, because https task actions that remain still need it. Make sure an empty result is stored as absent and not as []. That means checking the storage at deliver.rs:1170, or returning Option from Commit::actions.\n\n[chat-core] Remove MessageActions/Endpoints with jmap: object URIs received from peers\nSpec (42c244b): draft-atwood-jmap-object-uri-00.md L86: \"A server that passes data received from another server, such as a federation peer, on to its own clients or to a third server MUST NOT pass a JMAP object URI in that data through unchanged ... The protocol that carries the URI specifies what the server does instead\"; draft-atwood-jmap-chat-federation-00.md L337: \"A receiving server removes every MessageAction and every Endpoint whose `uri` is a JMAP object URI (a URI with the scheme `jmap`) from data it receives from a peer, whether in a Peer/* call or from the peer's Session object (such as `ownerEndpoints`), before storing the data or delivering it to its clients. The remaining entries keep their order, and an array left empty is stored as absent.\"\nCode: crate-jmap-chat-federation-server/src/deliver.rs:825-840 (actions(): copies all actions, maps assignees only); crate-jmap-chat-federation-server/src/deliver.rs:1170,1202 (msg.actions = actions); crate-jmap-chat-federation-types/src/session.rs:104 (ownerEndpoints ingestion type)\nNow: Inbound Peer/deliver stores every MessageAction unchanged except assignee mapping; peer Session ownerEndpoints are taken as-is. No code checks for a `jmap` scheme.\nChange: In the inbound actions path, drop each MessageAction whose uri scheme is `jmap` (case-insensitive), keep order, store an empty result as absent; same for Endpoints ingested from a peer's Session ownerEndpoints (and any Peer/* Endpoint arrays). Primary source is the federation draft; the object-uri MUST is the driver. Owned by the federation-draft review; listed here because draft-atwood-jmap-object-uri-00 is in my set.\nVerifier correction: Drop every MessageAction whose uri scheme is jmap (case-insensitive) in deliver.rs actions(), keep the order, and store an empty result as absent (msg.actions = None). Apply the same filter in jmap_chat_federation_types::owner_endpoints() (session.rs:109) and in any Peer/* Endpoint ingestion. Keep https and other schemes. A sending server MAY also omit them outbound (optional). The primary driver is federation-00 L337.",
+  "notes": "Mark 2026-10-20 DECISION: implement the strip; spec bead filed for chat-00 L408 exception.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T22:55:02.097616345Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:05.016646169Z",
+  "closed_at": "2026-10-21T10:10:05.016646169Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.40",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T22:55:02.213855064Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

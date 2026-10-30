@@ -1,38 +1,33 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-k9va.8",
+  "title": "Propagate: jmap-metadata-server wire-boundary Id::new_validated migration (3 candidate sites)",
+  "description": "## Sibling propagation of canonical bd:JMAP-k9va.1\n\nDepends on bd:JMAP-k9va.1 (mail-server canonical fix) landing first.\n\nPer workspace AGENTS.md 'Canonical Templates' rule, this sibling must mirror the shape mail-server adopts. Read the canonical commit before starting.\n\n## Candidate sites\n\nAudit via:\n\n```\nrg -n 'Id::from\\(.*str' crate-jmap-metadata-server/src/\n```\n\n3 `Id::from` matches as of 2026-05-16. Separate wire-boundary (in scope) from backend-return-value (out of scope) per the .39 / .93 cross-walk:\n\n- Wire-boundary: `/set` update map keys, `/set` destroy array elements, method-arg fields like `chatId` / `spaceId` / `blobId`.\n- Out of scope: Ids returned by `get_*` backend calls, synthetic Ids constructed from server-generated content, references to existing entries.\n\n## Acceptance\n\n- Mirror the canonical fix shape from bd:JMAP-k9va.1\n- All wire-boundary sites use `Id::new_validated` with appropriate error mapping\n- Internal sites carry an inline `// out of scope: \u003creason\u003e` comment\n- `cargo test -p jmap-metadata-server` green\n- `cargo clippy -p jmap-metadata-server -- -D warnings` green\n- At least one negative test added\n\n## Cross-references\n\n- Canonical: bd:JMAP-k9va.1\n- Triggering finding: bd:JMAP-ayoz.39 (metadata-specific) / bd:JMAP-x2gd.93 (chat-specific)",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-17T05:28:43Z",
   "created_by": "Mark Atwood",
-  "description": "## Sibling propagation of canonical bd:JMAP-k9va.1\n\nDepends on bd:JMAP-k9va.1 (mail-server canonical fix) landing first.\n\nPer workspace AGENTS.md 'Canonical Templates' rule, this sibling must mirror the shape mail-server adopts. Read the canonical commit before starting.\n\n## Candidate sites\n\nAudit via:\n\n```\nrg -n 'Id::from\\(.*str' crate-jmap-metadata-server/src/\n```\n\n3 `Id::from` matches as of 2026-05-16. Separate wire-boundary (in scope) from backend-return-value (out of scope) per the .39 / .93 cross-walk:\n\n- Wire-boundary: `/set` update map keys, `/set` destroy array elements, method-arg fields like `chatId` / `spaceId` / `blobId`.\n- Out of scope: Ids returned by `get_*` backend calls, synthetic Ids constructed from server-generated content, references to existing entries.\n\n## Acceptance\n\n- Mirror the canonical fix shape from bd:JMAP-k9va.1\n- All wire-boundary sites use `Id::new_validated` with appropriate error mapping\n- Internal sites carry an inline `// out of scope: <reason>` comment\n- `cargo test -p jmap-metadata-server` green\n- `cargo clippy -p jmap-metadata-server -- -D warnings` green\n- At least one negative test added\n\n## Cross-references\n\n- Canonical: bd:JMAP-k9va.1\n- Triggering finding: bd:JMAP-ayoz.39 (metadata-specific) / bd:JMAP-x2gd.93 (chat-specific)",
-  "ephemeral": false,
-  "id": "JMAP-k9va.8",
-  "is_blocked": true,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T22:47:27.031238207Z",
+  "closed_at": "2026-10-22T22:47:27.031238207Z",
+  "close_reason": "triage 2026-10-22 (moot, skeptic-confirmed): crate-jmap-metadata-server has no handlers, backend or MemoryBackend. It is now pure helper functions (src/lib.rs:1-37: 'No backend trait, no dispatcher registration, no memory feature'), after b34a07bf 'refactor(jmap-metadata-server)!: rewrite for draft-02'. There are zero Id::from sites in src. | check: Moot. crate-jmap-metadata-server now holds only changes.rs, filter.rs, lib.rs and validate.rs: pure helpers with no handlers, backend or wire-boundary id parsing. grep finds no Id::from or new_validated in src, so there are no sites to migrate.",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "Propagate: jmap-metadata-server wire-boundary Id::new_validated migration (3 candidate sites)",
-  "updated_at": "2026-06-26T19:57:36Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-16T22:28:42Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-k9va",
-      "id": "6df673c0-1181-5cc9-ba47-b2560d579f84",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-05-16T22:28:56Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-k9va.1",
-      "id": "d32f76b2-62fc-5367-8030-2e2d91ac3dbb",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

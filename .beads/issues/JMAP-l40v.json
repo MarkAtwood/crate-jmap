@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-l40v",
+  "title": "mail-server: MemoryBackend Email copy skips counts",
+  "description": "Found in JMAP-p36f. MemoryBackend::copy_object for Email creates/extends the Thread in the target account but does not update the target Mailboxes' totalEmails/unreadEmails/totalThreads/unreadThreads (RFC 8621 2) or the Message-ID index, and duplicates the Thread step instead of using Inner::insert_email (added in JMAP-p36f). Fix: route the Email branch of copy_object through Inner::insert_email.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T02:02:58.260692365Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:22.807481182Z",
+  "closed_at": "2026-10-24T06:43:22.807481182Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed"
+}

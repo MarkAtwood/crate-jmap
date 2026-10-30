@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.55",
+  "title": "Space/set: role hierarchy on member role assignment",
+  "description": "Spec jmap-chat-spec 061a30f (draft-atwood-jmap-chat-00 §Space/set, §Permission resolution):\n(1) addMembers: 'Members may only assign roles whose position is strictly less than their own highest-position role; servers MUST enforce this.' updateMembers: 'Members may only add or remove roles whose position is strictly less than their own highest-position role; servers MUST enforce this.' Role hierarchy enforcement now covers 'role assignment through addMembers and updateMembers'.\nCode: crate-jmap-chat-server/src/backend.rs:1330 contract table lists the hierarchy check only for AddRole/UpdateRole; MemoryBackend (memory.rs ~1262-1273, ~2166) enforces only those. A manage_members holder can grant a role at/above their own position via addMembers/updateMembers (privilege escalation). Change: extend the contract table + MemoryBackend to AddMember roleIds and UpdateMember role adds/removes -\u003e Forbidden with 'hierarchy'/'position' in description; tests quoting 061a30f.\n(2) Last-admin protection: 'The same protection applies to an updateMembers role change, a removeRoles entry, or an updateRoles permission change ...; a refusal names the patch key concerned.' Code: backend.rs:1331 contract always uses properties ['removeMembers']. Change: InvalidProperties naming the patch key that caused it (removeMembers / updateMembers / removeRoles / updateRoles); update contract doc + MemoryBackend + tests.\n(3) Space/join: 'unless the invite specifies otherwise' removed — already compliant (SpaceInvite has no roles); verify docs don't claim invite roles.\nFreeze-relevant: changes the documented ChatBackend::apply_space_patch contract (no signature change).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T01:07:33.59311631Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T14:49:53.01695269Z",
+  "closed_at": "2026-10-21T14:49:53.01695269Z",
+  "close_reason": "Batch 8c: committed and adversarially verified; CI green at 860a4c2a",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.55",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T01:07:33.89178397Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

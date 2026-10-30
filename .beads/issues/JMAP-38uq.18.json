@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-38uq.18",
+  "title": "DECISION: SceneAsset update of extension props",
+  "description": "Needs Mark's ruling (from JMAP-0x0q.68 item 5). draft-atwood-jmap-scene-00 at 33702a5 L698: 'update supports patching name, assetUri, and sha256. All other properties are immutable or server-set.' L844 Update Errors: invalidProperties for 'Attempting to change a property other than name, assetUri, or sha256', description column naming id, accountId, ownerId, blobId, mediaType, size, createdAt. crate-jmap-scene-server/src/asset.rs update_asset rejects only those seven (IMMUTABLE) and lets vendor extension properties through; SceneRegion/SceneObject/SceneAvatar updates use the same deny-list shape. Options: (A) keep: read 'all other properties' as the spec-defined ones, consistent with sibling handlers and the AGENTS.md extras-preservation policy; record the decision in asset.rs docs. (B) literal: reject every key outside name/assetUri/sha256 with invalidProperties (allow-list), and decide whether siblings follow. Recommendation: A, plus a scene spec bead asking the draft to say whether extension properties are patchable.",
+  "notes": "DECISION Mark 2026-10-22: amend the draft (done: jmap-chat-spec 9e1bedb, new scene-00 section 'Extension Properties in Updates' {#scene-extension-properties}: servers MAY accept patches to vendor extension properties, MUST NOT to spec-defined immutable/server-set ones; SceneAsset update text and invalidProperties row updated). Code already does this (asset.rs:454-461); remaining work: cite the new section in asset.rs and the other Scene handlers' docs, then close.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T15:57:48.247257372Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T05:33:22.967575409Z",
+  "closed_at": "2026-10-23T05:33:22.967575409Z",
+  "close_reason": "Batch 16 (run wf_a0fdc13e-266): implemented, adversarially verified, full CI green at 17928284",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-38uq.18",
+      "depends_on_id": "JMAP-38uq",
+      "type": "parent-child",
+      "created_at": "2026-10-21T15:57:48.356345322Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

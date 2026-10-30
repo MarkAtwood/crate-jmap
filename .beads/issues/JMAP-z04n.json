@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-z04n",
+  "title": "RUSTSEC-2026-0387: crypto-bigint 0.5.5 timing leaks via elliptic-curve 0.13",
+  "description": "cargo deny (batch 21 CI, 741292f0) fails on RUSTSEC-2026-0387: crypto-bigint 0.5.5 has non-constant-time operations; fix only in \u003e=0.7.6. Paths: our direct deps k256 0.13 + p256 0.13 (crate-jmap-did-types), p256 0.13 with ecdh+ecdsa (crate-jmap-web-push: VAPID signing and ECDH use private keys), and openmls_rust_crypto 0.6 -\u003e hpke-rs-rust-crypto 0.7 -\u003e k256 0.13 (jmap-chat-mimi-server). k256 0.14 / elliptic-curve 0.14 are released. Also remove the stale deny.toml ignore for RUSTSEC-2026-0381.",
+  "notes": "DECISION Mark 2026-10-23: 'we dont care about constant time'. Resolve by a deny.toml ignore with reason; no k256/p256 upgrade for this. Also drop the stale RUSTSEC-2026-0381 ignore. Apply after batch 21b finishes (shared working tree).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T03:55:32.059780312Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T04:35:43.835039799Z",
+  "closed_at": "2026-10-24T04:35:43.835039799Z",
+  "close_reason": "Batch 21c / deny.toml ignore per Mark 2026-10-23; CI green; pushed 82f4fae7"
+}

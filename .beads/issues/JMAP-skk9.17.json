@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.17",
+  "title": "SieveScript/query refuses RFC 8620 §5.5 operator trees (unsupportedFilter)",
+  "description": "Found while implementing JMAP-skk9.2. crate-jmap-mail-server/src/sieve.rs:174 decodes SieveScript/query's filter into a private bare SieveScriptFilter {name, isActive}, so an AND/OR/NOT tree is answered unsupportedFilter. RFC 9661 SieveScript/query is a standard /query (RFC 8620 §5.5 line 2368: filter is FilterOperator|FilterCondition|null). Not a QueryObject, so out of scope for skk9.2. Fix: decode jmap_types::Filter\u003cSieveScriptFilter\u003e and evaluate with Filter::matches (added in 48222c26). Error, not wrong results, so low priority.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T18:32:55.952322302Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T19:29:29.542000947Z",
+  "closed_at": "2026-10-22T19:29:29.542000947Z",
+  "close_reason": "batch 14d: committed, adversarially verified, CI green at ed08ab5d",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.17",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T18:32:56.068533043Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-c35r",
+  "title": "graph/scene handle_get_visible ignore /get properties",
+  "description": "jmap-graph-server helpers.rs:248 and jmap-scene-server helpers.rs:373 handle_get_visible bypass jmap_server::handle_get and return whatever the backend serializes, so RFC 8620 §5.1 properties projection (only listed properties plus id) does not happen when the backend ignores properties. jmap_server::handle_get gained the projection in JMAP-f7sq; mirror it here. Non-breaking (0.4.x). Found during JMAP-f7sq.",
+  "notes": "CHECKPOINT 2026-10-30: in batch 25 (0.4.x, semver-compatible with 0.4.0), run wf_b2f4d022-2a9, script ~/Cache/crate-jmap-handoff-2026-10-22/batch25.js, base 66ed14e3.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-30T12:20:13.711070353Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T17:50:53.768669851Z",
+  "closed_at": "2026-10-30T17:50:53.768669851Z",
+  "close_reason": "batch 25 (0.4.x): implemented, adversarially verified, local CI green at 14fd6397 incl. public-api and fresh deny, pushed"
+}

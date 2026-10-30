@@ -2,13 +2,15 @@
   "id": "JMAP-yt1w.27",
   "title": "filenode MemoryBackend query_objects ignores sort",
   "description": "crate-jmap-filenode-server/src/memory.rs query_objects takes _sort and always orders by id. RFC 8620 §5.5: the server MUST sort per the sort argument or reject an unsupported one with unsupportedSort; silently ignoring it returns a wrongly ordered page. Found while fixing JMAP-yt1w.22 (which made the same impl honour position/anchor and report total before paging). Fix: apply RFC 8620 §5.5 / filenode-draft comparators, or return BackendQueryError::Method(JmapError::unsupported_sort()) for comparators it cannot apply.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-19T04:22:28.880178519Z",
   "created_by": "agent",
-  "updated_at": "2026-10-19T04:22:28.880178519Z",
+  "updated_at": "2026-10-23T23:38:09.929486228Z",
+  "closed_at": "2026-10-23T23:38:09.929486228Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
   "dependencies": [
     {
       "issue_id": "JMAP-yt1w.27",

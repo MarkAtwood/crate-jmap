@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-8mem.16",
+  "title": "chat-vtc-server: run leave effects on SpaceBan ejection",
+  "description": "eject_banned_user (JMAP-8mem.10) sets leftAt via VtcBackend::update_object only. vtc 6bcd9d8 §Leaving a Call says that when the last active participant leaves a ring or scheduled call, the server transitions it to ended, and that when the last moderator leaves it SHOULD promote the earliest-joined authenticated participant. Those effects live in the private jmap-vtc-server participant.rs after_leave. Decide whether a ban ejection counts as a leave for these rules. If it does, expose a public leave helper from jmap-vtc-server and call it from eject_banned_user.",
+  "notes": "Batch 8b review (JMAP-8mem.10): eject_banned_user now calls after_leave (crate-jmap-chat-vtc-server/src/lib.rs:376), but tests/cascades.rs lacks (1) a negative test for the state != Ended filter (lib.rs:335): seed an ended call bound to the Space with an active banned participant (leftAt null); dropping the filter makes after_leave/end_call return 'already ended'; (2) the ring-call branch: ban the initiator who is the only joined participant of a ringing ring call and assert it ends with endReason 'cancelled'. Only scheduled/completed and room/moderator-handoff paths are tested.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T06:31:23.615073844Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T17:16:12.586870823Z",
+  "closed_at": "2026-10-23T17:16:12.586870823Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.16",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-21T06:31:23.726829824Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

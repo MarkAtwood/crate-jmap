@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.78",
+  "title": "graph: reconcile query_changes doc with spec",
+  "description": "Found in JMAP-0x0q.77. crate-jmap-graph-server/src/backend.rs ~L65 says query_objects and query_changes MUST omit unreadable Graphs/nodes/edges, but the quote it gives is SHOULD ('SHOULD be indistinguishable ... absence from /query results'). Re-locate in draft-atwood-jmap-graph-00 at 29e9a41 and decide whether /queryChanges is per-account (as scene §Visibility Contract L2587 states for Scene) or caller-filtered.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T06:33:46.149382367Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:29.380798716Z",
+  "closed_at": "2026-10-24T03:55:29.380798716Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.78",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-23T06:33:46.25837439Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

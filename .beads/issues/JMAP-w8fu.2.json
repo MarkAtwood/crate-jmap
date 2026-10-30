@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-w8fu.2",
+  "title": "Test coverage: chat-server ban.rs (52.8%)",
+  "description": "crate-jmap-chat-server/src/ban.rs has 95/180 lines covered (52.8%). Uncovered: most of handle_ban_set create/update/destroy arms including pre-fetch validation, caller identity resolution, Space membership lookup, forbidden error paths, and notFound/serverFail branches.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@wolfssl.com",
   "created_at": "2026-06-13T21:48:51Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-chat-server/src/ban.rs has 95/180 lines covered (52.8%). Uncovered: most of handle_ban_set create/update/destroy arms including pre-fetch validation, caller identity resolution, Space membership lookup, forbidden error paths, and notFound/serverFail branches.",
-  "ephemeral": false,
-  "id": "JMAP-w8fu.2",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T17:16:16.966204277Z",
+  "closed_at": "2026-10-23T17:16:16.966204277Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@wolfssl.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "Test coverage: chat-server ban.rs (52.8%)",
-  "updated_at": "2026-06-13T21:48:51Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-06-13T14:48:51Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-w8fu",
-      "id": "16f2170f-9f14-5602-b9f2-8d7f2e781ad5",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.70",
+  "title": "graph: rights-scoped /changes, view test, proj cap",
+  "description": "graph: rights-scoped /changes, hidden-edge view test, typed projection capability (batch 8b review, JMAP-ef3q.2/.5/.8/.9).\n\n1. crate-jmap-graph-server/src/memory.rs:646-648 MemoryBackend::get_changes ignores the caller, and Graph/GraphNode/GraphEdge/GraphNodeOp `/changes` use the generic handler (node.rs:215, op.rs handle_graph_node_op_changes). A user without mayRead sees created/updated/destroyed ids of Graphs, nodes, edges and ops they cannot read; gaining/losing mayRead does not surface records as created/destroyed. draft-atwood-jmap-graph-00 L451 (SHOULD evaluate rights \"for every method call that reads\"; unreadable Graph \"indistinguishable from one that does not exist\") and graph-edit GraphNodeOp/changes \"requires mayRead on the op's Graph\". backend.rs:70-72 documents the duty for query_objects/query_changes only. At minimum document the get_changes duty in the GraphBackend rustdoc; scene-server has the same pattern.\n2. crate-jmap-graph-server/src/search.rs:161-191 GraphView::new drops edges whose endpoint is outside the view, implementing the graph-search §Visibility (L315) rule that hidden nodes/edges do not affect structural operators, but nothing tests it (tests/search.rs only covers a fully unreadable Graph; MemoryBackend cannot hide single nodes). Add a GraphView unit test: view without node B, edge A-\u003eB, assert $edge/$reachable from A is false.\n3. draft-atwood-jmap-graph-projection-00 L130-139 defines the capability as {} at session level and {graphId: Id} at account level; crate-jmap-graph-projection-server only re-exports JMAP_GRAPH_PROJECTION_URI and no crate has a typed account-capability struct (graph-types has GraphEditCapability/GraphSearchCapability). Add GraphProjectionCapability to jmap-graph-types.\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:39.618394719Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:26.096844819Z",
+  "closed_at": "2026-10-21T16:19:26.096844819Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.70",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:39.76031633Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

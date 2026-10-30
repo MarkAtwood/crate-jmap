@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-j7uo",
+  "title": "jmap-mail-server: resolve #creationId in /set Id props",
+  "description": "Follow-up to JMAP-8ypy. jmap-server now passes CallContext::created_ids (request-wide creation id -\u003e id map, RFC 8620 §3.3/§5.3) and exports resolve_creation_ref. mail-server (canonical extension server) /set handlers still treat '#x' as a literal id: Email/set mailboxIds keys (RFC 8621 §4.6), Mailbox/set parentId (RFC 8621 §2.5), EmailSubmission/set identityId/emailId (RFC 8621 §7.5). Thread cx.created_ids through reg! into handle_*_set and resolve each Id-typed property; unknown #ref -\u003e invalidProperties SetError naming the property. Mirror to siblings via the follow-up sweep bead.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T23:23:51.228940108Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T12:52:24.52522909Z",
+  "closed_at": "2026-10-23T12:52:24.52522909Z",
+  "close_reason": "Batch 18 (run wf_7523b9f3-dcc): implemented, adversarially verified, full CI green at 5ebb9c0c"
+}

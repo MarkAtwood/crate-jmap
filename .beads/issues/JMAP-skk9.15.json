@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.15",
+  "title": "EmailSubmission/query ignores sort",
+  "description": "Found in JMAP-skk9.13. crate-jmap-mail-server/src/submission.rs handle_submission_query and handle_submission_query_changes never read the sort argument, so EmailSubmission/query silently ignores sort (including malformed comparators such as sort:[5]) even though jmap-mail-types QueryObject for EmailSubmission has Comparator = EmailSubmissionComparator since a3134bb3. RFC 8620 §5.5 says a malformed argument is invalidArguments, and a sort the server cannot honour is unsupportedSort. RFC 8621 §7.3 lists emailId, threadId and sentAt as sort properties. Decode sort as EmailSubmissionComparator and pass it to the backend, as Mailbox/query does (mailbox_sort_arg).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T16:54:26.63372436Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T19:07:13.073264939Z",
+  "closed_at": "2026-10-22T19:07:13.073264939Z",
+  "close_reason": "batch 14c: committed, adversarially verified, CI green at 7fc008f0",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.15",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T16:54:26.77541232Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

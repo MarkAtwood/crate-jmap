@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-vr5c",
+  "title": "peer-auth-io: restart rule must add clock skew",
+  "description": "Spec change jmap-chat-spec 30dea91 (draft-atwood-jmap-chat-federation-00 §Replay): a receiver whose nonce cache is lost SHOULD reject requests whose created is earlier than the restart time PLUS the 60 s by which check 4 lets created lead the receiver's clock. Old text compared created with the restart time alone.\n\nWhy: a request accepted just before restart can carry created up to 60 s ahead (sender clock fast). Replayed after restart, created \u003e= since, the empty nonce cache accepts it. Replay window up to 60 s, not 1 s.\n\nFix: crate-jmap-peer-auth-io/src/lib.rs authenticate (~L136-140): reject PrecedesRestart when accepted.created \u003c since + CLOCK_SKEW_SECS (crate-jmap-peer-auth signature.rs:27). Update doc comments quoting the old text (lib.rs:24, :123; replay.rs:42-43) and tests (tests/keys.rs:508-547, tests/replay.rs:148).\n\nTests (oracle = draft arithmetic, not the code): since=T; created=T+59 -\u003e PrecedesRestart; created=T+60 -\u003e accepted; replay of a pre-restart request with created=T+45 -\u003e PrecedesRestart. Existing started_at(created+1s) test stays valid.\n\nEffect: after a restart that loses the cache, honest peers get 503 for ~60 s and retry (503 rule, jmap-chat-spec-16rd). Behaviour change: release as 0.4.x patch; chinwag consumes it.",
+  "notes": "CHECKPOINT 2026-10-30: in batch 28 (0.4.x), script ~/Cache/crate-jmap-handoff-2026-10-22/batch28.js, base cfd51b4f, spec pin 6af1b94. Scope adds the Rejection::PrecedesRestart doc in crate-jmap-peer-auth/src/signature.rs (quotes old §Replay text) and a note that spec 3cdd8e6 makes this rejection a 503; the HTTP status itself is the integrator's (chinwag).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-30T18:48:37.132661513Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T19:12:57.487881506Z",
+  "closed_at": "2026-10-30T19:12:57.487881506Z",
+  "close_reason": "batch 28 (0.4.x): restart rule adds the 60 s skew (spec 30dea91); verified, local CI green at c2e69130 incl. public-api and fresh deny; doc fixup; pushed"
+}

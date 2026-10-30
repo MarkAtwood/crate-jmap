@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.5",
+  "title": "Merge SetError types; typed MethodErrorType",
+  "description": "jmap-types methods.rs:231 SetError.error_type: String vs jmap-server backend.rs:23 SetError.error_type: SetErrorType; JmapError.error_type: String (error.rs:17) for RFC 8620 §3.6.2's closed set (~313 uses); clients compare magic strings (== \"rateLimit\"). Move SetErrorType into jmap-types, one SetError, decide JMAP-wlip.35 (recommended: mail-specific variants stay as known variants of the shared enum with Other(String), or move per wlip.35 notes) and add MethodErrorType via impl_string_enum!; retype JmapError.error_type and every consumer. Also request-error limit stuffed into description (types error.rs:374): give it a field. Remove TooManyChanges { limit: 0 } magic-zero legacy alias (server backend.rs:609-706). BREAKING, L.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:28.03936404Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:54.39610857Z",
+  "closed_at": "2026-10-22T03:35:54.39610857Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.5",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:28.379535613Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

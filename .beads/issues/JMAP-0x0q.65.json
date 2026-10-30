@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-0x0q.65",
+  "title": "filenode: cid sha256 gaps, record hook decision",
+  "description": "filenode-server: cid sha256 gaps and an unrecorded hook decision (batch 8b review, JMAP-01ba.7, JMAP-v9py.16.4).\n\n1. crate-jmap-filenode-server/src/filenode.rs:395-399: FileNode/set create clears sha256 for a Directory, and the `created` entry then omits it when urn:ietf:params:jmap:cid is advertised. FileNode/get (L196-209) fills `sha256: null`. draft-atwood-jmap-cid-00 §FileNode Extension says sha256 \"MUST be null for directory FileNodes\", and RFC 8620 §5.3 puts server-set properties in `created`, so created should carry `sha256: null` for directories.\n2. crate-jmap-filenode-server/tests/cid_sha256.rs has no test for: a cid_advertised Err mapping to serverFail; FileNode/get with fetchParents and cid advertised (appended ancestor directories need null sha256); `properties: [\"sha256\", ...]` and `properties: null` positive cases (get_with_cid_respects_properties L296 only uses [\"name\"]).\n3. JMAP-v9py.16.4's first DECISION asked for a fail-open files_rights hook in jmap-filenode-server plus space_files_rights in chat-filenode-server; the landed code adds no hook (grep files_rights in crate-jmap-filenode-server/src: none) and relies on deployments calling free functions, citing AGENTS.md \"backends are canonical for permission enforcement\". Record Mark's acceptance of dropping the hook as a decision, or add the hook.\n",
+  "notes": "Items 1-2 landed in e324abed. Item 3 NEEDS DECISION: space_files_rights exists in jmap-chat-filenode-server, but jmap-filenode-server has no files_rights hook. Choose (A) record acceptance of dropping the hook (backends canonical for permission enforcement, AGENTS.md) or (B) add a fail-open FileNodeBackend::files_rights hook. Follow-up: JMAP-0x0q.73 (FileNode/copy sha256).\nMark 2026-10-21: option B, add the hook. FileNodeBackend::files_rights in jmap-filenode-server, fail-open default (allow-all, JMAP-bghk); wire jmap-chat-filenode-server space_files_rights to it. Items 1-2 already landed in e324abed.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:38.118646307Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T17:15:54.250078159Z",
+  "closed_at": "2026-10-21T17:15:54.250078159Z",
+  "close_reason": "Batch 10: committed and adversarially verified; CI green at d9d4d6af",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.65",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:38.243687099Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -2,13 +2,16 @@
   "id": "JMAP-0x0q.9",
   "title": "Accept companion-only dataTypes when capability advertised",
   "description": "Spec sync to jmap-chat-spec 63e9d08 (diff 0cd3af0..63e9d08). Oracle: the quoted spec text at 63e9d08.\n\n[wss] Accept companion-only dataTypes when capability advertised\nSpec (): draft-atwood-jmap-chat-wss-00.md L175: \"It also defines two companion values: `\"vtc\"` ... recognized only when the server advertises `urn:jmap:vtc:websocket`, and `\"scene\"` ... recognized only when the server advertises `urn:jmap:scene:websocket`.\" L194: \"If `dataTypes` is empty, or contains only unrecognized values (i.e., none of `\"typing\"`, `\"presence\"`, or a companion value whose capability the server advertises), the server MUST respond with a `RequestError` ...\"\nCode: crate-jmap-chat-server/src/ephemeral.rs:83-95; crate-jmap-chat-server/src/ephemeral.rs:61-65; crate-jmap-chat-types/src/vocabulary.rs:76-85; crate-jmap-chat-types/src/ephemeral.rs:16-25; crate-jmap-chat-vtc-server/src/lib.rs:298-307; crate-jmap-chat-scene-server/src/lib.rs:23-31\nNow: EphemeralSubscription::from_enable only knows typing/presence and returns invalidArguments when neither is present, so [\"vtc\"] or [\"scene\"] alone is rejected. The chat-vtc/chat-scene binding docs say to set chat_vtc/chat_scene only from a frame that replace_with accepted, so a companion-only subscription can never be turned on. The vocabulary.rs doc says companion values \"do not count as recognized\", which the spec no longer says.\nChange: from_enable/replace_with must take the set of advertised companion capabilities (or a vtc/scene flag pair), record vtc/scene in EphemeralSubscription (with accessors), and return an error only when nothing recognized is left. Update the vocabulary.rs and ephemeral.rs docs and the binding-crate docs to match. Changing from_enable/replace_with is a public API change.",
-  "status": "open",
+  "notes": "Spec 6bcd9d8 re-scope: The behavior requirement is unchanged (L194, companion values count as recognized when their capability is advertised). Only the quoted capability names changed: the spec now says urn:ietf:params:jmap:vtc:websocket and urn:ietf:params:jmap:scene:websocket (L175, L196), which the code already uses. The binding docs in crate-jmap-chat-vtc-server/src/lib.rs:298-307 already name urn:ietf:params:jmap:vtc:websocket. But they quote 'MUST silently ignore \"vtc\" in dataTypes' as chat-wss text, and chat-wss 6bcd9d8 does not contain that phrase (L177/L196 say 'silently ignored under the unrecognized-value rule' / 'treated as unrecognized and silently ignored'). Those docs fall under this bead's doc-update scope. New scope: Same logic change (from_enable/replace_with take the advertised companion capabilities, record vtc/scene, and reject only when nothing recognized remains). Re-quote the spec as urn:ietf:params:jmap:{vtc,scene}:websocket, not urn:jmap:*; capability constants need no change. When updating docs, replace the misattributed quote in crate-jmap-chat-vtc-server/src/lib.rs:302-304 with chat-wss L196 text, and fix crate-jmap-chat-types/src/vocabulary.rs:81-85 ('do not count as recognized').",
+  "status": "closed",
   "priority": 1,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-20T20:02:27.748394505Z",
   "created_by": "agent",
-  "updated_at": "2026-10-20T20:02:27.748394505Z",
+  "updated_at": "2026-10-21T10:10:02.101754771Z",
+  "closed_at": "2026-10-21T10:10:02.101754771Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
   "dependencies": [
     {
       "issue_id": "JMAP-0x0q.9",

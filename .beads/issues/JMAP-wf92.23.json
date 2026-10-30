@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-wf92.23",
+  "title": "Dual public paths: remaining types/client/core modules",
+  "description": "Follow-up from JMAP-wf92.20 (which fixed server handler modules and types capability modules). The same module-plus-root-re-export dual path remains: (1) every non-capability module of the types crates (e.g. jmap_mail_types::email::Email and jmap_mail_types::Email; mail-types keyword, graph-types edit/search have pub items with no root path); (2) jmap-types modules (id, patch, set_error, ...); (3) jmap-server backend and handlers (about 100 workspace uses of jmap_server::backend::/handlers::); (4) client crates (base-client auth/blob/client/..., chat-client, *-client methods/ws). Same rule: module private where the root re-export covers every pub item, else drop the root re-export. Larger churn than wf92.20; decide scope before starting. BREAKING.",
+  "notes": "DECISION Mark 2026-10-22: option A, all four parts (every types crate, jmap-types, jmap-server backend/handlers incl. the 101 call sites, every client crate). Crate root is the single public path; modules private. Items with no root path get added to the root (rename on collision, CHANGELOG BREAKING). 4 commits, one per part.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T04:45:11.83895116Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T18:04:25.395436033Z",
+  "closed_at": "2026-10-22T18:04:25.395436033Z",
+  "close_reason": "batch 14b: committed, adversarially verified, CI green at 1ed6fa86",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.23",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-22T04:45:11.973365972Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

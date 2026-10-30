@@ -1,30 +1,26 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-ops7.29",
+  "title": "Workspace: 3 distinct fixture-loading strategies across 8 extension-types siblings — none mirrors the canonical mail-types fixture() helper",
+  "description": "**Divergence**: the canonical extension-types template (mail-types) loads test fixtures via tests/common/mod.rs::fixture(name) -\u003e String reading from tests/fixtures/*.json at runtime. Zero of the 7 extension-types siblings mirror this pattern.\n\n| Crate | tests/ dir | tests/common/ | tests/fixtures/ | Fixture-loading strategy |\n|---|---|---|---|---|\n| mail-types (canonical) | YES | YES (fixture() helper at tests/common/mod.rs:3-6) | YES (19 .json files) | Runtime fs::read_to_string via helper |\n| chat-types | NO | n/a | n/a | Inline r#\"…\"# literals in #[cfg(test)] mod in src/ |\n| calendars-types | YES | NO | NO | Inline literals in tests/types_test.rs |\n| tasks-types | YES | NO | YES (5 .json files) | include_str!() at compile time |\n| contacts-types | NO | n/a | n/a | Inline literals in src/ |\n| filenode-types | YES | NO | NO | Inline r#\"…\"# literals in tests/filenode_types.rs |\n| sharing-types | NO | n/a | n/a | Inline literals in src/ |\n| metadata-types | YES | NO | NO | Inline r#\"…\"# literals in tests/metadata_types.rs |\n\n**Three distinct strategies in 8 siblings**:\n1. Runtime via helper — only canonical (mail-types).\n2. include_str!() from tests/fixtures/*.json — only tasks-types.\n3. Inline r#\"…\"# JSON literals — six siblings (chat, calendars, contacts, filenode, sharing, metadata).\n\n**Test-file layout splits 3 ways** in parallel: tests/{name}_tests.rs per-domain (canonical), single tests/{crate}_types.rs (filenode, metadata) or tests/types_test.rs (calendars, tasks), or no tests/ dir at all (chat, contacts, sharing).\n\n**Caller-observable / maintainer effect**: directly contradicts the canonical extension-types banner (crate-jmap-mail-types/AGENTS.md:3-19) which says 'same test layout, same serde attribute patterns'. Test layout is plainly not the same. A contributor cookie-cutting a new extension-types crate (e.g. future jmap-blob-types, jmap-quotas-types) has six precedents to pick from and three valid-looking strategies; no signal that mail-types is the one to mirror.\n\n**Fix options**:\n(a) Converge all 7 siblings to mirror canonical: add tests/common/mod.rs with fixture() helper, move literals to tests/fixtures/*.json. Largest mechanical change; matches canonical-template rule literally.\n(b) Document the three-pattern split as intentional in mail-types AGENTS.md — but this undermines the rule.\n(c) Hybrid: hoist fixture() helper to a workspace-shared test-utility crate (jmap-test-utils?) that all 8 extension-types siblings can call. Avoids duplicating the helper 8 times.\n\nPosition (a) is the literal-rule fix; (c) is the better DRY shape but requires a new workspace crate.\n\n**Cross-references**: bd:JMAP-ops7.11 (mail-types README structure violation, already closed) — same canonical-template enforcement axis but for README rather than tests/.",
+  "notes": "DECISION Mark 2026-10-22: option (a) convert every types crate's test JSON to tests/fixtures/*.json loaded via a tests/common fixture() helper, matching crate-jmap-mail-types/tests/common/mod.rs:3. Mechanical: move each inline literal unchanged into a fixture file (byte-for-byte the same JSON, so the oracle does not change); keep spec-example provenance comments. Never alter expected values while moving. Size L: split per crate.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-17T23:33:50Z",
   "created_by": "Mark Atwood",
-  "description": "**Divergence**: the canonical extension-types template (mail-types) loads test fixtures via tests/common/mod.rs::fixture(name) -> String reading from tests/fixtures/*.json at runtime. Zero of the 7 extension-types siblings mirror this pattern.\n\n| Crate | tests/ dir | tests/common/ | tests/fixtures/ | Fixture-loading strategy |\n|---|---|---|---|---|\n| mail-types (canonical) | YES | YES (fixture() helper at tests/common/mod.rs:3-6) | YES (19 .json files) | Runtime fs::read_to_string via helper |\n| chat-types | NO | n/a | n/a | Inline r#\"…\"# literals in #[cfg(test)] mod in src/ |\n| calendars-types | YES | NO | NO | Inline literals in tests/types_test.rs |\n| tasks-types | YES | NO | YES (5 .json files) | include_str!() at compile time |\n| contacts-types | NO | n/a | n/a | Inline literals in src/ |\n| filenode-types | YES | NO | NO | Inline r#\"…\"# literals in tests/filenode_types.rs |\n| sharing-types | NO | n/a | n/a | Inline literals in src/ |\n| metadata-types | YES | NO | NO | Inline r#\"…\"# literals in tests/metadata_types.rs |\n\n**Three distinct strategies in 8 siblings**:\n1. Runtime via helper — only canonical (mail-types).\n2. include_str!() from tests/fixtures/*.json — only tasks-types.\n3. Inline r#\"…\"# JSON literals — six siblings (chat, calendars, contacts, filenode, sharing, metadata).\n\n**Test-file layout splits 3 ways** in parallel: tests/{name}_tests.rs per-domain (canonical), single tests/{crate}_types.rs (filenode, metadata) or tests/types_test.rs (calendars, tasks), or no tests/ dir at all (chat, contacts, sharing).\n\n**Caller-observable / maintainer effect**: directly contradicts the canonical extension-types banner (crate-jmap-mail-types/AGENTS.md:3-19) which says 'same test layout, same serde attribute patterns'. Test layout is plainly not the same. A contributor cookie-cutting a new extension-types crate (e.g. future jmap-blob-types, jmap-quotas-types) has six precedents to pick from and three valid-looking strategies; no signal that mail-types is the one to mirror.\n\n**Fix options**:\n(a) Converge all 7 siblings to mirror canonical: add tests/common/mod.rs with fixture() helper, move literals to tests/fixtures/*.json. Largest mechanical change; matches canonical-template rule literally.\n(b) Document the three-pattern split as intentional in mail-types AGENTS.md — but this undermines the rule.\n(c) Hybrid: hoist fixture() helper to a workspace-shared test-utility crate (jmap-test-utils?) that all 8 extension-types siblings can call. Avoids duplicating the helper 8 times.\n\nPosition (a) is the literal-rule fix; (c) is the better DRY shape but requires a new workspace crate.\n\n**Cross-references**: bd:JMAP-ops7.11 (mail-types README structure violation, already closed) — same canonical-template enforcement axis but for README rather than tests/.",
-  "ephemeral": false,
-  "id": "JMAP-ops7.29",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T05:33:23.63220114Z",
+  "closed_at": "2026-10-23T05:33:23.63220114Z",
+  "close_reason": "Batch 16 (run wf_a0fdc13e-266): implemented, adversarially verified, full CI green at 17928284",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "Workspace: 3 distinct fixture-loading strategies across 8 extension-types siblings — none mirrors the canonical mail-types fixture() helper",
-  "updated_at": "2026-05-17T23:33:50Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-17T16:33:49Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-ops7",
-      "id": "f8e16c2e-3556-55bf-918d-bb8273310b76",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

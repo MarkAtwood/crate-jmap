@@ -1,0 +1,2 @@
+{"id":"01a167b5-a610-7134-9c3e-0ce183368b97","issue_id":"JMAP-rvp2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-23T07:42:00.208079795Z"}
+{"id":"01a1681e-7c90-7993-a09f-0badeaf286df","issue_id":"JMAP-rvp2","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 17/17b (runs wf_311f1744-fb4, wf_3357d9e1-cc5): implemented, adversarially verified, full CI green; pushed 770d02b4","created_at":"2026-10-23T09:36:30.864628253Z"}

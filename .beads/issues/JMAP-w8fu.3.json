@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-w8fu.3",
+  "title": "Test coverage: chat-server position.rs (53.3%)",
+  "description": "crate-jmap-chat-server/src/position.rs has 106/199 lines covered (53.3%). Uncovered: handle_read_position_set create/update/destroy arms, handle_read_position_get filtering, chatId pre-validation paths, and most error-handling branches.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@wolfssl.com",
   "created_at": "2026-06-13T21:48:55Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-chat-server/src/position.rs has 106/199 lines covered (53.3%). Uncovered: handle_read_position_set create/update/destroy arms, handle_read_position_get filtering, chatId pre-validation paths, and most error-handling branches.",
-  "ephemeral": false,
-  "id": "JMAP-w8fu.3",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T17:16:16.734362114Z",
+  "closed_at": "2026-10-23T17:16:16.734362114Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@wolfssl.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "Test coverage: chat-server position.rs (53.3%)",
-  "updated_at": "2026-06-13T21:48:55Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-06-13T14:48:55Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-w8fu",
-      "id": "291b08dd-b7a0-50f8-8432-cd0b5834401d",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

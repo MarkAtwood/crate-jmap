@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-0x0q.52",
+  "title": "SceneObject: bad parentId is invalidProperties",
+  "description": "Oracle: jmap-chat-spec 6bcd9d8 (quoted text). Mapped by wf_6712c4f8-c2b.\n\n[scene] SceneObject/set: nonexistent parentId must be invalidProperties naming parentId\nSpec (): draft-atwood-jmap-scene-00.md L1768 (Create Errors, invalidProperties table): \"| `parentId` does not reference an existing SceneObject | The parent object must exist (within the same region). |\" (the separate notFound table was removed); L1809 (Update Errors): \"Same field-level validations as create: ... circular `parentId`, excess hierarchy depth.\"\nCode: crate-jmap-scene-server/src/object.rs:361-368 (check_parent depth==1 branch returns SetErrorType::NotFound); crate-jmap-scene-server/src/object.rs:331 (doc: \"is `notFound`\"); crate-jmap-scene-server/src/object.rs:611 (same helper used on update); crate-jmap-scene-server/tests/object_set.rs:395-402 unknown_parent_is_not_found\nNow: check_parent returns a NotFound SetError when the immediate parent does not exist, on both create and update.\nChange: Return invalid(\u0026[\"parentId\"], \"parentId does not reference an existing SceneObject\"). Fix the doc at object.rs:331 and update the test oracle to L1768 asserting invalidProperties/[\"parentId\"]. The shared helper changes the update path too; see decisions_needed.",
+  "notes": "Mark 2026-10-20 DECISION: Scene: policy access via existing may_access_region -\u003e invalidProperties(regionId); narrow may_enter_region to ban/cooldown -\u003e forbidden. Dangling parentId/visualRef on update -\u003e invalidProperties, same as create.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T22:55:05.388087238Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:16.572673895Z",
+  "closed_at": "2026-10-21T10:10:16.572673895Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.52",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T22:55:05.496620301Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

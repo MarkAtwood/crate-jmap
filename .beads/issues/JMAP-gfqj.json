@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-gfqj",
+  "title": "MemoryError Display echoes client-supplied state token / blob id",
+  "description": "Found during JMAP-510h.37. The JmapBackend::Error Display contract (crate-jmap-server/src/backend.rs) forbids PII-shaped data. crate-jmap-mail-server/src/memory/mod.rs builds MemoryError::new(format!(\"invalid state token: {since_state}\")) (~line 654) and MemoryError::new(format!(\"blob not found: {blob_id}\")) (~line 1612): both strings come from the request and can hold arbitrary client text, which then lands in operator logs. Decide whether to drop the value (as JMAP-510h.37 did for serde errors) or bound/escape it, change the canonical mail-server first, then sweep siblings for MemoryError::new(format!(...{request field}...)).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T10:23:53.459188478Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:28.222845798Z",
+  "closed_at": "2026-10-24T03:55:28.222845798Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

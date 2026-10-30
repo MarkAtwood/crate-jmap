@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.16",
+  "title": "Smaller trait and API shape fixes",
+  "description": "Recommended answers:\n1. JMAP-x2gd.36.1 generate_invite_code(\u0026self)-\u003eString -\u003e async, Result\u003c_, Self::Error\u003e, caller + account_id; same for FederationBackend::new_message_id (deliver.rs:143).\n2. JMAP-h47t.29 remove TasksBackend::enforce_is_draft_atomically flag (backend-canonical isDraft).\n3. JMAP-y6a8 tasks-types lib.rs:45 / contacts-types lib.rs:114 whole-crate pub use of jscalendar/jscontact -\u003e curated re-exports.\n4. JMAP-ops7.34 / ops7.38 jscalendar constructors and TypeDiscriminator: follow the beads' recommendations.\n5. JMAP-a4zg copy_email / copy_contact_card divergence: follow the bead's recommendation.\n6. SceneBackend::region_binding property: \u0026str -\u003e typed.\n7. JMAP-cfv1 impl_string_enum! forging caveat: decide per bead (recommended: document it on the macro and keep as-is unless the bead proposes a cheap constructor fix).\nBREAKING.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:45.099007571Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:58.238021498Z",
+  "closed_at": "2026-10-22T03:35:58.238021498Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.16",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:46.026884504Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

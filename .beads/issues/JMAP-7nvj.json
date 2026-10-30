@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-7nvj",
+  "title": "invalidProperties naming: ContactCard/copy and non-object creates",
+  "description": "Follow-up from the JMAP-3xlt verifier (da8d650f). (1) handle_contact_card_copy (crate-jmap-contacts-server/src/card.rs ~L565) still returns invalidProperties without a properties array on a typed-parse failure, while CalendarEvent/copy and Task/copy now name the property (RFC 8620 §5.3 SHOULD). (2) The required-field pre-checks (obj_val.get(\"name\").is_none() in calendar.rs, addressbook.rs, task_list.rs, participant_identity.rs, principal.rs) also fire when the create entry is not a JSON object, reporting properties [\"name\"] instead of a non-object error. Non-breaking (0.4.x).",
+  "notes": "CHECKPOINT 2026-10-30: in batch 26 (0.4.x), run wf_8b805633-a5b, script ~/Cache/crate-jmap-handoff-2026-10-22/batch26.js, base 14fd6397.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-30T17:50:53.848990713Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T18:14:33.07580771Z",
+  "closed_at": "2026-10-30T18:14:33.07580771Z",
+  "close_reason": "batch 26 (0.4.x): implemented, adversarially verified, local CI green at 1082d764 incl. public-api and fresh deny; doc fixup committed; pushed"
+}

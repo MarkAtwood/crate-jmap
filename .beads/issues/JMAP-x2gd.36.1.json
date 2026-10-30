@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-x2gd.36.1",
+  "title": "generate_invite_code: sync → async + Result\u003cString, Self::Error\u003e trait shape",
+  "description": "Filed as a follow-up after JMAP-x2gd.36 documented the length / charset / encoding / fallibility contract on ChatBackend::generate_invite_code via rustdoc but left the trait signature unchanged (sync, infallible).\n\nThe bead JMAP-x2gd.36 description identified four contract gaps; .36 closed items (1) length and (2) charset/encoding via rustdoc tightening. Items (3) sync and (4) infallible remain — they require a trait signature change:\n\nCurrent: fn generate_invite_code(\u0026self) -\u003e String;\n\nProposed: fn generate_invite_code(\u0026self) -\u003e impl Future\u003cOutput = Result\u003cString, Self::Error\u003e\u003e + Send;\n\nReasons to change:\n\n(a) A backend that mints codes via HSM / KMS / remote entropy source cannot .await a network call from a sync trait method. Such backends must pre-fetch buffered codes at startup and serve from that buffer (working around the trait shape) or panic on entropy starvation.\n\n(b) The reference MemoryBackend impl already documents that it panics on getrandom failure: \"we surface that as a panic on the reference backend because the alternative (a predictable fallback) is exactly the failure mode this fix closes.\" A production backend SHOULD be able to surface entropy starvation as Err rather than panic.\n\n(c) Other ChatBackend methods are async + fallible (create_object, update_object, get_objects, etc.). generate_invite_code is one of 5 sync hooks called out in bd:JMAP-x2gd.50 — sync-vs-async pattern consistency is a workspace question.\n\nWhy this is filed human-labeled (not autonomously claimable):\n\nThis is a public API breaking signature change. Every downstream consumer that implements ChatBackend overrides this method today (it has no default impl). Changing to async + Result forces every downstream impl to migrate. The kit is pre-1.0 / pre-publish so the API break is free, but the workspace-architectural decision (do we do this now? batch it with similar sync→async migrations for the other 4 sync hooks .50 calls out?) needs human sign-off.\n\nEntanglement: JMAP-x2gd.50 catalogues the 5 sync trait hooks (supports_type, generate_invite_code, protect_last_admin, retains_edit_history, limits) and asks the broader question of whether to async-ify all 5 in one pass. JMAP-x2gd.46 / JMAP-x2gd.46.1 separately propose adding caller + account_id args to supports_type (workspace-wide sweep across 8 sibling crates). Resolving .50 wholesale might be cleaner than addressing this bead in isolation.\n\nRecommendation: defer until the .50 / .46.1 / .43 family of sync-vs-async and per-account-args decisions is taken as a single workspace-architectural pass. Pre-publish is the cheapest moment for the breaking changes but coordinating them into ONE breaking commit gives downstream consumers a single migration step instead of N.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T04:47:24Z",
   "created_by": "Mark Atwood",
-  "description": "Filed as a follow-up after JMAP-x2gd.36 documented the length / charset / encoding / fallibility contract on ChatBackend::generate_invite_code via rustdoc but left the trait signature unchanged (sync, infallible).\n\nThe bead JMAP-x2gd.36 description identified four contract gaps; .36 closed items (1) length and (2) charset/encoding via rustdoc tightening. Items (3) sync and (4) infallible remain — they require a trait signature change:\n\nCurrent: fn generate_invite_code(&self) -> String;\n\nProposed: fn generate_invite_code(&self) -> impl Future<Output = Result<String, Self::Error>> + Send;\n\nReasons to change:\n\n(a) A backend that mints codes via HSM / KMS / remote entropy source cannot .await a network call from a sync trait method. Such backends must pre-fetch buffered codes at startup and serve from that buffer (working around the trait shape) or panic on entropy starvation.\n\n(b) The reference MemoryBackend impl already documents that it panics on getrandom failure: \"we surface that as a panic on the reference backend because the alternative (a predictable fallback) is exactly the failure mode this fix closes.\" A production backend SHOULD be able to surface entropy starvation as Err rather than panic.\n\n(c) Other ChatBackend methods are async + fallible (create_object, update_object, get_objects, etc.). generate_invite_code is one of 5 sync hooks called out in bd:JMAP-x2gd.50 — sync-vs-async pattern consistency is a workspace question.\n\nWhy this is filed human-labeled (not autonomously claimable):\n\nThis is a public API breaking signature change. Every downstream consumer that implements ChatBackend overrides this method today (it has no default impl). Changing to async + Result forces every downstream impl to migrate. The kit is pre-1.0 / pre-publish so the API break is free, but the workspace-architectural decision (do we do this now? batch it with similar sync→async migrations for the other 4 sync hooks .50 calls out?) needs human sign-off.\n\nEntanglement: JMAP-x2gd.50 catalogues the 5 sync trait hooks (supports_type, generate_invite_code, protect_last_admin, retains_edit_history, limits) and asks the broader question of whether to async-ify all 5 in one pass. JMAP-x2gd.46 / JMAP-x2gd.46.1 separately propose adding caller + account_id args to supports_type (workspace-wide sweep across 8 sibling crates). Resolving .50 wholesale might be cleaner than addressing this bead in isolation.\n\nRecommendation: defer until the .50 / .46.1 / .43 family of sync-vs-async and per-account-args decisions is taken as a single workspace-architectural pass. Pre-publish is the cheapest moment for the breaking changes but coordinating them into ONE breaking commit gives downstream consumers a single migration step instead of N.",
-  "ephemeral": false,
-  "id": "JMAP-x2gd.36.1",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T22:47:20.770446733Z",
+  "closed_at": "2026-10-22T22:47:20.770446733Z",
+  "close_reason": "triage 2026-10-22 (already_fixed, skeptic-confirmed): crate-jmap-chat-server/src/backend.rs:1049-1053 is now `fn generate_invite_code(\u0026self, caller: \u0026Self::CallerCtx, account_id: \u0026jmap_types::Id) -\u003e impl Future\u003cOutput = Result\u003cString, Self::Error\u003e\u003e + Send`. MemoryBackend implements it as async returning Result\u003cString, MemoryError\u003e (memory.rs:1122-1126). Last commit touching that signature text: ee6b41e0. | check: The ChatBackend::generate_invite_code signature (crate-jmap-chat-server/src/backend.rs:1049-1053) is now (\u0026self, caller, account_id) -\u003e impl Future\u003cOutput = Result\u003cString, Self::Error\u003e\u003e + Send. Its rustdoc '# Errors' section says to return Err on entropy starvation or HSM/KMS failure and never fall ",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "generate_invite_code: sync → async + Result<String, Self::Error> trait shape",
-  "updated_at": "2026-05-14T04:47:24Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-13T21:47:24Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-x2gd.36",
-      "id": "5b8241f5-795a-5172-9004-8d92f21726cf",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

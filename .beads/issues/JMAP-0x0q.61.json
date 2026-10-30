@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.61",
+  "title": "tests: pin clean-break and strict-parse rejections",
+  "description": "Missing negative tests that pin clean breaks and stricter parsing promised by CHANGELOG (batch 8b review, JMAP-0x0q.3/.5/.10/.41). Without these, a later alias or relaxed match passes unnoticed.\n\n1. crate-jmap-filenode-types/tests/filenode_types.rs: nothing asserts the old \"urn:jmap:chat:filenode:space\" role string now parses as NodeRole::Other, not ChatSpace (CHANGELOG clean-break entry).\n2. crate-jmap-chat-client/tests/message_smoke_tests.rs: no test that a legacy `rateLimited` SetError on the creation key returns Ok(set_resp) with the error in notCreated, not ClientError::RateLimited (src/methods/message.rs:314 matches only \"rateLimit\").\n3. crate-jmap-chat-client/src/methods/message.rs:237-241, 314-322: documented UnexpectedResponse for a rateLimit SetError with malformed serverRetryAfter has no test.\n4. crate-jmap-chat-types/tests/chat_tasks.rs: no test that `{\"status\":\"completed\"}` leaves `progress` None and keeps `status` in `extra` (draft-atwood-jmap-chat-tasks-00 L200-203 names `progress`).\n5. crate-jmap-chat-types/src/ephemeral.rs: no test that a non-string wire `id` (e.g. `\"id\": 7`) is now rejected (draft-atwood-jmap-chat-wss-00 L185: `id` is a String); the CHANGELOG entry also does not mention the stricter parsing.\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:36.986948638Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:24.862386381Z",
+  "closed_at": "2026-10-21T16:19:24.862386381Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.61",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:37.092570988Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

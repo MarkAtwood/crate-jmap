@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-b3wp.1",
+  "title": "test: needless borrow on Metadata::Annotation under --all-targets clippy",
+  "description": "crate-jmap-metadata-types/tests/metadata_types.rs:195 triggers clippy::needless_borrows_for_generic_args under cargo clippy --workspace --all-targets -- -D warnings:\n\n    let round_trip = serde_json::to_value(\u0026Metadata::Annotation(ann)).unwrap();\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nFix is mechanical: drop the leading \u0026 to pass by value.\n\nIntroduced 2026-05-16 by ad2a6e0 (fix(metadata-types): model relatedType as Option\u003cString\u003e for §4.1 partial responses). It does NOT trip the standard workspace pre-commit gate (`cargo clippy --workspace -- -D warnings`) because that gate omits --all-targets; the warning is in a test file.\n\nThis finding surfaced incidentally while completing /do-beads JMAP-wzq9 (metadata-CLIENT review); the issue is in metadata-TYPES, not metadata-client, so it belongs under the metadata-types review epic JMAP-b3wp.\n\nP3 (clippy-level, test-only, mechanical fix). Engineering basis: a future contributor running --all-targets locally or in CI will hit a hard error from -D warnings; the workspace gate's lack of --all-targets is a separate concern (deciding whether to widen the gate is a workspace-policy bead, not this one).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-17T14:43:29Z",
   "created_by": "Mark Atwood",
-  "description": "crate-jmap-metadata-types/tests/metadata_types.rs:195 triggers clippy::needless_borrows_for_generic_args under cargo clippy --workspace --all-targets -- -D warnings:\n\n    let round_trip = serde_json::to_value(&Metadata::Annotation(ann)).unwrap();\n                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nFix is mechanical: drop the leading & to pass by value.\n\nIntroduced 2026-05-16 by ad2a6e0 (fix(metadata-types): model relatedType as Option<String> for §4.1 partial responses). It does NOT trip the standard workspace pre-commit gate (`cargo clippy --workspace -- -D warnings`) because that gate omits --all-targets; the warning is in a test file.\n\nThis finding surfaced incidentally while completing /do-beads JMAP-wzq9 (metadata-CLIENT review); the issue is in metadata-TYPES, not metadata-client, so it belongs under the metadata-types review epic JMAP-b3wp.\n\nP3 (clippy-level, test-only, mechanical fix). Engineering basis: a future contributor running --all-targets locally or in CI will hit a hard error from -D warnings; the workspace gate's lack of --all-targets is a separate concern (deciding whether to widen the gate is a workspace-policy bead, not this one).",
-  "ephemeral": false,
-  "id": "JMAP-b3wp.1",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T22:47:26.304948284Z",
+  "closed_at": "2026-10-22T22:47:26.304948284Z",
+  "close_reason": "triage 2026-10-22 (moot, skeptic-confirmed): The Metadata::Annotation type and the offending line were removed by 79574370 'refactor(jmap-metadata-types): rewrite for draft-02'. No Annotation exists in crate-jmap-metadata-types/src, and the to_value(\u0026...) calls left in tests/metadata_types.rs:86-240 borrow plain structs. 0519a717 'ci: fix fmt, clippy, doc, typos and deny' also touched the area. | check: Metadata::Annotation no longer exists in crate-jmap-metadata-types (only a PLAN.md mention remains). 'cargo clippy -p jmap-metadata-types --all-targets -- -D warnings' passes (exit 0) at HEAD.",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "test: needless borrow on Metadata::Annotation under --all-targets clippy",
-  "updated_at": "2026-05-17T14:43:29Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-17T07:43:29Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-b3wp",
-      "id": "7a54fc91-36e8-5e7a-a5bd-9eb6632bc1d9",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

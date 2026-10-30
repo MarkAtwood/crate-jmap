@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-ops7.41",
+  "title": "chat-server and chat-types AGENTS.md cite spec paths outside references/ subdirectory; mail-server uses references/ — undocumented intentional path drift",
+  "description": "**Divergence** — spec-reference path style in AGENTS.md \"Source Material\" / \"Specs\" sections:\n- crate-jmap-mail-server/AGENTS.md L50-L51 — both files in `~/PROJECT/jmap-chat-spec/references/`\n- crate-jmap-chat-server/AGENTS.md L52-L57 — 5 `draft-atwood-jmap-chat-*` paths NOT in references/ (`~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-00.md`), 1 `references/rfc8620.txt`\n- crate-jmap-chat-types/AGENTS.md L65-L70 — same non-references/ paths for the 5 draft-atwood files\n\n**Background**: the chat draft sources live in the top level of `~/PROJECT/jmap-chat-spec/`, not in `references/`. This is intentional (Mark authors the chat draft; `references/` holds upstream specs). The drift is correct — but it's undocumented.\n\n**Maintainer cost**: a contributor without context might \"fix\" the chat-server path by moving the draft-atwood files into `references/` to \"match the others\", or by editing the AGENTS.md paths to match the canonical `references/` form.\n\n**Fix**: add a one-sentence note to chat-server and chat-types AGENTS.md explaining: \"draft-atwood-* paths intentionally live in the top level of jmap-chat-spec/ rather than references/, because this workspace authors that draft. references/ contains only upstream specs.\" Pure doc sweep.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-18T05:30:11Z",
   "created_by": "Mark Atwood",
-  "description": "**Divergence** — spec-reference path style in AGENTS.md \"Source Material\" / \"Specs\" sections:\n- crate-jmap-mail-server/AGENTS.md L50-L51 — both files in `~/PROJECT/jmap-chat-spec/references/`\n- crate-jmap-chat-server/AGENTS.md L52-L57 — 5 `draft-atwood-jmap-chat-*` paths NOT in references/ (`~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-00.md`), 1 `references/rfc8620.txt`\n- crate-jmap-chat-types/AGENTS.md L65-L70 — same non-references/ paths for the 5 draft-atwood files\n\n**Background**: the chat draft sources live in the top level of `~/PROJECT/jmap-chat-spec/`, not in `references/`. This is intentional (Mark authors the chat draft; `references/` holds upstream specs). The drift is correct — but it's undocumented.\n\n**Maintainer cost**: a contributor without context might \"fix\" the chat-server path by moving the draft-atwood files into `references/` to \"match the others\", or by editing the AGENTS.md paths to match the canonical `references/` form.\n\n**Fix**: add a one-sentence note to chat-server and chat-types AGENTS.md explaining: \"draft-atwood-* paths intentionally live in the top level of jmap-chat-spec/ rather than references/, because this workspace authors that draft. references/ contains only upstream specs.\" Pure doc sweep.",
-  "ephemeral": false,
-  "id": "JMAP-ops7.41",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T09:36:27.049397308Z",
+  "closed_at": "2026-10-23T09:36:27.049397308Z",
+  "close_reason": "Batch 17/17b (runs wf_311f1744-fb4, wf_3357d9e1-cc5): implemented, adversarially verified, full CI green; pushed 770d02b4",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "chat-server and chat-types AGENTS.md cite spec paths outside references/ subdirectory; mail-server uses references/ — undocumented intentional path drift",
-  "updated_at": "2026-05-18T05:30:11Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-17T22:30:10Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-ops7",
-      "id": "cfbf73cc-19f3-545b-8408-41c3a502137f",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

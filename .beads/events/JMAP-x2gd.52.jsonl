@@ -1,0 +1,1 @@
+{"id":"01a16b21-5469-77a9-869a-08fa4a2b3e11","issue_id":"JMAP-x2gd.52","event_type":"closed","actor":"agent","old_value":"","new_value":"Fixed by 3c426294 (nested MemoryBackend stores, JMAP-ic0j.41) across all backends; grs0.1-.8 closed; CI green at 8484b9c3","created_at":"2026-10-23T23:38:28.841502688Z"}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.24",
+  "title": "calendars-server: copy bypasses create_calendar_event",
+  "description": "Found in JMAP-wf92.21. handle_calendar_event_copy creates the destination event with the generic create_object, not CalendarsBackend::create_calendar_event, so the backend's CalendarEvent/set create rules (draft-ietf-jmap-calendars-33 §5.9: updated/created on isOrigin, scheduling-message privacy, hideAttendees re-keying) are not routed to it, and the §5.10 rule 'If the account being copied into does not belong to the user and the privacy property of the event to be created would be anything other than public ... the server MUST reject the copy with an invalidProperties SetError' has no seam either. Recommendation: route copy creates through create_calendar_event (with default CalendarEventSetArgs) and document the §5.10 destination rule on it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T04:58:16.200211112Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:20.500036592Z",
+  "closed_at": "2026-10-22T16:43:20.500036592Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.24",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-22T04:58:16.328229326Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

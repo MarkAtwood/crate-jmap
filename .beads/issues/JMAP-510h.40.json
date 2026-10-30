@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-510h.40",
+  "title": "handle_filenode_* public fns accept opaque serde_json::Value with no documented arg shape or error contract",
+  "description": "Location: crate-jmap-filenode-server/src/filenode.rs:29-33, 96-100,\n137-141, 737-741, 896-900, 972-976.\n\nAll six public handler functions share this shape:\n\n```rust\npub async fn handle_filenode_xxx\u003cB: FileNodeBackend\u003e(\n    backend: \u0026B,\n    caller: \u0026B::CallerCtx,\n    args: Value,\n) -\u003e Result\u003c(Value, Vec\u003cInvocation\u003e), JmapError\u003e { ... }\n```\n\nThe doc comment on each is a single sentence pointing at the spec\nsection. Nothing in the docstring tells a caller:\n\n1. **What shape `args` must have.** It is a JSON value. What fields\n   are required, what are optional, what are rejected? The spec says\n   so, but a Rust API that takes a `serde_json::Value` and consults\n   the spec for the contract is the worst of both worlds — neither\n   strong typing nor a documented contract.\n\n2. **What `JmapError` variants can be returned.** Looking at the\n   bodies, the answer for `handle_filenode_set` is at least:\n   `account_not_found`, `state_mismatch`, `invalid_arguments`,\n   `server_fail`. None are documented in the doc comment. A caller\n   writing a Tower middleware to map JMAP errors to HTTP status codes\n   has to read the body to discover the possibilities.\n\n3. **What the returned `Value` shape is.** The function returns a\n   tuple `(Value, Vec\u003cInvocation\u003e)`. The Value is the per-method\n   response envelope per RFC 8620 §3.5. The Invocations vector is the\n   \"tail\" — extra follow-up invocations. The doc says nothing about\n   either component.\n\n4. **Whether `caller` is consulted.** The doc does not say whether\n   permission checks happen here or in the backend. A consumer\n   building defence-in-depth needs to know.\n\nIf the intent is that consumers always call through\n`register_filenode_handlers` and never call `handle_filenode_*`\ndirectly, then either:\n\n- Mark them `#[doc(hidden)]` and remove from the public API surface.\n  This is the most truthful posture — they are implementation\n  details of `register_filenode_handlers`. Or:\n- Add a real docstring contract that names each argument shape,\n  each error type, and each return envelope. This is the higher-cost\n  but more useful path.\n\nThe current state — `pub fn` with a one-sentence doc — is\ndocumentation-as-contract failure: the contract is \"read the spec\nand read the code\". A caller depending on this in production has\nto keep re-reading the implementation every time they touch the\nglue.\n\nThis is `api-contract,docs` because the doc is the contract for a\npublic function and the contract is missing.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T20:03:32Z",
   "created_by": "Mark Atwood",
-  "description": "Location: crate-jmap-filenode-server/src/filenode.rs:29-33, 96-100,\n137-141, 737-741, 896-900, 972-976.\n\nAll six public handler functions share this shape:\n\n```rust\npub async fn handle_filenode_xxx<B: FileNodeBackend>(\n    backend: &B,\n    caller: &B::CallerCtx,\n    args: Value,\n) -> Result<(Value, Vec<Invocation>), JmapError> { ... }\n```\n\nThe doc comment on each is a single sentence pointing at the spec\nsection. Nothing in the docstring tells a caller:\n\n1. **What shape `args` must have.** It is a JSON value. What fields\n   are required, what are optional, what are rejected? The spec says\n   so, but a Rust API that takes a `serde_json::Value` and consults\n   the spec for the contract is the worst of both worlds — neither\n   strong typing nor a documented contract.\n\n2. **What `JmapError` variants can be returned.** Looking at the\n   bodies, the answer for `handle_filenode_set` is at least:\n   `account_not_found`, `state_mismatch`, `invalid_arguments`,\n   `server_fail`. None are documented in the doc comment. A caller\n   writing a Tower middleware to map JMAP errors to HTTP status codes\n   has to read the body to discover the possibilities.\n\n3. **What the returned `Value` shape is.** The function returns a\n   tuple `(Value, Vec<Invocation>)`. The Value is the per-method\n   response envelope per RFC 8620 §3.5. The Invocations vector is the\n   \"tail\" — extra follow-up invocations. The doc says nothing about\n   either component.\n\n4. **Whether `caller` is consulted.** The doc does not say whether\n   permission checks happen here or in the backend. A consumer\n   building defence-in-depth needs to know.\n\nIf the intent is that consumers always call through\n`register_filenode_handlers` and never call `handle_filenode_*`\ndirectly, then either:\n\n- Mark them `#[doc(hidden)]` and remove from the public API surface.\n  This is the most truthful posture — they are implementation\n  details of `register_filenode_handlers`. Or:\n- Add a real docstring contract that names each argument shape,\n  each error type, and each return envelope. This is the higher-cost\n  but more useful path.\n\nThe current state — `pub fn` with a one-sentence doc — is\ndocumentation-as-contract failure: the contract is \"read the spec\nand read the code\". A caller depending on this in production has\nto keep re-reading the implementation every time they touch the\nglue.\n\nThis is `api-contract,docs` because the doc is the contract for a\npublic function and the contract is missing.",
-  "ephemeral": false,
-  "id": "JMAP-510h.40",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T12:52:25.193500647Z",
+  "closed_at": "2026-10-23T12:52:25.193500647Z",
+  "close_reason": "Batch 18 (run wf_7523b9f3-dcc): implemented, adversarially verified, full CI green at 5ebb9c0c",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "handle_filenode_* public fns accept opaque serde_json::Value with no documented arg shape or error contract",
-  "updated_at": "2026-05-15T10:57:02Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T13:03:31Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-510h",
-      "id": "a3e6afe6-6738-5dc9-bd11-aef23c838cbb",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

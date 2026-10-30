@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-6k5d.14",
+  "title": "mimi-server: /notify parser panics on truncated opaque\u003cV\u003e in debug builds",
+  "description": "crate-jmap-chat-mimi-server/src/fanout.rs reads FanoutMessage tails (moreProposals, externalProposals, frank, RatchetTreeOption full/httpsUri) with tls_codec 0.5.0 DeserializeBytes. VLBytes::tls_deserialize_bytes on a truncated vector hits debug_assert_eq! (quic_vec.rs:370, 'Expected to read N bytes but M were read') instead of returning Err, so a hub-supplied /notify body can panic a debug build; release returns Err. Found while implementing JMAP-6k5d.5, whose wire.rs uses the Read-based Deserialize path for this reason. Fix: switch fanout.rs's skip_tail/skip_ratchet_tree_option to Deserialize over \u0026mut \u0026[u8] (as wire.rs::read does), and add a parse_fanout_messages test with a truncated moreProposals\u003cV\u003e.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T11:08:33.331329575Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T20:09:33.401717962Z",
+  "closed_at": "2026-10-21T20:09:33.401717962Z",
+  "close_reason": "Batch 11: committed and adversarially verified (or already fixed); CI green at cc87669d",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-6k5d.14",
+      "depends_on_id": "JMAP-6k5d",
+      "type": "parent-child",
+      "created_at": "2026-10-21T11:08:33.445959609Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.39",
+  "title": "Drop retryAfter helper and fix stale scene docs",
+  "description": "Follow-up to closed JMAP-38uq.7 for spec 63e9d08.\nSpec: draft-atwood-jmap-scene-00.md L2642: \"When a rate limit is exceeded, the server SHOULD return a `SetError` of type `rateLimit` ({{RFC8620}} Section 5.3).\" (the retryAfter property was removed). L304-307 heading: \"The direction of the region's negative Z axis ... Default: `0` (negative Z points North)\". L610 avatar id: \"A ULID assigned at creation\".\nCode: crate-jmap-scene-types/src/set_error.rs:5-8; crate-jmap-scene-types/src/set_error.rs:12-22; crate-jmap-scene-types/src/lib.rs:38; crate-jmap-scene-types/src/lib.rs:76; crate-jmap-scene-types/src/region.rs:79; crate-jmap-scene-types/src/region.rs:295; crate-jmap-scene-types/src/avatar.rs:19-20; crate-jmap-scene-client/src/ws.rs:32\nNow: scene-types exports RETRY_AFTER, retry_after and RetryAfterError for a property the draft no longer defines. The contentPolicy doc quotes the removed 'notify via SetError on a subsequent state-change' text. The GeoAnchor.heading doc says 'North to the region's positive Z axis'. The SceneAvatar.id doc says 'SHOULD use the userId as the id'.\nChange: Remove (or deprecate) the retryAfter helpers, and fix the contentPolicy, heading (negative Z = North; +X East, +Z South) and avatar-id docs. Update the heading test's oracle comment.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T20:47:11.737011186Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:17.470453453Z",
+  "closed_at": "2026-10-21T10:10:17.470453453Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.39",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T20:47:11.833037742Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

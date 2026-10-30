@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-skk9.18",
+  "title": "EmailSubmission/queryChanges ignores filter",
+  "description": "Found in JMAP-skk9.15. crate-jmap-mail-server/src/submission.rs handle_submission_query_changes never reads the filter argument (it now decodes sort). RFC 8620 §5.6: 'filter: The filter argument that was used with Foo/query.' Decode it with filter_arg as handle_mailbox_query_changes does and pass QueryChangesParams::filter, so a malformed filter is invalidArguments/unsupportedFilter.",
+  "notes": "Duplicate of JMAP-mk7s (filed in error during JMAP-skk9.15). The sort half of JMAP-mk7s is done by JMAP-skk9.15; only the filter half remains.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T18:51:36.697841517Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T19:29:29.748953226Z",
+  "closed_at": "2026-10-22T19:29:29.748953226Z",
+  "close_reason": "batch 14d: committed, adversarially verified, CI green at ed08ab5d",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.18",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T18:51:36.826738216Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

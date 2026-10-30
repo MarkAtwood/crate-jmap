@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.46",
+  "title": "Keep Message StateChange for uncarried changes",
+  "description": "Oracle: jmap-chat-spec 6bcd9d8 (quoted text). Mapped by wf_6712c4f8-c2b.\n\n[chat-ext] ChatMessagePush must not suppress Message StateChange for uncarried changes\nSpec (db880a1): draft-atwood-jmap-chat-push-00.md L108: \"A `ChatMessagePush` stands in for the `StateChange` that the arrival of the messages it carries would otherwise cause. Every other change in the account is still announced by a standard `StateChange`, as {{RFC8620}} Section 7 describes: this includes Message changes that the payload does not carry (edits, destroys, the owner's own messages, and messages excluded by `ChatPushConfig`, mute, or block) and changes to every other data type.\"\nCode: crate-jmap-chat-server/src/push.rs:151-191 chat_state_change_for removes \"Message\" for every account with a live chatPush entry; crate-jmap-chat-server/tests/chat_push_validation.rs:191,222 (oracle quotes the old text)\nNow: With chatPush set, the Message type is dropped from every StateChange for that account. A client therefore never hears about edits, destroys, its own messages from other devices, or messages filtered by config, mute, or block.\nChange: Drop Message from the StateChange only when every Message change in the batch was carried by a delivered ChatMessagePush. For example, the caller passes, per account, whether uncarried Message changes exist, and Message is kept when they do. Re-cite L108 in the docs and tests.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T22:55:03.716094994Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:04.816514581Z",
+  "closed_at": "2026-10-21T10:10:04.816514581Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.46",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T22:55:03.842553662Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-3xlt",
+  "title": "servers: typed-parse invalidProperties lacks properties",
+  "description": "Same defect as JMAP-ub41 (fixed in filenode-server with serde_path_to_error) at the other /set typed-parse sites, which return invalidProperties with only a serde description and no properties array (RFC 8620 §5.3 SHOULD list them): contacts-server addressbook.rs, card.rs; calendars-server calendar.rs, participant_identity.rs, event.rs (2 sites); tasks-server task_list.rs, task.rs (2 sites); sharing-server principal.rs; mail-server email.rs compose fallback arm. Non-breaking (0.4.x). Mirror jmap-filenode-server/src/filenode.rs handle_filenode_set create parse.",
+  "notes": "CHECKPOINT 2026-10-30: in batch 25 (0.4.x, semver-compatible with 0.4.0), run wf_b2f4d022-2a9, script ~/Cache/crate-jmap-handoff-2026-10-22/batch25.js, base 66ed14e3.\nBatch 25: 10 serde typed-parse sites (contacts addressbook/card, calendars calendar/participant_identity/event x2, tasks task_list/task x2, sharing principal) fixed per JMAP-ub41 pattern. mail-server email.rs compose fallback arm is not a serde parse; split to JMAP-mits (needs decision).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-30T12:14:36.922904293Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T17:50:53.512731441Z",
+  "closed_at": "2026-10-30T17:50:53.512731441Z",
+  "close_reason": "batch 25 (0.4.x): implemented, adversarially verified, local CI green at 14fd6397 incl. public-api and fresh deny, pushed"
+}

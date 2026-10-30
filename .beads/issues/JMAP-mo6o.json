@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-mo6o",
+  "title": "mail-server: unify blob-read backend methods",
+  "description": "Found in JMAP-u6c5. MailBackend::read_blob, MdnBackend::get_blob_bytes and SieveBackend::get_sieve_blob all return the bytes of a blob by id. They are separate traits (none is a supertrait of the others), so a shared name would make calls on MemoryBackend ambiguous; that is why JMAP-u6c5 named the new one read_blob. Decide whether to hoist one blob read into a common supertrait and delete the others (breaking).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T17:36:07.207241189Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:27.476176689Z",
+  "closed_at": "2026-10-24T03:55:27.476176689Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

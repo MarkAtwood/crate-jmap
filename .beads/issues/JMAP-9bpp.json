@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-9bpp",
+  "title": "contacts: ContactCard/copy replies copied/notCopied",
+  "description": "RFC 8620 §5.4 /copy response arguments are 'created' and 'notCreated'. handle_contact_card_copy (crate-jmap-contacts-server/src/card.rs, the resp json! after the create loop) emits 'copied' and 'notCopied' instead, while its doc comment and every sibling /copy (Email, CalendarEvent, Task, FileNode) use created/notCreated. A conforming client sees no created ids. Fix: rename the two response keys and update the contacts tests that read copied/notCopied. Discovered in JMAP-s4kp.9 (not changed there, out of scope).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T05:27:06.294212649Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T07:18:51.225495899Z",
+  "closed_at": "2026-10-24T07:18:51.225495899Z",
+  "close_reason": "batch 23: implemented, adversarially verified, CI green at 87284db6, pushed"
+}

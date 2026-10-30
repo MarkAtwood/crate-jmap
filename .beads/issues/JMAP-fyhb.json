@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-fyhb",
+  "title": "scene/vtc/graph types: omit default isAscending like EmailComparator",
+  "description": "JMAP-18qe aligned the extension-types family (AGENTS.md Canonical Templates table: calendars, chat, contacts, filenode, sharing, tasks) to EmailComparator's #[serde(default = \"bool_true\", skip_serializing_if = \"is_true\")] on is_ascending. jmap-scene-types (src/query.rs x4), jmap-vtc-types (src/query.rs x3) and jmap-graph-types (src/query.rs x3, src/edit.rs x1) still use #[serde(default = \"default_true\")] and always emit isAscending:true. They are not listed in the types-family table, so decide whether they are siblings (and add them to the table) and mirror the change. Wire-conformant either way (RFC 8620 §5.5 default: true).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T11:47:40.156316591Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:29.160829702Z",
+  "closed_at": "2026-10-24T03:55:29.160829702Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

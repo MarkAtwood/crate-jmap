@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-698j",
+  "title": "API drift guardrails",
+  "description": "Mark 2026-10-21, after the 0.4 breaking-change sweep (JMAP-wf92): stop API debt from accumulating between freezes. Run after batch 13 and the freeze audit.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T22:59:57.290186066Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T22:59:57.290186066Z"
+}

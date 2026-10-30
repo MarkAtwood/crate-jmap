@@ -1,0 +1,2 @@
+{"id":"01a15f42-a931-70d1-9674-26fd78254e52","issue_id":"JMAP-0x0q.75","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-21T16:19:26.641054196Z"}
+{"id":"01a15f76-5d76-7bd7-adcf-6d42ac8bd1da","issue_id":"JMAP-0x0q.75","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 10: committed and adversarially verified; CI green at d9d4d6af","created_at":"2026-10-21T17:15:55.126776781Z"}

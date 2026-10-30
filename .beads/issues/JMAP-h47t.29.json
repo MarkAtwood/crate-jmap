@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-h47t.29",
+  "title": "Workspace sweep: remove enforce_is_draft_atomically flag, make backend-canonical isDraft enforcement mandatory",
+  "description": "Option (b) deferred from JMAP-h47t.14. The current shape on TasksBackend exposes `fn enforce_is_draft_atomically(\u0026self) -\u003e bool` as a backend opt-in for atomic isDraft enforcement; when false, the handler does a get_objects pre-fetch. Workspace AGENTS.md 'Permission enforcement: backend canonical' rule says the backend is the canonical enforcement point regardless — the handler-side pre-fetch is defense-in-depth only. The cleaner shape is to remove the flag entirely, make atomic backend enforcement mandatory (per draft-tasks-06 §4 isDraft paragraph), and drop the handler short-circuit in task.rs:206-234.\n\nWhy deferred: the rec on JMAP-h47t.14 favored option (a) docs-only for the immediate fix and explicitly deferred option (b) to a separate workspace-coordinated trait sweep. The reason for the sweep framing: removing the flag changes the handler structure in jmap-tasks-server and would set a precedent the workspace's other extension-server siblings (mail, calendars, chat, etc.) should follow consistently if they grow analogous invariants. Mail-server has no isDraft analog today but the principle generalises.\n\nScope of the sweep:\n1. Remove `TasksBackend::enforce_is_draft_atomically` trait method.\n2. Remove the `!backend.enforce_is_draft_atomically()` short-circuit and pre-fetch path in task.rs:206-234.\n3. Update MemoryBackend in memory.rs to drop the override (it already enforces atomically per the JMAP-h47t.4 fix).\n4. Update MockBackend in lib.rs:tests if it overrides.\n5. Verify task.rs tests still pass — set_is_draft_revert_rejected_when_current_is_false now exercises the backend path exclusively.\n6. Per the canonical-template propagation rule, audit other extension-server siblings for analog 'backend enforces atomically' opt-in flags and remove them if found. Document the workspace-canonical principle in AGENTS.md so new flags are not added by future contributors.\n\nThis is an API-shape change (removes a trait method); pre-publish so cost is zero today.\n\nTracks the deferral made in JMAP-h47t.14 comment dated 2026-05-14 19:00.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-17T06:43:31Z",
   "created_by": "Mark Atwood",
-  "description": "Option (b) deferred from JMAP-h47t.14. The current shape on TasksBackend exposes `fn enforce_is_draft_atomically(&self) -> bool` as a backend opt-in for atomic isDraft enforcement; when false, the handler does a get_objects pre-fetch. Workspace AGENTS.md 'Permission enforcement: backend canonical' rule says the backend is the canonical enforcement point regardless — the handler-side pre-fetch is defense-in-depth only. The cleaner shape is to remove the flag entirely, make atomic backend enforcement mandatory (per draft-tasks-06 §4 isDraft paragraph), and drop the handler short-circuit in task.rs:206-234.\n\nWhy deferred: the rec on JMAP-h47t.14 favored option (a) docs-only for the immediate fix and explicitly deferred option (b) to a separate workspace-coordinated trait sweep. The reason for the sweep framing: removing the flag changes the handler structure in jmap-tasks-server and would set a precedent the workspace's other extension-server siblings (mail, calendars, chat, etc.) should follow consistently if they grow analogous invariants. Mail-server has no isDraft analog today but the principle generalises.\n\nScope of the sweep:\n1. Remove `TasksBackend::enforce_is_draft_atomically` trait method.\n2. Remove the `!backend.enforce_is_draft_atomically()` short-circuit and pre-fetch path in task.rs:206-234.\n3. Update MemoryBackend in memory.rs to drop the override (it already enforces atomically per the JMAP-h47t.4 fix).\n4. Update MockBackend in lib.rs:tests if it overrides.\n5. Verify task.rs tests still pass — set_is_draft_revert_rejected_when_current_is_false now exercises the backend path exclusively.\n6. Per the canonical-template propagation rule, audit other extension-server siblings for analog 'backend enforces atomically' opt-in flags and remove them if found. Document the workspace-canonical principle in AGENTS.md so new flags are not added by future contributors.\n\nThis is an API-shape change (removes a trait method); pre-publish so cost is zero today.\n\nTracks the deferral made in JMAP-h47t.14 comment dated 2026-05-14 19:00.",
-  "ephemeral": false,
-  "id": "JMAP-h47t.29",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T23:38:07.905934122Z",
+  "closed_at": "2026-10-23T23:38:07.905934122Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "Workspace sweep: remove enforce_is_draft_atomically flag, make backend-canonical isDraft enforcement mandatory",
-  "updated_at": "2026-05-17T06:43:31Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-16T23:43:30Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-h47t",
-      "id": "37b45db3-2f96-5bfc-93e0-8399979d5607",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

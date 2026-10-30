@@ -1,1 +1,2 @@
 {"id":"01a15713-7183-7447-a1d1-f18223ef52b8","issue_id":"JMAP-kyjz","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T02:10:54.467281Z"}
+{"id":"01a16015-6063-7397-b208-8a4346cbbf57","issue_id":"JMAP-kyjz","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 11: committed and adversarially verified (or already fixed); CI green at cc87669d","created_at":"2026-10-21T20:09:36.099236169Z"}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.57",
+  "title": "Separate hosting account from recipient account in scene should_deliver",
+  "description": "Found while implementing JMAP-0x0q.33 (same defect, Scene side). Spec 6bcd9d8 draft-atwood-jmap-scene-wss-00.md L178-181: every Scene event's accountId is 'the id of the region's hosting account ... Other users reach that account as a shared account'. L793-795: block checks use 'the recipient's ChatContact records'. Code: crate-jmap-scene-server/src/ephemeral.rs should_deliver takes one account_id for both the region/avatar reads and SceneBackend::is_user_blocked; crate-jmap-chat-scene-server should_deliver_scene forwards it. Change: mirror JMAP-0x0q.33 (separate hosting_account_id and recipient_account_id; is_user_blocked gets the recipient's).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T06:02:56.173513692Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T14:49:53.930201491Z",
+  "closed_at": "2026-10-21T14:49:53.930201491Z",
+  "close_reason": "Batch 8c: committed and adversarially verified; CI green at 860a4c2a",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.57",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T06:02:56.297551786Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

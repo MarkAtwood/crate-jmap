@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.19",
+  "title": "Batch 14c verify leftovers",
+  "description": "- [JMAP-skk9.2] minor crate-jmap-calendars-server/src/memory.rs: The reference MemoryBackend evaluates only `inCalendar`, and a condition that names only other properties (before/after/text/...) counts as a match for every event. That limit predates this change and the new comment documents it. But now that trees reach the backend, NOT over such a condition (e.g. {\"operator\":\"NOT\",\"conditions\":[{\"after\":\"...\"}]}) silently returns an empty result where it used to be unsupportedFilter at decode. The Tasks and FileNode reference backends fail loud in the same situation. CalendarEventNotification trees likewise match everything. Not blocking: this is a reference backend and the limit is documented.\n- [JMAP-skk9.4] minor crate-jmap-graph-server/tests/edit_stream.rs: Missing negative test for the bead's core defect, which was checking the wrong account. The `delivers` helpers in crate-jmap-graph-server/tests/edit_stream.rs:88 and crate-jmap-vtc-server/tests/delivery.rs:94 pass ACCOUNT both as recipient_account_id and as the event or hosting account. So if Graph `should_deliver` called `has_capability(caller, account_id /* event's hosting account */, ...)`, or VTC passed hosting_account_id, every test would still pass. Suggested test: host the node or call in a shared account that advertises Chat, with a recipient's own account that does not (and the reverse), then assert the result follows the recipient's account.\n- [JMAP-skk9.4] minor crate-jmap-vtc-server/src/ephemeral.rs: VTC now drops every blocked-sender check when the recipient's account lacks Chat (`is_blocked` at ephemeral.rs:288-301). But draft-atwood-jmap-vtc-wss-00 at 29e9a41 (L344-348, L358-361) also allows 'or an equivalent deployment-defined block list' without Chat, and a backend implementing such a list can no longer suppress. Mark's follow-up decision on the bead chose this and CHANGELOG.md records it, so it is not blocking. However, the docs present the gate as the VTC spec's own rule ('as in Scene and Graph', ephemeral.rs:188-193; backend.rs:477-484). The new test comment (tests/delivery.rs:365-369) quotes only 'when {{JMAP-CHAT}} is present' and leaves out the deployment-defined block list alternative. Suggest the docs state it is a deliberate narrowing of the VTC SHOULD.\n- [JMAP-skk9.15] minor crate-jmap-mail-server/src/memory/mod.rs: sort_submission_pairs treats any stored object that fails to deserialize as equal to every other object on all comparators, then breaks the tie by id. That ordering is not transitive: with a\u003cb by sentAt and a missing object c whose id sorts between them, you get b\u003cc\u003ca. Rust 1.81+ slice::sort_by may panic when it detects a comparator that is not a total order. This can only happen when no filter is given, because the filter branch already drops objects that fail to deserialize, and it needs corrupted reference-backend data. Low impact. A fix would be to sort missing objects last instead of comparing them equal.\n- [JMAP-skk9.15] minor crate-jmap-mail-server/tests/integration.rs: The positive test covers sentAt (ascending and descending) and threadId. There is no emailId sort case, no multi-comparator tie-break case, and no queryChanges case with a valid sort. The handler wiring for queryChanges is checked only on the error path (invalidArguments and unsupportedSort).\n- [JMAP-skk9.15] minor crate-jmap-mail-server/src/memory/mod.rs: sentAt is compared at whole-second precision via utcdate_str_to_epoch_secs, the same approach as the existing receivedAt sort. Two submissions within the same second fall back to the id tie-break, which isDescending does not reverse. This matches existing Email behaviour, so it is not a regression.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T19:07:13.477061662Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T19:29:29.966801831Z",
+  "closed_at": "2026-10-22T19:29:29.966801831Z",
+  "close_reason": "batch 14d: committed, adversarially verified, CI green at ed08ab5d",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.19",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T19:07:13.589066532Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-510h.38",
+  "title": "pub struct MemoryBackend lacks #[non_exhaustive] — future field additions are SemVer breaking",
+  "description": "Location: crate-jmap-filenode-server/src/memory.rs:165-168\n\n```rust\n#[derive(Clone)]\npub struct MemoryBackend {\n    inner: Arc\u003cMutex\u003cMemoryState\u003e\u003e,\n}\n```\n\n`#[non_exhaustive]` is missing. The single field is private so\nstruct-literal construction is already blocked from outside the\ncrate, but `#[non_exhaustive]` is the documented signal of\nforward-compatibility intent in Rust public types. Without it, a\nlinter or human reviewer cannot tell at-a-glance whether the type\nis locked or evolvable.\n\nAdding a field like `config: MemoryConfig` (for the bd:JMAP-510h.16\nconfigurable rename-suffix cap) or\n`max_change_log_entries: Option\u003cusize\u003e` (for the \"change log grows\nwithout bound\" issue in the canonical sibling docstring) is\nSemVer-safe right now because the field is private, but the annotation\nmakes that intent explicit and survives a future refactor where\nsomeone adds a `pub` field.\n\nPropagation note: canonical sibling\n`crate-jmap-mail-server/src/memory.rs:251` (also a private-field\nstruct) has the same omission. Both should land the annotation in\nthe same pass — mail-server canonical first.\n\nThis is `api-contract,immutability` because the convention for the\nworkspace (\"`#[non_exhaustive]` on every public struct\" — per the\ncrate-jmap AGENTS.md \"Key Rules\" and \"Conventions \u0026 Patterns\" lists)\nis missed here. The repair is mechanical and the cost is one line\nper struct.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T20:02:57Z",
   "created_by": "Mark Atwood",
-  "description": "Location: crate-jmap-filenode-server/src/memory.rs:165-168\n\n```rust\n#[derive(Clone)]\npub struct MemoryBackend {\n    inner: Arc<Mutex<MemoryState>>,\n}\n```\n\n`#[non_exhaustive]` is missing. The single field is private so\nstruct-literal construction is already blocked from outside the\ncrate, but `#[non_exhaustive]` is the documented signal of\nforward-compatibility intent in Rust public types. Without it, a\nlinter or human reviewer cannot tell at-a-glance whether the type\nis locked or evolvable.\n\nAdding a field like `config: MemoryConfig` (for the bd:JMAP-510h.16\nconfigurable rename-suffix cap) or\n`max_change_log_entries: Option<usize>` (for the \"change log grows\nwithout bound\" issue in the canonical sibling docstring) is\nSemVer-safe right now because the field is private, but the annotation\nmakes that intent explicit and survives a future refactor where\nsomeone adds a `pub` field.\n\nPropagation note: canonical sibling\n`crate-jmap-mail-server/src/memory.rs:251` (also a private-field\nstruct) has the same omission. Both should land the annotation in\nthe same pass — mail-server canonical first.\n\nThis is `api-contract,immutability` because the convention for the\nworkspace (\"`#[non_exhaustive]` on every public struct\" — per the\ncrate-jmap AGENTS.md \"Key Rules\" and \"Conventions & Patterns\" lists)\nis missed here. The repair is mechanical and the cost is one line\nper struct.",
-  "ephemeral": false,
-  "id": "JMAP-510h.38",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T05:50:31.77251637Z",
+  "closed_at": "2026-10-22T05:50:31.77251637Z",
+  "close_reason": "D batch: committed, adversarially verified, CI green at f8dfe002",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "pub struct MemoryBackend lacks #[non_exhaustive] — future field additions are SemVer breaking",
-  "updated_at": "2026-05-17T10:56:51Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T13:02:56Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-510h",
-      "id": "d775bcd3-6edd-5f6c-a621-9cd288dacf44",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }
