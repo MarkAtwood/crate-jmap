@@ -2094,6 +2094,7 @@ dependencies = [
  "jmap-server",
  "jmap-types",
  "serde_json",
+ "serde_path_to_error",
  "tokio",
 ]
 
