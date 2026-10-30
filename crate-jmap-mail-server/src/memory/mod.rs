@@ -1410,10 +1410,10 @@ impl JmapBackend for MemoryBackend {
                 }
             });
 
-        // Collect (id, receivedAt) pairs so we can sort by receivedAt when requested.
-        let (mut id_date_pairs, state_n) = {
+        // Collect the matching ids, then sort them under the same lock.
+        let (all_ids, state_n) = {
             let inner = self.inner.lock().unwrap();
-            let pairs: Vec<(Id, String)> = if let Some(ref ef) = email_filter {
+            let mut ids: Vec<Id> = if let Some(ref ef) = email_filter {
                 // Apply email filter: deserialize each stored object and check.
                 inner
                     .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -1447,17 +1447,8 @@ impl JmapBackend for MemoryBackend {
                                         return None;
                                     }
                                 };
-                                if email_matches_filter(&email, ef, top_level_excluded_set.as_ref())
-                                {
-                                    let received = val
-                                        .get("receivedAt")
-                                        .and_then(|v| v.as_str())
-                                        .unwrap_or("")
-                                        .to_owned();
-                                    Some((id.clone(), received))
-                                } else {
-                                    None
-                                }
+                                email_matches_filter(&email, ef, top_level_excluded_set.as_ref())
+                                    .then(|| id.clone())
                             })
                             .collect()
                     })
@@ -1485,11 +1476,7 @@ impl JmapBackend for MemoryBackend {
                                     }
                                     _ => submission_matches_filter(&sub, sf),
                                 };
-                                if matches {
-                                    Some((id.clone(), String::new()))
-                                } else {
-                                    None
-                                }
+                                matches.then(|| id.clone())
                             })
                             .collect()
                     })
@@ -1497,56 +1484,23 @@ impl JmapBackend for MemoryBackend {
             } else {
                 inner
                     .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                    .map(|s| {
-                        s.iter()
-                            .map(|(id, val)| {
-                                let received = val
-                                    .get("receivedAt")
-                                    .and_then(|v| v.as_str())
-                                    .unwrap_or("")
-                                    .to_owned();
-                                (id.clone(), received)
-                            })
-                            .collect()
-                    })
+                    .map(|s| s.keys().cloned().collect())
                     .unwrap_or_default()
             };
-            let mut pairs = pairs;
-            if let (Some(ss), Some(map)) = (
-                submission_sort.as_deref(),
-                inner.objects_ref(O::TYPE_NAME, account_id.as_ref()),
-            ) {
-                sort_submission_pairs(&mut pairs, map, ss);
+            let empty = HashMap::new();
+            let objects = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .unwrap_or(&empty);
+            match (email_sort.as_deref(), submission_sort.as_deref()) {
+                (Some(es), _) if !es.is_empty() => {
+                    sort_email_ids(&mut ids, objects, es).map_err(BackendQueryError::Method)?;
+                }
+                (_, Some(ss)) => sort_submission_ids(&mut ids, objects, ss),
+                _ => ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref())),
             }
             let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-            (pairs, state_n)
+            (ids, state_n)
         };
-
-        // Apply sort. When a receivedAt comparator is present, sort by epoch seconds
-        // so that sub-second timestamps (e.g. "T00:00:00.123Z") sort correctly relative
-        // to whole-second timestamps (e.g. "T00:00:00Z") — lexicographic order is wrong
-        // because '.' (0x2E) < 'Z' (0x5A).  Ties broken by id string for stable ordering.
-        let received_at_sort = email_sort.as_deref().and_then(|s| {
-            s.iter()
-                .find(|c| c.property == ComparatorProperty::ReceivedAt)
-        });
-        if let Some(cmp) = received_at_sort {
-            let ascending = cmp.is_ascending;
-            // bd:JMAP-ic0j.72 — `date_a` / `date_b` were extracted from
-            // the typed `Email.receivedAt` field (RFC 8621 §4.1 strict
-            // UTC), so parse via the foundation `UTCDate::to_epoch_seconds`
-            // helper rather than the local offset-tolerant parser.
-            id_date_pairs.sort_by(|(id_a, date_a), (id_b, date_b)| {
-                let epoch_a = utcdate_str_to_epoch_secs(date_a);
-                let epoch_b = utcdate_str_to_epoch_secs(date_b);
-                let ord = epoch_a.cmp(&epoch_b);
-                let ord = if ascending { ord } else { ord.reverse() };
-                ord.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
-            });
-        } else if submission_sort.is_none() {
-            id_date_pairs.sort_by(|(a, _), (b, _)| a.as_ref().cmp(b.as_ref()));
-        }
-        let all_ids: Vec<Id> = id_date_pairs.into_iter().map(|(id, _)| id).collect();
 
         let total = all_ids.len();
         // RFC 8620 §5.5 position / anchor / anchorOffset.
@@ -2641,25 +2595,25 @@ fn email_matches_filter(
 // EmailSubmission filter helpers (used by MemoryBackend::query_objects)
 // ---------------------------------------------------------------------------
 
-/// Sort EmailSubmission `(id, _)` pairs by the RFC 8621 §7.3 comparators
-/// in `sort`, breaking ties by id so the order is deterministic.
+/// Sort EmailSubmission ids by the RFC 8621 §7.3 comparators in `sort`,
+/// breaking ties by id so the order is deterministic.
 ///
 /// `sentAt` compares the stored `sendAt` instant (RFC 8621 §7). An id with
 /// no stored object, or an object that fails to deserialize, compares equal
 /// on every comparator and falls through to the id tie-break.
-fn sort_submission_pairs(
-    pairs: &mut [(Id, String)],
+fn sort_submission_ids(
+    ids: &mut [Id],
     objects: &HashMap<Id, serde_json::Value>,
     sort: &[EmailSubmissionComparator],
 ) {
-    let subs: HashMap<Id, EmailSubmission> = pairs
+    let subs: HashMap<Id, EmailSubmission> = ids
         .iter()
-        .filter_map(|(id, _)| {
+        .filter_map(|id| {
             let sub = EmailSubmission::deserialize(objects.get(id)?).ok()?;
             Some((id.clone(), sub))
         })
         .collect();
-    pairs.sort_by(|(id_a, _), (id_b, _)| {
+    ids.sort_by(|id_a, id_b| {
         let by_comparators = match (subs.get(id_a), subs.get(id_b)) {
             (Some(a), Some(b)) => sort
                 .iter()
@@ -2690,6 +2644,237 @@ fn sort_submission_pairs(
         };
         by_comparators.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
     });
+}
+
+/// One Email's value for one RFC 8621 §4.4.2 comparator. Every key built
+/// for a given comparator uses the same variant, so the derived `Ord`
+/// only ever compares like with like.
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+enum EmailSortKey {
+    /// `hasKeyword`, `allInThreadHaveKeyword`, `someInThreadHaveKeyword`:
+    /// `false` sorts before `true` when ascending.
+    Flag(bool),
+    /// `receivedAt`, `sentAt`: seconds since the epoch; a missing or
+    /// unparseable date sorts first when ascending.
+    Instant(Option<i64>),
+    /// `size`.
+    Size(u64),
+    /// `from`, `to`, `subject`: compared byte-wise (`i;octet`).
+    Text(String),
+}
+
+/// Sort Email ids by the RFC 8621 §4.4.2 comparators in `sort`, breaking
+/// ties by id so the order is deterministic.
+///
+/// All nine §4.4.2 properties are supported. RFC 8620 §5.5 makes a
+/// property or collation the server does not support `unsupportedSort`,
+/// so an `Other` property or a collation other than `i;octet` (RFC 4790
+/// §9.3, the byte-wise order used here) is rejected rather than ignored.
+/// §4.4.2 makes `keyword` required for the three keyword properties; a
+/// comparator without one is `invalidArguments`.
+///
+/// The thread properties look at every Email in the account with the same
+/// `threadId`, not only those matching the filter ("all of the Emails in
+/// the same Thread"). An id whose stored object fails to deserialize sorts
+/// after every one that does, keeping the comparator a total order.
+///
+/// ponytail: thread keys rescan the thread's members once per Email and
+/// comparator, O(n * thread size); precompute per-thread flags if that
+/// ever matters for a reference backend.
+fn sort_email_ids(
+    ids: &mut [Id],
+    objects: &HashMap<Id, serde_json::Value>,
+    sort: &[EmailComparator],
+) -> Result<(), jmap_types::JmapError> {
+    for c in sort {
+        let supported = matches!(
+            c.property,
+            ComparatorProperty::ReceivedAt
+                | ComparatorProperty::Size
+                | ComparatorProperty::From
+                | ComparatorProperty::To
+                | ComparatorProperty::Subject
+                | ComparatorProperty::SentAt
+                | ComparatorProperty::HasKeyword
+                | ComparatorProperty::AllInThreadHaveKeyword
+                | ComparatorProperty::SomeInThreadHaveKeyword
+        );
+        if !supported || c.collation.as_deref().is_some_and(|k| k != "i;octet") {
+            return Err(jmap_types::JmapError::unsupported_sort());
+        }
+        let needs_keyword = matches!(
+            c.property,
+            ComparatorProperty::HasKeyword
+                | ComparatorProperty::AllInThreadHaveKeyword
+                | ComparatorProperty::SomeInThreadHaveKeyword
+        );
+        if needs_keyword && c.keyword.is_none() {
+            return Err(jmap_types::JmapError::invalid_arguments(
+                "sort: keyword is required for this property",
+            ));
+        }
+    }
+    let emails: HashMap<&Id, Email> = objects
+        .iter()
+        .filter_map(|(id, val)| Some((id, Email::deserialize(val).ok()?)))
+        .collect();
+    let mut threads: HashMap<&Id, Vec<&Email>> = HashMap::new();
+    for email in emails.values() {
+        threads.entry(&email.thread_id).or_default().push(email);
+    }
+    // "the "name" part or if null/empty, then the "email" part of the first
+    // EmailAddress object ... If still none, consider the value to be the
+    // empty string." (RFC 8621 §4.4.2)
+    let address_text = |list: &Option<Vec<jmap_mail_types::EmailAddress>>| {
+        list.as_deref()
+            .and_then(<[_]>::first)
+            .map(|a| match a.name.as_deref() {
+                Some(name) if !name.is_empty() => name.to_owned(),
+                _ => a.email.clone(),
+            })
+            .unwrap_or_default()
+    };
+    let key = |email: &Email, c: &EmailComparator| -> EmailSortKey {
+        let has = |e: &Email| {
+            c.keyword
+                .as_ref()
+                .is_some_and(|k| e.keywords.contains_key(k))
+        };
+        let thread = threads.get(&email.thread_id).map_or(&[][..], Vec::as_slice);
+        match c.property {
+            ComparatorProperty::ReceivedAt => {
+                EmailSortKey::Instant(email.received_at.to_epoch_seconds().ok())
+            }
+            ComparatorProperty::Size => EmailSortKey::Size(email.size),
+            ComparatorProperty::From => EmailSortKey::Text(address_text(&email.from)),
+            ComparatorProperty::To => EmailSortKey::Text(address_text(&email.to)),
+            ComparatorProperty::Subject => {
+                EmailSortKey::Text(base_subject(email.subject.as_deref().unwrap_or("")))
+            }
+            ComparatorProperty::SentAt => EmailSortKey::Instant(
+                email
+                    .sent_at
+                    .as_ref()
+                    .and_then(|d| try_rfc3339_to_epoch_secs(d.as_ref())),
+            ),
+            ComparatorProperty::HasKeyword => EmailSortKey::Flag(has(email)),
+            ComparatorProperty::AllInThreadHaveKeyword => {
+                EmailSortKey::Flag(thread.iter().all(|e| has(e)))
+            }
+            ComparatorProperty::SomeInThreadHaveKeyword => {
+                EmailSortKey::Flag(thread.iter().any(|e| has(e)))
+            }
+            // Rejected as unsupportedSort above.
+            _ => EmailSortKey::Flag(false),
+        }
+    };
+    let keys: HashMap<&Id, Vec<EmailSortKey>> = emails
+        .iter()
+        .map(|(id, email)| (*id, sort.iter().map(|c| key(email, c)).collect()))
+        .collect();
+    ids.sort_by(|id_a, id_b| {
+        let by_comparators = match (keys.get(id_a), keys.get(id_b)) {
+            (Some(a), Some(b)) => a
+                .iter()
+                .zip(b)
+                .zip(sort)
+                .map(|((ka, kb), c)| {
+                    let ord = ka.cmp(kb);
+                    if c.is_ascending { ord } else { ord.reverse() }
+                })
+                .find(|o| o.is_ne())
+                .unwrap_or(std::cmp::Ordering::Equal),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => std::cmp::Ordering::Equal,
+        };
+        by_comparators.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
+    });
+    Ok(())
+}
+
+/// The RFC 5256 §2.1 "base subject" of an already-decoded subject, which
+/// RFC 8621 §4.4.2 makes the `subject` sort key.
+///
+/// Follows the §2.1 steps over its §5 ABNF (strings case-insensitive):
+///
+/// ```text
+/// subj-refwd   = ("re" / ("fw" ["d"])) *WSP [subj-blob] ":"
+/// subj-blob    = "[" *BLOBCHAR "]" *WSP
+/// subj-fwd-hdr = "[fwd:"
+/// subj-fwd-trl = "]"
+/// subj-leader  = (*subj-blob subj-refwd) / WSP
+/// subj-trailer = "(fwd)" / WSP
+/// ```
+///
+/// Step (1)'s encoded-word decoding is already done (Email `subject` is
+/// decoded); whitespace runs collapse to one space.
+fn base_subject(subject: &str) -> String {
+    fn strip_ci<'a>(s: &'a str, prefix: &str) -> Option<&'a str> {
+        let head = s.get(..prefix.len())?;
+        head.eq_ignore_ascii_case(prefix)
+            .then(|| &s[prefix.len()..])
+    }
+    // subj-blob: "[" *BLOBCHAR "]" *WSP, BLOBCHAR excluding '[' and ']'.
+    fn strip_blob(s: &str) -> Option<&str> {
+        let rest = s.strip_prefix('[')?;
+        let close = rest.find(['[', ']'])?;
+        rest[close..]
+            .strip_prefix(']')
+            .map(|r| r.trim_start_matches(' '))
+    }
+    // *subj-blob subj-refwd
+    fn strip_refwd(mut s: &str) -> Option<&str> {
+        while let Some(rest) = strip_blob(s) {
+            s = rest;
+        }
+        let s = strip_ci(s, "re")
+            .or_else(|| strip_ci(s, "fw").map(|r| strip_ci(r, "d").unwrap_or(r)))?
+            .trim_start_matches(' ');
+        let s = strip_blob(s).unwrap_or(s);
+        s.strip_prefix(':')
+    }
+
+    let collapsed = subject
+        .split_ascii_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ");
+    let mut s = collapsed.as_str();
+    loop {
+        // (2) subj-trailer, repeatedly.
+        loop {
+            let t = s.trim_end_matches(' ');
+            let t = t
+                .len()
+                .checked_sub(5)
+                .and_then(|i| t.get(i..))
+                .filter(|tail| tail.eq_ignore_ascii_case("(fwd)"))
+                .map_or(t, |tail| &t[..t.len() - tail.len()]);
+            if t.len() == s.len() {
+                break;
+            }
+            s = t;
+        }
+        // (3)-(5) subj-leader, then a subj-blob that leaves a non-empty base.
+        loop {
+            let before = s.len();
+            s = s.trim_start_matches(' ');
+            if let Some(rest) = strip_refwd(s) {
+                s = rest;
+            }
+            if let Some(rest) = strip_blob(s).filter(|r| !r.is_empty()) {
+                s = rest;
+            }
+            if s.len() == before {
+                break;
+            }
+        }
+        // (6) subj-fwd-hdr ... subj-fwd-trl, then back to (2).
+        match strip_ci(s, "[fwd:").and_then(|r| r.strip_suffix(']')) {
+            Some(inner) => s = inner,
+            None => return s.to_owned(),
+        }
+    }
 }
 
 /// Pre-built lookup sets for a single `EmailSubmissionFilterCondition`.
@@ -3211,7 +3396,7 @@ mod tests {
     /// January) are valid; "b" is not an EmailSubmission. Comparing "b"
     /// equal to both would give a < b < c < a by id tie-break.
     #[test]
-    fn sort_submission_pairs_puts_undecodable_last() {
+    fn sort_submission_ids_puts_undecodable_last() {
         let sub = |id: &str, send_at: &str| {
             serde_json::to_value(EmailSubmission::new(
                 Id::from(id),
@@ -3233,12 +3418,9 @@ mod tests {
         let sort = [EmailSubmissionComparator::new(
             EmailSubmissionComparatorProperty::SentAt,
         )];
-        let mut pairs: Vec<(Id, String)> = ["a", "b", "c"]
-            .into_iter()
-            .map(|id| (Id::from(id), String::new()))
-            .collect();
-        sort_submission_pairs(&mut pairs, &objects, &sort);
-        let order: Vec<&str> = pairs.iter().map(|(id, _)| id.as_ref()).collect();
+        let mut ids: Vec<Id> = ["a", "b", "c"].into_iter().map(Id::from).collect();
+        sort_submission_ids(&mut ids, &objects, &sort);
+        let order: Vec<&str> = ids.iter().map(|id| id.as_ref()).collect();
         assert_eq!(order, ["c", "a", "b"]);
     }
 
@@ -3551,5 +3733,173 @@ mod empty_account_id_tests {
     #[should_panic(expected = "account_id must not be the empty string")]
     fn register_account_rejects_empty_id() {
         MemoryBackend::new().register_account(&Id::from(""));
+    }
+}
+
+#[cfg(test)]
+mod email_sort_tests {
+    use super::{MemoryBackend, base_subject};
+    use jmap_mail_types::{ComparatorProperty, Email, EmailComparator, Keyword};
+    use jmap_server::{BackendQueryError, JmapBackend, JmapObject, QueryParams};
+    use jmap_types::Id;
+    use serde_json::json;
+
+    /// Expected values derived by hand from the RFC 5256 §2.1 steps and
+    /// §5 ABNF (`subj-refwd`, `subj-blob`, `subj-trailer`, `subj-fwd-hdr`).
+    #[test]
+    fn base_subject_follows_rfc5256_section_2_1() {
+        // (2) trailer "(fwd)", (3) leader "Re:", leader "[list] Fwd:".
+        assert_eq!(base_subject("Re: [list] Fwd: hello (fwd)"), "hello");
+        // (6) "[fwd:" ... "]" removed, then "Re:" leader.
+        assert_eq!(base_subject("[fwd: Re: hi]"), "hi");
+        // (4) a blob is kept when removing it would leave an empty base.
+        assert_eq!(base_subject("Re: [list]"), "[list]");
+        // subj-refwd allows a blob before ":" and is case-insensitive.
+        assert_eq!(base_subject("RE: Re[2]: x"), "x");
+        // "re" not followed by ":" is not a subj-refwd.
+        assert_eq!(base_subject("Regarding: x"), "Regarding: x");
+        // (1) whitespace runs collapse to one space.
+        assert_eq!(base_subject("a\t\t b"), "a b");
+    }
+
+    /// Four Emails whose sort keys differ per RFC 8621 §4.4.2 property.
+    /// e1 and e2 share thread t1 (only e1 has `$seen`); e3 is alone in t2
+    /// with `$seen`; e4 is alone in t3 with no keywords.
+    fn seeded() -> (MemoryBackend, Id) {
+        let backend = MemoryBackend::new();
+        let account = Id::from("account1");
+        let emails = [
+            json!({
+                "id": "e1", "blobId": "b1", "threadId": "t1", "mailboxIds": { "m": true },
+                "keywords": { "$seen": true }, "size": 300,
+                "receivedAt": "2025-01-04T00:00:00Z",
+                "from": [{ "name": "Bob", "email": "bob@example.com" }],
+                "subject": "Re: banana",
+                "sentAt": "2025-01-01T12:00:00+10:00"
+            }),
+            json!({
+                "id": "e2", "blobId": "b2", "threadId": "t1", "mailboxIds": { "m": true },
+                "size": 100, "receivedAt": "2025-01-03T00:00:00Z",
+                "from": [{ "name": "", "email": "alice@example.com" }],
+                "subject": "apple", "sentAt": "2025-01-01T03:00:00Z"
+            }),
+            json!({
+                "id": "e3", "blobId": "b3", "threadId": "t2", "mailboxIds": { "m": true },
+                "keywords": { "$seen": true }, "size": 200,
+                "receivedAt": "2025-01-02T00:00:00Z", "subject": "[list] cherry"
+            }),
+            json!({
+                "id": "e4", "blobId": "b4", "threadId": "t3", "mailboxIds": { "m": true },
+                "size": 400, "receivedAt": "2025-01-01T00:00:00Z",
+                "from": [{ "name": "Zed", "email": "zed@example.com" }],
+                "subject": "date", "sentAt": "2025-01-02T00:00:00Z"
+            }),
+        ];
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            let map = inner.objects_mut(Email::TYPE_NAME, account.as_ref());
+            for e in emails {
+                map.insert(Id::from(e["id"].as_str().unwrap()), e);
+            }
+        }
+        (backend, account)
+    }
+
+    fn cmp(property: ComparatorProperty, ascending: bool) -> EmailComparator {
+        let mut c = EmailComparator::new(property);
+        c.is_ascending = ascending;
+        if matches!(
+            c.property,
+            ComparatorProperty::HasKeyword
+                | ComparatorProperty::AllInThreadHaveKeyword
+                | ComparatorProperty::SomeInThreadHaveKeyword
+        ) {
+            c.keyword = Some(Keyword::from("$seen"));
+        }
+        c
+    }
+
+    async fn query(
+        backend: &MemoryBackend,
+        account: &Id,
+        sort: &[EmailComparator],
+    ) -> Result<Vec<String>, BackendQueryError<super::MemoryError>> {
+        let result = backend
+            .query_objects::<Email>(&(), account, QueryParams::new().sort(Some(sort)))
+            .await?;
+        Ok(result.ids.iter().map(|id| id.as_ref().to_owned()).collect())
+    }
+
+    /// RFC 8621 §4.4.2 property definitions; ties break by id. Booleans
+    /// sort false first when ascending; strings compare byte-wise
+    /// (`i;octet`), so "Bob" (0x42) precedes "alice@example.com" (0x61).
+    #[tokio::test]
+    async fn every_rfc8621_sort_property_orders_results() {
+        let (backend, account) = seeded();
+        use ComparatorProperty as P;
+        let cases: [(P, bool, [&str; 4]); 9] = [
+            (P::ReceivedAt, true, ["e4", "e3", "e2", "e1"]),
+            (P::Size, false, ["e4", "e1", "e3", "e2"]),
+            // e3 has no From: "the empty string"; e2's empty name falls
+            // back to its email.
+            (P::From, true, ["e3", "e1", "e4", "e2"]),
+            // No To anywhere: all "", id order.
+            (P::To, true, ["e1", "e2", "e3", "e4"]),
+            // Base subjects: banana, apple, cherry, date.
+            (P::Subject, true, ["e2", "e1", "e3", "e4"]),
+            // e3 has no sentAt; e1 is 02:00Z, before e2's 03:00Z.
+            (P::SentAt, true, ["e3", "e1", "e2", "e4"]),
+            (P::HasKeyword, true, ["e2", "e4", "e1", "e3"]),
+            // Only t2 (e3) has $seen on every member.
+            (P::AllInThreadHaveKeyword, true, ["e1", "e2", "e4", "e3"]),
+            // Only t3 (e4) has no member with $seen.
+            (P::SomeInThreadHaveKeyword, true, ["e4", "e1", "e2", "e3"]),
+        ];
+        for (property, ascending, expected) in cases {
+            let label = format!("{property:?} ascending={ascending}");
+            let ids = query(&backend, &account, &[cmp(property, ascending)])
+                .await
+                .unwrap_or_else(|e| panic!("{label}: {e}"));
+            assert_eq!(ids, expected, "{label}");
+        }
+    }
+
+    /// RFC 8620 §5.5: later comparators order Emails the earlier ones tie.
+    #[tokio::test]
+    async fn later_comparators_break_ties() {
+        let (backend, account) = seeded();
+        let sort = [
+            cmp(ComparatorProperty::HasKeyword, false),
+            cmp(ComparatorProperty::Size, true),
+        ];
+        let ids = query(&backend, &account, &sort).await.unwrap();
+        assert_eq!(ids, ["e3", "e1", "e2", "e4"]);
+    }
+
+    /// RFC 8620 §5.5 unsupportedSort: "The sort is syntactically valid, but
+    /// it includes a property the server does not support sorting on, or a
+    /// collation method it does not recognise." RFC 8621 §4.4.2 makes
+    /// `keyword` required for `hasKeyword`, so omitting it is
+    /// invalidArguments.
+    #[tokio::test]
+    async fn unsupported_or_malformed_comparators_are_rejected() {
+        let (backend, account) = seeded();
+        let method_error = |r: Result<Vec<String>, BackendQueryError<super::MemoryError>>| match r {
+            Err(BackendQueryError::Method(e)) => e.error_type.to_string(),
+            other => panic!("expected a method error, got {other:?}"),
+        };
+
+        let other = cmp(ComparatorProperty::Other("x-priority".into()), true);
+        let r = query(&backend, &account, &[other]).await;
+        assert_eq!(method_error(r), "unsupportedSort");
+
+        let mut casemap = cmp(ComparatorProperty::Subject, true);
+        casemap.collation = Some("i;ascii-casemap".into());
+        let r = query(&backend, &account, &[casemap]).await;
+        assert_eq!(method_error(r), "unsupportedSort");
+
+        let no_keyword = EmailComparator::new(ComparatorProperty::HasKeyword);
+        let r = query(&backend, &account, &[no_keyword]).await;
+        assert_eq!(method_error(r), "invalidArguments");
     }
 }
