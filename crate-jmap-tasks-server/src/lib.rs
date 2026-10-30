@@ -896,6 +896,13 @@ mod tests {
     /// and is delivered as a validated [`Id`]. Locks in the args-threading
     /// contract: a backend that overrides `compute_utc_times` can rely on
     /// receiving the caller-validated account id.
+    ///
+    /// Also oracle: draft-tasks-06 §4 (utcStart is computed from `start` and
+    /// `timeZone`) and RFC 8620 §5.1 ("only the properties listed in the
+    /// array are returned"). The stub's stored task has `start` and
+    /// `timeZone`, and its `compute_utc_times` returns the hand-written
+    /// `2024-06-15T09:00:00Z` only when `start` reaches it, so a request
+    /// for `["id", "utcStart"]` must return exactly `id` and that value.
     #[tokio::test]
     async fn compute_utc_times_receives_validated_account_id() {
         use std::sync::Mutex;
@@ -941,7 +948,11 @@ mod tests {
                 // Synthesize one Task via JSON round-trip. Non-Task types
                 // get back an empty list (handler exercise here is
                 // Task/get only).
-                let item = json!({ "id": "t1" });
+                let item = json!({
+                    "id": "t1",
+                    "start": "2024-06-15T09:00:00",
+                    "timeZone": "Etc/UTC"
+                });
                 match serde_json::from_value::<O>(item) {
                     Ok(obj) => Ok((vec![obj], vec![])),
                     Err(_) => Ok((vec![], vec![])),
@@ -1086,11 +1097,15 @@ mod tests {
                 &self,
                 _caller: &(),
                 account_id: &Id,
-                _task: &Task,
+                task: &Task,
                 _tz_hint: Option<&str>,
             ) -> (Option<UTCDate>, Option<UTCDate>) {
                 self.observed.lock().unwrap().push(account_id.clone());
-                (None, None)
+                let fixed = task
+                    .start
+                    .as_ref()
+                    .map(|_| UTCDate::from("2024-06-15T09:00:00Z"));
+                (fixed.clone(), fixed)
             }
         }
 
@@ -1124,6 +1139,12 @@ mod tests {
             vec![Id::from("acc1")],
             "compute_utc_times must receive the request's accountId exactly once \
              (one Task synthesized, utcStart requested)"
+        );
+        assert_eq!(
+            args["list"],
+            json!([{ "id": "t1", "utcStart": "2024-06-15T09:00:00Z" }]),
+            "utcStart must be computed from the stored start, and only the \
+             requested properties returned"
         );
     }
 

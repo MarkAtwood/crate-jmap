@@ -68,7 +68,10 @@ use jmap_server::{
 /// If `"utcStart"` or `"utcDue"` appear in the requested `properties` (or if
 /// `properties` is `null` — meaning all fields), [`TasksBackend::compute_utc_times`]
 /// is called for each returned task and the computed values are merged in
-/// (draft-tasks-06 §4, utcStart/utcDue paragraphs).
+/// (draft-tasks-06 §4, utcStart/utcDue paragraphs). The local-time inputs
+/// (`start`, `due`, `timeZone`, `timeZones`) are fetched for that even when
+/// `properties` leaves them out, and dropped again before the response, so
+/// only the requested properties are returned (RFC 8620 §5.1).
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Task for
@@ -82,16 +85,28 @@ use jmap_server::{
 pub async fn handle_task_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    args: Value,
+    mut args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    // Determine whether utcStart / utcDue are requested.
-    let want_utc = match args.get("properties") {
-        None | Some(Value::Null) => true, // all properties requested
-        Some(Value::Array(props)) => props
-            .iter()
-            .any(|p| p.as_str().is_some_and(|s| s == "utcStart" || s == "utcDue")),
-        _ => false,
+    // Determine whether utcStart / utcDue are requested. compute_utc_times
+    // needs the local-time inputs, which handle_get would otherwise project
+    // away; fetch the missing ones and strip them again below.
+    let mut strip: Vec<&str> = Vec::new();
+    let (want_start, want_due) = match args.get_mut("properties") {
+        None | Some(Value::Null) => (true, true), // all properties requested
+        Some(Value::Array(props)) => {
+            let has = |name: &str| props.iter().any(|p| p == name);
+            let wanted = (has("utcStart"), has("utcDue"));
+            if wanted.0 || wanted.1 {
+                strip = ["start", "due", "timeZone", "timeZones"]
+                    .into_iter()
+                    .filter(|name| !has(name))
+                    .collect();
+                props.extend(strip.iter().map(|name| json!(name)));
+            }
+            wanted
+        }
+        _ => (false, false),
     };
 
     // Peek accountId to thread through compute_utc_times (bd:JMAP-ops7.25).
@@ -116,17 +131,24 @@ pub async fn handle_task_get<B: TasksBackend>(
     } = jmap_server::handle_get_with_metadata::<Task, B>(backend, caller, args, using).await?;
 
     // If utcStart or utcDue were requested, augment each returned task.
-    if want_utc && let Some(Value::Array(list)) = response.get_mut("list") {
+    if (want_start || want_due)
+        && let Some(Value::Array(list)) = response.get_mut("list")
+    {
         for item in list.iter_mut() {
             if let Ok(task) = Task::deserialize(&*item) {
                 let (utc_start, utc_due) = backend
                     .compute_utc_times(caller, &account_id, &task, None)
                     .await;
-                if let Some(s) = utc_start {
+                if let Some(s) = utc_start.filter(|_| want_start) {
                     item["utcStart"] = Value::String(s.into_inner());
                 }
-                if let Some(d) = utc_due {
+                if let Some(d) = utc_due.filter(|_| want_due) {
                     item["utcDue"] = Value::String(d.into_inner());
+                }
+            }
+            if let Some(obj) = item.as_object_mut() {
+                for name in &strip {
+                    obj.remove(*name);
                 }
             }
         }
