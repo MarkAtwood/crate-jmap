@@ -53,6 +53,11 @@ wire behaviour that a conforming peer can observe.
   to parse now lists the offending property in the `invalidProperties`
   SetError's `properties` array (RFC 8620 §5.3), including a missing or
   null `name`; previously only a serde description was returned.
+- **jmap-filenode-server**: a `FileNode/set` create entry that is not a
+  JSON object is now rejected with an `invalidProperties` SetError
+  described as "a create entry must be an object", instead of naming
+  `@type`; a `FileNode/copy` whose overrides fail to parse now lists the
+  offending property in the SetError's `properties` array (RFC 8620 §5.3).
 - **jmap-graph-server**, **jmap-scene-server**: `Graph/get`,
   `GraphNode/get`, `GraphEdge/get`, `GraphNodeOp/get`, `SceneRegion/get`,
   `SceneObject/get` and `SceneAvatar/get` now return only the requested
