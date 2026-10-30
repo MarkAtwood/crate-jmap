@@ -18,6 +18,10 @@ wire behaviour that a conforming peer can observe.
   to parse now lists the offending property in the `invalidProperties`
   SetError's `properties` array (RFC 8620 §5.3), including a missing or
   null `name`; previously only a serde description was returned.
+- **jmap-server**: `handle_get` and `handle_get_with_metadata` now return
+  only the requested `properties` (plus `id`, which is always returned)
+  for each object, as RFC 8620 §5.1 requires, even when the backend
+  ignores the `properties` argument.
 
 ## [0.4.0] - 2026-10-24
 

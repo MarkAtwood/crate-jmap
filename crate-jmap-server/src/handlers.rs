@@ -205,7 +205,20 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     // (~100k+ objects) the saving is measurable. serde_json::to_value
     // on a Vec<O> always produces Value::Array(Vec<Value>) so the
     // wire shape is identical.
-    let list_json = serialize_value(&list)?;
+    let mut list_json = serialize_value(&list)?;
+
+    // RFC 8620 §5.1: "If supplied, only the properties listed in the array
+    // are returned for each Foo object. ... The id property of the object
+    // is *always* returned". Backends MAY ignore `properties`, so project
+    // here. ponytail: unknown property names are not rejected with
+    // invalidArguments; the generic handler has no per-type property list.
+    if let (Some(props), Value::Array(items)) = (&properties, &mut list_json) {
+        for item in items {
+            if let Value::Object(map) = item {
+                map.retain(|k, _| k == "id" || props.iter().any(|p| p == k));
+            }
+        }
+    }
 
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
@@ -988,6 +1001,121 @@ mod tests {
                 .await
                 .expect("null ids must not be rejected by the maxObjectsInGet cap");
         assert_eq!(resp["list"], json!([]));
+    }
+
+    /// Backend whose account exists and which returns one fixed object for
+    /// every `/get`, ignoring `properties` (which
+    /// [`JmapBackend::get_objects`] permits).
+    struct FullObjectBackend;
+
+    impl JmapBackend for FullObjectBackend {
+        type Error = LeakyQueryError;
+        type CallerCtx = ();
+
+        async fn account_exists(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            Ok(true)
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            let obj = serde_json::from_value(json!({
+                "id": "o1", "name": "n", "color": "c"
+            }))
+            .expect("fixture must deserialize");
+            Ok((vec![obj], vec![]))
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            Ok(State::from("s0"))
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _params: ChangesParams<'_>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only /get is exercised")
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _params: QueryParams<'_, O>,
+        ) -> Result<crate::backend::QueryResult, BackendQueryError<Self::Error>> {
+            unreachable!("only /get is exercised")
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _params: QueryChangesParams<'_, O>,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            unreachable!("only /get is exercised")
+        }
+    }
+
+    /// `GetObject` with three properties, built by [`FullObjectBackend`].
+    #[derive(serde::Serialize, serde::Deserialize)]
+    struct Swatch {
+        id: String,
+        name: String,
+        color: String,
+    }
+
+    impl JmapObject for Swatch {
+        const TYPE_NAME: &'static str = "Swatch";
+        type Property = ();
+    }
+
+    impl GetObject for Swatch {}
+
+    /// Oracle: RFC 8620 §5.1 (/home/mark/PROJECT/IETF/specs/rfc8620.txt
+    /// L1605-1609): "If supplied, only the properties listed in the array
+    /// are returned for each Foo object. ... The id property of the object
+    /// is *always* returned, even if not explicitly requested." The backend
+    /// returns `id`, `name` and `color` regardless; asking for `name` alone
+    /// MUST yield exactly `id` and `name`.
+    #[tokio::test]
+    async fn handle_get_returns_only_requested_properties_and_id() {
+        let args = json!({ "accountId": "a1", "ids": ["o1"], "properties": ["name"] });
+
+        let HandlerOutput { primary: resp, .. } =
+            handle_get::<Swatch, _>(&FullObjectBackend, &(), args)
+                .await
+                .expect("valid /get must succeed");
+        assert_eq!(resp["list"], json!([{ "id": "o1", "name": "n" }]));
+    }
+
+    /// Oracle: RFC 8620 §5.1 (rfc8620.txt L1607-1608): "If null, all
+    /// properties of the object are returned."
+    #[tokio::test]
+    async fn handle_get_null_properties_returns_all() {
+        let args = json!({ "accountId": "a1", "ids": ["o1"], "properties": null });
+
+        let HandlerOutput { primary: resp, .. } =
+            handle_get::<Swatch, _>(&FullObjectBackend, &(), args)
+                .await
+                .expect("valid /get must succeed");
+        assert_eq!(
+            resp["list"],
+            json!([{ "id": "o1", "name": "n", "color": "c" }])
+        );
     }
 
     /// Backend whose account exists and which records the
