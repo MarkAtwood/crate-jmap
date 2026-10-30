@@ -553,6 +553,19 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 other => other,
             };
 
+            // RFC 8620 §5.3: a create entry that is not an object has no
+            // properties to name, so report it without a `properties` list.
+            if !obj_with_id.is_object() {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "description": "a create entry must be an object",
+                    }),
+                );
+                continue;
+            }
+
             // draft-ietf-jmap-filenode-16 §3.1.1: `@type` MUST be provided on
             // creation; the server does not infer it.
             if obj_with_id.get("@type").is_none_or(Value::is_null) {
@@ -2208,11 +2221,18 @@ fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<Fi
         }
     }
 
-    serde_json::from_value::<FileNode>(merged).map_err(|e| {
-        json!({
+    serde_path_to_error::deserialize::<_, FileNode>(merged).map_err(|e| {
+        // RFC 8620 §5.3: invalidProperties SHOULD list the invalid
+        // properties; the first path segment is the top-level property
+        // whose value failed to parse.
+        let mut err = json!({
             "type": "invalidProperties",
             "description": format!("override produced invalid FileNode: {e}"),
-        })
+        });
+        if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+            err["properties"] = json!([key]);
+        }
+        err
     })
 }
 
@@ -4572,6 +4592,54 @@ mod tests {
             assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
             assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
         }
+    }
+
+    /// Oracle: RFC 8620 §5.3: `create` is "A map of a creation id ... to a
+    /// Foo object"; an entry that is not a JSON object is invalid. It has
+    /// no properties, so the SetError must not name one it does not have
+    /// (hand-written non-object entries below).
+    #[tokio::test]
+    async fn set_create_non_object_entry_names_no_property() {
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let args = json!({
+            "accountId": "acc1",
+            "create": { "str": "x", "arr": ["x"], "nul": null, "num": 5 }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for cid in ["str", "arr", "nul", "num"] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert!(err.get("properties").is_none(), "{cid}: {resp}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". The override
+    /// below sets `executable` (a `Boolean`, draft-ietf-jmap-filenode-16
+    /// §3.1) to a string, the only bad property.
+    #[tokio::test]
+    async fn copy_typed_parse_failure_names_property() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("p", None, "p"));
+        backend.seed_node("acc1", make_filenode("n1", None, "n1"));
+        let args = json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc1",
+            "create": { "c1": { "id": "n1", "parentId": "p", "executable": "yes" } }
+        });
+        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+            .await
+            .expect("must not return top-level error")
+            .primary;
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        let err = &resp["notCreated"]["c1"];
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["executable"]), "{resp}");
     }
 
     // -----------------------------------------------------------------------
