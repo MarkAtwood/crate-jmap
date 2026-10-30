@@ -564,8 +564,6 @@ async fn authenticate_rejects_requests_created_before_the_restart() {
     assert_eq!(peer.peer_domain, alice());
 }
 
-/// Two overlapping lookups for one peer domain share one fetch: the
-/// second waits for the first instead of fetching too.
 /// A request from alice signed at `created` with RFC 8037 key A.
 fn signed_at(created: std::time::SystemTime) -> HeaderMap {
     let out = sign(
@@ -667,6 +665,8 @@ async fn a_request_replayed_after_a_restart_is_rejected() {
     ));
 }
 
+/// Two overlapping lookups for one peer domain share one fetch: the
+/// second waits for the first instead of fetching too.
 #[tokio::test]
 async fn overlapping_lookups_share_one_fetch() {
     let f = fixture(DnssecAnswer::Insecure, None);
