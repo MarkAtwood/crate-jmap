@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-contacts-server**: the `MemoryBackend` reference backend's
+  `ContactCard/copy` now runs the same checks as `ContactCard/set`
+  create on the merged copy: `addressBookIds` must map at least one id,
+  each to `true`, and `uid` must be unique in the destination account
+  (RFC 9610 §3). A copy that fails either check gets an
+  `invalidProperties` notCreated entry (RFC 8620 §5.4); before this fix
+  the card was stored. Copied metadata is still not revalidated
+  (draft-ietf-jmap-metadata-04 §3.4).
 - **jmap-filenode-server**: a `FileNode/set` create whose properties fail
   to parse now lists the offending property in the `invalidProperties`
   SetError's `properties` array (RFC 8620 §5.3), including a missing or
