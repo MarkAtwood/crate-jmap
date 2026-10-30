@@ -242,8 +242,6 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     }),
                 );
             }
-            // `Calendar.id` is optional, so the create parses without one
-            // and `build` sets the id the backend mints.
             // RFC 8620 §5.3: a create entry that is not an object has no
             // properties to name, so report it without a `properties` list.
             if !obj_val.is_object() {
@@ -272,6 +270,8 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 continue;
             }
 
+            // `Calendar.id` is optional, so the create parses without one
+            // and `build` sets the id the backend mints.
             let mut cal: Calendar = match serde_path_to_error::deserialize(obj_val) {
                 Ok(c) => c,
                 Err(e) => {
