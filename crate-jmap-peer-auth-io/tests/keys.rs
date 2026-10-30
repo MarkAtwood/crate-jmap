@@ -454,7 +454,9 @@ async fn authenticate_accepts_once_then_rejects_the_replay() {
     f.fetch
         .serve(response("max-age=600", session(&[jwk(X_A, KID_A)])));
     let now = UNIX_EPOCH + Duration::from_secs(1_760_000_000);
-    let replay = MemoryReplayStore::started_at(now);
+    // Spec 30dea91 §Replay: a store started less than 60 s before
+    // `created` rejects it, so this store started 60 s before.
+    let replay = MemoryReplayStore::started_at(now - Duration::from_secs(60));
     let uri = "https://bob.example/jmap/api/";
     let body = br#"{"using":[]}"#;
     let out = sign(&signing_key_a(), &alice(), &Method::POST, uri, body, now).unwrap();
@@ -504,11 +506,12 @@ async fn authenticate_accepts_once_then_rejects_the_replay() {
     ));
 }
 
-/// §Replay: "A receiving server whose nonce cache is lost, for example on
-/// restart, SHOULD reject requests whose `created` precedes the restart,
-/// since it can no longer detect their replay." A store started one
-/// second after `created` rejects the request; one started at `created`
-/// accepts it.
+/// §Replay (spec 30dea91): "A receiving server whose nonce cache is lost,
+/// for example on restart, SHOULD reject requests whose `created` is
+/// earlier than the restart time plus the 60 seconds by which check 4 of
+/// {{request-signing}} lets `created` lead the receiver's clock". A store
+/// started one second after `created` rejects the request; one started
+/// 60 seconds before `created` accepts it.
 #[tokio::test]
 async fn authenticate_rejects_requests_created_before_the_restart() {
     let f = fixture(DnssecAnswer::Insecure, None);
@@ -551,7 +554,10 @@ async fn authenticate_rejects_requests_created_before_the_restart() {
         Err(Error::Rejected(Rejection::PrecedesRestart))
     ));
 
-    let running = MemoryReplayStore::started_at(created);
+    // Spec 30dea91: a store started at `created` now rejects, since
+    // `created` < since + 60 s; since = created - 60 s is the latest start
+    // that accepts.
+    let running = MemoryReplayStore::started_at(created - Duration::from_secs(60));
     let peer = authenticate(request(), now, &f.keys, &running)
         .await
         .unwrap();
@@ -560,6 +566,107 @@ async fn authenticate_rejects_requests_created_before_the_restart() {
 
 /// Two overlapping lookups for one peer domain share one fetch: the
 /// second waits for the first instead of fetching too.
+/// A request from alice signed at `created` with RFC 8037 key A.
+fn signed_at(created: std::time::SystemTime) -> HeaderMap {
+    let out = sign(
+        &signing_key_a(),
+        &alice(),
+        &Method::POST,
+        RESTART_URI,
+        RESTART_BODY,
+        created,
+    )
+    .unwrap();
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "content-digest",
+        HeaderValue::from_str(out.content_digest.as_deref().unwrap()).unwrap(),
+    );
+    headers.insert(
+        "signature-input",
+        HeaderValue::from_str(&out.signature_input).unwrap(),
+    );
+    headers.insert("signature", HeaderValue::from_str(&out.signature).unwrap());
+    headers
+}
+
+const RESTART_URI: &str = "https://bob.example/jmap/api/";
+const RESTART_BODY: &[u8] = br#"{"using":[]}"#;
+
+fn restart_request(headers: &HeaderMap) -> Request<'_> {
+    Request {
+        method: &Method::POST,
+        target_uri: RESTART_URI,
+        headers,
+        content: RESTART_BODY,
+    }
+}
+
+/// §Replay (spec 30dea91): reject when `created` is "earlier than the
+/// restart time plus the 60 seconds". With restart time T, `created` =
+/// T + 59 s is earlier than T + 60 s and is rejected; `created` = T + 60 s
+/// is not. The receiver's clock is T + 1 s, so check 4 ("`created` is
+/// more than 60 seconds after the current time") passes for both.
+#[tokio::test]
+async fn the_restart_rule_adds_the_60_second_skew() {
+    let f = fixture(DnssecAnswer::Insecure, None);
+    f.fetch
+        .serve(response("max-age=600", session(&[jwk(X_A, KID_A)])));
+    let restart = UNIX_EPOCH + Duration::from_secs(1_760_000_000);
+    let now = restart + Duration::from_secs(1);
+    let store = MemoryReplayStore::started_at(restart);
+
+    let early = signed_at(restart + Duration::from_secs(59));
+    let result = authenticate(restart_request(&early), now, &f.keys, &store).await;
+    assert!(matches!(
+        result,
+        Err(Error::Rejected(Rejection::PrecedesRestart))
+    ));
+
+    let on_time = signed_at(restart + Duration::from_secs(60));
+    let peer = authenticate(restart_request(&on_time), now, &f.keys, &store)
+        .await
+        .unwrap();
+    assert_eq!(peer.peer_domain, alice());
+}
+
+/// The replay §Replay (spec 30dea91) closes: a request whose `created`
+/// leads the receiver's clock by 46 s is accepted 1 s before a restart at
+/// T, then replayed 10 s after it. Its `created` (T + 45 s) is after the
+/// restart, so a rule without the skew would accept it from the emptied
+/// store; T + 45 s is earlier than T + 60 s, so it is rejected.
+#[tokio::test]
+async fn a_request_replayed_after_a_restart_is_rejected() {
+    let f = fixture(DnssecAnswer::Insecure, None);
+    f.fetch
+        .serve(response("max-age=600", session(&[jwk(X_A, KID_A)])));
+    let restart = UNIX_EPOCH + Duration::from_secs(1_760_000_000);
+    let captured = signed_at(restart + Duration::from_secs(45));
+
+    let before = MemoryReplayStore::started_at(restart - Duration::from_secs(3600));
+    authenticate(
+        restart_request(&captured),
+        restart - Duration::from_secs(1),
+        &f.keys,
+        &before,
+    )
+    .await
+    .unwrap();
+
+    let after = MemoryReplayStore::started_at(restart);
+    let replayed = authenticate(
+        restart_request(&captured),
+        restart + Duration::from_secs(10),
+        &f.keys,
+        &after,
+    )
+    .await;
+    assert!(matches!(
+        replayed,
+        Err(Error::Rejected(Rejection::PrecedesRestart))
+    ));
+}
+
 #[tokio::test]
 async fn overlapping_lookups_share_one_fetch() {
     let f = fixture(DnssecAnswer::Insecure, None);

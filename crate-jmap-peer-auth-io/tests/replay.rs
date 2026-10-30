@@ -145,7 +145,8 @@ async fn sweeps_keep_live_pairs() {
 }
 
 /// §Replay: "A receiving server whose nonce cache is lost, for example on
-/// restart, SHOULD reject requests whose `created` precedes the restart".
+/// restart, SHOULD reject requests whose `created` is earlier than the
+/// restart time plus the 60 seconds" of check 4's skew.
 /// An in-process store is lost on restart, so it remembers from the time
 /// it was made.
 #[test]
