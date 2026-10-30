@@ -209,6 +209,19 @@ pub async fn handle_principal_set<B: SharingBackend>(
                 other => other,
             };
 
+            // RFC 8620 §5.3: a create entry that is not an object has no
+            // properties to name, so report it without a `properties` list.
+            if !obj_with_id.is_object() {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "description": "a create entry must be an object",
+                    }),
+                );
+                continue;
+            }
+
             // RFC 9670 §2: `type` and `name` are required. serde reports a
             // missing field at the root, not on a property path, so name them
             // here (RFC 8620 §5.3 invalidProperties).
@@ -626,6 +639,28 @@ mod tests {
             let err = &resp["notCreated"][cid];
             assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
             assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
+    }
+
+    /// Oracle: RFC 8620 §5.3: `create` is "A map of a creation id ... to a
+    /// Foo object"; an entry that is not a JSON object is invalid. It has
+    /// no properties, so the SetError must not name one it does not have
+    /// (hand-written non-object entries below).
+    #[tokio::test]
+    async fn set_create_non_object_entry_names_no_property() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": { "str": "x", "arr": ["x"], "nul": null, "num": 5 }
+        });
+        let HandlerOutput { primary: resp, .. } = handle_principal_set(&backend, &(), args, &[])
+            .await
+            .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for cid in ["str", "arr", "nul", "num"] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert!(err.get("properties").is_none(), "{cid}: {resp}");
         }
     }
 }

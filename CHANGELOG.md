@@ -28,6 +28,16 @@ wire behaviour that a conforming peer can observe.
   `CalendarEvent/copy` or `Task/copy`) whose properties fail to parse now
   lists the offending property in the `invalidProperties` SetError's
   `properties` array (RFC 8620 §5.3), as `FileNode/set` already does.
+- **jmap-contacts-server**: a `ContactCard/copy` whose overrides fail to
+  parse now lists the offending property in the `invalidProperties`
+  SetError's `properties` array (RFC 8620 §5.3), matching
+  `CalendarEvent/copy` and `Task/copy`.
+- **jmap-calendars-server**, **jmap-contacts-server**,
+  **jmap-sharing-server**, **jmap-tasks-server**: an `AddressBook/set`,
+  `Calendar/set`, `ParticipantIdentity/set`, `Principal/set` or
+  `TaskList/set` create entry that is not a JSON object is now rejected
+  with an `invalidProperties` SetError described as "a create entry must
+  be an object", instead of naming a required property it cannot have.
   A missing required property is named too: AddressBook, Calendar and
   TaskList `name`, ParticipantIdentity `calendarAddress`, and Principal
   `type` and `name`. Previously only a serde description was returned.
