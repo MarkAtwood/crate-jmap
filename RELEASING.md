@@ -186,9 +186,9 @@ keyword length against this limit before the first publish.
 
 ### 3. crates.io new-crate rate limit
 
-crates.io rate-limits the number of *new* crates a user may publish per
-unit time — currently five per ten minutes. Publishing a release wave
-that introduces a sixth new crate within the window returns:
+crates.io rate-limits the number of *new* crates a user may publish: a
+burst of five, then one more every ten minutes. Publishing a new crate
+beyond that allowance returns:
 
 ```
 the remote server responded with an error (status 429 Too Many Requests):
@@ -199,11 +199,13 @@ try again after <timestamp>.
 Bumps to existing crates do not count. The 2026-05-13 wave introduced
 six new crates (`jmap-jscalendar-types`, `jmap-jscontact-types`,
 `jmap-cid-types`, `jmap-metadata-types`, `jmap-metadata-server`,
-`jmap-metadata-client`) and hit the limit twice. Plan the publish
-order so first-time publishes are spread across multiple ten-minute
-windows when introducing more than five new crates. The 0.4.0 wave
-introduces 26 new crates (the Scene, VTC, Graph, DID, peer-auth,
-web-push, MIMI and chat-bridge crates), so it spans at least six windows.
+`jmap-metadata-client`) and hit the limit twice. The 2026-10-24 0.4.0
+wave introduced 26 new crates (the Scene, VTC, Graph, DID, peer-auth,
+web-push, MIMI and chat-bridge crates): the first five published within
+a minute, then crates.io accepted one new crate every ten minutes, so the
+wave took 3.5 hours. Budget ten minutes per new crate beyond the fifth,
+and publish with a script that retries on 429 after a few minutes rather
+than failing the wave.
 
 ### 4. Uncommitted changes block `cargo publish`
 
