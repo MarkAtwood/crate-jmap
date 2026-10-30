@@ -519,3 +519,39 @@ async fn active_avatar_count_stays_the_true_count() {
     );
     assert_eq!(region["list"][0]["activeAvatarCount"], json!(2), "{region}");
 }
+
+/// RFC 8620 §5.1 (rfc8620.txt L1606-1609): "If supplied, only the
+/// properties listed in the array are returned for each Foo object. ...
+/// The id property of the object is *always* returned, even if not
+/// explicitly requested." The memory backend ignores `properties`.
+/// draft-atwood-jmap-scene-00 at jmap-chat-spec 7787c51, L1454: "Objects
+/// in regions the authenticated user does not have access to are reported
+/// in `notFound`", which still holds when the caller does not ask for
+/// `regionId`, the property region access is decided on.
+#[tokio::test]
+async fn get_returns_only_requested_properties_and_id() {
+    let backend = scene();
+    let region = call!(
+        handle_scene_region_get,
+        &backend,
+        ALICE,
+        json!({ "ids": [PUBLIC], "properties": ["name"] })
+    );
+    assert_eq!(
+        region["list"],
+        json!([{ "id": PUBLIC, "name": "Plaza" }]),
+        "{region}"
+    );
+    let object = call!(
+        handle_scene_object_get,
+        &backend,
+        BOB,
+        json!({ "ids": [O1, SECRET], "properties": ["position"] })
+    );
+    assert_eq!(
+        object["list"],
+        json!([{ "id": O1, "position": [0.0, 0.0, 0.0] }]),
+        "{object}"
+    );
+    assert_eq!(not_found(&object), [SECRET], "{object}");
+}
