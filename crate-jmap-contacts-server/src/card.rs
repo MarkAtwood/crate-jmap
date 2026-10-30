@@ -563,17 +563,22 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                         continue;
                     }
                 }
-                card = match serde_json::from_value(card_val) {
+                card = match serde_path_to_error::deserialize(card_val) {
                     Ok(c) => c,
                     Err(e) => {
-                        not_copied.insert(
-                            create_id,
-                            json!({
-                                "type": "invalidProperties",
-                                "description":
-                                    format!("patch produced invalid ContactCard: {e}"),
-                            }),
-                        );
+                        // RFC 8620 §5.3: invalidProperties SHOULD list the
+                        // invalid properties; the first path segment is the
+                        // top-level property whose value failed to parse.
+                        let mut err = json!({
+                            "type": "invalidProperties",
+                            "description": format!("patch produced invalid ContactCard: {e}"),
+                        });
+                        if let Some(serde_path_to_error::Segment::Map { key }) =
+                            e.path().iter().next()
+                        {
+                            err["properties"] = json!([key]);
+                        }
+                        not_copied.insert(create_id, err);
                         continue;
                     }
                 };
@@ -1588,5 +1593,32 @@ mod tests {
             assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
             assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
         }
+    }
+
+    /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". The override
+    /// below sets `addressBookIds` (an `Id[Boolean]`, RFC 9610 §3) to a
+    /// number, the only bad property.
+    #[tokio::test]
+    async fn copy_typed_parse_failure_names_property() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "create": {
+                "c1": { "id": "card1", "addressBookIds": 5 }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_contact_card_copy(&backend, &(), args, "c0", &[])
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        let err = &resp["notCreated"]["c1"];
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["addressBookIds"]), "{resp}");
     }
 }
