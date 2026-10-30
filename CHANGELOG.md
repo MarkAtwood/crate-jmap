@@ -12,6 +12,8 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-30
+
 ### Fixed
 
 - **jmap-peer-auth-io** (security): `authenticate` now applies the
