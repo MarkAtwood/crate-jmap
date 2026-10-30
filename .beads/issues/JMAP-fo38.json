@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-fo38",
+  "title": "chat-server /set handlers skip accountNotFound check",
+  "description": "Surfaced by the JMAP-aqnr workspace-propagation sweep. All nine jmap-chat-server /set handlers (handle_chat_set, handle_message_set, handle_space_set, handle_contact_set, handle_presence_set, handle_invite_set, handle_emoji_set, handle_position_set, handle_ban_set) go straight from extract_account_id to enforce_max_objects_in_set/get_state with no backend.account_exists check, although each module doc lists accountNotFound (RFC 8620 §3.6.2) as an error. The canonical jmap-mail-server handle_mailbox_set, jmap-filenode-server handle_filenode_set (b3a1f7b8, JMAP-2wuk), and the graph/vtc set helpers all check it. Fix: add the canonical account_exists block after extract_account_id in each handler, plus a gate test per method with an unknown accountId.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T18:08:46.14118979Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T17:16:12.365779731Z",
+  "closed_at": "2026-10-23T17:16:12.365779731Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860"
+}

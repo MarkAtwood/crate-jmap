@@ -1,0 +1,32 @@
+{
+  "id": "JMAP-ef3q.7",
+  "title": "graph-search: where filter language types",
+  "description": "draft-atwood-jmap-graph-search-00: urn:ietf:params:jmap:graph:search (languages, maxDepth, supportsText); where/language/expression filter fields; built-in where language AST (JSON Pointer field tests, comparison/array/logical/collation ops, $edge/$reachable/$from/$to, $text); queryTooComplex. Module in jmap-graph-types. Parse tests from spec examples. Oracle: draft text at jmap-chat-spec 6bcd9d8 (/home/mark/PROJECT/jmap-chat-spec). Crates start publish = false (draft, Mark review before publishing). Copy crate metadata exactly from a sibling family (e.g. jmap-filenode-*). Follow AGENTS.md canonical templates.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T23:00:15.620025808Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:20.011554521Z",
+  "closed_at": "2026-10-21T10:10:20.011554521Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ef3q.7",
+      "depends_on_id": "JMAP-ef3q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T23:00:15.722013917Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-ef3q.7",
+      "depends_on_id": "JMAP-ef3q.1",
+      "type": "blocks",
+      "created_at": "2026-10-20T23:00:20.035154128Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

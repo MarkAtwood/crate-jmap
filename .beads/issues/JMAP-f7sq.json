@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-f7sq",
+  "title": "jmap-server generic /get ignores properties",
+  "description": "jmap_server::handle_get (and handle_get_with_metadata, added in e0300ee2) returns whatever the backend serializes; the memory backends ignore the /get properties argument, so RFC 8620 §5.1 property filtering does not happen on those paths. Non-breaking (0.4.x) per Mark's 2026-10-23 cutoff. Found during JMAP-s4kp.9.",
+  "notes": "CHECKPOINT 2026-10-30: in batch 24 (0.4.x, must be semver-compatible with published 0.4.0), run wf_05ff1b01-172, script ~/Cache/crate-jmap-handoff-2026-10-22/batch24.js, base dc3720b6.\nFixed in jmap-server handle_get (covers handle_get_with_metadata). Bypass gap in graph/scene handle_get_visible filed as JMAP-c35r.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T06:44:12.229735644Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T12:44:56.421483257Z",
+  "closed_at": "2026-10-30T12:44:56.421483257Z",
+  "close_reason": "batch 24 (0.4.x): implemented, adversarially verified, local CI green at 66ed14e3 incl. public-api and fresh deny, pushed"
+}

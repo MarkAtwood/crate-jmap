@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.11",
+  "title": "Comparator property typed enum with Other everywhere",
+  "description": "JMAP-ops7.15: mail uses typed ComparatorProperty+Other; calendars/tasks/contacts use String; chat closed per-type enums. Align to the canonical mail shape (typed enum with Other) in all siblings. BREAKING.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:34.36604778Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:56.850857351Z",
+  "closed_at": "2026-10-22T03:35:56.850857351Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.11",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:34.664224812Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

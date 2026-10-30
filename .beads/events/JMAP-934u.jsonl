@@ -1,0 +1,1 @@
+{"id":"01a165ee-ce0b-72c6-b814-a8e4d6c67be2","issue_id":"JMAP-934u","event_type":"closed","actor":"agent","old_value":"","new_value":"Mark 2026-10-22: won't fix. Reference MemoryBackend-only O::TYPE_NAME compares fold at compile time (const); a foundation-trait hook would push backend index logic into every types crate.","created_at":"2026-10-22T23:25:11.563182486Z"}

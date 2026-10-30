@@ -1,0 +1,1 @@
+{"id":"01a165da-31b4-78c0-826a-3c66ead27b46","issue_id":"JMAP-wlip.36","event_type":"closed","actor":"agent","old_value":"","new_value":"Mark 2026-10-22: keep tokio::task::spawn for panic isolation and run-to-completion on drop (decision recorded on JMAP-wlip.34).","created_at":"2026-10-22T23:02:40.820574611Z"}

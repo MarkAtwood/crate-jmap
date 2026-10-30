@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-3x9e",
+  "title": "chat-server: resolve #creationId in nested /set ids",
+  "description": "Follow-up to JMAP-1p88. RFC 8620 §5.3 lets any foreign key be a #creationId reference. JMAP-1p88 resolves top-level Id and Id[] properties in chat /set (Chat contactId/memberIds/pinnedMessageIds/removeMembers, Message chatId/replyTo/threadRootId, ReadPosition lastReadMessageId, SpaceInvite spaceId/defaultChannelId, SpaceBan and CustomEmoji spaceId). Ids nested inside entry objects are still literal: Chat/set addMembers[].id and updateMemberRoles[].id (draft-atwood-jmap-chat-00 §Updating a Chat, ChatContact ids), Message mentions and attachments filenodeId, and Space/set patch entries that name Chat or ChatContact records. Each needs a per-shape walker in crate-jmap-chat-server using helpers::resolve_ref.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T13:55:58.853196275Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:25.669929585Z",
+  "closed_at": "2026-10-24T03:55:25.669929585Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

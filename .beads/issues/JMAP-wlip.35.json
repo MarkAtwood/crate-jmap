@@ -1,30 +1,26 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-wlip.35",
+  "title": "Architectural decision: move RFC 8621 mail-specific SetErrorType variants out of foundation",
+  "description": "Background: bd:JMAP-wlip.19 closed the documentation half — the SetErrorType doc now honestly acknowledges that the foundation carries 13 RFC 8621 mail-specific variants alongside the 10 RFC 8620 base variants, while explicitly forbidding further extension variants there. The actual reshape requires a workspace-architectural decision.\n\nCurrent state (foundation jmap-server::SetErrorType variants):\n- RFC 8620 §5.3 base (10): Forbidden, OverQuota, TooLarge, RateLimit, NotFound, InvalidPatch, WillDestroy, InvalidProperties, Singleton, AlreadyExists\n- RFC 8621 mail-specific (13): MailboxHasChild, MailboxHasEmail, TooManyKeywords, TooManyMailboxes, BlobNotFound, ForbiddenFrom, InvalidEmail, TooManyRecipients, NoRecipients, InvalidRecipients, ForbiddenMailFrom, ForbiddenToSend, CannotUnsend\n- Custom(String) for everything else\n\nProposal: move the 13 mail variants to a new MailSetErrorType enum in jmap-mail-types and have jmap-mail-server map those to SetErrorType::Custom on the wire. The foundation SetErrorType keeps only the 10 RFC 8620 §5.3 variants plus Custom.\n\nCost:\n- Breaking change to jmap-server (variant removal) — workspace-wide major bump.\n- Cascading propagation: every *-server crate that pattern-matches on these variants needs to rebase onto the new shape.\n- Every *-server crate's tests that compare SetErrorType::TooManyRecipients need to compare against SetErrorType::custom('tooManyRecipients') instead.\n- Public API surface shrinks for the foundation crate (good) but mail-extension callers lose typed pattern-matching (bad).\n\nWorkaround if not done: callers of mail-extension errors continue to enjoy typed pattern-matching while callers of other extensions use Custom. The asymmetry is documented but persists.\n\nDecision needed from Mark:\n- (a) Schedule the reshape for the next planned workspace major bump.\n- (b) Defer indefinitely; keep the asymmetry and the documented carve-out.\n- (c) Reshape now (major bump now).\n\nThis is closer to (a) territory — the asymmetry is a known cost of the kit-of-parts architecture, and the reshape is well-defined when a major bump arrives anyway.",
+  "notes": "Decided 2026-10-21 in JMAP-wf92.5 (commit 604bd725): the 13 RFC 8621 mail variants STAY as known typed variants of the shared SetErrorType, which now lives in jmap-types (jmap-server re-exports it) with Other(String) replacing Custom(String). This is the recommended answer in the wf92.5 bead text. Reason: SetErrorType is now shared by servers and clients, so mail servers and mail clients keep one typed match; moving them to a MailSetErrorType would drop typed matching on both sides and only relocate the asymmetry. The variant policy doc still forbids adding further extension-specific variants; other extensions use SetErrorType::from(\"...\") -\u003e Other. No MailSetErrorType reshape.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T13:41:46Z",
   "created_by": "Mark Atwood",
-  "description": "Background: bd:JMAP-wlip.19 closed the documentation half — the SetErrorType doc now honestly acknowledges that the foundation carries 13 RFC 8621 mail-specific variants alongside the 10 RFC 8620 base variants, while explicitly forbidding further extension variants there. The actual reshape requires a workspace-architectural decision.\n\nCurrent state (foundation jmap-server::SetErrorType variants):\n- RFC 8620 §5.3 base (10): Forbidden, OverQuota, TooLarge, RateLimit, NotFound, InvalidPatch, WillDestroy, InvalidProperties, Singleton, AlreadyExists\n- RFC 8621 mail-specific (13): MailboxHasChild, MailboxHasEmail, TooManyKeywords, TooManyMailboxes, BlobNotFound, ForbiddenFrom, InvalidEmail, TooManyRecipients, NoRecipients, InvalidRecipients, ForbiddenMailFrom, ForbiddenToSend, CannotUnsend\n- Custom(String) for everything else\n\nProposal: move the 13 mail variants to a new MailSetErrorType enum in jmap-mail-types and have jmap-mail-server map those to SetErrorType::Custom on the wire. The foundation SetErrorType keeps only the 10 RFC 8620 §5.3 variants plus Custom.\n\nCost:\n- Breaking change to jmap-server (variant removal) — workspace-wide major bump.\n- Cascading propagation: every *-server crate that pattern-matches on these variants needs to rebase onto the new shape.\n- Every *-server crate's tests that compare SetErrorType::TooManyRecipients need to compare against SetErrorType::custom('tooManyRecipients') instead.\n- Public API surface shrinks for the foundation crate (good) but mail-extension callers lose typed pattern-matching (bad).\n\nWorkaround if not done: callers of mail-extension errors continue to enjoy typed pattern-matching while callers of other extensions use Custom. The asymmetry is documented but persists.\n\nDecision needed from Mark:\n- (a) Schedule the reshape for the next planned workspace major bump.\n- (b) Defer indefinitely; keep the asymmetry and the documented carve-out.\n- (c) Reshape now (major bump now).\n\nThis is closer to (a) territory — the asymmetry is a known cost of the kit-of-parts architecture, and the reshape is well-defined when a major bump arrives anyway.",
-  "ephemeral": false,
-  "id": "JMAP-wlip.35",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T22:47:33.311438389Z",
+  "closed_at": "2026-10-22T22:47:33.311438389Z",
+  "close_reason": "triage 2026-10-22 (moot, skeptic-confirmed): Decided and landed in commit 604bd725 'feat(types)!: one SetError, typed SetErrorType' (JMAP-wf92.5), recorded in the bead NOTES: the mail variants stay typed. Code matches: SetErrorType lives at crate-jmap-types/src/set_error.rs:348 with MailboxHasChild :371, CannotUnsend :395, Other(String) :398. No reshape is pending, so the bead can be closed as decided. | check: This was a decision bead, and the decision is recorded in NOTES (JMAP-wf92.5, 604bd725): the mail variants stay typed. The code matches: SetErrorType is in crate-jmap-types/src/set_error.rs with MailboxHasChild, CannotUnsend and Other(String). Nothing is left to decide or reshape.",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "Architectural decision: move RFC 8621 mail-specific SetErrorType variants out of foundation",
-  "updated_at": "2026-05-14T13:41:46Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T06:41:46Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-wlip",
-      "id": "27f80186-55fe-599c-a3a4-6d77d0be190a",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

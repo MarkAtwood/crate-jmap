@@ -2,13 +2,15 @@
   "id": "JMAP-yt1w.23",
   "title": "contacts AddressBook/set cascade echoes backend Display in serverFail",
   "description": "crate-jmap-contacts-server/src/addressbook.rs:622 and :637 build serverFail with format!(\"cascade query failed: {e}\") / (\"cascade fetch failed: {e}\"), echoing the backend error's Display to the wire. Violates the workspace redaction contract (SERVER_FAIL_INTERNAL_DESC, server_fail_from_backend_drops_display_text, bd:JMAP-wlip.2). Fix: use server_fail_value_from_backend. Found while doing JMAP-yt1w.21; out of scope there.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-19T04:08:16.581246884Z",
   "created_by": "agent",
-  "updated_at": "2026-10-19T04:08:16.581246884Z",
+  "updated_at": "2026-10-21T20:09:38.01238159Z",
+  "closed_at": "2026-10-21T20:09:38.01238159Z",
+  "close_reason": "Batch 11: committed and adversarially verified (or already fixed); CI green at cc87669d",
   "dependencies": [
     {
       "issue_id": "JMAP-yt1w.23",

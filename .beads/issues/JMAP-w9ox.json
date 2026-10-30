@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-w9ox",
+  "title": "0.4 freeze audit 2 survivors (2026-10-22)",
+  "description": "Second freeze audit (run wf_54b0d319-d1a) at 4c90ff26: 10 findings, 4 survived a 3-skeptic vote, critic found no unreviewed crates. Awaiting Mark review before work. Full JSON: scratchpad audit2_result.json.",
+  "notes": "CHECKPOINT 2026-10-22: origin/main 5c2838c2 (openmls =0.9.2, CI green). Batch 15 running: run wf_c844545b-136 (scratchpad/batch15.js) for w9ox.4, .1, .2, .3, then CI. Decisions recorded on each bead. Worktrees clean.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T21:30:00.751280455Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T22:11:51.44525235Z",
+  "closed_at": "2026-10-22T22:11:51.44525235Z",
+  "close_reason": "All 4 freeze-audit-2 survivors landed; origin/main pushed."
+}

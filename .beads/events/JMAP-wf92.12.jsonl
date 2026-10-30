@@ -1,0 +1,2 @@
+{"id":"01a1604c-4cfa-7d02-9bc3-6b87f7a6246f","issue_id":"JMAP-wf92.12","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-21T21:09:35.61085498Z"}
+{"id":"01a161ae-05a3-74e0-8839-58e3aec6d449","issue_id":"JMAP-wf92.12","event_type":"closed","actor":"agent","old_value":"","new_value":"batch 13: committed, adversarially verified, CI green at e3fb0ae6","created_at":"2026-10-22T03:35:57.091320346Z"}

@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-5kpy",
+  "title": "jmap-metadata-server: reusable stub/default metadata implementation for backends",
+  "description": "Mark 2026-10-22 (decision on JMAP-s4kp): besides wiring metadata-04 into the 7 MemoryBackends, put a reusable stub in the helper crate jmap-metadata-server so any backend (reference or consumer) gets a working metadata baseline with little code: e.g. a default per-property change tracker for ignoreMetadataOnlyChanges, filter evaluation over WithMetadata\u003cC\u003e, and /set validation (value_depth/exceeds_max_depth, is_namespace_supported) packaged as functions or a small trait with default methods. The 7 MemoryBackend beads (JMAP-s4kp.1-.7) should use it. Refresh s4kp text from -02 to -04 names first.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T22:51:34.600794366Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T17:16:11.485568455Z",
+  "closed_at": "2026-10-23T17:16:11.485568455Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860"
+}

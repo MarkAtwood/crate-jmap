@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.75",
+  "title": "Batch 9 review leftovers: Other() semantics, newState test, cites",
+  "description": "Minor findings from batch 9 adversarial review (HEAD df7e2035).\n1. kgx2 (870006ef): jmap-chat-filenode-server member_permissions/TIERS compare ChatPermission::as_str(), so a hand-built everyone set containing Other(\"manage_space\") grants there, while vtc/federation/memory compare by enum equality and do not. CHANGELOG [Unreleased] says an Other spelling of a known name 'can deny but never grant'; that holds only for resolve_channel_permissions. Fix: document filenode's wire-string semantics or narrow the CHANGELOG sentence (or make filenode compare by variant).\n2. 0x0q.64 (fbc9520b): commit and CHANGELOG say the lost-race and cleanup-failed branches of chat_set duplicate-direct now advance newState; no test asserts it (crate-jmap-chat-server/tests/integration.rs). Add a test with RFC 8620 §5.1 as oracle.\n3. 0x0q.60 (0925379d): crate-jmap-chat-types/tests/chat_tasks.rs header L5-8 still says 'line numbers at HEAD' and two unpinned cites (e.g. L205 'L194') are wrong at 33702a5; crate-jmap-chat-server/tests/presence_delivery.rs header L4-7 still names wss:269, wss:293, chat:1557 at 91672c9. Re-pin to 33702a5.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T16:19:26.636409093Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T17:15:55.12008265Z",
+  "closed_at": "2026-10-21T17:15:55.12008265Z",
+  "close_reason": "Batch 10: committed and adversarially verified; CI green at d9d4d6af",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.75",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T16:19:26.756734763Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

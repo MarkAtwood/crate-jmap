@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-2o2i",
+  "title": "mail-server: Email/set create ignores header:* properties",
+  "description": "Found in JMAP-u6c5. The Email/set create handler composes the message from the convenience properties (from, to, subject, messageId, sentAt, ...) and body parts, but ignores header:\u003cName\u003e[:as\u003cForm\u003e] properties on the Email and on EmailBodyPart objects. RFC 8621 4.6 lets a client set any header field that way ('the client must set each header field as an individual property') and forbids two properties for the same field. Fix: map header:* properties to jmap_mime::writer::Header values in compose (top-level and per part), reject duplicates and Content-* on the Email as invalidProperties.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T17:36:07.054349976Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:27.200227954Z",
+  "closed_at": "2026-10-24T03:55:27.200227954Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

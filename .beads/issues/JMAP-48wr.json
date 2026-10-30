@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-48wr",
+  "title": "tasks/filenode README: stale CallerCtx section",
+  "description": "crate-jmap-tasks-server/README.md and crate-jmap-filenode-server/README.md '## CallerCtx' say the standard handle_* bodies ignore _ctx, but src/lib.rs forwards \u0026ctx and every handle_* takes caller: \u0026B::CallerCtx (e.g. tasks src/task.rs handle_task_get, filenode src/lib.rs:136). Mirror the jmap-mail-server README CallerCtx section, as JMAP-7xlj did for chat. Found during JMAP-7xlj.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T03:12:14.094884837Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:23.9319314Z",
+  "closed_at": "2026-10-24T06:43:23.9319314Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed"
+}

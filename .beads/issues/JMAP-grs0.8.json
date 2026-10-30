@@ -1,38 +1,33 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-grs0.8",
+  "title": "Propagate: jmap-metadata-server Inner-state nested HashMap restructure",
+  "description": "## Sibling propagation of canonical bd:JMAP-grs0.1\n\nDepends on bd:JMAP-grs0.1 (mail-server canonical fix) landing first. Mirror the canonical fix byte-for-byte modulo TYPE_NAME constants.\n\n## Fix shape\n\nSee bd:JMAP-grs0 epic body and bd:JMAP-grs0.1 for the canonical pattern. The Inner struct becomes:\n\n```rust\nstruct Inner {\n    objects: HashMap\u003c\u0026'static str, HashMap\u003cString, HashMap\u003cId, Value\u003e\u003e\u003e,\n    states: HashMap\u003c\u0026'static str, HashMap\u003cString, u64\u003e\u003e,\n    change_log: HashMap\u003c\u0026'static str, HashMap\u003cString, Vec\u003cChangeEntry\u003e\u003e\u003e,\n}\n```\n\nRead-path helpers take `\u0026str` and don't allocate; write-path helpers preserve auto-register-via-or_default.\n\nCloses parallel sibling-tracker bead: bd:JMAP-ayoz.32.\n\n## Acceptance\n\n- Mirror the canonical fix\n- All read-path helpers take `\u0026str` and don't allocate\n- cargo test -p jmap-metadata-server green\n- cargo clippy -p jmap-metadata-server -- -D warnings green",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-17T05:49:15Z",
   "created_by": "Mark Atwood",
-  "description": "## Sibling propagation of canonical bd:JMAP-grs0.1\n\nDepends on bd:JMAP-grs0.1 (mail-server canonical fix) landing first. Mirror the canonical fix byte-for-byte modulo TYPE_NAME constants.\n\n## Fix shape\n\nSee bd:JMAP-grs0 epic body and bd:JMAP-grs0.1 for the canonical pattern. The Inner struct becomes:\n\n```rust\nstruct Inner {\n    objects: HashMap<&'static str, HashMap<String, HashMap<Id, Value>>>,\n    states: HashMap<&'static str, HashMap<String, u64>>,\n    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,\n}\n```\n\nRead-path helpers take `&str` and don't allocate; write-path helpers preserve auto-register-via-or_default.\n\nCloses parallel sibling-tracker bead: bd:JMAP-ayoz.32.\n\n## Acceptance\n\n- Mirror the canonical fix\n- All read-path helpers take `&str` and don't allocate\n- cargo test -p jmap-metadata-server green\n- cargo clippy -p jmap-metadata-server -- -D warnings green",
-  "ephemeral": false,
-  "id": "JMAP-grs0.8",
-  "is_blocked": true,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T22:47:34.812308528Z",
+  "closed_at": "2026-10-22T22:47:34.812308528Z",
+  "close_reason": "triage 2026-10-22 (moot, skeptic-confirmed): Commit b34a07bf 'refactor(jmap-metadata-server)!: rewrite for draft-02' removed MetadataBackend, MemoryBackend and memory.rs. The crate is now pure functions: crate-jmap-metadata-server/src/lib.rs:27-28 says 'No backend trait, no dispatcher registration, no memory feature'; src/ holds only changes.rs, filter.rs, validate.rs. There is no Inner struct to restructure. | check: crate-jmap-metadata-server/src contains only lib.rs, changes.rs, filter.rs and validate.rs. There is no memory backend or Inner struct left to restructure, so the bead is moot.",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 4,
-  "status": "open",
-  "title": "Propagate: jmap-metadata-server Inner-state nested HashMap restructure",
-  "updated_at": "2026-06-26T19:57:36Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-05-16T22:49:26Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-grs0.1",
-      "id": "2a86065f-e5b6-532a-99cc-de254151e1b3",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-16T22:49:15Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-grs0",
-      "id": "acf27fdd-1c13-5297-b673-8afc25ca701f",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

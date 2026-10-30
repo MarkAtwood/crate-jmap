@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-wf92.25",
+  "title": "Type the remaining serde_json::Value /query comparators",
+  "description": "Follow-up from JMAP-wf92.22 (JMAP-wf92.11 verify). These QueryObjects still use type Comparator = serde_json::Value: Calendar, CalendarEventNotification, ParticipantIdentity (calendars-types/src/backend.rs), Mailbox, EmailSubmission (mail-types), Principal, ShareNotification (sharing-types), TaskList (tasks-types), FileNode (filenode-types). CHANGELOG and AGENTS.md now name them as outside the typed-comparator rule. Decide whether to give each a typed XxxComparator with an Other(String) catch-all per AGENTS.md 'Exception: comparator sort properties'.",
+  "notes": "Freeze audit (2026-10-22) survivor 3/3 adds client-shape divergence:\n\n## [JMAP-wf92.25] Untyped /query sort arguments also differ in client shape (Option\u003cValue\u003e vs Option\u003c\u0026[Value]\u003e)\nCrates: jmap-mail-client, jmap-filenode-client, jmap-calendars-client, jmap-sharing-client\nEvidence: crate-jmap-mail-client/src/methods/mailbox.rs:239,309 and crate-jmap-filenode-client/src/methods/filenode.rs:549,618 take `sort: Option\u003cserde_json::Value\u003e`, a whole array passed as one Value. crate-jmap-calendars-client/src/methods/event_notification.rs:215,276 takes `sort: Option\u003c\u0026[serde_json::Value]\u003e`. Every typed sibling takes `Option\u003c\u0026[XxxComparator]\u003e`. JMAP-wf92.25 tracks the types-side Comparator = serde_json::Value, and this is the matching client-signature divergence.\nWhy breaking later: When wf92.25 lands typed comparators, each of these client signatures changes anyway. Doing it in the same 0.4 pass avoids a second break.\nFix: When implementing wf92.25, move every client query/query_changes sort argument to `Option\u003c\u0026[XxxComparator]\u003e`, with the slice shape everywhere.\nSize: S\n\nVotes: REAL: The claim holds at HEAD, and the problem is wider than stated. None of the four client crates sets publish = false; all are at version 0.3.0.\n\n(a) Evidence. These methods take `sort: Option\u003cserde_json::Value\u003e`:\n- crate-jmap-mail-client/src/methods/mailbox.rs:239,309\n- crate-jmap-mail-client/src/methods/submission.rs:161,232 (not in the claim)\n- crate-jmap-filenode-client/src/methods/filenode.rs:549,618\n- crate-jmap-sharing-client/src/methods/notification.rs:189,254 and principal.rs:236,301 (the claim names this crate but cites no lines)\n\ncrate-jmap-calendars-client/src/methods/event_notificati; REAL: I could not refute it. The claim holds as an addendum to JMAP-wf92.25 and should not be filed as a separate bead.\n\n(a) The evidence holds at HEAD, and the problem is wider than the claim says. These signatures take `sort: Option\u003cserde_json::Value\u003e`:\n- crate-jmap-mail-client/src/methods/mailbox.rs:239,309\n- crate-jmap-mail-client/src/methods/submission.rs:161,232 (not in the claim)\n- crate-jmap-filenode-client/src/methods/filenode.rs:549,618\n- crate-jmap-sharing-client/src/methods/principal.rs:236,301 (not in the claim)\n- crate-jmap-sharing-client/src/methods/notification.rs:189,254 (not in the; REAL: I could not refute it; the evidence holds at HEAD and is slightly wider than claimed. These clients take `sort: Option\u003cserde_json::Value\u003e`: crate-jmap-mail-client/src/methods/mailbox.rs:239,309, crate-jmap-mail-client/src/methods/submission.rs:161,232, crate-jmap-filenode-client/src/methods/filenode.rs:549,618 and crate-jmap-sharing-client/src/methods/notification.rs:189,254. crate-jmap-calendars-client/src/methods/event_notification.rs:215,276 takes `Option\u003c\u0026[serde_json::Value]\u003e`. Every typed sibling takes `Option\u003c\u0026[XxxComparator]\u003e`, including mail's own canonical Email at email.rs:272,353. N",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T05:25:05.633022144Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:20.034667893Z",
+  "closed_at": "2026-10-22T16:43:20.034667893Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.25",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-22T05:25:05.75804926Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-2ru0",
+  "title": "Memory backends: /changes intermediate states over maxChanges",
+  "description": "RFC 8620 §5.2 (rfc8620.txt L1763-1766): over maxChanges the server SHOULD generate an update to an intermediate state (hasMoreChanges=true). The chat, contacts, graph and vtc MemoryBackend get_changes return BackendChangesError::TooManyChanges instead, which after JMAP-a01c surfaces as cannotCalculateChanges and forces a full client resync. Implement truncation to maxChanges with an intermediate newState and has_more_changes=true. Follow-up from JMAP-a01c.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T00:35:47.013648045Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:23.459933131Z",
+  "closed_at": "2026-10-24T06:43:23.459933131Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed"
+}

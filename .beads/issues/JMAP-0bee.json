@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-0bee",
+  "title": "mail-server Email/query never returns unsupportedSort",
+  "description": "crate-jmap-mail-server/src/email.rs (handle_email_query ~line 841, handle_email_query_changes ~line 1089) decodes EmailComparator but never rejects an unsupported property or an unrecognised collation; it passes sort straight to the backend. RFC 8620 §5.5 unsupportedSort: 'includes a property the server does not support sorting on or a collation method it does not recognise'. Mirror JMAP-vzgi (Mailbox/EmailSubmission/SieveScript accept only i;octet). Found while fixing JMAP-vzgi.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T06:03:13.631629413Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T07:18:51.468570331Z",
+  "closed_at": "2026-10-24T07:18:51.468570331Z",
+  "close_reason": "batch 23: implemented, adversarially verified, CI green at 87284db6, pushed"
+}

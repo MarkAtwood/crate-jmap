@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-s4kp.10",
+  "title": "copy: Task/CalendarEvent/FileNode revalidate copied metadata",
+  "description": "draft-ietf-jmap-metadata-04 §3.4 (L658-661): 'Copied values are not revalidated against the destination account: data in a copied namespace that is not supported there is handled as described in Section 2.1.1, and maxDepth applies only to values supplied in the create object.' Task/copy (jmap-tasks-server), CalendarEvent/copy (jmap-calendars-server) and FileNode/copy (jmap-filenode-server) merge the create entry into the source and store the result through create_object, whose memory backends run check_metadata_create on every metadata value, copied or supplied. A copied namespace the destination does not support, or a copied value deeper than the destination maxDepth, therefore fails the copy. JMAP-s4kp.9 added the handler-side §3.4 rules (using gate, null rejection, privateMetadata/metadata stripping) but could not tell create_object which values were supplied. Fix: mirror Email/copy and ContactCard/copy, i.e. a backend copy_object(.., create) that validates only the create object's metadata (canonical: jmap-mail-server check_metadata_create(supplied, val)). Discovered in JMAP-s4kp.9.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T05:27:06.01145581Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T07:18:51.677387975Z",
+  "closed_at": "2026-10-24T07:18:51.677387975Z",
+  "close_reason": "batch 23: implemented, adversarially verified, CI green at 87284db6, pushed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-s4kp.10",
+      "depends_on_id": "JMAP-s4kp",
+      "type": "parent-child",
+      "created_at": "2026-10-24T05:27:06.226769192Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

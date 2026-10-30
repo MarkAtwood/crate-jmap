@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.62",
+  "title": "tests: DID refresh, absent did and NoHost gaps",
+  "description": "DID-binding test gaps (batch 8b review, JMAP-0x0q.13/.48/.50). Code is correct today; these pin behaviour a refactor could silently break.\n\n1. crate-jmap-did-resolver/tests/resolver.rs: refresh_fetches_one_did_at_most_once_per_60_seconds (L386) only covers a still-cached entry. Add a test that evicts the entry inside the 60 s window (with_max_entries(NonZeroUsize::MIN) plus a second DID, as full_cache_drops_its_oldest_entry L431 does) and asserts no second upstream fetch; also cover the bounded `refreshed` map's retain/drop-oldest eviction. Spec: draft-atwood-jmap-chat-did-00 refresh rule \"SHOULD NOT resolve one DID again for this reason more often than once every 60 seconds\".\n2. crate-jmap-server/src/helpers.rs:1144 did_update_with_current_value_passes: covers stored `did: null` but not a stored object with no `did` key plus update `{\"did\": null}` -\u003e None (the documented absent-counts-as-null rule, unwrap_or(\u0026Value::Null)).\n3. crate-jmap-chat-federation-server/tests/peer_deliver.rs: no negative test for IdentityBinding::NoHost with did_verified set. src/deliver.rs:258 rejects it correctly, but collapsing the match to `_ =\u003e peer.did_verified` would pass every test. Spec: draft-atwood-jmap-chat-federation-00 L256 \"any other host-less identity MUST be rejected\".\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:37.259400394Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:25.06675428Z",
+  "closed_at": "2026-10-21T16:19:25.06675428Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.62",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:37.37901005Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

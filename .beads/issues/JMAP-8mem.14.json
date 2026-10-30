@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-8mem.14",
+  "title": "[vtc] end_cascade skips breakout rooms the caller cannot access",
+  "description": "Found in review of JMAP-8mem.5. end_cascade (crate-jmap-vtc-server/src/call.rs) collects breakout rooms through caller-scoped get_objects. Under VtcBackend §Per-call access, a room the ending moderator cannot access is left out, so it is never ended when the parent ends (jmap-vtc-implementer-guide §Breakout room cleanup: 'Implement parent-call end as a cascade that ends all child calls first'). Fix likely means moving the cascade into the backend, or adding an access-agnostic room read and write path. Add a test with deny_call_access on a breakout room.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T05:49:14.377307888Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T20:09:34.052846017Z",
+  "closed_at": "2026-10-21T20:09:34.052846017Z",
+  "close_reason": "Batch 11: committed and adversarially verified (or already fixed); CI green at cc87669d",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.14",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-21T05:49:14.484194856Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

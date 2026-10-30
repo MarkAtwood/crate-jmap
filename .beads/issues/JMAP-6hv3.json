@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-6hv3",
+  "title": "mail-server Sieve/query ignores sort; never returns unsupportedSort",
+  "description": "crate-jmap-mail-server/src/sieve.rs handle_sieve_query (around line 1009-1100) never reads the 'sort' argument and always sorts by name ascending. RFC 8620 §5.5: 'If the server does not support a sort property or comparator... the server MUST reject the request with an unsupportedSort error'. Found while auditing the error contract for JMAP-510h.40, which removed unsupportedSort from sieve.rs's module error list to match current code; restore it when this is fixed.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T10:09:27.645375369Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:25.208496525Z",
+  "closed_at": "2026-10-24T03:55:25.208496525Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

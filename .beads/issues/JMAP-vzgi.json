@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-vzgi",
+  "title": "mail-server /query handlers ignore sort collation",
+  "description": "RFC 8620 §5.5 (unsupportedSort): 'includes a property the server does not support sorting on or a collation method it does not recognise'. Mailbox/query, EmailSubmission/query and SieveScript/query (crate-jmap-mail-server/src/{mailbox,submission,sieve}.rs) parse Comparator.collation but never check it, and the server advertises no collationAlgorithms. Found while fixing JMAP-6hv3. Decide: reject unrecognised collations with unsupportedSort, or advertise and honour a set.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T01:02:51.820854058Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:23.025694129Z",
+  "closed_at": "2026-10-24T06:43:23.025694129Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed"
+}

@@ -1,38 +1,33 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-x2gd.86.8",
+  "title": "Foundation methods doc sweep: propagate canonical to sharing-server",
+  "description": "## Scope\n\nPropagate the canonical foundation-methods doc shape (written on\nmail-server under JMAP-x2gd.86.1) to sharing-server's\n`create_object` / `update_object` / `destroy_object` rustdoc.\n\nAdapt only for extension-specific content:\n- SetErrorType variants and their sharing-specific triggers\n- Cascade rules that match sharing's actual reference-impl behavior\n- Examples drawn from sharing's types, not mail's\n\nThe 5-contract shape stays identical to canonical mail-server:\nSetErrorType selection, Some/None semantics on update, state-bump\ncontract, cascade rules, atomicity within multi-property updates.\n\n## Dependency\n\nThis bead is blocked on JMAP-x2gd.86.1 (the canonical write).\nPick up only after that bead closes.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T16:11:54Z",
   "created_by": "Mark Atwood",
-  "description": "## Scope\n\nPropagate the canonical foundation-methods doc shape (written on\nmail-server under JMAP-x2gd.86.1) to sharing-server's\n`create_object` / `update_object` / `destroy_object` rustdoc.\n\nAdapt only for extension-specific content:\n- SetErrorType variants and their sharing-specific triggers\n- Cascade rules that match sharing's actual reference-impl behavior\n- Examples drawn from sharing's types, not mail's\n\nThe 5-contract shape stays identical to canonical mail-server:\nSetErrorType selection, Some/None semantics on update, state-bump\ncontract, cascade rules, atomicity within multi-property updates.\n\n## Dependency\n\nThis bead is blocked on JMAP-x2gd.86.1 (the canonical write).\nPick up only after that bead closes.",
-  "ephemeral": false,
-  "id": "JMAP-x2gd.86.8",
-  "is_blocked": true,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T22:47:30.36245692Z",
+  "closed_at": "2026-10-22T22:47:30.36245692Z",
+  "close_reason": "triage 2026-10-22 (already_fixed, skeptic-confirmed): Commit 54ac58d9 'docs(servers): specify create/update/destroy contract' (parent JMAP-x2gd.86 closed with it) added atomicity and cascades to crate-jmap-sharing-server/src/backend.rs (create_object :181, update_object :307, destroy_object :367). Per the commit message, sharing already carried the errors and state contracts. Note: canonical bead JMAP-x2gd.86.1 is still open even though its work landed in the same commit. | check: crate-jmap-sharing-server/src/backend.rs covers all five contracts on create/update/destroy: Error contract with notFound/forbidden/invalidPatch/willDestroy/Other-\u003eserverFail, Ok(Some)/Ok(None) return semantics, State-mutation contract, # Atomicity (:301), # Cascades (:362). The canonical work in 86",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "Foundation methods doc sweep: propagate canonical to sharing-server",
-  "updated_at": "2026-06-26T19:57:36Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-05-14T09:12:02Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-x2gd.86.1",
-      "id": "ac8e90ed-dcb4-55dc-8efd-f7d65f3aaf68",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T09:11:53Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-x2gd.86",
-      "id": "b51f6994-c53b-5632-b3ab-ccee579c859b",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

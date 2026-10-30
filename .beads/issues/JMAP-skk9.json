@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-skk9",
+  "title": "0.4 freeze audit survivors (2026-10-22)",
+  "description": "Survivors of the final freeze audit (wf_06e98b6b-7e5) at f8dfe002: 3-skeptic vote, majority real; plus 2 unvoted critic findings. Do NOT start until Mark reviews (batch 14). Full JSON: scratchpad audit_result.json.",
+  "notes": "REVIEWED + APPROVED by Mark 2026-10-22 (AskUserQuestion: 'All audit + leftovers (Recommended)'): implement every child with the recommended fix. The 'Do NOT start until Mark reviews' line is satisfied.\nCHECKPOINT 2026-10-22 ~10:00: batch 14 pushed (origin/main 0d62bd2e, CI green). Batch 14b running (workflow run wf_fb16ecd3-c8d, script scratchpad/batch14b.js): skk9.1, skk9.2, skk9.4, skk9.13, wf92.23 in that order, then CI. Decisions are recorded on each bead. If the session dies: git log 0d62bd2e..HEAD shows what landed (each commit has a bd: \u003cid\u003e line); re-run the remaining ids with the same prompts, run full CI, push only if green. Stale worktrees removed 2026-10-22; their diffs are archived in ~/Cache/worktree-archive-2026-10-22/.\nCHECKPOINT 2026-10-22: batch 14b pushed (origin/main 1ed6fa86, CI green). Batch 14c launching (script scratchpad/batch14c.js): skk9.2, skk9.4, skk9.15, skk9.16, then CI. Decisions on each bead. Worktrees clean.\nBatch 14c run id: wf_0d20a953-2f4.\nCHECKPOINT 2026-10-22: batch 14c pushed (origin/main 7fc008f0, CI green, 5675 tests). Open children: skk9.17 (Sieve operator trees, P3), skk9.18 (EmailSubmission/queryChanges ignores filter, P2), JMAP-skk9.19 (14c leftovers, P3). No batch running. Worktrees clean.\nBatch 14d running: run wf_183e1eba-681 (scratchpad/batch14d.js): skk9.18, skk9.17, skk9.19, then CI.\nCHECKPOINT 2026-10-22: batch 14d pushed (origin/main ed08ab5d, CI green). Batch 14 complete. Only open child: JMAP-skk9.20 (3 minor leftovers, P3). No batch running; worktrees clean; build cache cleaned.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T06:07:22.91416152Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T20:41:53.063416435Z",
+  "closed_at": "2026-10-22T20:41:53.063416435Z",
+  "close_reason": "All freeze-audit survivors and leftovers landed (batches 14, 14b, 14c, 14d, 4c90ff26); origin/main 4c90ff26."
+}

@@ -2,13 +2,15 @@
   "id": "JMAP-yt1w.25",
   "title": "MemoryBackends report unsupported filter/sort as serverFail",
   "description": "crate-jmap-tasks-server/src/memory.rs query_objects rejects any non-empty filter/sort with a MemoryError, which handlers redact to serverFail. RFC 8620 §5.5 defines unsupportedFilter / unsupportedSort for exactly this. Since JMAP-yt1w.21 a backend can return BackendQueryError::Method(JmapError::unsupported_filter()/unsupported_sort()). Out of scope for yt1w.21 (behaviour preserved there); audit other MemoryBackends for the same pattern.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-19T04:08:17.119327371Z",
   "created_by": "agent",
-  "updated_at": "2026-10-19T04:08:17.119327371Z",
+  "updated_at": "2026-10-23T23:38:08.100321863Z",
+  "closed_at": "2026-10-23T23:38:08.100321863Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
   "dependencies": [
     {
       "issue_id": "JMAP-yt1w.25",

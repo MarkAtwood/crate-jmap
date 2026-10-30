@@ -1,0 +1,1 @@
+{"id":"01a16054-22cc-7155-9e91-def7d59a119f","issue_id":"JMAP-6xs8.23","event_type":"closed","actor":"agent","old_value":"","new_value":"Done: SetResponse maps are BTreeMap (crate-jmap-types/src/methods.rs:26,359-371); created_ids is BTreeMap\u003cId,Id\u003e (wire.rs:5,77,100)","created_at":"2026-10-21T21:18:09.100088025Z"}

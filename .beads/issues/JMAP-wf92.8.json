@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.8",
+  "title": "chat bindings: per-Space @everyone permission seam",
+  "description": "~9 binding functions take an account-wide \u0026HashSet\u003cChatPermission\u003e (chat-filenode-server lib.rs:119,437,581 etc., chat-vtc-server) while FederationBackend::everyone_permissions takes \u0026Space; @everyone is per Space (JMAP-3rq7, spec c506844). Use a per-Space seam everywhere. BREAKING, S-M.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:29.686100382Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:57.531138314Z",
+  "closed_at": "2026-10-22T03:35:57.531138314Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.8",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:30.006257527Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

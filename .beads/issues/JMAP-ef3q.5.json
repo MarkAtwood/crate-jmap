@@ -1,0 +1,40 @@
+{
+  "id": "JMAP-ef3q.5",
+  "title": "graph-edit: server op log, compaction, WS stream",
+  "description": "draft-atwood-jmap-graph-edit-00 server: create-only GraphNodeOp/set, server sequencing, GraphNodeOp/query afterSeq, snapshot writes, front-only compaction + opsCompacted, projected nodes cannot have editFormat; WebSocket enable/disable, op events, cursor method/events following the chat/scene wss delivery pattern. Module in jmap-graph-server. Oracle: draft text at jmap-chat-spec 6bcd9d8 (/home/mark/PROJECT/jmap-chat-spec). Crates start publish = false (draft, Mark review before publishing). Copy crate metadata exactly from a sibling family (e.g. jmap-filenode-*). Follow AGENTS.md canonical templates.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T23:00:15.068064526Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:19.545367881Z",
+  "closed_at": "2026-10-21T10:10:19.545367881Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ef3q.5",
+      "depends_on_id": "JMAP-ef3q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T23:00:15.190519707Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-ef3q.5",
+      "depends_on_id": "JMAP-ef3q.4",
+      "type": "blocks",
+      "created_at": "2026-10-20T23:00:18.460326717Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-ef3q.5",
+      "depends_on_id": "JMAP-ef3q.2",
+      "type": "blocks",
+      "created_at": "2026-10-20T23:00:18.965752687Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

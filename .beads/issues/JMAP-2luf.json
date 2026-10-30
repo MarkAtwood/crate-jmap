@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-2luf",
+  "title": "Handler-level tests for Id validation on deserialize; /get malformed ids",
+  "description": "Batch 21b verifier (JMAP-473q, 0b859c12): Id now validates on serde deserialize. (1) Wire change: Foo/get with ids [\"bad id\"] now returns invalidArguments ('ids must be an Id array') where it used to list it in notFound. Decide against RFC 8620 §5.1/§3.6.2 which is right and pin it with a test. (2) Add handler-level negative tests for other newly validated wire paths: a typed /set create body with a non-conforming Id-typed property; Space addMembers roleIds. (3) Minor: scene spec citations in crate-jmap-scene-types/tests/spec_examples.rs and crate-jmap-scene-server/tests/avatar_query.rs cite 6c38e2f lines; re-anchor to the current spec HEAD.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T04:30:01.29444436Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:22.339211451Z",
+  "closed_at": "2026-10-24T06:43:22.339211451Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed"
+}

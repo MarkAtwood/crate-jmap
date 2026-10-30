@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-po6q.3",
+  "title": "Research: media ingest and test options",
+  "description": "Check before designing the adapter: does MediaLive accept WHIP/WebRTC ingest today (else RTMP/SRT/MediaConnect); LocalStack or other emulator coverage of MediaLive/MediaPackage; whether IVS Real-Time is the better managed option for calls; current per-channel-hour pricing for a cost note. Record findings in notes.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:34:26.493979928Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T21:34:26.493979928Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-po6q.3",
+      "depends_on_id": "JMAP-po6q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:34:26.958386801Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

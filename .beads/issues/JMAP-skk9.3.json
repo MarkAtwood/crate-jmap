@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.3",
+  "title": "Duration-typed capability fields are String although jmap_jscalendar_types::Duration exists",
+  "description": "Freeze audit survivor, vote \u003e= 3/3.\n\n## Duration-typed capability fields are String although jmap_jscalendar_types::Duration exists\nCrates: jmap-calendars-types, jmap-tasks-types\nEvidence: crate-jmap-calendars-types/src/capability.rs:57 `max_expanded_query_duration: String` and :83 `max_availability_duration: String`. crate-jmap-tasks-types/src/capability.rs:82 `max_expanded_query_duration: String`. The spec types them as Duration: draft-ietf-jmap-calendars-33.txt:349 and :374, draft-ietf-jmap-tasks-06.txt:299. Both crates already depend on jmap-jscalendar-types, which exports `Duration(String)` (crate-jmap-jscalendar-types/src/lib.rs:144). Sibling fields in the same structs are typed (`min_date_time: UTCDate`, `LocalDateTime`). In the probe I had to keep CalendarsBackend::limits() (`max_expanded_query_duration_seconds: u64`, calendars-server backend.rs CalendarsLimits) and the advertised String in sync by hand.\nWhy breaking later: These are pub fields on public wire structs, so changing `String` to `Duration` breaks every reader and constructor. The wire format is the same, so the change costs nothing now and needs a major version later.\nFix: Type all three fields as `jmap_jscalendar_types::Duration`.\nSize: S\n\nVotes: REAL: I could not refute this claim. The evidence holds at HEAD: crate-jmap-calendars-types/src/capability.rs:57 `pub max_expanded_query_duration: String`, :83 `pub max_availability_duration: String`, and crate-jmap-tasks-types/src/capability.rs:82 `pub max_expanded_query_duration: String`. The spec types all three as Duration: draft-ietf-jmap-calendars-33.txt:349 (maxExpandedQueryDuration) and :374 (maxAvailabilityDuration), and draft-ietf-jmap-tasks-06.txt:299. Both crates depend on jmap-jscalendar-types (Cargo.toml:15 and :14) and already re-export `Duration` (calendars lib.rs:62/85, tasks lib.rs; REAL: I could not refute this claim; it holds at HEAD and I found no existing bead for it. (a) Evidence: crate-jmap-calendars-types/src/capability.rs:57 has `pub max_expanded_query_duration: String` and :83 has `pub max_availability_duration: String`. crate-jmap-tasks-types/src/capability.rs:82 has `pub max_expanded_query_duration: String`. The structs are pub with pub fields, and both crates are publishable (cargo metadata publish = None). The spec types all three as Duration: draft-ietf-jmap-calendars-33.txt:349 (maxExpandedQueryDuration) and :374 (maxAvailabilityDuration), and draft-ietf-jmap-tas; REAL: I could not refute the claim. It holds at HEAD on all three points.\n\n(a) The evidence holds:\n- crate-jmap-calendars-types/src/capability.rs:57 `pub max_expanded_query_duration: String` and :83 `pub max_availability_duration: String`.\n- crate-jmap-tasks-types/src/capability.rs:82 `pub max_expanded_query_duration: String`.\n- The spec types all three as Duration: draft-ietf-jmap-calendars-33.txt \"*maxExpandedQueryDuration*: Duration\" (~line 349) and \"*maxAvailabilityDuration*: Duration\" (~line 374), and draft-ietf-jmap-tasks-06.txt ~line 299.\n- Both crates already depend on jmap-jscalendar-types ",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T06:07:23.647436708Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:17.974453764Z",
+  "closed_at": "2026-10-22T16:43:17.974453764Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.3",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T06:07:23.757899886Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

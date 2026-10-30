@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.17",
+  "title": "Batch 12 review leftovers: tests and doc drift",
+  "description": "Minor findings from batch 12 review (HEAD 1a26cf40):\n1. 3rq7: no test that an @everyone (targetId = Space id) override reaches the federation (deliver.rs:686) and VTC (vtc-server lib.rs:548) paths; add one deny-send test per crate.\n2. 6itf.11: no test that resolve_with_hint ignores the hint for did:key; get_hinted falls back to the method URL on any FetchError including TooLarge, while did-00 L194 defines unreachable as network error / HTTP 4xx/5xx (decide: treat TooLarge as a hard failure).\n3. u2ol: peer-auth-io crate-doc bullet not rewrapped (~100 cols).\n4. 510h.55: no test for the onExists newest cascade (filenode.rs ~L1959-1964); no negative test that destroyed is omitted when a collision is rejected (newest not strictly later -\u003e alreadyExists; replace on Directory with children without onDestroyRemoveChildren).\n5. 0x0q.76: crate-jmap-chat-filenode-server/README.md L33 files_rights row not updated for created entries.\n6. w1lm: README trait listings and PLAN.md files still use the old supports_type summary ('Returns true if this account supports the given JMAP object type.').",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:16:30.679549299Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:58.727005111Z",
+  "closed_at": "2026-10-22T03:35:58.727005111Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.17",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:16:30.809496294Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

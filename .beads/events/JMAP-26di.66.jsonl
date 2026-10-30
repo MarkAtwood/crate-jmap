@@ -1,0 +1,1 @@
+{"id":"01a1661e-6e68-7341-ac59-d706f3431d96","issue_id":"JMAP-26di.66","event_type":"closed","actor":"agent","old_value":"","new_value":"Mark 2026-10-22: won't fix; the closure annotations are required for ? inference, and the to_args change (JMAP-tjvm.11) rewrites these sites anyway.","created_at":"2026-10-23T00:17:12.808214471Z"}

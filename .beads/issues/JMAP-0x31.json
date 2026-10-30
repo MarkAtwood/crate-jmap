@@ -3,12 +3,14 @@
   "title": "Add FileNode.spaceId extension and chat-filenode role",
   "description": "draft-atwood-jmap-chat-filenode-00 extends FileNode with spaceId (String, immutable) and defines role urn:jmap:chat:filenode:space for Space file tree roots. The filenode crate has no chat awareness. Need spaceId as extension field and register the role value.",
   "notes": "Folded into JMAP-v9py.16 (Layer E: Implement draft-atwood-jmap-chat-filenode-00) by the 2026-10-19 spec gap audit.\n2026-10-19 spec gap audit: appears already implemented — the urn:jmap:chat:filenode:space role part is used in crate-jmap-chat-client/src/methods/filenode.rs; the FileNode.spaceId extension is NOT implemented (no spaceId in crate-jmap-filenode-types/src) and is tracked by a child of JMAP-v9py.16, so only partly stale; verify and close.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "feature",
   "owner": "mark@wolfssl.com",
   "created_at": "2026-06-13T20:32:54Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-10-20T00:46:12.994804064Z",
+  "updated_at": "2026-10-22T22:47:16.860662937Z",
+  "closed_at": "2026-10-22T22:47:16.860662937Z",
+  "close_reason": "triage 2026-10-22 (already_fixed, skeptic-confirmed): Commit aa19774b 'feat(filenode): typed immutable spaceId on roots'. crate-jmap-filenode-types/src/filenode.rs:299-302 has `pub space_id: Option\u003cId\u003e` (immutable, per draft-atwood-jmap-chat-filenode-00), and filenode.rs:75-78 has the NodeRole::ChatSpace variant for \"chatspace\". tests/filenode_types.rs:1125-1133 shows the old urn:jmap:chat:filenode:space string now decodes as Other, per the current draft. | check: filenode.rs:299 has `space_id: Option\u003cId\u003e` (immutable, documented per draft §The spaceId Extension Property). filenode.rs:75-78 has NodeRole::ChatSpace for \"chatspace\". That role value is what the current draft-atwood-jmap-chat-filenode-00 registers (L126, L268); the bead's old urn:jmap:chat:filenod",
   "metadata": {}
 }

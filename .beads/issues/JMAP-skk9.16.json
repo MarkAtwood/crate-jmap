@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.16",
+  "title": "Batch 14b verify leftovers",
+  "description": "- [JMAP-skk9.1] minor crate-jmap-filenode-server/src/memory.rs: The commit changed node_matches_filter (lines 1086-1098, as_str -\u003e to_wire_str) and its message says a hand-built NodeRole::Other(\"home\") still matches a Home node. No test exercises the memory matcher's nodeType/role filter directly: not the positive match, not the exclusion of a non-matching node, and not the Other(\"home\") vs Home equivalence. A grep of crate-jmap-filenode-server for role/nodeType filter usage found only FileNode/set fixtures. The gap was there before this commit and the edit is mechanical, so this is not blocking, but the claimed behavior is untested.\n- [JMAP-skk9.13] minor crate-jmap-mail-server/src/submission.rs: Pre-existing and out of scope for this commit: handle_submission_query (line 149) and handle_submission_query_changes never read the `sort` argument. A malformed or unsupported EmailSubmission comparator is silently ignored. RFC 8620 §5.5 requires invalidArguments for a malformed comparator and unsupportedSort for an unsupported property. The JMAP-wf92.25 finding was wrong to list EmailSubmission among the generic handlers, so leaving it out of the new CHANGELOG entry is correct. No bead tracks the ignored-sort gap (bd search for 'EmailSubmission sort' and 'submission_query' returns nothing); file one if wanted.\n- [JMAP-wf92.23] minor crate-jmap-contacts-types/PLAN.md: Two design notes still name the old module path jmap_types::query::Filter, which is now private: crate-jmap-contacts-types/PLAN.md:283 and crate-jmap-calendars-client/PLAN.md:169. The public path is jmap_types::Filter. These are historical planning notes, not user docs or rustdoc, so this does not block. Every README, doc comment and source file was moved to the root path.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T18:04:25.599902218Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T19:07:13.295137862Z",
+  "closed_at": "2026-10-22T19:07:13.295137862Z",
+  "close_reason": "batch 14c: committed, adversarially verified, CI green at 7fc008f0",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.16",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T18:04:25.712683975Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

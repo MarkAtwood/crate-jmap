@@ -1,38 +1,42 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-s4kp.3",
+  "title": "calendars-server: wire metadata-04 helpers into MemoryBackend",
+  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-calendars-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to calendars-server's type set (Calendar, CalendarEvent, ParticipantIdentity) and its per-user property routing. See JMAP-s4kp.1 for canonical pattern.",
+  "notes": "DECISION Mark 2026-10-22: implement (wire metadata-04 into this MemoryBackend; mail first), using the reusable stub in jmap-metadata-server (JMAP-5kpy). Mark's words: 'implement it, and also stub it and bead it into the helper crate'.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-06-05T03:57:00Z",
   "created_by": "Mark Atwood",
-  "description": "Propagate canonical mail-server metadata-02 integration (JMAP-s4kp.1) to jmap-calendars-server MemoryBackend. Same 3 integration points: query_objects filter matching for 6 metadata conditions, get_changes ignoreMetadataOnlyChanges, /set patch validation. Adapt to calendars-server's type set (Calendar, CalendarEvent, ParticipantIdentity) and its per-user property routing. See JMAP-s4kp.1 for canonical pattern.",
-  "ephemeral": false,
-  "id": "JMAP-s4kp.3",
-  "is_blocked": true,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-23T23:38:05.80717373Z",
+  "closed_at": "2026-10-23T23:38:05.80717373Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 2,
-  "status": "open",
-  "title": "calendars-server: wire metadata-02 helpers into MemoryBackend",
-  "updated_at": "2026-06-26T19:57:36Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-06-04T20:57:00Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-s4kp",
-      "id": "5bd47c29-9242-5bc5-829e-69a09154cb49",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-06-04T20:57:12Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-s4kp.1",
-      "id": "b22fe628-d440-5aed-b5d3-f646871c911a",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-s4kp.3",
+      "depends_on_id": "JMAP-5kpy",
+      "type": "blocks",
+      "created_at": "2026-10-22T22:51:36.40325985Z",
+      "created_by": "agent",
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

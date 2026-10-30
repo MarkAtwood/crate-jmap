@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-473q",
+  "title": "Id: validate on Deserialize / drop unchecked From (k9va option b/c)",
+  "description": "Follow-up to JMAP-k9va (option a landed in c2c0832a, 2f4fa84c: handler sites that read ids from serde_json::Value now use jmap_server::parse_wire_id / Id::new_validated).\n\nStill unchecked: every Id that arrives through serde Deserialize, because jmap_types::Id derives Deserialize without validation. Examples: /get ids, Space addMembers roleIds (crate-jmap-chat-server/src/space.rs parse_add_member_entry), typed create bodies deserialized into object structs, filter conditions holding Ids.\n\nOptions from the k9va description: (b) remove From\u003cString\u003e/From\u003c\u0026str\u003e on Id so callers must pick validated or an explicit unchecked constructor; (c) #[serde(try_from = \"String\")] on Id so every deserialized Id is RFC 8620 §1.2-checked. (c) covers the remaining wire paths at the type level; (b) prevents new handlers regressing. Both are public-API breaks on the foundation type and need Mark's ratification.",
+  "notes": "DECISION Mark 2026-10-23: option (c) with the existing rule. Add #[serde(try_from = \"String\")] (or equivalent) and impl TryFrom\u003cString\u003e for Id calling Id::new_validated, so every serde-deserialized Id is validated; keep From\u003cString\u003e/From\u003c\u0026str\u003e (option b rejected). Use new_validated's current character rule; tightening to exact RFC 8620 §1.2 stays with JMAP-6xs8.19. Applies to the shared Id type (clients included). BREAKING in CHANGELOG [Unreleased]; fixtures with non-conforming ids are spec-driven test edits listed in tests_changed.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T04:45:22.904326396Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T04:30:01.235233116Z",
+  "closed_at": "2026-10-24T04:30:01.235233116Z",
+  "close_reason": "Batch 21b (run wf_744d12f5-42c): implemented per decision (c), adversarially verified, tests green at 0b859c12"
+}

@@ -1,38 +1,33 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-grs0.6",
+  "title": "Propagate: jmap-filenode-server Inner-state nested HashMap restructure",
+  "description": "## Sibling propagation of canonical bd:JMAP-grs0.1\n\nDepends on bd:JMAP-grs0.1 (mail-server canonical fix) landing first. Mirror the canonical fix byte-for-byte modulo TYPE_NAME constants.\n\n## Fix shape\n\nSee bd:JMAP-grs0 epic body and bd:JMAP-grs0.1 for the canonical pattern. The Inner struct becomes:\n\n```rust\nstruct Inner {\n    objects: HashMap\u003c\u0026'static str, HashMap\u003cString, HashMap\u003cId, Value\u003e\u003e\u003e,\n    states: HashMap\u003c\u0026'static str, HashMap\u003cString, u64\u003e\u003e,\n    change_log: HashMap\u003c\u0026'static str, HashMap\u003cString, Vec\u003cChangeEntry\u003e\u003e\u003e,\n}\n```\n\nRead-path helpers take `\u0026str` and don't allocate; write-path helpers preserve auto-register-via-or_default.\n\nNOTE: filenode-server may use a different storage shape (uses .with_account(\u0026str) builder rather than register_account / new_with_accounts). Audit first; if storage shape differs, document the divergence rather than force-restructuring.\n\n## Acceptance\n\n- Mirror the canonical fix\n- All read-path helpers take `\u0026str` and don't allocate\n- cargo test -p jmap-filenode-server green\n- cargo clippy -p jmap-filenode-server -- -D warnings green",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-17T05:49:14Z",
   "created_by": "Mark Atwood",
-  "description": "## Sibling propagation of canonical bd:JMAP-grs0.1\n\nDepends on bd:JMAP-grs0.1 (mail-server canonical fix) landing first. Mirror the canonical fix byte-for-byte modulo TYPE_NAME constants.\n\n## Fix shape\n\nSee bd:JMAP-grs0 epic body and bd:JMAP-grs0.1 for the canonical pattern. The Inner struct becomes:\n\n```rust\nstruct Inner {\n    objects: HashMap<&'static str, HashMap<String, HashMap<Id, Value>>>,\n    states: HashMap<&'static str, HashMap<String, u64>>,\n    change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,\n}\n```\n\nRead-path helpers take `&str` and don't allocate; write-path helpers preserve auto-register-via-or_default.\n\nNOTE: filenode-server may use a different storage shape (uses .with_account(&str) builder rather than register_account / new_with_accounts). Audit first; if storage shape differs, document the divergence rather than force-restructuring.\n\n## Acceptance\n\n- Mirror the canonical fix\n- All read-path helpers take `&str` and don't allocate\n- cargo test -p jmap-filenode-server green\n- cargo clippy -p jmap-filenode-server -- -D warnings green",
-  "ephemeral": false,
-  "id": "JMAP-grs0.6",
-  "is_blocked": true,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T22:47:35.208060261Z",
+  "closed_at": "2026-10-22T22:47:35.208060261Z",
+  "close_reason": "triage 2026-10-22 (moot, skeptic-confirmed): filenode-server never had the tuple-key shape (the bead said 'audit first; if storage shape differs, document the divergence'). crate-jmap-filenode-server/src/memory.rs:216 `accounts: HashMap\u003cString, AccountStore\u003e`, and the read paths at :221 and :225 do `self.accounts.get(account_id.as_ref())` / get_mut with a borrowed \u0026str, so there is no per-read allocation. `.to_owned()` appears only on the insert path (:275). | check: crate-jmap-filenode-server/src/memory.rs:215-226 is MemoryState { accounts: HashMap\u003cString, AccountStore\u003e }. Reads use accounts.get(account_id.as_ref()) and get_mut with a borrowed \u0026str, so they don't allocate. to_owned() appears only on the with_account insert path. The bead's own note says to audi",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 4,
-  "status": "open",
-  "title": "Propagate: jmap-filenode-server Inner-state nested HashMap restructure",
-  "updated_at": "2026-06-26T19:57:36Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-05-16T22:49:25Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-grs0.1",
-      "id": "45782e5e-ea5d-5b5c-a560-2b967b547285",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-16T22:49:14Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-grs0",
-      "id": "c8a2fa73-556e-5884-9d2a-caada640c24b",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

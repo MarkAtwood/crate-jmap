@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-0x0q.49",
+  "title": "Expose verifying peerSigningKey from peer-auth",
+  "description": "Oracle: jmap-chat-spec 6bcd9d8 (quoted text). Mapped by wf_6712c4f8-c2b.\n\n[did-cid] Expose the verifying peerSigningKey from Accepted/Authenticated\nSpec (b6028b3): draft-atwood-jmap-chat-did-00.md L218 @6bcd9d8: \"2. It takes the Ed25519 public key that verified the request signature: the key in the peer domain's `peerSigningKeys` whose `kid` the signature's `keyid` names ({{JMAP-CHAT-FED}}).\"\nCode: crate-jmap-peer-auth/src/signature.rs:282-295 (pub struct Accepted { peer_domain, nonce, forget_after, created }, not #[non_exhaustive]); crate-jmap-peer-auth/src/signature.rs:421-426 (the matched key is a local, dropped); crate-jmap-peer-auth-io/src/lib.rs:89-100 (pub struct Authenticated { peer_domain, owner_user_id }, not #[non_exhaustive]); crate-jmap-peer-auth-io/src/lib.rs:117-148 (authenticate consumes SignedRequest and PeerKeySet; the caller never sees the kid or key)\nNow: A caller of jmap_peer_auth_io::authenticate gets only peer_domain and owner_user_id. It cannot learn which peerSigningKeys key verified the request, which is the input step 2 requires.\nChange: Carry the matched PeerSigningKey (or at least its VerifyingKey) in Accepted and in Authenticated, so the caller can pass it to the new binding check. Both are public structs with public fields and are not non_exhaustive, so adding a field is a semver break. Mark both #[non_exhaustive] in the same change, with a CHANGELOG entry.\nVerifier correction: Leave jmap_peer_auth::Accepted unchanged, because callers get the key from signed.kid() and their own key slice. Add the matched PeerSigningKey (or its VerifyingKey) to jmap_peer_auth_io::Authenticated, and mark Authenticated #[non_exhaustive] in the same change, with a CHANGELOG entry. Adding the field is breaking for peer-auth-io only.",
+  "notes": "Decision: option A — add key: PeerSigningKey to jmap_peer_auth::Accepted and jmap_peer_auth_io::Authenticated, mark #[non_exhaustive]; CHANGELOG BREAKING.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T22:55:04.55297882Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T10:10:02.718788151Z",
+  "closed_at": "2026-10-21T10:10:02.718788151Z",
+  "close_reason": "Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.49",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-20T22:55:04.678284911Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

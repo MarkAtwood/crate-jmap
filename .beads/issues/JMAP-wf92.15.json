@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-wf92.15",
+  "title": "calendars: move to draft-ietf-jmap-calendars-33",
+  "description": "Workspace tracks draft-26; draft-33 is in /home/mark/PROJECT/IETF/specs. Known breaks: calendar_address becomes Option\u003cString\u003e; filter attendee renamed participant. Diff draft-26..33 (text in IETF/specs or ~/GIT), implement all normative changes in calendars-types/-server/-client and chat-calendars-server. BREAKING, L.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:09:42.377329102Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T03:35:58.953747821Z",
+  "closed_at": "2026-10-22T03:35:58.953747821Z",
+  "close_reason": "batch 13: committed, adversarially verified, CI green at e3fb0ae6",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-wf92.15",
+      "depends_on_id": "JMAP-wf92",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:09:42.946941754Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

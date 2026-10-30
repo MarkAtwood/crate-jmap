@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-xcuj",
+  "title": "chat-server push.rs: rich_text doc block split snippet's doc from fn snippet",
+  "description": "Batch 16 verifier (JMAP-nbk3): in crate-jmap-chat-server/src/push.rs the new rich_text doc comment was inserted between snippet's doc lines and fn snippet, so rustdoc merges both onto rich_text and snippet loses its doc. Move snippet's two doc lines directly above fn snippet. Private fns; no API impact.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T05:33:25.279266872Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:31.044705866Z",
+  "closed_at": "2026-10-24T03:55:31.044705866Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

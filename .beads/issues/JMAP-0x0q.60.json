@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.60",
+  "title": "tests: re-cite stale spec lines in chat, did tests",
+  "description": "Stale spec citations in test oracles (chat, filenode, did). Line numbers below are identical at jmap-chat-spec 6bcd9d8 and HEAD 33702a5. Assertions are correct; only the cited oracle text/lines are stale. Batch 8b review (JMAP-0x0q.5/.7/.11/.14/.41).\n\n- crate-jmap-chat-filenode-server/tests/root_create.rs: header L4 still names 0cd3af0; L9/L11/L14 and test docs L129-189 cite L128/L130/L131/L132, but draft-atwood-jmap-chat-filenode-00 now has root creation at L139, membership L141, one-root L142, permission L143. Same drift in tests/quota_autocreate.rs (header L5, L108/L111/L116/L138 cites at L7-18, L86-154) and tests/space_deletion.rs (L99 L199/L115).\n- crate-jmap-chat-types/tests/chat_tasks.rs:163-165: mixes unpinned `L177-199` with `6bcd9d8 L197-203`; metadata keys are at draft-atwood-jmap-chat-tasks-00 L200-203.\n- crate-jmap-chat-client/tests/space_smoke_tests.rs:830: says Design Tokens `$value` is \"in CSS Color 4 syntax\"; draft-atwood-jmap-chat-00 L302 now says a color object, \"not a CSS color string\" (the vector below was already updated).\n- crate-jmap-chat-server/tests/presence_delivery.rs:71-75, 107-109: quote removed MUST wording (\"server MUST deliver offline...\", \"Servers MUST NOT deliver ChatPresenceEvent\"); draft-atwood-jmap-chat-wss-00 L275 and L300 now read \"\\\"invisible\\\" is not a value of this field\" / \"a ChatPresenceEvent is not delivered\". Cites wss:269/293 are stale.\n- crate-jmap-chat-server/tests/typing_delivery.rs:125-128, 148-149: quote \"Servers MUST verify ... MUST be dropped silently\"; wss-00 L255 says SHOULD for both.\n- crate-jmap-did-types/tests/resolve.rs:470: cites draft-atwood-jmap-chat-did-00 L252 for \"inconsistent\"; text is at L279 (the test above at L412 was already re-cited).\n- crate-jmap-did-resolver/tests/resolver.rs:472: 'did-00 L150 names \"HTTP 4xx/5xx\"'; draft-atwood-jmap-did-00 L150 is blank, the text is at L189.\n- crate-jmap-base-client/tests/did_capability.rs:90: keyCustody cited as L151; it is draft-atwood-jmap-did-00 L195.\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:36.715803476Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:24.641920494Z",
+  "closed_at": "2026-10-21T16:19:24.641920494Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.60",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:36.830591689Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.69",
+  "title": "scene-server: doc and spec citation drift",
+  "description": "scene-server: doc and citation drift (batch 8b review, JMAP-0x0q.24/.26/.29/.54, JMAP-38uq.10/.11). Line numbers are identical at jmap-chat-spec 6bcd9d8 and HEAD 33702a5.\n\n- src/avatar.rs:423-428 update_avatar doc lists the `updated` echo as joinedAt/position/orientation on re-entry, normalized orientation, else null; it omits the server-set leftAt now echoed on leave/eject (L546-550).\n- README.md:184-185: \"Return Err for a storage failure, not Ok(None), or the client sees notFound\"; both blob_size callers (asset.rs create, object.rs visualRef) now return invalidProperties on Ok(None).\n- tests/region_set.rs:678 cites L1230 and :869 cites L1245 for \"The region id does not exist\"; the rows are now draft-atwood-jmap-scene-00 L1328 (update table) and L1343 (destroy table).\n- tests/region_set.rs:760: \"L1240-1242 the region id is in destroyed\"; L1240-1242 are oldState/newState/created, the destroyed array is L1244-1246.\n- tests/region_set.rs:262: cites L1174 \"Quaternion must be [x, y, z, w] with magnitude within epsilon of 1.0\", text no longer in spec; the row is L1270 (\"finite components and non-zero magnitude; ...\").\n- tests/avatar_set.rs:457: cites L2384 for \"regionId is missing\" and L2385 for visualRef/visualType; they are L2383 and L2384 (L2385 is the regionId-access row).\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:39.308247291Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:25.886807714Z",
+  "closed_at": "2026-10-21T16:19:25.886807714Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.69",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:39.442393644Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

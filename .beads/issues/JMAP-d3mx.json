@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-d3mx",
+  "title": "filenode-server MemoryBackend get_changes has no per-id dedup",
+  "description": "Found in the JMAP-cqy7 audit. crate-jmap-filenode-server/src/memory.rs get_changes (fn at ~line 491) logs one ChangeEntry per (state, change_type, id) and pushes each entry straight into created/updated/destroyed with no dedup. So an id created then updated in one window shows up in both created and updated, and an id created then destroyed shows up in both created and destroyed. RFC 8620 §5.2: an object created and then updated appears only in created, and a created+destroyed id SHOULD be left out entirely. Also, when max_changes truncates, the response returns hasMoreChanges=true but newState is the CURRENT state, not the state of the last entry it included, so a client following newState skips the changes that were cut off. Fix: use the canonical jmap-mail-server IdFate rules (see chat/tasks/sharing after JMAP-cqy7), and set newState to the last included entry's state when truncating. This needs a decision: either TooManyChanges like the siblings, or truncation as mail-server does.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T14:08:31.966817683Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:25.420002256Z",
+  "closed_at": "2026-10-24T03:55:25.420002256Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

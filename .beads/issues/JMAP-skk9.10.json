@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.10",
+  "title": "chat-client: message_get takes required \u0026[Id], unlike canonical email_get's Option\u003c\u0026[Id]\u003e",
+  "description": "Freeze audit survivor, vote \u003e= 3/3.\n\n## chat-client: message_get takes required \u0026[Id], unlike canonical email_get's Option\u003c\u0026[Id]\u003e\nCrates: jmap-chat-client\nEvidence: crate-jmap-chat-client/src/methods/message.rs:72 message_get(ids: \u0026[Id], properties: Option\u003c\u0026[\u0026str]\u003e), whose doc at L49 says 'ids is required (non-empty)'. Canonical crate-jmap-mail-client/src/methods/email.rs:58 email_get takes ids: Option\u003c\u0026[Id]\u003e, and so does every other *_get across the client siblings. The chat draft (jmap-chat-spec draft-atwood-jmap-chat-00.md L1190-1192) says only 'Message/get: Standard JMAP /get', so null ids are valid on the wire and the server is the one meant to enforce limits (requestTooLarge).\nWhy breaking later: Widening \u0026[Id] to Option\u003c\u0026[Id]\u003e changes the public signature, and every call site needs Some(..).\nFix: Take `ids: Option\u003c\u0026[Id]\u003e` like email_get and drop the client-side 'fetch all is disallowed' guard; RFC 8620 maxObjectsInGet / requestTooLarge is the server's job.\nSize: S\n\nVotes: REAL: I could not refute this one. All three conditions hold at HEAD.\n\n(a) The evidence checks out. crate-jmap-chat-client/src/methods/message.rs:72-80 is `message_get(\u0026self, ids: \u0026[Id], properties: Option\u003c\u0026[\u0026str]\u003e)`. It returns `InvalidArgument` when `ids` is empty, and the doc at L49 says ids is \"required (non-empty)\". The canonical crate-jmap-mail-client/src/methods/email.rs:58-60 takes `ids: Option\u003c\u0026[Id]\u003e`. message_get is the only *_get in chat-client that does not: chat_get, space_get, chat_contact_get, custom_emoji_get, space_invite_get, space_ban_get and read_position_get all take `Option\u003c\u0026[I; REAL: I could not refute it; all three conditions hold at HEAD.\n\n(a) The evidence holds. crate-jmap-chat-client/src/methods/message.rs:72-74 is `message_get(\u0026self, ids: \u0026[Id], properties: Option\u003c\u0026[\u0026str]\u003e)`. Lines 77-81 return InvalidArgument when `ids` is empty, and the doc at L49 says ids are required (non-empty). The canonical crate-jmap-mail-client/src/methods/email.rs:58-60 takes `ids: Option\u003c\u0026[Id]\u003e` with no such check. I checked the `ids` parameter of all 38 client `*_get` methods that take one; `message_get` is the only one that is not `Option\u003c\u0026[Id]\u003e`. Even its chat-client siblings `chat_get`,; REAL: Holds at HEAD; no existing bead. crate-jmap-chat-client/src/methods/message.rs:72-80: message_get(ids: \u0026[Id], ...) returns InvalidArgument when ids is empty. Mail is the canonical client per AGENTS.md:315, and crate-jmap-mail-client/src/methods/email.rs:58-60 email_get takes ids: Option\u003c\u0026[Id]\u003e, as do thread_get and mailbox_get. Within chat-client, chat_get (chat.rs:47) and space_get (space.rs:49) also take Option\u003c\u0026[Id]\u003e, so message_get is the odd one out. Spec draft-atwood-jmap-chat-00.md says only 'Message/get: Standard JMAP /get', and RFC 8620 §5.1 allows null ids, so the client refuses a re",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T06:07:25.611356447Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:19.103115875Z",
+  "closed_at": "2026-10-22T16:43:19.103115875Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.10",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T06:07:25.74021189Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

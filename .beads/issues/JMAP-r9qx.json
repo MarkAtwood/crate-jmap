@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-r9qx",
+  "title": "Canonical: validate literal Id[Boolean] map keys in /set (mailboxIds, then siblings)",
+  "description": "Found during JMAP-k9va.5 (already_fixed). RFC 8620 §1.2 Id syntax: Email/set create and update resolve #creationId refs in mailboxIds keys and mailboxIds/\u003cid\u003e patch paths (crate-jmap-mail-server/src/email.rs:1206, resolve_mailbox_id_refs at :1576-1600), but a literal malformed key such as \"bad id\" is passed to the backend unvalidated. Email/import and Email/copy validate them already (parse_mailbox_ids, email.rs:1618, via jmap_server::parse_wire_id). jmap_types::Id deserializes with serde(transparent) and no validation (crate-jmap-types/src/id.rs:34-37), so the backend does not catch it either. Siblings mirror the gap: contacts addressBookIds (crate-jmap-contacts-server/src/helpers.rs:45 resolve_map_key_refs; resolve_ref doc says 'validation stays with the caller'), and likely calendars calendarIds and tasks equivalents. Fix canonical-first per AGENTS.md: run parse_wire_id(key, \"mailboxIds\") on literal keys and patch-path id segments, giving invalidProperties naming the property, then mirror to siblings. Add a negative test per crate.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T22:25:03.533330568Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:26.2102565Z",
+  "closed_at": "2026-10-24T03:55:26.2102565Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

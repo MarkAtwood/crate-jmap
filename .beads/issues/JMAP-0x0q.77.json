@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.77",
+  "title": "scene: reconcile query_changes doc with spec",
+  "description": "Found in JMAP-0x0q.74. crate-jmap-scene-server/src/backend.rs may_access_region rustdoc (~L488-492) says query_objects and query_changes MUST omit hidden objects and quotes the server 'MUST NOT include a SceneObject'. draft-atwood-jmap-scene-00 at jmap-chat-spec 33702a5 L2577 says 'SHOULD NOT include', and L2587 says visibility filtering 'does not change the JMAP state model ... /changes and /queryChanges report changes for the account'. Re-quote L2577 exactly and decide whether query_changes is per-account (L2587) or caller-filtered; the same 'MUST omit' wording recurs near L519, L554, L594.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T19:52:35.221142186Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T09:36:25.980079109Z",
+  "closed_at": "2026-10-23T09:36:25.980079109Z",
+  "close_reason": "Batch 17/17b (runs wf_311f1744-fb4, wf_3357d9e1-cc5): implemented, adversarially verified, full CI green; pushed 770d02b4",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.77",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T19:52:35.351154966Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

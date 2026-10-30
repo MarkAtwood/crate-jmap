@@ -1,0 +1,46 @@
+{
+  "id": "JMAP-po6q.2",
+  "title": "Optional AWS media backend adapter crate",
+  "description": "New optional crate (not a protocol crate) implementing the VtcBackend media hooks on AWS: MediaLive channel per livestream (never per call), MediaPackage (LL-HLS/DASH, optional SPEKE), MediaConnect/SRT input, CloudFront signed URLs for playback credentials, recording harvest to S3 then MediaConvert into the VTCRecording blob. Map channel states IDLE/STARTING/RUNNING/STOPPING onto starting/live/stopped; idle auto-stop. Tests: contract-level mocks in CI plus a small manual paid integration suite. License/SPDX copied from siblings.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:34:24.79853993Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T21:34:24.79853993Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-po6q.2",
+      "depends_on_id": "JMAP-po6q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T21:34:25.755395007Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-po6q.2",
+      "depends_on_id": "JMAP-po6q.3",
+      "type": "blocks",
+      "created_at": "2026-10-21T21:34:33.532563591Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-po6q.2",
+      "depends_on_id": "JMAP-po6q.1",
+      "type": "blocks",
+      "created_at": "2026-10-21T21:34:34.024488078Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-po6q.2",
+      "depends_on_id": "JMAP-po6q.5",
+      "type": "blocks",
+      "created_at": "2026-10-21T21:46:55.702898181Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

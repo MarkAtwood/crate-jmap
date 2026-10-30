@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-po6q",
+  "title": "VTC broadcast: crates and media-plane adapter",
+  "description": "Crate side of jmap-chat-spec epic xpzz (VTC broadcast livestreams, protocol-neutral). Protocol parts are blocked on those spec decisions. The VtcBackend media hooks must fit at least three very different backends (AWS packager pipeline, WHEP/SFU-egress service, free-tools reference); the AWS adapter is one adapter, not the design target.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T21:34:17.00484805Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T21:46:52.488038013Z"
+}

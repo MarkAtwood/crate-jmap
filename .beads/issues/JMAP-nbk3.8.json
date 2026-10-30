@@ -3,13 +3,15 @@
   "title": "Rich-body push snippet from span text",
   "description": "D8 follow-up: build_chat_message_push omits bodySnippet for application/jmap-chat-rich (documented deviation from push-00 L121). Add a span-text projection (concatenate span text values, per base draft rich body) so rich bodies get snippets; needs span types or a minimal parser in chat-types.",
   "notes": "Folded into JMAP-ccy6 (Chat rich body spans (application/jmap-chat-rich)) by the 2026-10-19 spec gap audit.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-19T18:25:27.848142224Z",
   "created_by": "agent",
-  "updated_at": "2026-10-20T00:45:44.006352843Z",
+  "updated_at": "2026-10-23T05:33:30.382123969Z",
+  "closed_at": "2026-10-23T05:33:30.382123969Z",
+  "close_reason": "Rich-body push snippet implemented in batch 16 (JMAP-nbk3 commit, build_chat_message_push + rich_text), verified, CI green at 17928284",
   "dependencies": [
     {
       "issue_id": "JMAP-nbk3.8",

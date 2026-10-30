@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-j31d",
+  "title": "graph-server: GraphNode/GraphEdge create ignores #creation-id refs",
+  "description": "draft-atwood-jmap-graph-00 L277 (jmap-chat-spec 6c38e2f): 'Like any id-typed property, `graphId` may reference a Graph created earlier in the same request by its creation id (RFC8620 Section 5.3).' crate-jmap-graph-server/src/node.rs create_graph_id reads graphId literally and never consults HandlerContext created_ids or same-call creates, so '#g' fails with invalidProperties graphId. Pre-existing (before JMAP-k9va the literal '#g' failed the rights lookup with the same error); found during the JMAP-k9va review fix. Audit fromId/toId and sibling servers (vtc callId, chat replyTo/memberIds) for the same gap.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T04:54:09.958235832Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:31.75598616Z",
+  "closed_at": "2026-10-24T03:55:31.75598616Z",
+  "close_reason": "Batch 21: already fixed at HEAD (j31d by ff168a9d; 1mr0 by da5b3e45/otw0)"
+}

@@ -1,1 +1,2 @@
 {"id":"01a156c5-c4da-725e-bb25-d2c0e3b65206","issue_id":"JMAP-6k5d.4","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:46:03.994156886Z"}
+{"id":"01a15df0-92cc-7d52-ac8f-2e704f085fff","issue_id":"JMAP-6k5d.4","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 8b: committed and adversarially verified (or already fixed on main), see commit trailer","created_at":"2026-10-21T10:10:09.740873618Z"}

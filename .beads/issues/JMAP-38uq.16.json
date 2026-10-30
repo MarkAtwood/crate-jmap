@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-38uq.16",
+  "title": "scene-client: bind SceneObject/interact",
+  "description": "JMAP-38uq.13 bound the 20 standard Scene methods in jmap-scene-client. draft-atwood-jmap-scene-00 L2015-L2110 (jmap-chat-spec 6bcd9d8) defines SceneObject/interact, which 'works over HTTP and, as a Request, over the JMAP WebSocket' with a /set-shaped response. jmap-scene-types already has SceneObjectInteractRequest/SceneObjectInteractResponse; add SessionClient::scene_object_interact with tests from the L2072-L2110 examples.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T08:19:09.100258886Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T23:38:11.399179138Z",
+  "closed_at": "2026-10-23T23:38:11.399179138Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-38uq.16",
+      "depends_on_id": "JMAP-38uq",
+      "type": "parent-child",
+      "created_at": "2026-10-21T08:19:09.205974189Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

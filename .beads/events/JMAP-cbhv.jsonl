@@ -1,0 +1,2 @@
+{"id":"01a16978-5aa3-7631-91b7-601e062c9803","issue_id":"JMAP-cbhv","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-23T15:54:17.63540748Z"}
+{"id":"01a16b20-f5e3-7532-9ee5-6bda44a69050","issue_id":"JMAP-cbhv","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3","created_at":"2026-10-23T23:38:04.643341053Z"}

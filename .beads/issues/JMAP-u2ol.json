@@ -2,11 +2,14 @@
   "id": "JMAP-u2ol",
   "title": "Decide: known kid inside 60s refetch interval after sub-60s freshness",
   "description": "From review of JMAP-atfj. draft-atwood-jmap-chat-federation-00 §Key Publication allows caching only 'for the HTTP freshness lifetime' and forbids refetching one peer domain 'more often than once every 60 seconds'. When a peer's /.well-known/jmap is fresh for under 60 s (no-store, no Cache-Control, short max-age or DNS TTL), PeerKeys now rejects even a known kid until the interval ends (strict reading; peer usable on one request per minute). Alternatives for Mark: (a) keep strict reject; (b) serve the last result until the interval ends (deviates from the freshness cap); (c) amend the draft, e.g. treat freshness as at least 60 s or say what a receiver does in that window.",
-  "status": "open",
+  "notes": "Mark 2026-10-21: serve the last fetched keys until the 60 s refetch interval ends (a known kid stays usable); add a federation-00 §Key Publication sentence that the effective freshness lifetime is at least 60 s. Spec bead needed.\nSpec landed: jmap-chat-spec 6dcd78f (federation-00 §Key Publication: freshness at least 60 s).",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-20T12:37:45.487530394Z",
   "created_by": "agent",
-  "updated_at": "2026-10-20T12:37:45.487530394Z"
+  "updated_at": "2026-10-21T21:16:28.968500174Z",
+  "closed_at": "2026-10-21T21:16:28.968500174Z",
+  "close_reason": "Batch 12: committed and adversarially verified; CI green at 1a26cf40"
 }

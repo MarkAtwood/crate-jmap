@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-9bio",
+  "title": "calendars-server: validate calendarIds keys as wire Ids",
+  "description": "Found while landing JMAP-k9va.4. CalendarEvent/set create and update accept calendarIds keys without RFC 8620 §1.2 Id validation (crate-jmap-calendars-server/src/event.rs:233 valid_calendar_ids only checks non-empty and all-true). Canonical jmap-mail-server validates Email mailboxIds keys with parse_wire_id (email.rs:1618), and the CHANGELOG JMAP-k9va sibling entry claims Id-typed create/patch properties are validated in every sibling. Fix: parse_wire_id(key, \"calendarIds\") on create/update/copy, plus a negative test in tests/wire_id.rs. Also audit TaskList/Calendar shareWith keys (principal Ids) in the same pass.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T22:00:36.507747053Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:26.474650871Z",
+  "closed_at": "2026-10-24T03:55:26.474650871Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

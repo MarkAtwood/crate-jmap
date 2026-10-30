@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-7xlj",
+  "title": "chat-server README: stale ChatBackend listing and CallerCtx section",
+  "description": "crate-jmap-chat-server/README.md '## ChatBackend trait' shows create_object/update_object/destroy_object without the caller parameter and an obsolete signature set; '## CallerCtx' says the standard handle_* bodies ignore _ctx, but src/space.rs and src/message.rs pass caller: \u0026B::CallerCtx to the backend. Refresh both against src/backend.rs and lib.rs. Found during JMAP-9tp3.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T11:31:03.137425848Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:29.865911432Z",
+  "closed_at": "2026-10-24T03:55:29.865911432Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

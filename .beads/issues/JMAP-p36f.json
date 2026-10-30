@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-p36f",
+  "title": "mail-server: MemoryBackend Email create skips Thread and counts",
+  "description": "Found in JMAP-u6c5. MemoryBackend::import_email creates or extends the Thread object, bumps Thread state, updates Mailbox totalEmails/unreadEmails/totalThreads/unreadThreads and the Message-ID index. MemoryBackend::create_email (like create_object::\u003cEmail\u003e before it) stores only the Email row and its state. A created Email therefore has no Thread object and does not move Mailbox counts (RFC 8621 2, 3). Fix: share import_email's insert step with create_email.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T17:36:07.259016627Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:26.910853552Z",
+  "closed_at": "2026-10-24T03:55:26.910853552Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

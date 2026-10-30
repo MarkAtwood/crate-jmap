@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-6mry",
+  "title": "Make Scene, VTC and Graph crates publishable",
+  "description": "Mark 2026-10-20: specs fixed; all crates may be published once created. After batch 8b: remove publish = false and the README 'Draft, not published' notes from every Scene/VTC/Graph crate (scene-types/-server/-client, chat-scene-server, scene-vtc-server, vtc-types/-server/-client, chat-vtc-server, graph-types/-server/-client, graph-projection-server); remove RELEASING.md blocker 0 and add the crates to the layer table in topological order; check cargo publish --dry-run packaging for each new crate (no path-only deps, versions set, READMEs/licenses included). Actual cargo publish is a separate release step needing Mark's explicit go. Supersedes the publish=false decision of JMAP-38uq.14.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T23:01:30.331190804Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T14:49:54.621656624Z",
+  "closed_at": "2026-10-21T14:49:54.621656624Z",
+  "close_reason": "Batch 8c: committed and adversarially verified; CI green at 860a4c2a"
+}

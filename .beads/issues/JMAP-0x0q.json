@@ -1,12 +1,13 @@
 {
   "id": "JMAP-0x0q",
-  "title": "Sync crates to jmap-chat-spec 63e9d08",
+  "title": "Sync crates to jmap-chat-spec 6bcd9d8",
   "description": "Spec revision 2026-10-20 (33 commits 0cd3af0..63e9d08). Impacts mapped and adversarially verified by workflow wf_dc0f2945-d30; details in child beads.",
+  "notes": "2026-10-20: re-based to spec 6bcd9d8. 42c244b reverted urn:jmap: — capabilities stay urn:ietf:params:jmap:*; object refs use jmap: URI scheme (draft-atwood-jmap-object-uri-00). All children: cite 6bcd9d8 line numbers (vtc-00 lines moved +7).",
   "status": "open",
   "priority": 1,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-20T20:02:24.688684563Z",
   "created_by": "agent",
-  "updated_at": "2026-10-20T20:02:24.688684563Z"
+  "updated_at": "2026-10-20T22:55:00.765260899Z"
 }

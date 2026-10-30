@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-liqs",
+  "title": "chat-types: AddRole placeholder role id",
+  "description": "Follow-up from JMAP-dpbp. SpacePatchOp::AddRole(SpaceRole) carries a placeholder role id (space.rs fills \"\" for addRoles entries, which draft-atwood-jmap-chat-00 §Space/set addRoles says carry no id: 'Server assigns ULIDs'); the backend replaces it before storing (crate-jmap-chat-types/src/space_set.rs SpacePatchOp docs). Not the create_object path JMAP-dpbp changed, and the replacement is unconditional (no value comparison), so no collision bug. Fix: an id-less RoleCreate payload for AddRole (SpacePatchOp derives Clone/PartialEq, so a builder closure does not fit). Tests in chat-server tests/role_member_apply.rs, channel_category_apply.rs and integration.rs send \"id\": \"placeholder\" in addRoles entries and would drop it.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T23:12:19.811555527Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T17:16:12.142979295Z",
+  "closed_at": "2026-10-23T17:16:12.142979295Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-liqs",
+      "depends_on_id": "JMAP-dpbp",
+      "type": "discovered-from",
+      "created_at": "2026-10-21T23:12:19.939250816Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

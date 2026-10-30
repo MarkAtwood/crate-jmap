@@ -1,0 +1,48 @@
+{
+  "id": "JMAP-lrgt.10",
+  "title": "Link unlinked ChatBackend freeze blockers to lrgt",
+  "description": "Freeze blocker from the fourth 2026-10-21 freeze review. Three open beads change the chat-server public API or the documented ChatBackend contract, have no 'bd:' commit trailer at HEAD c59916d8, and do not block JMAP-lrgt: (1) JMAP-559u: ChatBackend::may_broadcast_mention (backend.rs:1869) takes space_id but no chat_id, so channel permissionOverrides cannot be applied (chat-00 L1619 MUST); the fix is a breaking trait signature change. (2) JMAP-kgx2: chat-server/src/permissions.rs is pub mod (lib.rs:77, re-exported lib.rs:115) with a parallel \u0026str permission canon and HashSet\u003cString\u003e surfaces (everyone_permissions, resolve_channel_permissions) next to the new ChatPermission; decide move or freeze. (3) JMAP-0x0q.55: apply_space_patch contract table (backend.rs:1330-1331) lacks the role-hierarchy rule for addMembers/updateMembers and the patch-key-naming last-admin rule from spec 061a30f; contract change for every backend implementor, privilege-escalation gap in MemoryBackend. Close this when all three are landed or explicitly deferred with a recorded semver plan.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:08:47.473760876Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:26.470723811Z",
+  "closed_at": "2026-10-21T16:19:26.470723811Z",
+  "close_reason": "559u, 0x0q.55 and kgx2 all landed",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lrgt.10",
+      "depends_on_id": "JMAP-lrgt",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:08:47.60209288Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-lrgt.10",
+      "depends_on_id": "JMAP-559u",
+      "type": "blocks",
+      "created_at": "2026-10-21T10:08:47.726655815Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-lrgt.10",
+      "depends_on_id": "JMAP-kgx2",
+      "type": "blocks",
+      "created_at": "2026-10-21T10:08:47.836284967Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-lrgt.10",
+      "depends_on_id": "JMAP-0x0q.55",
+      "type": "blocks",
+      "created_at": "2026-10-21T10:08:47.947934Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

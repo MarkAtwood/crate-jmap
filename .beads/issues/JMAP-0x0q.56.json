@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.56",
+  "title": "Let backends relax Chat.unreadCount upkeep",
+  "description": "Mark 2026-10-20 decision; spec jmap-chat-spec 45d611c (draft-atwood-jmap-chat-00 §Chat unreadCount): 'The value is advisory ... Servers SHOULD keep it accurate, but MAY update it some time after the change that affects it, MAY combine several such changes into one update, and MAY report a server-defined maximum ... Whenever the server changes the value, the Chat's state changes ... Clients MUST NOT rely on unreadCount being exact.'\nNow: chat-server forces exact upkeep: chat.rs record_unread_count_changes (~L411) rewrites the Chat via update_object on every Message create/destroy, expiry (expiry.rs, y3f2.18), read-and-burn and ReadPosition update, bumping Chat state each time; Chat/get fill_unread_counts (~L337) recomputes when the backend leaves the property absent.\nChange (minimal): route the per-event rewrite through a ChatBackend hook (e.g. on_unread_count_affected(caller, account_id, chat_ids)) whose default keeps today's exact behaviour (default allowed: spec permits exact; memory 'spec-method-defaults'), so production backends can coalesce, defer or cap. Keep Chat/get preferring a backend-stored value. Update rustdoc/contract docs and AGENTS.md to state the slack; re-cite tests to 45d611c (exact-count tests stay valid for MemoryBackend). Additive trait method with default; CHANGELOG entry. Freeze-relevant: adds a defaulted ChatBackend hook.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T01:11:11.990375105Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T14:49:53.708625547Z",
+  "closed_at": "2026-10-21T14:49:53.708625547Z",
+  "close_reason": "Batch 8c: committed and adversarially verified; CI green at 860a4c2a",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.56",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T01:11:12.117122951Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

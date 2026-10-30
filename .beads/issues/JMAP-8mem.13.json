@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-8mem.13",
+  "title": "chat-vtc-server: chat-bound call access helper",
+  "description": "VtcBackend §Per-call access (494e757e) makes the backend's reads hide calls the caller cannot access. For chat-bound calls, draft-atwood-jmap-vtc-00 (6bcd9d8) L926/L1660 define no-access as: not a member of the Chat bound by chatId, lacking \"view\" on the channel of a Space-bound call, or blocked by the initiator (ChatContact.blocked). crate-jmap-chat-vtc-server has no function a backend can call from its get_objects/query_objects to decide this; its is_member checks the hosting account owner, not the caller. Add one and list it in the binding's backend-method table. Also note: §Standalone Calls (L1666-1671) admits only participants and the initiator, which by itself leaves no way for a non-participant to join a standalone room call; who may join is deployment-defined (L1652).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T05:45:22.236655003Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T17:16:12.804129522Z",
+  "closed_at": "2026-10-23T17:16:12.804129522Z",
+  "close_reason": "Batch 19 (run wf_1f7c9883-837): implemented, adversarially verified, full CI green at b9d3d860",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.13",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-21T05:45:22.363596224Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

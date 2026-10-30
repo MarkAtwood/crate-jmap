@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-bfdh",
+  "title": "contacts MemoryBackend copy_object skips create checks",
+  "description": "ContactCard copy_object in crate-jmap-contacts-server memory backend stores through a separate path that skips the addressBookIds and uid checks create_object runs, so ContactCard/copy can store a card create would reject. Non-breaking (0.4.x). Found during JMAP-s4kp.10.",
+  "notes": "CHECKPOINT 2026-10-30: in batch 24 (0.4.x, must be semver-compatible with published 0.4.0), run wf_05ff1b01-172, script ~/Cache/crate-jmap-handoff-2026-10-22/batch24.js, base dc3720b6.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T07:18:55.957638675Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T12:44:57.047769386Z",
+  "closed_at": "2026-10-30T12:44:57.047769386Z",
+  "close_reason": "batch 24 (0.4.x): implemented, adversarially verified, local CI green at 66ed14e3 incl. public-api and fresh deny, pushed"
+}

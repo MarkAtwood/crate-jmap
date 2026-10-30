@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-s4kp.8",
+  "title": "mail-server: metadata-04 /get defaults+subselectors, /copy overrides",
+  "description": "Follow-up from JMAP-s4kp.1 (which wired /query, /changes, /set only, per its three points). Remaining draft-ietf-jmap-metadata-04 gaps for opted-in Email/Mailbox in jmap-mail-server: (1) §3.1 /get: for Mailbox/get with properties null and using containing urn:ietf:params:jmap:metadata, include metadata (Email/get defaults unchanged); §2 'When returned, its value MUST be an object ({} when no metadata is set), never null' — today an object with no stored metadata omits it; and metadata/\u003cnamespace\u003e subselectors (union, root supersedes, malformed -\u003e invalidArguments, unsupported namespace omitted unless data stored). (2) §3.4 Email/copy: the create MAY override metadata with Foo/set create rules; without the capability only metadata is copied. (3) §3: /query evaluates metadata conditions regardless of using; strictly the §3.6 extension applies only to requests using the capability (QueryParams carries no using).",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T19:40:17.943423515Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:24.180060046Z",
+  "closed_at": "2026-10-24T03:55:24.180060046Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-s4kp.8",
+      "depends_on_id": "JMAP-s4kp",
+      "type": "parent-child",
+      "created_at": "2026-10-23T19:40:18.088797343Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.64",
+  "title": "Set newState stale after rollback/post-commit fail",
+  "description": "/set reports newState == oldState after backend writes in rollback and post-commit failure paths (RFC 8620 §5.3: newState is \"The state string that will now be returned by Foo/get\"). Batch 8b review (JMAP-y3f2.19, JMAP-8mem.3).\n\n1. crate-jmap-chat-server/src/chat.rs ~L887-950: the direct-chat recheck rollback (create_object L887, destroy_object L913/L943) and the lost-race / cleanup-failed branches never set `mutated` (only L994/1263/1271/1358 do). If it is the only change in the batch, finalize_set_response (L1386) returns newState == oldState though backend Chat state moved; if destroy also fails (Err arm ~L917) the Chat stays live while newState is stale, so a client never sees it via /changes from that state.\n2. crate-jmap-chat-server/tests/integration.rs:2607 chat_set_direct_recheck_read_failure_rolls_back_create arms only queue_chat_get_fault_after_create(). Add the read-fail + destroy-fail case (queue_chat_get_fault_after_create() plus inject(\"Chat\",\"destroy\")): assert notCreated is a redacted serverFail, no canary leaks, and newState != oldState.\n3. crate-jmap-vtc-server/src/participant.rs:374-382: VTCParticipant create stores the participant (create_object L374) then runs `set_call_state(...).await?` (L381). A backend error there reports the stored join as notCreated with `mutated` false, so newState can equal oldState. Treat it like run_effects: best-effort after commit, and count the commit as a mutation. (Stale-snapshot overwrite is tracked on JMAP-ace5.)\n",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:37.820536644Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:23.92351236Z",
+  "closed_at": "2026-10-21T16:19:23.92351236Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.64",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:37.941817658Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

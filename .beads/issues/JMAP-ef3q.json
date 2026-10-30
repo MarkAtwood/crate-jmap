@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-ef3q",
+  "title": "Graph family crates (graph, edit, projection, search)",
+  "description": "Implement draft-atwood-jmap-graph-00, -graph-edit-00, -graph-projection-00, -graph-search-00 (decided by Mark 2026-10-20: now, after spec sync). Layout: jmap-graph-{types,server,client}; graph-edit and graph-search are capability-gated modules inside those three crates (they extend only graph); graph-projection is a binding crate jmap-graph-projection-server (reads mail/contacts backends). Depends on JmapUri in jmap-types (JMAP-0x0q.6). Oracle: draft text at jmap-chat-spec 6bcd9d8 (/home/mark/PROJECT/jmap-chat-spec). Crates start publish = false (draft, Mark review before publishing). Copy crate metadata exactly from a sibling family (e.g. jmap-filenode-*). Follow AGENTS.md canonical templates.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-20T23:00:13.881896626Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-20T23:00:13.881896626Z"
+}

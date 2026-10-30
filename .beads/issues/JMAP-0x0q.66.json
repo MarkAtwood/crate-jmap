@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-0x0q.66",
+  "title": "mimi-server: replayed Welcome rebinds unbound Chat",
+  "description": "mimi-server: a replayed /notify Welcome rebinds a Chat the client unbound; plus test gaps (batch 8b review, JMAP-6k5d.3/.4/.6).\n\n1. crate-jmap-chat-mimi-server/src/memory.rs:617-649 store_fanout: the Welcome branch sets chat.bound = true (L630) before the senderMsgId duplicate check (L644-649). If a Welcome is stored, the client unbinds (draft-atwood-jmap-chat-mimi-00 L260), and the hub retries the same /notify (L441 expects repeated bodies), the duplicate is not stored but the Chat is rebound, so later FanoutMessages for a group the account left are stored. L260 says \"A later Welcome for the account binds the Chat again\"; a byte-identical retry is arguably not a later Welcome. Run the duplicate check before rebinding (and update the MimiBackend::store_fanout doc in backend.rs), with a test. Spec ambiguity, not a clear MUST violation.\n2. tests/hand_out.rs:284 an_expired_key_package_is_unavailable asserts only Unavailable, which fit() returns for any decode/validate failure; add a control (same KeyPackage Compatible under a clock before not_after) or check the validate error.\n3. tests/hand_out.rs:249 required_capabilities_are_checked_against_the_leaf_capabilities never passes required proposal types and never tests the RFC 9420 §7.2 default-range edges (extension 0x0006 / proposal 0x0008 not in the leaf -\u003e Incompatible) of src/handout.rs:80/83 (1..=5, 1..=7).\n4. tests/room_create.rs:346 check_2: only an unbound key is tested; add a key bound to a different account (spec L280 \"bound to the account\"; MemoryBackend::create_room compares bound.account == account_id).\n5. tests/room_create.rs: no negative test for a groupInfo whose wire format is not mls_group_info, a non-Basic leaf credential, or groupInfo/ratchetTree that is not valid base64url / does not parse (documented invalidArguments paths in check_room_create).\n",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T10:19:38.40650342Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T16:19:25.470138194Z",
+  "closed_at": "2026-10-21T16:19:25.470138194Z",
+  "close_reason": "Batch 9: committed and adversarially verified; CI green at df7e2035",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0x0q.66",
+      "depends_on_id": "JMAP-0x0q",
+      "type": "parent-child",
+      "created_at": "2026-10-21T10:19:38.535418755Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.6",
+  "title": "Task/CalendarEvent query after/before are not LocalDateTime: tasks types them as UTCDate, calendars as String",
+  "description": "Freeze audit survivor, vote \u003e= 2/3.\n\n## Task/CalendarEvent query after/before are not LocalDateTime: tasks types them as UTCDate, calendars as String\nCrates: jmap-tasks-types, jmap-calendars-types\nEvidence: draft-ietf-jmap-calendars-33.txt:2209-2221 defines CalendarEvent/query `after`/`before` as LocalDateTime, interpreted in the `timeZone` argument. draft-ietf-jmap-tasks-06.txt:1095-1098 says Task/query \"is the CalendarEvent/query method\". RFC 8984 §5.2.1 Task `due` is a LocalDateTime (tasks-types/src/task.rs:466-468 documents it as such). Yet tasks-types/src/task.rs:579-585 has `pub after: Option\u003cUTCDate\u003e` / `pub before: Option\u003cUTCDate\u003e`, \"Task `due` date must be on or after this UTCDate\". UTCDate requires a trailing Z (jmap-types/src/id.rs:226-243), so a spec-conforming LocalDateTime filter value fails to deserialize this deny_unknown_fields struct, and a client cannot send one. calendars-types/src/event.rs:401,406 uses `Option\u003cString\u003e` for the same fields. jmap_jscalendar_types::LocalDateTime (jscalendar-types/src/lib.rs:104) exists, and tasks-types already uses it for capability minDateTime/maxDateTime (tasks-types/src/capability.rs:56,62).\nWhy breaking later: Changing the type of public fields on a public filter struct is a semver break.\nFix: Type both siblings' after/before as Option\u003cjmap_jscalendar_types::LocalDateTime\u003e. While doing that, consider the same type for the scalar LocalDateTime properties still carried as String (event.rs:205 recurrence_id, :323 start; task.rs:385 recurrence_id, :468 due, :472 start), since jscalendar-types types the same properties as LocalDateTime.\nSize: M\n\nVotes: REAL: Only the tasks half of this holds up; the calendars half doesn't. Both crates are publishable (neither Cargo.toml sets publish = false), and a search for \"LocalDateTime\" and \"after/before\" found no existing bead.\n\nThe real part is in jmap-tasks-types. At HEAD, crate-jmap-tasks-types/src/task.rs:578-584 types the Task filter's after/before as Option\u003cUTCDate\u003e, documented as \"Task `due` date must be on or after this UTCDate\". UTCDate only accepts exactly 20 characters ending in Z (crate-jmap-types/src/id.rs:226-243). draft-ietf-jmap-tasks-06 §4.13 (around line 1095-1098) says Task/query \"is the C; REAL: I tried to refute this and could not. The tasks half is a real break; the calendars half is weaker.\n\nTasks half, confirmed at HEAD:\n- `crate-jmap-tasks-types/src/task.rs:579-585` declares `TaskFilterCondition.after/before: Option\u003cUTCDate\u003e`. The struct is at line 550, is `#[non_exhaustive]`, and the crate's Cargo.toml has no `publish = false`, so it is published.\n- draft-ietf-jmap-tasks-06.txt:1093-1096 says Task/query \"is the CalendarEvent/query method\".\n- draft-ietf-jmap-calendars-33.txt:2209-2221 defines that method's `after`/`before` as LocalDateTime, interpreted in the `timeZone` argument.; REFUTE: Refuted for both crates. The code does match the claim: crate-jmap-tasks-types/src/task.rs:579-585 has `after`/`before` as Option\u003cUTCDate\u003e, and crate-jmap-calendars-types/src/event.rs:401,406 has them as Option\u003cString\u003e. Neither one is a break that only a semver change could fix.\n\n(1) Calendars: `jmap_jscalendar_types::LocalDateTime` (crate-jmap-jscalendar-types/src/lib.rs:104) is an unvalidated `String` newtype with `From\u003cString\u003e`. So Option\u003cString\u003e already accepts and emits every valid LocalDateTime exactly as the spec requires (draft-ietf-jmap-calendars-33.txt:2209-2221). Nothing wrong goes ",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T06:07:24.468691329Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:18.413134276Z",
+  "closed_at": "2026-10-22T16:43:18.413134276Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.6",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T06:07:24.596808279Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

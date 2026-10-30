@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-uahy",
+  "title": "mail-server: Email/set create threads only via inReplyTo/references convenience props",
+  "description": "Found in JMAP-2o2i. build_email_from_create calls assign_thread with draft.in_reply_to / draft.references only. A create that sets header:In-Reply-To[:asMessageIds] or header:References instead gets a fresh thread although the stored message carries the field (RFC 8621 §3 threading). Fix: derive the thread lookup ids from the composed/parsed message (or the header: properties) rather than the convenience fields.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-24T02:13:09.705449301Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T06:43:22.587376711Z",
+  "closed_at": "2026-10-24T06:43:22.587376711Z",
+  "close_reason": "batch 22: implemented, adversarially verified, CI green at 20645f57, pushed"
+}

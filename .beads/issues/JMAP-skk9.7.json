@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.7",
+  "title": "Tasks and Calendars sloppy-Value JSCalendar properties use different container shapes",
+  "description": "Freeze audit survivor, vote \u003e= 2/3.\n\n## Tasks and Calendars sloppy-Value JSCalendar properties use different container shapes\nCrates: jmap-tasks-types, jmap-calendars-types\nEvidence: For the same RFC 8984 properties, calendars-types/src/event.rs:175,179,183,213,217,281,290,318 use `Option\u003cserde_json::Value\u003e`, while tasks-types/src/task.rs:354,358,362,393,397,432,447,463 use `Option\u003cBTreeMap\u003cId, Value\u003e\u003e` / `Option\u003cVec\u003cValue\u003e\u003e`. Workspace AGENTS.md:407-419 names the calendars approach (public field as serde_json::Value) as the preferred hybrid. Not a conformance bug: both shapes can carry any conforming value. It is a sibling divergence.\nWhy breaking later: Unifying either sibling later changes public field types, which is a semver break.\nFix: Pick one shape for both crates before 0.4. Either align tasks to calendars' Option\u003cValue\u003e per AGENTS.md, or record the divergence as deliberate.\nSize: S\n\nVotes: REAL: I could not refute it. The divergence is real at HEAD, can only be fixed later with a semver break, and goes against both the workspace rule and tasks-types' own design doc.\n\n(a) The evidence holds.\n- crate-jmap-calendars-types/src/event.rs uses `Option\u003cserde_json::Value\u003e` at lines 175, 179, 183, 213, 217, 281, 290 and 318 (locations, virtualLocations, links, recurrenceRules, excludedRecurrenceRules, participants, alerts, timeZones).\n- crate-jmap-tasks-types/src/task.rs uses a different shape for the same RFC 8984 properties:\n  - `Option\u003cBTreeMap\u003cId, serde_json::Value\u003e\u003e` at lines 354, 358, 362; REFUTE: The evidence holds at HEAD: calendars-types/src/event.rs uses Option\u003cserde_json::Value\u003e for locations, virtualLocations, links, recurrenceRules, excludedRecurrenceRules, participants, alerts and timeZones, while tasks-types/src/task.rs:354-463 uses Option\u003cBTreeMap\u003cId, Value\u003e\u003e, Option\u003cVec\u003cValue\u003e\u003e and Option\u003cBTreeMap\u003cString, Value\u003e\u003e. Both crates are publishable, and changing either one after 0.4 would be a semver break. It still fails criterion (c), because there is no engineering defect. jmap_types::Id is #[serde(transparent)] with no validation at deserialize time (crate-jmap-types/src/id.rs:2; REAL: Refutation failed. The evidence holds at HEAD with one correction: tasks uses BTreeMap, not HashMap (the HashMap form exists only in stale .claude/worktrees copies).\n\n- **Calendars:** crate-jmap-calendars-types/src/event.rs:138,175,179,183,213,217,281,290,318 are all `Option\u003cserde_json::Value\u003e`. That covers relatedTo, locations, virtualLocations, links, recurrenceRules, excludedRecurrenceRules, participants, alerts and timeZones.\n- **Tasks:** crate-jmap-tasks-types/src/task.rs:317,354,358,362,432,447,463 use `Option\u003cBTreeMap\u003cId|String, Value\u003e\u003e`, and :393,397 use `Option\u003cVec\u003cValue\u003e\u003e`, for the s",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T06:07:24.752968336Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:18.638975063Z",
+  "closed_at": "2026-10-22T16:43:18.638975063Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.7",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T06:07:24.876328871Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-8mem.15",
+  "title": "vtc-server: VTCCallEndEvent on decline and cancel",
+  "description": "Found while doing JMAP-8mem.7. draft-atwood-jmap-vtc-00 at jmap-chat-spec 6bcd9d8 L1425: \"When a ringing call is answered, declined, cancelled, or times out, the server delivers a VTCCallEndEvent to all devices that received the ring.\" L1443: decline on one device -\u003e other devices get endReason \"declined\". vtc-server delivers answered_elsewhere (answer) and timeout (expire_ring) only; the decline path (participant.rs Effects.declined) and the initiator cancel / ringing-call end (call.rs end_reason_for Cancelled, after_leave Cancelled) deliver no VTCCallEndEvent with \"declined\" / \"cancelled\".",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T05:56:12.705601931Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-21T20:09:34.267802976Z",
+  "closed_at": "2026-10-21T20:09:34.267802976Z",
+  "close_reason": "Batch 11: committed and adversarially verified (or already fixed); CI green at cc87669d",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8mem.15",
+      "depends_on_id": "JMAP-8mem",
+      "type": "parent-child",
+      "created_at": "2026-10-21T05:56:12.848748669Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

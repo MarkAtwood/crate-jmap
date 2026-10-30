@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-skk9.9",
+  "title": "calendars-client: no slot for spec /set args (sendSchedulingMessages, onSuccessSetIsDefault); contacts type...",
+  "description": "Freeze audit survivor, vote \u003e= 3/3.\n\n## calendars-client: no slot for spec /set args (sendSchedulingMessages, onSuccessSetIsDefault); contacts types the same arg as Value\nCrates: jmap-calendars-client, jmap-contacts-client\nEvidence: 1) calendar_event_set (crate-jmap-calendars-client/src/methods/event.rs:165) takes only (create, update, destroy, if_in_state): no params argument and no extra map. calendars-33 L1591 defines the CalendarEvent/set argument `sendSchedulingMessages: Boolean`, and the server already honours it (crate-jmap-calendars-server/src/backend.rs:80-82, CalendarEventSetArgs). 2) participant_identity_set (participant_identity.rs:123) also has no params argument, but calendars-33 L699 defines ParticipantIdentity/set `onSuccessSetIsDefault: Id|null`, and the server reads it (crate-jmap-calendars-server/src/participant_identity.rs:119). 3) CalendarSetParams (methods/mod.rs:122) is exhaustive and has no on_success_set_is_default, although calendars-33 L1049 defines it and calendar.rs:131 in the server handles it. 4) The sibling AddressBookSetParams.on_success_set_is_default (crate-jmap-contacts-client/src/methods/mod.rs:45) carries the same RFC 9610 §2.3 Id|null argument as `Option\u003cserde_json::Value\u003e`. So the same concept has three shapes: missing, untyped, or not reachable at all. Canonical mail follows the pattern `xxx_set(..., params: Option\u003cXxxSetParams\u003e)` with typed fields (MailboxSetParams, EmailSubmissionSetParams).\nWhy breaking later: Adding a parameter to calendar_event_set or participant_identity_set changes their public signatures. Adding a named field to the exhaustive CalendarSetParams breaks struct-literal construction. Retyping the contacts field from Value breaks callers. Today a client cannot ask the server to send iTIP scheduling messages at all.\nFix: Add CalendarEventSetParams { send_scheduling_messages: Option\u003cbool\u003e, extra } and ParticipantIdentitySetParams { on_success_set_is_default, extra }, each passed as a trailing `params: Option\u003c...\u003e` like mailbox_set. Add on_success_set_is_default to CalendarSetParams. Use a single typed shape for onSuccessSetIsDefault in both calendars and contacts: an Id-or-'#creationId' string type, not serde_json::Value.\nSize: M\n\nVotes: REAL: Verified at HEAD. 1) calendar_event_set (crate-jmap-calendars-client/src/methods/event.rs:165) takes only (create, update, destroy, if_in_state), with no params argument and no extra map. calendars-33 L1591 defines sendSchedulingMessages: Boolean, so a typed client cannot request iTIP scheduling at all. 2) participant_identity_set (participant_identity.rs:123) has the same shape, although calendars-33 L699 defines onSuccessSetIsDefault: Id|null. Canonical mail mailbox_set (crate-jmap-mail-client/src/methods/mailbox.rs:145-151) takes a trailing params: Option\u003cMailboxSetParams\u003e. Adding that argu; REAL: I could not refute it. At HEAD, both crates are publishable (publish is unset in cargo metadata) and no bead covers this (bd search for sendSchedulingMessages, onSuccessSetIsDefault and on_success_set_is_default found nothing; the JMAP-wf92 children are unrelated).\n\n(1) crate-jmap-calendars-client/src/methods/event.rs:165 calendar_event_set takes only (create, update, destroy, if_in_state). It has no params argument and no extra map, and nothing else in calendars-client mentions sendScheduling. draft-ietf-jmap-calendars-33 defines CalendarEvent/set \"sendSchedulingMessages: Boolean (default: fa; REAL: I could not refute this claim. All four points hold at HEAD, and no open bead covers it (I searched for sendScheduling, scheduling, onSuccessSetIsDefault, isDefault, CalendarSetParams, calendar_event_set, participant_identity_set, AddressBookSetParams and SetParams, and found nothing).\n\n(a) Evidence:\n- crate-jmap-calendars-client/src/methods/event.rs:165 `calendar_event_set(create, update, destroy, if_in_state)` has no params slot and no extra map. draft-ietf-jmap-calendars-33.txt L1591 defines `sendSchedulingMessages: Boolean`, and L2005 says the server MUST send iTIP when it is true.\n- parti",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T06:07:25.327720417Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-22T16:43:19.341960464Z",
+  "closed_at": "2026-10-22T16:43:19.341960464Z",
+  "close_reason": "batch 14: committed, adversarially verified, CI green at 0d62bd2e",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-skk9.9",
+      "depends_on_id": "JMAP-skk9",
+      "type": "parent-child",
+      "created_at": "2026-10-22T06:07:25.440218999Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

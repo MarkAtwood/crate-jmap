@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-euyr",
+  "title": "chat-server: Space/set create drops iconBlobId",
+  "description": "handle_space_set create (crate-jmap-chat-server/src/space.rs build closure) never sets Space.icon_blob_id, so a create carrying iconBlobId succeeds with it silently dropped. draft-atwood-jmap-chat-00 L1332 (6c38e2f) 'Optional: description (String), iconBlobId (String).' Found while fixing JMAP-zmqp, which now rejects unknown create keys but accepts iconBlobId as CLIENT_SETTABLE. Needs type check (Id) plus storing it; RFC 8620 §5.3 blobNotFound may also apply.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-23T15:03:15.902218092Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-24T03:55:27.714425287Z",
+  "closed_at": "2026-10-24T03:55:27.714425287Z",
+  "close_reason": "Batch 21 (run wf_18048230-8ff): implemented, adversarially verified; CI green except new cargo-deny advisory RUSTSEC-2026-0387 (crypto-bigint 0.5.5, unrelated to these changes) at 741292f0; beqc spec commits 639dc1d/7787c51 in jmap-chat-spec (not pushed)"
+}

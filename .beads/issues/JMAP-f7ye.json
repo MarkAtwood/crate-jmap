@@ -3,12 +3,14 @@
   "title": "Add Attachment.filenodeId and thumbnailBlobId for FileNode integration",
   "description": "draft-atwood-jmap-chat-filenode-00 extends Attachment with filenodeId (link to Space file tree node, makes blobId/filename/contentType/size/sha256 optional) and thumbnailBlobId (preview blob). Neither field exists on Attachment in crate-jmap-chat-types.",
   "notes": "Folded into JMAP-v9py.16 (Layer E: Implement draft-atwood-jmap-chat-filenode-00) by the 2026-10-19 spec gap audit.\n2026-10-19 spec gap audit: appears already implemented — Attachment.filenode_id and thumbnail_blob_id exist (crate-jmap-chat-types/src/message.rs:160, :166); verify and close.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "feature",
   "owner": "mark@wolfssl.com",
   "created_at": "2026-06-13T20:32:57Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-10-20T00:46:12.696870328Z",
+  "updated_at": "2026-10-21T21:18:10.573184985Z",
+  "closed_at": "2026-10-21T21:18:10.573184985Z",
+  "close_reason": "Done: Attachment.filenode_id/thumbnail_blob_id (crate-jmap-chat-types/src/message.rs:161,167; also :213,:217), tests at :969-986",
   "metadata": {}
 }

@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-26di.46",
+  "title": "SetResponse re-export uses elided default T=serde_json::Value across ~20 methods",
+  "description": "Files:\n- crate-jmap-chat-client/src/methods/mod.rs:36-39 (re-export)\n- crate-jmap-chat-client/src/methods/{chat,message,space,custom_emoji,space_ban,space_invite,misc}.rs (uses)\n\n`SetResponse` is re-exported from `jmap-types` and used pervasively:\n```rust\npub use jmap_types::{ AddedItem, ChangesResponse, GetResponse, QueryChangesResponse,\n                     QueryResponse, SetError, SetResponse };\n```\n\nUpstream declares it as `pub struct SetResponse\u003cT = serde_json::Value\u003e`. Every public method signature in this crate uses `SetResponse` (no explicit type param), e.g.:\n\n```rust\npub async fn chat_create(...) -\u003e Result\u003cSetResponse, ClientError\u003e\npub async fn message_create(...) -\u003e Result\u003cSetResponse, ClientError\u003e\npub async fn space_create(...) -\u003e Result\u003cSetResponse, ClientError\u003e\n```\n\nThe elision means every signature is actually `SetResponse\u003cserde_json::Value\u003e`. Implications:\n\n1. **The signature is dependent on upstream's default.** If `jmap-types` changes the default (e.g. to a non-`Value` placeholder, or removes the default), every consumer breaks at compile time.\n2. **Migrating to typed responses is now breaking.** A future improvement where `chat_create` returns `SetResponse\u003cjmap_chat_types::Chat\u003e` (so `response.created[\"c1\"]` is already typed) cannot be made additively — it changes the return type.\n3. **Untyped `serde_json::Value` in `.created` forces every caller to do a second deserialize.** Today `let chat: Chat = serde_json::from_value(response.created[CALL_ID].clone())?;` is the boilerplate every caller writes after every `chat_create`. The typed `SetResponse\u003cChat\u003e` would eliminate this.\n\nTwo paths:\n1. **Make the elision explicit**: write `SetResponse\u003cserde_json::Value\u003e` everywhere. Eliminates the silent dependency on upstream's default. Cheap (search-and-replace).\n2. **Adopt typed responses for `*_create` methods**: change `chat_create -\u003e SetResponse\u003cjmap_chat_types::Chat\u003e`, etc. Removes a caller boilerplate per method but is a breaking change.\n\nThe typed-response migration is the better caller experience but a coordinated workspace decision (mail-client, contacts-client, etc. would want the same). Path 1 is a quick wrapper-fix for the SemVer surface only.\n\nWorkspace canonical-template note: mail-client follows the same `SetResponse` (elided) pattern. Decision should be workspace-wide, not chat-client-only — file as a design-decision bead at the workspace level if this gains traction.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-15T20:42:43Z",
   "created_by": "Mark Atwood",
-  "description": "Files:\n- crate-jmap-chat-client/src/methods/mod.rs:36-39 (re-export)\n- crate-jmap-chat-client/src/methods/{chat,message,space,custom_emoji,space_ban,space_invite,misc}.rs (uses)\n\n`SetResponse` is re-exported from `jmap-types` and used pervasively:\n```rust\npub use jmap_types::{ AddedItem, ChangesResponse, GetResponse, QueryChangesResponse,\n                     QueryResponse, SetError, SetResponse };\n```\n\nUpstream declares it as `pub struct SetResponse<T = serde_json::Value>`. Every public method signature in this crate uses `SetResponse` (no explicit type param), e.g.:\n\n```rust\npub async fn chat_create(...) -> Result<SetResponse, ClientError>\npub async fn message_create(...) -> Result<SetResponse, ClientError>\npub async fn space_create(...) -> Result<SetResponse, ClientError>\n```\n\nThe elision means every signature is actually `SetResponse<serde_json::Value>`. Implications:\n\n1. **The signature is dependent on upstream's default.** If `jmap-types` changes the default (e.g. to a non-`Value` placeholder, or removes the default), every consumer breaks at compile time.\n2. **Migrating to typed responses is now breaking.** A future improvement where `chat_create` returns `SetResponse<jmap_chat_types::Chat>` (so `response.created[\"c1\"]` is already typed) cannot be made additively — it changes the return type.\n3. **Untyped `serde_json::Value` in `.created` forces every caller to do a second deserialize.** Today `let chat: Chat = serde_json::from_value(response.created[CALL_ID].clone())?;` is the boilerplate every caller writes after every `chat_create`. The typed `SetResponse<Chat>` would eliminate this.\n\nTwo paths:\n1. **Make the elision explicit**: write `SetResponse<serde_json::Value>` everywhere. Eliminates the silent dependency on upstream's default. Cheap (search-and-replace).\n2. **Adopt typed responses for `*_create` methods**: change `chat_create -> SetResponse<jmap_chat_types::Chat>`, etc. Removes a caller boilerplate per method but is a breaking change.\n\nThe typed-response migration is the better caller experience but a coordinated workspace decision (mail-client, contacts-client, etc. would want the same). Path 1 is a quick wrapper-fix for the SemVer surface only.\n\nWorkspace canonical-template note: mail-client follows the same `SetResponse` (elided) pattern. Decision should be workspace-wide, not chat-client-only — file as a design-decision bead at the workspace level if this gains traction.",
-  "ephemeral": false,
-  "id": "JMAP-26di.46",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-22T05:50:33.744014182Z",
+  "closed_at": "2026-10-22T05:50:33.744014182Z",
+  "close_reason": "SetResponse default type param removed in 85b7dc2b (wf92.10)",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "open",
-  "title": "SetResponse re-export uses elided default T=serde_json::Value across ~20 methods",
-  "updated_at": "2026-05-15T20:42:43Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-15T13:42:43Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-26di",
-      "id": "dbe7f500-5af6-5a24-a598-d55791463e16",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

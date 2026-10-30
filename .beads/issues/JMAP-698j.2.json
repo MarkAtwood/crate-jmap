@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-698j.2",
+  "title": "AGENTS.md: API constraint rules",
+  "description": "Add generation-time rules to AGENTS.md: (1) no String/\u0026str for a spec-closed vocabulary in pub types: use impl_string_enum!; (2) no in-band sentinel values (e.g. \"placeholder\"); (3) a pub fn or trait method needing more than ~4 non-self arguments takes a params struct (non_exhaustive where growable); (4) no trait default that puts wrong data on the wire (existing spec-method-defaults policy); (5) growable pub enums/structs are #[non_exhaustive] except builder-style *Input/*Patch; (6) one public path per item. Note that the Canonical Templates rule copies flaws too: fix the canonical, then mirror.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-21T22:59:58.734647983Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T05:33:24.690108991Z",
+  "closed_at": "2026-10-23T05:33:24.690108991Z",
+  "close_reason": "Batch 16 (run wf_a0fdc13e-266): implemented, adversarially verified, full CI green at 17928284",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-698j.2",
+      "depends_on_id": "JMAP-698j",
+      "type": "parent-child",
+      "created_at": "2026-10-21T22:59:58.854225227Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

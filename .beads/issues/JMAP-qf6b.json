@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-qf6b",
+  "title": "Tasks/Calendars keywords, categories, replyTo, defaultAlerts container shapes differ",
+  "description": "Sibling divergence left out of JMAP-skk9.7 (which aligned only the complex RFC 8984 sub-object fields). calendars-types CalendarEvent.keywords/categories/reply_to are Option\u003cserde_json::Value\u003e (event.rs:192,196,270) while tasks-types Task uses Option\u003cBTreeMap\u003cString,bool\u003e\u003e / Option\u003cBTreeMap\u003cString,String\u003e\u003e (task.rs:372,376,423). Calendar.default_alerts_with_time/without_time key on String (calendar.rs:151,155) while TaskList keys on Id (task_list.rs:180,185). These are flat String[Boolean]/String[String] maps, not large extensible objects, so AGENTS.md sloppy-Value does not obviously apply; pick one shape before 0.4 (likely: calendars adopts the typed maps) or record as deliberate. Unifying later is a semver break.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-22T15:20:32.319151089Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-23T23:38:06.276877793Z",
+  "closed_at": "2026-10-23T23:38:06.276877793Z",
+  "close_reason": "Batch 20 (run wf_770a5fbb-59c): implemented, adversarially verified, full CI green at 8484b9c3"
+}
