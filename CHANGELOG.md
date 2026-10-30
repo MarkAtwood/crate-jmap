@@ -12,6 +12,13 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Fixed
+
+- **jmap-filenode-server**: a `FileNode/set` create whose properties fail
+  to parse now lists the offending property in the `invalidProperties`
+  SetError's `properties` array (RFC 8620 §5.3), including a missing or
+  null `name`; previously only a serde description was returned.
+
 ## [0.4.0] - 2026-10-24
 
 The JMAP Chat crates (`jmap-chat-types`, `jmap-chat-server`,

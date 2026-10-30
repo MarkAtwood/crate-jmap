@@ -548,8 +548,6 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
-                    // `name` is required and non-nullable; if missing, serde will
-                    // produce an `invalidProperties` error below.
                     Value::Object(m)
                 }
                 other => other,
@@ -569,16 +567,37 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 continue;
             }
 
+            // draft-ietf-jmap-filenode-16 §3.1: `name` is required. serde
+            // reports a missing field at the root, not on a property path,
+            // so name it here (RFC 8620 §5.3 invalidProperties).
+            if obj_with_id.get("name").is_none() {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["name"],
+                        "description": "name is required on create",
+                    }),
+                );
+                continue;
+            }
+
             // Validate fully before acting on onExists, so an invalid create
             // cannot destroy the colliding node (RFC 8620 §5.3: each creation
             // is an atomic unit).
-            let mut node: FileNode = match serde_json::from_value(obj_with_id) {
+            let mut node: FileNode = match serde_path_to_error::deserialize(obj_with_id) {
                 Ok(n) => n,
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
-                    );
+                    // RFC 8620 §5.3: invalidProperties SHOULD list the
+                    // invalid properties; the first path segment is the
+                    // top-level property whose value failed to parse.
+                    let mut err =
+                        json!({ "type": "invalidProperties", "description": e.to_string() });
+                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
+                    {
+                        err["properties"] = json!([key]);
+                    }
+                    not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -4518,6 +4537,41 @@ mod tests {
             not_created["c1"]["type"], "invalidProperties",
             "missing name must produce invalidProperties: {resp}"
         );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — for `invalidProperties` "the SetError object
+    /// SHOULD also have a property called `properties` of type `String[]`
+    /// that lists *all* the properties that were invalid". Each create below
+    /// has exactly one hand-picked bad property.
+    #[tokio::test]
+    async fn set_create_typed_parse_failure_names_property() {
+        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "missingName": { "@type": "Directory" },
+                "nullName": { "@type": "Directory", "name": null },
+                "numericName": { "@type": "Directory", "name": 5 },
+                "badExecutable": { "@type": "Directory", "name": "d", "executable": "yes" },
+                "numericType": { "@type": 5, "name": "d" }
+            }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+                .await
+                .expect("must not return top-level error");
+        assert!(resp["created"].is_null(), "nothing may be created: {resp}");
+        for (cid, prop) in [
+            ("missingName", "name"),
+            ("nullName", "name"),
+            ("numericName", "name"),
+            ("badExecutable", "executable"),
+            ("numericType", "@type"),
+        ] {
+            let err = &resp["notCreated"][cid];
+            assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+            assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+        }
     }
 
     // -----------------------------------------------------------------------
