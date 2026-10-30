@@ -15705,3 +15705,81 @@ async fn email_query_unknown_sort_property_returns_unsupported_sort() {
     .expect_err("Email/queryChanges sorted on threadId must fail");
     assert_eq!(err.error_type.to_string(), "unsupportedSort", "{err:?}");
 }
+
+/// Oracle: RFC 8620 §5.3: an `invalidProperties` SetError "SHOULD also have
+/// a property called "properties" of type "String[]" that lists *all* the
+/// properties that were invalid". Each hand-written create below breaks one
+/// RFC 8621 §4.6 / §4.1.4 rule in a known top-level property, so the
+/// expected `properties` is fixed by the request, not by the server.
+#[tokio::test]
+async fn email_set_create_body_errors_name_property() {
+    let cases = [
+        (
+            // §4.6: bodyStructure is exclusive with textBody/htmlBody/attachments.
+            serde_json::json!({
+                "bodyStructure": { "type": "text/plain", "partId": "1" },
+                "textBody": [{ "partId": "1", "type": "text/plain" }],
+                "bodyValues": { "1": { "value": "Hello" } }
+            }),
+            serde_json::json!(["bodyStructure", "textBody"]),
+        ),
+        (
+            // §4.6: "htmlBody MUST contain exactly one body part and it MUST
+            // be of type "text/html"".
+            serde_json::json!({
+                "htmlBody": [{ "partId": "1", "type": "text/plain" }],
+                "bodyValues": { "1": { "value": "Hello" } }
+            }),
+            serde_json::json!(["htmlBody"]),
+        ),
+        (
+            // §4.1.4: partId and blobId are null only for multipart/*; this
+            // attachment has neither and no subParts.
+            serde_json::json!({
+                "textBody": [{ "partId": "1", "type": "text/plain" }],
+                "bodyValues": { "1": { "value": "Hello" } },
+                "attachments": [{ "type": "application/octet-stream" }]
+            }),
+            serde_json::json!(["attachments"]),
+        ),
+        (
+            // §4.6: "Header fields MUST NOT be specified in parsed forms that
+            // are forbidden for that particular field."
+            serde_json::json!({
+                "header:From:asDate": "2024-01-01T00:00:00Z",
+                "textBody": [{ "partId": "1", "type": "text/plain" }],
+                "bodyValues": { "1": { "value": "Hello" } }
+            }),
+            serde_json::json!(["header:From:asDate"]),
+        ),
+        (
+            // §4.6: "The "headers" property MUST NOT be given", here inside a
+            // bodyStructure part.
+            serde_json::json!({
+                "bodyStructure": {
+                    "type": "text/plain",
+                    "partId": "1",
+                    "headers": [{ "name": "X-A", "value": " b" }]
+                },
+                "bodyValues": { "1": { "value": "Hello" } }
+            }),
+            serde_json::json!(["bodyStructure"]),
+        ),
+    ];
+    for (mut create, expected) in cases {
+        let backend = MemoryBackend::new();
+        backend.register_account(&Id::from("account1"));
+        create["mailboxIds"] = serde_json::json!({ "inbox": true });
+        let args = serde_json::json!({
+            "accountId": "account1",
+            "create": { "e1": create }
+        });
+        let HandlerOutput { primary: resp, .. } =
+            handle_email_set(&backend, &(), &BTreeMap::new(), args, &[])
+                .await
+                .expect("Email/set must return a response");
+        let err = &resp["notCreated"]["e1"];
+        assert_eq!(err["type"], "invalidProperties", "resp={resp}");
+        assert_eq!(err["properties"], expected, "resp={resp}");
+    }
+}

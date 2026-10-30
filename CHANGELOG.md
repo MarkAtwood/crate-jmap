@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: an `Email/set` create whose body fails validation
+  (RFC 8621 §4.6) now lists the top-level property it failed on
+  (`textBody`, `htmlBody`, `attachments`, `bodyStructure`, `headers` or the
+  `header:` key) in the `invalidProperties` SetError's `properties` (RFC
+  8620 §5.3), naming both sides of a `bodyStructure` conflict. A body part
+  with no `partId`, `blobId` or `subParts` is now caught there too, naming
+  its property, instead of failing in `compose_email` with a
+  description-only error. Header-field encoding errors from `compose_email`
+  stay description-only.
 - **jmap-calendars-server**, **jmap-contacts-server**,
   **jmap-sharing-server**, **jmap-tasks-server**: a `/set` create (and a
   `CalendarEvent/copy` or `Task/copy`) whose properties fail to parse now

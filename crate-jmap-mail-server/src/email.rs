@@ -1753,16 +1753,22 @@ fn parse_keywords_field(entry: &Value) -> Result<Vec<Keyword>, Value> {
 /// - If `partId` is present it MUST exist as a key in `body_values`.
 /// - The corresponding `EmailBodyValue` MUST NOT have `isEncodingProblem` or
 ///   `isTruncated` set to `true`.
+/// - A part without `subParts` MUST give `partId` or `blobId`: RFC 8621
+///   §4.1.4 says each "is null if, and only if, the part is of type
+///   "multipart/*"", and `compose_email` has no content for such a part.
 /// - Sub-parts are validated recursively.
 fn validate_body_part(
     part: &Value,
     body_values: Option<&serde_json::Map<String, Value>>,
 ) -> Result<(), String> {
-    validate_create_header_properties(part)?;
-    let has_part_id = part.get("partId").map(|v| !v.is_null()).unwrap_or(false);
-    let has_blob_id = part.get("blobId").map(|v| !v.is_null()).unwrap_or(false);
+    validate_create_header_properties(part).map_err(|(_, description)| description)?;
+    let given = |name: &str| part.get(name).is_some_and(|v| !v.is_null());
+    let (has_part_id, has_blob_id) = (given("partId"), given("blobId"));
     if has_part_id && has_blob_id {
         return Err("EmailBodyPart must not specify both partId and blobId".into());
+    }
+    if !has_part_id && !has_blob_id && !given("subParts") {
+        return Err("EmailBodyPart has no partId, blobId or subParts".into());
     }
     if has_part_id {
         let part_id = part["partId"].as_str().unwrap_or("");
@@ -1871,9 +1877,7 @@ async fn build_email_from_create<B: MailBackend>(
     let keywords =
         validate_and_normalize_keywords(raw_keywords).map_err(|e| invalid("keywords", e))?;
 
-    validate_email_body(obj_val).map_err(
-        |description| json!({ "type": "invalidProperties", "description": description }),
-    )?;
+    validate_email_body(obj_val)?;
 
     // draft-ietf-jmap-metadata-04 §3.2: the create sets the metadata
     // properties; the backend validates them.
@@ -2009,9 +2013,15 @@ async fn build_email_from_create<B: MailBackend>(
 /// "Header fields MUST NOT be specified in parsed forms that are
 /// forbidden for that particular field." `compose_email` checks the
 /// other header constraints.
-fn validate_create_header_properties(obj: &Value) -> Result<(), String> {
+///
+/// On failure returns the offending property (`headers` or the `header:`
+/// key) and a description.
+fn validate_create_header_properties(obj: &Value) -> Result<(), (String, String)> {
     if obj.get("headers").is_some_and(|v| !v.is_null()) {
-        return Err("headers must not be given on create; set header: properties instead".into());
+        return Err((
+            "headers".into(),
+            "headers must not be given on create; set header: properties instead".into(),
+        ));
     }
     for key in obj
         .as_object()
@@ -2019,8 +2029,9 @@ fn validate_create_header_properties(obj: &Value) -> Result<(), String> {
         .flat_map(|m| m.keys())
         .filter(|k| k.starts_with("header:"))
     {
-        let req = parse_header_property(key).map_err(|e| format!("{key}: {e}"))?;
-        validate_header_form(&req.name_lower, &req.form).map_err(|e| format!("{key}: {e}"))?;
+        let invalid = |e| (key.clone(), format!("{key}: {e}"));
+        let req = parse_header_property(key).map_err(invalid)?;
+        validate_header_form(&req.name_lower, &req.form).map_err(invalid)?;
     }
     Ok(())
 }
@@ -2033,50 +2044,51 @@ fn validate_create_header_properties(obj: &Value) -> Result<(), String> {
 /// - `htmlBody` must be exactly one part of type `text/html`.
 /// - All body parts satisfy `validate_body_part`: `partId`/`blobId` rules, and
 ///   `bodyValues` entries must not have `isEncodingProblem` or `isTruncated` true.
-fn validate_email_body(obj_val: &Value) -> Result<(), String> {
-    validate_create_header_properties(obj_val)?;
+///
+/// On failure returns an `invalidProperties` SetError whose `properties`
+/// names the top-level property that failed (RFC 8620 §5.3).
+fn validate_email_body(obj_val: &Value) -> Result<(), Value> {
+    fn invalid(properties: &[&str], description: impl std::fmt::Display) -> Value {
+        json!({
+            "type": "invalidProperties",
+            "properties": properties,
+            "description": description.to_string(),
+        })
+    }
+    let given = |name: &str| obj_val.get(name).is_some_and(|v| !v.is_null());
+    validate_create_header_properties(obj_val)
+        .map_err(|(property, description)| invalid(&[&property], description))?;
     // bodyStructure is mutually exclusive with textBody, htmlBody, and attachments.
-    if obj_val.get("bodyStructure").is_some_and(|v| !v.is_null())
-        && (obj_val.get("textBody").is_some_and(|v| !v.is_null())
-            || obj_val.get("htmlBody").is_some_and(|v| !v.is_null())
-            || obj_val.get("attachments").is_some_and(|v| !v.is_null()))
-    {
-        return Err(
-            "bodyStructure is mutually exclusive with textBody, htmlBody, and attachments".into(),
-        );
+    let conflicting: Vec<&str> = ["textBody", "htmlBody", "attachments"]
+        .into_iter()
+        .filter(|name| given(name))
+        .collect();
+    if given("bodyStructure") && !conflicting.is_empty() {
+        return Err(invalid(
+            &[&["bodyStructure"], conflicting.as_slice()].concat(),
+            "bodyStructure is mutually exclusive with textBody, htmlBody, and attachments",
+        ));
     }
 
-    // textBody: must be exactly one part of type text/plain.
-    if obj_val.get("textBody").is_some_and(|v| !v.is_null()) {
-        let text_parts: &Vec<Value> = obj_val["textBody"]
+    // textBody / htmlBody: must be exactly one part of the matching type.
+    for (property, media_type) in [("textBody", "text/plain"), ("htmlBody", "text/html")] {
+        if !given(property) {
+            continue;
+        }
+        let parts = obj_val[property]
             .as_array()
-            .ok_or("textBody must be an array")?;
-        if text_parts.len() != 1 {
-            return Err("textBody must contain exactly one body part".into());
+            .ok_or_else(|| invalid(&[property], format!("{property} must be an array")))?;
+        if parts.len() != 1 {
+            return Err(invalid(
+                &[property],
+                format!("{property} must contain exactly one body part"),
+            ));
         }
-        let part_type = text_parts[0]
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        if part_type != "text/plain" {
-            return Err("textBody part must be of type text/plain".into());
-        }
-    }
-
-    // htmlBody: must be exactly one part of type text/html.
-    if obj_val.get("htmlBody").is_some_and(|v| !v.is_null()) {
-        let html_parts: &Vec<Value> = obj_val["htmlBody"]
-            .as_array()
-            .ok_or("htmlBody must be an array")?;
-        if html_parts.len() != 1 {
-            return Err("htmlBody must contain exactly one body part".into());
-        }
-        let part_type = html_parts[0]
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
-        if part_type != "text/html" {
-            return Err("htmlBody part must be of type text/html".into());
+        if parts[0].get("type").and_then(|v| v.as_str()) != Some(media_type) {
+            return Err(invalid(
+                &[property],
+                format!("{property} part must be of type {media_type}"),
+            ));
         }
     }
 
@@ -2084,25 +2096,22 @@ fn validate_email_body(obj_val: &Value) -> Result<(), String> {
 
     // Validate body parts: partId XOR blobId; partId must be in bodyValues;
     // bodyValues entries must not have isEncodingProblem or isTruncated true.
-    if let Some(text_parts) = obj_val.get("textBody").and_then(|v| v.as_array()) {
-        for part in text_parts {
-            validate_body_part(part, body_values)?;
+    let check = |property: &str, part: &Value| {
+        validate_body_part(part, body_values)
+            .map_err(|e| invalid(&[property], format!("{property}: {e}")))
+    };
+    for property in ["textBody", "htmlBody", "attachments"] {
+        for part in obj_val
+            .get(property)
+            .and_then(|v| v.as_array())
+            .into_iter()
+            .flatten()
+        {
+            check(property, part)?;
         }
     }
-    if let Some(html_parts) = obj_val.get("htmlBody").and_then(|v| v.as_array()) {
-        for part in html_parts {
-            validate_body_part(part, body_values)?;
-        }
-    }
-    if let Some(attachments) = obj_val.get("attachments").and_then(|v| v.as_array()) {
-        for part in attachments {
-            validate_body_part(part, body_values)?;
-        }
-    }
-    if let Some(body_struct) = obj_val.get("bodyStructure")
-        && !body_struct.is_null()
-    {
-        validate_body_part(body_struct, body_values)?;
+    if given("bodyStructure") {
+        check("bodyStructure", &obj_val["bodyStructure"])?;
     }
 
     Ok(())
