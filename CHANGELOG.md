@@ -22,6 +22,11 @@ wire behaviour that a conforming peer can observe.
   only the requested `properties` (plus `id`, which is always returned)
   for each object, as RFC 8620 §5.1 requires, even when the backend
   ignores the `properties` argument.
+- **jmap-tasks-server**: `Task/get` still computes `utcStart`/`utcDue`
+  when `properties` lists them but not `start`, `due` or `timeZone`; the
+  handler now fetches those inputs for `compute_utc_times` and drops them
+  from the response. Only the requested one of `utcStart`/`utcDue` is
+  returned (RFC 8620 §5.1).
 
 ## [0.4.0] - 2026-10-24
 
