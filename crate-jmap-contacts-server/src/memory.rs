@@ -1030,35 +1030,8 @@ impl ContactsBackend for MemoryBackend {
         check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.known_accounts.insert(account_id.as_ref().to_owned());
 
-        // RFC 9610 §3: a ContactCard MUST belong to at least one
-        // AddressBook at all times (until destroyed). Reject the create
-        // if addressBookIds is absent or empty (bd:JMAP-qz9v.16).
-        if O::TYPE_NAME == "ContactCard" && !contact_card_has_address_book_ids(&val) {
-            return Err(BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(["addressBookIds"])
-                    .with_description(
-                        "ContactCard addressBookIds must map at least one id, each to true \
-                         (RFC 9610 §3)",
-                    ),
-            )));
-        }
-
-        // RFC 9610 §3: a ContactCard's uid MUST be unique within an
-        // Account. Reject the create if another card in the same
-        // account already has the same uid (bd:JMAP-qz9v.6).
-        if O::TYPE_NAME == "ContactCard"
-            && let Some(new_uid) = val.get("uid").and_then(|v| v.as_str())
-            && account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, None)
-        {
-            return Err(BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(["uid"])
-                    .with_description(
-                        "ContactCard.uid must be unique within an Account \
-                                 (RFC 9610 §3)",
-                    ),
-            )));
+        if O::TYPE_NAME == "ContactCard" {
+            check_contact_card_create(&inner, account_id.as_ref(), &val)?;
         }
 
         // bd:JMAP-qz9v.5 — RFC 9610 §2 AddressBook single-default invariant.
@@ -1429,6 +1402,11 @@ impl ContactsBackend for MemoryBackend {
         // -04 §3.4: the create object's metadata follows the Foo/set create
         // rules; the copied values are not revalidated.
         check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
+        // RFC 8620 §5.4: a copy is a create in the destination account, so
+        // the merged copy must pass the checks create_object runs.
+        if O::TYPE_NAME == "ContactCard" {
+            check_contact_card_create(&inner, to_account_id.as_ref(), &val)?;
+        }
 
         let new_state = inner.bump_state(O::TYPE_NAME, to_account_id.as_ref());
         // bd:JMAP-ic0j.74 — copy is a create on the destination account;
@@ -2048,6 +2026,42 @@ fn contact_card_has_address_book_ids(card: &serde_json::Value) -> bool {
     card.get("addressBookIds")
         .and_then(|v| v.as_object())
         .is_some_and(|m| !m.is_empty() && m.values().all(|v| v == &serde_json::Value::Bool(true)))
+}
+
+/// The RFC 9610 §3 checks a new ContactCard `card` in `account_id` must
+/// pass, shared by `create_object` and `copy_object`: `addressBookIds`
+/// maps at least one id, each to `true` (a card "MUST belong to at least
+/// one AddressBook at all times", bd:JMAP-qz9v.16), and no other card in
+/// the account has its `uid` ("there MUST NOT be more than one
+/// ContactCard with the same uid in an Account", bd:JMAP-qz9v.6).
+fn check_contact_card_create(
+    inner: &Inner,
+    account_id: &str,
+    card: &serde_json::Value,
+) -> Result<(), BackendSetError<MemoryError>> {
+    let invalid = |property: &str, description: &str| {
+        BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties([property])
+                .with_description(description),
+        ))
+    };
+    if !contact_card_has_address_book_ids(card) {
+        return Err(invalid(
+            "addressBookIds",
+            "ContactCard addressBookIds must map at least one id, each to true \
+             (RFC 9610 §3)",
+        ));
+    }
+    if let Some(uid) = card.get("uid").and_then(|v| v.as_str())
+        && account_has_card_with_uid(inner, account_id, uid, None)
+    {
+        return Err(invalid(
+            "uid",
+            "ContactCard.uid must be unique within an Account (RFC 9610 §3)",
+        ));
+    }
+    Ok(())
 }
 
 /// True iff the serialized AddressBook value has `isDefault: true`.
