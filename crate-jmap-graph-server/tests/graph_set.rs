@@ -341,3 +341,24 @@ async fn node_changes_leave_graph_updated() {
         before
     );
 }
+
+/// RFC 8620 §5.1 (rfc8620.txt L1606-1609): "If supplied, only the
+/// properties listed in the array are returned for each Foo object. ...
+/// The id property of the object is *always* returned, even if not
+/// explicitly requested." The memory backend ignores `properties`.
+#[tokio::test]
+async fn get_returns_only_requested_properties_and_id() {
+    let backend = backend();
+    let g = design_notes(&backend, Value::Null).await;
+    let resp = call!(
+        handle_graph_get,
+        &backend,
+        ALICE,
+        json!({ "ids": [g], "properties": ["name"] })
+    );
+    assert_eq!(
+        resp["list"],
+        json!([{ "id": g, "name": "Design notes" }]),
+        "{resp}"
+    );
+}

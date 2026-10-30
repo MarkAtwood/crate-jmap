@@ -34,6 +34,12 @@ wire behaviour that a conforming peer can observe.
   to parse now lists the offending property in the `invalidProperties`
   SetError's `properties` array (RFC 8620 §5.3), including a missing or
   null `name`; previously only a serde description was returned.
+- **jmap-graph-server**, **jmap-scene-server**: `Graph/get`,
+  `GraphNode/get`, `GraphEdge/get`, `GraphNodeOp/get`, `SceneRegion/get`,
+  `SceneObject/get` and `SceneAvatar/get` now return only the requested
+  `properties` (plus `id`) for each object, as RFC 8620 §5.1 requires,
+  even when the backend ignores the `properties` argument. Access checks
+  still see the whole record.
 - **jmap-mail-server**: the `MemoryBackend` reference backend now sorts
   `Email/query` results by every RFC 8621 §4.4.2 comparator (`size`,
   `from`, `to`, `subject` as the RFC 5256 §2.1 base subject, `sentAt`,

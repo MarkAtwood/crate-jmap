@@ -301,10 +301,22 @@ pub(crate) async fn handle_get_visible<O: InGraph, B: GraphBackend>(
         .get_state::<O>(caller, &account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
+    // RFC 8620 §5.1: "If supplied, only the properties listed in the array
+    // are returned for each Foo object. ... The id property of the object
+    // is *always* returned". Backends MAY ignore `properties`, so project
+    // here, after the visibility checks have read the typed records.
+    let mut list_json = serialize_value(&list)?;
+    if let (Some(props), Value::Array(items)) = (&properties, &mut list_json) {
+        for item in items {
+            if let Value::Object(map) = item {
+                map.retain(|k, _| k == "id" || props.iter().any(|p| p == k));
+            }
+        }
+    }
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
         "state": state.as_ref(),
-        "list": serialize_value(&list)?,
+        "list": list_json,
         "notFound": not_found_json(&not_found),
     })))
 }
