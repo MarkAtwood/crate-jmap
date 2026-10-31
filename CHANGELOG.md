@@ -40,6 +40,41 @@ wire behaviour that a conforming peer can observe.
   takes `recipient_user_id` as its third parameter and sets
   `recipientUserId` on the `Peer/groupUpdate` it builds, for the same
   reason.
+- **BREAKING** **jmap-chat-federation-server**: `AuthenticatedPeer` is now
+  `{ peer_domain, account_id }` and `AuthenticatedPeer::new` takes the
+  peer's peer-role account id; `peer_identity`, `did_verified` and
+  `with_did_verified` are removed. A peer domain speaks for every identity
+  it hosts and "The binding does not use the peer's `ownerUserId`"
+  (draft-atwood-jmap-chat-federation-00 §Identity Binding), so every
+  `Peer/*` handler now binds each caller-identity field (`senderUserId`,
+  `readerUserId`, `subscriberId`, `identity`) to the authenticated peer
+  domain instead of comparing it with one peer identity: any user of the
+  signing domain is accepted, and any other is `forbidden`.
+- **BREAKING** **jmap-chat-federation-server**: `FederationBackend` gains
+  `mailbox_account`, with no default, which finds the mailbox whose
+  `ownerUserId` equals `recipientUserId` octet for octet, and
+  `verify_did_identity`, which defaults to `Ok(false)`, so a host-less
+  `did:key` caller identity is `forbidden` unless the backend runs the
+  DID-bound verification. The handlers process each call in the mailbox
+  `recipientUserId` names and store there, while every response returns
+  the request's `accountId`. An `accountId` other than the peer's account is
+  `accountNotFound`. An unknown recipient is `forbidden` with no
+  `description`, the same error as every other refusal, and is rejected
+  before anything, including a placeholder ChatContact, is written
+  (§Server-to-Server Methods: "the `accountId` argument of every Peer/*
+  call is the id of the single peer-role account in the caller's session";
+  "If no mailbox on the receiving server has that identity, the receiving
+  server rejects the call with `forbidden`").
+- **BREAKING** **jmap-chat-federation-server**:
+  `FederationPresenceBackend::subscribe_presence` returns
+  `Result<Option<u64>, _>`; `None` refuses the subscription and the handler
+  answers `forbidden`. Its `account_id` is now the mailbox
+  `recipientUserId` names, and a subscription is keyed by that mailbox and
+  `subscriberId`, so one subscriber's subscriptions to two mailboxes are
+  distinct ("A subscription is identified by its `subscriberId` and
+  `recipientUserId`. Which subscriptions a server accepts is
+  implementation-defined; a server that refuses one rejects the call with
+  `forbidden`", §Peer/subscribePresence).
 
 ## [0.4.2] - 2026-10-30
 

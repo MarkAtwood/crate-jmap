@@ -42,44 +42,32 @@ use crate::outbound::task_assignee_ids;
 const MAX_SUBJECT_BYTES: usize = 1024;
 
 /// The peer that signed the request, as the transport authenticated it.
+///
+/// It names no identity. "A peer domain speaks for every identity it
+/// hosts" (§Identity Binding), so the handlers bind each caller identity
+/// to `peer_domain`, and "The binding does not use the peer's
+/// `ownerUserId`".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AuthenticatedPeer {
     /// The authenticated peer domain: the domain of the verified `keyid`
     /// (§Request Signing).
     pub peer_domain: PeerDomain,
-    /// The peer identity: the `ownerUserId` published at
-    /// `peer_domain`, from the fetch that supplied the signing keys
-    /// (§Identity Binding rule 1).
-    pub peer_identity: String,
-    /// Whether the DID-bound verification of draft-atwood-jmap-chat-did-00
-    /// §DID-Bound Verification succeeded for `peer_identity`. Only a
-    /// host-less DID identity needs it: §Identity Binding rule 3 accepts
-    /// one "only after the DID-bound verification of {{JMAP-CHAT-DID}}
-    /// succeeds". It has no effect on any other identity.
-    pub did_verified: bool,
+    /// The id of the one account in the peer-role session this peer
+    /// holds: "The local server MUST provide exactly one JMAP account in
+    /// the resulting session" (§Peer Authentication Model). Every
+    /// `Peer/*` call names it as `accountId`, and every response returns
+    /// it (§Server-to-Server Methods).
+    pub account_id: Id,
 }
 
 impl AuthenticatedPeer {
-    /// The peer at `peer_domain` whose identity is `peer_identity`, with
-    /// no DID-bound verification.
-    pub fn new(peer_domain: PeerDomain, peer_identity: impl Into<String>) -> Self {
+    /// The peer at `peer_domain` whose peer-role account is `account_id`.
+    pub const fn new(peer_domain: PeerDomain, account_id: Id) -> Self {
         Self {
             peer_domain,
-            peer_identity: peer_identity.into(),
-            did_verified: false,
+            account_id,
         }
-    }
-
-    /// Mark the peer identity as DID-verified.
-    ///
-    /// Call this only after `jmap_chat_server::verify_did_binding`
-    /// returned `Ok` for the DID `peer_identity` and the key that
-    /// verified the request signature.
-    #[must_use]
-    pub fn with_did_verified(mut self) -> Self {
-        self.did_verified = true;
-        self
     }
 }
 
@@ -115,13 +103,55 @@ pub trait FederationBackend: ChatBackend {
     /// not a peer.
     ///
     /// Return `Some` only after the request passed §Request Signing
-    /// checks 1 to 6 (for example through `jmap_peer_auth_io::authenticate`)
-    /// and the peer domain published an `ownerUserId`. When that identity
-    /// is a DID without a host, the handlers accept it only if
-    /// [`AuthenticatedPeer::did_verified`] is set. `None` makes every
-    /// `Peer/*` handler return `forbidden` (§Server-to-Server Methods:
-    /// "Callers without the `"peer"` role MUST receive `forbidden`").
+    /// checks 1 to 6 (for example through `jmap_peer_auth_io::authenticate`).
+    /// `None` makes every `Peer/*` handler return `forbidden`
+    /// (§Server-to-Server Methods: "Callers without the `"peer"` role
+    /// MUST receive `forbidden`").
     fn authenticated_peer(&self, caller: &Self::CallerCtx) -> Option<AuthenticatedPeer>;
+
+    /// The account of the mailbox whose owner's identity is
+    /// `recipient_user_id`, or `None` when no mailbox here has that
+    /// identity.
+    ///
+    /// §Server-to-Server Methods: "The receiving server processes the call
+    /// in the mailbox whose owner's identity (its `ownerUserId`) equals
+    /// `recipientUserId`, compared octet for octet." Compare without case
+    /// folding or normalization. The handlers check that
+    /// [`ChatBackend::owner_user_id`] of the returned account is
+    /// `recipient_user_id`, and answer `serverFail` when it is not.
+    ///
+    /// `None` makes every `Peer/*` handler answer `forbidden` before it
+    /// writes anything, with no `description`: the same error as every
+    /// other `forbidden` the handlers return, so that it "does not show
+    /// which identities have mailboxes there". `Err` is `serverFail`.
+    fn mailbox_account(
+        &self,
+        caller: &Self::CallerCtx,
+        recipient_user_id: &str,
+    ) -> impl std::future::Future<Output = Result<Option<Id>, Self::Error>> + Send;
+
+    /// Whether the DID-bound verification of draft-atwood-jmap-chat-did-00
+    /// §DID-Bound Verification succeeds for the host-less DID `did` and
+    /// the key that signed `caller`'s request.
+    ///
+    /// §Identity Binding rule 2: "A DID-form identity is accepted only
+    /// after the DID-bound verification of {{JMAP-CHAT-DID}} succeeds".
+    /// The handlers call this only for a caller identity that is a DID
+    /// without a host; `false` makes them answer `forbidden`. A backend
+    /// that supports DID identities resolves the DID document and runs
+    /// `jmap_chat_server::verify_did_binding` with the signing key. `Err`
+    /// is `serverFail`.
+    ///
+    /// The default is `Ok(false)`: a host-less DID is refused unless the
+    /// backend overrides this, since the peer domain "does not vouch for
+    /// it".
+    fn verify_did_identity(
+        &self,
+        _caller: &Self::CallerCtx,
+        _did: &str,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(false) }
+    }
 
     /// A fresh id in the form the backend assigns to a stored Message in
     /// `account_id`.
@@ -231,47 +261,78 @@ pub trait FederationBackend: ChatBackend {
     ) -> impl std::future::Future<Output = ()> + Send;
 }
 
-/// Steps 1 and 2 of §New Message Validation, which every `Peer/*` method
-/// applies to its caller-identity field: "Servers MUST validate all such
-/// fields identically against the peer identity" (§Server-to-Server
-/// Methods). The peer identity must be bound to the authenticated peer
-/// domain (§Identity Binding), or be a host-less DID whose DID-bound
-/// verification succeeded (rule 3), and equal `claimed` octet for octet.
-pub(crate) fn authenticate<B: FederationBackend>(
+/// The authenticated peer, once the caller identity `claimed` is a peer
+/// identity of the request.
+///
+/// §Server-to-Server Methods: "Servers MUST check every such field by
+/// {{identity-binding}}, and MUST reject the call with `forbidden` if its
+/// value is not a peer identity of the request." Every handler passes its
+/// caller-identity field (`senderUserId`, `readerUserId`, `subscriberId`
+/// or `identity`). `claimed` binds when its host is the authenticated
+/// peer domain (§Identity Binding rule 1), or when it is a host-less DID
+/// that [`FederationBackend::verify_did_identity`] accepts (rule 2). Any
+/// other identity is `forbidden`. The peer's `ownerUserId` takes no part.
+pub(crate) async fn authenticate<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     claimed: &str,
-) -> Result<(), JmapError> {
+) -> Result<AuthenticatedPeer, JmapError> {
     let peer = backend
         .authenticated_peer(caller)
         .ok_or_else(JmapError::forbidden)?;
-    let bound = match bind_identity(&peer.peer_identity, &peer.peer_domain) {
+    let bound = match bind_identity(claimed, &peer.peer_domain) {
         IdentityBinding::Bound => true,
-        IdentityBinding::NeedsDidVerification => peer.did_verified,
+        IdentityBinding::NeedsDidVerification => backend
+            .verify_did_identity(caller, claimed)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?,
         // HostMismatch, NoHost, and any outcome added later: reject.
         _ => false,
     };
-    if !bound || claimed != peer.peer_identity {
+    if !bound {
         return Err(JmapError::forbidden());
     }
-    Ok(())
+    Ok(peer)
 }
 
-/// `accountNotFound` unless `account_id` exists.
-pub(crate) async fn check_account<B: ChatBackend>(
+/// The account of the mailbox a `Peer/*` call is for (§Server-to-Server
+/// Methods).
+///
+/// - `account_id` must be the peer's account
+///   ([`AuthenticatedPeer::account_id`]), else `accountNotFound`: "the
+///   `accountId` argument of every Peer/* call is the id of the single
+///   peer-role account in the caller's session".
+/// - `recipient_user_id` must name a mailbox
+///   ([`FederationBackend::mailbox_account`]), else `forbidden` with no
+///   `description`: "If no mailbox on the receiving server has that
+///   identity, the receiving server rejects the call with `forbidden`."
+/// - That mailbox's `ownerUserId` must be `recipient_user_id`, else
+///   `serverFail`: the backend answered inconsistently.
+pub(crate) async fn route<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    peer: &AuthenticatedPeer,
     account_id: &Id,
-) -> Result<(), JmapError> {
-    if backend
-        .account_exists(caller, account_id)
+    recipient_user_id: &str,
+) -> Result<Id, JmapError> {
+    if account_id != &peer.account_id {
+        return Err(JmapError::account_not_found());
+    }
+    let mailbox = backend
+        .mailbox_account(caller, recipient_user_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?
-    {
-        Ok(())
-    } else {
-        Err(JmapError::account_not_found())
+        .ok_or_else(JmapError::forbidden)?;
+    let owner = backend
+        .owner_user_id(caller, &mailbox)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    if owner.as_deref() != Some(recipient_user_id) {
+        return Err(JmapError::server_fail(
+            "mailbox_account returned a mailbox of another owner",
+        ));
     }
+    Ok(mailbox)
 }
 
 /// The Chat `chat_id` of `account_id`, if it exists.
@@ -332,9 +393,13 @@ pub(crate) async fn is_participant<B: ChatBackend>(
 /// `reactionUpdate`, then stores the result and answers with the
 /// §Response arguments.
 ///
-/// - Steps 1 and 2: the [`FederationBackend::authenticated_peer`]
-///   identity must be bound to its peer domain (§Identity Binding) and
-///   equal `senderUserId` octet for octet.
+/// - Steps 1 and 2: `senderUserId` must be a peer identity of the
+///   request (§Identity Binding), else `forbidden`.
+/// - The call is processed in the mailbox `recipientUserId` names
+///   ([`FederationBackend::mailbox_account`]); an unknown recipient is
+///   `forbidden`, and an `accountId` other than the peer's account is
+///   `accountNotFound`. Both are decided before anything is written. The
+///   response carries the request's `accountId`.
 /// - Step 3 resolves the Chat, including the direct-chat race: for a
 ///   direct chat already stored as Y, an incoming X adopts `min(X, Y)`
 ///   and the response carries it as `canonicalChatId`.
@@ -368,8 +433,8 @@ pub(crate) async fn is_participant<B: ChatBackend>(
 /// # Errors
 ///
 /// `invalidArguments`, `forbidden`, `rateLimited` and `serverFail`, the
-/// error types of §Error Handling; `accountNotFound` for an unknown
-/// `accountId`.
+/// error types of §Error Handling; `accountNotFound` for an `accountId`
+/// that is not the peer's account.
 pub async fn handle_peer_deliver<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -389,13 +454,18 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
     };
 
     // Steps 1 and 2: the signature was verified by the transport; the
-    // identity binding and `senderUserId` are checked here.
-    authenticate(backend, caller, &args.sender_user_id)?;
-
-    let account_id = &args.account_id;
-    check_account(backend, caller, account_id).await?;
+    // identity binding of `senderUserId` is checked here.
+    let peer = authenticate(backend, caller, &args.sender_user_id).await?;
+    let mailbox = &route(
+        backend,
+        caller,
+        &peer,
+        &args.account_id,
+        &args.recipient_user_id,
+    )
+    .await?;
     let now = now_utc_string();
-    let identities = Identities::load(backend, caller, account_id).await?;
+    let identities = Identities::load(backend, caller, mailbox).await?;
     let sender = match identities.lookup(&args.sender_user_id) {
         // The owner never sends to its own mailbox through a peer.
         Who::Owner => return Err(JmapError::forbidden()),
@@ -405,27 +475,28 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
     let sender_id = sender.as_ref().map(|c| c.id.clone());
 
     // Step 3.
-    let target = resolve_chat(backend, caller, &args, sender_id.as_ref()).await?;
+    let target = resolve_chat(backend, caller, mailbox, &args, sender_id.as_ref()).await?;
     let drop = SilentDrop {
-        account_id,
+        peer_account: &args.account_id,
+        account_id: mailbox,
         now: &now,
         canonical: target.canonical.clone(),
     };
 
     // Steps 4 to 6.
     if let (Some(space), Some(sender_id)) = (&target.space, &sender_id) {
-        if is_banned(backend, caller, account_id, space, sender_id, &now).await? {
+        if is_banned(backend, caller, mailbox, space, sender_id, &now).await? {
             return drop.respond(backend, caller, &payload, &target).await;
         }
         let permissions =
-            channel_permissions(backend, caller, account_id, space, &target, sender_id).await?;
+            channel_permissions(backend, caller, mailbox, space, &target, sender_id).await?;
         if !permissions.contains(&ChatPermission::Send) {
             return Err(JmapError::forbidden());
         }
         check_slow_mode(
             backend,
             caller,
-            account_id,
+            mailbox,
             &target,
             sender_id,
             &permissions,
@@ -439,12 +510,18 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
         return drop.respond(backend, caller, &payload, &target).await;
     }
 
-    let mut ctx = Commit::new(backend, caller, account_id, &now, identities);
-    match payload {
-        Payload::Message(m) => deliver_message(&mut ctx, &args, m, &target).await,
-        Payload::Edit(e) => deliver_edit(&mut ctx, e, &target, sender_id.as_ref()).await,
-        Payload::Reaction(r) => deliver_reaction(&mut ctx, r, &target, sender_id.as_ref()).await,
-    }
+    let mut ctx = Commit::new(backend, caller, mailbox, &now, identities);
+    let (received_msg_id, received_at) = match payload {
+        Payload::Message(m) => deliver_message(&mut ctx, &args, m, &target).await?,
+        Payload::Edit(e) => deliver_edit(&mut ctx, e, &target, sender_id.as_ref()).await?,
+        Payload::Reaction(r) => deliver_reaction(&mut ctx, r, &target, sender_id.as_ref()).await?,
+    };
+    respond(
+        &args.account_id,
+        received_msg_id,
+        received_at,
+        target.canonical,
+    )
 }
 
 /// The one payload of a `Peer/deliver` request.
@@ -526,10 +603,10 @@ struct Target {
 async fn resolve_chat<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    account_id: &Id,
     args: &PeerDeliverArgs,
     sender_id: Option<&Id>,
 ) -> Result<Target, JmapError> {
-    let account_id = &args.account_id;
     let (chats, _) = backend
         .get_objects::<Chat>(caller, account_id, None, None)
         .await
@@ -728,6 +805,9 @@ async fn check_slow_mode<B: ChatBackend>(
 
 /// A silent drop (steps 4 and 7): success with nothing stored.
 struct SilentDrop<'a> {
+    /// The peer's account, which the response carries.
+    peer_account: &'a Id,
+    /// The mailbox.
     account_id: &'a Id,
     now: &'a UTCDate,
     canonical: Option<Id>,
@@ -770,7 +850,7 @@ impl SilentDrop<'_> {
                 .await
                 .map_err(|e| server_fail_from_backend(&e))?,
         };
-        respond(self.account_id, id, self.now.clone(), self.canonical)
+        respond(self.peer_account, id, self.now.clone(), self.canonical)
     }
 }
 
@@ -1168,7 +1248,7 @@ async fn deliver_message<B: FederationBackend>(
     args: &PeerDeliverArgs,
     m: &PeerMessage,
     target: &Target,
-) -> Result<HandlerOutput, JmapError> {
+) -> Result<(Id, UTCDate), JmapError> {
     let limits = ctx.backend.limits(ctx.caller, ctx.account_id);
     check_body(&m.body, &limits)?;
     check_body_type(m.body_type.as_str(), &limits)?;
@@ -1200,12 +1280,7 @@ async fn deliver_message<B: FederationBackend>(
     if let Some(chat) = &target.chat
         && let Some(existing) = ctx.find(&chat.id, &m.sender_msg_id).await?
     {
-        return respond(
-            ctx.account_id,
-            existing.id,
-            existing.received_at,
-            target.canonical.clone(),
-        );
+        return Ok((existing.id, existing.received_at));
     }
 
     // Step 11.
@@ -1286,12 +1361,7 @@ async fn deliver_message<B: FederationBackend>(
         StoreOutcome::Stored(id) | StoreOutcome::Duplicate(id) => id,
         _ => return Err(JmapError::server_fail("unknown store outcome")),
     };
-    respond(
-        ctx.account_id,
-        id,
-        ctx.now.clone(),
-        target.canonical.clone(),
-    )
+    Ok((id, ctx.now.clone()))
 }
 
 /// The stored Message an edit or reaction targets, and the sender check
@@ -1314,7 +1384,7 @@ async fn deliver_edit<B: FederationBackend>(
     e: &PeerEdit,
     target: &Target,
     sender_id: Option<&Id>,
-) -> Result<HandlerOutput, JmapError> {
+) -> Result<(Id, UTCDate), JmapError> {
     let limits = ctx.backend.limits(ctx.caller, ctx.account_id);
     check_body(&e.body, &limits)?;
     check_body_type(e.body_type.as_str(), &limits)?;
@@ -1355,12 +1425,7 @@ async fn deliver_edit<B: FederationBackend>(
         )
         .await
         .map_err(set_failure)?;
-    respond(
-        ctx.account_id,
-        msg.id,
-        ctx.now.clone(),
-        target.canonical.clone(),
-    )
+    Ok((msg.id, ctx.now.clone()))
 }
 
 /// §Edit and Reaction Validation for a `reactionUpdate`, then the update.
@@ -1369,7 +1434,7 @@ async fn deliver_reaction<B: FederationBackend>(
     r: &PeerReactionUpdate,
     target: &Target,
     sender_id: Option<&Id>,
-) -> Result<HandlerOutput, JmapError> {
+) -> Result<(Id, UTCDate), JmapError> {
     if r.emoji.is_empty() {
         return Err(JmapError::invalid_arguments(
             "emoji must be a non-empty string",
@@ -1423,12 +1488,7 @@ async fn deliver_reaction<B: FederationBackend>(
         )
         .await
         .map_err(set_failure)?;
-    respond(
-        ctx.account_id,
-        msg.id,
-        ctx.now.clone(),
-        target.canonical.clone(),
-    )
+    Ok((msg.id, ctx.now.clone()))
 }
 
 #[cfg(test)]

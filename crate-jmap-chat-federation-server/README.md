@@ -18,10 +18,10 @@ authenticates requests and fetches blobs.
 | `handle_peer_typing` | §Peer/typing: membership, `blocked` and `receiveTypingIndicators` checks, then `forward_typing` |
 | `handle_peer_retract` | §Peer/retract: the original-sender check and the tombstone |
 | `handle_peer_group_update` | §Peer/groupUpdate: `create`, `addMembers`, `removeMembers`, `updateRoles`, `updateMetadata`, `leave`, `close`, with the admin and `closedAt` checks |
-| `handle_peer_subscribe_presence`, `handle_peer_unsubscribe_presence` | §Peer/subscribePresence, §Peer/unsubscribePresence: `subscriberId` check, owner presence with `"invisible"` as `"offline"`, granted TTL |
+| `handle_peer_subscribe_presence`, `handle_peer_unsubscribe_presence` | §Peer/subscribePresence, §Peer/unsubscribePresence: `subscriberId` check, one subscription per recipient mailbox and subscriber, refusal as `forbidden`, owner presence with `"invisible"` as `"offline"`, granted TTL |
 | `handle_peer_presence` | §Peer/presence "Receiver Behavior": ChatContact `presence`, `lastActiveAt`, `statusText`, `statusEmoji` update, blocked contacts dropped silently, then `forward_presence` |
 | `FederationPresenceBackend` | A `FederationBackend` that also keeps presence subscriptions and forwards presence events to the owner's clients; only deployments offering the optional methods implement it |
-| `FederationBackend` | A `ChatBackend` that also supplies the `AuthenticatedPeer`, attachment fetching (`FetchedBlob`), fresh Message ids, Chats under a peer-chosen id, and typing events forwarded to the owner's clients |
+| `FederationBackend` | A `ChatBackend` that also supplies the `AuthenticatedPeer` (peer domain and its peer-role account), the mailbox a `recipientUserId` names (`mailbox_account`), DID-bound verification of a host-less caller identity (`verify_did_identity`, refused by default), attachment fetching (`FetchedBlob`), fresh Message ids, Chats under a peer-chosen id, and typing events forwarded to the owner's clients |
 
 ## What it's for
 
