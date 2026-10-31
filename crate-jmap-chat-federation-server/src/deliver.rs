@@ -105,8 +105,9 @@ pub trait FederationBackend: ChatBackend {
     /// Return `Some` only after the request passed §Request Signing
     /// checks 1 to 6 (for example through `jmap_peer_auth_io::authenticate`).
     /// `None` makes every `Peer/*` handler return `forbidden`
-    /// (§Server-to-Server Methods: "Callers without the `"peer"` role
-    /// MUST receive `forbidden`").
+    /// (§Server-to-Server Methods, jmap-chat-spec 77c3474 L400: "Callers
+    /// without the `"peer"` role SHOULD receive `forbidden`"; this crate
+    /// does so by choice).
     fn authenticated_peer(&self, caller: &Self::CallerCtx) -> Option<AuthenticatedPeer>;
 
     /// The account of the mailbox that processes a call for
@@ -247,9 +248,10 @@ pub trait FederationBackend: ChatBackend {
 
     /// Send `event` to the connected clients of the owner of `account_id`.
     ///
-    /// §Peer/typing "Receiver Behavior": "If all checks pass, the server
-    /// MUST forward a typing push event (as defined in {{JMAP-CHAT}}) to
-    /// the owner's connected clients." [`crate::handle_peer_typing`] calls
+    /// §Peer/typing "Receiver Behavior" (jmap-chat-spec 77c3474 L782): "If
+    /// all checks pass, the server SHOULD forward a typing push event (as
+    /// defined in {{JMAP-CHAT}}) to the owner's connected clients." This
+    /// crate forwards by choice. [`crate::handle_peer_typing`] calls
     /// this only after those checks pass. The event is not stored.
     ///
     /// The draft's per-peer rate limit ("no more than one `Peer/typing`

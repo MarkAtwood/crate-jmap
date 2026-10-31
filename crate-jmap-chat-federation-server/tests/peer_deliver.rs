@@ -52,8 +52,9 @@ fn abc_attachment(filename: &str, sha256: &str) -> Value {
 // Step 1
 // ---------------------------------------------------------------------------
 
-/// fed L306: "Callers without the `"peer"` role MUST receive `forbidden`
-/// for all methods in this section."
+/// fed (jmap-chat-spec 77c3474) L400: "Callers without the `"peer"` role
+/// SHOULD receive `forbidden` for all methods in this section." This crate
+/// follows the recommendation by choice.
 #[tokio::test]
 async fn step1_unauthenticated_caller_is_forbidden() {
     let mut fed = Fed::new();
@@ -897,10 +898,11 @@ async fn step14_sender_expires_at_must_be_in_the_future() {
     assert_eq!(stored.burn_on_read, Some(true));
 }
 
-/// fed L417: with an encrypted `bodyType` the server "MUST, at step 10,
-/// reject with `invalidArguments` any message in which `attachments`,
-/// `mentions`, ... is present and non-empty, and MUST skip steps 11
-/// through 13."
+/// fed (jmap-chat-spec 77c3474) L532: with an encrypted `bodyType` the
+/// server "SHOULD, at step 10, reject with `invalidArguments` any message
+/// in which `attachments`, `mentions`, ... is present and non-empty, and
+/// MUST skip steps 11 through 13." This crate performs the recommended
+/// rejection by choice.
 #[tokio::test]
 async fn encrypted_body_type_rejects_plaintext_metadata() {
     let fed = Fed::new();

@@ -83,8 +83,9 @@ async fn chat(fed: &Fed, id: &str) -> Option<Value> {
 // All four methods
 // ---------------------------------------------------------------------------
 
-/// fed L306: "Callers without the `"peer"` role MUST receive `forbidden`
-/// for all methods in this section."
+/// fed (jmap-chat-spec 77c3474) L400: "Callers without the `"peer"` role
+/// SHOULD receive `forbidden` for all methods in this section." This crate
+/// follows the recommendation by choice.
 #[tokio::test]
 async fn unauthenticated_caller_is_forbidden_by_every_method() {
     let mut fed = Fed::new();
@@ -327,9 +328,9 @@ fn forwarded(fed: &Fed) -> Vec<Value> {
         .collect()
 }
 
-/// fed L554-555: "If all checks pass, the server MUST forward a typing
-/// push event (as defined in {{JMAP-CHAT}}) to the owner's connected
-/// clients"; chat L1629 (spec 6bcd9d8): `{"chatId":"<id>","senderId":
+/// fed (jmap-chat-spec 77c3474) L782-783: "If all checks pass, the server
+/// SHOULD forward a typing push event (as defined in {{JMAP-CHAT}}) to the
+/// owner's connected clients", which this crate does by choice; chat L1629 (spec 6bcd9d8): `{"chatId":"<id>","senderId":
 /// "<contact-id>","typing":<bool>}`; wss L229-230: "`accountId` (String):
 /// The id of the account that contains the Chat."; fed L534: "the
 /// receiving server does not persist this event".
@@ -401,8 +402,8 @@ async fn typing_with_indicators_off_in_a_group_is_dropped_silently() {
     assert!(forwarded(&fed).is_empty());
 }
 
-/// chat L636: for channel chats, servers "MUST NOT use it to suppress
-/// typing events".
+/// chat (jmap-chat-spec 77c3474) L649: for channel chats, servers "SHOULD
+/// NOT use it to suppress typing events".
 #[tokio::test]
 async fn typing_with_indicators_off_in_a_channel_is_forwarded() {
     let fed = Fed::new();
@@ -484,9 +485,10 @@ async fn retract_retry_answers_with_the_first_retraction_time() {
     );
 }
 
-/// fed L588: "It MUST verify that the stored message's `senderId` is the
-/// `id` of the ChatContact that `senderUserId` resolves to ... If the
-/// sender does not match, the server MUST reject the request." fed L846:
+/// fed (jmap-chat-spec 77c3474) L850: "It SHOULD verify that the stored
+/// message's `senderId` is the `id` of the ChatContact that `senderUserId`
+/// resolves to ... If the sender does not match, the server SHOULD reject
+/// the request." This crate performs the recommended check by choice. fed L846:
 /// "a peer cannot retract messages sent by other users".
 #[tokio::test]
 async fn retract_of_another_senders_message_is_rejected() {
@@ -588,8 +590,9 @@ async fn group_create_stores_the_group_with_local_member_ids() {
     );
 }
 
-/// fed L651: "For `"create"`, it MUST verify that `senderUserId` is one of
-/// the members listed in `members`." fed L322: "a rejected request
+/// fed (jmap-chat-spec 77c3474) L948: "For `"create"`, it SHOULD verify
+/// that `senderUserId` is one of the members listed in `members`." This
+/// crate performs the recommended check by choice. fed L322: "a rejected request
 /// creates none."
 #[tokio::test]
 async fn group_create_by_an_unlisted_sender_is_forbidden() {
@@ -654,10 +657,12 @@ async fn group_create_cannot_take_over_an_existing_chat_id() {
     );
 }
 
-/// fed L651: "For all actions other than `"create"` and `"leave"`, the
-/// receiving server MUST verify that the ChatContact that `senderUserId`
-/// resolves to ... holds an admin role in the named group on the
-/// receiving server's local Chat record before applying any changes."
+/// fed (jmap-chat-spec 77c3474) L948: "For all actions other than
+/// `"create"` and `"leave"`, the receiving server SHOULD verify that the
+/// ChatContact that `senderUserId` resolves to ... holds an admin role in
+/// the named group on the receiving server's local Chat record before
+/// applying any changes." This crate performs the recommended check by
+/// choice.
 #[tokio::test]
 async fn group_changes_by_a_non_admin_are_forbidden() {
     let fed = Fed::new();
@@ -983,9 +988,10 @@ async fn group_malformed_avatar_still_applies_the_rest() {
 }
 
 /// fed 33702a5 L676: the avatar is examined "After the authorization and
-/// `closedAt` checks above succeed, and only then"; L672: "the receiving
-/// server MUST verify that the ChatContact that `senderUserId` resolves to
-/// ... holds an admin role ... before applying any changes"; L674: a
+/// `closedAt` checks above succeed, and only then"; 77c3474 L948: "the
+/// receiving server SHOULD verify that the ChatContact that `senderUserId`
+/// resolves to ... holds an admin role ... before applying any changes"
+/// (performed here by choice); L674: a
 /// closed Chat answers `forbidden`. A malformed avatar from a non-admin,
 /// for a closed group, or on a create that does not list the sender gets
 /// that `forbidden`, not `invalidArguments`.
@@ -1034,8 +1040,9 @@ async fn group_leave_by_a_member() {
     assert_eq!(chat.get("closedAt"), None);
 }
 
-/// fed L651: "For `"leave"`, it MUST verify that that ChatContact is a
-/// current member."
+/// fed (jmap-chat-spec 77c3474) L948: "For `"leave"`, it SHOULD verify that
+/// that ChatContact is a current member." This crate performs the
+/// recommended check by choice.
 #[tokio::test]
 async fn group_leave_by_a_non_member_is_forbidden() {
     let fed = Fed::new();
