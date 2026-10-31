@@ -100,7 +100,7 @@ fn owner_direct_address_is_optional() {
     assert_eq!(serde_json::to_value(&f).expect("serialize"), wire);
 }
 
-/// fed c08568e L384: "Servers implementing this specification MUST
+/// fed c08568e L372: "Servers implementing this specification MUST
 /// include the following field": `peerSigningKeys`. A Session without it
 /// is an error.
 #[test]
