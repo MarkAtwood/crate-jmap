@@ -1,6 +1,9 @@
 //! `replyTo` / `threadRootId` validation and thread counts
 //! (bd:JMAP-y3f2.3), and their `Message/changes` reporting
-//! (bd:JMAP-y3f2.15).
+//! (bd:JMAP-y3f2.15). The `replyCount` / `unreadReplyCount` tests that hold
+//! for every backend run in the `testkit` conformance suite
+//! (`tests/backend_conformance.rs`); the owner-reply tests here pin this
+//! server's implementation-defined choice.
 //!
 //! Oracles, quoted from draft-atwood-jmap-chat-00.md at jmap-chat-spec
 //! 91672c9:
@@ -194,12 +197,6 @@ async fn get(backend: &MemoryBackend, ids: &[&str]) -> Vec<Value> {
     resp["list"].as_array().expect("list").clone()
 }
 
-fn by_id<'a>(list: &'a [Value], id: &str) -> &'a Value {
-    list.iter()
-        .find(|m| m["id"] == id)
-        .unwrap_or_else(|| panic!("{id} missing from {list:?}"))
-}
-
 /// L632-633: a `replyTo` naming a Message of another Chat does not exist
 /// "in the same Chat", so the create is rejected (L1672:
 /// `invalidProperties` naming `replyTo`).
@@ -288,62 +285,6 @@ async fn thread_root_id_accepted_or_filled_in() {
     }
 }
 
-/// L638-642 against the fixture, counted by hand:
-///
-/// - ROOT: replies A and C -> replyCount 2; of those only C sorts after
-///   lastReadMessageId A (L591) -> unreadReplyCount 1.
-/// - A: reply B -> replyCount 1; A has a threadRootId, so it is not a
-///   thread root and carries no unreadReplyCount.
-/// - B, C: no replies -> replyCount 0, no unreadReplyCount.
-#[tokio::test]
-async fn reply_counts_match_fixture() {
-    let backend = common::account_backend();
-    let _ = fixture(&backend).await;
-    threads_on(&backend);
-    let list = get(&backend, &[ROOT, A, B, C]).await;
-    let root = by_id(&list, ROOT);
-    assert_eq!(root["replyCount"], 2, "{root}");
-    assert_eq!(root["unreadReplyCount"], 1, "{root}");
-    let a = by_id(&list, A);
-    assert_eq!(a["replyCount"], 1, "{a}");
-    assert!(a.get("unreadReplyCount").is_none(), "{a}");
-    for id in [B, C] {
-        let m = by_id(&list, id);
-        assert_eq!(m["replyCount"], 0, "{m}");
-        assert!(m.get("unreadReplyCount").is_none(), "{m}");
-    }
-}
-
-/// L641-642 with no `lastReadMessageId`: no reply has been read, so the
-/// unread count equals the reply count (ROOT: A and C -> 2).
-#[tokio::test]
-async fn unread_reply_count_without_read_position() {
-    let backend = common::account_backend();
-    let (chat, _) = fixture(&backend).await;
-    backend.insert_object_for_test(
-        "ReadPosition",
-        ACCOUNT_ID,
-        "rp1",
-        json!({ "id": "rp1", "chatId": chat }),
-    );
-    threads_on(&backend);
-    let list = get(&backend, &[ROOT]).await;
-    assert_eq!(list[0]["unreadReplyCount"], 2, "{list:?}");
-}
-
-/// L639 / L642 "Present only when `supportsThreads` is `true`": with the
-/// default `supportsThreads: false` neither count is returned.
-#[tokio::test]
-async fn counts_absent_without_supports_threads() {
-    let backend = common::account_backend();
-    let _ = fixture(&backend).await;
-    let list = get(&backend, &[ROOT, A]).await;
-    for m in &list {
-        assert!(m.get("replyCount").is_none(), "{m}");
-        assert!(m.get("unreadReplyCount").is_none(), "{m}");
-    }
-}
-
 /// L1198 "`threadRootId` ... Valid only when `supportsThreads` is `true`"
 /// and L1506: with threads on, the filter returns the Messages whose
 /// `threadRootId` is ROOT, which are A, B and C.
@@ -404,73 +345,6 @@ async fn message_changes(backend: &MemoryBackend, since: &str) -> Value {
     .await
     .expect("Message/changes");
     resp
-}
-
-/// Creating a reply to A raises A's `replyCount` from 1 to 2 (L638-639),
-/// so `Message/changes` lists A as updated and the reply as created.
-#[tokio::test]
-async fn reply_create_lists_parent_updated() {
-    let backend = common::account_backend();
-    let (chat, _) = fixture(&backend).await;
-    threads_on(&backend);
-    let since = message_state(&backend).await;
-    let resp = create(&backend, reply(&chat, A, None)).await;
-    let new_id = resp["created"]["m"]["id"].clone();
-    let changes = message_changes(&backend, &since).await;
-    assert_eq!(changes["created"], json!([new_id]), "{changes}");
-    assert_eq!(changes["updated"], json!([A]), "{changes}");
-}
-
-/// Destroying B, the only reply to A, lowers A's `replyCount` from 1 to
-/// 0, so `Message/changes` lists A as updated and B as destroyed.
-#[tokio::test]
-async fn reply_destroy_lists_parent_updated() {
-    let backend = common::account_backend();
-    let _ = fixture(&backend).await;
-    threads_on(&backend);
-    let since = message_state(&backend).await;
-    let HandlerOutput { primary: resp, .. } = handle_message_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({ "accountId": ACCOUNT_ID, "destroy": [B] }),
-        &[],
-    )
-    .await
-    .expect("Message/set");
-    assert_eq!(resp["destroyed"], json!([B]), "{resp}");
-    let changes = message_changes(&backend, &since).await;
-    assert_eq!(changes["destroyed"], json!([B]), "{changes}");
-    assert_eq!(changes["updated"], json!([A]), "{changes}");
-}
-
-/// Moving `lastReadMessageId` from A to C (L641-642, ids ordered per
-/// L591) marks reply C to ROOT read, so ROOT's `unreadReplyCount` drops
-/// from 1 to 0 and ROOT is listed as updated. B also crosses the read
-/// mark, but its parent A has a `threadRootId`, carries no
-/// `unreadReplyCount`, and is not listed.
-#[tokio::test]
-async fn read_position_update_lists_thread_root_updated() {
-    let backend = common::account_backend();
-    let _ = fixture(&backend).await;
-    threads_on(&backend);
-    let since = message_state(&backend).await;
-    let HandlerOutput { primary: resp, .. } = handle_position_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": ACCOUNT_ID,
-            "update": { "rp1": { "lastReadMessageId": C } },
-        }),
-    )
-    .await
-    .expect("ReadPosition/set");
-    assert!(resp["updated"].get("rp1").is_some(), "{resp}");
-    let changes = message_changes(&backend, &since).await;
-    assert_eq!(changes["updated"], json!([ROOT]), "{changes}");
-    assert_eq!(changes["created"], json!([]), "{changes}");
-    assert_eq!(changes["destroyed"], json!([]), "{changes}");
 }
 
 /// Fixture plus OWN_REPLY to ROOT from the owner. Hand count for ROOT:

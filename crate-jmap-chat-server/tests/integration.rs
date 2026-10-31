@@ -21,7 +21,7 @@ use jmap_chat_server::{
     handle_presence_changes, handle_presence_get, handle_presence_set, handle_space_get,
     handle_space_join, handle_space_set,
 };
-use jmap_chat_types::{Chat, ChatKind};
+use jmap_chat_types::Chat;
 use jmap_server::HandlerOutput;
 use jmap_server::JmapBackend;
 use jmap_types::Id;
@@ -42,84 +42,6 @@ async fn memory_backend_initial_state_is_zero() {
         .await
         .expect("get_state must not fail on fresh backend");
     assert_eq!(state.as_ref(), "0", "initial state must be \"0\"");
-}
-
-/// Oracle: state advances after a successful create_object call.
-#[tokio::test]
-async fn memory_backend_state_advances_after_create() {
-    use jmap_types::UTCDate;
-
-    let backend = common::account_backend();
-    let account_id = Id::from("account1");
-
-    let state_before = backend
-        .get_state::<Chat>(&(), &account_id)
-        .await
-        .expect("get_state");
-
-    let chat = |id: &Id| {
-        Chat::new(
-            id.clone(),
-            ChatKind::Group,
-            UTCDate::from("2026-01-01T00:00:00Z"),
-            0,
-            vec![],
-            false,
-            true,
-        )
-    };
-    backend
-        .create_object::<Chat, _>(&(), &account_id, "c0", chat)
-        .await
-        .expect("create_object");
-
-    let state_after = backend
-        .get_state::<Chat>(&(), &account_id)
-        .await
-        .expect("get_state");
-    assert_ne!(
-        state_before, state_after,
-        "state must change after create_object"
-    );
-}
-
-/// Oracle: created objects are retrievable by id.
-#[tokio::test]
-async fn memory_backend_create_then_get() {
-    use jmap_types::UTCDate;
-
-    let backend = common::account_backend();
-    let account_id = Id::from("account1");
-
-    let chat = |id: &Id| {
-        Chat::new(
-            id.clone(),
-            ChatKind::Group,
-            UTCDate::from("2026-01-01T00:00:00Z"),
-            0,
-            vec![],
-            false,
-            true,
-        )
-    };
-    let (server_id, _) = backend
-        .create_object::<Chat, _>(&(), &account_id, "c0", chat)
-        .await
-        .expect("create_object");
-
-    let (found, not_found) = backend
-        .get_objects::<Chat>(
-            &(),
-            &account_id,
-            Some(std::slice::from_ref(&server_id)),
-            None,
-        )
-        .await
-        .expect("get_objects");
-
-    assert_eq!(found.len(), 1);
-    assert!(not_found.is_empty());
-    assert_eq!(found[0].id, server_id);
 }
 
 // ---------------------------------------------------------------------------
@@ -863,71 +785,6 @@ async fn chat_typing_group_member_succeeds() {
     assert_eq!(resp["accountId"], ACCOUNT_ID);
 }
 
-/// Oracle: `MemoryBackend::is_contact_blocked` reads
-/// `ChatContact.blocked` from the in-memory store. This is the kit's
-/// reference impl exercised directly, mirroring the way a consumer's
-/// transport layer would consult the predicate before a fan-out.
-#[tokio::test]
-async fn memory_backend_is_contact_blocked_reads_chat_contact_blocked_field() {
-    let backend = common::account_backend();
-    let account_id = Id::from(ACCOUNT_ID);
-    let blocked_id = Id::from("blocked-user");
-    let allowed_id = Id::from("allowed-user");
-
-    backend.insert_object_for_test(
-        "ChatContact",
-        ACCOUNT_ID,
-        "blocked-user",
-        json!({
-            "id": "blocked-user",
-            "identity": "b@example.org",
-            "login": "b@example.org",
-            "firstSeenAt": "2024-01-01T00:00:00Z",
-            "lastSeenAt": "2024-01-02T00:00:00Z",
-            "blocked": true
-        }),
-    );
-    backend.insert_object_for_test(
-        "ChatContact",
-        ACCOUNT_ID,
-        "allowed-user",
-        json!({
-            "id": "allowed-user",
-            "identity": "a@example.org",
-            "login": "a@example.org",
-            "firstSeenAt": "2024-01-01T00:00:00Z",
-            "lastSeenAt": "2024-01-02T00:00:00Z",
-            "blocked": false
-        }),
-    );
-
-    assert!(
-        backend
-            .is_contact_blocked(&(), &account_id, &blocked_id)
-            .await
-            .expect("is_contact_blocked"),
-        "blocked: true contact must report blocked"
-    );
-    assert!(
-        !backend
-            .is_contact_blocked(&(), &account_id, &allowed_id)
-            .await
-            .expect("is_contact_blocked"),
-        "blocked: false contact must report not-blocked"
-    );
-
-    // Unknown contact id → not blocked (open-by-default for an
-    // unrecognised principal).
-    let unknown = Id::from("never-seen");
-    assert!(
-        !backend
-            .is_contact_blocked(&(), &account_id, &unknown)
-            .await
-            .expect("is_contact_blocked"),
-        "unknown contact id must report not-blocked"
-    );
-}
-
 /// Oracle: draft-atwood-jmap-chat-00 §Chat/typing (L1086): "The server
 /// MUST also check whether the requesting account corresponds to a
 /// ChatContact whose `blocked` field is `true` on the recipient's contact
@@ -983,72 +840,6 @@ async fn chat_typing_does_not_check_block_in_sender_account() {
         backend.is_contact_blocked_call_count(),
         0,
         "the blocked check reads the recipient's list, which the sender's request does not name"
-    );
-}
-
-/// Oracle: draft-atwood-jmap-chat-00 §Blocked Contacts (L1698): "Typing and
-/// presence push events whose sending or referenced ChatContact has
-/// `blocked: true` on the receiving owner's contact list are similarly
-/// dropped", and §ChatContact `id` (L426): "It identifies the ChatContact
-/// only on this server". Two accounts each hold a ChatContact for the
-/// other; only the recipient's own list decides, and a contact id is never
-/// resolved in another account's list.
-#[tokio::test]
-async fn memory_backend_is_contact_blocked_reads_only_the_owner_list() {
-    let backend = common::account_backend();
-    let recipient = Id::from("acct-recipient");
-    let sender = Id::from("acct-sender");
-
-    backend.insert_object_for_test(
-        "ChatContact",
-        "acct-recipient",
-        "c-sender",
-        json!({
-            "id": "c-sender",
-            "identity": "sender@example.org",
-            "login": "sender@example.org",
-            "firstSeenAt": "2024-01-01T00:00:00Z",
-            "lastSeenAt": "2024-01-02T00:00:00Z",
-            "blocked": true
-        }),
-    );
-    backend.insert_object_for_test(
-        "ChatContact",
-        "acct-sender",
-        "c-recipient",
-        json!({
-            "id": "c-recipient",
-            "identity": "recipient@example.org",
-            "login": "recipient@example.org",
-            "firstSeenAt": "2024-01-01T00:00:00Z",
-            "lastSeenAt": "2024-01-02T00:00:00Z",
-            "blocked": false
-        }),
-    );
-
-    let blocked = |account: &Id, contact: &str| {
-        let backend = &backend;
-        let account = account.clone();
-        let contact = Id::from(contact);
-        async move {
-            backend
-                .is_contact_blocked(&(), &account, &contact)
-                .await
-                .expect("is_contact_blocked")
-        }
-    };
-
-    assert!(
-        blocked(&recipient, "c-sender").await,
-        "the recipient blocked the sender on the recipient's own list"
-    );
-    assert!(
-        !blocked(&sender, "c-recipient").await,
-        "the sender's list does not block the recipient"
-    );
-    assert!(
-        !blocked(&sender, "c-sender").await,
-        "c-sender is held only by the recipient's account"
     );
 }
 

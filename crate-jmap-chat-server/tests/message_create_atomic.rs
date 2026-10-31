@@ -16,6 +16,9 @@
 //!   is enqueued."
 //! - RFC 8620 §5.3: a backend failure is reported per entry in
 //!   `notCreated`; an unexpected one is `serverFail`.
+//!
+//! The `MemoryBackend` override is checked by the `testkit` conformance
+//! suite (`create_message_stores_and_reports_one_new_message`).
 
 mod common;
 
@@ -130,11 +133,4 @@ async fn default_create_message_stores_and_reports_one_new_message() {
     let backend = TrackingBackend::new();
     common::seed_group_chat(backend.inner(), "g1");
     check_create(&backend, || backend.inner().take_outbound_events_for_test()).await;
-}
-
-#[tokio::test]
-async fn memory_create_message_stores_and_reports_one_new_message() {
-    let backend = common::account_backend();
-    common::seed_group_chat(&backend, "g1");
-    check_create(&backend, || backend.take_outbound_events_for_test()).await;
 }
