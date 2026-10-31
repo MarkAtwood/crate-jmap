@@ -133,3 +133,19 @@ fn host_less_identities() {
         );
     }
 }
+
+/// jmap-chat-compliance-tests.md 7.16 (jmap-chat-spec c08568e): from
+/// peer `a.example`, "`senderUserId` `alice@A.Example` and then
+/// `carol@a.example`, two users of one peer domain. Verify both succeed.
+/// Send one with `senderUserId: "bob@b.example"`. Verify `forbidden`".
+/// fed c08568e L334: "Hosts are compared as peer domains are."
+#[test]
+fn compliance_7_16_users_of_one_peer_domain() {
+    let a = domain("a.example");
+    assert_eq!(bind_identity("alice@A.Example", &a), IdentityBinding::Bound);
+    assert_eq!(bind_identity("carol@a.example", &a), IdentityBinding::Bound);
+    assert_eq!(
+        bind_identity("bob@b.example", &a),
+        IdentityBinding::HostMismatch
+    );
+}

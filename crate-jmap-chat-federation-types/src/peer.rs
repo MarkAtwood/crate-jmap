@@ -7,14 +7,19 @@
 //!
 //! Every field that names a user carries the user's identity string, not a
 //! ChatContact `id` (draft §User References in Peer Methods). Those fields
-//! are `String` here, and [`PeerMention`], [`PeerChatMember`] and
+//! are `String` here, including `recipient_user_id`, which every request
+//! carries to name the mailbox on the receiving server the call is for:
+//! one peer domain may host many mailboxes, and `account_id` is the single
+//! peer-role account of the caller's session, not a mailbox (draft
+//! §Server-to-Server Methods), and [`PeerMention`], [`PeerChatMember`] and
 //! [`PeerRoleUpdate`] stand in for the chat types whose `id` is a local
 //! [`Id`].
 //!
 //! Deserializing checks only the wire shape. The cross-field rules are
 //! the receiving server's job: exactly one `Peer/deliver` payload, the
-//! `Peer/groupUpdate` fields each `action` requires, and the caller
-//! identity matching the peer identity.
+//! `Peer/groupUpdate` fields each `action` requires, resolving
+//! `recipientUserId` to a mailbox, and binding each caller identity to the
+//! authenticated peer domain (draft §Identity Binding).
 
 use jmap_chat_types::{
     Attachment, BodyType, BroadcastMention, ChatKind, ChatMemberRole, Clearable, MessageAction,
@@ -280,8 +285,12 @@ impl PeerReactionUpdate {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerDeliverArgs {
-    /// Account ID on the receiving server.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
+    /// `recipientUserId`: the identity string of the owner of the
+    /// mailbox the message, edit, or reaction is delivered to.
+    pub recipient_user_id: String,
     /// The Chat ID.
     pub chat_id: Id,
     /// The sender's identity string.
@@ -303,9 +312,16 @@ pub struct PeerDeliverArgs {
 }
 
 impl PeerDeliverArgs {
-    fn base(account_id: Id, chat_id: Id, sender_user_id: String, chat_kind: ChatKind) -> Self {
+    fn base(
+        account_id: Id,
+        recipient_user_id: String,
+        chat_id: Id,
+        sender_user_id: String,
+        chat_kind: ChatKind,
+    ) -> Self {
         Self {
             account_id,
+            recipient_user_id,
             chat_id,
             sender_user_id,
             chat_kind,
@@ -319,6 +335,7 @@ impl PeerDeliverArgs {
     /// Deliver a new message.
     pub fn new_message(
         account_id: Id,
+        recipient_user_id: impl Into<String>,
         chat_id: Id,
         sender_user_id: impl Into<String>,
         chat_kind: ChatKind,
@@ -326,13 +343,20 @@ impl PeerDeliverArgs {
     ) -> Self {
         Self {
             message: Some(message),
-            ..Self::base(account_id, chat_id, sender_user_id.into(), chat_kind)
+            ..Self::base(
+                account_id,
+                recipient_user_id.into(),
+                chat_id,
+                sender_user_id.into(),
+                chat_kind,
+            )
         }
     }
 
     /// Deliver an edit.
     pub fn new_edit(
         account_id: Id,
+        recipient_user_id: impl Into<String>,
         chat_id: Id,
         sender_user_id: impl Into<String>,
         chat_kind: ChatKind,
@@ -340,13 +364,20 @@ impl PeerDeliverArgs {
     ) -> Self {
         Self {
             edit: Some(edit),
-            ..Self::base(account_id, chat_id, sender_user_id.into(), chat_kind)
+            ..Self::base(
+                account_id,
+                recipient_user_id.into(),
+                chat_id,
+                sender_user_id.into(),
+                chat_kind,
+            )
         }
     }
 
     /// Deliver a reaction update.
     pub fn new_reaction_update(
         account_id: Id,
+        recipient_user_id: impl Into<String>,
         chat_id: Id,
         sender_user_id: impl Into<String>,
         chat_kind: ChatKind,
@@ -354,7 +385,13 @@ impl PeerDeliverArgs {
     ) -> Self {
         Self {
             reaction_update: Some(reaction_update),
-            ..Self::base(account_id, chat_id, sender_user_id.into(), chat_kind)
+            ..Self::base(
+                account_id,
+                recipient_user_id.into(),
+                chat_id,
+                sender_user_id.into(),
+                chat_kind,
+            )
         }
     }
 }
@@ -398,8 +435,12 @@ impl PeerDeliverResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerReceiptArgs {
-    /// Account ID on the receiving server.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
+    /// `recipientUserId`: the identity string of the owner of the
+    /// mailbox that holds the message: the message's original sender.
+    pub recipient_user_id: String,
     /// The sender-assigned ULID of the acknowledged message.
     pub sender_msg_id: Id,
     /// When the recipient's mailbox stored the message.
@@ -424,9 +465,15 @@ pub struct PeerReceiptArgs {
 
 impl PeerReceiptArgs {
     /// A receipt carrying no timestamps yet.
-    pub fn new(account_id: Id, sender_msg_id: Id, reader_user_id: impl Into<String>) -> Self {
+    pub fn new(
+        account_id: Id,
+        recipient_user_id: impl Into<String>,
+        sender_msg_id: Id,
+        reader_user_id: impl Into<String>,
+    ) -> Self {
         Self {
             account_id,
+            recipient_user_id: recipient_user_id.into(),
             sender_msg_id,
             delivered_at: None,
             device_delivered_at: None,
@@ -443,8 +490,12 @@ impl PeerReceiptArgs {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerTypingArgs {
-    /// Account ID on the receiving server.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
+    /// `recipientUserId`: the identity string of the owner of the
+    /// mailbox to notify.
+    pub recipient_user_id: String,
     /// The Chat in which typing is occurring.
     pub chat_id: Id,
     /// The typing user's identity string.
@@ -460,12 +511,14 @@ impl PeerTypingArgs {
     /// A typing notification.
     pub fn new(
         account_id: Id,
+        recipient_user_id: impl Into<String>,
         chat_id: Id,
         sender_user_id: impl Into<String>,
         typing: bool,
     ) -> Self {
         Self {
             account_id,
+            recipient_user_id: recipient_user_id.into(),
             chat_id,
             sender_user_id: sender_user_id.into(),
             typing,
@@ -479,8 +532,12 @@ impl PeerTypingArgs {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerRetractArgs {
-    /// Account ID on the receiving server.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
+    /// `recipientUserId`: the identity string of the owner of the
+    /// mailbox that holds the retracted message.
+    pub recipient_user_id: String,
     /// The Chat containing the message.
     pub chat_id: Id,
     /// The retracting user's identity string.
@@ -496,12 +553,14 @@ impl PeerRetractArgs {
     /// A retraction of `sender_msg_id` in `chat_id`.
     pub fn new(
         account_id: Id,
+        recipient_user_id: impl Into<String>,
         chat_id: Id,
         sender_user_id: impl Into<String>,
         sender_msg_id: Id,
     ) -> Self {
         Self {
             account_id,
+            recipient_user_id: recipient_user_id.into(),
             chat_id,
             sender_user_id: sender_user_id.into(),
             sender_msg_id,
@@ -667,8 +726,12 @@ impl PeerAvatar {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerGroupUpdateArgs {
-    /// Account ID on the receiving server.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
+    /// `recipientUserId`: the identity string of the owner of the
+    /// mailbox to update: one member hosted on the receiving server.
+    pub recipient_user_id: String,
     /// The group chat ULID.
     pub chat_id: Id,
     /// The changing user's identity string.
@@ -711,12 +774,14 @@ impl PeerGroupUpdateArgs {
     /// A group update with no optional fields set.
     pub fn new(
         account_id: Id,
+        recipient_user_id: impl Into<String>,
         chat_id: Id,
         sender_user_id: impl Into<String>,
         action: GroupUpdateAction,
     ) -> Self {
         Self {
             account_id,
+            recipient_user_id: recipient_user_id.into(),
             chat_id,
             sender_user_id: sender_user_id.into(),
             action,
@@ -737,9 +802,14 @@ impl PeerGroupUpdateArgs {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerSubscribePresenceArgs {
-    /// Account ID whose owner's presence is subscribed to.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
-    /// The calling server's `ownerUserId`.
+    /// `recipientUserId`: the identity string of the user whose
+    /// presence is being subscribed to.
+    pub recipient_user_id: String,
+    /// The subscribing user's identity string: a user on the calling
+    /// server.
     pub subscriber_id: String,
     /// Requested subscription lifetime in seconds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -751,9 +821,14 @@ pub struct PeerSubscribePresenceArgs {
 
 impl PeerSubscribePresenceArgs {
     /// A subscription request with the server's default TTL.
-    pub fn new(account_id: Id, subscriber_id: impl Into<String>) -> Self {
+    pub fn new(
+        account_id: Id,
+        recipient_user_id: impl Into<String>,
+        subscriber_id: impl Into<String>,
+    ) -> Self {
         Self {
             account_id,
+            recipient_user_id: recipient_user_id.into(),
             subscriber_id: subscriber_id.into(),
             ttl: None,
             extra: serde_json::Map::new(),
@@ -806,9 +881,14 @@ impl PeerSubscribePresenceResponse {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerUnsubscribePresenceArgs {
-    /// Account ID on the remote server.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
-    /// The calling server's `ownerUserId`.
+    /// `recipientUserId`: the identity string of the user whose
+    /// presence was subscribed to.
+    pub recipient_user_id: String,
+    /// The subscribing user's identity string: a user on the calling
+    /// server.
     pub subscriber_id: String,
     /// Catch-all for extension fields; see workspace AGENTS.md.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
@@ -816,10 +896,15 @@ pub struct PeerUnsubscribePresenceArgs {
 }
 
 impl PeerUnsubscribePresenceArgs {
-    /// Cancel `subscriber_id`'s subscription.
-    pub fn new(account_id: Id, subscriber_id: impl Into<String>) -> Self {
+    /// Cancel `subscriber_id`'s subscription to `recipient_user_id`.
+    pub fn new(
+        account_id: Id,
+        recipient_user_id: impl Into<String>,
+        subscriber_id: impl Into<String>,
+    ) -> Self {
         Self {
             account_id,
+            recipient_user_id: recipient_user_id.into(),
             subscriber_id: subscriber_id.into(),
             extra: serde_json::Map::new(),
         }
@@ -834,9 +919,14 @@ impl PeerUnsubscribePresenceArgs {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PeerPresenceArgs {
-    /// Account ID on the receiving server.
+    /// The id of the peer-role account in the caller's session at the
+    /// receiving server (fed L404).
     pub account_id: Id,
-    /// The pushing server's `ownerUserId`.
+    /// `recipientUserId`: the identity string of the subscriber,
+    /// the owner of the mailbox to update.
+    pub recipient_user_id: String,
+    /// The identity string of the user whose presence changed: a user on
+    /// the calling server.
     pub identity: String,
     /// The remote owner's presence state.
     pub presence: Presence,
@@ -866,9 +956,15 @@ pub struct PeerPresenceArgs {
 
 impl PeerPresenceArgs {
     /// A presence update that leaves the status fields unchanged.
-    pub fn new(account_id: Id, identity: impl Into<String>, presence: Presence) -> Self {
+    pub fn new(
+        account_id: Id,
+        recipient_user_id: impl Into<String>,
+        identity: impl Into<String>,
+        presence: Presence,
+    ) -> Self {
         Self {
             account_id,
+            recipient_user_id: recipient_user_id.into(),
             identity: identity.into(),
             presence,
             last_active_at: None,

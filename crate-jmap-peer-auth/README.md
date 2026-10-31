@@ -40,8 +40,10 @@ let accepted = signed.verify(&keys, SystemTime::now())?;
 if !replay_store.insert(&accepted.peer_domain, &accepted.nonce, accepted.forget_after) {
     return Err(Rejection::Replayed);
 }
-match bind_identity(&owner_user_id, &accepted.peer_domain) {
-    IdentityBinding::Bound => { /* grant peer-role access */ }
+// Each caller identity of each Peer/* call (senderUserId, readerUserId,
+// subscriberId, identity); never the peer's advisory ownerUserId.
+match bind_identity(&sender_user_id, &accepted.peer_domain) {
+    IdentityBinding::Bound => { /* accept the call */ }
     IdentityBinding::NeedsDidVerification => { /* draft-atwood-jmap-chat-did-00 check */ }
     _ => { /* reject */ }
 }

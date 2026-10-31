@@ -201,7 +201,9 @@ impl std::error::Error for OutboundError {}
 
 /// The `Peer/groupUpdate` arguments for one
 /// `OutboundEvent::GroupUpdate` action on the stored group `chat`, sent
-/// to the receiving server's `peer_account_id` (§Peer/groupUpdate).
+/// to the receiving server's `peer_account_id` (§Peer/groupUpdate), for
+/// the mailbox of the member whose identity string is `recipient_user_id`
+/// (`recipientUserId`, §Server-to-Server Methods).
 ///
 /// `senderUserId` is the owner's `ownerUserId`, and every ChatMember
 /// `id` and `invitedBy` becomes an identity string. `"create"` carries
@@ -232,6 +234,7 @@ impl std::error::Error for OutboundError {}
 pub fn peer_group_update_args(
     identities: &SenderIdentities<'_>,
     peer_account_id: Id,
+    recipient_user_id: impl Into<String>,
     chat: &Chat,
     action: &GroupUpdateAction,
     avatar: Option<PeerAvatar>,
@@ -248,6 +251,7 @@ pub fn peer_group_update_args(
     };
     let mut args = PeerGroupUpdateArgs::new(
         peer_account_id,
+        recipient_user_id,
         chat.id.clone(),
         identities.owner_user_id,
         peer_action,

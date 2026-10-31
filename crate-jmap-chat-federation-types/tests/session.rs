@@ -78,7 +78,7 @@ fn reads_fields_from_parsed_session_extra() {
         serde_json::from_value(Value::Object(wire)).expect("valid RFC 8620 Session");
 
     let f = FederationSession::from_session_extra(&session.extra).expect("federation fields");
-    assert_eq!(f.owner_user_id, "john@example.com");
+    assert_eq!(f.owner_user_id.as_deref(), Some("john@example.com"));
     assert_eq!(f.peer_signing_keys, vec![draft_key()]);
     assert_eq!(
         f.owner_direct_address.as_deref(),
@@ -100,13 +100,26 @@ fn owner_direct_address_is_optional() {
     assert_eq!(serde_json::to_value(&f).expect("serialize"), wire);
 }
 
-/// L276-282: `ownerUserId` and `peerSigningKeys` are MUST fields.
+/// fed c08568e L384: "Servers implementing this specification MUST
+/// include the following field": `peerSigningKeys`. A Session without it
+/// is an error.
 #[test]
 fn required_fields_missing_is_an_error() {
-    let no_owner = json!({ "peerSigningKeys": [draft_key()] });
-    assert!(FederationSession::from_session_extra(no_owner.as_object().expect("object")).is_err());
     let no_keys = json!({ "ownerUserId": "john@example.com" });
     assert!(FederationSession::from_session_extra(no_keys.as_object().expect("object")).is_err());
+}
+
+/// fed c08568e L396: "A server that hosts more than one mailbox omits all
+/// three" of `ownerUserId`, `ownerDirectAddress` and `ownerEndpoints`, so
+/// a Session without `ownerUserId` is valid and reads as no owner.
+#[test]
+fn owner_user_id_is_optional() {
+    let wire = json!({ "peerSigningKeys": [draft_key()] });
+    let f = FederationSession::from_session_extra(wire.as_object().expect("object"))
+        .expect("federation fields");
+    assert_eq!(f.owner_user_id, None);
+    assert_eq!(f.peer_signing_keys, vec![draft_key()]);
+    assert_eq!(serde_json::to_value(&f).expect("serialize"), wire);
 }
 
 /// L210: the receiving server "MUST ignore any other entry" than a usable
@@ -131,7 +144,8 @@ fn malformed_key_entry_is_kept_for_the_receiver_to_ignore() {
 /// still parses as one.
 #[test]
 fn anonymous_session_matches_l212() {
-    let mut fields = FederationSession::new("john@example.com", vec![draft_key()]);
+    let mut fields =
+        FederationSession::new(vec![draft_key()]).with_owner_user_id("john@example.com");
     fields.owner_direct_address = Some("john-laptop.tailnet.example".into());
     let anon = anonymous_well_known_session(owner_session(), &fields).expect("built");
 
@@ -171,15 +185,39 @@ fn anonymous_session_matches_l212() {
 fn anonymous_session_omits_absent_direct_address() {
     let mut base = owner_session();
     base.insert("ownerDirectAddress".into(), json!("stale.example"));
-    let fields = FederationSession::new("john@example.com", vec![draft_key()]);
+    let fields = FederationSession::new(vec![draft_key()]).with_owner_user_id("john@example.com");
     let anon = anonymous_well_known_session(base, &fields).expect("built");
     assert!(!anon.contains_key("ownerDirectAddress"));
+}
+
+/// fed c08568e L396: "a server that hosts a single mailbox SHOULD include
+/// that mailbox's `ownerUserId`, and MAY include `ownerDirectAddress` and
+/// `ownerEndpoints`. A server that hosts more than one mailbox omits all
+/// three". L304: the Session "includes `peerSigningKeys`".
+#[test]
+fn anonymous_session_without_owner_omits_owner_fields() {
+    let mut base = owner_session();
+    base.insert("ownerUserId".into(), json!("john@example.com"));
+    base.insert("ownerDirectAddress".into(), json!("stale.example"));
+    base.insert(
+        "ownerEndpoints".into(),
+        json!([{ "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.example/john" }]),
+    );
+    let mut fields = FederationSession::new(vec![draft_key()]);
+    fields.owner_direct_address = Some("john-laptop.tailnet.example".into());
+    let anon = anonymous_well_known_session(base, &fields).expect("built");
+    for k in ["ownerUserId", "ownerDirectAddress", "ownerEndpoints"] {
+        assert!(!anon.contains_key(k), "{k} omitted");
+    }
+    assert_eq!(anon["peerSigningKeys"], json!([draft_key()]));
+    assert_eq!(anon["username"], json!(""));
+    assert_eq!(anon["accounts"], json!({}));
 }
 
 /// L282: "Servers MUST advertise this field with at least one key."
 #[test]
 fn anonymous_session_requires_a_key() {
-    let fields = FederationSession::new("john@example.com", vec![]);
+    let fields = FederationSession::new(vec![]).with_owner_user_id("john@example.com");
     assert_eq!(
         anonymous_well_known_session(owner_session(), &fields),
         Err(AnonymousSessionError::NoPeerSigningKeys)
@@ -193,7 +231,8 @@ fn anonymous_session_requires_a_key() {
 fn anonymous_session_refuses_private_key_member() {
     let mut private = draft_key();
     private["d"] = json!("nWGxne_9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A");
-    let fields = FederationSession::new("john@example.com", vec![draft_key(), private]);
+    let fields =
+        FederationSession::new(vec![draft_key(), private]).with_owner_user_id("john@example.com");
     assert_eq!(
         anonymous_well_known_session(owner_session(), &fields),
         Err(AnonymousSessionError::PrivateKeyMember(1))

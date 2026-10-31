@@ -27,6 +27,7 @@ fn round_trip<T: Serialize + DeserializeOwned>(wire: Value) -> T {
 fn deliver_message() {
     let args: PeerDeliverArgs = round_trip(json!({
         "accountId": "A1",
+        "recipientUserId": "bob@b.example",
         "chatId": "01J0000000000000000000CHAT",
         "senderUserId": "alice@a.example",
         "chatKind": "group",
@@ -56,6 +57,7 @@ fn deliver_message() {
             "expiresAfterReadSeconds": 60
         }
     }));
+    assert_eq!(args.recipient_user_id, "bob@b.example");
     assert_eq!(args.sender_user_id, "alice@a.example");
     assert_eq!(args.chat_kind, ChatKind::Group);
     assert!(args.edit.is_none() && args.reaction_update.is_none());
@@ -105,6 +107,7 @@ fn deliver_body_type_is_typed() {
 fn deliver_edit() {
     let args: PeerDeliverArgs = round_trip(json!({
         "accountId": "A1",
+        "recipientUserId": "bob@b.example",
         "chatId": "C1",
         "senderUserId": "alice@a.example",
         "chatKind": "direct",
@@ -127,6 +130,7 @@ fn deliver_edit() {
 fn deliver_reaction_update() {
     let args: PeerDeliverArgs = round_trip(json!({
         "accountId": "A1",
+        "recipientUserId": "bob@b.example",
         "chatId": "C1",
         "senderUserId": "alice@a.example",
         "chatKind": "channel",
@@ -163,6 +167,7 @@ fn deliver_constructors_emit_one_payload() {
     );
     let args = PeerDeliverArgs::new_message(
         "A1".into(),
+        "bob@b.example",
         "C1".into(),
         "alice@a.example",
         ChatKind::Direct,
@@ -171,8 +176,8 @@ fn deliver_constructors_emit_one_payload() {
     assert_eq!(
         serde_json::to_value(&args).expect("serialize"),
         json!({
-            "accountId": "A1", "chatId": "C1", "senderUserId": "alice@a.example",
-            "chatKind": "direct",
+            "accountId": "A1", "recipientUserId": "bob@b.example", "chatId": "C1",
+            "senderUserId": "alice@a.example", "chatKind": "direct",
             "message": {
                 "senderMsgId": "M1", "body": "x", "bodyType": "text/plain",
                 "sentAt": "2026-10-20T10:00:00Z", "attachments": []
@@ -188,6 +193,7 @@ fn deliver_constructors_emit_one_payload() {
     );
     let args = PeerDeliverArgs::new_edit(
         "A1".into(),
+        "b@b.example",
         "C1".into(),
         "a@a.example",
         ChatKind::Group,
@@ -206,6 +212,7 @@ fn deliver_constructors_emit_one_payload() {
     );
     let args = PeerDeliverArgs::new_reaction_update(
         "A1".into(),
+        "b@b.example",
         "C1".into(),
         "a@a.example",
         ChatKind::Group,
@@ -241,6 +248,7 @@ fn deliver_response() {
 fn receipt() {
     let a: PeerReceiptArgs = round_trip(json!({
         "accountId": "A1",
+        "recipientUserId": "alice@a.example",
         "senderMsgId": "M1",
         "deliveredAt": "2026-10-20T10:00:01Z",
         "deviceDeliveredAt": "2026-10-20T10:00:02Z",
@@ -248,11 +256,13 @@ fn receipt() {
         "readDisposition": "displayed",
         "readerUserId": "bob@b.example"
     }));
+    assert_eq!(a.recipient_user_id, "alice@a.example");
     assert_eq!(a.read_disposition, Some(ReadDisposition::Displayed));
     assert_eq!(a.reader_user_id, "bob@b.example");
 
     let a: PeerReceiptArgs = round_trip(json!({
         "accountId": "A1",
+        "recipientUserId": "alice@a.example",
         "senderMsgId": "M1",
         "readAt": "2026-10-20T10:01:00Z",
         "readDisposition": "x-skimmed",
@@ -268,10 +278,14 @@ fn receipt() {
 #[test]
 fn typing() {
     let a: PeerTypingArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "C1", "senderUserId": "bob@b.example", "typing": false
+        "accountId": "A1", "recipientUserId": "alice@a.example", "chatId": "C1",
+        "senderUserId": "bob@b.example", "typing": false
     }));
     assert!(!a.typing);
-    let missing = json!({ "accountId": "A1", "chatId": "C1", "senderUserId": "bob@b.example" });
+    let missing = json!({
+        "accountId": "A1", "recipientUserId": "alice@a.example", "chatId": "C1",
+        "senderUserId": "bob@b.example"
+    });
     assert!(serde_json::from_value::<PeerTypingArgs>(missing).is_err());
 }
 
@@ -279,7 +293,8 @@ fn typing() {
 #[test]
 fn retract() {
     let a: PeerRetractArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "C1", "senderUserId": "alice@a.example", "senderMsgId": "M1"
+        "accountId": "A1", "recipientUserId": "bob@b.example", "chatId": "C1",
+        "senderUserId": "alice@a.example", "senderMsgId": "M1"
     }));
     assert_eq!(a.sender_msg_id, "M1");
     let r: PeerRetractResponse = round_trip(json!({
@@ -317,6 +332,7 @@ fn group_update_actions() {
 fn group_update_create() {
     let a: PeerGroupUpdateArgs = round_trip(json!({
         "accountId": "A1",
+        "recipientUserId": "bob@b.example",
         "chatId": "01J000000000000000000GROUP",
         "senderUserId": "alice@a.example",
         "action": "create",
@@ -354,14 +370,16 @@ fn group_update_create() {
 #[test]
 fn group_update_avatar_null_and_absent_differ() {
     let a: PeerGroupUpdateArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "G1", "senderUserId": "alice@a.example",
+        "accountId": "A1", "recipientUserId": "bob@b.example", "chatId": "G1",
+        "senderUserId": "alice@a.example",
         "action": "updateMetadata", "avatar": null
     }));
     assert!(matches!(a.avatar, Some(Clearable::Clear)));
     assert!(a.extra.is_empty());
 
     let a: PeerGroupUpdateArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "G1", "senderUserId": "alice@a.example",
+        "accountId": "A1", "recipientUserId": "bob@b.example", "chatId": "G1",
+        "senderUserId": "alice@a.example",
         "action": "updateMetadata", "name": "Trip"
     }));
     assert!(a.avatar.is_none());
@@ -373,7 +391,8 @@ fn group_update_avatar_null_and_absent_differ() {
 #[test]
 fn group_update_membership_fields() {
     let a: PeerGroupUpdateArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "G1", "senderUserId": "alice@a.example",
+        "accountId": "A1", "recipientUserId": "bob@b.example", "chatId": "G1",
+        "senderUserId": "alice@a.example",
         "action": "addMembers",
         "addedMembers": [
             { "id": "dave@d.example", "role": "member", "joinedAt": "2026-10-20T09:30:00Z" }
@@ -382,7 +401,8 @@ fn group_update_membership_fields() {
     assert_eq!(a.added_members.expect("added")[0].id, "dave@d.example");
 
     let a: PeerGroupUpdateArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "G1", "senderUserId": "alice@a.example",
+        "accountId": "A1", "recipientUserId": "bob@b.example", "chatId": "G1",
+        "senderUserId": "alice@a.example",
         "action": "removeMembers", "removedMemberIds": ["dave@d.example"]
     }));
     assert_eq!(
@@ -391,7 +411,8 @@ fn group_update_membership_fields() {
     );
 
     let a: PeerGroupUpdateArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "G1", "senderUserId": "alice@a.example",
+        "accountId": "A1", "recipientUserId": "bob@b.example", "chatId": "G1",
+        "senderUserId": "alice@a.example",
         "action": "updateRoles", "updatedRoles": [{ "id": "bob@b.example", "role": "admin" }]
     }));
     let roles = a.updated_roles.expect("roles");
@@ -405,8 +426,10 @@ fn group_update_membership_fields() {
 #[test]
 fn subscribe_presence() {
     let a: PeerSubscribePresenceArgs = round_trip(json!({
-        "accountId": "A1", "subscriberId": "bob@b.example", "ttl": 3600
+        "accountId": "A1", "recipientUserId": "alice@a.example",
+        "subscriberId": "bob@b.example", "ttl": 3600
     }));
+    assert_eq!(a.recipient_user_id, "alice@a.example");
     assert_eq!(a.ttl, Some(3600));
     let r: PeerSubscribePresenceResponse = round_trip(json!({
         "accountId": "A1",
@@ -425,8 +448,9 @@ fn subscribe_presence() {
 /// L713-717: Peer/unsubscribePresence arguments.
 #[test]
 fn unsubscribe_presence() {
-    let a: PeerUnsubscribePresenceArgs =
-        round_trip(json!({ "accountId": "A1", "subscriberId": "bob@b.example" }));
+    let a: PeerUnsubscribePresenceArgs = round_trip(json!({
+        "accountId": "A1", "recipientUserId": "alice@a.example", "subscriberId": "bob@b.example"
+    }));
     assert_eq!(a.subscriber_id, "bob@b.example");
 }
 
@@ -435,13 +459,15 @@ fn unsubscribe_presence() {
 #[test]
 fn presence_status_absent_null_and_set() {
     let a: PeerPresenceArgs = round_trip(json!({
-        "accountId": "A1", "identity": "alice@a.example", "presence": "away"
+        "accountId": "A1", "recipientUserId": "bob@b.example",
+        "identity": "alice@a.example", "presence": "away"
     }));
     assert_eq!(a.status_text, None);
     assert_eq!(a.status_emoji, None);
 
     let a: PeerPresenceArgs = round_trip(json!({
-        "accountId": "A1", "identity": "alice@a.example", "presence": "offline",
+        "accountId": "A1", "recipientUserId": "bob@b.example",
+        "identity": "alice@a.example", "presence": "offline",
         "lastActiveAt": "2026-10-20T08:00:00Z",
         "statusText": null, "statusEmoji": "coffee"
     }));
@@ -466,8 +492,8 @@ fn ack_response() {
 #[test]
 fn unknown_fields_survive() {
     let a: PeerDeliverArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "C1", "senderUserId": "a@a.example",
-        "chatKind": "direct", "x-trace": "t1",
+        "accountId": "A1", "recipientUserId": "b@b.example", "chatId": "C1",
+        "senderUserId": "a@a.example", "chatKind": "direct", "x-trace": "t1",
         "message": {
             "senderMsgId": "M1", "body": "x", "bodyType": "text/plain",
             "sentAt": "2026-10-20T10:00:00Z", "x-prio": 1,
@@ -486,8 +512,58 @@ fn unknown_fields_survive() {
     assert_eq!(m.mentions.expect("mentions")[0].extra["x-m"], true);
 
     let g: PeerGroupUpdateArgs = round_trip(json!({
-        "accountId": "A1", "chatId": "G1", "senderUserId": "a@a.example",
-        "action": "leave", "x-reason": "bye"
+        "accountId": "A1", "recipientUserId": "b@b.example", "chatId": "G1",
+        "senderUserId": "a@a.example", "action": "leave", "x-reason": "bye"
     }));
     assert_eq!(g.extra["x-reason"], "bye");
+}
+
+/// fed c08568e L404: "All Peer/* methods also carry `recipientUserId`
+/// (String)". It is required on every request: each hand-written request
+/// below is valid with it and fails to deserialize without it.
+#[test]
+fn recipient_user_id_is_required() {
+    fn check<T: DeserializeOwned>(mut wire: Value) {
+        let name = std::any::type_name::<T>();
+        assert!(serde_json::from_value::<T>(wire.clone()).is_ok(), "{name}");
+        wire.as_object_mut()
+            .expect("object")
+            .remove("recipientUserId");
+        assert!(serde_json::from_value::<T>(wire).is_err(), "{name}");
+    }
+    let r = "bob@b.example";
+    check::<PeerDeliverArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "chatId": "C1",
+        "senderUserId": "alice@a.example", "chatKind": "direct",
+        "edit": {
+            "senderMsgId": "M1", "body": "x", "bodyType": "text/plain",
+            "editedAt": "2026-10-20T10:05:00Z"
+        }
+    }));
+    check::<PeerReceiptArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "senderMsgId": "M1",
+        "readerUserId": "alice@a.example"
+    }));
+    check::<PeerTypingArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "chatId": "C1",
+        "senderUserId": "alice@a.example", "typing": true
+    }));
+    check::<PeerRetractArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "chatId": "C1",
+        "senderUserId": "alice@a.example", "senderMsgId": "M1"
+    }));
+    check::<PeerGroupUpdateArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "chatId": "G1",
+        "senderUserId": "alice@a.example", "action": "leave"
+    }));
+    check::<PeerSubscribePresenceArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "subscriberId": "alice@a.example"
+    }));
+    check::<PeerUnsubscribePresenceArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "subscriberId": "alice@a.example"
+    }));
+    check::<PeerPresenceArgs>(json!({
+        "accountId": "A1", "recipientUserId": r, "identity": "alice@a.example",
+        "presence": "online"
+    }));
 }

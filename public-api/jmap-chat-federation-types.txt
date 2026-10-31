@@ -56,11 +56,12 @@ impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_federation_types::React
 pub fn jmap_chat_federation_types::ReactionAction::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_chat_federation_types::FederationSession
 pub jmap_chat_federation_types::FederationSession::owner_direct_address: core::option::Option<alloc::string::String>
-pub jmap_chat_federation_types::FederationSession::owner_user_id: alloc::string::String
+pub jmap_chat_federation_types::FederationSession::owner_user_id: core::option::Option<alloc::string::String>
 pub jmap_chat_federation_types::FederationSession::peer_signing_keys: alloc::vec::Vec<serde_json::value::Value>
 impl jmap_chat_federation_types::FederationSession
 pub fn jmap_chat_federation_types::FederationSession::from_session_extra(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<Self, serde_json::error::Error>
-pub fn jmap_chat_federation_types::FederationSession::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<serde_json::value::Value>) -> Self
+pub fn jmap_chat_federation_types::FederationSession::new(alloc::vec::Vec<serde_json::value::Value>) -> Self
+pub fn jmap_chat_federation_types::FederationSession::with_owner_user_id(self, impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::FederationSession
 pub fn jmap_chat_federation_types::FederationSession::clone(&self) -> jmap_chat_federation_types::FederationSession
 impl core::cmp::PartialEq for jmap_chat_federation_types::FederationSession
@@ -150,11 +151,12 @@ pub jmap_chat_federation_types::PeerDeliverArgs::edit: core::option::Option<jmap
 pub jmap_chat_federation_types::PeerDeliverArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_chat_federation_types::PeerDeliverArgs::message: core::option::Option<jmap_chat_federation_types::PeerMessage>
 pub jmap_chat_federation_types::PeerDeliverArgs::reaction_update: core::option::Option<jmap_chat_federation_types::PeerReactionUpdate>
+pub jmap_chat_federation_types::PeerDeliverArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerDeliverArgs::sender_user_id: alloc::string::String
 impl jmap_chat_federation_types::PeerDeliverArgs
-pub fn jmap_chat_federation_types::PeerDeliverArgs::new_edit(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerEdit) -> Self
-pub fn jmap_chat_federation_types::PeerDeliverArgs::new_message(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerMessage) -> Self
-pub fn jmap_chat_federation_types::PeerDeliverArgs::new_reaction_update(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerReactionUpdate) -> Self
+pub fn jmap_chat_federation_types::PeerDeliverArgs::new_edit(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerEdit) -> Self
+pub fn jmap_chat_federation_types::PeerDeliverArgs::new_message(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerMessage) -> Self
+pub fn jmap_chat_federation_types::PeerDeliverArgs::new_reaction_update(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::chat::ChatKind, jmap_chat_federation_types::PeerReactionUpdate) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerDeliverArgs
 pub fn jmap_chat_federation_types::PeerDeliverArgs::clone(&self) -> jmap_chat_federation_types::PeerDeliverArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerDeliverArgs
@@ -216,11 +218,12 @@ pub jmap_chat_federation_types::PeerGroupUpdateArgs::description: core::option::
 pub jmap_chat_federation_types::PeerGroupUpdateArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_chat_federation_types::PeerGroupUpdateArgs::members: core::option::Option<alloc::vec::Vec<jmap_chat_federation_types::PeerChatMember>>
 pub jmap_chat_federation_types::PeerGroupUpdateArgs::name: core::option::Option<alloc::string::String>
+pub jmap_chat_federation_types::PeerGroupUpdateArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerGroupUpdateArgs::removed_member_ids: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub jmap_chat_federation_types::PeerGroupUpdateArgs::sender_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerGroupUpdateArgs::updated_roles: core::option::Option<alloc::vec::Vec<jmap_chat_federation_types::PeerRoleUpdate>>
 impl jmap_chat_federation_types::PeerGroupUpdateArgs
-pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_federation_types::GroupUpdateAction) -> Self
+pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_federation_types::GroupUpdateAction) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerGroupUpdateArgs
 pub fn jmap_chat_federation_types::PeerGroupUpdateArgs::clone(&self) -> jmap_chat_federation_types::PeerGroupUpdateArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerGroupUpdateArgs
@@ -285,10 +288,11 @@ pub jmap_chat_federation_types::PeerPresenceArgs::extra: serde_json::map::Map<al
 pub jmap_chat_federation_types::PeerPresenceArgs::identity: alloc::string::String
 pub jmap_chat_federation_types::PeerPresenceArgs::last_active_at: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_chat_federation_types::PeerPresenceArgs::presence: jmap_chat_types::presence::Presence
+pub jmap_chat_federation_types::PeerPresenceArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerPresenceArgs::status_emoji: core::option::Option<jmap_chat_types::clearable::Clearable<alloc::string::String>>
 pub jmap_chat_federation_types::PeerPresenceArgs::status_text: core::option::Option<jmap_chat_types::clearable::Clearable<alloc::string::String>>
 impl jmap_chat_federation_types::PeerPresenceArgs
-pub fn jmap_chat_federation_types::PeerPresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_chat_types::presence::Presence) -> Self
+pub fn jmap_chat_federation_types::PeerPresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, jmap_chat_types::presence::Presence) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerPresenceArgs
 pub fn jmap_chat_federation_types::PeerPresenceArgs::clone(&self) -> jmap_chat_federation_types::PeerPresenceArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerPresenceArgs
@@ -329,9 +333,10 @@ pub jmap_chat_federation_types::PeerReceiptArgs::extra: serde_json::map::Map<all
 pub jmap_chat_federation_types::PeerReceiptArgs::read_at: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_chat_federation_types::PeerReceiptArgs::read_disposition: core::option::Option<jmap_chat_types::message::ReadDisposition>
 pub jmap_chat_federation_types::PeerReceiptArgs::reader_user_id: alloc::string::String
+pub jmap_chat_federation_types::PeerReceiptArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerReceiptArgs::sender_msg_id: jmap_types::id::Id
 impl jmap_chat_federation_types::PeerReceiptArgs
-pub fn jmap_chat_federation_types::PeerReceiptArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_chat_federation_types::PeerReceiptArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerReceiptArgs
 pub fn jmap_chat_federation_types::PeerReceiptArgs::clone(&self) -> jmap_chat_federation_types::PeerReceiptArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerReceiptArgs
@@ -347,10 +352,11 @@ pub fn jmap_chat_federation_types::PeerReceiptArgs::deserialize<__D>(__D) -> cor
 pub jmap_chat_federation_types::PeerRetractArgs::account_id: jmap_types::id::Id
 pub jmap_chat_federation_types::PeerRetractArgs::chat_id: jmap_types::id::Id
 pub jmap_chat_federation_types::PeerRetractArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerRetractArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerRetractArgs::sender_msg_id: jmap_types::id::Id
 pub jmap_chat_federation_types::PeerRetractArgs::sender_user_id: alloc::string::String
 impl jmap_chat_federation_types::PeerRetractArgs
-pub fn jmap_chat_federation_types::PeerRetractArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id) -> Self
+pub fn jmap_chat_federation_types::PeerRetractArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerRetractArgs
 pub fn jmap_chat_federation_types::PeerRetractArgs::clone(&self) -> jmap_chat_federation_types::PeerRetractArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerRetractArgs
@@ -399,10 +405,11 @@ pub fn jmap_chat_federation_types::PeerRoleUpdate::deserialize<__D>(__D) -> core
 #[non_exhaustive] pub struct jmap_chat_federation_types::PeerSubscribePresenceArgs
 pub jmap_chat_federation_types::PeerSubscribePresenceArgs::account_id: jmap_types::id::Id
 pub jmap_chat_federation_types::PeerSubscribePresenceArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerSubscribePresenceArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerSubscribePresenceArgs::subscriber_id: alloc::string::String
 pub jmap_chat_federation_types::PeerSubscribePresenceArgs::ttl: core::option::Option<u64>
 impl jmap_chat_federation_types::PeerSubscribePresenceArgs
-pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerSubscribePresenceArgs
 pub fn jmap_chat_federation_types::PeerSubscribePresenceArgs::clone(&self) -> jmap_chat_federation_types::PeerSubscribePresenceArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerSubscribePresenceArgs
@@ -439,10 +446,11 @@ pub fn jmap_chat_federation_types::PeerSubscribePresenceResponse::deserialize<__
 pub jmap_chat_federation_types::PeerTypingArgs::account_id: jmap_types::id::Id
 pub jmap_chat_federation_types::PeerTypingArgs::chat_id: jmap_types::id::Id
 pub jmap_chat_federation_types::PeerTypingArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerTypingArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerTypingArgs::sender_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerTypingArgs::typing: bool
 impl jmap_chat_federation_types::PeerTypingArgs
-pub fn jmap_chat_federation_types::PeerTypingArgs::new(jmap_types::id::Id, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, bool) -> Self
+pub fn jmap_chat_federation_types::PeerTypingArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, bool) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerTypingArgs
 pub fn jmap_chat_federation_types::PeerTypingArgs::clone(&self) -> jmap_chat_federation_types::PeerTypingArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerTypingArgs
@@ -457,9 +465,10 @@ pub fn jmap_chat_federation_types::PeerTypingArgs::deserialize<__D>(__D) -> core
 #[non_exhaustive] pub struct jmap_chat_federation_types::PeerUnsubscribePresenceArgs
 pub jmap_chat_federation_types::PeerUnsubscribePresenceArgs::account_id: jmap_types::id::Id
 pub jmap_chat_federation_types::PeerUnsubscribePresenceArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_federation_types::PeerUnsubscribePresenceArgs::recipient_user_id: alloc::string::String
 pub jmap_chat_federation_types::PeerUnsubscribePresenceArgs::subscriber_id: alloc::string::String
 impl jmap_chat_federation_types::PeerUnsubscribePresenceArgs
-pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for jmap_chat_federation_types::PeerUnsubscribePresenceArgs
 pub fn jmap_chat_federation_types::PeerUnsubscribePresenceArgs::clone(&self) -> jmap_chat_federation_types::PeerUnsubscribePresenceArgs
 impl core::cmp::PartialEq for jmap_chat_federation_types::PeerUnsubscribePresenceArgs

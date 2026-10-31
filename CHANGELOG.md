@@ -20,6 +20,26 @@ wire behaviour that a conforming peer can observe.
   the receipt event is handled, so the deployment could not look up the
   sender to address `Peer/receipt` `recipientUserId` ("the message's
   original sender", draft-atwood-jmap-chat-federation-00 §Peer/receipt).
+- **BREAKING** **jmap-chat-federation-types**: the eight `Peer/*` request
+  types (`PeerDeliverArgs`, `PeerReceiptArgs`, `PeerTypingArgs`,
+  `PeerRetractArgs`, `PeerGroupUpdateArgs`, `PeerSubscribePresenceArgs`,
+  `PeerUnsubscribePresenceArgs`, `PeerPresenceArgs`) gain a required
+  `recipient_user_id: String`, and each constructor takes it as its second
+  parameter. A peer domain may host many mailboxes and `accountId` is the
+  caller's single peer-role account, so every call names its mailbox by
+  `recipientUserId` (draft-atwood-jmap-chat-federation-00 §Server-to-Server
+  Methods); a request without it no longer deserializes.
+  `FederationSession::owner_user_id` becomes `Option<String>`,
+  `FederationSession::new` takes only `peer_signing_keys`, and
+  `with_owner_user_id` sets the owner. `from_session_extra` accepts a
+  Session without `ownerUserId`, and `anonymous_well_known_session` without
+  an owner removes `ownerUserId`, `ownerDirectAddress` and
+  `ownerEndpoints`: a server hosting more than one mailbox omits all three
+  (§Session Object Extensions for Federation).
+- **BREAKING** **jmap-chat-federation-server**: `peer_group_update_args`
+  takes `recipient_user_id` as its third parameter and sets
+  `recipientUserId` on the `Peer/groupUpdate` it builds, for the same
+  reason.
 
 ## [0.4.2] - 2026-10-30
 

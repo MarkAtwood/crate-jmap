@@ -17,8 +17,15 @@ use serde_json::{Map, Value};
 ///
 /// Spec: draft-atwood-jmap-chat-federation-00 §Session Object Extensions
 /// for Federation: "Servers implementing this specification MUST include
-/// the following fields in their JMAP Session object (advertised at
-/// `/.well-known/jmap`)".
+/// the following field in their JMAP Session object (advertised at
+/// `/.well-known/jmap`)": `peerSigningKeys`. `ownerUserId` and
+/// `ownerDirectAddress` "describe a single mailbox owner": a server that
+/// hosts more than one mailbox omits them from its anonymous Session.
+///
+/// `owner_user_id` is advisory owner metadata, never a peer identity:
+/// "Identity binding does not use these fields". A peer updates the
+/// ChatContact whose `identity` equals it only after it binds to the peer
+/// domain the Session was fetched from (`jmap_peer_auth::bind_identity`).
 ///
 /// `peer_signing_keys` holds each entry as raw JSON. The receiving server
 /// "MUST ignore any other entry" than a usable key (§Key Publication), so a
@@ -28,8 +35,10 @@ use serde_json::{Map, Value};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FederationSession {
-    /// `ownerUserId`: "The identity string of the mailbox owner."
-    pub owner_user_id: String,
+    /// `ownerUserId`: "The identity string of the mailbox owner." `None`
+    /// when the Session describes no single owner.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_user_id: Option<String>,
     /// `peerSigningKeys`: "The public keys with which this server signs
     /// peer requests", each a JSON Web Key.
     pub peer_signing_keys: Vec<Value>,
@@ -41,14 +50,23 @@ pub struct FederationSession {
 }
 
 impl FederationSession {
-    /// The fields with `ownerUserId` and `peerSigningKeys`, and no
-    /// `ownerDirectAddress`.
-    pub fn new(owner_user_id: impl Into<String>, peer_signing_keys: Vec<Value>) -> Self {
+    /// The fields with `peerSigningKeys` only: no `ownerUserId` and no
+    /// `ownerDirectAddress`, as a server that hosts more than one mailbox
+    /// publishes them.
+    pub fn new(peer_signing_keys: Vec<Value>) -> Self {
         Self {
-            owner_user_id: owner_user_id.into(),
+            owner_user_id: None,
             peer_signing_keys,
             owner_direct_address: None,
         }
+    }
+
+    /// These fields with `ownerUserId` set to `owner_user_id`, as a server
+    /// that hosts a single mailbox publishes them.
+    #[must_use]
+    pub fn with_owner_user_id(mut self, owner_user_id: impl Into<String>) -> Self {
+        self.owner_user_id = Some(owner_user_id.into());
+        self
     }
 
     /// Reads the federation fields from a Session object's extension map.
@@ -58,9 +76,9 @@ impl FederationSession {
     ///
     /// # Errors
     ///
-    /// A [`serde_json::Error`] when `ownerUserId` or `peerSigningKeys` is
-    /// absent, either has the wrong JSON type, or `ownerDirectAddress` is
-    /// present and not a string.
+    /// A [`serde_json::Error`] when `peerSigningKeys` is absent or not an
+    /// array, or `ownerUserId` or `ownerDirectAddress` is present and not
+    /// a string.
     pub fn from_session_extra(extra: &Map<String, Value>) -> Result<Self, serde_json::Error> {
         let pick = |k: &str| extra.get(k).map(|v| (k.to_owned(), v.clone()));
         let fields: Map<String, Value> = ["ownerUserId", "peerSigningKeys", "ownerDirectAddress"]
@@ -144,16 +162,23 @@ pub enum AnonymousSessionError {
 ///
 /// Spec: draft-atwood-jmap-chat-federation-00 §Key Publication: "A server
 /// MUST answer an unsigned GET of its `/.well-known/jmap` with a Session
-/// object that includes `ownerUserId` and `peerSigningKeys`, and MUST NOT
-/// require any authentication for that response; in it, `accounts` and
+/// object that includes `peerSigningKeys`, and MUST NOT require any
+/// authentication for that response; in it, `accounts` and
 /// `primaryAccounts` MAY be empty objects and `username` MAY be the empty
-/// string."
+/// string." §Session Object Extensions for Federation: "a server that
+/// hosts a single mailbox SHOULD include that mailbox's `ownerUserId`, and
+/// MAY include `ownerDirectAddress` and `ownerEndpoints`. A server that
+/// hosts more than one mailbox omits all three".
 ///
 /// `session` is the server's Session object (RFC 8620 §2). The result keeps
 /// its other members, replaces `accounts` and `primaryAccounts` with empty
 /// objects and `username` with the empty string, so the unauthenticated
-/// response names no account or user, and sets the federation fields from
-/// `fields`.
+/// response names no account or user, and sets `peerSigningKeys` from
+/// `fields`. With `fields.owner_user_id` set, it sets `ownerUserId`, sets
+/// or removes `ownerDirectAddress` from `fields`, and keeps `session`'s
+/// `ownerEndpoints`. With it `None`, it removes `ownerUserId`,
+/// `ownerDirectAddress` and `ownerEndpoints`, ignoring
+/// `fields.owner_direct_address`.
 ///
 /// # Errors
 ///
@@ -168,7 +193,7 @@ pub enum AnonymousSessionError {
 ///
 /// let session = json!({ "username": "alice", "accounts": { "A1": {} } });
 /// let key = json!({ "kty": "OKP", "crv": "Ed25519", "x": "x", "kid": "k" });
-/// let fields = FederationSession::new("alice@a.example", vec![key]);
+/// let fields = FederationSession::new(vec![key]).with_owner_user_id("alice@a.example");
 /// let anon = anonymous_well_known_session(session.as_object().unwrap().clone(), &fields)
 ///     .unwrap();
 /// assert_eq!(anon["username"], "");
@@ -191,14 +216,23 @@ pub fn anonymous_well_known_session(
     session.insert("accounts".into(), Value::Object(Map::new()));
     session.insert("primaryAccounts".into(), Value::Object(Map::new()));
     session.insert("username".into(), Value::String(String::new()));
-    session.insert("ownerUserId".into(), fields.owner_user_id.clone().into());
     session.insert(
         "peerSigningKeys".into(),
         Value::Array(fields.peer_signing_keys.clone()),
     );
-    match &fields.owner_direct_address {
-        Some(a) => session.insert("ownerDirectAddress".into(), a.clone().into()),
-        None => session.remove("ownerDirectAddress"),
-    };
+    match &fields.owner_user_id {
+        Some(owner) => {
+            session.insert("ownerUserId".into(), owner.clone().into());
+            match &fields.owner_direct_address {
+                Some(a) => session.insert("ownerDirectAddress".into(), a.clone().into()),
+                None => session.remove("ownerDirectAddress"),
+            };
+        }
+        None => {
+            for k in ["ownerUserId", "ownerDirectAddress", "ownerEndpoints"] {
+                session.remove(k);
+            }
+        }
+    }
     Ok(session)
 }

@@ -137,6 +137,9 @@ fn group_update(chat_value: Value, action: &GroupUpdateAction) -> Result<Value, 
     group_update_with_avatar(chat_value, action, None)
 }
 
+/// Each call names its recipient: fed c08568e L404, "All Peer/* methods
+/// also carry `recipientUserId`"; L967, the group-creation request to
+/// `bob.example` names Bob there. [`BOB`] is the member these calls go to.
 fn group_update_with_avatar(
     chat_value: Value,
     action: &GroupUpdateAction,
@@ -148,6 +151,7 @@ fn group_update_with_avatar(
     peer_group_update_args(
         &ids,
         Id::from(PEER_ACCOUNT),
+        BOB,
         &chat(chat_value),
         action,
         avatar,
@@ -180,6 +184,7 @@ fn create_sends_full_membership_as_identity_strings() {
         group_update(group, &GroupUpdateAction::Create).expect("args"),
         json!({
             "accountId": PEER_ACCOUNT,
+            "recipientUserId": BOB,
             "chatId": GROUP,
             "senderUserId": OWNER,
             "action": "create",
@@ -247,6 +252,7 @@ fn leave_and_close_carry_only_standard_fields() {
             group_update(group_chat(&[BOB_ID], false), &action).expect("args"),
             json!({
                 "accountId": PEER_ACCOUNT,
+                "recipientUserId": BOB,
                 "chatId": GROUP,
                 "senderUserId": OWNER,
                 "action": name,
