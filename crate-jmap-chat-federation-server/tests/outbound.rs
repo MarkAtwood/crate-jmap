@@ -523,3 +523,26 @@ fn host_less_recipient_without_server_url_is_an_error() {
         Err(OutboundError::NoServerUrl(Id::from(KEY_ID)))
     );
 }
+
+/// fed b1cd625 L404 sends a call "to the peer domain that is the host of
+/// `recipientUserId`"; an IP-literal host (RFC 5737 TEST-NET-1) is no
+/// domain name, so there is no peer domain to send to.
+#[test]
+fn ip_literal_host_is_an_error() {
+    let contacts = batch_contacts(&[contact("contact-ip", "dave@192.0.2.1", false)]);
+    assert_eq!(
+        peer_batches(&contacts, &ids(&[BOB_ID, "contact-ip"])),
+        Err(OutboundError::InvalidHost(Id::from("contact-ip")))
+    );
+}
+
+/// A recipient id with no stored ChatContact has no identity to name in
+/// `recipientUserId`.
+#[test]
+fn recipient_without_contact_is_an_error() {
+    let contacts = batch_contacts(&[]);
+    assert_eq!(
+        peer_batches(&contacts, &ids(&[BOB_ID, "contact-nobody"])),
+        Err(OutboundError::UnknownUser(Id::from("contact-nobody")))
+    );
+}
