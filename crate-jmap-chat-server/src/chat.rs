@@ -307,12 +307,15 @@ fn group_update_events(
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
-/// `unreadCount` is computed on every call (§Chat, jmap-chat-spec 33702a5
+/// `unreadCount` is computed on every call (§Chat, jmap-chat-spec 6af1b94
 /// L629): "The number of Messages in this Chat whose `id` ULID is
 /// lexicographically greater than `ReadPosition.lastReadMessageId`,
 /// derived server-side from the owner's ReadPosition record. If
-/// `lastReadMessageId` is absent, all messages are counted as unread." A
-/// Chat with no ReadPosition counts every Message. A backend whose
+/// `lastReadMessageId` is absent, all messages are counted as unread."
+/// Messages the owner sent (`senderId` is the accountId) are not counted:
+/// the value "is advisory" and the spec makes which messages count
+/// implementation-defined (jmap-chat-spec bead jmap-chat-spec-vz8p). A
+/// Chat with no ReadPosition counts every Message from others. A backend whose
 /// [`ChatBackend::maintains_unread_count`] is `true` gets its stored
 /// value back instead.
 ///
@@ -372,7 +375,7 @@ async fn fill_unread_counts<B: ChatBackend>(
         let Some(chat_id) = chat.get("id").and_then(Value::as_str) else {
             continue;
         };
-        let unread = unread_count(&messages, &positions, chat_id);
+        let unread = unread_count(&messages, &positions, &account_id, chat_id);
         chat.insert("unreadCount".to_owned(), Value::from(unread));
     }
     Ok(())
@@ -394,17 +397,25 @@ async fn messages_and_positions<B: ChatBackend>(
     Ok((messages, positions))
 }
 
-/// §Chat `unreadCount` for `chat_id`: Messages in the Chat whose `id`
-/// sorts after the owner's `lastReadMessageId`, or all of them when it
-/// is absent.
-pub(crate) fn unread_count(messages: &[Message], positions: &[ReadPosition], chat_id: &str) -> u64 {
+/// §Chat `unreadCount` for `chat_id`: Messages in the Chat not sent by
+/// the owner (`senderId` is not `account_id`) whose `id` sorts after the
+/// owner's `lastReadMessageId`, or all of them when it is absent. Which
+/// messages count is implementation-defined (jmap-chat-spec bead
+/// jmap-chat-spec-vz8p); the owner's own messages never count, so a
+/// sender does not see a message they just sent as unread.
+pub(crate) fn unread_count(
+    messages: &[Message],
+    positions: &[ReadPosition],
+    account_id: &Id,
+    chat_id: &str,
+) -> u64 {
     let last_read = positions
         .iter()
         .find(|p| p.chat_id.as_ref() == chat_id)
         .and_then(|p| p.last_read_message_id.as_ref());
     messages
         .iter()
-        .filter(|m| m.chat_id.as_ref() == chat_id)
+        .filter(|m| m.chat_id.as_ref() == chat_id && m.sender_id != *account_id)
         .filter(|m| last_read.is_none_or(|l| m.id.as_ref() > l.as_ref()))
         .count() as u64
 }
@@ -441,7 +452,7 @@ pub(crate) async fn record_unread_count_changes<B: ChatBackend>(
     chat_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
     chat_ids.dedup();
     for chat_id in chat_ids {
-        let unread = unread_count(&messages, &positions, chat_id.as_ref());
+        let unread = unread_count(&messages, &positions, account_id, chat_id.as_ref());
         let mut patch = PatchObject::new();
         patch
             .as_map_mut()

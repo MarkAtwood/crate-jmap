@@ -2551,7 +2551,8 @@ fn stored_reply_parent(inner: &Inner, account_id: &str, msg: &serde_json::Value)
 /// `old` and `new` (draft-atwood-jmap-chat-00 §Message: "Count of
 /// replies to this message received after the owner's
 /// `ReadPosition.lastReadMessageId` in this Chat", only when
-/// "`threadRootId` is absent"). A reply is unread when its id sorts after
+/// "`threadRootId` is absent"). A reply is unread when the owner did not
+/// send it (`senderId` is not the accountId) and its id sorts after
 /// `lastReadMessageId`, or always when that is absent, as
 /// `fill_reply_counts` computes it.
 fn roots_with_unread_change(
@@ -2577,6 +2578,7 @@ fn roots_with_unread_change(
     let mut roots: Vec<Id> = Vec::new();
     for (id, reply) in msgs {
         if reply.get("chatId") != chat_id
+            || reply.get("senderId").and_then(|v| v.as_str()) == Some(account_id)
             || unread(&old_read, id.as_ref()) == unread(&new_read, id.as_ref())
         {
             continue;

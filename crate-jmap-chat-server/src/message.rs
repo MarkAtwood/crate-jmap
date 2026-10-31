@@ -225,8 +225,9 @@ pub async fn handle_message_get<B: ChatBackend>(
 /// after the owner's `ReadPosition.lastReadMessageId` in this Chat".
 /// Message ids are ULIDs "lexicographically ordered by time" (§Message
 /// IDs), so a reply counts as unread when its `id` sorts after
-/// `lastReadMessageId`, or always when that is absent (as for
-/// `Chat.unreadCount`).
+/// `lastReadMessageId`, or always when that is absent, and the owner did
+/// not send it (`senderId` is not the accountId), as for
+/// `Chat.unreadCount`.
 // ponytail: scans every Message and ReadPosition in the account per
 // call (O(messages) per Message/get); a backend with many messages
 // needs a reply-count index behind a ChatBackend hook.
@@ -259,6 +260,7 @@ async fn fill_reply_counts<B: ChatBackend>(
                 .find(|p| p.chat_id == msg.chat_id)
                 .and_then(|p| p.last_read_message_id.as_ref());
             let unread = replies()
+                .filter(|r| r.sender_id != *account_id)
                 .filter(|r| last_read.is_none_or(|l| r.id.as_ref() > l.as_ref()))
                 .count();
             Some(unread as u64)
