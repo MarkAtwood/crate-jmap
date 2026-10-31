@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-z4z0",
+  "title": "0.5: multi-mailbox federation, receipt sender, atomic group send, testkit",
+  "description": "BREAKING release 0.5.0 (all 57 crates, workspace requirements to \"0.5\"). Plan approved by Mark 2026-10-31. Governing spec: jmap-chat-spec c08568e (draft-atwood-jmap-chat-federation-00, draft-atwood-jmap-chat-00, jmap-chat-compliance-tests.md); read with git -C ~/PROJECT/jmap-chat-spec show c08568e:\u003cfile\u003e. Items in order: 1 receipt sender_id; 2a/2b/2c multi-mailbox federation (supersedes JMAP-ucha, JMAP-0c3q); 3 atomic group send (supersedes JMAP-i61u); 4 testkit. Every item: regenerate public-api snapshots, CHANGELOG [Unreleased] entry marked BREAKING where the API breaks. Downstream: chinwag, kith.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T18:48:48.307224973Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-31T18:48:48.307224973Z"
+}

@@ -1,0 +1,1 @@
+{"id":"01a1905f-a858-7954-897f-ed48bcb6698c","issue_id":"JMAP-ayoz.22","event_type":"closed","actor":"agent","old_value":"","new_value":"Triage 2026-10-31 at c07d5206: fixed: no extension-server lib.rs has 'pub use ...ClosureHandler' (grep crate-jmap-*-server/src/lib.rs); e.g. crate-jmap-mail-server/src/lib.rs:55 is a private use","created_at":"2026-10-31T05:12:30.552612173Z"}

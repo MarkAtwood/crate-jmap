@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-z4z0.1",
+  "title": "chat-server: sender_id on OutboundEvent::Receipt",
+  "description": "chinwag-nuqe.7.20. Under burnOnRead the Message is destroyed before the receipt event is handled, so the deployment cannot address Peer/receipt (recipientUserId = the message's original sender, fed c08568e L645). Add sender_id: Id (the original Message's senderId, a ChatContact id) to OutboundEvent::Receipt in crate-jmap-chat-server/src/outbound.rs (~L107-120); set it where the event is built, message.rs ~L2207 (m is the owned pre-patch Message, already filtered m.sender_id != account_id at ~L2199). Fix doc drift: outbound.rs ~L102-105, backend.rs ~L935, message.rs ~L2281 quote 'MUST NOT invoke Peer/receipt'; at c08568e Sender Behavior says SHOULD NOT. Tests: update receipt() helper tests/outbound_events.rs ~L759; new test: group Chat, burnOnRead Message from another member, read it -\u003e Receipt event carries that member's sender_id and Message/get returns notFound. Oracle: fed §Peer/receipt recipientUserId (L645), chat-00 §Message burnOnRead. BREAKING (variant gains a field).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T18:48:48.476986115Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-31T18:48:48.476986115Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-z4z0.1",
+      "depends_on_id": "JMAP-z4z0",
+      "type": "parent-child",
+      "created_at": "2026-10-31T18:48:48.592137281Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

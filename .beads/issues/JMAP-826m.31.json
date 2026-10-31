@@ -1,47 +1,42 @@
 {
+  "id": "JMAP-826m.31",
+  "title": "MockBackend.new_with_account vs MemoryBackend.new_with_accounts (plural, slice) is inconsistent — the same kind of constructor on two adjacent backends with different parameter shapes",
+  "description": "What is awkward: lib.rs:194 MockBackend::new_with_account(account_id: \u0026str) takes one account by name. memory.rs:283 MemoryBackend::new_with_accounts(account_ids: \u0026[\u0026str]) takes a slice. Same conceptual operation, different shapes.\n\nThis is a small papercut but compounds: every test that uses both backends has to remember which constructor takes a single name vs a slice. Tests in tests/metadata_tests.rs use new_with_accounts(\u0026[\"acc1\"]); tests in metadata.rs::tests use new_with_account(\"acc1\"). The mock-vs-memory distinction creates two parallel test idioms.\n\nFix: align on one shape. The slice form is strictly more general, so MockBackend::new_with_account could become new_with_accounts(\u0026[name]) at the call sites. Or add new_with_account convenience to MemoryBackend. Either way, ONE shape on both.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "chore",
   "assignee": "Mark Atwood",
-  "compaction_level": 0,
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T17:56:39Z",
   "created_by": "Mark Atwood",
-  "description": "What is awkward: lib.rs:194 MockBackend::new_with_account(account_id: &str) takes one account by name. memory.rs:283 MemoryBackend::new_with_accounts(account_ids: &[&str]) takes a slice. Same conceptual operation, different shapes.\n\nThis is a small papercut but compounds: every test that uses both backends has to remember which constructor takes a single name vs a slice. Tests in tests/metadata_tests.rs use new_with_accounts(&[\"acc1\"]); tests in metadata.rs::tests use new_with_account(\"acc1\"). The mock-vs-memory distinction creates two parallel test idioms.\n\nFix: align on one shape. The slice form is strictly more general, so MockBackend::new_with_account could become new_with_accounts(&[name]) at the call sites. Or add new_with_account convenience to MemoryBackend. Either way, ONE shape on both.",
-  "ephemeral": false,
-  "id": "JMAP-826m.31",
-  "is_blocked": true,
-  "is_template": false,
-  "issue_type": "chore",
+  "updated_at": "2026-10-31T05:12:29.973202046Z",
+  "closed_at": "2026-10-31T05:12:29.973202046Z",
+  "close_reason": "Triage 2026-10-31 at c07d5206: moot: MockBackend::new_with_account and metadata MemoryBackend deleted in b34a07bf; crate-jmap-metadata-server/src/ is now only changes.rs/filter.rs/validate.rs/lib.rs (lib.rs:1-8)",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "blocked",
-  "title": "MockBackend.new_with_account vs MemoryBackend.new_with_accounts (plural, slice) is inconsistent — the same kind of constructor on two adjacent backends with different parameter shapes",
-  "updated_at": "2026-06-26T19:57:36Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-05-15T02:07:25Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-826m.14",
-      "id": "14325339-c4dd-5a7e-bc8f-e49c62e1f810",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "blocks",
       "created_at": "2026-05-17T02:19:14Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-826m.55",
-      "id": "7af6df7b-09fc-52c4-bd89-fba96daa2c26",
-      "metadata": "{}",
-      "type": "blocks"
+      "metadata": "{}"
     },
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T10:56:39Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-826m",
-      "id": "a6686c40-0b57-5e5a-9313-469e247e2bb2",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

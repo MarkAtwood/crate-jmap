@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-wzq9.19",
+  "title": "Async method Send/Sync contract not documented",
+  "description": "src/methods/metadata.rs — all five 'async fn' methods (metadata_get, metadata_changes, metadata_set, metadata_query, metadata_query_changes) return futures whose Send/Sync bounds depend on the inner JmapClient. Neither the method doc-comments nor the SessionClient doc-comment state the contract:\n\n- Are the returned futures Send? A caller using tokio::spawn / smol::spawn needs Send.\n- Is SessionClient itself Send + Sync? If the inner JmapClient holds a non-Send field (e.g. an Rc, a !Send transport), then SessionClient is not Send either.\n\nThe current implementation appears to be Send + Sync (HTTP clients are typically Arc-based), but the contract is not promised by the public API. A future jmap-base-client revision that adds a !Send field (debug counters, single-threaded transport) would silently break every multi-threaded caller — and the contract did not preclude it.\n\nThis is a concurrency-contract gap per the api-contract,underspecified checklist. Two fixes:\n\n1. Document in the SessionClient doc-comment that SessionClient is Send + Sync (and assert via 'fn assert_send_sync\u003cT: Send + Sync\u003e() {} assert_send_sync::\u003cSessionClient\u003e();' in a #[test]).\n2. Document on each async fn that the returned future is Send when …\n\nRecommendation: (1). Pin the contract via a static assertion test, AND state it in the doc-comment. The static assertion makes a future regression (someone makes JmapClient !Send) a compile error in this crate instead of a silent contract violation that only manifests for downstream multi-task callers.\n\nWorkspace-wide: same gap exists on canonical mail-client SessionClient. Propagate.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-15T02:10:13Z",
   "created_by": "Mark Atwood",
-  "description": "src/methods/metadata.rs — all five 'async fn' methods (metadata_get, metadata_changes, metadata_set, metadata_query, metadata_query_changes) return futures whose Send/Sync bounds depend on the inner JmapClient. Neither the method doc-comments nor the SessionClient doc-comment state the contract:\n\n- Are the returned futures Send? A caller using tokio::spawn / smol::spawn needs Send.\n- Is SessionClient itself Send + Sync? If the inner JmapClient holds a non-Send field (e.g. an Rc, a !Send transport), then SessionClient is not Send either.\n\nThe current implementation appears to be Send + Sync (HTTP clients are typically Arc-based), but the contract is not promised by the public API. A future jmap-base-client revision that adds a !Send field (debug counters, single-threaded transport) would silently break every multi-threaded caller — and the contract did not preclude it.\n\nThis is a concurrency-contract gap per the api-contract,underspecified checklist. Two fixes:\n\n1. Document in the SessionClient doc-comment that SessionClient is Send + Sync (and assert via 'fn assert_send_sync<T: Send + Sync>() {} assert_send_sync::<SessionClient>();' in a #[test]).\n2. Document on each async fn that the returned future is Send when …\n\nRecommendation: (1). Pin the contract via a static assertion test, AND state it in the doc-comment. The static assertion makes a future regression (someone makes JmapClient !Send) a compile error in this crate instead of a silent contract violation that only manifests for downstream multi-task callers.\n\nWorkspace-wide: same gap exists on canonical mail-client SessionClient. Propagate.",
-  "ephemeral": false,
-  "id": "JMAP-wzq9.19",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-31T05:11:37.579103448Z",
+  "closed_at": "2026-10-31T05:11:37.579103448Z",
+  "close_reason": "Triage 2026-10-31 at c07d5206: moot: metadata-client SessionClient/async fns deleted in c4496114 (crate-jmap-metadata-client/src/lib.rs:14-36); canonical mail-client now documents Send+Sync at crate-jmap-mail-client/src/methods/mod.rs:534",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "blocked",
-  "title": "Async method Send/Sync contract not documented",
-  "updated_at": "2026-05-15T02:37:08Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T19:10:13Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-wzq9",
-      "id": "8d4c3119-731f-5205-92a5-cd2c0023dee0",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

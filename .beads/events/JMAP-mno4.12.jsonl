@@ -1,0 +1,1 @@
+{"id":"01a19060-702f-7553-a0df-cbb3297a454a","issue_id":"JMAP-mno4.12","event_type":"closed","actor":"agent","old_value":"","new_value":"Triage 2026-10-31 at c07d5206: fixed: every listed map field is now BTreeMap (deterministic order), crate-jmap-jscalendar-types/src/lib.rs:462-1149","created_at":"2026-10-31T05:13:21.711349787Z"}

@@ -1,0 +1,1 @@
+{"id":"01a19060-7138-701b-a6aa-cde7cc30d63c","issue_id":"JMAP-26di.54","event_type":"closed","actor":"agent","old_value":"","new_value":"Triage 2026-10-31 at c07d5206: fixed: workspace is edition 2024 (Cargo.toml:65) and no nested 'if let Some(..) {' + inner 'if' pairs remain in crate-jmap-chat-server/src/{space,chat,message}.rs","created_at":"2026-10-31T05:13:21.976007687Z"}

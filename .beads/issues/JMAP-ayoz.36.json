@@ -1,30 +1,24 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-ayoz.36",
+  "title": "MemoryBackend.objects_mut helper silently auto-registers accounts in known_accounts (workspace-wide cookie-cut)",
+  "description": "Discovered while fixing bd:JMAP-ayoz.2. The MemoryBackend helper\n\n    fn objects_mut(\u0026mut self, type_name, account_id) -\u003e \u0026mut HashMap\u003cId, Value\u003e {\n        self.known_accounts.insert(account_id.to_owned());\n        self.objects.entry(...).or_default()\n    }\n\nsilently extends `known_accounts` on every call. This is a workspace-wide\ncookie-cut pattern present in the canonical jmap-mail-server (memory.rs line\n148-ish) and propagated to chat-server, calendars-server, tasks-server,\ncontacts-server, sharing-server, and metadata-server (NOT filenode-server,\nwhich uses a different shape).\n\nConsequence: update_object and destroy_object against an unknown account_id\nsilently auto-register the account (then return NotFound for the missing\nobject). Even after the per-create fix from bd:JMAP-ayoz.2, the broader\n'phantom account' surface remains via the helper.\n\nCanonical-template propagation rule applies: fix jmap-mail-server first,\nthen propagate to all six siblings in the same pass.\n\nFix options:\n1. Remove the silent insert from objects_mut; require callers to use\n   register_account or new_with_accounts.\n2. Rename objects_mut to objects_mut_or_register and add a sibling\n   objects_mut_strict that returns None for unknown accounts; migrate\n   callers to the strict variant.\n3. Move the account_exists check up into the public API methods\n   (create/update/destroy/get_state/etc.) and leave the helper alone\n   but documented.\n\nRecommendation: option 1 — remove the silent insert, fix any test that\nrelies on the side-effect (new_with_accounts already covers the common case).\nThe objects_mut helper should be a pure storage operation, not an\naccount-lifecycle one.",
+  "notes": "Triage 2026-10-31 at c07d5206: still valid, 0.4.x-compatible: metadata-server copy deleted in b34a07bf, but objects_mut still does known_accounts.insert at crate-jmap-mail-server/src/memory/mod.rs:194 (also chat-server memory.rs:284, calendars-server memory.rs:291; check tasks/contacts/sharing) and destroy_object (mail-server memory/mod.rs:1875) calls it with no account check, so a destroy on an unknown account registers a phantom. Fix is in a private helper (no public API change); graph/scene/vtc-server objects_mut already omit the insert.",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-14T14:41:04Z",
   "created_by": "Mark Atwood",
-  "description": "Discovered while fixing bd:JMAP-ayoz.2. The MemoryBackend helper\n\n    fn objects_mut(&mut self, type_name, account_id) -> &mut HashMap<Id, Value> {\n        self.known_accounts.insert(account_id.to_owned());\n        self.objects.entry(...).or_default()\n    }\n\nsilently extends `known_accounts` on every call. This is a workspace-wide\ncookie-cut pattern present in the canonical jmap-mail-server (memory.rs line\n148-ish) and propagated to chat-server, calendars-server, tasks-server,\ncontacts-server, sharing-server, and metadata-server (NOT filenode-server,\nwhich uses a different shape).\n\nConsequence: update_object and destroy_object against an unknown account_id\nsilently auto-register the account (then return NotFound for the missing\nobject). Even after the per-create fix from bd:JMAP-ayoz.2, the broader\n'phantom account' surface remains via the helper.\n\nCanonical-template propagation rule applies: fix jmap-mail-server first,\nthen propagate to all six siblings in the same pass.\n\nFix options:\n1. Remove the silent insert from objects_mut; require callers to use\n   register_account or new_with_accounts.\n2. Rename objects_mut to objects_mut_or_register and add a sibling\n   objects_mut_strict that returns None for unknown accounts; migrate\n   callers to the strict variant.\n3. Move the account_exists check up into the public API methods\n   (create/update/destroy/get_state/etc.) and leave the helper alone\n   but documented.\n\nRecommendation: option 1 — remove the silent insert, fix any test that\nrelies on the side-effect (new_with_accounts already covers the common case).\nThe objects_mut helper should be a pure storage operation, not an\naccount-lifecycle one.",
-  "ephemeral": false,
-  "id": "JMAP-ayoz.36",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-31T05:12:31.239214475Z",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 1,
-  "status": "deferred",
-  "title": "MemoryBackend.objects_mut helper silently auto-registers accounts in known_accounts (workspace-wide cookie-cut)",
-  "updated_at": "2026-05-17T20:02:53Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T07:41:03Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-ayoz",
-      "id": "416737b1-1992-5a90-a59b-ea41ce08249b",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

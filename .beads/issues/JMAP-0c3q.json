@@ -2,15 +2,26 @@
   "id": "JMAP-0c3q",
   "title": "federation-server: multi-mailbox peer domains",
   "description": "BREAKING (0.5), deferred by Mark 2026-10-30; follows jmap-chat-spec bead jmap-chat-spec-f82v (a peer domain hosts one or more mailboxes). Do not start until the draft text lands.\n\nChanges in crate-jmap-chat-federation-server (and -types, peer-auth if needed):\n- Caller-identity check: deliver.rs ~line 254 rejects unless claimed == AuthenticatedPeer::peer_identity. Change to host binding: bind_identity(claimed, peer_domain), with DID verification for host-less identities. AuthenticatedPeer::peer_identity becomes optional / per-mailbox.\n- Recipient addressing: Peer/* argument types gain the recipient identity (field name per the draft) and stop relying on a receiver-local accountId; handlers resolve the recipient mailbox through a backend hook (identity -\u003e local mailbox).\n- jmap-peer-auth-io: discovery/key fetch must not require ownerUserId in the unsigned Session.\n- Sending helpers (SenderIdentities, peer_group_update_args) emit the new fields.\nDownstream: chinwag (bead chinwag-nuqe.7.17) and kith.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-30T18:02:25.365503931Z",
   "created_by": "agent",
-  "updated_at": "2026-10-30T18:02:39.589539488Z",
+  "updated_at": "2026-10-31T18:48:56.731052853Z",
+  "closed_at": "2026-10-31T18:48:56.731052488Z",
   "labels": [
     "breaking",
     "federation"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-0c3q",
+      "depends_on_id": "JMAP-z4z0.3",
+      "type": "supersedes",
+      "created_at": "2026-10-31T18:48:56.72642376Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
   ]
 }
