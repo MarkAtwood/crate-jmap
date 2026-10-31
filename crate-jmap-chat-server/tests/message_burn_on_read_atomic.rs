@@ -5,7 +5,9 @@
 //! the receiving server MUST permanently hard-delete this message (row
 //! removal, not tombstone) immediately after setting `readAt`." The
 //! `readAt` write must therefore never be stored without the deletion:
-//! a failed burn commits nothing, and retrying the same patch burns.
+//! a failed burn commits nothing, and retrying the same patch burns. The
+//! invalid-`readAt` case runs for every backend in the `testkit`
+//! conformance suite.
 
 mod common;
 
@@ -125,24 +127,4 @@ async fn failed_burn_commits_nothing_and_retry_burns() {
     .expect("Message/changes");
     assert_eq!(changes["destroyed"], json!([id]), "{changes}");
     assert_eq!(changes["updated"], json!([]), "{changes}");
-}
-
-/// A `readAt` patch the backend cannot store is rejected and burns
-/// nothing. RFC 8620 §5.3: "invalidProperties: The record given is
-/// invalid in some way." `readAt` is a UTCDate, so a number is invalid.
-#[tokio::test]
-async fn invalid_read_at_patch_is_rejected_without_burning() {
-    let (backend, id) = seeded().await;
-    let before = state(&backend, &id).await;
-
-    let resp = set_update(&backend, &id, json!({ "readAt": 42 })).await;
-    assert_eq!(
-        resp["notUpdated"][&id]["type"], "invalidProperties",
-        "resp: {resp}"
-    );
-
-    let still = get(&backend, &id).await;
-    assert_eq!(still["list"][0]["id"], json!(id), "{still}");
-    assert_eq!(still["list"][0]["readAt"], Value::Null, "{still}");
-    assert_eq!(still["state"], json!(before), "no state change");
 }
