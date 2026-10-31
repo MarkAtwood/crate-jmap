@@ -567,6 +567,20 @@ impl ChatBackend for TrackingBackend {
             .await
     }
 
+    /// Records the event in `inner`, so a test can read it with
+    /// `inner().take_outbound_events_for_test()`. `create_message` is
+    /// not overridden: the trait default runs.
+    async fn on_outbound_event(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        event: &jmap_chat_server::OutboundEvent,
+    ) {
+        self.inner
+            .on_outbound_event(caller, account_id, event)
+            .await
+    }
+
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &(),
@@ -1285,6 +1299,10 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///   [`INJECTED_QUERY_METHOD_ERROR_DESCRIPTION`] (RFC 8620 §5.5).
 /// - `("Message", "read_and_burn")` — fails the next
 ///   [`ChatBackend::read_and_burn_message`] call.
+/// - `("Message", "create_message")` — fails the next
+///   [`ChatBackend::create_message`] call before anything is stored or
+///   enqueued, as a backend does when it cannot enqueue the
+///   `NewMessage` event.
 /// - [`InjectableBackend::queue_chat_race_phantom`] — after the next
 ///   [`ChatBackend::create_object`] call for type `Chat` returns
 ///   successfully, insert a phantom `Direct` Chat into the inner
@@ -1534,6 +1552,35 @@ impl ChatBackend for InjectableBackend {
             }
         }
         result
+    }
+
+    async fn create_message<F>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        create_id: &str,
+        build: F,
+    ) -> Result<(Id, jmap_chat_types::Message), BackendSetError<Self::Error>>
+    where
+        F: FnOnce(&Id) -> jmap_chat_types::Message + Send,
+    {
+        if self.take_fault("Message", "create_message") {
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected create_message error {INJECTABLE_BACKEND_CANARY}"
+            ))));
+        }
+        // The trait default's two steps, through this wrapper's
+        // `create_object`, so a `("Message", "create")` fault still fires.
+        let (id, message) = self
+            .create_object::<jmap_chat_types::Message, _>(caller, account_id, create_id, build)
+            .await?;
+        let event = jmap_chat_server::OutboundEvent::NewMessage {
+            chat_id: message.chat_id.clone(),
+            message_id: message.id.clone(),
+            sender_msg_id: message.sender_msg_id.clone(),
+        };
+        self.on_outbound_event(caller, account_id, &event).await;
+        Ok((id, message))
     }
 
     async fn update_object<O: SetObject + Send + Sync>(

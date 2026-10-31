@@ -26,6 +26,18 @@ wire behaviour that a conforming peer can observe.
   no host (a `did:key` DID) goes; this crate sends it to the ChatContact's
   `serverUrl` (`PeerDestination::ServerUrl`). `OutboundError` gains
   `InvalidHost` and `NoServerUrl`.
+- **jmap-chat-server**: `ChatBackend::create_message` stores an
+  owner-composed Message and reports its `OutboundEvent::NewMessage` as one
+  unit (draft-atwood-jmap-chat-00 §Message/set: the server stores the
+  Message "then enqueues the message for outbound delivery"); on `Err`
+  nothing is stored and nothing is enqueued. `Message/set` create now calls
+  it in place of `create_object` followed by `on_outbound_event`. The
+  default does exactly those two calls, so existing backends behave as
+  before. A backend that overrides it can commit the Message and its
+  delivery fan-out in one transaction, and can fail the whole create when
+  the enqueue fails, which `Message/set` reports in `notCreated` (a
+  `BackendSetError::Other` as `serverFail`). `MemoryBackend` overrides it
+  to store the Message and record the event under one lock.
 
 ### Changed
 
