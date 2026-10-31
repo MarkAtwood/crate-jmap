@@ -40,8 +40,9 @@ use jmap_types::Id;
 /// otherwise. [`jmap_scene_server::should_deliver`] decides either way,
 /// with the same delivery-time access, visibility and blocked-sender
 /// checks. The answer is one `bool` per event and connection, so an event
-/// that matches both paths is still sent once ("MUST NOT deliver duplicate
-/// events").
+/// that matches both paths is still sent once (draft-atwood-jmap-scene-wss-00,
+/// jmap-chat-spec 77c3474 L917: "SHOULD NOT deliver duplicate events",
+/// followed here by choice).
 ///
 /// `hosting_account_id` must be the event's `accountId`, its region's
 /// hosting account; an event naming another account is not delivered.
