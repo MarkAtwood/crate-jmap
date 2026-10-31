@@ -51,6 +51,7 @@ fn presence_status(receipt_sharing: bool) -> Value {
 fn receipt_args(extra: Value) -> Value {
     let mut args = json!({
         "accountId": ACCOUNT,
+        "recipientUserId": OWNER,
         "senderMsgId": SMID,
         "readerUserId": BOB,
     });
@@ -103,21 +104,21 @@ async fn unauthenticated_caller_is_forbidden_by_every_method() {
     assert_error(fed.receipt(receipt_args(json!({}))).await, "forbidden");
     assert_error(
         fed.typing(
-            json!({"accountId": ACCOUNT, "chatId": LOW, "senderUserId": BOB, "typing": true}),
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": LOW, "senderUserId": BOB, "typing": true}),
         )
         .await,
         "forbidden",
     );
     assert_error(
         fed.retract(
-            json!({"accountId": ACCOUNT, "chatId": LOW, "senderUserId": BOB, "senderMsgId": SMID}),
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": LOW, "senderUserId": BOB, "senderMsgId": SMID}),
         )
         .await,
         "forbidden",
     );
     assert_error(
         fed.group_update(
-            json!({"accountId": ACCOUNT, "chatId": GROUP, "senderUserId": BOB, "action": "leave"}),
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": GROUP, "senderUserId": BOB, "action": "leave"}),
         )
         .await,
         "forbidden",
@@ -325,7 +326,7 @@ async fn receipt_for_no_owner_message_is_invalid_arguments() {
 // ---------------------------------------------------------------------------
 
 fn typing_args(chat_id: &str, typing: bool) -> Value {
-    json!({"accountId": ACCOUNT, "chatId": chat_id, "senderUserId": BOB, "typing": typing})
+    json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": chat_id, "senderUserId": BOB, "typing": typing})
 }
 
 fn forwarded(fed: &Fed) -> Vec<Value> {
@@ -437,7 +438,7 @@ async fn typing_with_indicators_off_in_a_channel_is_forwarded() {
 // ---------------------------------------------------------------------------
 
 fn retract_args(chat_id: &str) -> Value {
-    json!({"accountId": ACCOUNT, "chatId": chat_id, "senderUserId": BOB, "senderMsgId": SMID})
+    json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": chat_id, "senderUserId": BOB, "senderMsgId": SMID})
 }
 
 fn bobs_message(sender_id: &str) -> Value {
@@ -525,6 +526,7 @@ async fn retract_looks_up_the_message_within_the_chat() {
 fn group_args(action: &str, extra: Value) -> Value {
     let mut args = json!({
         "accountId": ACCOUNT,
+        "recipientUserId": OWNER,
         "chatId": GROUP,
         "senderUserId": BOB,
         "action": action,

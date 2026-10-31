@@ -31,6 +31,7 @@ fn message(sender_msg_id: &str) -> Value {
 fn deliver_args(chat_id: &str, chat_kind: &str, message: Value) -> Value {
     json!({
         "accountId": ACCOUNT,
+        "recipientUserId": OWNER,
         "chatId": chat_id,
         "senderUserId": BOB,
         "chatKind": chat_kind,
@@ -1005,6 +1006,7 @@ async fn reply_to_resolves_through_the_sender_msg_id_index() {
 fn edit_args(sender_msg_id: &str) -> Value {
     json!({
         "accountId": ACCOUNT,
+        "recipientUserId": OWNER,
         "chatId": LOW,
         "senderUserId": BOB,
         "chatKind": "direct",
@@ -1052,6 +1054,7 @@ async fn edit_applies_only_to_the_senders_message() {
 fn reaction_args(action: &str, emoji: &str) -> Value {
     json!({
         "accountId": ACCOUNT,
+        "recipientUserId": OWNER,
         "chatId": LOW,
         "senderUserId": BOB,
         "chatKind": "direct",

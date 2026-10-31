@@ -107,9 +107,12 @@ pub struct Authenticated {
     /// the signature's `keyid` names".
     pub key: PeerSigningKey,
     /// The `ownerUserId` published at the peer domain, from the fetch
-    /// that supplied the keys: the peer identity of §Identity Binding.
-    /// Check it with [`bind_identity`](jmap_peer_auth::bind_identity)
-    /// before granting peer-role access.
+    /// that supplied the keys, or `None` when it publishes none. Advisory
+    /// owner metadata: it does not identify the caller and grants nothing
+    /// (§Identity Binding: "The binding does not use the peer's
+    /// `ownerUserId`"). Bind each caller identity of a Peer/* call with
+    /// [`bind_identity`](jmap_peer_auth::bind_identity), and apply this
+    /// value to a ChatContact only if it binds to `peer_domain`.
     pub owner_user_id: Option<String>,
 }
 

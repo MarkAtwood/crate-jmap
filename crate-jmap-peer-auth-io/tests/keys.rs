@@ -159,6 +159,29 @@ fn is_unknown_key(result: Result<jmap_peer_auth_io::PeerKeySet, Error>) -> bool 
     matches!(result, Err(Error::Rejected(Rejection::UnknownKey)))
 }
 
+/// fed c08568e L396: "A server that hosts more than one mailbox omits"
+/// `ownerUserId`; L304: the anonymous Session "includes
+/// `peerSigningKeys`". jmap-chat-compliance-tests.md 7.18: "If it hosts
+/// more than one, verify the Session contains no `ownerUserId`". Such a
+/// Session still yields the peer's keys, with no owner.
+#[tokio::test]
+async fn session_without_owner_user_id_yields_keys() {
+    let f = fixture(DnssecAnswer::Insecure, None);
+    let body = json!({
+        "capabilities": {},
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "",
+        "peerSigningKeys": [jwk(X_A, KID_A)],
+    })
+    .to_string()
+    .into_bytes();
+    f.fetch.serve(response("max-age=600", body));
+    let set = f.keys.keys_for(&alice(), KID_A).await.unwrap();
+    assert_eq!(kids(&set), [KID_A]);
+    assert_eq!(set.owner_user_id, None);
+}
+
 /// §Key Publication: the receiving server "fetches
 /// `https://<peer-domain>/.well-known/jmap`"; §DNSSEC Key Binding: the
 /// TXT record is "at the name `_jmap-peer.<peer-domain>`".

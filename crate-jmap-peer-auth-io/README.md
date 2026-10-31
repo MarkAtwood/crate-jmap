@@ -27,7 +27,9 @@ use jmap_peer_auth_io::{authenticate, HickoryLookup, HttpsFetcher, MemoryReplayS
 let keys = PeerKeys::new(HttpsFetcher::new()?, HickoryLookup::from_system_conf()?);
 let replay = MemoryReplayStore::new();
 let peer = authenticate(request, SystemTime::now(), &keys, &replay).await?;
-// Then §Identity Binding on peer.owner_user_id with bind_identity.
+// Then §Identity Binding: bind_identity(caller, &peer.peer_domain) for each
+// caller identity of each Peer/* call. peer.owner_user_id is advisory and
+// grants nothing.
 # Ok(()) }
 ```
 

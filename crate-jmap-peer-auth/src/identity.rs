@@ -24,10 +24,18 @@ pub enum IdentityBinding {
     NoHost,
 }
 
-/// Binds a peer identity (the `ownerUserId` published at the
-/// authenticated peer domain) to that peer domain.
+/// Binds an identity to an authenticated peer domain.
 ///
-/// The host of an identity is, per §Identity Binding rule 2: for a URI
+/// Pass each caller identity of a Peer/* call (`senderUserId`,
+/// `readerUserId`, `subscriberId` or `identity`): "A peer domain speaks
+/// for every identity it hosts", and an identity bound this way is a peer
+/// identity of the request (§Identity Binding). The peer's `ownerUserId`
+/// plays no part in that binding. It is advisory owner metadata (§Session
+/// Object Extensions for Federation): a peer applies it to the ChatContact
+/// whose `identity` equals it only when it binds, through this function,
+/// to the peer domain the Session was fetched from.
+///
+/// The host of an identity is, per §Identity Binding rule 1: for a URI
 /// with an authority component, its host; for a `did:web` DID, the domain
 /// name it encodes; for a string of the form `local@domain` without a URI
 /// scheme, the part after the last `@`; for a bare DNS name, the name

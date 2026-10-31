@@ -40,10 +40,13 @@ pub struct PeerKeySet {
     /// precedence rule). Pass them to
     /// [`SignedRequest::verify`](jmap_peer_auth::SignedRequest::verify).
     pub keys: Vec<PeerSigningKey>,
-    /// The `ownerUserId` of the Session object that supplied the keys: the
-    /// peer identity of §Identity Binding item 1. Check it with
-    /// [`bind_identity`](jmap_peer_auth::bind_identity). `None` when the
-    /// Session object has no string `ownerUserId`.
+    /// The `ownerUserId` of the Session object that supplied the keys:
+    /// advisory owner metadata, never used for identity binding (§Session
+    /// Object Extensions for Federation). Apply it to a ChatContact only
+    /// if [`bind_identity`](jmap_peer_auth::bind_identity) binds it to the
+    /// peer domain. `None` when the Session object has no string
+    /// `ownerUserId`, as for a peer domain that hosts more than one
+    /// mailbox.
     pub owner_user_id: Option<String>,
 }
 

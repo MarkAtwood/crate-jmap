@@ -11,7 +11,7 @@ delivery between JMAP Chat mailboxes. Types only: no I/O, no transport.
 | `contact_direct_address` | §ChatContact Type Extensions for Federation (`directAddress`), §Direct Address Hints |
 | `peer::Peer*Args`, `peer::Peer*Response`, `peer::PeerAck` | §Server-to-Server Methods: `Peer/deliver`, `Peer/receipt`, `Peer/typing`, `Peer/retract`, `Peer/groupUpdate`, and the optional `Peer/subscribePresence`, `Peer/unsubscribePresence`, `Peer/presence` |
 | `PeerMention`, `PeerChatMember`, `PeerRoleUpdate`, `PeerAttachment` | §User References in Peer Methods (identity strings, not ChatContact ids), §Peer/deliver (`fetchUrl`) |
-| `FederationSession` | §Session Object Extensions for Federation (`ownerUserId`, `peerSigningKeys`, `ownerDirectAddress`) |
+| `FederationSession` | §Session Object Extensions for Federation (`peerSigningKeys`, and the optional single-owner `ownerUserId` and `ownerDirectAddress`) |
 | `owner_endpoints` | draft-atwood-jmap-chat-00 §Session Object Extensions (`ownerEndpoints`) and §ChatContact (`endpoints`: "Servers populate this field from the ChatContact's `ownerEndpoints`") |
 | `anonymous_well_known_session` | §Key Publication (the Session answered to an unsigned GET of `/.well-known/jmap`) |
 
@@ -51,7 +51,9 @@ With a `jmap_chat_types::ChatContact`, pass `&contact.extra`.
   array. Write the result over the ChatContact's `endpoints`.
 - `anonymous_well_known_session` takes the server's Session object, empties
   `accounts` and `primaryAccounts`, sets `username` to `""`, and adds the
-  federation fields. It refuses an empty key list or a key with `d`.
+  federation fields. Without an `ownerUserId` (a server hosting more than
+  one mailbox) it removes `ownerUserId`, `ownerDirectAddress` and
+  `ownerEndpoints`. It refuses an empty key list or a key with `d`.
 - No async. `#[forbid(unsafe_code)]` at the crate root.
 
 ## Gotchas
@@ -62,8 +64,15 @@ With a `jmap_chat_types::ChatContact`, pass `&contact.extra`.
   `fetchUrl` target, and always fall back to the mailbox path.
 - Deserializing a `Peer/*` request checks only its shape. The receiver
   still checks that exactly one `Peer/deliver` payload is present, that the
-  fields a `Peer/groupUpdate` `action` requires are present, and that the
-  caller-identity field matches the authenticated peer.
+  fields a `Peer/groupUpdate` `action` requires are present, resolves
+  `recipientUserId` to one of its mailboxes, and binds each caller-identity
+  field to the authenticated peer domain.
+- `accountId` in a `Peer/*` request is the caller's single peer-role
+  account, not a mailbox: one peer domain may host many mailboxes, and
+  `recipientUserId` names the one the call is for.
+- A peer's `ownerUserId` is advisory owner metadata. It never identifies
+  the caller; apply it to a ChatContact only if it binds to the peer domain
+  the Session came from (`jmap_peer_auth::bind_identity`).
 - `PeerAttachment::fetch_url` and `owner_endpoints` URIs are peer-supplied:
   apply the §Blob Fetch and SSRF restrictions before fetching from them
   (`jmap_peer_auth::fetch_address_allowed`).

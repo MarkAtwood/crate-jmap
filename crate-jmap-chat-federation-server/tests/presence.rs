@@ -59,7 +59,9 @@ fn bob_with_status() -> Value {
 async fn subscribe_rejects_other_subscriber() {
     let fed = Fed::new();
     let r = fed
-        .subscribe_presence(json!({"accountId": ACCOUNT, "subscriberId": CAROL}))
+        .subscribe_presence(
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "subscriberId": CAROL}),
+        )
         .await;
     assert_error(r, "forbidden");
     assert!(fed.subscriptions().is_empty());
@@ -73,7 +75,7 @@ async fn subscribe_returns_presence_and_granted_ttl() {
     let fed = Fed::new();
     fed.seed("PresenceStatus", owner_status("busy"));
     let r = fed
-        .subscribe_presence(json!({"accountId": ACCOUNT, "subscriberId": BOB, "ttl": 999_999}))
+        .subscribe_presence(json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "subscriberId": BOB, "ttl": 999_999}))
         .await
         .expect("subscribed");
     assert_eq!(
@@ -98,12 +100,16 @@ async fn subscribe_default_ttl_and_renewal() {
     let fed = Fed::new();
     fed.seed("PresenceStatus", owner_status("online"));
     let first = fed
-        .subscribe_presence(json!({"accountId": ACCOUNT, "subscriberId": BOB}))
+        .subscribe_presence(
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "subscriberId": BOB}),
+        )
         .await
         .expect("subscribed");
     assert_eq!(first["ttl"], DEFAULT_TTL);
     let renewed = fed
-        .subscribe_presence(json!({"accountId": ACCOUNT, "subscriberId": BOB, "ttl": 30}))
+        .subscribe_presence(
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "subscriberId": BOB, "ttl": 30}),
+        )
         .await
         .expect("renewed");
     assert_eq!(renewed["ttl"], 30);
@@ -117,7 +123,9 @@ async fn subscribe_reports_invisible_as_offline() {
     let fed = Fed::new();
     fed.seed("PresenceStatus", owner_status("invisible"));
     let r = fed
-        .subscribe_presence(json!({"accountId": ACCOUNT, "subscriberId": BOB}))
+        .subscribe_presence(
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "subscriberId": BOB}),
+        )
         .await
         .expect("subscribed");
     assert_eq!(r["presence"], "offline");
@@ -134,7 +142,9 @@ async fn unsubscribe_rejects_other_subscriber() {
         .unwrap()
         .insert(CAROL.to_owned(), 60);
     let r = fed
-        .unsubscribe_presence(json!({"accountId": ACCOUNT, "subscriberId": CAROL}))
+        .unsubscribe_presence(
+            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "subscriberId": CAROL}),
+        )
         .await;
     assert_error(r, "forbidden");
     assert_eq!(fed.subscriptions().get(CAROL), Some(&60));
@@ -147,7 +157,7 @@ async fn unsubscribe_rejects_other_subscriber() {
 async fn unsubscribe_cancels_and_succeeds_without_subscription() {
     let fed = Fed::new();
     fed.subscriptions.lock().unwrap().insert(BOB.to_owned(), 60);
-    let args = json!({"accountId": ACCOUNT, "subscriberId": BOB});
+    let args = json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "subscriberId": BOB});
     assert_eq!(fed.unsubscribe_presence(args.clone()).await, Ok(ack()));
     assert!(fed.subscriptions().is_empty());
     assert_eq!(fed.unsubscribe_presence(args).await, Ok(ack()));
@@ -162,7 +172,7 @@ async fn presence_rejects_other_identity() {
     let fed = Fed::new();
     fed.seed("ChatContact", contact(CAROL_ID, CAROL, false));
     let r = fed
-        .presence(json!({"accountId": ACCOUNT, "identity": CAROL, "presence": "away"}))
+        .presence(json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "identity": CAROL, "presence": "away"}))
         .await;
     assert_error(r, "forbidden");
     let carol = fed
@@ -183,7 +193,7 @@ async fn presence_rejects_values_outside_the_four() {
     let fed = Fed::new();
     for value in ["invisible", "dnd"] {
         let r = fed
-            .presence(json!({"accountId": ACCOUNT, "identity": BOB, "presence": value}))
+            .presence(json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "identity": BOB, "presence": value}))
             .await;
         assert_error(r, "invalidArguments");
     }
@@ -203,6 +213,7 @@ async fn presence_updates_contact_and_fires_event() {
     let r = fed
         .presence(json!({
             "accountId": ACCOUNT,
+            "recipientUserId": OWNER,
             "identity": BOB,
             "presence": "away",
             "lastActiveAt": SEEN,
@@ -242,7 +253,7 @@ async fn presence_absent_status_fields_unchanged() {
     let fed = Fed::new();
     fed.seed("ChatContact", bob_with_status());
     let r = fed
-        .presence(json!({"accountId": ACCOUNT, "identity": BOB, "presence": "busy"}))
+        .presence(json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "identity": BOB, "presence": "busy"}))
         .await;
     assert_eq!(r, Ok(ack()));
     let bob = serde_json::to_value(bob(&fed).await).unwrap();
@@ -267,6 +278,7 @@ async fn presence_null_clears_status_fields() {
     let r = fed
         .presence(json!({
             "accountId": ACCOUNT,
+            "recipientUserId": OWNER,
             "identity": BOB,
             "presence": "online",
             "statusText": null,
@@ -296,6 +308,7 @@ async fn presence_from_blocked_contact_dropped_silently() {
     let r = fed
         .presence(json!({
             "accountId": ACCOUNT,
+            "recipientUserId": OWNER,
             "identity": BOB,
             "presence": "online",
             "statusText": "Hi",
@@ -320,7 +333,7 @@ async fn presence_without_contact_creates_nothing() {
         DAVE,
     ));
     let r = fed
-        .presence(json!({"accountId": ACCOUNT, "identity": DAVE, "presence": "online"}))
+        .presence(json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "identity": DAVE, "presence": "online"}))
         .await;
     assert_eq!(r, Ok(ack()));
     let contacts = fed.contacts().await;
