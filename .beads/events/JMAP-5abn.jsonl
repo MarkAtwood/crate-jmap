@@ -1,1 +1,2 @@
 {"id":"01a1900a-04cc-719a-a9c3-c9e69218b5f2","issue_id":"JMAP-5abn","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-31T03:38:58.124105829Z"}
+{"id":"01a1903b-9174-7508-a02a-e4b5f5698f78","issue_id":"JMAP-5abn","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 30: 7a0b9dd0 (5vzt), 8cd91c28 (5abn), 3754041a+8021f638 (7x4p); local CI all green at 8021f638 (6627 tests stable+beta).","created_at":"2026-10-31T04:33:05.396330853Z"}

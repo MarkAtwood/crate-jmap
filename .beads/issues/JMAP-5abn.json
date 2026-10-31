@@ -2,11 +2,13 @@
   "id": "JMAP-5abn",
   "title": "peer-auth: verify draft signed Peer/deliver vector",
   "description": "draft-atwood-jmap-chat-federation-00 (jmap-chat-spec c08568e) section 4.2.1 'Example' prints a complete signed Peer/deliver request: Content-Digest, Signature-Input, Signature, signature base, 605-octet body, signed with the RFC 8037 A.1 key (keyid alice.example#kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k), created=1793379600, expires=1793379900, target https://bob.example/jmap/api/. It was checked against RFC 9421 B.2.6, RFC 9530 and openssl, so it is an external oracle. Add a crate-jmap-peer-auth verify test that feeds the exact headers and body from the draft (unfold RFC 8792 '\\\\' line wrapping) to verify() with the clock at 1793379600 and expects acceptance; also check the Content-Digest value. Copy the bytes from the draft as literals; do not regenerate them with this crate's signer.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-31T03:38:58.115269967Z",
   "created_by": "agent",
-  "updated_at": "2026-10-31T03:38:58.115269967Z"
+  "updated_at": "2026-10-31T04:33:05.389680985Z",
+  "closed_at": "2026-10-31T04:33:05.389680985Z",
+  "close_reason": "Batch 30: 7a0b9dd0 (5vzt), 8cd91c28 (5abn), 3754041a+8021f638 (7x4p); local CI all green at 8021f638 (6627 tests stable+beta)."
 }
