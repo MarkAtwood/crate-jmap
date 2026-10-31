@@ -313,8 +313,9 @@ fn group_update_events(
 /// derived server-side from the owner's ReadPosition record. If
 /// `lastReadMessageId` is absent, all messages are counted as unread."
 /// Messages the owner sent (`senderId` is the accountId) are not counted:
-/// the value "is advisory" and the spec makes which messages count
-/// implementation-defined (jmap-chat-spec bead jmap-chat-spec-vz8p). A
+/// the value "is advisory" and clients "MUST NOT rely on unreadCount
+/// being exact", and pending jmap-chat-spec bead jmap-chat-spec-vz8p makes
+/// which messages count implementation-defined. A
 /// Chat with no ReadPosition counts every Message from others. A backend whose
 /// [`ChatBackend::maintains_unread_count`] is `true` gets its stored
 /// value back instead.
@@ -399,10 +400,10 @@ async fn messages_and_positions<B: ChatBackend>(
 
 /// §Chat `unreadCount` for `chat_id`: Messages in the Chat not sent by
 /// the owner (`senderId` is not `account_id`) whose `id` sorts after the
-/// owner's `lastReadMessageId`, or all of them when it is absent. Which
-/// messages count is implementation-defined (jmap-chat-spec bead
-/// jmap-chat-spec-vz8p); the owner's own messages never count, so a
-/// sender does not see a message they just sent as unread.
+/// owner's `lastReadMessageId`, or all of them when it is absent. The
+/// spec calls the count advisory, and pending jmap-chat-spec bead
+/// jmap-chat-spec-vz8p makes which messages count implementation-defined;
+/// the owner's own messages never count, so a sender does not see a message they just sent as unread.
 pub(crate) fn unread_count(
     messages: &[Message],
     positions: &[ReadPosition],
