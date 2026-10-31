@@ -12,6 +12,8 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+## [0.4.2] - 2026-10-30
+
 ### Fixed
 
 - **jmap-chat-server**: `Chat.unreadCount` and `Message.unreadReplyCount`
