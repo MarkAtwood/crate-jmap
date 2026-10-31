@@ -217,8 +217,8 @@ async fn same_sender_msg_id_other_chat_stores() {
 
 /// chat-00 L909: the first delivered message creates the owner's
 /// ReadPosition for a group Chat; a second message does not add another.
-/// chat-00 L548, §Chat `unreadCount`: "If `lastReadMessageId` is
-/// absent, all messages are counted as unread."
+/// chat-00 aa01dd7 L635, §Chat `unreadCount`: candidates are "all
+/// Messages in the Chat if `lastReadMessageId` is absent."
 #[tokio::test]
 async fn first_message_creates_read_position() {
     let backend = setup();

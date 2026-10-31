@@ -27,10 +27,10 @@
 //!   clear `statusText` and `statusEmoji` (setting them to null) at this
 //!   time, and SHOULD reset `presence` to `"online"`."
 //!
-//! - L547-548, §Chat `unreadCount`: "Count of Messages in this Chat whose
-//!   `id` ULID is lexicographically greater than
-//!   `ReadPosition.lastReadMessageId`. [...] If `lastReadMessageId` is
-//!   absent, all messages are counted as unread." An expired Message
+//! - jmap-chat-spec aa01dd7 L635, §Chat `unreadCount`: "Candidates are
+//!   the Messages whose `id` ULID is lexicographically greater than
+//!   `ReadPosition.lastReadMessageId`, or all Messages in the Chat if
+//!   `lastReadMessageId` is absent." An expired Message
 //!   lowers that count, and RFC 8620 §5.1 ("If the data changes, this
 //!   string MUST change") then requires the `Chat` state to move
 //!   (bd:JMAP-y3f2.18).
