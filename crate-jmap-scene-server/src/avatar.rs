@@ -326,9 +326,12 @@ fn refuse_malformed(mut bad: Vec<&'static str>) -> Result<(), Value> {
     ))
 }
 
-/// Refuse a `displayName` in `m` that the backend reserves: the server
-/// "MUST reject `SceneAvatar/set` operations that attempt to use a
-/// reserved name with a `SetError` of type `forbidden`."
+/// Refuse a `displayName` in `m` that the backend reserves
+/// (draft-atwood-jmap-scene-00 §Avatar Identity and Impersonation,
+/// jmap-chat-spec 77c3474 L2776): "The server MAY maintain a list of
+/// reserved display names ... and MAY reject `SceneAvatar/set` operations
+/// that attempt to use a reserved name with a `SetError` of type
+/// `forbidden`." This crate rejects them by choice.
 async fn refuse_reserved_name<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,

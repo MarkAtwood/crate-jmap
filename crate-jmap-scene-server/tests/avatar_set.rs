@@ -598,8 +598,9 @@ async fn reserved_display_name_create_is_forbidden() {
 
 #[tokio::test]
 async fn reserved_display_name_update_is_forbidden() {
-    // L2457 "MUST reject `SceneAvatar/set` operations that attempt to use a
-    // reserved name": an update is a `SceneAvatar/set` operation too.
+    // jmap-chat-spec 77c3474 L2776 "MAY reject `SceneAvatar/set` operations
+    // that attempt to use a reserved name": an update is a `SceneAvatar/set`
+    // operation too, and this crate rejects it by choice.
     let backend = setup();
     backend.reserve_display_name(RESERVED);
     let id = enter(&backend, ALICE, REGION).await["id"]
