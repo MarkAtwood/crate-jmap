@@ -513,7 +513,7 @@ pub trait VtcBackend: JmapBackend {
     ///
     /// # Default implementation
     ///
-    /// Returns [`crate::RING_TIMEOUT`], the RECOMMENDED 30 seconds.
+    /// Returns [`crate::RING_TIMEOUT`], the draft's example of 30 seconds.
     fn ring_timeout(&self) -> std::time::Duration {
         crate::RING_TIMEOUT
     }

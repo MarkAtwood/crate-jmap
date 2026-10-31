@@ -92,8 +92,9 @@ pub async fn handle_vtc_participant_changes<B: VtcBackend>(
 /// Supplies the "Default sort: `joinedAt` ascending", refuses a sort
 /// property other than `joinedAt` / `displayName` with `unsupportedSort`,
 /// and refuses a query scoped by neither `callId` nor `userId` with
-/// `unsupportedFilter` ("Servers SHOULD require this property on every
-/// query unless combined with `userId`"). The backend evaluates the
+/// `unsupportedFilter` (jmap-chat-spec 77c3474 L1217: "Servers MAY require
+/// this property on every query unless combined with `userId`"; this crate
+/// requires it by choice). The backend evaluates the
 /// filter; [`crate::query::participant_matches`] and
 /// [`crate::query::compare_participants`] implement it.
 pub async fn handle_vtc_participant_query<B: VtcBackend>(

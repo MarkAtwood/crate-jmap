@@ -535,7 +535,9 @@ pub async fn is_blocked_by_contact<C: ChatBackend>(
 /// is on and `subscription` otherwise. [`jmap_vtc_server::should_deliver`]
 /// decides either way, with the same delivery-time authorization. The
 /// answer is one `bool` per event and connection, so an event that matches
-/// both paths is still sent once ("MUST NOT deliver duplicate events").
+/// both paths is still sent once (draft-atwood-jmap-vtc-wss-00,
+/// jmap-chat-spec 77c3474 L413: "SHOULD NOT deliver duplicate events",
+/// followed here by choice).
 ///
 /// `hosting_account_id` is the event's `accountId` and
 /// `recipient_account_id` the recipient's own account, as

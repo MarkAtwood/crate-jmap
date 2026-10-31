@@ -219,8 +219,9 @@ async fn may_create_call_false_is_forbidden_for_every_type() {
     let mut cap = capability();
     cap["mayCreateCall"] = json!(false);
     let backend = backend_with(cap);
-    // L623 ring, L652 room, L685 scheduled: "Servers MUST return `forbidden`
-    // when `mayCreateCall` is `false`".
+    // jmap-chat-spec 77c3474 L815 ring, L844 room, L877 scheduled: "Servers
+    // SHOULD return `forbidden` when `mayCreateCall` is `false`". This crate
+    // returns it by choice.
     for call in [
         ring_example(),
         room_call(),
