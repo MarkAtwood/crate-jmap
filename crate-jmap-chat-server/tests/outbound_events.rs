@@ -47,10 +47,11 @@
 //!
 //! - draft-atwood-jmap-chat-federation-00.md L462: Peer/receipt `readAt`
 //!   "SHOULD be present when the recipient's owner has read the message."
-//!   L472 (Sender Behavior): "if `Chat.receiptSharing` is present for the
-//!   relevant Chat, that value is used; otherwise the account-level
-//!   `PresenceStatus.receiptSharing` applies ... If the effective
-//!   preference is `false`, the server MUST NOT invoke `Peer/receipt`".
+//!   c08568e L668 (Sender Behavior): "if `Chat.receiptSharing` is
+//!   present for the relevant Chat, that value is used; otherwise the
+//!   account-level `PresenceStatus.receiptSharing` applies ... If the
+//!   effective preference is `false`, the server SHOULD NOT invoke
+//!   `Peer/receipt`".
 //! - draft-atwood-jmap-chat-00.md L945: PresenceStatus `receiptSharing`
 //!   "Default: `true`." L680: when an update sets `readAt` and "omits
 //!   `readDisposition`, the server MUST store `"displayed"`." L660
@@ -800,8 +801,8 @@ async fn read_reports_receipt_with_given_disposition() {
     );
 }
 
-/// fed L472: account-level `receiptSharing: false` and no Chat override
-/// means the server "MUST NOT invoke `Peer/receipt`".
+/// fed c08568e L668: account-level `receiptSharing: false` and no Chat
+/// override means the server "SHOULD NOT invoke `Peer/receipt`".
 #[tokio::test]
 async fn account_receipt_sharing_off_suppresses_receipt() {
     let backend = backend();
