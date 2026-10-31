@@ -1,7 +1,7 @@
 //! Identity binding and peer domains
 //! (draft-atwood-jmap-chat-federation-00 §Identity Binding, §Terminology).
 
-use jmap_peer_auth::{IdentityBinding, PeerDomain, bind_identity};
+use jmap_peer_auth::{IdentityBinding, IdentityHost, PeerDomain, bind_identity, identity_host};
 
 fn domain(name: &str) -> PeerDomain {
     PeerDomain::parse(name).unwrap()
@@ -148,4 +148,36 @@ fn compliance_7_16_users_of_one_peer_domain() {
         bind_identity("bob@b.example", &a),
         IdentityBinding::HostMismatch
     );
+}
+
+/// fed b1cd625 L335, rule 1: "The host of an identity is: for a URI with
+/// an authority component, its host; for a `did:web` DID, the domain name
+/// it encodes; for a string of the form `local@domain` without a URI
+/// scheme, the part after the last `@`; for a bare DNS name, the name
+/// itself. Hosts are compared as peer domains are." Rule 2: "If the
+/// identity has no host (for example, a `did:key` DID)".
+#[test]
+fn identity_host_rule_1() {
+    for (identity, host) in [
+        ("https://Alice.Example/users/alice", "alice.example"),
+        ("did:web:alice.example", "alice.example"),
+        ("a@b@Alice.Example", "alice.example"),
+        ("alice.example", "alice.example"),
+    ] {
+        assert_eq!(
+            identity_host(identity),
+            IdentityHost::Domain(domain(host)),
+            "{identity}"
+        );
+    }
+    assert_eq!(
+        identity_host("did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK"),
+        IdentityHost::HostlessDid
+    );
+    assert_eq!(
+        identity_host("alice"),
+        IdentityHost::Domain(domain("alice"))
+    );
+    assert_eq!(identity_host("not a host"), IdentityHost::NoHost);
+    assert_eq!(identity_host("bob@192.0.2.1"), IdentityHost::NotDomain);
 }

@@ -11,7 +11,7 @@ use std::fmt;
 
 use jmap_chat_federation_types::{
     GroupUpdateAction as PeerAction, PeerAvatar, PeerChatMember, PeerGroupUpdateArgs,
-    PeerRoleUpdate,
+    PeerRoleUpdate, contact_server_url,
 };
 use jmap_chat_server::{ChatBackend, GroupUpdateAction};
 use jmap_chat_types::CHAT_CAP_TASK;
@@ -19,6 +19,7 @@ use jmap_chat_types::{
     Chat, ChatContact, ChatKind, ChatMember, Clearable, DeliveryState, Message, MessageAction,
     Space,
 };
+use jmap_peer_auth::{IdentityHost, PeerDomain, identity_host};
 use jmap_types::Id;
 use serde_json::Value;
 
@@ -185,6 +186,12 @@ pub enum OutboundError {
     /// The group has an `avatarBlobId` but no `avatar` object was given
     /// for it.
     MissingAvatar,
+    /// The ChatContact's `identity` has a host that is not a domain name
+    /// (an IP literal, a host with a port), so no peer domain hosts it.
+    InvalidHost(Id),
+    /// The ChatContact's `identity` has no host and the ChatContact has no
+    /// `serverUrl`, so there is nowhere to send its calls.
+    NoServerUrl(Id),
 }
 
 impl fmt::Display for OutboundError {
@@ -193,11 +200,90 @@ impl fmt::Display for OutboundError {
             Self::UnknownUser(id) => write!(f, "no identity string for user id {id}"),
             Self::UnknownAction => f.write_str("unknown group update action"),
             Self::MissingAvatar => f.write_str("no avatar object for the group avatarBlobId"),
+            Self::InvalidHost(id) => write!(f, "identity of contact {id} has no peer domain host"),
+            Self::NoServerUrl(id) => {
+                write!(f, "identity of contact {id} has no host and no serverUrl")
+            }
         }
     }
 }
 
 impl std::error::Error for OutboundError {}
+
+/// Where the calls of one [`PeerBatch`] go.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PeerDestination {
+    /// The peer domain that is the host of each recipient's identity.
+    Domain(PeerDomain),
+    /// The `serverUrl` of each recipient's ChatContact, for recipients
+    /// whose identity has no host.
+    ServerUrl(String),
+}
+
+/// The calls for one destination: one signed request, one method call
+/// per recipient.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PeerBatch {
+    /// Where the request goes.
+    pub destination: PeerDestination,
+    /// Each recipient's ChatContact id and its identity, the call's
+    /// `recipientUserId`, in the order they were passed.
+    pub recipients: Vec<(Id, String)>,
+}
+
+/// Groups the ChatContacts `recipients` into one [`PeerBatch`] per
+/// destination, in the order each destination first appears.
+///
+/// "The sending server sends the call to the peer domain that is the host
+/// of `recipientUserId`, as {{identity-binding}} defines the host of an
+/// identity; how it finds the server for an identity that has no host is
+/// not defined by this document" (§Server-to-Server Methods, fed b1cd625
+/// L404). Hosts are grouped as §Identity Binding compares them (L335), so
+/// `bob@B.Example` and `carol@b.example` share a batch. For an identity
+/// with no host, such as a `did:key` DID, this crate's choice is the
+/// ChatContact's `serverUrl`. A sending server with calls for several
+/// mailboxes on one peer domain "MAY send them in one request, one method
+/// call per recipient" (L406); a deployment that sends each call alone
+/// iterates the recipients of each batch.
+///
+/// # Errors
+///
+/// [`OutboundError::UnknownUser`] when a recipient is not one of
+/// `contacts` (the owner is never a recipient),
+/// [`OutboundError::InvalidHost`] when its identity's host is not a
+/// domain name, and [`OutboundError::NoServerUrl`] when its identity has
+/// no host and it has no `serverUrl`.
+pub fn peer_batches(
+    contacts: &[ChatContact],
+    recipients: &[Id],
+) -> Result<Vec<PeerBatch>, OutboundError> {
+    let mut batches: Vec<PeerBatch> = Vec::new();
+    for id in recipients {
+        let contact = contacts
+            .iter()
+            .find(|c| c.id == *id)
+            .ok_or_else(|| OutboundError::UnknownUser(id.clone()))?;
+        let destination = match identity_host(&contact.identity) {
+            IdentityHost::Domain(domain) => PeerDestination::Domain(domain),
+            IdentityHost::HostlessDid | IdentityHost::NoHost => contact_server_url(&contact.extra)
+                .map(|url| PeerDestination::ServerUrl(url.to_owned()))
+                .ok_or_else(|| OutboundError::NoServerUrl(id.clone()))?,
+            _ => return Err(OutboundError::InvalidHost(id.clone())),
+        };
+        let entry = (id.clone(), contact.identity.clone());
+        // ponytail: linear scans, O(recipients x (contacts + batches));
+        // index contacts and batches in maps if groups grow to thousands.
+        match batches.iter_mut().find(|b| b.destination == destination) {
+            Some(batch) => batch.recipients.push(entry),
+            None => batches.push(PeerBatch {
+                destination,
+                recipients: vec![entry],
+            }),
+        }
+    }
+    Ok(batches)
+}
 
 /// The `Peer/groupUpdate` arguments for one
 /// `OutboundEvent::GroupUpdate` action on the stored group `chat`, sent

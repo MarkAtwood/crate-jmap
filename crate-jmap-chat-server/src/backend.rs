@@ -1818,7 +1818,13 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Returns `Ok(None)`: the owner's identity is unknown and the check
     /// is skipped. Backends that serve `ownerUserId` MUST override this
-    /// to return the same value.
+    /// to return the same value. A backend used with federation (a
+    /// `jmap_chat_federation_server::FederationBackend`) must return
+    /// `Some` for every mailbox: "Servers implementing {{JMAP-CHAT-FED}}
+    /// MUST include this field in the Session they serve an authenticated
+    /// owner" (draft-atwood-jmap-chat-00 §Session Object Extensions,
+    /// jmap-chat-spec b1cd625 L346), and the `Peer/*` handlers read it to
+    /// recognize the owner's identity in a call.
     fn owner_user_id(
         &self,
         _caller: &Self::CallerCtx,

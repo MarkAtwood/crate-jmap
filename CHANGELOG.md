@@ -12,6 +12,21 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Added
+
+- **jmap-peer-auth**: `identity_host` and `IdentityHost` expose the host of
+  an identity that `bind_identity` compares (draft-atwood-jmap-chat-federation-00
+  §Identity Binding rule 1), for a sending server finding where a call goes.
+- **jmap-chat-federation-server**: `peer_batches` groups the recipients of
+  a `Peer/*` call into one `PeerBatch` per destination: "the peer domain
+  that is the host of `recipientUserId`" (§Server-to-Server Methods), with
+  hosts compared as peer domains are, so a deployment can send the calls
+  for several mailboxes on one peer domain in one request, one method call
+  per recipient. The draft does not say where a call for an identity with
+  no host (a `did:key` DID) goes; this crate sends it to the ChatContact's
+  `serverUrl` (`PeerDestination::ServerUrl`). `OutboundError` gains
+  `InvalidHost` and `NoServerUrl`.
+
 ### Changed
 
 - **BREAKING** **jmap-chat-server**: `OutboundEvent::Receipt` gains

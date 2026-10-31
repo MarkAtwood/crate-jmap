@@ -13,7 +13,9 @@ pub fn jmap_chat_federation_server::DeliveryFailure<'a>::fmt(&self, &mut core::f
 impl<'a> core::marker::Copy for jmap_chat_federation_server::DeliveryFailure<'a>
 impl<'a> core::marker::StructuralPartialEq for jmap_chat_federation_server::DeliveryFailure<'a>
 #[non_exhaustive] pub enum jmap_chat_federation_server::OutboundError
+pub jmap_chat_federation_server::OutboundError::InvalidHost(jmap_types::id::Id)
 pub jmap_chat_federation_server::OutboundError::MissingAvatar
+pub jmap_chat_federation_server::OutboundError::NoServerUrl(jmap_types::id::Id)
 pub jmap_chat_federation_server::OutboundError::UnknownAction
 pub jmap_chat_federation_server::OutboundError::UnknownUser(jmap_types::id::Id)
 impl core::clone::Clone for jmap_chat_federation_server::OutboundError
@@ -27,6 +29,17 @@ pub fn jmap_chat_federation_server::OutboundError::fmt(&self, &mut core::fmt::Fo
 impl core::fmt::Display for jmap_chat_federation_server::OutboundError
 pub fn jmap_chat_federation_server::OutboundError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_federation_server::OutboundError
+#[non_exhaustive] pub enum jmap_chat_federation_server::PeerDestination
+pub jmap_chat_federation_server::PeerDestination::Domain(jmap_peer_auth::domain::PeerDomain)
+pub jmap_chat_federation_server::PeerDestination::ServerUrl(alloc::string::String)
+impl core::clone::Clone for jmap_chat_federation_server::PeerDestination
+pub fn jmap_chat_federation_server::PeerDestination::clone(&self) -> jmap_chat_federation_server::PeerDestination
+impl core::cmp::Eq for jmap_chat_federation_server::PeerDestination
+impl core::cmp::PartialEq for jmap_chat_federation_server::PeerDestination
+pub fn jmap_chat_federation_server::PeerDestination::eq(&self, &jmap_chat_federation_server::PeerDestination) -> bool
+impl core::fmt::Debug for jmap_chat_federation_server::PeerDestination
+pub fn jmap_chat_federation_server::PeerDestination::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_server::PeerDestination
 #[non_exhaustive] pub struct jmap_chat_federation_server::AuthenticatedPeer
 pub jmap_chat_federation_server::AuthenticatedPeer::account_id: jmap_types::id::Id
 pub jmap_chat_federation_server::AuthenticatedPeer::peer_domain: jmap_peer_auth::domain::PeerDomain
@@ -54,6 +67,17 @@ pub fn jmap_chat_federation_server::FetchedBlob::eq(&self, &jmap_chat_federation
 impl core::fmt::Debug for jmap_chat_federation_server::FetchedBlob
 pub fn jmap_chat_federation_server::FetchedBlob::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_federation_server::FetchedBlob
+pub struct jmap_chat_federation_server::PeerBatch
+pub jmap_chat_federation_server::PeerBatch::destination: jmap_chat_federation_server::PeerDestination
+pub jmap_chat_federation_server::PeerBatch::recipients: alloc::vec::Vec<(jmap_types::id::Id, alloc::string::String)>
+impl core::clone::Clone for jmap_chat_federation_server::PeerBatch
+pub fn jmap_chat_federation_server::PeerBatch::clone(&self) -> jmap_chat_federation_server::PeerBatch
+impl core::cmp::Eq for jmap_chat_federation_server::PeerBatch
+impl core::cmp::PartialEq for jmap_chat_federation_server::PeerBatch
+pub fn jmap_chat_federation_server::PeerBatch::eq(&self, &jmap_chat_federation_server::PeerBatch) -> bool
+impl core::fmt::Debug for jmap_chat_federation_server::PeerBatch
+pub fn jmap_chat_federation_server::PeerBatch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_federation_server::PeerBatch
 pub struct jmap_chat_federation_server::SenderIdentities<'a>
 impl<'a> jmap_chat_federation_server::SenderIdentities<'a>
 pub fn jmap_chat_federation_server::SenderIdentities<'a>::actions(&self, &[jmap_chat_types::message::MessageAction]) -> core::result::Result<alloc::vec::Vec<jmap_chat_types::message::MessageAction>, jmap_chat_federation_server::OutboundError>
@@ -95,4 +119,5 @@ pub fn jmap_chat_federation_server::is_transient(jmap_chat_federation_server::De
 pub fn jmap_chat_federation_server::method_access_guard<C: jmap_chat_federation_server::FederationCaller + ?core::marker::Sized>(&str, &C) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_chat_federation_server::other_participants(&jmap_chat_types::chat::Chat, core::option::Option<&jmap_chat_types::space::Space>, &jmap_types::id::Id) -> alloc::vec::Vec<jmap_types::id::Id>
 pub async fn jmap_chat_federation_server::outbound_reference<B: jmap_chat_server::backend::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>) -> core::result::Result<core::option::Option<jmap_types::id::Id>, <B as jmap_server::backend::JmapBackend>::Error>
+pub fn jmap_chat_federation_server::peer_batches(&[jmap_chat_types::contact::ChatContact], &[jmap_types::id::Id]) -> core::result::Result<alloc::vec::Vec<jmap_chat_federation_server::PeerBatch>, jmap_chat_federation_server::OutboundError>
 pub fn jmap_chat_federation_server::peer_group_update_args(&jmap_chat_federation_server::SenderIdentities<'_>, jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, &jmap_chat_types::chat::Chat, &jmap_chat_server::outbound::GroupUpdateAction, core::option::Option<jmap_chat_federation_types::peer::PeerAvatar>) -> core::result::Result<jmap_chat_federation_types::peer::PeerGroupUpdateArgs, jmap_chat_federation_server::OutboundError>
