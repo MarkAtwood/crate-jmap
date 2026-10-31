@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-7x4p",
+  "title": "federation-server: round-trip draft Peer/* examples",
+  "description": "draft-atwood-jmap-chat-federation-00 (jmap-chat-spec c08568e) now prints JMAP request/response examples for every Peer/* method: Peer/deliver (new message in 4.2.1, edit, reactionUpdate), Peer/receipt, Peer/typing, Peer/retract, Peer/groupUpdate create, Peer/subscribePresence, Peer/unsubscribePresence, Peer/presence, and a forbidden error for an unknown recipientUserId (Error Handling section). Add tests that copy each example JSON from the draft as a literal, deserialize the arguments into crate-jmap-chat-federation-types / server types, and serialize responses back, comparing JSON values. Gives the independent wire-format oracle chinwag lacked (chinwag-nuqe.7.10, .7.26, .7.27). Fix the code, not the examples, on mismatch; report any example that looks wrong against the draft prose to jmap-chat-spec.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T03:38:58.176131422Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-31T03:38:58.176131422Z"
+}
