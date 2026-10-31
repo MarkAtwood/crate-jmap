@@ -13,8 +13,9 @@
 //! - L142: "No file tree root already exists for that Space ... If one
 //!   exists, the server MUST return an `alreadyExists` SetError ... with
 //!   `existingId` set to the id of the existing root."
-//! - L143: "The requesting user holds sufficient permission to create the
-//!   root ... If not, the server MUST return `forbidden`."
+//! - L143 (jmap-chat-spec 77c3474): "The requesting user holds sufficient
+//!   permission to create the root ... If not, the server SHOULD return
+//!   `forbidden`." This crate returns it by choice.
 //! - L176: "Creating the Space file tree root ... requires
 //!   `"manage_space"` permission ... This is a higher bar than the
 //!   `mayAddChildren` grant to `"send"`".

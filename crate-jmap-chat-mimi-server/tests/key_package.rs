@@ -340,9 +340,10 @@ async fn rejects_a_signature_key_bound_to_another_account() {
 
 #[tokio::test]
 async fn rejects_a_key_package_ref_already_stored() {
-    // L204: "The server MUST reject, with `invalidProperties` naming
-    // `keyPackage`, a KeyPackage whose KeyPackageRef equals that of a
-    // KeyPackage it stores or has handed out".
+    // L204 (jmap-chat-spec 77c3474): "The server SHOULD reject, with
+    // `invalidProperties` naming `keyPackage`, a KeyPackage whose
+    // KeyPackageRef equals that of a KeyPackage it stores or has handed
+    // out"; this crate rejects by choice.
     let backend = alice_backend(10);
     let kp = key_package(basic(ALICE), &signer(), false);
     assert!(create(&backend, "a1", &kp).await["created"]["k"].is_object());
