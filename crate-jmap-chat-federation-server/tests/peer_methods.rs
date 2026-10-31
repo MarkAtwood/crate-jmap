@@ -19,7 +19,7 @@ const READ_AT: &str = "2001-01-01T00:00:00Z";
 const DELIVERED_AT: &str = "2000-06-01T00:00:00Z";
 
 fn ack() -> Value {
-    json!({"accountId": ACCOUNT})
+    json!({"accountId": PEER_ACCOUNT})
 }
 
 /// A group Chat whose members are `(ChatContact id, role)` pairs.
@@ -50,7 +50,7 @@ fn presence_status(receipt_sharing: bool) -> Value {
 
 fn receipt_args(extra: Value) -> Value {
     let mut args = json!({
-        "accountId": ACCOUNT,
+        "accountId": PEER_ACCOUNT,
         "recipientUserId": OWNER,
         "senderMsgId": SMID,
         "readerUserId": BOB,
@@ -79,16 +79,6 @@ async fn chat(fed: &Fed, id: &str) -> Option<Value> {
         .map(|c| serde_json::to_value(c).expect("Chat serializes"))
 }
 
-/// A Fed whose authenticated peer is `identity` at [`PEER_DOMAIN`].
-fn fed_as(identity: &str) -> Fed {
-    let mut fed = Fed::new();
-    fed.peer = Some(jmap_chat_federation_server::AuthenticatedPeer::new(
-        jmap_peer_auth::PeerDomain::parse(PEER_DOMAIN).expect("domain fixture"),
-        identity,
-    ));
-    fed
-}
-
 // ---------------------------------------------------------------------------
 // All four methods
 // ---------------------------------------------------------------------------
@@ -104,21 +94,21 @@ async fn unauthenticated_caller_is_forbidden_by_every_method() {
     assert_error(fed.receipt(receipt_args(json!({}))).await, "forbidden");
     assert_error(
         fed.typing(
-            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": LOW, "senderUserId": BOB, "typing": true}),
+            json!({"accountId": PEER_ACCOUNT, "recipientUserId": OWNER, "chatId": LOW, "senderUserId": BOB, "typing": true}),
         )
         .await,
         "forbidden",
     );
     assert_error(
         fed.retract(
-            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": LOW, "senderUserId": BOB, "senderMsgId": SMID}),
+            json!({"accountId": PEER_ACCOUNT, "recipientUserId": OWNER, "chatId": LOW, "senderUserId": BOB, "senderMsgId": SMID}),
         )
         .await,
         "forbidden",
     );
     assert_error(
         fed.group_update(
-            json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": GROUP, "senderUserId": BOB, "action": "leave"}),
+            json!({"accountId": PEER_ACCOUNT, "recipientUserId": OWNER, "chatId": GROUP, "senderUserId": BOB, "action": "leave"}),
         )
         .await,
         "forbidden",
@@ -295,10 +285,11 @@ async fn receipt_from_a_non_participant_is_forbidden() {
 }
 
 /// fed L322: "a rejected request creates none" — an identity with no
-/// ChatContact is in no Chat.
+/// ChatContact is in no Chat. Dave is a peer identity of `peer.example`
+/// (fed c08568e L165).
 #[tokio::test]
 async fn receipt_from_an_unknown_identity_creates_no_placeholder() {
-    let fed = fed_as(DAVE);
+    let fed = Fed::new();
     fed.seed("Chat", direct_chat(LOW, BOB_ID));
     fed.seed("Message", owner_message(LOW));
     let mut args = receipt_args(json!({"readAt": READ_AT}));
@@ -326,7 +317,7 @@ async fn receipt_for_no_owner_message_is_invalid_arguments() {
 // ---------------------------------------------------------------------------
 
 fn typing_args(chat_id: &str, typing: bool) -> Value {
-    json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": chat_id, "senderUserId": BOB, "typing": typing})
+    json!({"accountId": PEER_ACCOUNT, "recipientUserId": OWNER, "chatId": chat_id, "senderUserId": BOB, "typing": typing})
 }
 
 fn forwarded(fed: &Fed) -> Vec<Value> {
@@ -438,7 +429,7 @@ async fn typing_with_indicators_off_in_a_channel_is_forwarded() {
 // ---------------------------------------------------------------------------
 
 fn retract_args(chat_id: &str) -> Value {
-    json!({"accountId": ACCOUNT, "recipientUserId": OWNER, "chatId": chat_id, "senderUserId": BOB, "senderMsgId": SMID})
+    json!({"accountId": PEER_ACCOUNT, "recipientUserId": OWNER, "chatId": chat_id, "senderUserId": BOB, "senderMsgId": SMID})
 }
 
 fn bobs_message(sender_id: &str) -> Value {
@@ -471,7 +462,7 @@ async fn retract_tombstones_the_senders_message() {
     assert_eq!(m["attachments"], json!([]));
     assert_eq!(m.get("editHistory"), None);
     assert_eq!(m["deletedForAll"], json!(true));
-    assert_eq!(response["accountId"], json!(ACCOUNT));
+    assert_eq!(response["accountId"], json!(PEER_ACCOUNT));
     assert_eq!(response["retractedAt"], m["deletedAt"]);
     assert_ne!(m["deletedAt"], json!(PAST));
 }
@@ -487,7 +478,10 @@ async fn retract_retry_answers_with_the_first_retraction_time() {
     m["deletedForAll"] = json!(true);
     fed.seed("Message", m);
     let response = fed.retract(retract_args(LOW)).await.expect("accepted");
-    assert_eq!(response, json!({"accountId": ACCOUNT, "retractedAt": PAST}));
+    assert_eq!(
+        response,
+        json!({"accountId": PEER_ACCOUNT, "retractedAt": PAST})
+    );
 }
 
 /// fed L588: "It MUST verify that the stored message's `senderId` is the
@@ -525,7 +519,7 @@ async fn retract_looks_up_the_message_within_the_chat() {
 
 fn group_args(action: &str, extra: Value) -> Value {
     let mut args = json!({
-        "accountId": ACCOUNT,
+        "accountId": PEER_ACCOUNT,
         "recipientUserId": OWNER,
         "chatId": GROUP,
         "senderUserId": BOB,

@@ -9,11 +9,14 @@ use jmap_types::{JmapError, PatchObject, UTCDate};
 use serde_json::{Map, Value, json};
 
 use crate::FederationBackend;
-use crate::deliver::{Identities, Who, authenticate, check_account, set_failure};
+use crate::deliver::{Identities, Who, authenticate, route, set_failure};
 
 /// Handle a `Peer/retract` method call.
 ///
-/// - `senderUserId` must be the peer identity, else `forbidden`.
+/// - `senderUserId` must be a peer identity of the request, else
+///   `forbidden`. The call is processed in the mailbox `recipientUserId`
+///   names, else `forbidden`; the response carries the request's
+///   `accountId`.
 /// - The Message is looked up by `senderMsgId` within `chatId`; with
 ///   none, `invalidArguments`. Its `senderId` must be the ChatContact
 ///   `senderUserId` resolves to, else `forbidden` ("If the sender does not
@@ -28,7 +31,7 @@ use crate::deliver::{Identities, Who, authenticate, check_account, set_failure};
 /// # Errors
 ///
 /// `invalidArguments`, `forbidden` and `serverFail`; `accountNotFound`
-/// for an unknown `accountId`.
+/// for an `accountId` that is not the peer's account.
 pub async fn handle_peer_retract<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -36,21 +39,24 @@ pub async fn handle_peer_retract<B: FederationBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let args: PeerRetractArgs = serde_json::from_value(args)
         .map_err(|e| JmapError::invalid_arguments(format!("Peer/retract arguments: {e}")))?;
-    authenticate(backend, caller, &args.sender_user_id)?;
-    let account_id = &args.account_id;
-    check_account(backend, caller, account_id).await?;
-
-    let identities = Identities::load(backend, caller, account_id).await?;
-    let msg = find_message_by_sender_msg_id(
+    let peer = authenticate(backend, caller, &args.sender_user_id).await?;
+    let mailbox = &route(
         backend,
         caller,
-        account_id,
-        &args.chat_id,
-        &args.sender_msg_id,
+        &peer,
+        &args.account_id,
+        &args.recipient_user_id,
     )
-    .await
-    .map_err(|e| server_fail_from_backend(&e))?
-    .ok_or_else(|| JmapError::invalid_arguments("no message with this senderMsgId in the chat"))?;
+    .await?;
+
+    let identities = Identities::load(backend, caller, mailbox).await?;
+    let msg =
+        find_message_by_sender_msg_id(backend, caller, mailbox, &args.chat_id, &args.sender_msg_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+            .ok_or_else(|| {
+                JmapError::invalid_arguments("no message with this senderMsgId in the chat")
+            })?;
     let is_sender = matches!(
         identities.lookup(&args.sender_user_id),
         Who::Contact(c) if c.id == msg.sender_id
@@ -61,7 +67,7 @@ pub async fn handle_peer_retract<B: FederationBackend>(
 
     let respond = |retracted_at: UTCDate| -> Result<HandlerOutput, JmapError> {
         Ok(HandlerOutput::new(serialize_value(
-            PeerRetractResponse::new(account_id.clone(), retracted_at),
+            PeerRetractResponse::new(args.account_id.clone(), retracted_at),
         )?))
     };
     if msg.deleted_for_all == Some(true)
@@ -77,7 +83,7 @@ pub async fn handle_peer_retract<B: FederationBackend>(
     patch.insert("deletedAt".to_owned(), json!(now));
     patch.insert("deletedForAll".to_owned(), json!(true));
     backend
-        .update_object::<Message>(caller, account_id, &msg.id, PatchObject::from_map(patch))
+        .update_object::<Message>(caller, mailbox, &msg.id, PatchObject::from_map(patch))
         .await
         .map_err(set_failure)?;
     respond(now)

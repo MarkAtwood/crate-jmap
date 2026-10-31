@@ -9,14 +9,14 @@ use jmap_types::{JmapError, PatchObject};
 use serde_json::Map;
 
 use crate::FederationBackend;
-use crate::deliver::{
-    Identities, Who, authenticate, check_account, get_chat, is_participant, set_failure,
-};
+use crate::deliver::{Identities, Who, authenticate, get_chat, is_participant, route, set_failure};
 
 /// Handle a `Peer/receipt` method call.
 ///
-/// - `readerUserId` must be the peer identity: "the receiver MUST reject
-///   the request with `forbidden` if they differ".
+/// - `readerUserId` must be a peer identity of the request, else
+///   `forbidden` (§Server-to-Server Methods). The call is processed in
+///   the mailbox `recipientUserId` names, else `forbidden`; the response
+///   carries the request's `accountId`.
 /// - The Message is the owner's Message whose `senderMsgId` is the
 ///   request's; with none, `invalidArguments`. The reader must be a
 ///   participant of its Chat (the direct Chat's contact, a group member,
@@ -42,7 +42,7 @@ use crate::deliver::{
 /// # Errors
 ///
 /// `invalidArguments`, `forbidden` and `serverFail`; `accountNotFound`
-/// for an unknown `accountId`.
+/// for an `accountId` that is not the peer's account.
 pub async fn handle_peer_receipt<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -50,34 +50,40 @@ pub async fn handle_peer_receipt<B: FederationBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let args: PeerReceiptArgs = serde_json::from_value(args)
         .map_err(|e| JmapError::invalid_arguments(format!("Peer/receipt arguments: {e}")))?;
-    authenticate(backend, caller, &args.reader_user_id)?;
-    let account_id = &args.account_id;
-    check_account(backend, caller, account_id).await?;
+    let peer = authenticate(backend, caller, &args.reader_user_id).await?;
+    let mailbox = &route(
+        backend,
+        caller,
+        &peer,
+        &args.account_id,
+        &args.recipient_user_id,
+    )
+    .await?;
 
-    let identities = Identities::load(backend, caller, account_id).await?;
+    let identities = Identities::load(backend, caller, mailbox).await?;
     let Who::Contact(reader) = identities.lookup(&args.reader_user_id) else {
         return Err(JmapError::forbidden());
     };
     let (messages, _) = backend
-        .get_objects::<Message>(caller, account_id, None, None)
+        .get_objects::<Message>(caller, mailbox, None, None)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
     let msg = messages
         .into_iter()
-        .find(|m| m.sender_msg_id == args.sender_msg_id && &m.sender_id == account_id)
+        .find(|m| m.sender_msg_id == args.sender_msg_id && &m.sender_id == mailbox)
         .ok_or_else(|| {
             JmapError::invalid_arguments("no message of the owner with this senderMsgId")
         })?;
-    let chat = get_chat(backend, caller, account_id, &msg.chat_id)
+    let chat = get_chat(backend, caller, mailbox, &msg.chat_id)
         .await?
         .ok_or_else(JmapError::forbidden)?;
-    if !is_participant(backend, caller, account_id, &chat, &reader.id).await? {
+    if !is_participant(backend, caller, mailbox, &chat, &reader.id).await? {
         return Err(JmapError::forbidden());
     }
     let shares = match chat.receipt_sharing {
         Some(shares) => shares,
         None => backend
-            .get_objects::<PresenceStatus>(caller, account_id, None, None)
+            .get_objects::<PresenceStatus>(caller, mailbox, None, None)
             .await
             .map_err(|e| server_fail_from_backend(&e))?
             .0
@@ -120,12 +126,12 @@ pub async fn handle_peer_receipt<B: FederationBackend>(
     }
     if !patch.is_empty() {
         backend
-            .update_object::<Message>(caller, account_id, &msg.id, PatchObject::from_map(patch))
+            .update_object::<Message>(caller, mailbox, &msg.id, PatchObject::from_map(patch))
             .await
             .map_err(set_failure)?;
     }
     Ok(HandlerOutput::new(serialize_value(PeerAck::new(
-        account_id.clone(),
+        args.account_id.clone(),
     ))?))
 }
 

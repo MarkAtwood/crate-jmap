@@ -34,8 +34,22 @@
 //! contact, and fires the local presence event. A deployment that does not
 //! offer them leaves them unregistered, so callers get `unknownMethod`.
 //!
-//! Every handler checks the caller-identity field against the
-//! authenticated peer first, and rejects before its first write.
+//! ## Caller identity and recipient routing
+//!
+//! Every handler first checks its caller-identity field (`senderUserId`,
+//! `readerUserId`, `subscriberId` or `identity`) by §Identity Binding: its
+//! host must be the authenticated peer domain, or it must be a host-less
+//! DID that [`FederationBackend::verify_did_identity`] accepts (by default
+//! none is). One peer domain speaks for every identity it hosts, and the
+//! peer's `ownerUserId` plays no part. Then it routes the call
+//! (§Server-to-Server Methods): `accountId` must be the peer's one
+//! peer-role account ([`AuthenticatedPeer::account_id`]), else
+//! `accountNotFound`, and `recipientUserId` names the mailbox
+//! ([`FederationBackend::mailbox_account`]) the call is processed in. An
+//! unknown recipient gets the same bare `forbidden` as every other
+//! refusal. Both checks reject before the first write. Responses carry
+//! the peer's `accountId`; storage, and the events sent to the owner's
+//! clients, use the mailbox's.
 //!
 //! ## Sending
 //!

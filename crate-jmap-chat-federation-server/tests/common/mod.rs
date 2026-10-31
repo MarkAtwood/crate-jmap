@@ -28,8 +28,16 @@ use jmap_server::{
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{Value, json};
 
+/// Mailbox U1: the account of [`OWNER`]'s mailbox, where the handlers
+/// store what a call for [`OWNER`] writes.
 pub const ACCOUNT: &str = "A1";
 pub const OWNER: &str = "owner@home.example";
+/// Mailbox U2, owned by [`OWNER2`], on the same server.
+pub const ACCOUNT2: &str = "A2";
+pub const OWNER2: &str = "owner2@home.example";
+/// The one peer-role account the peer holds here (fed c08568e L194),
+/// named as in the draft's examples (fed c08568e L408).
+pub const PEER_ACCOUNT: &str = "P5f2";
 pub const PEER_DOMAIN: &str = "peer.example";
 pub const BOB: &str = "bob@peer.example";
 pub const BOB_ID: &str = "contact-bob";
@@ -60,6 +68,10 @@ pub fn hex32(s: &str) -> [u8; 32] {
 pub struct Fed {
     pub chat: MemoryBackend,
     pub peer: Option<AuthenticatedPeer>,
+    /// The mailbox accounts `mailbox_account` searches by owner.
+    pub mailboxes: Vec<Id>,
+    /// The host-less DIDs `verify_did_identity` accepts.
+    pub verified_dids: HashSet<String>,
     pub everyone: HashSet<jmap_chat_types::ChatPermission>,
     /// Space id → that Space's `@everyone` permissions, in place of
     /// `everyone`.
@@ -71,8 +83,11 @@ pub struct Fed {
     pub next_id: AtomicU64,
     /// Events passed to `forward_typing`, in order.
     pub typed: Mutex<Vec<ChatTypingEvent>>,
-    /// Presence subscriptions: subscriber identity to granted TTL.
-    pub subscriptions: Mutex<HashMap<String, u64>>,
+    /// Presence subscriptions: (mailbox account, subscriber identity) to
+    /// granted TTL.
+    pub subscriptions: Mutex<HashMap<(String, String), u64>>,
+    /// When set, `subscribe_presence` refuses every subscription.
+    pub refuse_subscriptions: bool,
     /// Events passed to `forward_presence`, in order.
     pub presences: Mutex<Vec<ChatPresenceEvent>>,
     /// The most ChatContacts the account may hold; a create beyond it
@@ -81,19 +96,22 @@ pub struct Fed {
 }
 
 impl Fed {
-    /// Account [`ACCOUNT`] with owner [`OWNER`], called by the peer at
-    /// [`PEER_DOMAIN`] whose identity is [`BOB`]. Bob is a known
-    /// ChatContact. "abc" is fetchable at [`FETCH_URL`].
+    /// Mailboxes [`ACCOUNT`] (owner [`OWNER`]) and [`ACCOUNT2`] (owner
+    /// [`OWNER2`]), called by the peer at [`PEER_DOMAIN`] whose peer-role
+    /// account is [`PEER_ACCOUNT`]. Bob is a known ChatContact of
+    /// [`ACCOUNT`]. No DID is verified. "abc" is fetchable at
+    /// [`FETCH_URL`].
     pub fn new() -> Self {
         let chat = MemoryBackend::new();
-        chat.register_account(&Id::from(ACCOUNT));
-        chat.set_owner_user_id_for_test(&Id::from(ACCOUNT), OWNER);
+        for (account, owner) in [(ACCOUNT, OWNER), (ACCOUNT2, OWNER2)] {
+            chat.register_account(&Id::from(account));
+            chat.set_owner_user_id_for_test(&Id::from(account), owner);
+        }
         let fed = Self {
             chat,
-            peer: Some(AuthenticatedPeer::new(
-                PeerDomain::parse(PEER_DOMAIN).expect("domain fixture"),
-                BOB,
-            )),
+            peer: Some(peer_at(PEER_DOMAIN)),
+            mailboxes: vec![Id::from(ACCOUNT), Id::from(ACCOUNT2)],
+            verified_dids: HashSet::new(),
             everyone: HashSet::new(),
             space_everyone: HashMap::new(),
             everyone_fails: false,
@@ -105,6 +123,7 @@ impl Fed {
             next_id: AtomicU64::new(0),
             typed: Mutex::new(Vec::new()),
             subscriptions: Mutex::new(HashMap::new()),
+            refuse_subscriptions: false,
             presences: Mutex::new(Vec::new()),
             contact_cap: None,
         };
@@ -113,14 +132,22 @@ impl Fed {
     }
 
     pub fn seed(&self, type_name: &'static str, value: Value) {
+        self.seed_in(ACCOUNT, type_name, value);
+    }
+
+    pub fn seed_in(&self, account: &str, type_name: &'static str, value: Value) {
         let id = value["id"].as_str().expect("fixture id").to_owned();
         self.chat
-            .insert_object_for_test(type_name, ACCOUNT, &id, value);
+            .insert_object_for_test(type_name, account, &id, value);
     }
 
     pub async fn all<O: GetObject + Send + Sync>(&self) -> Vec<O> {
+        self.all_in(ACCOUNT).await
+    }
+
+    pub async fn all_in<O: GetObject + Send + Sync>(&self, account: &str) -> Vec<O> {
         self.chat
-            .get_objects::<O>(&(), &Id::from(ACCOUNT), None, None)
+            .get_objects::<O>(&(), &Id::from(account), None, None)
             .await
             .expect("read")
             .0
@@ -184,7 +211,7 @@ impl Fed {
             .map(|o| o.primary)
     }
 
-    pub fn subscriptions(&self) -> HashMap<String, u64> {
+    pub fn subscriptions(&self) -> HashMap<(String, String), u64> {
         self.subscriptions.lock().expect("lock").clone()
     }
 
@@ -195,6 +222,19 @@ impl Fed {
     pub fn typed(&self) -> Vec<ChatTypingEvent> {
         self.typed.lock().expect("lock").clone()
     }
+}
+
+/// The authenticated peer at `domain`, holding [`PEER_ACCOUNT`].
+pub fn peer_at(domain: &str) -> AuthenticatedPeer {
+    AuthenticatedPeer::new(
+        PeerDomain::parse(domain).expect("domain fixture"),
+        Id::from(PEER_ACCOUNT),
+    )
+}
+
+/// The key of a presence subscription in [`Fed::subscriptions`].
+pub fn sub(account: &str, subscriber: &str) -> (String, String) {
+    (account.to_owned(), subscriber.to_owned())
 }
 
 pub fn contact(id: &str, identity: &str, blocked: bool) -> Value {
@@ -520,6 +560,24 @@ impl FederationBackend for Fed {
         self.peer.clone()
     }
 
+    async fn mailbox_account(
+        &self,
+        caller: &(),
+        recipient_user_id: &str,
+    ) -> Result<Option<Id>, MemoryError> {
+        for account in &self.mailboxes {
+            if self.chat.owner_user_id(caller, account).await?.as_deref() == Some(recipient_user_id)
+            {
+                return Ok(Some(account.clone()));
+            }
+        }
+        Ok(None)
+    }
+
+    async fn verify_did_identity(&self, _caller: &(), did: &str) -> Result<bool, MemoryError> {
+        Ok(self.verified_dids.contains(did))
+    }
+
     async fn new_message_id(&self, _caller: &(), _account_id: &Id) -> Result<Id, MemoryError> {
         Ok(Id::from(
             format!("fresh-{}", self.next_id.fetch_add(1, Ordering::Relaxed)).as_str(),
@@ -617,28 +675,31 @@ impl FederationPresenceBackend for Fed {
     async fn subscribe_presence(
         &self,
         _caller: &(),
-        _account_id: &Id,
+        account_id: &Id,
         subscriber_id: &str,
         ttl: Option<u64>,
-    ) -> Result<u64, MemoryError> {
+    ) -> Result<Option<u64>, MemoryError> {
+        if self.refuse_subscriptions {
+            return Ok(None);
+        }
         let granted = ttl.map_or(DEFAULT_TTL, |t| t.min(MAX_TTL));
         self.subscriptions
             .lock()
             .expect("lock")
-            .insert(subscriber_id.to_owned(), granted);
-        Ok(granted)
+            .insert(sub(account_id.as_ref(), subscriber_id), granted);
+        Ok(Some(granted))
     }
 
     async fn unsubscribe_presence(
         &self,
         _caller: &(),
-        _account_id: &Id,
+        account_id: &Id,
         subscriber_id: &str,
     ) -> Result<(), MemoryError> {
         self.subscriptions
             .lock()
             .expect("lock")
-            .remove(subscriber_id);
+            .remove(&sub(account_id.as_ref(), subscriber_id));
         Ok(())
     }
 

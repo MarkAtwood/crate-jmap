@@ -14,13 +14,16 @@ use serde_json::{Map, Value, json};
 
 use crate::FederationBackend;
 use crate::deliver::{
-    Commit, Identities, Who, authenticate, check_account, get_chat, set_failure, sha256_matches,
+    Commit, Identities, Who, authenticate, get_chat, route, set_failure, sha256_matches,
     valid_media_type,
 };
 
 /// Handle a `Peer/groupUpdate` method call.
 ///
-/// - `senderUserId` must be the peer identity, else `forbidden`.
+/// - `senderUserId` must be a peer identity of the request, else
+///   `forbidden`. The call is processed in the mailbox `recipientUserId`
+///   names, else `forbidden`; the response carries the request's
+///   `accountId`.
 /// - `"create"`: `members` is required and must list `senderUserId`,
 ///   else `forbidden`. The group Chat is stored under `chatId` through
 ///   [`FederationBackend::create_chat`], with each member's `id` and
@@ -61,7 +64,8 @@ use crate::deliver::{
 /// # Errors
 ///
 /// `invalidArguments`, `forbidden`, `rateLimited` (a placeholder limit)
-/// and `serverFail`; `accountNotFound` for an unknown `accountId`.
+/// and `serverFail`; `accountNotFound` for an `accountId` that is not the
+/// peer's account.
 pub async fn handle_peer_group_update<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -73,19 +77,25 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
     };
     let args: PeerGroupUpdateArgs = serde_json::from_value(args)
         .map_err(|e| JmapError::invalid_arguments(format!("Peer/groupUpdate arguments: {e}")))?;
-    authenticate(backend, caller, &args.sender_user_id)?;
-    let account_id = &args.account_id;
-    check_account(backend, caller, account_id).await?;
+    let peer = authenticate(backend, caller, &args.sender_user_id).await?;
+    let mailbox = &route(
+        backend,
+        caller,
+        &peer,
+        &args.account_id,
+        &args.recipient_user_id,
+    )
+    .await?;
 
     let now = now_utc_string();
-    let identities = Identities::load(backend, caller, account_id).await?;
-    let stored = get_chat(backend, caller, account_id, &args.chat_id).await?;
+    let identities = Identities::load(backend, caller, mailbox).await?;
+    let stored = get_chat(backend, caller, mailbox, &args.chat_id).await?;
     let sender_id = match identities.lookup(&args.sender_user_id) {
         Who::Contact(c) => Some(c.id.clone()),
         Who::Owner | Who::Unknown => None,
     };
-    let mut ctx = Commit::new(backend, caller, account_id, &now, identities);
-    let ack = HandlerOutput::new(serialize_value(PeerAck::new(account_id.clone()))?);
+    let mut ctx = Commit::new(backend, caller, mailbox, &now, identities);
+    let ack = HandlerOutput::new(serialize_value(PeerAck::new(args.account_id.clone()))?);
 
     if args.action == GroupUpdateAction::Create {
         let members = required(args.members.as_deref(), "members")?;
@@ -116,10 +126,10 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
         chat.name = args.name.clone();
         chat.description = args.description.clone();
         if let Some(avatar) = avatar_object {
-            chat.avatar_blob_id = fetch_avatar(backend, caller, account_id, avatar).await;
+            chat.avatar_blob_id = fetch_avatar(backend, caller, mailbox, avatar).await;
         }
         backend
-            .create_chat(caller, account_id, chat)
+            .create_chat(caller, mailbox, chat)
             .await
             .map_err(set_failure)?;
         return Ok(ack);
@@ -166,7 +176,7 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
                 patch.insert("description".to_owned(), json!(description));
             }
             let avatar = match avatar_object {
-                Some(avatar) => fetch_avatar(backend, caller, account_id, avatar)
+                Some(avatar) => fetch_avatar(backend, caller, mailbox, avatar)
                     .await
                     .map(|id| json!(id)),
                 None if args.avatar == Some(Clearable::Clear) => Some(Value::Null),
@@ -188,7 +198,7 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
     }
     if !patch.is_empty() {
         backend
-            .update_object::<Chat>(caller, account_id, &chat.id, PatchObject::from_map(patch))
+            .update_object::<Chat>(caller, mailbox, &chat.id, PatchObject::from_map(patch))
             .await
             .map_err(set_failure)?;
     }

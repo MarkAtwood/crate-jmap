@@ -12,9 +12,7 @@ mod common;
 use std::collections::HashSet;
 
 use common::*;
-use jmap_chat_federation_server::AuthenticatedPeer;
 use jmap_chat_server::ChatLimits;
-use jmap_peer_auth::PeerDomain;
 use jmap_types::{Id, UTCDate};
 use serde_json::{Value, json};
 
@@ -30,7 +28,7 @@ fn message(sender_msg_id: &str) -> Value {
 
 fn deliver_args(chat_id: &str, chat_kind: &str, message: Value) -> Value {
     json!({
-        "accountId": ACCOUNT,
+        "accountId": PEER_ACCOUNT,
         "recipientUserId": OWNER,
         "chatId": chat_id,
         "senderUserId": BOB,
@@ -69,15 +67,11 @@ async fn step1_unauthenticated_caller_is_forbidden() {
 }
 
 /// fed L402: "Verify the request signature and the identity binding".
-/// fed L244: "If the peer identity has a host, that host MUST equal the
-/// authenticated peer domain."
+/// fed c08568e L335: "If the identity has a host, that host MUST equal the
+/// authenticated peer domain." Carol's host is `other.example`.
 #[tokio::test]
 async fn step1_identity_not_bound_to_peer_domain_is_forbidden() {
-    let mut fed = Fed::new();
-    fed.peer = Some(AuthenticatedPeer::new(
-        PeerDomain::parse(PEER_DOMAIN).expect("domain"),
-        CAROL,
-    ));
+    let fed = Fed::new();
     let mut args = deliver_args(LOW, "direct", message("M1"));
     args["senderUserId"] = json!(CAROL);
     assert_error(fed.deliver(args).await, "forbidden");
@@ -87,51 +81,43 @@ async fn step1_identity_not_bound_to_peer_domain_is_forbidden() {
 /// The did:key example of the W3C did:key Method specification §Format.
 const DID_KEY: &str = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
 
-fn did_key_peer() -> AuthenticatedPeer {
-    AuthenticatedPeer::new(PeerDomain::parse(PEER_DOMAIN).expect("domain"), DID_KEY)
-}
-
-/// fed L256 at jmap-chat-spec 6bcd9d8: "If the peer identity has no host
-/// (for example, a `did:key` DID), the peer domain does not vouch for it.
-/// The local server MUST NOT accept such an identity on the strength of
-/// peer authentication alone."
+/// fed c08568e L336: "If the identity has no host (for example, a
+/// `did:key` DID), the peer domain does not vouch for it. The local server
+/// MUST NOT accept such an identity on the strength of peer authentication
+/// alone." The harness verifies no DID.
 #[tokio::test]
 async fn step1_host_less_did_without_did_verification_is_forbidden() {
-    let mut fed = Fed::new();
-    fed.peer = Some(did_key_peer());
+    let fed = Fed::new();
     let mut args = deliver_args(LOW, "direct", message("M1"));
     args["senderUserId"] = json!(DID_KEY);
     assert_error(fed.deliver(args).await, "forbidden");
     assert!(fed.messages().await.is_empty());
 }
 
-/// fed L256 at jmap-chat-spec 6bcd9d8: "A DID-form identity is accepted
-/// only after the DID-bound verification of {{JMAP-CHAT-DID}} succeeds";
-/// did L211: "{{JMAP-CHAT-FED}} accepts it only after the DID-bound
-/// verification defined here succeeds."
+/// fed c08568e L336: "A DID-form identity is accepted only after the
+/// DID-bound verification of {{JMAP-CHAT-DID}} succeeds"; did L211:
+/// "{{JMAP-CHAT-FED}} accepts it only after the DID-bound verification
+/// defined here succeeds."
 #[tokio::test]
 async fn step1_host_less_did_with_did_verification_is_accepted() {
     let mut fed = Fed::new();
-    fed.peer = Some(did_key_peer().with_did_verified());
+    fed.verified_dids.insert(DID_KEY.to_owned());
     let mut args = deliver_args(LOW, "direct", message("M1"));
     args["senderUserId"] = json!(DID_KEY);
     fed.deliver(args).await.expect("accepted");
     assert_eq!(fed.messages().await.len(), 1);
 }
 
-/// fed L256 at jmap-chat-spec 33702a5: "A DID-form identity is accepted
-/// only after the DID-bound verification of {{JMAP-CHAT-DID}} succeeds;
-/// any other host-less identity MUST be rejected." A `did_verified` flag
-/// does not lift that rule for a URN (RFC 4122 §3 example) or a
+/// fed c08568e L336: "A DID-form identity is accepted only after the
+/// DID-bound verification of {{JMAP-CHAT-DID}} succeeds; any other
+/// host-less identity MUST be rejected." A backend that would verify the
+/// string does not lift that rule for a URN (RFC 4122 §3 example) or a
 /// string that only starts like a DID.
 #[tokio::test]
 async fn step1_did_verification_does_not_accept_other_host_less_identities() {
     for identity in ["urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6", "did:"] {
         let mut fed = Fed::new();
-        fed.peer = Some(
-            AuthenticatedPeer::new(PeerDomain::parse(PEER_DOMAIN).expect("domain"), identity)
-                .with_did_verified(),
-        );
+        fed.verified_dids.insert(identity.to_owned());
         let mut args = deliver_args(LOW, "direct", message("M1"));
         args["senderUserId"] = json!(identity);
         assert_error(fed.deliver(args).await, "forbidden");
@@ -139,16 +125,13 @@ async fn step1_did_verification_does_not_accept_other_host_less_identities() {
     }
 }
 
-/// fed L255 at jmap-chat-spec 6bcd9d8: "If the peer identity has a host,
-/// that host MUST equal the authenticated peer domain." A DID-bound
-/// verification does not lift that rule.
+/// fed c08568e L335: "If the identity has a host, that host MUST equal the
+/// authenticated peer domain." A DID-bound verification does not lift that
+/// rule.
 #[tokio::test]
 async fn step1_did_verification_does_not_bind_another_host() {
     let mut fed = Fed::new();
-    fed.peer = Some(
-        AuthenticatedPeer::new(PeerDomain::parse(PEER_DOMAIN).expect("domain"), CAROL)
-            .with_did_verified(),
-    );
+    fed.verified_dids.insert(CAROL.to_owned());
     let mut args = deliver_args(LOW, "direct", message("M1"));
     args["senderUserId"] = json!(CAROL);
     assert_error(fed.deliver(args).await, "forbidden");
@@ -159,16 +142,26 @@ async fn step1_did_verification_does_not_bind_another_host() {
 // Step 2 and identity mapping
 // ---------------------------------------------------------------------------
 
-/// fed L403: "Confirm `senderUserId` matches the peer identity. Reject
-/// immediately if they differ."
+/// fed c08568e L333: "A peer domain speaks for every identity it hosts."
+/// L338: "An identity bound this way is a peer identity of the request.
+/// ... The binding does not use the peer's `ownerUserId`". Mallory's host
+/// is `peer.example`, so the call from `peer.example` is accepted although
+/// Mallory is not Bob.
 #[tokio::test]
-async fn step2_sender_user_id_must_equal_peer_identity() {
+async fn step2_any_identity_hosted_by_the_peer_domain_is_accepted() {
     let fed = Fed::new();
     let mut args = deliver_args(LOW, "direct", message("M1"));
     args["senderUserId"] = json!("mallory@peer.example");
-    assert_error(fed.deliver(args).await, "forbidden");
-    assert!(fed.messages().await.is_empty());
-    assert!(fed.chats().await.is_empty());
+    fed.deliver(args).await.expect("accepted");
+    let mallory = fed
+        .contacts()
+        .await
+        .into_iter()
+        .find(|c| c.identity == "mallory@peer.example")
+        .expect("placeholder created");
+    let messages = fed.messages().await;
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].sender_id, mallory.id);
 }
 
 /// fed L316: "Otherwise, the receiving server MUST create a placeholder
@@ -177,10 +170,7 @@ async fn step2_sender_user_id_must_equal_peer_identity() {
 #[tokio::test]
 async fn step2_unknown_sender_gets_a_placeholder_contact() {
     let mut fed = Fed::new();
-    fed.peer = Some(AuthenticatedPeer::new(
-        PeerDomain::parse("other.example").expect("domain"),
-        CAROL,
-    ));
+    fed.peer = Some(peer_at("other.example"));
     let mut args = deliver_args(LOW, "direct", message("M1"));
     args["senderUserId"] = json!(CAROL);
     fed.deliver(args).await.expect("accepted");
@@ -415,7 +405,7 @@ async fn step4_banned_sender_is_dropped_silently() {
         .deliver(deliver_args(CHANNEL, "channel", message("M1")))
         .await
         .expect("success");
-    assert_eq!(response["accountId"], json!(ACCOUNT));
+    assert_eq!(response["accountId"], json!(PEER_ACCOUNT));
     assert!(response["receivedMsgId"].is_string());
     assert!(fed.messages().await.is_empty());
 }
@@ -1005,7 +995,7 @@ async fn reply_to_resolves_through_the_sender_msg_id_index() {
 
 fn edit_args(sender_msg_id: &str) -> Value {
     json!({
-        "accountId": ACCOUNT,
+        "accountId": PEER_ACCOUNT,
         "recipientUserId": OWNER,
         "chatId": LOW,
         "senderUserId": BOB,
@@ -1053,7 +1043,7 @@ async fn edit_applies_only_to_the_senders_message() {
 
 fn reaction_args(action: &str, emoji: &str) -> Value {
     json!({
-        "accountId": ACCOUNT,
+        "accountId": PEER_ACCOUNT,
         "recipientUserId": OWNER,
         "chatId": LOW,
         "senderUserId": BOB,

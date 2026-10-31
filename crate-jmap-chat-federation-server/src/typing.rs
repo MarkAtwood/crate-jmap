@@ -9,11 +9,14 @@ use jmap_types::JmapError;
 use serde_json::json;
 
 use crate::FederationBackend;
-use crate::deliver::{Identities, Who, authenticate, check_account, get_chat, is_participant};
+use crate::deliver::{Identities, Who, authenticate, get_chat, is_participant, route};
 
 /// Handle a `Peer/typing` method call.
 ///
-/// - `senderUserId` must be the peer identity, else `forbidden`.
+/// - `senderUserId` must be a peer identity of the request, else
+///   `forbidden`. The call is processed in the mailbox `recipientUserId`
+///   names, else `forbidden`; the response carries the request's
+///   `accountId`, and the forwarded event the mailbox's.
 /// - The sender must be a participant of the Chat (the direct Chat's
 ///   contact, a group member, or a member of the channel's Space), else
 ///   `forbidden` ("If it is not a member, the server SHOULD return a
@@ -29,7 +32,7 @@ use crate::deliver::{Identities, Who, authenticate, check_account, get_chat, is_
 /// # Errors
 ///
 /// `invalidArguments`, `forbidden` and `serverFail`; `accountNotFound`
-/// for an unknown `accountId`.
+/// for an `accountId` that is not the peer's account.
 pub async fn handle_peer_typing<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -37,36 +40,42 @@ pub async fn handle_peer_typing<B: FederationBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let args: PeerTypingArgs = serde_json::from_value(args)
         .map_err(|e| JmapError::invalid_arguments(format!("Peer/typing arguments: {e}")))?;
-    authenticate(backend, caller, &args.sender_user_id)?;
-    let account_id = &args.account_id;
-    check_account(backend, caller, account_id).await?;
+    let peer = authenticate(backend, caller, &args.sender_user_id).await?;
+    let mailbox = &route(
+        backend,
+        caller,
+        &peer,
+        &args.account_id,
+        &args.recipient_user_id,
+    )
+    .await?;
 
-    let identities = Identities::load(backend, caller, account_id).await?;
+    let identities = Identities::load(backend, caller, mailbox).await?;
     let Who::Contact(sender) = identities.lookup(&args.sender_user_id) else {
         return Err(JmapError::forbidden());
     };
-    let chat = get_chat(backend, caller, account_id, &args.chat_id)
+    let chat = get_chat(backend, caller, mailbox, &args.chat_id)
         .await?
         .ok_or_else(JmapError::forbidden)?;
-    if !is_participant(backend, caller, account_id, &chat, &sender.id).await? {
+    if !is_participant(backend, caller, mailbox, &chat, &sender.id).await? {
         return Err(JmapError::forbidden());
     }
-    let ack = HandlerOutput::new(serialize_value(PeerAck::new(account_id.clone()))?);
+    let ack = HandlerOutput::new(serialize_value(PeerAck::new(args.account_id.clone()))?);
     if sender.blocked {
         return Ok(ack);
     }
     let event: ChatTypingEvent = serde_json::from_value(json!({
-        "accountId": account_id,
+        "accountId": mailbox,
         "chatId": chat.id,
         "senderId": sender.id,
         "typing": args.typing,
     }))
     .map_err(|e| JmapError::server_fail(format!("typing event: {e}")))?;
-    if should_deliver_typing(backend, caller, account_id, &event)
+    if should_deliver_typing(backend, caller, mailbox, &event)
         .await
         .map_err(|e| server_fail_from_backend(&e))?
     {
-        backend.forward_typing(caller, account_id, &event).await;
+        backend.forward_typing(caller, mailbox, &event).await;
     }
     Ok(ack)
 }
