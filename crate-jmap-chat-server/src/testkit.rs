@@ -2168,11 +2168,12 @@ mod message_atomic {
             .to_owned()
     }
 
-    /// Oracle: draft-atwood-jmap-chat-00 §Message `burnOnRead`: "When
-    /// `true`, the receiving server MUST permanently hard-delete this
-    /// message (row removal, not tombstone) immediately after setting
-    /// `readAt`." The `readAt` write must therefore never be stored without
-    /// the deletion.
+    /// Oracle: draft-atwood-jmap-chat-00 (jmap-chat-spec 77c3474 L750)
+    /// §Message `burnOnRead`: "When `true`, the receiving server SHOULD
+    /// permanently hard-delete this message (row removal, not tombstone)
+    /// immediately after setting `readAt`." This crate performs the
+    /// recommended deletion, so the `readAt` write is never stored without
+    /// it.
     ///
     /// A `readAt` patch the backend cannot store is rejected and burns
     /// nothing. RFC 8620 §5.3: "invalidProperties: The record given is
@@ -2844,7 +2845,11 @@ mod threads {
 // `sweep_expired` applies the draft's time-driven expiry rules against an
 // injected clock (bd:JMAP-y3f2.6).
 //
-// Oracles, from jmap-chat-spec 91672c9, draft-atwood-jmap-chat-00.md:
+// Oracles, from jmap-chat-spec 91672c9, draft-atwood-jmap-chat-00.md,
+// except the three hard-delete rules, which jmap-chat-spec 4ffb96e
+// downgraded from MUST to SHOULD and are quoted from 77c3474. The
+// deletions stay required here: this crate's `sweep_expired` performs
+// them, its choice of the recommended behaviour.
 //
 // - L559, §Chat `muteUntil`: "Muting expires at this time. Servers SHOULD
 //   clear `muted` and `muteUntil` automatically when the time passes."
@@ -2853,19 +2858,19 @@ mod threads {
 //   mailbox."
 // - L654, §Message `receivedAt`: "Authoritative for ordering and expiry
 //   calculations."
-// - L657, §Message `senderExpiresAt`: "servers MUST permanently delete
-//   this message — removing the row entirely, not leaving a tombstone —
-//   at or before this time. A hard-deleted message appears in the
-//   `destroyed` list of subsequent `Message/changes` responses, not
-//   `updated`."
-// - L660, §Message `burnOnRead`: "the receiving server MUST permanently
-//   hard-delete this message (row removal, not tombstone) immediately
-//   after setting `readAt`."
-// - L663, §Message `expiresAfterReadSeconds`: "the receiving server MUST
+// - 77c3474 L747, §Message `senderExpiresAt`: "servers SHOULD
+//   permanently delete this message — removing the row entirely, not
+//   leaving a tombstone — at or before this time. A hard-deleted message
+//   appears in the `destroyed` list of subsequent `Message/changes`
+//   responses, not `updated`."
+// - 77c3474 L750, §Message `burnOnRead`: "the receiving server SHOULD
 //   permanently hard-delete this message (row removal, not tombstone)
-//   this many seconds after setting `readAt`."
-// - L660 and L663, both rules: "Applies only to the receiving mailbox;
-//   the sender's own copy is not affected."
+//   immediately after setting `readAt`."
+// - 77c3474 L753, §Message `expiresAfterReadSeconds`: "the receiving
+//   server SHOULD permanently hard-delete this message (row removal, not
+//   tombstone) this many seconds after setting `readAt`."
+// - 77c3474 L750 and L753, both rules: "Applies only to the receiving
+//   mailbox; the sender's own copy is not affected."
 // - L941-942, §PresenceStatus `expiresAt`: "If set, the server SHOULD
 //   clear `statusText` and `statusEmoji` (setting them to null) at this
 //   time, and SHOULD reset `presence` to `"online"`."
@@ -2966,13 +2971,13 @@ mod expiry {
         resp["list"][0].clone()
     }
 
-    /// L657 (jmap-chat-spec 91672c9), §Message `senderExpiresAt`: "servers
-    /// MUST permanently delete this message — removing the row entirely,
+    /// L747 (jmap-chat-spec 77c3474), §Message `senderExpiresAt`: "servers
+    /// SHOULD permanently delete this message — removing the row entirely,
     /// not leaving a tombstone — at or before this time. A hard-deleted
     /// message appears in the `destroyed` list of subsequent
     /// `Message/changes` responses, not `updated`."
     ///
-    /// L657: deletion "at or before this time", and the id lands in
+    /// L747: deletion "at or before this time", and the id lands in
     /// `destroyed`, not `updated`.
     pub async fn sender_expires_at_hard_deletes_at_deadline<B: ConformanceBackend>(b: B) {
         setup(&b).await;
@@ -3048,11 +3053,11 @@ mod expiry {
         );
     }
 
-    /// L663 (jmap-chat-spec 91672c9), §Message `expiresAfterReadSeconds`:
-    /// "the receiving server MUST permanently hard-delete this message (row
+    /// L753 (jmap-chat-spec 77c3474), §Message `expiresAfterReadSeconds`:
+    /// "the receiving server SHOULD permanently hard-delete this message (row
     /// removal, not tombstone) this many seconds after setting `readAt`."
     ///
-    /// L663: deletion "this many seconds after setting `readAt`"; an unread
+    /// L753: deletion "this many seconds after setting `readAt`"; an unread
     /// message has no such deadline.
     pub async fn expires_after_read_seconds_counts_from_read_at<B: ConformanceBackend>(b: B) {
         setup(&b).await;
@@ -3077,11 +3082,12 @@ mod expiry {
         );
     }
 
-    /// L660 (jmap-chat-spec 91672c9), §Message `burnOnRead`: "the receiving
-    /// server MUST permanently hard-delete this message (row removal, not
+    /// L750 (jmap-chat-spec 77c3474), §Message `burnOnRead`: "the receiving
+    /// server SHOULD permanently hard-delete this message (row removal, not
     /// tombstone) immediately after setting `readAt`."
     ///
-    /// L660: a read `burnOnRead` message must not survive; the sweep deletes
+    /// L750: a read `burnOnRead` message must not survive (this crate
+    /// requires the recommended deletion); the sweep deletes
     /// one stored with `readAt` set.
     pub async fn read_burn_on_read_message_is_deleted<B: ConformanceBackend>(b: B) {
         setup(&b).await;
