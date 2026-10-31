@@ -2,11 +2,13 @@
   "id": "JMAP-5vzt",
   "title": "chat-server: refresh stale unreadCount spec quotes",
   "description": "jmap-chat-spec aa01dd7 (bead vz8p) landed: unreadCount candidates are messages after lastReadMessageId (all if absent), and which candidates count is implementation-defined; servers MAY exclude the owner's own messages; unreadReplyCount follows the same rule. Behavior of unread_count already matches. Update crate-jmap-chat-server/src/chat.rs unread_count doc comment (~L400), which calls vz8p 'pending', to cite the landed text; update the quoted old draft text ('all messages are counted as unread') in crate-jmap-chat-server/tests/expiry_sweep.rs (~L30). Comment-only; no test logic changes.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "chore",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-31T03:38:58.2368307Z",
   "created_by": "agent",
-  "updated_at": "2026-10-31T03:38:58.2368307Z"
+  "updated_at": "2026-10-31T04:33:05.17842374Z",
+  "closed_at": "2026-10-31T04:33:05.17842374Z",
+  "close_reason": "Batch 30: 7a0b9dd0 (5vzt), 8cd91c28 (5abn), 3754041a+8021f638 (7x4p); local CI all green at 8021f638 (6627 tests stable+beta)."
 }
