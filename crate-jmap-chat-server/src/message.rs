@@ -2208,6 +2208,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                         chat_id: m.chat_id,
                         message_id: m.id,
                         sender_msg_id: m.sender_msg_id,
+                        sender_id: m.sender_id,
                         read_at,
                         read_disposition,
                     })
@@ -2279,7 +2280,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
             // §Peer/receipt "Sender Behavior": "If the effective preference
-            // is `false`, the server MUST NOT invoke `Peer/receipt`". A
+            // is `false`, the server SHOULD NOT invoke `Peer/receipt`". A
             // burned Message was still read, so its receipt is reported.
             if let Some(event @ OutboundEvent::Receipt { chat_id, .. }) = &receipt
                 && shares_receipts(backend, caller, &account_id, chat_id).await

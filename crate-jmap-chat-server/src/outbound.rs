@@ -101,9 +101,10 @@ pub enum OutboundEvent {
     /// "SHOULD be present when the recipient's owner has read the
     /// message". Reported after the update is written, and only when the
     /// owner's effective receipt-sharing preference is `true`: "If the
-    /// effective preference is `false`, the server MUST NOT invoke
+    /// effective preference is `false`, the server SHOULD NOT invoke
     /// `Peer/receipt`" (§Peer/receipt "Sender Behavior"). The read fields
-    /// are carried here because a `burnOnRead` Message is gone once read.
+    /// and the sender are carried here because a `burnOnRead` Message is
+    /// gone once read.
     Receipt {
         /// The Chat that holds the Message.
         chat_id: Id,
@@ -112,6 +113,10 @@ pub enum OutboundEvent {
         message_id: Id,
         /// The Message's `senderMsgId` (`Peer/receipt` `senderMsgId`).
         sender_msg_id: Id,
+        /// The Message's `senderId`: the ChatContact id of its original
+        /// sender, whose identity is the `Peer/receipt` `recipientUserId`
+        /// ("the message's original sender").
+        sender_id: Id,
         /// `Peer/receipt` `readAt`.
         read_at: UTCDate,
         /// `Peer/receipt` `readDisposition`, as stored: `"displayed"` when

@@ -214,6 +214,7 @@ pub jmap_chat_server::OutboundEvent::Receipt::chat_id: jmap_types::id::Id
 pub jmap_chat_server::OutboundEvent::Receipt::message_id: jmap_types::id::Id
 pub jmap_chat_server::OutboundEvent::Receipt::read_at: jmap_types::id::UTCDate
 pub jmap_chat_server::OutboundEvent::Receipt::read_disposition: core::option::Option<jmap_chat_types::message::ReadDisposition>
+pub jmap_chat_server::OutboundEvent::Receipt::sender_id: jmap_types::id::Id
 pub jmap_chat_server::OutboundEvent::Receipt::sender_msg_id: jmap_types::id::Id
 pub jmap_chat_server::OutboundEvent::Retract
 pub jmap_chat_server::OutboundEvent::Retract::chat_id: jmap_types::id::Id
