@@ -204,6 +204,54 @@ signatures and contracts of the defaulted hooks.
 The read-side operations (`get_objects`, `get_state`, `get_changes`, `query_objects`,
 `query_changes`) are defined on the `JmapBackend` supertrait from `jmap-server`.
 
+## Testing a backend: the conformance suite
+
+The `testkit` feature ships the backend-agnostic tests that check a
+`ChatBackend` against draft-atwood-jmap-chat-00 and RFC 8620: state and
+change logs, PatchObject paths and `null` defaults, `/query` filters,
+sort and anchors, atomic `Space/join` and burn-on-read, `create_message`,
+ChatContact identity, thread counts, expiry sweeps, `unreadCount` and the
+ReadPosition lifecycle. Each test quotes its oracle in its rustdoc.
+
+A backend crate writes one `ConformanceBackend` impl and one macro line:
+
+```toml
+[dev-dependencies]
+jmap-chat-server = { version = "0.5", features = ["testkit"] }
+```
+
+```rust,ignore
+// tests/backend_conformance.rs
+use jmap_chat_server::testkit::ConformanceBackend;
+use jmap_chat_server::OutboundEvent;
+use jmap_types::Id;
+
+impl ConformanceBackend for MyBackend {
+    // The CallerCtx of a request made by the owner of `account_id`.
+    fn caller(&self, account_id: &Id) -> MyCallerCtx { /* ... */ }
+    // Provision an empty account.
+    async fn add_account(&self, account_id: &Id, owner_user_id: &str) { /* ... */ }
+    // Store a wire-JSON object exactly as given, under its `id`.
+    async fn seed(&self, account_id: &Id, type_name: &'static str, object: serde_json::Value) { /* ... */ }
+    // Drain enqueued OutboundEvents; `None` skips the event tests.
+    fn take_outbound_events(&self) -> Option<Vec<OutboundEvent>> { None }
+}
+
+jmap_chat_server::chat_backend_conformance!(MyBackend::new_for_test);
+```
+
+The macro emits one `#[test]` per suite test, each on a fresh backend from
+the constructor and on its own multi-thread tokio runtime, so the calling
+crate needs no tokio macros. Rust's orphan rule needs the impl in the
+crate that defines the backend (or a newtype around it), so a backend from
+another crate is wrapped. Tests whose assertion depends on a capability
+pass without running when the backend lacks it: the thread-count tests
+check `limits().supports_threads` (invoke the macro once per setting, in
+separate modules, to cover both), the exact `unreadCount` tests run only
+when `maintains_unread_count()` is `false`, and the event test runs only
+when `take_outbound_events` returns `Some`. `tests/backend_conformance.rs`
+in this crate runs the suite on `MemoryBackend`.
+
 ## Permission enforcement responsibilities
 
 The handlers in this crate do **no** caller-identity checking. Per the

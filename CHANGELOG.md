@@ -38,6 +38,16 @@ wire behaviour that a conforming peer can observe.
   the enqueue fails, which `Message/set` reports in `notCreated` (a
   `BackendSetError::Other` as `serverFail`). `MemoryBackend` overrides it
   to store the Message and record the event under one lock.
+- **jmap-chat-server**: the `testkit` feature adds a backend conformance
+  suite. `testkit::ConformanceBackend` is the seam a `ChatBackend` implements
+  for it (`caller`, `add_account`, `seed`, `take_outbound_events`); each
+  suite test is a `pub async fn` in `testkit`, generic over that trait, with
+  its draft-atwood-jmap-chat-00 or RFC 8620 oracle in its rustdoc; and
+  `chat_backend_conformance!(make)` emits one `#[test]` per suite test, run
+  on a multi-thread tokio runtime by `testkit::run`. Tests that depend on
+  `supportsThreads`, `maintains_unread_count` or an observable outbound
+  queue pass without running when the backend lacks them. `MemoryBackend`
+  implements `ConformanceBackend` when `test-helpers` is also enabled.
 
 ### Changed
 

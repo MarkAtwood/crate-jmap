@@ -59,6 +59,11 @@ pub fn jmap_chat_server::memory::MemoryBackend::space_extension_properties(&self
 pub fn jmap_chat_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub async fn jmap_chat_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
 pub fn jmap_chat_server::memory::MemoryBackend::validate_pinned_message_ids(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+impl jmap_chat_server::testkit::ConformanceBackend for jmap_chat_server::memory::MemoryBackend
+pub async fn jmap_chat_server::memory::MemoryBackend::add_account(&self, &jmap_types::id::Id, &str)
+pub fn jmap_chat_server::memory::MemoryBackend::caller(&self, &jmap_types::id::Id)
+pub async fn jmap_chat_server::memory::MemoryBackend::seed(&self, &jmap_types::id::Id, &'static str, serde_json::value::Value)
+pub fn jmap_chat_server::memory::MemoryBackend::take_outbound_events(&self) -> core::option::Option<alloc::vec::Vec<jmap_chat_server::OutboundEvent>>
 impl jmap_server::backend::JmapBackend for jmap_chat_server::memory::MemoryBackend
 pub type jmap_chat_server::memory::MemoryBackend::CallerCtx = ()
 pub type jmap_chat_server::memory::MemoryBackend::Error = jmap_chat_server::memory::MemoryError
@@ -106,6 +111,100 @@ pub async fn jmap_chat_server::message::handle_message_query<B: jmap_chat_server
 pub async fn jmap_chat_server::message::handle_message_query_changes<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_chat_server::message::handle_message_set<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_chat_server::message::store_server_message<B, F>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id, F) -> core::result::Result<jmap_chat_server::message::StoreOutcome, jmap_server::backend::BackendSetError<<B as jmap_server::backend::JmapBackend>::Error>> where B: jmap_chat_server::ChatBackend, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_chat_types::message::Message + core::marker::Send
+pub mod jmap_chat_server::testkit
+pub trait jmap_chat_server::testkit::ConformanceBackend: jmap_chat_server::ChatBackend
+pub fn jmap_chat_server::testkit::ConformanceBackend::add_account(&self, &jmap_types::id::Id, &str) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn jmap_chat_server::testkit::ConformanceBackend::caller(&self, &jmap_types::id::Id) -> Self::CallerCtx
+pub fn jmap_chat_server::testkit::ConformanceBackend::seed(&self, &jmap_types::id::Id, &'static str, serde_json::value::Value) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn jmap_chat_server::testkit::ConformanceBackend::take_outbound_events(&self) -> core::option::Option<alloc::vec::Vec<jmap_chat_server::OutboundEvent>>
+impl jmap_chat_server::testkit::ConformanceBackend for jmap_chat_server::memory::MemoryBackend
+pub async fn jmap_chat_server::memory::MemoryBackend::add_account(&self, &jmap_types::id::Id, &str)
+pub fn jmap_chat_server::memory::MemoryBackend::caller(&self, &jmap_types::id::Id)
+pub async fn jmap_chat_server::memory::MemoryBackend::seed(&self, &jmap_types::id::Id, &'static str, serde_json::value::Value)
+pub fn jmap_chat_server::memory::MemoryBackend::take_outbound_events(&self) -> core::option::Option<alloc::vec::Vec<jmap_chat_server::OutboundEvent>>
+pub async fn jmap_chat_server::testkit::absent_last_read_counts_every_message<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_absent_from_results_is_anchor_not_found<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_arguments_of_wrong_type_are_invalid_arguments<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_offset_before_start_clamps_to_zero<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_offset_without_anchor_is_ignored<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_overrides_position<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_with_negative_offset_starts_before_anchor<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_with_positive_offset_starts_after_anchor<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::anchor_without_offset_starts_at_anchor<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::chat_destroy_destroys_its_read_position<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::chat_muted_null_resets_to_false<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::chat_pinned_message_ids_null_resets_to_empty<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::chat_query_applies_filter_operators<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::chat_query_filters_kind_and_muted<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::chat_receipt_sharing_null_removes_override<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::chat_receive_typing_indicators_null_resets_to_true<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::client_last_read_at_is_rejected<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::compliance_11_1_unread_count_from_read_position<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::compliance_11_1_with_assigned_ids<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::concurrent_redemptions_increment_exactly_once<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_blocked_null_resets_to_false<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_create_by_identity_assigns_id<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_create_existing_identity_already_exists<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_create_other_properties_invalid_properties<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_create_without_identity_invalid_properties<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_query_filters_blocked_and_presence<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_query_identity_filter_matches_octet_for_octet<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::contact_query_sort_last_active_at_absent_sorts_last<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::counts_absent_without_supports_threads<K: jmap_chat_server::testkit::ConformanceBackend>(K)
+pub async fn jmap_chat_server::testkit::create_message_stores_and_reports_one_new_message<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::create_then_get<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::emoji_query_changes_applies_space_id_filter<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::emoji_query_filters_space_id<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::emoji_query_wrongly_typed_args_do_not_echo_value<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::exhausted_invite_is_refused_without_any_write<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::expires_after_read_seconds_counts_from_read_at<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::expiry_records_chat_unread_count_change<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::extreme_position_and_limit_saturate<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::invalid_read_at_patch_is_rejected_without_burning<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::is_contact_blocked_reads_chat_contact_blocked_field<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::is_contact_blocked_reads_only_the_owner_list<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::join_adds_member_and_counts_use_together<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::largest_position_is_empty_page_not_error<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_actions_null_resets_to_empty<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_broadcast_mentions_null_resets_to_empty<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_destroy_advances_chat_state<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_expiry_seconds_deletes_messages_older_than_policy<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_mentions_null_resets_to_empty<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_query_changes_refuses_text_filter<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_query_changes_requires_chat_id_or_has_mention<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_query_filters_has_attachment_both_ways<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_query_filters_topic_id<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_query_has_mention_false_excludes_mentions<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::message_reactions_null_resets_to_empty<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::mute_until_clears_muted_and_mute_until<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::path_depth_counts_toward_nesting_cap<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::path_key_updates_nested_member<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::path_through_absent_parent_is_invalid_patch<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::prefix_conflict_is_invalid_patch<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::presence_expires_at_resets_status<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::presence_null_resets_to_online<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::presence_receipt_sharing_null_resets_to_true<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::read_burn_on_read_message_is_deleted<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::read_position_set_advances_chat_state<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::read_position_set_updates_last_read_at<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::read_position_update_lists_thread_root_updated<K: jmap_chat_server::testkit::ConformanceBackend>(K)
+pub async fn jmap_chat_server::testkit::read_rules_spare_the_senders_own_copy<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::remove_channels_destroys_their_read_positions<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::reply_counts_match_fixture<K: jmap_chat_server::testkit::ConformanceBackend>(K)
+pub async fn jmap_chat_server::testkit::reply_create_lists_parent_updated<K: jmap_chat_server::testkit::ConformanceBackend>(K)
+pub async fn jmap_chat_server::testkit::reply_destroy_lists_parent_updated<K: jmap_chat_server::testkit::ConformanceBackend>(K)
+pub fn jmap_chat_server::testkit::run<F: core::future::future::Future>(F) -> <F as core::future::future::Future>::Output
+pub async fn jmap_chat_server::testkit::sender_expires_at_hard_deletes_at_deadline<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::space_destroy_destroys_channel_read_positions<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::space_join_creates_read_positions_for_its_channels<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::space_query_filters_name_substring<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::space_query_sort_ascending_orders_by_property<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::space_query_sort_descending_reverses_order<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::state_advances_after_create<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::top_level_object_value_replaces_property<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::unread_count_in_full_get<B: jmap_chat_server::testkit::ConformanceBackend>(B)
+pub async fn jmap_chat_server::testkit::unread_reply_count_without_read_position<K: jmap_chat_server::testkit::ConformanceBackend>(K)
+pub macro jmap_chat_server::chat_backend_conformance!
 #[non_exhaustive] pub enum jmap_chat_server::DidAuthRejection
 pub jmap_chat_server::DidAuthRejection::DocumentIdMismatch
 pub jmap_chat_server::DidAuthRejection::KeyNotBound
