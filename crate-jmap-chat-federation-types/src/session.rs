@@ -77,8 +77,10 @@ impl FederationSession {
     /// # Errors
     ///
     /// A [`serde_json::Error`] when `peerSigningKeys` is absent or not an
-    /// array, or `ownerUserId` or `ownerDirectAddress` is present and not
-    /// a string.
+    /// array, or `ownerUserId` or `ownerDirectAddress` is present and
+    /// neither a string nor `null`. An absent or `null` `ownerUserId`
+    /// means no owner, as for a server that hosts several mailboxes
+    /// (fed c08568e L396).
     pub fn from_session_extra(extra: &Map<String, Value>) -> Result<Self, serde_json::Error> {
         let pick = |k: &str| extra.get(k).map(|v| (k.to_owned(), v.clone()));
         let fields: Map<String, Value> = ["ownerUserId", "peerSigningKeys", "ownerDirectAddress"]

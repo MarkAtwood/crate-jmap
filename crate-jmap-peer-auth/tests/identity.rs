@@ -138,7 +138,7 @@ fn host_less_identities() {
 /// peer `a.example`, "`senderUserId` `alice@A.Example` and then
 /// `carol@a.example`, two users of one peer domain. Verify both succeed.
 /// Send one with `senderUserId: "bob@b.example"`. Verify `forbidden`".
-/// fed c08568e L334: "Hosts are compared as peer domains are."
+/// fed c08568e L335: "Hosts are compared as peer domains are."
 #[test]
 fn compliance_7_16_users_of_one_peer_domain() {
     let a = domain("a.example");
