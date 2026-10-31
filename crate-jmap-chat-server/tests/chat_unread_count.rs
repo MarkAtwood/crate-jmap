@@ -31,17 +31,24 @@
 //! - RFC 8620 §5.2: `updated` lists "the ids for records that have been
 //!   updated since the old state", so `Chat/changes` names the Chat
 //!   whose `unreadCount` moved.
+//! - jmap-chat-spec bead jmap-chat-spec-vz8p (Mark, 2026-10-30): which
+//!   messages count toward `unreadCount` is implementation-defined, and
+//!   this server excludes Messages whose `senderId` is the accountId (the
+//!   owner's own). The seeded Messages below come from `OTHER_SENDER` so
+//!   the L629 counts apply to them unchanged.
 
 mod common;
 
 use common::{ACCOUNT_ID, MemoryBackend, SPACE_ID};
-use jmap_chat_server::message::handle_message_set;
+use jmap_chat_server::message::{StoreOutcome, handle_message_set, store_server_message};
 use jmap_chat_server::{
     handle_chat_changes, handle_chat_get, handle_chat_set, handle_position_changes,
     handle_position_get, handle_position_set, handle_space_join, handle_space_set,
+    owner_unread_count,
 };
+use jmap_chat_types::{DeliveryState, Message};
 use jmap_server::HandlerOutput;
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 use serde_json::{Value, json};
 
 // Hand-picked ULIDs (Crockford base32, 26 chars) in ascending order:
@@ -52,6 +59,10 @@ const M3: &str = "01J0000000000000000000000C";
 const M4: &str = "01J0000000000000000000000D";
 const M5: &str = "01J0000000000000000000000E";
 const OTHER_MSG: &str = "01J0000000000000000000000F";
+
+/// A ChatContact other than the owner; the owner's own Messages carry the
+/// accountId as `senderId`.
+const OTHER_SENDER: &str = "contact-bob";
 
 const SEEDED_READ_AT: &str = "2000-01-01T00:00:00Z";
 const OTHER_SPACE_ID: &str = "space2";
@@ -83,6 +94,10 @@ fn seed_group(backend: &MemoryBackend, id: &str) {
 }
 
 fn seed_message(backend: &MemoryBackend, id: &str, chat_id: &str) {
+    seed_message_from(backend, OTHER_SENDER, id, chat_id);
+}
+
+fn seed_message_from(backend: &MemoryBackend, sender_id: &str, id: &str, chat_id: &str) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -90,7 +105,7 @@ fn seed_message(backend: &MemoryBackend, id: &str, chat_id: &str) {
         json!({
             "id": id,
             "senderMsgId": id,
-            "senderId": ACCOUNT_ID,
+            "senderId": sender_id,
             "chatId": chat_id,
             "body": "x",
             "bodyType": "text/plain",
@@ -232,19 +247,38 @@ async fn compliance_11_1_with_assigned_ids() {
     seed_group(&backend, "s");
     seed_position(&backend, "rp-s", "s");
 
+    // Received from OTHER_SENDER: the owner's own Messages are not counted
+    // (jmap-chat-spec-vz8p), and `store_server_message` has the backend
+    // assign each id as `Message/set` does.
     let mut sent = Vec::new();
-    for _ in 0..5 {
-        let resp = message_set(
+    for n in 0..5 {
+        let smid = Id::from(format!("smid-{n}"));
+        let outcome = store_server_message(
             &backend,
-            json!({ "create": { "m": {
-                "chatId": "s",
-                "body": "hi",
-                "bodyType": "text/plain",
-                "sentAt": "2026-01-01T00:00:00Z",
-            } } }),
+            &(),
+            &Id::from(ACCOUNT_ID),
+            &Id::from("s"),
+            &smid,
+            |id: &Id| {
+                Message::new(
+                    id.clone(),
+                    Id::from("unused"),
+                    Id::from(OTHER_SENDER),
+                    Id::from("unused"),
+                    "hi",
+                    "text/plain",
+                    UTCDate::from("2026-01-01T00:00:00Z"),
+                    UTCDate::from("2026-01-01T00:00:00Z"),
+                    DeliveryState::Delivered,
+                )
+            },
         )
-        .await;
-        let id = resp["created"]["m"]["id"].as_str().expect("created id");
+        .await
+        .expect("store_server_message");
+        let StoreOutcome::Stored(id) = outcome else {
+            panic!("message {n} reported as a duplicate");
+        };
+        let id = id.as_ref();
         assert_eq!(id.len(), 26, "{id}");
         assert!(id.chars().all(|c| CROCKFORD.contains(c)), "{id}");
         sent.push(id.to_owned());
@@ -551,8 +585,10 @@ async fn message_destroy_advances_chat_state() {
     );
 }
 
-/// A new Message in a Chat raises its `unreadCount` (L629), so
-/// `Chat/changes` reports that Chat (RFC 8620 §5.2).
+/// A Message the owner sends is not counted (jmap-chat-spec-vz8p), so
+/// `h` keeps its one unread Message from OTHER_SENDER; the create still
+/// rewrites the Chat's derived count, so `Chat/changes` reports that Chat
+/// (RFC 8620 §5.2).
 #[tokio::test]
 async fn message_create_advances_chat_state() {
     let backend = MemoryBackend::new();
@@ -571,7 +607,7 @@ async fn message_create_advances_chat_state() {
     .await;
     assert!(resp["created"].get("m").is_some(), "{resp}");
 
-    assert_eq!(unread_of(&backend, "h").await, 2);
+    assert_eq!(unread_of(&backend, "h").await, 1);
     assert_eq!(
         chats_updated_since(&backend, &since).await,
         vec![json!("h")]
@@ -612,4 +648,77 @@ async fn backend_maintained_unread_count_is_not_recomputed() {
         chats_updated_since(&backend, &since).await,
         Vec::<Value>::new()
     );
+}
+
+// Mixed-sender Chat `x` (jmap-chat-spec-vz8p): Messages whose `senderId`
+// is the accountId are the owner's and are never counted. In id order:
+// X1 other, X2 owner, X3 other, X4 owner, X5 other, X6 owner, X7 other.
+const X1: &str = "01J00000000000000000000011";
+const X2: &str = "01J00000000000000000000012";
+const X3: &str = "01J00000000000000000000013";
+const X4: &str = "01J00000000000000000000014";
+const X5: &str = "01J00000000000000000000015";
+const X6: &str = "01J00000000000000000000016";
+const X7: &str = "01J00000000000000000000017";
+
+fn seed_mixed(backend: &MemoryBackend) {
+    backend.register_account(&Id::from(ACCOUNT_ID));
+    seed_group(backend, "x");
+    for (id, sender) in [
+        (X1, OTHER_SENDER),
+        (X2, ACCOUNT_ID),
+        (X3, OTHER_SENDER),
+        (X4, ACCOUNT_ID),
+        (X5, OTHER_SENDER),
+        (X6, ACCOUNT_ID),
+        (X7, OTHER_SENDER),
+    ] {
+        seed_message_from(backend, sender, id, "x");
+    }
+    seed_position(backend, "rp-x", "x");
+}
+
+/// Hand count with no `lastReadMessageId`: the 4 Messages from
+/// OTHER_SENDER (X1, X3, X5, X7) count; the owner's 3 do not.
+#[tokio::test]
+async fn owner_messages_not_counted_without_last_read() {
+    let backend = MemoryBackend::new();
+    seed_mixed(&backend);
+    assert_eq!(unread_of(&backend, "x").await, 4);
+}
+
+/// Hand count after `lastReadMessageId` X2: X3..X7 sort after it, 3 from
+/// OTHER_SENDER (X3, X5, X7) and 2 from the owner (X4, X6), so 3.
+#[tokio::test]
+async fn owner_messages_not_counted_after_last_read() {
+    let backend = MemoryBackend::new();
+    seed_mixed(&backend);
+    set_last_read(&backend, "rp-x", json!({ "lastReadMessageId": X2 })).await;
+    assert_eq!(unread_of(&backend, "x").await, 3);
+}
+
+/// The count the kit writes to the stored Chat on a ReadPosition update
+/// follows the same rule: once the backend reports its stored value
+/// (`maintains_unread_count`), `Chat/get` still returns 3 (X3, X5, X7).
+#[tokio::test]
+async fn stored_unread_count_excludes_owner_messages() {
+    let backend = MemoryBackend::new();
+    seed_mixed(&backend);
+    set_last_read(&backend, "rp-x", json!({ "lastReadMessageId": X2 })).await;
+    backend.set_maintains_unread_count_for_test(true);
+    assert_eq!(unread_of(&backend, "x").await, 3);
+}
+
+/// The push badge total (draft-atwood-jmap-chat-push-00 §ChatMessagePush
+/// `unreadCount`) sums the same per-Chat count: `x` is the only Chat and
+/// has 3 (X3, X5, X7).
+#[tokio::test]
+async fn push_badge_excludes_owner_messages() {
+    let backend = MemoryBackend::new();
+    seed_mixed(&backend);
+    set_last_read(&backend, "rp-x", json!({ "lastReadMessageId": X2 })).await;
+    let total = owner_unread_count(&backend, &(), &Id::from(ACCOUNT_ID))
+        .await
+        .expect("owner_unread_count");
+    assert_eq!(total, 3);
 }

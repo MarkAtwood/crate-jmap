@@ -31,6 +31,10 @@
 //!   SetError".
 //! - L1506: "A thread is the set of Messages sharing a common
 //!   `threadRootId`."
+//! - jmap-chat-spec bead jmap-chat-spec-vz8p (Mark, 2026-10-30): which
+//!   messages count as unread is implementation-defined, and this server
+//!   does not count replies whose `senderId` is the accountId (the
+//!   owner's own). The fixture Messages come from `OTHER_SENDER`.
 
 mod common;
 
@@ -48,6 +52,12 @@ const A: &str = "01J0000000000000000000000B";
 const B: &str = "01J0000000000000000000000C";
 const C: &str = "01J0000000000000000000000D";
 const OTHER_CHAT_MSG: &str = "01J0000000000000000000000E";
+/// A reply to ROOT sent by the owner, sorting after every fixture id.
+const OWN_REPLY: &str = "01J0000000000000000000000F";
+
+/// A ChatContact other than the owner; the owner's own Messages carry the
+/// accountId as `senderId`.
+const OTHER_SENDER: &str = "contact-bob";
 
 async fn create_group(backend: &MemoryBackend) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
@@ -76,10 +86,21 @@ fn seed_message(
     reply_to: Option<&str>,
     root: Option<&str>,
 ) {
+    seed_message_from(backend, OTHER_SENDER, id, chat_id, reply_to, root);
+}
+
+fn seed_message_from(
+    backend: &MemoryBackend,
+    sender_id: &str,
+    id: &str,
+    chat_id: &str,
+    reply_to: Option<&str>,
+    root: Option<&str>,
+) {
     let mut msg = json!({
         "id": id,
         "senderMsgId": id,
-        "senderId": ACCOUNT_ID,
+        "senderId": sender_id,
         "chatId": chat_id,
         "body": "x",
         "bodyType": "text/plain",
@@ -450,4 +471,94 @@ async fn read_position_update_lists_thread_root_updated() {
     assert_eq!(changes["updated"], json!([ROOT]), "{changes}");
     assert_eq!(changes["created"], json!([]), "{changes}");
     assert_eq!(changes["destroyed"], json!([]), "{changes}");
+}
+
+/// Fixture plus OWN_REPLY to ROOT from the owner. Hand count for ROOT:
+/// replies A, C and OWN_REPLY -> replyCount 3; after lastReadMessageId A
+/// come C and OWN_REPLY, and the owner's reply is not counted
+/// (jmap-chat-spec-vz8p) -> unreadReplyCount 1.
+#[tokio::test]
+async fn unread_reply_count_excludes_owner_replies() {
+    let backend = common::account_backend();
+    let (chat, _) = fixture(&backend).await;
+    seed_message_from(
+        &backend,
+        ACCOUNT_ID,
+        OWN_REPLY,
+        &chat,
+        Some(ROOT),
+        Some(ROOT),
+    );
+    threads_on(&backend);
+    let list = get(&backend, &[ROOT]).await;
+    assert_eq!(list[0]["replyCount"], 3, "{list:?}");
+    assert_eq!(list[0]["unreadReplyCount"], 1, "{list:?}");
+}
+
+/// Same, with no `lastReadMessageId`: of ROOT's replies A, C and
+/// OWN_REPLY, only the two from OTHER_SENDER count -> 2.
+#[tokio::test]
+async fn unread_reply_count_excludes_owner_replies_without_read_position() {
+    let backend = common::account_backend();
+    let (chat, _) = fixture(&backend).await;
+    seed_message_from(
+        &backend,
+        ACCOUNT_ID,
+        OWN_REPLY,
+        &chat,
+        Some(ROOT),
+        Some(ROOT),
+    );
+    backend.insert_object_for_test(
+        "ReadPosition",
+        ACCOUNT_ID,
+        "rp1",
+        json!({ "id": "rp1", "chatId": chat }),
+    );
+    threads_on(&backend);
+    let list = get(&backend, &[ROOT]).await;
+    assert_eq!(list[0]["unreadReplyCount"], 2, "{list:?}");
+}
+
+/// Moving `lastReadMessageId` from C to OWN_REPLY crosses only the
+/// owner's reply, which is never counted, so ROOT's `unreadReplyCount`
+/// stays 0 and `Message/changes` lists nothing as updated (RFC 8620
+/// §5.2 `updated`: records "updated since the old state").
+#[tokio::test]
+async fn read_past_owner_reply_leaves_root_unchanged() {
+    let backend = common::account_backend();
+    let (chat, _) = fixture(&backend).await;
+    seed_message_from(
+        &backend,
+        ACCOUNT_ID,
+        OWN_REPLY,
+        &chat,
+        Some(ROOT),
+        Some(ROOT),
+    );
+    threads_on(&backend);
+    for last_read in [C, OWN_REPLY] {
+        let since = message_state(&backend).await;
+        let HandlerOutput { primary: resp, .. } = handle_position_set(
+            &backend,
+            &(),
+            &std::collections::BTreeMap::new(),
+            json!({
+                "accountId": ACCOUNT_ID,
+                "update": { "rp1": { "lastReadMessageId": last_read } },
+            }),
+        )
+        .await
+        .expect("ReadPosition/set");
+        assert!(resp["updated"].get("rp1").is_some(), "{resp}");
+        let changes = message_changes(&backend, &since).await;
+        let expected = if last_read == C {
+            json!([ROOT])
+        } else {
+            json!([])
+        };
+        assert_eq!(changes["updated"], expected, "{last_read}: {changes}");
+    }
+    let list = get(&backend, &[ROOT]).await;
+    assert_eq!(list[0]["unreadReplyCount"], 0, "{list:?}");
 }

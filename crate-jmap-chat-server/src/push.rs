@@ -448,7 +448,9 @@ pub async fn owner_unread_count<B: ChatBackend>(
         .iter()
         .filter(|chat| !chat_muted(chat))
         .map(|chat| match &derived {
-            Some((messages, positions)) => unread_count(messages, positions, chat.id.as_ref()),
+            Some((messages, positions)) => {
+                unread_count(messages, positions, account_id, chat.id.as_ref())
+            }
             None => chat.unread_count,
         })
         .fold(0, u64::saturating_add))
