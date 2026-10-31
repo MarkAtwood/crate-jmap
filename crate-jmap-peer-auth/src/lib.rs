@@ -34,7 +34,7 @@
 //! - [`usable_keys`] and [`DnssecAnswer`] — the DNSSEC precedence rule
 //!   (§DNSSEC Key Binding).
 //! - [`bind_identity`] — the identity-host binding rule (§Identity
-//!   Binding).
+//!   Binding), and [`identity_host`], the host it compares.
 //! - [`PeerDomain`] — a peer domain in its compared form: lowercase
 //!   A-label, no trailing dot, no port.
 //! - [`fetch_address_allowed`] — the address rule of §Blob Fetch and SSRF
@@ -80,7 +80,7 @@ mod ssrf;
 
 pub use domain::{InvalidPeerDomain, PeerDomain};
 pub use ed25519_dalek;
-pub use identity::{IdentityBinding, bind_identity};
+pub use identity::{IdentityBinding, IdentityHost, bind_identity, identity_host};
 pub use keys::{DnssecAnswer, PeerSigningKey, usable_keys};
 pub use signature::{
     Accepted, CLOCK_SKEW_SECS, MAX_LIFETIME_SECS, REPLAY_MARGIN_SECS, Rejection, Request,

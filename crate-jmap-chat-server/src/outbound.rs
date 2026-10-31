@@ -11,6 +11,10 @@
 //! draft-atwood-jmap-chat-federation-00 and implemented outside this
 //! crate. These events carry local ids (ChatContact ids, Message ids);
 //! the federation layer maps them to identity strings and sends them.
+//! Each `Peer/*` call names its recipient, the owner of the receiving
+//! mailbox, by identity in `recipientUserId`, and goes to the peer domain
+//! that is the host of that identity (draft-atwood-jmap-chat-federation-00
+//! §Server-to-Server Methods, jmap-chat-spec b1cd625 L404).
 //!
 //! An event carries only what the stored records cannot tell the backend
 //! afterwards: which members a change added, removed or re-roled, and who
@@ -137,12 +141,17 @@ pub enum OutboundEvent {
         typing: bool,
     },
     /// The owner changed `presence`, `statusText` or `statusEmoji`.
-    /// draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence: the
-    /// server "MAY push subsequent `Peer/presence` calls to the subscriber
-    /// whenever the owner's presence, `statusText`, or `statusEmoji`
-    /// changes". Reported after a `PresenceStatus/set` update that names
-    /// any of the three is written; the payload is read from the stored
-    /// PresenceStatus, and the subscribers are the backend's.
+    /// draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence
+    /// (jmap-chat-spec b1cd625 L1049): the server "MAY push subsequent
+    /// `Peer/presence` calls to the subscriber whenever the subscribed
+    /// user's presence, `statusText`, or `statusEmoji` changes; each
+    /// carries the subscribed user's identity in `identity` and the
+    /// `subscriberId` in `recipientUserId`". Here the subscribed user is
+    /// the owner, so each push sends the owner's `ownerUserId` as
+    /// `identity` and one subscriber as `recipientUserId`. Reported after a
+    /// `PresenceStatus/set` update that names any of the three is written;
+    /// the payload is read from the stored PresenceStatus, and the
+    /// subscribers are the backend's.
     Presence,
 }
 

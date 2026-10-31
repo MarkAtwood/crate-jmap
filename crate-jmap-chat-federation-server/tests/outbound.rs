@@ -7,12 +7,14 @@ mod common;
 
 use common::*;
 use jmap_chat_federation_server::{
-    DeliveryFailure, OutboundError, SenderIdentities, aggregate_delivery_state, is_transient,
-    other_participants, outbound_reference, peer_group_update_args,
+    DeliveryFailure, OutboundError, PeerBatch, PeerDestination, SenderIdentities,
+    aggregate_delivery_state, is_transient, other_participants, outbound_reference, peer_batches,
+    peer_group_update_args,
 };
 use jmap_chat_federation_types::PeerAvatar;
 use jmap_chat_server::GroupUpdateAction;
 use jmap_chat_types::{Chat, ChatContact, ChatMember, DeliveryState, MessageAction, Space};
+use jmap_peer_auth::PeerDomain;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
@@ -417,4 +419,107 @@ fn retry_classifier_follows_error_handling() {
     assert!(is_transient(DeliveryFailure::HttpStatus(599)));
     assert!(!is_transient(DeliveryFailure::HttpStatus(400)));
     assert!(is_transient(DeliveryFailure::NoResponse));
+}
+
+// Peer batching: fed b1cd625 L404, "The sending server sends the call to
+// the peer domain that is the host of `recipientUserId`, as
+// {{identity-binding}} defines the host of an identity; how it finds the
+// server for an identity that has no host is not defined by this
+// document." L406: calls "for several mailboxes on one peer domain ... MAY
+// send them in one request, one method call per recipient". L335: "Hosts
+// are compared as peer domains are", and a peer domain "is compared in
+// lowercase A-label form".
+
+const DAVE: &str = "dave@peer.example";
+const DAVE_ID: &str = "contact-dave";
+const KEY: &str = "did:key:z6MkhaXgBZDvotDkL5257faiztiGiC2QtKLGpbnnEGta2doK";
+const KEY_ID: &str = "contact-key";
+const KEY_SERVER: &str = "https://keyhost.example/jmap/";
+
+fn batch_contacts(extra: &[Value]) -> Vec<ChatContact> {
+    [contact(BOB_ID, BOB, false), contact(CAROL_ID, CAROL, false)]
+        .into_iter()
+        .chain(extra.iter().cloned())
+        .map(|c| serde_json::from_value(c).expect("contact fixture"))
+        .collect()
+}
+
+fn ids(list: &[&str]) -> Vec<Id> {
+    list.iter().copied().map(Id::from).collect()
+}
+
+fn to_domain(name: &str) -> PeerDestination {
+    PeerDestination::Domain(PeerDomain::parse(name).expect("domain"))
+}
+
+fn batch(destination: PeerDestination, recipients: &[(&str, &str)]) -> PeerBatch {
+    PeerBatch {
+        destination,
+        recipients: recipients
+            .iter()
+            .map(|(id, identity)| (Id::from(*id), (*identity).to_owned()))
+            .collect(),
+    }
+}
+
+#[test]
+fn recipients_on_two_hosts_give_two_batches() {
+    let contacts = batch_contacts(&[]);
+    assert_eq!(
+        peer_batches(&contacts, &ids(&[CAROL_ID, BOB_ID])).expect("batches"),
+        vec![
+            batch(to_domain("other.example"), &[(CAROL_ID, CAROL)]),
+            batch(to_domain("peer.example"), &[(BOB_ID, BOB)]),
+        ]
+    );
+}
+
+#[test]
+fn recipients_on_one_host_share_a_batch() {
+    let contacts = batch_contacts(&[contact(DAVE_ID, DAVE, false)]);
+    assert_eq!(
+        peer_batches(&contacts, &ids(&[DAVE_ID, CAROL_ID, BOB_ID])).expect("batches"),
+        vec![
+            batch(to_domain("peer.example"), &[(DAVE_ID, DAVE), (BOB_ID, BOB)]),
+            batch(to_domain("other.example"), &[(CAROL_ID, CAROL)]),
+        ]
+    );
+}
+
+#[test]
+fn hosts_differing_in_case_share_a_batch() {
+    let contacts = batch_contacts(&[contact(DAVE_ID, "dave@PEER.Example", false)]);
+    assert_eq!(
+        peer_batches(&contacts, &ids(&[BOB_ID, DAVE_ID])).expect("batches"),
+        vec![batch(
+            to_domain("peer.example"),
+            &[(BOB_ID, BOB), (DAVE_ID, "dave@PEER.Example")]
+        )]
+    );
+}
+
+#[test]
+fn host_less_recipient_goes_to_its_server_url() {
+    let mut key = contact(KEY_ID, KEY, false);
+    key["serverUrl"] = json!(KEY_SERVER);
+    let contacts = batch_contacts(&[key]);
+    assert_eq!(
+        peer_batches(&contacts, &ids(&[KEY_ID, BOB_ID])).expect("batches"),
+        vec![
+            batch(
+                PeerDestination::ServerUrl(KEY_SERVER.to_owned()),
+                &[(KEY_ID, KEY)]
+            ),
+            batch(to_domain("peer.example"), &[(BOB_ID, BOB)]),
+        ]
+    );
+}
+
+#[test]
+fn host_less_recipient_without_server_url_is_an_error() {
+    let contacts = batch_contacts(&[contact(KEY_ID, KEY, false)]);
+    assert_eq!(
+        peer_batches(&contacts, &ids(&[BOB_ID, KEY_ID])),
+        Err(OutboundError::NoServerUrl(Id::from(KEY_ID)))
+    );
 }

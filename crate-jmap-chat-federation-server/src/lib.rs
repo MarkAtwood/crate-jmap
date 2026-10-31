@@ -62,6 +62,10 @@
 //! [`other_participants`] (§Peer/retract "Sender Behavior"). For a group
 //! change, [`peer_group_update_args`] builds the `Peer/groupUpdate` arguments,
 //! mapping local ids to identity strings through [`SenderIdentities`].
+//! Every call names its recipient's identity in `recipientUserId`, and
+//! [`peer_batches`] groups the recipients by the server each call goes
+//! to: the peer domain that hosts the identity, or for a host-less
+//! identity the ChatContact's `serverUrl`.
 //! [`is_transient`] classifies a failed call for retry ([`DeliveryFailure`],
 //! §Retry and Backoff), and [`aggregate_delivery_state`] combines the
 //! recipients' states into the Message's `deliveryState` (§Delivery State
@@ -141,8 +145,9 @@ mod typing;
 pub use deliver::{AuthenticatedPeer, FederationBackend, FetchedBlob, handle_peer_deliver};
 pub use group_update::handle_peer_group_update;
 pub use outbound::{
-    DeliveryFailure, OutboundError, SenderIdentities, aggregate_delivery_state, is_transient,
-    other_participants, outbound_reference, peer_group_update_args,
+    DeliveryFailure, OutboundError, PeerBatch, PeerDestination, SenderIdentities,
+    aggregate_delivery_state, is_transient, other_participants, outbound_reference, peer_batches,
+    peer_group_update_args,
 };
 pub use presence::{
     FederationPresenceBackend, handle_peer_presence, handle_peer_subscribe_presence,
@@ -173,6 +178,11 @@ pub trait FederationCaller {
     /// `true` when the caller is authenticated as a peer server and
     /// operates against an account whose `urn:ietf:params:jmap:chat`
     /// capability has `role: "peer"` (§Account-Level Capability).
+    ///
+    /// A peer's Session has exactly one account, that peer-role account,
+    /// "however many mailboxes the local server hosts: Peer/* calls name
+    /// their mailbox by its owner's identity, not by account"
+    /// (§Peer Authentication Model, fed b1cd625 L194).
     ///
     /// `false` for every other caller, including one whose account has a
     /// role value this crate does not know.

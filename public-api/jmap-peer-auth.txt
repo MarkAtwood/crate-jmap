@@ -29,6 +29,19 @@ impl core::fmt::Debug for jmap_peer_auth::IdentityBinding
 pub fn jmap_peer_auth::IdentityBinding::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::Copy for jmap_peer_auth::IdentityBinding
 impl core::marker::StructuralPartialEq for jmap_peer_auth::IdentityBinding
+#[non_exhaustive] pub enum jmap_peer_auth::IdentityHost
+pub jmap_peer_auth::IdentityHost::Domain(jmap_peer_auth::PeerDomain)
+pub jmap_peer_auth::IdentityHost::HostlessDid
+pub jmap_peer_auth::IdentityHost::NoHost
+pub jmap_peer_auth::IdentityHost::NotDomain
+impl core::clone::Clone for jmap_peer_auth::IdentityHost
+pub fn jmap_peer_auth::IdentityHost::clone(&self) -> jmap_peer_auth::IdentityHost
+impl core::cmp::Eq for jmap_peer_auth::IdentityHost
+impl core::cmp::PartialEq for jmap_peer_auth::IdentityHost
+pub fn jmap_peer_auth::IdentityHost::eq(&self, &jmap_peer_auth::IdentityHost) -> bool
+impl core::fmt::Debug for jmap_peer_auth::IdentityHost
+pub fn jmap_peer_auth::IdentityHost::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_peer_auth::IdentityHost
 #[non_exhaustive] pub enum jmap_peer_auth::Rejection
 pub jmap_peer_auth::Rejection::BadSignature
 pub jmap_peer_auth::Rejection::ContentDigestMismatch
@@ -173,5 +186,6 @@ pub const jmap_peer_auth::REPLAY_MARGIN_SECS: u64
 pub const jmap_peer_auth::SIGNATURE_TAG: &str
 pub fn jmap_peer_auth::bind_identity(&str, &jmap_peer_auth::PeerDomain) -> jmap_peer_auth::IdentityBinding
 pub fn jmap_peer_auth::fetch_address_allowed(core::net::ip_addr::IpAddr) -> bool
+pub fn jmap_peer_auth::identity_host(&str) -> jmap_peer_auth::IdentityHost
 pub fn jmap_peer_auth::sign(&ed25519_dalek::signing::SigningKey, &jmap_peer_auth::PeerDomain, &http::method::Method, &str, &[u8], std::time::SystemTime) -> core::result::Result<jmap_peer_auth::SignatureHeaders, jmap_peer_auth::SignError>
 pub fn jmap_peer_auth::usable_keys(&serde_json::value::Value, &jmap_peer_auth::DnssecAnswer) -> core::result::Result<alloc::vec::Vec<jmap_peer_auth::PeerSigningKey>, jmap_peer_auth::Rejection>
