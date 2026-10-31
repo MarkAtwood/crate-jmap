@@ -1,13 +1,17 @@
 {
+  "id": "JMAP-1rwf",
+  "title": "Review: crate-jmap-calendars-types since 9c0d34f",
+  "notes": "Maintainer risk: LOW — code is consistent with sibling type crates, follows the workspace extras-preservation policy with full test coverage, and the only structural concerns (PER_USER list drift, wide jscalendar module alias) are documented and have clear future-fix paths.\nConfidence: 15% chance of missed bug. Least confident flag: the icalComponent vs iCalComponent probe (JMAP-1rwf.3) — serde flatten + rename interaction is subtle enough that I cannot rule out the leak by reading alone. Uncertainty driven by: read-only review constraint (no permission to write the probe test) and the fact that no test currently exercises the lowercase 'icalComponent' wire spelling. Would raise confidence if: I could run a 5-line probe asserting that 'icalComponent' fails to round-trip into the typed ical_component field.\nbd-review-loop: iter=1 verdict=question_tool_invoked failures=1 history=; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=2 verdict=genuine_convergence failures=0 history=iter=1 p012=1 total=1 opinion=0 fails=0; iter=2 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "epic",
   "assignee": "Mark Atwood",
-  "compaction_level": 0,
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-15T05:14:36Z",
   "created_by": "Mark Atwood",
-  "ephemeral": false,
-  "id": "JMAP-1rwf",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "epic",
+  "updated_at": "2026-10-31T05:10:31.521216586Z",
+  "closed_at": "2026-10-31T05:10:31.521216586Z",
+  "close_reason": "Cleanup 2026-10-31: every child bead is closed; epic left in_progress by a 2026-05/06 session.",
   "metadata": {
     "dispatcher": "bd-review-loop",
     "dispatcher_run": "bd-review-loop-20260518T032832Z-153539",
@@ -18,14 +22,5 @@
     "model": "anthropic/claude-opus-4-7",
     "scope": "crate-jmap-calendars-types since 9c0d34f",
     "variant": "max"
-  },
-  "no_history": false,
-  "notes": "Maintainer risk: LOW — code is consistent with sibling type crates, follows the workspace extras-preservation policy with full test coverage, and the only structural concerns (PER_USER list drift, wide jscalendar module alias) are documented and have clear future-fix paths.\nConfidence: 15% chance of missed bug. Least confident flag: the icalComponent vs iCalComponent probe (JMAP-1rwf.3) — serde flatten + rename interaction is subtle enough that I cannot rule out the leak by reading alone. Uncertainty driven by: read-only review constraint (no permission to write the probe test) and the fact that no test currently exercises the lowercase 'icalComponent' wire spelling. Would raise confidence if: I could run a 5-line probe asserting that 'icalComponent' fails to round-trip into the typed ical_component field.\nbd-review-loop: iter=1 verdict=question_tool_invoked failures=1 history=; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=2 verdict=genuine_convergence failures=0 history=iter=1 p012=1 total=1 opinion=0 fails=0; iter=2 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; \nbd-review-loop: iter=1 verdict=genuine_convergence failures=0 history=iter=1 p012=0 total=0 opinion=0 fails=0; ",
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 1,
-  "status": "in_progress",
-  "title": "Review: crate-jmap-calendars-types since 9c0d34f",
-  "updated_at": "2026-06-26T19:57:32Z",
-  "timeout": 0
+  }
 }

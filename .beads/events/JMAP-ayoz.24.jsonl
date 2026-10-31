@@ -1,0 +1,1 @@
+{"id":"01a1905f-aa76-79b7-94d9-f1ddb6a33247","issue_id":"JMAP-ayoz.24","event_type":"closed","actor":"agent","old_value":"","new_value":"Triage 2026-10-31 at c07d5206: fixed: MemoryBackend is #[non_exhaustive] in every extension-server, e.g. crate-jmap-mail-server/src/memory/mod.rs:406; metadata MemoryBackend deleted in b34a07bf","created_at":"2026-10-31T05:12:31.094637255Z"}

@@ -1,0 +1,31 @@
+{
+  "id": "JMAP-z4z0.3",
+  "title": "federation-server: recipient routing and host-bound caller identity",
+  "description": "Part b of multi-mailbox federation; supersedes JMAP-0c3q. crate-jmap-chat-federation-server: AuthenticatedPeer becomes { peer_domain, account_id } (the single peer-role account, fed L196/L404); remove peer_identity and with_did_verified (fed L338: binding does not use ownerUserId). FederationBackend gains mailbox_account(caller, recipient_user_id) -\u003e Result\u003cOption\u003cId\u003e\u003e with NO default (octet match on ownerUserId, fed L404) and verify_did_identity(caller, did) -\u003e Result\u003cbool\u003e with default Ok(false). authenticate() becomes async: bind_identity(claimed, peer_domain); NeedsDidVerification -\u003e verify_did_identity; else bare forbidden (no peer_identity compare). New route() replacing check_account: wrong accountId -\u003e accountNotFound; unknown recipient -\u003e bare forbidden identical to every other forbidden (7.20), checked before any placeholder ChatContact is created; owner mismatch -\u003e serverFail. Handlers: parse -\u003e authenticate -\u003e route -\u003e load mailbox; responses echo the peer account, storage uses the mailbox (deliver.rs SilentDrop/Commit, receipt, typing, retract, group_update, presence). FederationPresenceBackend keys by (mailbox, subscriberId) (fed L1049); subscribe_presence returns Result\u003cOption\u003cu64\u003e\u003e, None = refused -\u003e forbidden (spec b00a6ee). Doc updates per lib.rs and handler docs. Tests (oracle: compliance-tests 7.16, 7.20; fed L336, L404, L1049; draft forbidden example L1248-1275): two mailboxes on one domain each get only their own deliveries and responses echo the peer account; nobody@ -\u003e forbidden, nothing stored, no ChatContact; non-member Peer/typing error equals the nobody error; wrong accountId -\u003e accountNotFound; alice@A.Example and carol@a.example accepted from one peer, bob@b.example forbidden for every caller-identity field; did:key forbidden by default, accepted when verify_did_identity returns true; presence subscriptions per recipient distinct; refused subscription -\u003e forbidden; drive the draft forbidden example through handle_peer_deliver. Update ~45 JSON fixtures with recipientUserId. BREAKING.",
+  "notes": "Mark decided 2026-10-31: verify_did_identity defaults to Ok(false) (refuse by default); a host-less did:key caller identity is forbidden unless the backend overrides it.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T18:48:49.030480075Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-31T18:48:52.606477931Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-z4z0.3",
+      "depends_on_id": "JMAP-z4z0",
+      "type": "parent-child",
+      "created_at": "2026-10-31T18:48:49.155670998Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-z4z0.3",
+      "depends_on_id": "JMAP-z4z0.2",
+      "type": "blocks",
+      "created_at": "2026-10-31T18:48:50.47779755Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

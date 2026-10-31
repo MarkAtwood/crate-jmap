@@ -1,30 +1,25 @@
 {
-  "compaction_level": 0,
+  "id": "JMAP-wzq9.22",
+  "title": "MetadataChangesParams.extra: serde_json::Map exposed in public API",
+  "description": "src/methods/mod.rs:60 — 'pub extra: serde_json::Map\u003cString, serde_json::Value\u003e' exposes the serde_json types in the public API surface. If serde_json cuts a major version (it has not in ~6 years, but the contract risk is real), this crate's API breaks.\n\nMitigations:\n(a) Pin serde_json explicitly in this crate's Cargo.toml at the same major version the workspace uses, and document.\n(b) Wrap with a local newtype 'pub struct VendorExtras(serde_json::Map\u003c…\u003e)' — verbose, fights the workspace extras-preservation policy that explicitly normalises on serde_json::Map.\n(c) Accept the risk and document in README 'Gotchas' that this crate's API depends on serde_json's stability.\n\nThe workspace AGENTS.md 'Extras-preservation policy' already standardises on serde_json::Map\u003cString, Value\u003e as the canonical extras type. Changing this crate alone would diverge from policy. So (a) and (c) are the realistic paths.\n\nRecommendation: (c). This is a known and accepted dependency on serde_json's stability — it ships in essentially every Rust web crate and a major version bump would break the entire ecosystem in lockstep. Document the dependency explicitly so a future downstream that wants to vendor 'jmap-metadata-client' on a different serde_json major knows the constraint.\n\nWorkspace-wide: every *-client and *-types crate has the same exposure. Propagate the README documentation.\n\nMarked opinion: bordering on bikeshedding given how stable serde_json has been. Filing conservatively because the contract decision fossilises at 0.1.0.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-15T02:11:08Z",
   "created_by": "Mark Atwood",
-  "description": "src/methods/mod.rs:60 — 'pub extra: serde_json::Map<String, serde_json::Value>' exposes the serde_json types in the public API surface. If serde_json cuts a major version (it has not in ~6 years, but the contract risk is real), this crate's API breaks.\n\nMitigations:\n(a) Pin serde_json explicitly in this crate's Cargo.toml at the same major version the workspace uses, and document.\n(b) Wrap with a local newtype 'pub struct VendorExtras(serde_json::Map<…>)' — verbose, fights the workspace extras-preservation policy that explicitly normalises on serde_json::Map.\n(c) Accept the risk and document in README 'Gotchas' that this crate's API depends on serde_json's stability.\n\nThe workspace AGENTS.md 'Extras-preservation policy' already standardises on serde_json::Map<String, Value> as the canonical extras type. Changing this crate alone would diverge from policy. So (a) and (c) are the realistic paths.\n\nRecommendation: (c). This is a known and accepted dependency on serde_json's stability — it ships in essentially every Rust web crate and a major version bump would break the entire ecosystem in lockstep. Document the dependency explicitly so a future downstream that wants to vendor 'jmap-metadata-client' on a different serde_json major knows the constraint.\n\nWorkspace-wide: every *-client and *-types crate has the same exposure. Propagate the README documentation.\n\nMarked opinion: bordering on bikeshedding given how stable serde_json has been. Filing conservatively because the contract decision fossilises at 0.1.0.",
-  "ephemeral": false,
-  "id": "JMAP-wzq9.22",
-  "is_blocked": false,
-  "is_template": false,
-  "issue_type": "task",
+  "updated_at": "2026-10-31T05:11:38.146326543Z",
+  "closed_at": "2026-10-31T05:11:38.146326543Z",
+  "close_reason": "Triage 2026-10-31 at c07d5206: moot: MetadataChangesParams (pub extra) deleted in c4496114 (crate-jmap-metadata-client/src/lib.rs:14-36)",
   "metadata": {},
-  "no_history": false,
-  "owner": "mark@reviewcommit.com",
-  "pinned": false,
-  "priority": 3,
-  "status": "blocked",
-  "title": "MetadataChangesParams.extra: serde_json::Map exposed in public API",
-  "updated_at": "2026-05-15T02:37:13Z",
   "dependencies": [
     {
+      "issue_id": "",
+      "depends_on_id": "",
+      "type": "parent-child",
       "created_at": "2026-05-14T19:11:08Z",
       "created_by": "Mark Atwood",
-      "depends_on_issue_id": "JMAP-wzq9",
-      "id": "1773acbb-802b-5924-8a3a-45ffc8b304e5",
-      "metadata": "{}",
-      "type": "parent-child"
+      "metadata": "{}"
     }
-  ],
-  "timeout": 0
+  ]
 }

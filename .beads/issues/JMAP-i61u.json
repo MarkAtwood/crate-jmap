@@ -2,11 +2,22 @@
   "id": "JMAP-i61u",
   "title": "Commit a group send in one transaction",
   "description": "chinwag (chinwag-dxgx.28) runs SQLite with synchronous=NORMAL: a power cut or OS crash can lose the last few seconds of committed messages. synchronous=FULL makes group bursts about 3x slower, because a group send makes one backend write per recipient and each write is its own commit. If jmap-chat-server's backend trait let one group send (the Message plus its per-member deliveries) be written as one unit, a backend could commit it once, and chinwag could run FULL at roughly today's speed. Mark chose (2026-10-30): keep NORMAL in chinwag now, and file this here.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-31T02:59:05.591558902Z",
   "created_by": "agent",
-  "updated_at": "2026-10-31T02:59:05.591558902Z"
+  "updated_at": "2026-10-31T18:48:57.1111655Z",
+  "closed_at": "2026-10-31T18:48:57.111165163Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-i61u",
+      "depends_on_id": "JMAP-z4z0.5",
+      "type": "supersedes",
+      "created_at": "2026-10-31T18:48:57.106373611Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
 }

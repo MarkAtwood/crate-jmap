@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-z4z0.4",
+  "title": "federation-server: outbound helpers name the recipient",
+  "description": "Part c of multi-mailbox federation. crate-jmap-chat-federation-server src/outbound.rs: peer_group_update_args gains recipient_user_id (3rd param) passed to PeerGroupUpdateArgs::new; new pub fn peer_batches(contacts, recipients) -\u003e Result\u003cVec\u003cPeerBatch\u003e, OutboundError\u003e grouping recipients by contact serverUrl (contact_server_url), PeerBatch { server_url, recipients: Vec\u003c(Id, String)\u003e }: one signed request, one method call per recipient (fed L406 MAY, L967); group by serverUrl because did:key recipients have no host. crate-jmap-chat-server docs only: outbound.rs header and Presence docs (each Peer/* names its recipient; Peer/presence push: identity = owner, recipientUserId = subscriberId); backend.rs owner_user_id: a FederationBackend must return Some for every mailbox (chat-00 L347); lib.rs FederationCaller: peer-role Session has exactly one account. Tests: peer_group_update_args carries recipientUserId; peer_batches groups by serverUrl. BREAKING.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T18:48:49.311529102Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-31T18:48:49.311529102Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-z4z0.4",
+      "depends_on_id": "JMAP-z4z0",
+      "type": "parent-child",
+      "created_at": "2026-10-31T18:48:49.440489182Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-z4z0.4",
+      "depends_on_id": "JMAP-z4z0.3",
+      "type": "blocks",
+      "created_at": "2026-10-31T18:48:50.947252162Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

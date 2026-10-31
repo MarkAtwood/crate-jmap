@@ -1,0 +1,46 @@
+{
+  "id": "JMAP-z4z0.6",
+  "title": "chat-server: testkit backend conformance suite",
+  "description": "Mark decided 2026-10-30 (chinwag-nuqe.25). Feature testkit = [dep:tokio] (rt, rt-multi-thread) in jmap-chat-server. src/testkit.rs: pub trait ConformanceBackend: ChatBackend { fn caller(\u0026self, \u0026Id) -\u003e CallerCtx; async add_account(\u0026Id, owner_user_id); async seed(\u0026Id, type_name, Value) stores as given; fn take_outbound_events(\u0026self) -\u003e Option\u003cVec\u003cOutboundEvent\u003e\u003e (None = skip event tests) }; tests as pub async fn name\u003cB: ConformanceBackend\u003e(b: B) with oracle in rustdoc; shared fixture builders; pub fn run (multi-thread runtime); #[macro_export] chat_backend_conformance!(make) emitting #[test]s. MemoryBackend impl behind cfg(all(testkit, test-helpers)); tests/backend_conformance.rs runs it. Move (keeping each oracle): integration.rs state/create/get and is_contact_blocked; patch_object_paths.rs; patch_null_defaults.rs; query_filters.rs; query_sort.rs; query_anchor.rs; space_join_invite_atomic.rs; message_burn_on_read_atomic.rs (invalid-patch test only); contact_create_identity.rs; message_threads.rs replyCount (gate on supports_threads); expiry_sweep.rs; chat_unread_count.rs (gate on maintains_unread_count; only spec-pinned assertions, since aa01dd7 makes owner-message counting implementation-defined); the create_message test from item 3. Keep handler tests using Faulty/Tracking/Injectable/IdentityBackend, backend_defaults.rs, push/permission policy tests. Additive API; public-api snapshot grows.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T18:48:49.923105336Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-31T18:48:49.923105336Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-z4z0.6",
+      "depends_on_id": "JMAP-z4z0",
+      "type": "parent-child",
+      "created_at": "2026-10-31T18:48:50.065922094Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-z4z0.6",
+      "depends_on_id": "JMAP-z4z0.1",
+      "type": "blocks",
+      "created_at": "2026-10-31T18:48:51.419276334Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-z4z0.6",
+      "depends_on_id": "JMAP-z4z0.4",
+      "type": "blocks",
+      "created_at": "2026-10-31T18:48:51.878533939Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-z4z0.6",
+      "depends_on_id": "JMAP-z4z0.5",
+      "type": "blocks",
+      "created_at": "2026-10-31T18:48:52.344055402Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
