@@ -31,10 +31,10 @@
 //!   SetError".
 //! - L1506: "A thread is the set of Messages sharing a common
 //!   `threadRootId`."
-//! - jmap-chat-spec bead jmap-chat-spec-vz8p (Mark, 2026-10-30): which
-//!   messages count as unread is implementation-defined, and this server
-//!   does not count replies whose `senderId` is the accountId (the
-//!   owner's own). The fixture Messages come from `OTHER_SENDER`.
+//! - jmap-chat-spec aa01dd7 L732, `unreadReplyCount`: "Which of those
+//!   replies count is implementation-defined, as for `Chat.unreadCount`";
+//!   this server does not count replies whose `senderId` is the accountId
+//!   (the owner's own). The fixture Messages come from `OTHER_SENDER`.
 
 mod common;
 
@@ -476,7 +476,7 @@ async fn read_position_update_lists_thread_root_updated() {
 /// Fixture plus OWN_REPLY to ROOT from the owner. Hand count for ROOT:
 /// replies A, C and OWN_REPLY -> replyCount 3; after lastReadMessageId A
 /// come C and OWN_REPLY, and the owner's reply is not counted
-/// (jmap-chat-spec-vz8p) -> unreadReplyCount 1.
+/// (implementation-defined, chat-00 aa01dd7 L732) -> unreadReplyCount 1.
 #[tokio::test]
 async fn unread_reply_count_excludes_owner_replies() {
     let backend = common::account_backend();

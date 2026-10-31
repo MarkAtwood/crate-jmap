@@ -83,10 +83,10 @@ async fn sums_stored_counts_of_non_muted_chats() {
     assert_eq!(total(&b).await, 3 + 7);
 }
 
-/// draft-atwood-jmap-chat-00 §Chat `unreadCount`: "The number of Messages
-/// in this Chat whose `id` ULID is lexicographically greater than
-/// `ReadPosition.lastReadMessageId` ... If `lastReadMessageId` is absent,
-/// all messages are counted as unread." Without a backend-maintained
+/// draft-atwood-jmap-chat-00 (aa01dd7 L635) §Chat `unreadCount`:
+/// "Candidates are the Messages whose `id` ULID is lexicographically
+/// greater than `ReadPosition.lastReadMessageId`, or all Messages in the
+/// Chat if `lastReadMessageId` is absent." Without a backend-maintained
 /// count the stored value (here a stale 0) is not trusted.
 #[tokio::test]
 async fn derives_counts_when_backend_does_not_maintain_them() {

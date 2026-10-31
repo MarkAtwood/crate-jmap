@@ -3,11 +3,12 @@
 //!
 //! Oracles, from jmap-chat-spec 33702a5:
 //!
-//! - draft-atwood-jmap-chat-00.md L629, §Chat `unreadCount`: "The number
-//!   of Messages in this Chat whose `id` ULID is lexicographically greater
-//!   than `ReadPosition.lastReadMessageId`, derived server-side from the
-//!   owner's ReadPosition record. If `lastReadMessageId` is absent, all
-//!   messages are counted as unread. The value is advisory [...] Servers
+//! - draft-atwood-jmap-chat-00.md L629 (aa01dd7 L635), §Chat
+//!   `unreadCount`: "The number of unread Messages in this Chat, derived
+//!   server-side from the owner's ReadPosition record. Candidates are the
+//!   Messages whose `id` ULID is lexicographically greater than
+//!   `ReadPosition.lastReadMessageId`, or all Messages in the Chat if
+//!   `lastReadMessageId` is absent. [...] The value is advisory [...] Servers
 //!   SHOULD keep it accurate, but MAY update it some time after the change
 //!   that affects it [...] Whenever the server changes the value, the
 //!   Chat's state changes as for any other property ({{RFC8620}} Section
@@ -31,11 +32,12 @@
 //! - RFC 8620 §5.2: `updated` lists "the ids for records that have been
 //!   updated since the old state", so `Chat/changes` names the Chat
 //!   whose `unreadCount` moved.
-//! - jmap-chat-spec bead jmap-chat-spec-vz8p (Mark, 2026-10-30): which
-//!   messages count toward `unreadCount` is implementation-defined, and
-//!   this server excludes Messages whose `senderId` is the accountId (the
-//!   owner's own). The seeded Messages below come from `OTHER_SENDER` so
-//!   the L629 counts apply to them unchanged.
+//! - jmap-chat-spec aa01dd7 L635, §Chat `unreadCount`: "Which candidates
+//!   count is implementation-defined; for example, a server MAY exclude
+//!   Messages the owner sent." This server excludes Messages whose
+//!   `senderId` is the accountId (the owner's own). The seeded Messages
+//!   below come from `OTHER_SENDER` so the L629 counts apply to them
+//!   unchanged.
 
 mod common;
 
@@ -205,8 +207,9 @@ async fn destroyed_positions_since(backend: &MemoryBackend, since: &str) -> Vec<
     resp["destroyed"].as_array().expect("destroyed").clone()
 }
 
-/// L629: "If `lastReadMessageId` is absent, all messages are counted as
-/// unread." Only Messages "in this Chat" count, so `h` has 1.
+/// aa01dd7 L635: candidates are "all Messages in the Chat if
+/// `lastReadMessageId` is absent." Only Messages "in this Chat" count, so
+/// `h` has 1.
 #[tokio::test]
 async fn absent_last_read_counts_every_message() {
     let backend = MemoryBackend::new();
@@ -248,8 +251,9 @@ async fn compliance_11_1_with_assigned_ids() {
     seed_position(&backend, "rp-s", "s");
 
     // Received from OTHER_SENDER: the owner's own Messages are not counted
-    // (jmap-chat-spec-vz8p), and `store_server_message` has the backend
-    // assign each id as `Message/set` does.
+    // (implementation-defined, chat-00 aa01dd7 L635), and
+    // `store_server_message` has the backend assign each id as
+    // `Message/set` does.
     let mut sent = Vec::new();
     for n in 0..5 {
         let smid = Id::from(format!("smid-{n}"));
@@ -585,8 +589,8 @@ async fn message_destroy_advances_chat_state() {
     );
 }
 
-/// A Message the owner sends is not counted (jmap-chat-spec-vz8p), so
-/// `h` keeps its one unread Message from OTHER_SENDER; the create still
+/// A Message the owner sends is not counted (implementation-defined,
+/// chat-00 aa01dd7 L635), so `h` keeps its one unread Message from OTHER_SENDER; the create still
 /// rewrites the Chat's derived count, so `Chat/changes` reports that Chat
 /// (RFC 8620 §5.2).
 #[tokio::test]
@@ -650,8 +654,9 @@ async fn backend_maintained_unread_count_is_not_recomputed() {
     );
 }
 
-// Mixed-sender Chat `x` (jmap-chat-spec-vz8p): Messages whose `senderId`
-// is the accountId are the owner's and are never counted. In id order:
+// Mixed-sender Chat `x` (implementation-defined, chat-00 aa01dd7 L635):
+// Messages whose `senderId` is the accountId are the owner's and are
+// never counted. In id order:
 // X1 other, X2 owner, X3 other, X4 owner, X5 other, X6 owner, X7 other.
 const X1: &str = "01J00000000000000000000011";
 const X2: &str = "01J00000000000000000000012";

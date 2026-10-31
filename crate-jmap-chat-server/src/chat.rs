@@ -307,16 +307,14 @@ fn group_update_events(
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
-/// `unreadCount` is computed on every call (§Chat, jmap-chat-spec 6af1b94
-/// L629): "The number of Messages in this Chat whose `id` ULID is
-/// lexicographically greater than `ReadPosition.lastReadMessageId`,
-/// derived server-side from the owner's ReadPosition record. If
-/// `lastReadMessageId` is absent, all messages are counted as unread."
-/// Messages the owner sent (`senderId` is the accountId) are not counted:
-/// the value "is advisory" and clients "MUST NOT rely on unreadCount
-/// being exact", and pending jmap-chat-spec bead jmap-chat-spec-vz8p makes
-/// which messages count implementation-defined. A
-/// Chat with no ReadPosition counts every Message from others. A backend whose
+/// `unreadCount` is computed on every call (§Chat, jmap-chat-spec aa01dd7
+/// L635): "Candidates are the Messages whose `id` ULID is
+/// lexicographically greater than `ReadPosition.lastReadMessageId`, or
+/// all Messages in the Chat if `lastReadMessageId` is absent. Which
+/// candidates count is implementation-defined; for example, a server MAY
+/// exclude Messages the owner sent." This server does not count Messages
+/// the owner sent (`senderId` is the accountId), so a Chat with no
+/// ReadPosition counts every Message from others. A backend whose
 /// [`ChatBackend::maintains_unread_count`] is `true` gets its stored
 /// value back instead.
 ///
@@ -400,10 +398,11 @@ async fn messages_and_positions<B: ChatBackend>(
 
 /// §Chat `unreadCount` for `chat_id`: Messages in the Chat not sent by
 /// the owner (`senderId` is not `account_id`) whose `id` sorts after the
-/// owner's `lastReadMessageId`, or all of them when it is absent. The
-/// spec calls the count advisory, and pending jmap-chat-spec bead
-/// jmap-chat-spec-vz8p makes which messages count implementation-defined;
-/// the owner's own messages never count, so a sender does not see a message they just sent as unread.
+/// owner's `lastReadMessageId`, or all of them when it is absent.
+/// jmap-chat-spec aa01dd7 L635: "Which candidates count is
+/// implementation-defined; for example, a server MAY exclude Messages the
+/// owner sent." The owner's own messages never count, so a sender does
+/// not see a message they just sent as unread.
 pub(crate) fn unread_count(
     messages: &[Message],
     positions: &[ReadPosition],
