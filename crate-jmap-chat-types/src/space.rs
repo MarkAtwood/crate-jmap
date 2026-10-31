@@ -716,10 +716,11 @@ mod tests {
         assert!(ban.expires_at.is_some());
     }
 
-    // Oracle: draft-atwood-jmap-chat-00 §Color Representation — "Servers
-    // MUST accept all three representations in color-valued fields and MUST
-    // preserve the representation provided by the client. Clients MUST
-    // handle all three representations gracefully." §SpaceRole `color`:
+    // Oracle: draft-atwood-jmap-chat-00 §Color Representation
+    // (jmap-chat-spec 77c3474 L308) — "Servers MUST accept all three
+    // representations in color-valued fields and MUST preserve the
+    // representation provided by the client. Clients SHOULD handle all
+    // three representations gracefully." §SpaceRole `color`:
     // "a Design Tokens color object, a CAM16 coordinate array, or an sRGB
     // hex string (e.g., `"#5865f2"`)."
     #[test]

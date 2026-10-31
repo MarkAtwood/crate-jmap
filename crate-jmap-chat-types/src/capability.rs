@@ -197,8 +197,9 @@ pub struct ChatCapability {
     /// (draft-atwood-jmap-chat-federation-00 §Account-Level Capability).
     ///
     /// Callers authenticated as a peer on an account whose role is
-    /// [`ChatCapabilityRole::Peer`] "MUST receive `forbidden` for any method
-    /// not listed" among the Peer/* methods. The field is optional in
+    /// [`ChatCapabilityRole::Peer`] "SHOULD receive `forbidden` for any
+    /// method not listed" among the Peer/* methods (jmap-chat-spec 77c3474
+    /// fed L356). The field is optional in
     /// general: "The local server MUST include this field in the account
     /// capability for any account it provisions for peer use." `None` means
     /// the server did not advertise a role.
