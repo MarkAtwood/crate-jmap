@@ -284,9 +284,10 @@ impl_string_enum!(BroadcastScope, "a broadcast scope string",
 /// # Permission
 ///
 /// Sending a `Message` with a non-empty `broadcastMentions` array requires
-/// the `"mention_broadcast"` Space permission. The server MUST reject
-/// `Message/set` create or update requests lacking this permission with
-/// `forbidden`.
+/// the `"mention_broadcast"` Space permission. Servers SHOULD reject
+/// `Message/set` create or update requests that would write a broadcast
+/// mention from a sender lacking this permission with `forbidden`
+/// (draft-atwood-jmap-chat-00, jmap-chat-spec 77c3474 L462).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
