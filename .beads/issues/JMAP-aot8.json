@@ -2,11 +2,13 @@
   "id": "JMAP-aot8",
   "title": "chat-server: unreadCount excludes the owner's messages",
   "description": "Per Mark 2026-10-30 (chinwag bead chinwag-dxgx.25, spec bead jmap-chat-spec-vz8p: computation becomes implementation-defined). crate-jmap-chat-server src/chat.rs unread_count (~line 400) counts every message after lastReadMessageId, including the owner's own, so a sender sees their just-sent message as unread. Exclude messages whose senderId is the account owner; apply the same rule to unreadReplyCount. MemoryBackend and maintains_unread_count backends must agree. Needs Mark's approval before writing to crate-jmap.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-30T20:20:25.514157448Z",
   "created_by": "agent",
-  "updated_at": "2026-10-30T20:20:25.514157448Z"
+  "updated_at": "2026-10-31T03:12:13.661439595Z",
+  "closed_at": "2026-10-31T03:12:13.661439595Z",
+  "close_reason": "Fixed in ace6da88 + doc fixup 546b188a: unreadCount/unreadReplyCount exclude senderId==accountId; local CI all green (6614 tests stable+beta)."
 }
