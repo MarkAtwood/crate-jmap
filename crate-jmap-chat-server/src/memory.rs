@@ -2452,9 +2452,6 @@ impl Inner {
     }
 }
 
-/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
-/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
-/// on the stored value. Types without the -04 properties pass unchecked.
 /// The store half of `create_object` and `create_message`: checks the
 /// per-type create contracts, inserts `val` under `server_id`, advances
 /// the state and records the change, all under the caller's lock. On
@@ -2521,6 +2518,9 @@ fn insert_created(
     Ok(())
 }
 
+/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
+/// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
+/// on the stored value. Types without the -04 properties pass unchecked.
 fn check_metadata_create(
     inner: &Inner,
     type_name: &'static str,
