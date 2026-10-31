@@ -543,9 +543,9 @@ async fn remove_role_cascades_demotion_to_everyone() {
 }
 
 /// Oracle: draft-atwood-jmap-chat-00 §Space/set `removeRoles`
-/// (jmap-chat-spec 2ac2603): "Servers SHOULD also remove each
+/// (jmap-chat-spec 77c3474 L1355): "Servers MAY also remove each
 /// channel's `permissionOverrides` entries whose `targetId` is a
-/// removed role". The fixture is hand-written: `ch-a` carries an
+/// removed role"; this crate does so by choice. The fixture is hand-written: `ch-a` carries an
 /// override for the removed role plus two that must survive, `ch-b`
 /// carries none for the removed role. Only `ch-a` changes, and
 /// `Chat/changes` reports it as updated (bd:JMAP-yt1w.18).

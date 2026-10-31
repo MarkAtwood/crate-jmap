@@ -85,9 +85,11 @@ async fn edit_body_over_max_body_bytes_is_too_large() {
     assert_eq!(get_body(&backend, &id).await, json!("\u{e9}\u{e9}"));
 }
 
-/// L1732: "Servers MUST reject a `Message/set` create or update that has
-/// an encrypted `bodyType` and any of these fields non-empty with an
-/// `invalidProperties` SetError whose `properties` lists each such field".
+/// jmap-chat-spec 77c3474 L1823: "Servers SHOULD reject a `Message/set`
+/// create or update that has an encrypted `bodyType` and any of these
+/// fields non-empty with an `invalidProperties` SetError whose `properties`
+/// lists each such field". This crate performs the recommended rejection
+/// by choice.
 /// A patch switching `bodyType` to ciphertext over a stored `subject` and
 /// `topicId` yields a Message with an encrypted `bodyType` and those fields
 /// non-empty.

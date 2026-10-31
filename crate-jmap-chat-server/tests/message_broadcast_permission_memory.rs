@@ -99,9 +99,10 @@ fn broadcast_message(chat_id: &str) -> Value {
 
 /// draft-atwood-jmap-chat-00 §BroadcastMention: "Sending a Message with a
 /// non-empty `broadcastMentions` array requires the `"mention_broadcast"`
-/// Space permission. Servers MUST reject `Message/set` create or update
+/// Space permission. Servers SHOULD reject `Message/set` create or update
 /// requests that would write a broadcast mention from a sender lacking
-/// this permission with `forbidden`." §Message/set: "A create request
+/// this permission with `forbidden`" (jmap-chat-spec 77c3474 L462); this
+/// crate performs the recommended rejection by choice. §Message/set: "A create request
 /// with a non-empty `broadcastMentions` array MUST be rejected with
 /// `forbidden` when the target is a channel Chat and the sender lacks the
 /// `"mention_broadcast"` permission in its Space."

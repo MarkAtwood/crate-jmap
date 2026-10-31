@@ -195,10 +195,12 @@ async fn kind_not_in_kinds_is_not_pushed() {
     assert!(!decide(&backend, &caps(), &cfg, &inbound(), NOBODY).await);
 }
 
-/// draft-atwood-jmap-chat-push-00 §Delivery (push:214): "The server MUST
-/// NOT deliver a `ChatMessagePush` in any of the following cases: ... The
+/// draft-atwood-jmap-chat-push-00 §Delivery (jmap-chat-spec 77c3474
+/// push:214): "The server SHOULD NOT deliver a `ChatMessagePush` in any of
+/// the following cases: ... The
 /// sender is the account owner (push is for inbound messages from other
-/// participants only)." Per §ChatMessageEntry `senderId` (push:170), an
+/// participants only)." This crate follows the recommendation by choice.
+/// Per §ChatMessageEntry `senderId` (push:170), an
 /// owner-composed message carries the accountId as its sender.
 #[tokio::test]
 async fn message_sent_by_owner_is_not_pushed() {

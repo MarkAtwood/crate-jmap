@@ -39,8 +39,9 @@ const OTHER_SPACE_ID: &str = "space2";
 /// The owner (member entry id = accountId, draft-atwood-jmap-chat-00
 /// §Terminology) holds `"manage_channels"`, which `removeChannels`
 /// requires (L1283), `"ban"`, which SpaceBan/set create requires
-/// (L1439), and `"manage_space"`, which a Space destroy requires
-/// (33702a5 L1383: "The caller MUST hold `"manage_space"`").
+/// (L1439), and `"manage_space"`, which this crate requires for a Space
+/// destroy (jmap-chat-spec 77c3474 L1391: "The caller SHOULD hold
+/// `"manage_space"`").
 fn seed_space(backend: &MemoryBackend, id: &str, channel_ids: &[&str]) {
     backend.insert_object_for_test(
         "Space",

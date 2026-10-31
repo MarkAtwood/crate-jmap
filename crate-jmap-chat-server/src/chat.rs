@@ -1615,10 +1615,11 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         Some(_) => return Err(JmapError::invalid_arguments("typing must be a boolean")),
     };
 
-    // draft-atwood-jmap-chat-00 §Chat/typing `chatId`: "The server MUST
-    // return an `invalidArguments` method error if `chatId` does not
-    // exist or the account is not a participant in that Chat, and MUST
-    // NOT distinguish the two cases." A group chat's participants are its
+    // draft-atwood-jmap-chat-00 §Chat/typing `chatId` (jmap-chat-spec
+    // 77c3474 L1164): "The server SHOULD return an `invalidArguments`
+    // method error if `chatId` does not exist or the account is not a
+    // participant in that Chat, and SHOULD NOT distinguish the two cases."
+    // This crate performs the recommended behaviour by choice. A group chat's participants are its
     // `members`, where the owner is referenced by the accountId
     // (§Terminology).
     let (found, _not_found) = backend

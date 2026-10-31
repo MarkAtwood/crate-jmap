@@ -2,13 +2,14 @@
 //! §Fields Inside the Ciphertext empty-field rule covers (bd:JMAP-5mz6.3).
 //!
 //! Oracles (jmap-chat-spec 91672c9):
-//! - draft-atwood-jmap-chat-00 L1732: "When `bodyType` indicates an
-//!   encrypted type, in any topology, the Message fields `mentions`,
-//!   `broadcastMentions`, `attachments`, `actions`, `replyTo`,
-//!   `threadRootId`, `topicId`, and `subject` MUST be empty or absent [...]
-//!   Servers MUST reject a `Message/set` create or update that has an
-//!   encrypted `bodyType` and any of these fields non-empty with an
-//!   `invalidProperties` SetError whose `properties` lists each such field".
+//! - draft-atwood-jmap-chat-00 (jmap-chat-spec 77c3474) L1823: "When
+//!   `bodyType` indicates an encrypted type, in any topology, the Message
+//!   fields `mentions`, `broadcastMentions`, `attachments`, `actions`,
+//!   `replyTo`, `threadRootId`, `topicId`, and `subject` MUST be empty or
+//!   absent [...] Servers SHOULD reject a `Message/set` create or update
+//!   that has an encrypted `bodyType` and any of these fields non-empty
+//!   with an `invalidProperties` SetError whose `properties` lists each such
+//!   field". This crate performs the recommended rejection by choice.
 //! - draft-atwood-jmap-chat-mimi-00 L420: "In a Chat with a `roomId`, every
 //!   Message has `bodyType` `"application/mimi-fanout"`. It is an encrypted
 //!   body type for the purposes of {{JMAP-CHAT}}, including its rules on

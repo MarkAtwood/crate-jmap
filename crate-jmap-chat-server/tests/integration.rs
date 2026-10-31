@@ -736,10 +736,11 @@ fn seed_group_chat(backend: &MemoryBackend, id: &str, member_id: &str) {
     );
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing `chatId` — "The server
-/// MUST return an `invalidArguments` method error if `chatId` does not
-/// exist or the account is not a participant in that Chat, and MUST NOT
-/// distinguish the two cases."
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing `chatId` (jmap-chat-spec
+/// 77c3474 L1164) — "The server SHOULD return an `invalidArguments` method
+/// error if `chatId` does not exist or the account is not a participant in
+/// that Chat, and SHOULD NOT distinguish the two cases." This crate
+/// performs the recommended behaviour by choice.
 #[tokio::test]
 async fn chat_typing_unknown_or_non_participant_chat_is_invalid_arguments() {
     use jmap_chat_server::handle_chat_typing;
@@ -852,9 +853,10 @@ async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
     use jmap_chat_server::handle_chat_typing;
 
     let backend = TrackingBackend::new();
-    // The caller is a member: draft-atwood-jmap-chat-00 §Chat/typing — "The
-    // server MUST return an `invalidArguments` method error if `chatId` does
-    // not exist or the account is not a participant in that Chat".
+    // The caller is a member: draft-atwood-jmap-chat-00 §Chat/typing
+    // (jmap-chat-spec 77c3474 L1164) — "The server SHOULD return an
+    // `invalidArguments` method error if `chatId` does not exist or the
+    // account is not a participant in that Chat".
     backend.inner().insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -890,9 +892,10 @@ async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
 
 /// Oracle: `handle_chat_typing` returns `invalidArguments` for a
 /// `chatId` that does not resolve to any stored Chat, without consulting
-/// `is_contact_blocked` (draft-atwood-jmap-chat-00 §Chat/typing: "The
-/// server MUST return an `invalidArguments` method error if `chatId` does
-/// not exist").
+/// `is_contact_blocked` (draft-atwood-jmap-chat-00 §Chat/typing,
+/// jmap-chat-spec 77c3474 L1164: "The server SHOULD return an
+/// `invalidArguments` method error if `chatId` does not exist"; this crate
+/// does so by choice).
 #[tokio::test]
 async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
     use jmap_chat_server::handle_chat_typing;
@@ -3059,11 +3062,12 @@ async fn message_set_create_no_slow_mode_on_memory_backend() {
 /// Oracle: when `ChatBackend::slow_mode_check` returns
 /// `Err(SlowModeError)`, the `Message/set` create handler MUST reject the
 /// create with a `rateLimit` SetError carrying `serverRetryAfter` set to
-/// the backend-supplied UTCDate. draft-atwood-jmap-chat-00 (6bcd9d8) L617:
-/// "the server MUST reject messages from non-exempt members sent within
-/// this many seconds of their previous message in this channel, with a
-/// `rateLimit` SetError ({{RFC8620, Section 5.3}}) on the offending
-/// `Message/set` create." Compliance test 4.10: "Verify the second is
+/// the backend-supplied UTCDate. draft-atwood-jmap-chat-00 (jmap-chat-spec
+/// 77c3474) L623: "the server SHOULD reject messages from non-exempt
+/// members sent within this many seconds of their previous message in this
+/// channel, with a `rateLimit` SetError ({{RFC8620, Section 5.3}}) on the
+/// offending `Message/set` create." This crate performs the recommended
+/// rejection by choice. Compliance test 4.10: "Verify the second is
 /// rejected with a `rateLimit` SetError (RFC 8620 Section 5.3) in
 /// `notCreated`, not the method-level `rateLimited`." The wire field name
 /// `serverRetryAfter` is a workspace extension field.
@@ -8475,10 +8479,11 @@ async fn clear_members(backend: &MemoryBackend, space_id: &str) {
     backend.insert_object_for_test("Space", ACCOUNT_ID, space_id, space);
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
-/// that no active SpaceBan exists for the requesting account's owner in the
-/// target Space. If a ban exists, the server MUST reject the request with a
-/// `forbidden` method error."
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474
+/// L1420) — "The server SHOULD verify that no active SpaceBan exists for
+/// the requesting account's owner in the target Space. If a ban exists, the
+/// server SHOULD reject the request with a `forbidden` method error." This
+/// crate performs the recommended check by choice.
 #[tokio::test]
 async fn space_join_public_space_banned_forbidden() {
     let backend = common::account_backend();
@@ -8499,10 +8504,11 @@ async fn space_join_public_space_banned_forbidden() {
     assert_eq!(err.error_type.to_string(), "forbidden");
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
-/// that no active SpaceBan exists for the requesting account's owner in the
-/// target Space. If a ban exists, the server MUST reject the request with a
-/// `forbidden` method error." The ban applies to the invite path too.
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474
+/// L1420) — "The server SHOULD verify that no active SpaceBan exists for
+/// the requesting account's owner in the target Space. If a ban exists, the
+/// server SHOULD reject the request with a `forbidden` method error." This
+/// crate performs the recommended check by choice, on the invite path too.
 #[tokio::test]
 async fn space_join_via_invite_banned_forbidden() {
     let backend = common::account_backend();
@@ -8537,8 +8543,9 @@ async fn space_join_via_invite_banned_forbidden() {
     assert_eq!(err.error_type.to_string(), "forbidden");
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
-/// that no active SpaceBan exists ..." A ban whose `expiresAt` has passed
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474
+/// L1420) — "The server SHOULD verify that no active SpaceBan exists ..." A
+/// ban whose `expiresAt` has passed
 /// is not active, so the join succeeds.
 #[tokio::test]
 async fn space_join_expired_ban_does_not_block() {

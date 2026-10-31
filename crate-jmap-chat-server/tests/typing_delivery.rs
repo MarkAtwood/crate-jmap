@@ -171,10 +171,10 @@ async fn receive_typing_indicators_false_drops_group_and_direct() {
     assert!(!decide(&direct_backend, &event(CHAT, SENDER)).await);
 }
 
-/// draft-atwood-jmap-chat-00 `receiveTypingIndicators` (chat:562): it
-/// "Applies to direct and group chats only; for channel chats, servers
-/// MUST store the value if set via `Chat/set` but MUST NOT use it to
-/// suppress typing events." wss:250: "This check does not apply to
+/// draft-atwood-jmap-chat-00 `receiveTypingIndicators` (jmap-chat-spec
+/// 77c3474 L649): it "Applies to direct and group chats only; for channel
+/// chats, servers MUST store the value if set via `Chat/set` but SHOULD NOT
+/// use it to suppress typing events." wss:250: "This check does not apply to
 /// channel Chats." The channel and its Space come from the handlers, so
 /// the owner is a Space member; the value is stored through `Chat/set`.
 #[tokio::test]

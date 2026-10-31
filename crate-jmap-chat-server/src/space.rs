@@ -1825,9 +1825,11 @@ pub async fn handle_space_join<B: ChatBackend>(
         }
     };
 
-    // draft-atwood-jmap-chat-00 §Space/join: "The server MUST verify that no
-    // active SpaceBan exists for the requesting account's owner in the target
-    // Space." Evaluated after the argument and Space-resolution checks above,
+    // draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474 L1420):
+    // "The server SHOULD verify that no active SpaceBan exists for the
+    // requesting account's owner in the target Space. If a ban exists, the
+    // server SHOULD reject the request with a `forbidden` method error."
+    // This crate performs the recommended check by choice. Evaluated after the argument and Space-resolution checks above,
     // per the draft's check order. A ban whose `expiresAt` has passed is not
     // active.
     let (bans, _) = backend
@@ -1860,9 +1862,10 @@ pub async fn handle_space_join<B: ChatBackend>(
         ))
     };
 
-    // draft-atwood-jmap-chat-00 §Space/join: "The `uses` increment and
-    // membership insertion MUST be performed within a single atomic
-    // operation so that concurrent redemptions cannot exceed `maxUses`."
+    // draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474 L1416):
+    // "The `uses` increment and membership insertion SHOULD be performed
+    // within a single atomic operation so that concurrent redemptions cannot
+    // exceed `maxUses`." This crate requires it by choice.
     if let Some(invite_id) = invite_id {
         let joined_at = UTCDate::from(now_utc_string().as_ref());
         return match backend

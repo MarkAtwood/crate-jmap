@@ -1,10 +1,11 @@
 //! Burn-on-read sets `readAt` and hard-deletes in one atomic backend call,
 //! `ChatBackend::read_and_burn_message` (bd:JMAP-x2gd.6).
 //!
-//! Oracle: draft-atwood-jmap-chat-00 §Message `burnOnRead`: "When `true`,
-//! the receiving server MUST permanently hard-delete this message (row
-//! removal, not tombstone) immediately after setting `readAt`." The
-//! `readAt` write must therefore never be stored without the deletion:
+//! Oracle: draft-atwood-jmap-chat-00 §Message `burnOnRead` (jmap-chat-spec
+//! 77c3474 L750): "When `true`, the receiving server SHOULD permanently
+//! hard-delete this message (row removal, not tombstone) immediately after
+//! setting `readAt`." This crate performs the recommended deletion by
+//! choice, so the `readAt` write is never stored without the deletion:
 //! a failed burn commits nothing, and retrying the same patch burns. The
 //! invalid-`readAt` case runs for every backend in the `testkit`
 //! conformance suite.

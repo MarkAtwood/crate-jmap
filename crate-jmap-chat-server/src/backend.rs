@@ -361,9 +361,10 @@ impl ChatLimits {
 /// [`ChatBackend::attachment_blob`].
 ///
 /// `handle_message_set` compares these against the Attachment's `size`
-/// and `sha256` (draft-atwood-jmap-chat-00 §Attachment, `size`: "Servers
-/// MUST verify against actual content"; `sha256`: "Servers SHOULD
-/// verify").
+/// and `sha256` (draft-atwood-jmap-chat-00 §Attachment at jmap-chat-spec
+/// 77c3474, `size` L374: "Servers SHOULD verify against actual content";
+/// `sha256` L377: "Servers SHOULD verify"). This crate performs both
+/// recommended checks by choice.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AttachmentBlob {
@@ -823,8 +824,12 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// `destroy_object::<Space>` MUST return `forbidden` unless the caller
     /// holds `manage_space` in that Space, checked atomically with the
-    /// destroy (draft-atwood-jmap-chat-00 §Destroying a Space: "The caller
-    /// MUST hold `"manage_space"`"). The handler does no check of its own.
+    /// destroy (draft-atwood-jmap-chat-00 §Destroying a Space, jmap-chat-spec
+    /// 77c3474 L1391: "The caller SHOULD hold `"manage_space"`"; "Servers
+    /// SHOULD return a `forbidden` SetError when the caller does not satisfy
+    /// the deployment's destroy-authorization rules"). This crate performs
+    /// the recommended check by choice. The handler does no check of its
+    /// own.
     ///
     /// # Cascades
     ///
@@ -1143,9 +1148,11 @@ pub trait ChatBackend: JmapBackend {
     /// (member entry `account_id`, no roles, `joinedAt` = `joined_at`) to
     /// the invite's Space and increment the invite's `uses`.
     ///
-    /// Per draft-atwood-jmap-chat-00 §Space/join: "The `uses` increment
-    /// and membership insertion MUST be performed within a single atomic
-    /// operation so that concurrent redemptions cannot exceed `maxUses`."
+    /// Per draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474
+    /// L1416): "The `uses` increment and membership insertion SHOULD be
+    /// performed within a single atomic operation so that concurrent
+    /// redemptions cannot exceed `maxUses`." This crate requires the
+    /// recommended atomicity by choice.
     ///
     /// # Atomicity contract
     ///
@@ -1182,9 +1189,10 @@ pub trait ChatBackend: JmapBackend {
     /// Apply a `readAt`-setting `patch` to the `burnOnRead` Message
     /// `message_id` and hard-delete it, as one atomic operation.
     ///
-    /// Per draft-atwood-jmap-chat-00 §Message `burnOnRead`: "the
-    /// receiving server MUST permanently hard-delete this message (row
-    /// removal, not tombstone) immediately after setting `readAt`."
+    /// Per draft-atwood-jmap-chat-00 §Message `burnOnRead` (jmap-chat-spec
+    /// 77c3474 L750): "the receiving server SHOULD permanently hard-delete
+    /// this message (row removal, not tombstone) immediately after setting
+    /// `readAt`." This crate performs the recommended deletion by choice.
     ///
     /// # Authorisation contract
     ///
@@ -2007,10 +2015,13 @@ pub trait ChatBackend: JmapBackend {
     /// create or update with a non-empty `broadcastMentions` array is
     /// applied.
     ///
-    /// Per draft-atwood-jmap-chat-00 §4.4.1: sending a `Message` with
-    /// a non-empty `broadcastMentions` array requires the
-    /// `"mention_broadcast"` Space permission. The server MUST reject
-    /// with `forbidden` when the caller lacks the permission.
+    /// Per draft-atwood-jmap-chat-00 §BroadcastMention (jmap-chat-spec
+    /// 77c3474 L462): sending a `Message` with a non-empty
+    /// `broadcastMentions` array requires the `"mention_broadcast"` Space
+    /// permission, and "Servers SHOULD reject `Message/set` create or update
+    /// requests that would write a broadcast mention from a sender lacking
+    /// this permission with `forbidden`." This crate performs the
+    /// recommended rejection by choice.
     ///
     /// For group/direct chats NOT part of any Space (`spaceId` is
     /// `None`), broadcast mentions are unrestricted per spec; the
@@ -2226,14 +2237,16 @@ pub trait ChatBackend: JmapBackend {
     /// Authorization gate consulted by `handle_message_set` before each
     /// Message create.
     ///
-    /// Per draft-atwood-jmap-chat-00 §Message/set: "The server MUST verify
-    /// the sender is a current member of the target Chat. For group chats,
-    /// this means a ChatMember record exists; for channel chats, the
-    /// sender must be a member of the containing Space. Non-members MUST
-    /// receive a SetError of type `forbidden`." and "For channel Chats,
-    /// the server MUST verify the sender holds the `"send"` permission
-    /// (resolved per {{space-permissions}}) before accepting the message;
-    /// if absent, the server MUST return a SetError of type `forbidden`."
+    /// Per draft-atwood-jmap-chat-00 §Message/set (jmap-chat-spec 77c3474
+    /// L1218): "The server SHOULD verify the sender is a current member of
+    /// the target Chat. For group chats, this means a ChatMember record
+    /// exists; for channel chats, the sender must be a member of the
+    /// containing Space. Non-members SHOULD receive a SetError of type
+    /// `forbidden`." and (L1220) "For channel Chats, the server SHOULD
+    /// verify the sender holds the `"send"` permission (resolved per
+    /// {{space-permissions}}) before accepting the message; if absent, the
+    /// server SHOULD return a SetError of type `forbidden`." The handler
+    /// performs these recommended checks by choice.
     /// [`resolve_channel_permissions`](crate::permissions::resolve_channel_permissions)
     /// implements that resolution.
     ///
@@ -2359,9 +2372,10 @@ pub trait ChatBackend: JmapBackend {
     /// Blob lookup consulted by `handle_message_set` for each Attachment
     /// of a Message create.
     ///
-    /// Per draft-atwood-jmap-chat-00 §Attachment, `size`: "Servers MUST
-    /// verify against actual content", and `sha256`: "Servers SHOULD
-    /// verify". The handler compares the returned [`AttachmentBlob`]
+    /// Per draft-atwood-jmap-chat-00 §Attachment at jmap-chat-spec 77c3474,
+    /// `size` L374: "Servers SHOULD verify against actual content", and
+    /// `sha256` L377: "Servers SHOULD verify". By choice, the handler
+    /// compares the returned [`AttachmentBlob`]
     /// against the Attachment and rejects a mismatch with an
     /// `invalidProperties` SetError naming `attachments` (§Input
     /// Validation). The `sha256` comparison is constant-time
@@ -2445,11 +2459,12 @@ pub trait ChatBackend: JmapBackend {
     /// Visibility gate consulted by `handle_message_get` and
     /// `handle_message_query`.
     ///
-    /// Per draft-atwood-jmap-chat-00 §Message/query: "For channel Chats,
-    /// the server MUST verify the caller holds the `"view"` permission
-    /// before returning messages in `Message/get` or `Message/query`
-    /// responses; messages in channels the caller cannot view MUST be
-    /// omitted." The permission is resolved per §Space Permission
+    /// Per draft-atwood-jmap-chat-00 §Message/query (jmap-chat-spec 77c3474
+    /// L1301): "For channel Chats, the server SHOULD verify the caller holds
+    /// the `"view"` permission before returning messages in `Message/get` or
+    /// `Message/query` responses; messages in channels the caller cannot
+    /// view SHOULD be omitted." The handlers perform this recommended check
+    /// by choice. The permission is resolved per §Space Permission
     /// Resolution, as in [`Self::may_send_message`].
     ///
     /// # When the handler calls this
@@ -2595,8 +2610,10 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// # Contract
     ///
-    /// Per draft-atwood-jmap-chat-00, an expiry MUST hard-delete the
-    /// row (not tombstone) and the message MUST appear in the
+    /// Per draft-atwood-jmap-chat-00 §Message (jmap-chat-spec 77c3474 L747,
+    /// L753), the `senderExpiresAt` and `expiresAfterReadSeconds` deletions
+    /// are SHOULD; this crate performs them by choice. The deletion removes
+    /// the row (not a tombstone), and the message appears in the
     /// `destroyed` set of subsequent `Message/changes` results.
     /// Implementations therefore SHOULD:
     ///
@@ -2642,9 +2659,10 @@ pub trait ChatBackend: JmapBackend {
     /// expires. Backends whose messages can carry `senderExpiresAt`,
     /// `expiresAfterReadSeconds` or a Chat `messageExpirySeconds` MUST
     /// override this method: for `senderExpiresAt`,
-    /// draft-atwood-jmap-chat-00 §Message says "servers MUST
-    /// permanently delete this message — removing the row entirely,
-    /// not leaving a tombstone — at or before this time".
+    /// draft-atwood-jmap-chat-00 §Message (jmap-chat-spec 77c3474 L747)
+    /// says "servers SHOULD permanently delete this message — removing the
+    /// row entirely, not leaving a tombstone — at or before this time",
+    /// which this crate performs by choice.
     fn expire_message(
         &self,
         _caller: &Self::CallerCtx,

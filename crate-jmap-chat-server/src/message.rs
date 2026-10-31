@@ -134,8 +134,9 @@ pub async fn handle_message_get<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    // draft-atwood-jmap-chat-00 §Message/query: "messages in channels the
-    // caller cannot view MUST be omitted" from `Message/get`. A hidden
+    // draft-atwood-jmap-chat-00 §Message/query (jmap-chat-spec 77c3474
+    // L1301): "messages in channels the caller cannot view SHOULD be
+    // omitted" from `Message/get`; done by choice. A hidden
     // message is reported like a missing one: a requested id goes to
     // notFound, and a full fetch drops it (RFC 8620 §5.1 notFound lists
     // only requested ids).
@@ -387,8 +388,9 @@ pub async fn handle_message_query<B: ChatBackend>(
         JmapError::invalid_arguments("sort must be an array")
     })?;
 
-    // draft-atwood-jmap-chat-00 §Message/query: "messages in channels the
-    // caller cannot view MUST be omitted". A query scoped to one Chat the
+    // draft-atwood-jmap-chat-00 §Message/query (jmap-chat-spec 77c3474
+    // L1301): "messages in channels the caller cannot view SHOULD be
+    // omitted"; done by choice. A query scoped to one Chat the
     // caller cannot view matches nothing; a query without `chatId` relies
     // on the backend (see `ChatBackend::may_view_chat`).
     let hidden = match top.chat_id.as_ref() {
@@ -540,8 +542,9 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
         check_message_filter(filter.as_ref(), supports_threads)?;
     }
 
-    // §Message/query: "messages in channels the caller cannot view MUST be
-    // omitted", so changes to such a Chat's messages are not reported.
+    // §Message/query (jmap-chat-spec 77c3474 L1301): "messages in channels
+    // the caller cannot view SHOULD be omitted"; by choice, changes to such
+    // a Chat's messages are not reported.
     if let (Some(account_id), Some(chat_id)) = (account_id, chat_id)
         && !backend
             .may_view_chat(caller, &account_id, &chat_id)
@@ -657,9 +660,10 @@ fn body_type_field_conflicts(
 ///
 /// draft-atwood-jmap-chat-00 §Account-Level Capability Object
 /// `maxBodyBytes`: "in `Message/set` the rejection is a `tooLarge`
-/// SetError." §Fields Inside the Ciphertext: "Servers MUST reject a
-/// `Message/set` create or update that has an encrypted `bodyType` and any
-/// of these fields non-empty". The field rule runs on the Message as it
+/// SetError." §Fields Inside the Ciphertext (jmap-chat-spec 77c3474
+/// L1823): "Servers SHOULD reject a `Message/set` create or update that has
+/// an encrypted `bodyType` and any of these fields non-empty"; this crate
+/// performs the recommended rejection by choice. The field rule runs on the Message as it
 /// would be after the patch, so a `bodyType`-only patch to an encrypted
 /// type is rejected when the stored Message keeps such a field.
 ///
@@ -2114,9 +2118,10 @@ pub async fn handle_message_set<B: ChatBackend>(
             // Detect a non-null readAt assignment in the patch. A
             // `readAt: null` is a PatchObject clear (RFC 8620 §5.3), not a
             // "mark as read" event, so it does not trigger burn-on-read.
-            // draft-atwood-jmap-chat-00 §Message `burnOnRead`: the
-            // receiving server MUST hard-delete immediately after setting
-            // readAt on a message whose `burnOnRead` is `true`.
+            // draft-atwood-jmap-chat-00 §Message `burnOnRead` (jmap-chat-spec
+            // 77c3474 L750): the receiving server SHOULD hard-delete
+            // immediately after setting readAt on a message whose
+            // `burnOnRead` is `true`; this crate does so by choice.
             let patch_sets_read_at = augmented.get("readAt").is_some_and(|v| !v.is_null());
 
             // If the patch sets readAt, the stored Message decides whether
@@ -2220,9 +2225,10 @@ pub async fn handle_message_set<B: ChatBackend>(
                     continue;
                 }
             };
-            // draft-atwood-jmap-chat-00 §Message `burnOnRead`: "MUST
-            // permanently hard-delete this message (row removal, not
-            // tombstone) immediately after setting `readAt`." One atomic
+            // draft-atwood-jmap-chat-00 §Message `burnOnRead` (jmap-chat-spec
+            // 77c3474 L750): "SHOULD permanently hard-delete this message
+            // (row removal, not tombstone) immediately after setting
+            // `readAt`." Done by choice, as one atomic
             // backend call, so a failure commits nothing and a retry
             // burns again.
             let burns = patch_sets_read_at && pre_patch_burn_on_read;
@@ -2528,9 +2534,9 @@ mod tests {
     }
 
     /// Helper: seed a Space whose owner member (the accountId, per
-    /// §SpaceMember `id`) holds `manage_channels` and `send` (§Message/set:
-    /// "For channel Chats, the server MUST verify the sender holds the
-    /// `"send"` permission"), then create a channel Chat inside it, and
+    /// §SpaceMember `id`) holds `manage_channels` and `send` (§Message/set,
+    /// jmap-chat-spec 77c3474 L1220: "For channel Chats, the server SHOULD
+    /// verify the sender holds the `"send"` permission"), then create a channel Chat inside it, and
     /// return the channel's server-assigned id.
     async fn make_channel_chat(backend: &MemoryBackend) -> String {
         let space_id = "s0";
