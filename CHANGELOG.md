@@ -12,6 +12,15 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING** **jmap-chat-server**: `OutboundEvent::Receipt` gains
+  `sender_id: Id`, the read Message's `senderId` (the original sender's
+  ChatContact id). Under `burnOnRead` the Message is hard-deleted before
+  the receipt event is handled, so the deployment could not look up the
+  sender to address `Peer/receipt` `recipientUserId` ("the message's
+  original sender", draft-atwood-jmap-chat-federation-00 §Peer/receipt).
+
 ## [0.4.2] - 2026-10-30
 
 ### Fixed

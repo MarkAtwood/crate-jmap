@@ -73,7 +73,7 @@
 mod common;
 
 use common::{ACCOUNT_ID, InjectableBackend, MemoryBackend};
-use jmap_chat_server::message::handle_message_set;
+use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_server::{
     GroupUpdateAction, OutboundEvent, ReactionAction, handle_chat_set, handle_chat_typing,
     handle_presence_set,
@@ -754,13 +754,14 @@ fn seed_dm_receipt_sharing(backend: &MemoryBackend, receipt_sharing: bool) {
     );
 }
 
-/// The `Receipt` for `m1` in `dm` (`senderMsgId` `smid-m1`), read at
-/// 2026-01-02T00:00:00Z.
+/// The `Receipt` for `m1` in `dm` (`senderMsgId` `smid-m1`, sent by
+/// `bob`), read at 2026-01-02T00:00:00Z.
 fn receipt(read_disposition: Option<ReadDisposition>) -> OutboundEvent {
     OutboundEvent::Receipt {
         chat_id: Id::from("dm"),
         message_id: Id::from("m1"),
         sender_msg_id: Id::from("smid-m1"),
+        sender_id: Id::from("bob"),
         read_at: UTCDate::from("2026-01-02T00:00:00Z"),
         read_disposition,
     }
@@ -889,6 +890,57 @@ async fn burn_on_read_still_reports_receipt() {
         backend.take_outbound_events_for_test(),
         vec![receipt(Some(ReadDisposition::Displayed))]
     );
+}
+
+/// fed c08568e L645-646: `Peer/receipt` `recipientUserId` is "the
+/// message's original sender"; chat-00 c08568e L750: `burnOnRead` makes the
+/// receiving server "permanently hard-delete this message ... immediately
+/// after setting `readAt`". In a group Chat the sender is one member among
+/// several, so the event must name `carol` although the Message is gone.
+#[tokio::test]
+async fn group_burn_on_read_receipt_names_original_sender() {
+    let backend = backend();
+    seed_group(&backend, "owner", &[("bob", "member"), ("carol", "member")]);
+    backend.insert_object_for_test(
+        "Message",
+        ACCOUNT_ID,
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smid-m1",
+            "senderId": "carol",
+            "chatId": "g1",
+            "body": "hello",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:00Z",
+            "deliveryState": "delivered",
+            "burnOnRead": true,
+        }),
+    );
+    let resp = message_update(&backend, "m1", json!({ "readAt": "2026-01-02T00:00:00Z" })).await;
+    assert!(resp["updated"].get("m1").is_some(), "{resp}");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![OutboundEvent::Receipt {
+            chat_id: Id::from("g1"),
+            message_id: Id::from("m1"),
+            sender_msg_id: Id::from("smid-m1"),
+            sender_id: Id::from("carol"),
+            read_at: UTCDate::from("2026-01-02T00:00:00Z"),
+            read_disposition: Some(ReadDisposition::Displayed),
+        }]
+    );
+    let HandlerOutput { primary: get, .. } = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": ["m1"] }),
+        &[],
+    )
+    .await
+    .expect("Message/get");
+    assert_eq!(get["notFound"], json!(["m1"]), "message burned: {get}");
 }
 
 async fn chat_typing(backend: &MemoryBackend, chat_id: &str, typing: bool) -> Result<(), String> {
