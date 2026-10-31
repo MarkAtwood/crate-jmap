@@ -1689,23 +1689,17 @@ pub async fn handle_message_set<B: ChatBackend>(
                 apply_optionals(&mut msg);
                 msg
             };
+            // draft-atwood-jmap-chat-00 §Message/set: the server sets the
+            // server-assigned fields "then enqueues the message for
+            // outbound delivery"; `create_message` does both as one unit.
             match backend
-                .create_object::<Message, _>(caller, &account_id, create_id, build)
+                .create_message(caller, &account_id, create_id, build)
                 .await
             {
                 Ok((server_id, created_obj)) => {
                     mutated = true;
                     created_ids.insert(Id::from(create_id.as_str()), server_id);
                     delivered_chat_ids.push(created_obj.chat_id.clone());
-                    // draft-atwood-jmap-chat-00 §Message/set: the server
-                    // sets the server-assigned fields "then enqueues the
-                    // message for outbound delivery".
-                    let event = OutboundEvent::NewMessage {
-                        chat_id: created_obj.chat_id.clone(),
-                        message_id: created_obj.id.clone(),
-                        sender_msg_id: created_obj.sender_msg_id.clone(),
-                    };
-                    backend.on_outbound_event(caller, &account_id, &event).await;
                     created.insert(
                         create_id.clone(),
                         jmap_server::serialize_value(&created_obj)?,

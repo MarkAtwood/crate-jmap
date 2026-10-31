@@ -688,6 +688,62 @@ pub trait ChatBackend: JmapBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&jmap_types::Id) -> O + Send;
 
+    /// Store an owner-composed Message and report its
+    /// [`OutboundEvent::NewMessage`](crate::OutboundEvent::NewMessage) as
+    /// one unit.
+    ///
+    /// [`crate::message::handle_message_set`] calls this for every
+    /// `Message/set` create that passes its checks. draft-atwood-jmap-chat-00
+    /// §Message/set: "The server sets `id`, `senderMsgId`, `senderId`,
+    /// `receivedAt`, `deliveryState`, and delivery timestamp fields, then
+    /// enqueues the message for outbound delivery."
+    ///
+    /// `build` and every contract of [`Self::create_object`] (authorisation,
+    /// id assignment, errors, state and change log) apply unchanged. On
+    /// `Ok` the Message is stored and its `NewMessage` event, naming the
+    /// Message's `chatId`, `id` and `senderMsgId`, is enqueued. On `Err`
+    /// nothing is stored and nothing is enqueued.
+    ///
+    /// An overriding backend may fail the whole create when it cannot
+    /// enqueue the event; the handler reports the error in `notCreated`
+    /// like any [`Self::create_object`] error, so a
+    /// [`BackendSetError::Other`] becomes `serverFail`. A backend that
+    /// wants the store and the delivery fan-out in one transaction (for
+    /// example a SQLite backend committing a group send once) overrides
+    /// this.
+    ///
+    /// # Default implementation
+    ///
+    /// Calls [`Self::create_object`] for `Message`, then, on success,
+    /// [`Self::on_outbound_event`] with the `NewMessage` event. The store
+    /// and the enqueue are then two steps, and the enqueue cannot fail
+    /// the create.
+    fn create_message<F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        create_id: &str,
+        build: F,
+    ) -> impl std::future::Future<
+        Output = Result<(jmap_types::Id, jmap_chat_types::Message), BackendSetError<Self::Error>>,
+    > + Send
+    where
+        F: FnOnce(&jmap_types::Id) -> jmap_chat_types::Message + Send,
+    {
+        async move {
+            let (id, message) = self
+                .create_object::<jmap_chat_types::Message, _>(caller, account_id, create_id, build)
+                .await?;
+            let event = crate::OutboundEvent::NewMessage {
+                chat_id: message.chat_id.clone(),
+                message_id: message.id.clone(),
+                sender_msg_id: message.sender_msg_id.clone(),
+            };
+            self.on_outbound_event(caller, account_id, &event).await;
+            Ok((id, message))
+        }
+    }
+
     /// Apply a partial update (patch) to an existing object.
     ///
     /// Returns `Some(updated_object)` if the backend modified any properties

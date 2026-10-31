@@ -1280,60 +1280,38 @@ impl ChatBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
-        check_metadata_create(&inner, O::TYPE_NAME, &val)?;
-
-        // `ChatContact` uniqueness contract on `create_object`: at most
-        // one ChatContact per `identity`, compared octet for octet.
-        if O::TYPE_NAME == "ChatContact" {
-            let existing = inner
-                .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                .and_then(|m| {
-                    m.iter()
-                        .find(|(_, c)| c.get("identity") == val.get("identity"))
-                })
-                .map(|(id, _)| id.clone());
-            if let Some(existing) = existing {
-                return Err(BackendSetError::SetError(Box::new(
-                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
-                )));
-            }
-        }
-
-        // `CustomEmoji` uniqueness contract on `create_object`.
-        if O::TYPE_NAME == "CustomEmoji"
-            && let Some(existing) = emoji_name_holder(&inner, account_id, &val, None)
-        {
-            return Err(BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
-            )));
-        }
-
-        let reply_parent = if O::TYPE_NAME == "Message" {
-            stored_reply_parent(&inner, account_id.as_ref(), &val)
-        } else {
-            None
-        };
-        inner.known_accounts.insert(account_id.as_ref().to_owned());
-        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
-        inner
-            .objects_mut(O::TYPE_NAME, account_id.as_ref())
-            .insert(server_id.clone(), val);
-        inner
-            .change_log_mut(O::TYPE_NAME, account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![server_id.clone()],
-                updated: vec![],
-                destroyed: vec![],
-                updated_props: None,
-            });
-        record_thread_count_changes(
-            &mut inner,
-            account_id.as_ref(),
-            reply_parent.into_iter().collect(),
-        );
-
+        insert_created(&mut inner, O::TYPE_NAME, account_id, &server_id, val)?;
         Ok((server_id, stored_obj))
+    }
+
+    /// Mints the id, builds and stores the Message, records the state
+    /// change and pushes the `NewMessage` event under one lock
+    /// acquisition, so no other caller observes the Message without its
+    /// event or the event without its Message.
+    async fn create_message<F>(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        _create_id: &str,
+        build: F,
+    ) -> Result<(Id, jmap_chat_types::Message), BackendSetError<Self::Error>>
+    where
+        F: FnOnce(&Id) -> jmap_chat_types::Message + Send,
+    {
+        let mut inner = self.inner.lock().unwrap();
+        let server_id = inner.mint_id();
+        let message = build(&server_id);
+        let val = serde_json::to_value(&message)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
+        insert_created(&mut inner, "Message", account_id, &server_id, val)?;
+        inner
+            .outbound_events
+            .push(crate::OutboundEvent::NewMessage {
+                chat_id: message.chat_id.clone(),
+                message_id: message.id.clone(),
+                sender_msg_id: message.sender_msg_id.clone(),
+            });
+        Ok((server_id, message))
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
@@ -2477,6 +2455,72 @@ impl Inner {
 /// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
 /// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
 /// on the stored value. Types without the -04 properties pass unchecked.
+/// The store half of `create_object` and `create_message`: checks the
+/// per-type create contracts, inserts `val` under `server_id`, advances
+/// the state and records the change, all under the caller's lock. On
+/// `Err` nothing is changed.
+fn insert_created(
+    inner: &mut Inner,
+    type_name: &'static str,
+    account_id: &Id,
+    server_id: &Id,
+    val: serde_json::Value,
+) -> Result<(), BackendSetError<MemoryError>> {
+    check_metadata_create(inner, type_name, &val)?;
+
+    // `ChatContact` uniqueness contract on create: at most
+    // one ChatContact per `identity`, compared octet for octet.
+    if type_name == "ChatContact" {
+        let existing = inner
+            .objects_ref(type_name, account_id.as_ref())
+            .and_then(|m| {
+                m.iter()
+                    .find(|(_, c)| c.get("identity") == val.get("identity"))
+            })
+            .map(|(id, _)| id.clone());
+        if let Some(existing) = existing {
+            return Err(BackendSetError::SetError(Box::new(
+                SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
+            )));
+        }
+    }
+
+    // `CustomEmoji` uniqueness contract on create.
+    if type_name == "CustomEmoji"
+        && let Some(existing) = emoji_name_holder(inner, account_id, &val, None)
+    {
+        return Err(BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
+        )));
+    }
+
+    let reply_parent = if type_name == "Message" {
+        stored_reply_parent(inner, account_id.as_ref(), &val)
+    } else {
+        None
+    };
+    inner.known_accounts.insert(account_id.as_ref().to_owned());
+    let new_state = inner.bump_state(type_name, account_id.as_ref());
+    inner
+        .objects_mut(type_name, account_id.as_ref())
+        .insert(server_id.clone(), val);
+    inner
+        .change_log_mut(type_name, account_id.as_ref())
+        .push(ChangeEntry {
+            new_state,
+            created: vec![server_id.clone()],
+            updated: vec![],
+            destroyed: vec![],
+            updated_props: None,
+        });
+    record_thread_count_changes(
+        inner,
+        account_id.as_ref(),
+        reply_parent.into_iter().collect(),
+    );
+    Ok(())
+}
+
 fn check_metadata_create(
     inner: &Inner,
     type_name: &'static str,
