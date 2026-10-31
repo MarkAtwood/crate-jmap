@@ -346,10 +346,11 @@ async fn last_admin_leave_closes_group() {
     assert_eq!(resp.destroyed, (std::slice::from_ref(&group_id)));
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing `chatId` — "The server
-/// MUST return an `invalidArguments` method error if `chatId` does not
-/// exist or the account is not a participant in that Chat, and MUST NOT
-/// distinguish the two cases."
+/// Oracle: draft-atwood-jmap-chat-00 §Chat/typing `chatId` (jmap-chat-spec
+/// 77c3474 L1164) — "The server SHOULD return an `invalidArguments` method
+/// error if `chatId` does not exist or the account is not a participant in
+/// that Chat, and SHOULD NOT distinguish the two cases." The jig's server
+/// performs the recommended behaviour by choice.
 #[tokio::test]
 async fn chat_typing_unknown_or_left_chat_is_invalid_arguments() {
     let (_jig, client, session) = connect().await;
@@ -569,10 +570,11 @@ async fn message_create_keeps_optional_properties() {
     assert_eq!(err.properties.as_deref(), Some(&["topicId".to_owned()][..]));
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext —
-/// "Servers MUST reject a `Message/set` create or update that has an
-/// encrypted `bodyType` and any of these fields non-empty with an
-/// `invalidProperties` SetError whose `properties` lists each such field".
+/// Oracle: draft-atwood-jmap-chat-00 §Fields Inside the Ciphertext
+/// (jmap-chat-spec 77c3474 L1823) — "Servers SHOULD reject a `Message/set`
+/// create or update that has an encrypted `bodyType` and any of these
+/// fields non-empty with an `invalidProperties` SetError whose `properties`
+/// lists each such field". The jig's server rejects by choice.
 /// A rich body is not restricted: §Mention says "The `mentions` array is
 /// authoritative for every `bodyType`" (bd:JMAP-yt1w.17).
 #[tokio::test]
@@ -978,10 +980,11 @@ async fn chat_changes_reports_created_chat() {
     assert!(!changes.has_more_changes);
 }
 
-/// Oracle: draft-atwood-jmap-chat-00 §Space/join — "The server MUST verify
-/// that no active SpaceBan exists for the requesting account's owner in the
-/// target Space. If a ban exists, the server MUST reject the request with a
-/// `forbidden` method error."
+/// Oracle: draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474
+/// L1420) — "The server SHOULD verify that no active SpaceBan exists for
+/// the requesting account's owner in the target Space. If a ban exists, the
+/// server SHOULD reject the request with a `forbidden` method error." The
+/// jig's server performs the recommended check by choice.
 ///
 /// The jig's single caller is both the Space creator and the banned user.
 #[tokio::test]
