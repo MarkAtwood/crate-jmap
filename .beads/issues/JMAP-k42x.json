@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-k42x",
+  "title": "jmap-search-client: search extension client",
+  "description": "Client helpers for the JMAP search extension (JMAP-nn3i), built on jmap-search-types and jmap-base-client: query builders and capability discovery. The name was claimed on crates.io 2026-10-30 as an early 0.0.1 release from ~/PROJECT/jmap-name-claims/ (outside this workspace). Done when: the crate lives in this workspace as a member (Cargo.toml members + [workspace.dependencies] entry once something depends on it), follows the canonical-template rule, has tests with independent oracles, a public-api/ snapshot, a RELEASING.md layer entry, and publishes on the shared jmap-* version line (replacing 0.0.1).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-30T20:28:10.625789653Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T20:28:10.625789653Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-k42x",
+      "depends_on_id": "JMAP-8xwm",
+      "type": "blocks",
+      "created_at": "2026-10-30T20:28:12.356109549Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

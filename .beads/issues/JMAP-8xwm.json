@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-8xwm",
+  "title": "jmap-search-types: shared query language types",
+  "description": "Types for the planned JMAP search extension (JMAP-nn3i): one filter/query language for every JMAP data type, modeled on the jmap-graph query language, with our own extension capability id (decide it in nn3i; do not invent it here). The name was claimed on crates.io 2026-10-30 as an early 0.0.1 release from ~/PROJECT/jmap-name-claims/ (outside this workspace). Done when: the crate lives in this workspace as a member (Cargo.toml members + [workspace.dependencies] entry once something depends on it), follows the canonical-template rule, has tests with independent oracles, a public-api/ snapshot, a RELEASING.md layer entry, and publishes on the shared jmap-* version line (replacing 0.0.1).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-30T20:28:10.534727429Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T20:28:10.534727429Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-8xwm",
+      "depends_on_id": "JMAP-nn3i",
+      "type": "blocks",
+      "created_at": "2026-10-30T20:28:11.414284914Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
