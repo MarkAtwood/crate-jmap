@@ -390,10 +390,11 @@ async fn client_uri_is_stable_per_signature_key_and_unique() {
 
 /// L214: "The server MUST keep the KeyPackageRef of every KeyPackage it
 /// hands out, with the account it belongs to, until a Welcome naming it
-/// has been delivered or its leaf node lifetime has passed." L204: "The
-/// server MUST reject, with `invalidProperties` naming `keyPackage`, a
-/// KeyPackage whose KeyPackageRef equals that of a KeyPackage it stores
-/// or has handed out".
+/// has been delivered or its leaf node lifetime has passed." L204
+/// (jmap-chat-spec 77c3474): "The server SHOULD reject, with
+/// `invalidProperties` naming `keyPackage`, a KeyPackage whose
+/// KeyPackageRef equals that of a KeyPackage it stores or has handed out",
+/// which this crate does by choice.
 #[tokio::test]
 async fn a_handed_out_key_package_cannot_be_uploaded_again() {
     let backend = alice_backend(10);

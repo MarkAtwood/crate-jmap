@@ -162,9 +162,11 @@ pub fn signature_key_bound_elsewhere() -> SetError {
 /// The `invalidProperties` SetError for a KeyPackage whose KeyPackageRef
 /// is already in use.
 ///
-/// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set: "The server MUST reject,
-/// with `invalidProperties` naming `keyPackage`, a KeyPackage whose
-/// KeyPackageRef equals that of a KeyPackage it stores or has handed out".
+/// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set (jmap-chat-spec 77c3474
+/// L204): "The server SHOULD reject, with `invalidProperties` naming
+/// `keyPackage`, a KeyPackage whose KeyPackageRef equals that of a
+/// KeyPackage it stores or has handed out". This crate performs the
+/// recommended rejection by choice.
 pub fn key_package_ref_in_use() -> SetError {
     SetError::new(SetErrorType::InvalidProperties)
         .with_properties(["keyPackage"])
