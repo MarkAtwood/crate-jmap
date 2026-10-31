@@ -76,9 +76,10 @@ fn peer_caller_may_call_every_peer_method() {
     }
 }
 
-/// L260: "Callers authenticated as a peer and operating against an account
-/// where `role` is `\"peer\"` MUST receive `forbidden` for any method not
-/// listed in {{peer-methods}}."
+/// jmap-chat-spec 77c3474 L356: "Callers authenticated as a peer and
+/// operating against an account where `role` is `\"peer\"` SHOULD receive
+/// `forbidden` for any method not listed in {{peer-methods}}." This crate
+/// follows the recommendation by choice.
 #[test]
 fn peer_caller_is_forbidden_other_methods() {
     for method in OWNER_METHODS {
@@ -86,15 +87,16 @@ fn peer_caller_is_forbidden_other_methods() {
     }
 }
 
-/// L260: "any method not listed in {{peer-methods}}" includes a Peer/*
+/// 77c3474 L356: "any method not listed in {{peer-methods}}" includes a Peer/*
 /// name the draft does not define.
 #[test]
 fn peer_caller_is_forbidden_unlisted_peer_name() {
     assert_forbidden(&PEER, "Peer/unknown");
 }
 
-/// L302: "Callers without the `\"peer\"` role MUST receive `forbidden` for
-/// all methods in this section."
+/// jmap-chat-spec 77c3474 L400: "Callers without the `\"peer\"` role
+/// SHOULD receive `forbidden` for all methods in this section." This crate
+/// follows the recommendation by choice.
 #[test]
 fn non_peer_caller_is_forbidden_every_peer_method() {
     for method in SPEC_PEER_METHODS {
@@ -148,9 +150,10 @@ async fn guarded_dispatch(caller: Caller) -> Vec<(String, Value)> {
         .collect()
 }
 
-/// 33702a5 L277: "Callers authenticated as a peer and operating against an
-/// account where `role` is `\"peer\"` MUST receive `forbidden` for any
-/// method not listed in {{peer-methods}}" — enforced by the dispatcher
+/// jmap-chat-spec 77c3474 L356: "Callers authenticated as a peer and
+/// operating against an account where `role` is `\"peer\"` SHOULD receive
+/// `forbidden` for any method not listed in {{peer-methods}}" — by choice,
+/// enforced by the dispatcher
 /// before a registered handler runs.
 #[tokio::test]
 async fn dispatcher_guard_forbids_peer_caller_other_methods() {
@@ -163,8 +166,9 @@ async fn dispatcher_guard_forbids_peer_caller_other_methods() {
     );
 }
 
-/// 33702a5 L319: "Callers without the `\"peer\"` role MUST receive
-/// `forbidden` for all methods in this section" — enforced by the
+/// jmap-chat-spec 77c3474 L400: "Callers without the `\"peer\"` role
+/// SHOULD receive `forbidden` for all methods in this section" — by choice,
+/// enforced by the
 /// dispatcher before a registered handler runs.
 #[tokio::test]
 async fn dispatcher_guard_forbids_non_peer_caller_peer_methods() {
