@@ -87,6 +87,8 @@ mod position;
 mod presence;
 mod push;
 mod space;
+#[cfg(feature = "testkit")]
+pub mod testkit;
 
 pub use backend::{
     AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError,

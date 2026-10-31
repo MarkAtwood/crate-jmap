@@ -5643,6 +5643,34 @@ fn variant_name(op: &SpacePatchOp) -> &'static str {
     }
 }
 
+/// The conformance-suite seam: the `test-helpers` setters stand in for
+/// account provisioning, seeding and the outbound queue.
+#[cfg(all(feature = "testkit", feature = "test-helpers"))]
+impl crate::testkit::ConformanceBackend for MemoryBackend {
+    /// `CallerCtx` is `()`: every request acts as every account's owner.
+    fn caller(&self, _account_id: &Id) {}
+
+    async fn add_account(&self, account_id: &Id, owner_user_id: &str) {
+        self.register_account(account_id);
+        self.set_owner_user_id_for_test(account_id, owner_user_id);
+    }
+
+    /// # Panics
+    ///
+    /// If `object` has no `id` string.
+    async fn seed(&self, account_id: &Id, type_name: &'static str, object: serde_json::Value) {
+        let id = object["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("seed: {type_name} object has no `id` string: {object}"))
+            .to_owned();
+        self.insert_object_for_test(type_name, account_id.as_ref(), &id, object);
+    }
+
+    fn take_outbound_events(&self) -> Option<Vec<crate::OutboundEvent>> {
+        Some(self.take_outbound_events_for_test())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
