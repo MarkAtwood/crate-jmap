@@ -147,11 +147,13 @@ async fn chat_path_alone_covers_every_region_with_an_active_avatar() {
     );
 }
 
-/// wss L847-851: "If the client has an active `ChatStreamEnable`
-/// subscription that includes `"scene"` AND an active `SceneStreamEnable`
-/// subscription, the server MUST deliver the union of both subscriptions.
-/// The server MUST NOT deliver duplicate events; if an event matches both
-/// subscriptions, it is delivered exactly once."
+/// scene-wss (jmap-chat-spec 77c3474) L914-918: "If the client has an
+/// active `ChatStreamEnable` subscription that includes `"scene"` AND an
+/// active `SceneStreamEnable` subscription, the server MUST deliver the
+/// union of both subscriptions. The server SHOULD NOT deliver duplicate
+/// events; if an event matches both
+/// subscriptions, it is delivered exactly once." This crate follows the
+/// recommendation by choice.
 #[tokio::test]
 async fn union_covers_what_either_path_covers() {
     let r1_interactions = subscribed(json!({

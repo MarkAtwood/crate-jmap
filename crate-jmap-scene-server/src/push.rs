@@ -8,8 +8,9 @@
 //! (RFC 8030 §5.3) for it with [`push_urgency`].
 //!
 //! Coalescing rapid SceneAvatar and SceneObject mutations (§State-Change
-//! Frequency, RECOMMENDED 1-5 seconds) needs a clock and a delivery queue,
-//! so it is the consumer's job.
+//! Frequency, jmap-chat-spec 77c3474 L2840-2842: the server "MAY coalesce",
+//! "for example, 1-5 seconds") needs a clock and a delivery queue, so it is
+//! the consumer's job.
 
 use jmap_scene_types::{SceneAsset, SceneAvatar, SceneObject, SceneRegion};
 
@@ -32,7 +33,9 @@ pub const SCENE_DATA_TYPES: &[&str] = &[
 ];
 
 /// A change, as seen by the user who receives the push, for which
-/// §Push Urgency recommends an urgency.
+/// §Push Urgency suggests an urgency (jmap-chat-spec 77c3474 L2854: the
+/// server "MAY set the `Urgency` header"; "The following urgency
+/// assignments are suggested").
 ///
 /// The consumer classifies each change it is about to push; only it knows
 /// who receives the push and why the record changed.
@@ -64,7 +67,7 @@ pub enum SceneEvent {
 }
 
 impl SceneEvent {
-    /// The §Push Urgency recommendation for this event.
+    /// The §Push Urgency suggestion for this event.
     ///
     /// For an avatar enter or leave already announced by a Chat push,
     /// §Avatar Enter and Chat Member Join says the server "SHOULD NOT set

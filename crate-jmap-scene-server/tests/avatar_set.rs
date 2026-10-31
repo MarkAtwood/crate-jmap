@@ -571,10 +571,11 @@ const RESERVED: &str = "System Administrator";
 
 #[tokio::test]
 async fn reserved_display_name_create_is_forbidden() {
-    // L2457 "The server SHOULD maintain a list of reserved display names
-    // that correspond to system roles or administrative functions and MUST
-    // reject `SceneAvatar/set` operations that attempt to use a reserved
-    // name with a `SetError` of type `forbidden`."
+    // jmap-chat-spec 77c3474 L2776 "The server MAY maintain a list of
+    // reserved display names that correspond to system roles or
+    // administrative functions and MAY reject `SceneAvatar/set` operations
+    // that attempt to use a reserved name with a `SetError` of type
+    // `forbidden`." This crate rejects them by choice.
     let backend = setup();
     backend.reserve_display_name(RESERVED);
     let err = create_error(

@@ -73,7 +73,7 @@
 //!
 //! Push (draft §Push Notifications): [`SCENE_DATA_TYPES`], the four types
 //! that participate in RFC 8620 state changes, and [`push_urgency`], the
-//! §Push Urgency recommendation for a `StateChange`, including the
+//! §Push Urgency suggestion for a `StateChange`, including the
 //! §Interaction with Chat Push rule that an avatar enter or leave already
 //! announced by a bound Chat's push is not sent at `normal` or higher.
 //!

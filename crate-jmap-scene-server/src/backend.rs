@@ -431,11 +431,11 @@ pub trait SceneBackend: JmapBackend {
     }
 
     /// The reserved display names (draft-atwood-jmap-scene-00 §Avatar
-    /// Identity and Impersonation): "The server SHOULD maintain a list of
-    /// reserved display names that correspond to system roles or
-    /// administrative functions and MUST reject `SceneAvatar/set`
-    /// operations that attempt to use a reserved name with a `SetError` of
-    /// type `forbidden`."
+    /// Identity and Impersonation, jmap-chat-spec 77c3474 L2776): "The
+    /// server MAY maintain a list of reserved display names that correspond
+    /// to system roles or administrative functions and MAY reject
+    /// `SceneAvatar/set` operations that attempt to use a reserved name with
+    /// a `SetError` of type `forbidden`." This crate rejects them by choice.
     ///
     /// `SceneAvatar/set` refuses a create or update whose client-supplied
     /// `displayName` equals one of these names exactly with `forbidden`.

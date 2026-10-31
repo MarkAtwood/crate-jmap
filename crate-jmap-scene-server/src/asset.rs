@@ -435,9 +435,10 @@ async fn fetch_modifiable<B: SceneBackend>(
 
 /// One §SceneAsset/set update. `Ok` is the `updated` echo.
 /// Vendor extension properties stay patchable and the spec-defined immutable
-/// or server-set ones do not (§Extension Properties in Updates: "MAY also
-/// accept patches to them", "MUST NOT accept patches to a property this
-/// document defines as immutable or server-set").
+/// or server-set ones do not (§Extension Properties in Updates,
+/// jmap-chat-spec 77c3474 L736: "MAY also accept patches to them";
+/// "Patches to a property this document defines as immutable or server-set
+/// are rejected as {{RFC8620}} Section 5.3 describes").
 async fn update_asset<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
