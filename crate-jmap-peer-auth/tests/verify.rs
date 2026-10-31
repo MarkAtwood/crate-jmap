@@ -517,3 +517,81 @@ fn extra_components() {
         Err(Rejection::UnderivableComponent("@query-param".to_owned()))
     );
 }
+
+/// draft-atwood-jmap-chat-federation-00 §4.2.1 "Example": the signed
+/// `Peer/deliver` request, copied from the draft with RFC 8792 '\'
+/// line wrapping unfolded. The body is the 605-octet JSON text without a
+/// final line ending.
+const DRAFT_BODY: &[u8] = br#"{
+  "using": ["urn:ietf:params:jmap:core",
+            "urn:ietf:params:jmap:chat"],
+  "methodCalls": [
+    ["Peer/deliver", {
+      "accountId": "P5f2",
+      "recipientUserId": "bob@bob.example",
+      "chatId": "01M63F1WH01Y0REYVGR2JXN81Y",
+      "senderUserId": "alice@alice.example",
+      "chatKind": "direct",
+      "message": {
+        "senderMsgId": "01M66W1ZNG06Y60M4QKTWMP8P8",
+        "body": "Lunch at noon, Bob?",
+        "bodyType": "text/plain",
+        "sentAt": "2026-10-30T16:59:58Z",
+        "attachments": [],
+        "mentions": [{"id": "bob@bob.example"}]
+      }
+    }, "c1"]
+  ]
+}"#;
+const DRAFT_CONTENT_DIGEST: &str = "sha-256=:Y/RYJOBS9YmOB1mfLE/98BAV1DrlwrxZrSEQLJ0MIrE=:";
+const DRAFT_SIGNATURE_INPUT: &str = concat!(
+    r#"peer=("@method" "@target-uri" "content-digest");created=1793379600;expires=1793379900"#,
+    r#";nonce="WYVxNuwz3RBEhnJKM4LvVg";alg="ed25519""#,
+    r#";keyid="alice.example#kPrK_qmxVWaYVA9wwBF6Iuo3vVzz7TxHCTwXBygrS4k""#,
+    r#";tag="jmap-chat-peer""#,
+);
+const DRAFT_SIGNATURE: &str = concat!(
+    "peer=:Fpre0jRx0QQUiIwvNev/Z0GvVXXlGaf1Eb1+BToB0kpQ",
+    "M5fGZUVBigNh76Rmxb5SR8Gvz5YzRWmInQgvcjT0Bg==:",
+);
+const DRAFT_CREATED: i64 = 1_793_379_600;
+
+#[test]
+fn draft_example_is_accepted() {
+    let mut headers = HeaderMap::new();
+    headers.insert(
+        "content-digest",
+        HeaderValue::from_static(DRAFT_CONTENT_DIGEST),
+    );
+    headers.insert(
+        "signature-input",
+        HeaderValue::from_static(DRAFT_SIGNATURE_INPUT),
+    );
+    headers.insert("signature", HeaderValue::from_static(DRAFT_SIGNATURE));
+    let request = Request {
+        method: &Method::POST,
+        target_uri: "https://bob.example/jmap/api/",
+        headers: &headers,
+        content: DRAFT_BODY,
+    };
+    let accepted = SignedRequest::parse(request)
+        .unwrap()
+        .verify(&alice_keys(), at(DRAFT_CREATED))
+        .unwrap();
+    assert_eq!(
+        accepted.peer_domain,
+        PeerDomain::parse("alice.example").unwrap()
+    );
+    assert_eq!(accepted.nonce, "WYVxNuwz3RBEhnJKM4LvVg");
+    assert_eq!(accepted.created, at(DRAFT_CREATED));
+}
+
+/// The draft's `Content-Length: 605` and `Content-Digest` describe the
+/// body, checked with the RustCrypto `sha2` crate rather than this crate.
+#[test]
+fn draft_example_content_digest() {
+    use sha2::{Digest, Sha256};
+    assert_eq!(DRAFT_BODY.len(), 605);
+    let digest = STANDARD.encode(Sha256::digest(DRAFT_BODY));
+    assert_eq!(DRAFT_CONTENT_DIGEST, format!("sha-256=:{digest}:"));
+}
