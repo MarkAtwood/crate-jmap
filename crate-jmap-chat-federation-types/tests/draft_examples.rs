@@ -7,7 +7,10 @@
 //! test parses the whole request or response as the RFC 8620 envelope,
 //! checks it serializes back to the same JSON, then parses the method
 //! arguments into this crate's type and checks they serialize back to the
-//! draft's arguments.
+//! draft's arguments. Every type has a flattened `extra` catch-all that
+//! would also round-trip a key a typed field fails to claim, so each test
+//! also asserts `extra` holds only `recipientUserId` on the arguments and
+//! nothing on every other parsed struct.
 //!
 //! `recipientUserId` (fed L404) has no typed field in the 0.4 argument
 //! types; it survives the round trip through `extra`. Typed support and
@@ -25,6 +28,11 @@ fn round_trip<T: Serialize + DeserializeOwned>(wire: &Value) -> T {
     let parsed: T = serde_json::from_value(wire.clone()).expect("draft JSON parses");
     assert_eq!(&serde_json::to_value(&parsed).expect("serialize"), wire);
     parsed
+}
+
+/// Assert the only draft key no typed field claimed is `recipientUserId`.
+fn only_recipient(extra: &serde_json::Map<String, Value>) {
+    assert_eq!(extra.keys().collect::<Vec<_>>(), ["recipientUserId"]);
 }
 
 /// The arguments of the single method call `name` with call id `"c1"` in
@@ -62,14 +70,19 @@ fn response<T: Serialize + DeserializeOwned>(json: &str, name: &str, state: &str
 #[test]
 fn deliver_new_message() {
     let args: PeerDeliverArgs = request(DELIVER_MESSAGE_REQUEST, "Peer/deliver");
+    only_recipient(&args.extra);
     assert_eq!(args.sender_user_id, "alice@alice.example");
     let message = args.message.expect("message");
+    assert!(message.extra.is_empty());
     assert_eq!(message.sender_msg_id, "01M66W1ZNG06Y60M4QKTWMP8P8");
     assert!(message.attachments.is_empty());
-    assert_eq!(message.mentions.expect("mentions")[0].id, "bob@bob.example");
+    let mentions = message.mentions.expect("mentions");
+    assert!(mentions.iter().all(|m| m.extra.is_empty()));
+    assert_eq!(mentions[0].id, "bob@bob.example");
     assert!(args.edit.is_none() && args.reaction_update.is_none());
 
     let r: PeerDeliverResponse = response(DELIVER_MESSAGE_RESPONSE, "Peer/deliver", "b7q3");
+    assert!(r.extra.is_empty());
     assert_eq!(r.received_msg_id, "01M66W22K8QSZ6YW5FNRGPAX4A");
     assert_eq!(r.received_at.as_ref(), "2026-10-30T17:00:01Z");
     assert!(r.canonical_chat_id.is_none());
@@ -79,12 +92,15 @@ fn deliver_new_message() {
 #[test]
 fn deliver_edit() {
     let args: PeerDeliverArgs = request(DELIVER_EDIT_REQUEST, "Peer/deliver");
+    only_recipient(&args.extra);
     let edit = args.edit.expect("edit");
+    assert!(edit.extra.is_empty());
     assert_eq!(edit.body, "Lunch at 12:30, Bob?");
     assert_eq!(edit.edited_at.as_ref(), "2026-10-30T17:01:05Z");
     assert!(args.message.is_none() && args.reaction_update.is_none());
 
     let r: PeerDeliverResponse = response(DELIVER_EDIT_RESPONSE, "Peer/deliver", "b7q4");
+    assert!(r.extra.is_empty());
     assert_eq!(r.received_msg_id, "01M66W22K8QSZ6YW5FNRGPAX4A");
 }
 
@@ -93,12 +109,15 @@ fn deliver_edit() {
 #[test]
 fn deliver_reaction_update() {
     let args: PeerDeliverArgs = request(DELIVER_REACTION_REQUEST, "Peer/deliver");
+    only_recipient(&args.extra);
     let reaction = args.reaction_update.expect("reactionUpdate");
+    assert!(reaction.extra.is_empty());
     assert_eq!(reaction.emoji, "\u{1F44D}");
     assert_eq!(reaction.action, ReactionAction::Add);
     assert!(reaction.custom_emoji_id.is_none());
 
     let r: PeerDeliverResponse = response(DELIVER_REACTION_RESPONSE, "Peer/deliver", "a4k8");
+    assert!(r.extra.is_empty());
     assert_eq!(r.received_msg_id, reaction.sender_msg_id);
 }
 
@@ -106,6 +125,7 @@ fn deliver_reaction_update() {
 #[test]
 fn receipt() {
     let args: PeerReceiptArgs = request(RECEIPT_REQUEST, "Peer/receipt");
+    only_recipient(&args.extra);
     assert_eq!(args.reader_user_id, "bob@bob.example");
     assert_eq!(
         args.read_at.expect("readAt").as_ref(),
@@ -114,6 +134,7 @@ fn receipt() {
     assert!(args.device_delivered_at.is_none());
 
     let r: PeerAck = response(RECEIPT_RESPONSE, "Peer/receipt", "a4k7");
+    assert!(r.extra.is_empty());
     assert_eq!(r.account_id, "P9c1");
 }
 
@@ -121,9 +142,11 @@ fn receipt() {
 #[test]
 fn typing() {
     let args: PeerTypingArgs = request(TYPING_REQUEST, "Peer/typing");
+    only_recipient(&args.extra);
     assert!(args.typing);
 
     let r: PeerAck = response(TYPING_RESPONSE, "Peer/typing", "b7q3");
+    assert!(r.extra.is_empty());
     assert_eq!(r.account_id, "P5f2");
 }
 
@@ -131,9 +154,11 @@ fn typing() {
 #[test]
 fn retract() {
     let args: PeerRetractArgs = request(RETRACT_REQUEST, "Peer/retract");
+    only_recipient(&args.extra);
     assert_eq!(args.sender_msg_id, "01M66W1ZNG06Y60M4QKTWMP8P8");
 
     let r: PeerRetractResponse = response(RETRACT_RESPONSE, "Peer/retract", "b7q5");
+    assert!(r.extra.is_empty());
     assert_eq!(r.retracted_at.as_ref(), "2026-10-30T17:05:12Z");
 }
 
@@ -141,8 +166,10 @@ fn retract() {
 #[test]
 fn group_update_create() {
     let args: PeerGroupUpdateArgs = request(GROUP_UPDATE_REQUEST, "Peer/groupUpdate");
+    only_recipient(&args.extra);
     assert_eq!(args.action, GroupUpdateAction::Create);
     let members = args.members.expect("members");
+    assert!(members.iter().all(|m| m.extra.is_empty()));
     assert_eq!(members.len(), 3);
     assert!(members[0].invited_by.is_none());
     assert_eq!(
@@ -152,6 +179,7 @@ fn group_update_create() {
     assert!(args.avatar.is_none());
 
     let r: PeerAck = response(GROUP_UPDATE_RESPONSE, "Peer/groupUpdate", "b7q6");
+    assert!(r.extra.is_empty());
     assert_eq!(r.account_id, "P5f2");
 }
 
@@ -160,6 +188,7 @@ fn group_update_create() {
 fn subscribe_presence() {
     let args: PeerSubscribePresenceArgs =
         request(SUBSCRIBE_PRESENCE_REQUEST, "Peer/subscribePresence");
+    only_recipient(&args.extra);
     assert_eq!(args.ttl, Some(3600));
 
     let r: PeerSubscribePresenceResponse = response(
@@ -167,6 +196,7 @@ fn subscribe_presence() {
         "Peer/subscribePresence",
         "a4k8",
     );
+    assert!(r.extra.is_empty());
     assert_eq!(r.ttl, 3600);
     assert!(r.status_text.is_none() && r.status_emoji.is_none());
 }
@@ -176,6 +206,7 @@ fn subscribe_presence() {
 fn unsubscribe_presence() {
     let args: PeerUnsubscribePresenceArgs =
         request(UNSUBSCRIBE_PRESENCE_REQUEST, "Peer/unsubscribePresence");
+    only_recipient(&args.extra);
     assert_eq!(args.subscriber_id, "bob@bob.example");
 
     let r: PeerAck = response(
@@ -183,6 +214,7 @@ fn unsubscribe_presence() {
         "Peer/unsubscribePresence",
         "a4k8",
     );
+    assert!(r.extra.is_empty());
     assert_eq!(r.account_id, "P9c1");
 }
 
@@ -191,10 +223,12 @@ fn unsubscribe_presence() {
 #[test]
 fn presence() {
     let args: PeerPresenceArgs = request(PRESENCE_REQUEST, "Peer/presence");
+    only_recipient(&args.extra);
     assert_eq!(args.identity, "alice@alice.example");
     assert!(args.status_emoji.is_none());
 
     let r: PeerAck = response(PRESENCE_RESPONSE, "Peer/presence", "b7q6");
+    assert!(r.extra.is_empty());
     assert_eq!(r.account_id, "P5f2");
 }
 
@@ -203,6 +237,7 @@ fn presence() {
 #[test]
 fn forbidden_unknown_recipient() {
     let args: PeerTypingArgs = request(FORBIDDEN_REQUEST, "Peer/typing");
+    only_recipient(&args.extra);
     assert!(args.typing);
 
     let e: JmapError = response(FORBIDDEN_RESPONSE, "error", "b7q3");
