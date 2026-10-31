@@ -148,10 +148,11 @@ fn assert_created(resp: &Value) {
     assert!(resp["created"]["m"].is_object(), "{resp:?}");
 }
 
-/// §Message/set L1126: "The server MUST verify the sender is a current
-/// member of the target Chat. For group chats, this means a ChatMember
-/// record exists; ... Non-members MUST receive a SetError of type
-/// `forbidden`."
+/// §Message/set (jmap-chat-spec 77c3474) L1218: "The server SHOULD verify
+/// the sender is a current member of the target Chat. For group chats,
+/// this means a ChatMember record exists; ... Non-members SHOULD receive a
+/// SetError of type `forbidden`." This crate performs the recommended
+/// check by choice.
 #[tokio::test]
 async fn group_create_by_non_member_is_forbidden() {
     let backend = MemoryBackend::new();
@@ -173,9 +174,9 @@ async fn group_create_by_non_member_is_forbidden() {
     assert_forbidden(&create_message(&backend, "g1").await);
 }
 
-/// §Message/set L1126: "for channel chats, the sender must be a member of
-/// the containing Space. Non-members MUST receive a SetError of type
-/// `forbidden`." The role grants `send`, but the owner holds no member
+/// §Message/set (jmap-chat-spec 77c3474) L1218: "for channel chats, the
+/// sender must be a member of the containing Space. Non-members SHOULD
+/// receive a SetError of type `forbidden`." The role grants `send`, but the owner holds no member
 /// entry.
 #[tokio::test]
 async fn channel_create_by_space_non_member_is_forbidden() {
@@ -184,10 +185,11 @@ async fn channel_create_by_space_non_member_is_forbidden() {
     assert_forbidden(&create_message(&backend, CHANNEL_ID).await);
 }
 
-/// §Message/set L1128: "For channel Chats, the server MUST verify the
-/// sender holds the `\"send\"` permission (resolved per
-/// {{space-permissions}}) before accepting the message; if absent, the
-/// server MUST return a SetError of type `forbidden`."
+/// §Message/set (jmap-chat-spec 77c3474) L1220: "For channel Chats, the
+/// server SHOULD verify the sender holds the `\"send\"` permission
+/// (resolved per {{space-permissions}}) before accepting the message; if
+/// absent, the server SHOULD return a SetError of type `forbidden`." This
+/// crate performs the recommended check by choice.
 #[tokio::test]
 async fn channel_create_without_send_is_forbidden() {
     let backend = backend_without_everyone_floor();
@@ -302,10 +304,11 @@ async fn space_id_override_denies_everyone() {
     }
 }
 
-/// §Message/query L1209: "For channel Chats, the server MUST verify the
-/// caller holds the `\"view\"` permission before returning messages in
-/// `Message/get` or `Message/query` responses; messages in channels the
-/// caller cannot view MUST be omitted." A requested hidden id is
+/// §Message/query (jmap-chat-spec 77c3474) L1301: "For channel Chats, the
+/// server SHOULD verify the caller holds the `\"view\"` permission before
+/// returning messages in `Message/get` or `Message/query` responses;
+/// messages in channels the caller cannot view SHOULD be omitted." This
+/// crate performs the recommended check by choice. A requested hidden id is
 /// reported as `notFound` (RFC 8620 §5.1), and a full fetch drops it.
 #[tokio::test]
 async fn get_omits_messages_in_channel_without_view() {
@@ -412,8 +415,9 @@ async fn query_returns_messages_in_channel_with_view() {
 
 /// The handlers consult `ChatBackend::may_view_chat` themselves for
 /// `Message/get` and for a `chatId`-scoped `Message/query`, so a backend
-/// that overrides only the hook still satisfies §Message/query L1209:
-/// "messages in channels the caller cannot view MUST be omitted". The
+/// that overrides only the hook still gets this crate's chosen behaviour
+/// for §Message/query (jmap-chat-spec 77c3474) L1301: "messages in
+/// channels the caller cannot view SHOULD be omitted". The
 /// wrapper's hook hides every Chat while its stored data stays visible.
 #[tokio::test]
 async fn handlers_consult_view_hook() {
@@ -521,9 +525,10 @@ async fn create_broadcast_message(backend: &MemoryBackend) -> Value {
     resp
 }
 
-/// §BroadcastMention L456: "Servers MUST reject `Message/set` create or
-/// update requests that would write a broadcast mention from a sender
-/// lacking this permission with `forbidden`", with the permission
+/// §BroadcastMention (jmap-chat-spec 77c3474) L462: "Servers SHOULD reject
+/// `Message/set` create or update requests that would write a broadcast
+/// mention from a sender lacking this permission with `forbidden`", which
+/// this crate does by choice, with the permission
 /// resolved per §Space Permission Resolution L1703: "When determining
 /// whether a member may perform an action in a channel Chat, servers
 /// MUST evaluate permissions in this order", step 2 applying

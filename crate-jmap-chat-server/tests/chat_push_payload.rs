@@ -629,10 +629,10 @@ fn urgency_outside_rfc8030_is_sent_as_normal() {
     assert_eq!(built.urgency, Urgency::Normal);
 }
 
-/// draft-atwood-jmap-chat-push-00 §ChatMessagePush (push:149-150):
-/// `unreadCount` is "The account owner's total unread message count across
-/// all non-muted Chats ... Servers SHOULD include this for platforms that
-/// support atomic badge updates"; "It is a property of the push as a
+/// draft-atwood-jmap-chat-push-00 §ChatMessagePush (jmap-chat-spec 77c3474
+/// push:150): `unreadCount` is "The account owner's total unread message
+/// count across all non-muted Chats ... Servers MAY include this for
+/// platforms that support atomic badge updates"; "It is a property of the push as a
 /// whole, not of any one entry, and is not governed by the `properties`
 /// list". A count passed in is a top-level member even when `properties`
 /// asks for one entry field only; none passed in leaves it out.

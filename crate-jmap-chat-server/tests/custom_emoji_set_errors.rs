@@ -326,8 +326,9 @@ async fn destroy_of_unknown_emoji_is_not_found_even_when_gate_denies() {
 }
 
 /// Draft §CustomEmoji: an emoji is "server- or Space-scoped", and
-/// §CustomEmoji/set requires `forbidden` "when the caller is not
-/// authorized to act on the targeted emoji". The authorization decision
+/// §CustomEmoji/set (jmap-chat-spec 77c3474 L1478) recommends (SHOULD)
+/// `forbidden` "when the caller is not authorized to act on the targeted
+/// emoji", which this crate returns by choice. The authorization decision
 /// therefore needs the targeted emoji's scope: the `spaceId` the create
 /// supplies, and the stored `spaceId` (absent for a server-global emoji)
 /// on update and destroy.

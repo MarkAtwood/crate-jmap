@@ -286,10 +286,11 @@ async fn space_self_nick_by_account_id_is_permitted() {
     assert_eq!(me["nick"], "Al", "{me}");
 }
 
-/// draft-atwood-jmap-chat-00 §Space/join: "The server MUST verify that no
-/// active SpaceBan exists for the requesting account's owner in the target
-/// Space. If a ban exists, the server MUST reject the request with a
-/// `forbidden` method error." The owner's SpaceBan carries the accountId
+/// draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474 L1420):
+/// "The server SHOULD verify that no active SpaceBan exists for the
+/// requesting account's owner in the target Space. If a ban exists, the
+/// server SHOULD reject the request with a `forbidden` method error." This
+/// crate performs the recommended check by choice. The owner's SpaceBan carries the accountId
 /// as its `userId` (§SpaceBan/get: "A banned user fetching their own
 /// account sees only SpaceBan records where `userId` is the accountId.").
 #[tokio::test]

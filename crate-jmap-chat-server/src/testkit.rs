@@ -1905,9 +1905,11 @@ mod query_anchor {
 // `Space/join` by invite code redeems the invite atomically through
 // `ChatBackend::join_space_with_invite` (bd:JMAP-x2gd.2).
 //
-// Oracle: draft-atwood-jmap-chat-00 §Space/join: "The `uses` increment
-// and membership insertion MUST be performed within a single atomic
-// operation so that concurrent redemptions cannot exceed `maxUses`."
+// Oracle: draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474
+// L1416): "The `uses` increment and membership insertion SHOULD be
+// performed within a single atomic operation so that concurrent
+// redemptions cannot exceed `maxUses`." This crate requires the
+// recommended atomicity of every backend by choice.
 //
 // The joining member is always the account's owner, so two distinct
 // joiners racing for the last use cannot be modelled here. These tests
@@ -2045,9 +2047,10 @@ mod space_join {
         assert_eq!(snapshot(&backend).await, before);
     }
 
-    /// draft-atwood-jmap-chat-00 §Space/join: "The `uses` increment and
-    /// membership insertion MUST be performed within a single atomic
-    /// operation". Concurrent redemptions are serialized: exactly one
+    /// draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474 L1416):
+    /// "The `uses` increment and membership insertion SHOULD be performed
+    /// within a single atomic operation", which this crate requires by
+    /// choice. Concurrent redemptions are serialized: exactly one
     /// succeeds, `uses` is incremented exactly once and the member appears
     /// exactly once.
     ///

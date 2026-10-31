@@ -20,10 +20,11 @@ const OTHER_SPACE_ID: &str = "space2";
 
 /// Seed a Space whose only member is the owner (member entry id =
 /// accountId, draft §Terminology), holding a role with `"view"`, so its
-/// channel messages are visible: §Message/query "For channel Chats, the
-/// server MUST verify the caller holds the `"view"` permission before
-/// returning messages in `Message/get`". The role also grants
-/// `"manage_space"`, which §Destroying a Space requires.
+/// channel messages are visible: §Message/query (jmap-chat-spec 77c3474
+/// L1301) "For channel Chats, the server SHOULD verify the caller holds the
+/// `"view"` permission before returning messages in `Message/get`", which
+/// this crate does. The role also grants `"manage_space"`, which this
+/// crate requires for §Destroying a Space.
 fn seed_space(backend: &MemoryBackend, id: &str) {
     seed_space_with(backend, id, json!(["view", "manage_space"]));
 }
@@ -259,10 +260,10 @@ async fn channel_read_failure_leaves_space_and_channels() {
     assert_eq!(space.0.len(), 1, "the Space must survive");
 }
 
-/// §Destroying a Space (jmap-chat-spec 33702a5 L1383): "The caller MUST
-/// hold `"manage_space"` ... Servers MUST return a `forbidden` SetError
+/// §Destroying a Space (jmap-chat-spec 77c3474 L1391): "The caller SHOULD
+/// hold `"manage_space"` ... Servers SHOULD return a `forbidden` SetError
 /// when the caller does not satisfy the deployment's destroy-authorization
-/// rules." A caller whose only role grants `"view"` gets `forbidden`, and
+/// rules." This crate performs the recommended check by choice. A caller whose only role grants `"view"` gets `forbidden`, and
 /// the Space and its channels survive.
 #[tokio::test]
 async fn destroy_without_manage_space_is_forbidden() {

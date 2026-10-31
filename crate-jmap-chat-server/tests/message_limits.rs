@@ -186,9 +186,10 @@ async fn attachment_size_limit_precedes_blob_check() {
     assert_too_large(&create(&backend, &chat_id, "hi", over).await);
 }
 
-/// L286-290 §Attachment: `size` "Blob size in bytes. Servers MUST verify
-/// against actual content." `sha256` "Lowercase hex SHA-256 of blob
-/// content. Servers SHOULD verify." L1663-1664 / L1667: a failed check
+/// §Attachment (jmap-chat-spec 77c3474 L374, L377): `size` "Blob size in
+/// bytes. Servers SHOULD verify against actual content." `sha256`
+/// "Lowercase hex SHA-256 of blob content. Servers SHOULD verify." This
+/// crate performs both recommended checks by choice. L1663-1664 / L1667: a failed check
 /// for which "this document names no other error" is "an
 /// `invalidProperties` SetError ... whose `properties` names the
 /// offending property". The fixture blob is the three bytes "abc".

@@ -201,9 +201,11 @@ async fn create_rejects_invalid_optional_properties() {
 /// type, in any topology, the Message fields `mentions`,
 /// `broadcastMentions`, `attachments`, `actions`, `replyTo`,
 /// `threadRootId`, `topicId`, and `subject` MUST be empty or absent" and
-/// "Servers MUST reject a `Message/set` create or update that has an
+/// "Servers SHOULD reject a `Message/set` create or update that has an
 /// encrypted `bodyType` and any of these fields non-empty with an
-/// `invalidProperties` SetError whose `properties` lists each such field".
+/// `invalidProperties` SetError whose `properties` lists each such field"
+/// (jmap-chat-spec 77c3474 L1823). This crate performs the recommended
+/// rejection by choice.
 #[tokio::test]
 async fn create_rejects_routing_fields_with_encrypted_body_type() {
     let backend = common::account_backend();

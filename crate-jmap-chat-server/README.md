@@ -302,7 +302,8 @@ draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
    `manage_members` or `manage_space`; self-removal is exempt.
 
 3. **Destroy requires `manage_space`**, checked atomically in
-   `destroy_object::<Space>`: "The caller MUST hold `"manage_space"`".
+   `destroy_object::<Space>`: "The caller SHOULD hold `"manage_space"`"
+   (jmap-chat-spec 77c3474 L1391); this crate requires it by choice.
 
 ### SpaceInvite/set and SpaceBan/set (§SpaceInvite/set, §SpaceBan/set)
 
@@ -321,10 +322,12 @@ draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
 
 ### Message/set and Message reads (§Message/set, §Message/query)
 
-7. **Sender membership and `send`.** "The server MUST verify the
-   sender is a current member of the target Chat … Non-members MUST
-   receive a SetError of type `forbidden`", and channel senders need
-   the `send` permission — `may_send_message`.
+7. **Sender membership and `send`.** "The server SHOULD verify the
+   sender is a current member of the target Chat … Non-members SHOULD
+   receive a SetError of type `forbidden`" (jmap-chat-spec 77c3474
+   L1218), and channel senders need the `send` permission (L1220) —
+   `may_send_message`. This crate performs both recommended checks by
+   choice.
 
 8. **Broadcast mentions** in a channel require `mention_broadcast`
    on create and update — `may_broadcast_mention`.
@@ -335,7 +338,8 @@ draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
    senders are `forbidden`.
 
 10. **Channel `view`.** "Messages in channels the caller cannot view
-    MUST be omitted" from `Message/get` and `Message/query` —
+    SHOULD be omitted" (jmap-chat-spec 77c3474 L1301) from `Message/get`
+    and `Message/query`, which this crate does by choice —
     `may_view_chat`. A query without `chatId` spans Chats, so
     `query_objects` MUST itself omit them.
 

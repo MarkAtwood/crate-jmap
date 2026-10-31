@@ -1099,8 +1099,9 @@ impl JmapBackend for MemoryBackend {
                 }
 
                 if O::TYPE_NAME == "Message" {
-                    // draft-atwood-jmap-chat-00 §Message/query: "messages
-                    // in channels the caller cannot view MUST be omitted".
+                    // draft-atwood-jmap-chat-00 §Message/query (jmap-chat-spec
+                    // 77c3474 L1301): "messages in channels the caller cannot
+                    // view SHOULD be omitted"; done here by choice.
                     keys.retain(|id| {
                         m.get(id)
                             .and_then(|obj| obj.get("chatId"))
@@ -1369,9 +1370,10 @@ impl ChatBackend for MemoryBackend {
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
 
-        // draft-atwood-jmap-chat-00 §Destroying a Space: "The caller MUST
-        // hold `"manage_space"`". Checked under the same lock hold as the
-        // removal, as `apply_space_metadata_patch_impl` does.
+        // draft-atwood-jmap-chat-00 §Destroying a Space (jmap-chat-spec
+        // 77c3474 L1391): "The caller SHOULD hold `"manage_space"`"; this
+        // backend requires it by choice. Checked under the same lock hold as
+        // the removal, as `apply_space_metadata_patch_impl` does.
         if O::TYPE_NAME == "Space"
             && let Some(space_val) = inner
                 .objects_ref("Space", account_id.as_ref())
@@ -4028,9 +4030,10 @@ fn apply_remove_role(
         .insert(space_id.clone(), space_val);
     *space_mutated = true;
 
-    // Draft §Space/set `removeRoles`: "Servers SHOULD also remove each
-    // channel's `permissionOverrides` entries whose `targetId` is a
-    // removed role". Each channel changed here is reported as updated.
+    // Draft §Space/set `removeRoles` (jmap-chat-spec 77c3474 L1355):
+    // "Servers MAY also remove each channel's `permissionOverrides` entries
+    // whose `targetId` is a removed role"; this backend does so by choice.
+    // Each channel changed here is reported as updated.
     for (chat_id, chat) in inner.objects_mut("Chat", account_id).iter_mut() {
         if chat.get("kind").and_then(|k| k.as_str()) != Some("channel")
             || chat.get("spaceId").and_then(|s| s.as_str()) != Some(space_id.as_ref())

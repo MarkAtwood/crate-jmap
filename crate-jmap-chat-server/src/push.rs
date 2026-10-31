@@ -285,8 +285,9 @@ pub struct BuiltPush {
 /// value of [`owner_unread_count`] read after this message was stored.
 /// §ChatMessagePush: "The account owner's total unread message count
 /// across all non-muted Chats at the time this push was generated.
-/// Servers SHOULD include this for platforms that support atomic badge
-/// updates". `None` leaves it out.
+/// Servers MAY include this for platforms that support atomic badge
+/// updates" (draft-atwood-jmap-chat-push-00, jmap-chat-spec 77c3474 L150).
+/// `None` leaves it out.
 ///
 /// The entry holds exactly the fields in `cfg.properties`, or the default
 /// set when it is absent. §ChatPushConfig: "The `properties` list is
@@ -542,9 +543,11 @@ pub fn fit_chat_message_push(
 ///
 /// # Messages stored before the subscription
 ///
-/// §Delivery: "The server MUST NOT deliver a `ChatMessagePush` in any of
-/// the following cases: The message was stored before the
-/// `PushSubscription` was created." This function cannot see creation
+/// §Delivery (draft-atwood-jmap-chat-push-00, jmap-chat-spec 77c3474
+/// L214): "The server SHOULD NOT deliver a `ChatMessagePush` in any of the
+/// following cases: The message was stored before the `PushSubscription`
+/// was created." This crate follows the recommendation by choice. This
+/// function cannot see creation
 /// order. The caller MUST read the set of subscriptions under the same lock
 /// or transaction as the message write, and call this function only for
 /// subscriptions in that set, including when delivery fans out

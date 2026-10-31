@@ -55,10 +55,11 @@ async fn get_space(backend: &MemoryBackend, id: &str) -> Value {
     resp
 }
 
-/// draft-atwood-jmap-chat-00 §Space/get (cefc217): "If the Space has
-/// `isPubliclyPreviewable: false` (or the Space does not exist), the
-/// server MUST include the requested Space `id` in the `notFound` array
-/// of the response and MUST NOT include the Space in the `list` array."
+/// draft-atwood-jmap-chat-00 §Space/get (jmap-chat-spec 77c3474 L1318):
+/// "If the Space has `isPubliclyPreviewable: false` (or the Space does not
+/// exist), the server SHOULD include the requested Space `id` in the
+/// `notFound` array of the response and SHOULD NOT include the Space in the
+/// `list` array." This crate follows the recommendation by choice.
 /// The owner is a non-member because no member entry carries the
 /// accountId.
 #[tokio::test]
@@ -68,12 +69,13 @@ async fn owner_without_identity_non_member_private_space_is_not_found() {
     assert_eq!(resp["notFound"], json!([SPACE_ID]), "{resp:?}");
 }
 
-/// draft-atwood-jmap-chat-00 §Space/get (cefc217): "If the Space has
-/// `isPubliclyPreviewable: true`, the server MUST return a restricted
-/// view of the Space containing only the fields `id`, `name`,
+/// draft-atwood-jmap-chat-00 §Space/get (jmap-chat-spec 77c3474 L1317):
+/// "If the Space has `isPubliclyPreviewable: true`, the server MUST return
+/// a restricted view of the Space containing only the fields `id`, `name`,
 /// `description`, `iconBlobId`, `memberCount`, `createdAt`, `isPublic`,
 /// `isPubliclyPreviewable`, and `closedAt` (when set). All other Space
-/// fields MUST be omitted from the returned object".
+/// fields SHOULD be omitted from the returned object". This crate omits
+/// them by choice.
 #[tokio::test]
 async fn owner_without_identity_non_member_previewable_space_is_restricted() {
     let resp = get_space(&foreign_space(true), SPACE_ID).await;

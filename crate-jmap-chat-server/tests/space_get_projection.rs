@@ -9,8 +9,9 @@
 //! 2. Non-member caller AND `isPubliclyPreviewable: true` → restricted
 //!    view containing only `id`, `name`, `description`, `iconBlobId`,
 //!    `memberCount`, `createdAt`, `isPublic`, `isPubliclyPreviewable`.
-//!    All other fields MUST be omitted even when the caller asks for
-//!    them via `properties`. The Space id MUST be in `list`, NOT in
+//!    All other fields are omitted even when the caller asks for them
+//!    via `properties` (a SHOULD at jmap-chat-spec 77c3474 L1317, done
+//!    here by choice). The Space id MUST be in `list`, NOT in
 //!    `notFound`.
 //! 3. Non-member caller AND `isPubliclyPreviewable: false` → id in
 //!    `notFound`, Space NOT in `list`. This is split to bd:JMAP-v9py.20
@@ -181,8 +182,9 @@ async fn member_caller_honors_properties_filter() {
 
 /// Oracle: bd:JMAP-v9py.4 acceptance criterion 2.
 /// A non-member caller of a Space with `isPubliclyPreviewable: true`
-/// gets only the 8 allowed fields. All other fields MUST be omitted.
-/// The Space id MUST appear in `list`, MUST NOT appear in `notFound`.
+/// gets only the 8 allowed fields. All other fields are omitted (SHOULD,
+/// jmap-chat-spec 77c3474 L1317; this crate's choice). The Space id MUST
+/// appear in `list`, MUST NOT appear in `notFound`.
 #[tokio::test]
 async fn non_member_caller_sees_restricted_view_on_previewable_space() {
     let backend = IdentityBackend::new();
@@ -321,8 +323,9 @@ async fn non_member_properties_filter_full_allowed_set() {
 // ---------------------------------------------------------------------------
 
 /// Oracle: bd:JMAP-v9py.20. A non-member caller of a Space with
-/// `isPubliclyPreviewable: false` MUST receive the Space id back in
-/// the `notFound` array, NOT in `list`. The non-previewable
+/// `isPubliclyPreviewable: false` receives the Space id back in the
+/// `notFound` array, NOT in `list` (SHOULD, jmap-chat-spec 77c3474 L1318;
+/// this crate's choice). The non-previewable
 /// existence of the Space MUST NOT leak in any field.
 #[tokio::test]
 async fn non_member_non_previewable_classified_as_not_found() {
