@@ -154,11 +154,12 @@ async fn chat_path_alone_covers_every_participating_call() {
     );
 }
 
-/// wss L358-361: "If the client has an active `ChatStreamEnable`
-/// subscription that includes `"vtc"` AND an active `VTCStreamEnable`
-/// subscription, the server MUST deliver the union of both subscriptions.
-/// The server MUST NOT deliver duplicate events; if an event matches both
-/// subscriptions, it is delivered exactly once."
+/// vtc-wss (jmap-chat-spec 77c3474) L410-414: "If the client has an active
+/// `ChatStreamEnable` subscription that includes `"vtc"` AND an active
+/// `VTCStreamEnable` subscription, the server MUST deliver the union of
+/// both subscriptions. The server SHOULD NOT deliver duplicate events; if
+/// an event matches both subscriptions, it is delivered exactly once." This
+/// crate follows the recommendation by choice.
 #[tokio::test]
 async fn union_covers_what_either_path_covers() {
     let only_c1_rings = subscribed(json!({ "callIds": ["C1"], "eventTypes": ["VTCRingEvent"] }));

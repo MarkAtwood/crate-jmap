@@ -785,8 +785,9 @@ pub async fn end_call<B: VtcBackend>(
     Ok(())
 }
 
-/// The ring timeout period draft-atwood-jmap-vtc-00 §Ring Timeout
-/// recommends: "a deployment-defined period (RECOMMENDED: 30 seconds)".
+/// The ring timeout period draft-atwood-jmap-vtc-00 §Ring Timeout gives as
+/// an example (jmap-chat-spec 77c3474 L1819): "a deployment-defined period
+/// (for example, 30 seconds)".
 /// The default of [`VtcBackend::ring_timeout`].
 pub const RING_TIMEOUT: Duration = Duration::from_secs(30);
 

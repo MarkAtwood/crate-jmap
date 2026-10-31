@@ -720,9 +720,9 @@ async fn last_moderator_cannot_revoke_their_own_role() {
             Some("2026-06-05T14:31:00Z"),
         ),
     );
-    // L1007 "A moderator MUST NOT revoke their own moderator role if they
-    // are the last moderator; the server MUST reject this with
-    // `forbidden`."
+    // jmap-chat-spec 77c3474 L1147 "A moderator SHOULD NOT revoke their own
+    // moderator role if they are the last moderator; the server SHOULD
+    // reject this with `forbidden`." This crate rejects by choice.
     let err = pupdate(&backend, BOB, "PB", json!({"role": "participant"}))
         .await
         .unwrap_err();
@@ -1233,7 +1233,8 @@ async fn expire(backend: &MemoryBackend, now: SystemTime) -> bool {
 
 #[test]
 fn ring_timeout_is_thirty_seconds() {
-    // L1615 "a deployment-defined period (RECOMMENDED: 30 seconds)".
+    // jmap-chat-spec 77c3474 L1819 "a deployment-defined period (for
+    // example, 30 seconds)"; this crate's default is that example.
     assert_eq!(RING_TIMEOUT, Duration::from_secs(30));
     assert_eq!(backend().ring_timeout(), Duration::from_secs(30));
 }
@@ -1246,8 +1247,8 @@ async fn unanswered_ring_ends_missed_at_thirty_seconds() {
     assert_eq!(get(&backend, "R1").await["state"], "ringing");
     assert!(call_end_events(&backend).is_empty());
 
-    // L1615 "If no target participant answers within a deployment-defined
-    // period (RECOMMENDED: 30 seconds), the server transitions the call to
+    // jmap-chat-spec 77c3474 L1819 "If no target participant answers within
+    // a deployment-defined period (for example, 30 seconds), the server transitions the call to
     // `"ended"` with `endReason: "missed"` and dispatches `VTCCallEndEvent`
     // with `endReason: "timeout"` to all ringing devices."
     assert!(expire(&backend, at(30)).await);
@@ -1292,8 +1293,8 @@ async fn timeout_on_active_ring_without_pending_targets_is_silent() {
 #[tokio::test]
 async fn late_answer_or_decline_after_ring_timeout_is_rejected() {
     // L1611 "each may still answer (and join) or decline until the ring
-    // timeout expires"; L1615 "a deployment-defined period (RECOMMENDED: 30
-    // seconds)". R1 was created 2026-10-20T12:00:00Z, so the default period
+    // timeout expires"; 77c3474 L1819 "a deployment-defined period (for
+    // example, 30 seconds)". R1 was created 2026-10-20T12:00:00Z, so the default period
     // ended long before the wall clock this test reads.
     let backend = ring_fixture("active", "accepted", "pending");
     let err = pupdate(&backend, CAROL, "P-CAROL", json!({"joinMethod": "webrtc"}))
