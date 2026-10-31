@@ -667,8 +667,9 @@ pub trait ChatBackend: JmapBackend {
     ///   changed;
     /// - on a ReadPosition update that changes `lastReadMessageId`, each
     ///   thread root (no `threadRootId`) in that Chat with a direct reply
-    ///   whose id moved across `lastReadMessageId`, whose
-    ///   `unreadReplyCount` changed.
+    ///   not sent by the owner (`senderId` is not the accountId) whose id
+    ///   moved across `lastReadMessageId`, whose `unreadReplyCount`
+    ///   changed.
     ///
     /// The write, the state advance and the change record MUST be atomic
     /// with respect to other callers: the reference `MemoryBackend` does

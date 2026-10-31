@@ -19,8 +19,9 @@ wire behaviour that a conforming peer can observe.
   no longer sees a message they just sent as unread. `Chat/get`, the count
   written on each Message or ReadPosition change, the push badge from
   `owner_unread_count`, and `MemoryBackend`'s thread-root change log all
-  apply the same rule. Which messages count is implementation-defined
-  (jmap-chat-spec bead jmap-chat-spec-vz8p).
+  apply the same rule. The spec calls the count advisory; pending
+  jmap-chat-spec bead jmap-chat-spec-vz8p makes which messages count
+  implementation-defined.
 
 ## [0.4.1] - 2026-10-30
 
