@@ -72,6 +72,9 @@ pub struct Fed {
     pub mailboxes: Vec<Id>,
     /// The host-less DIDs `verify_did_identity` accepts.
     pub verified_dids: HashSet<String>,
+    /// The mailbox `mailbox_account` picks for an identity no mailbox has;
+    /// `None` rejects such a call.
+    pub catch_all: Option<Id>,
     pub everyone: HashSet<jmap_chat_types::ChatPermission>,
     /// Space id → that Space's `@everyone` permissions, in place of
     /// `everyone`.
@@ -112,6 +115,7 @@ impl Fed {
             peer: Some(peer_at(PEER_DOMAIN)),
             mailboxes: vec![Id::from(ACCOUNT), Id::from(ACCOUNT2)],
             verified_dids: HashSet::new(),
+            catch_all: None,
             everyone: HashSet::new(),
             space_everyone: HashMap::new(),
             everyone_fails: false,
@@ -571,7 +575,7 @@ impl FederationBackend for Fed {
                 return Ok(Some(account.clone()));
             }
         }
-        Ok(None)
+        Ok(self.catch_all.clone())
     }
 
     async fn verify_did_identity(&self, _caller: &(), did: &str) -> Result<bool, MemoryError> {

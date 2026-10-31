@@ -168,8 +168,8 @@ pub enum AnonymousSessionError {
 /// authentication for that response; in it, `accounts` and
 /// `primaryAccounts` MAY be empty objects and `username` MAY be the empty
 /// string." §Session Object Extensions for Federation: "a server that
-/// hosts a single mailbox SHOULD include that mailbox's `ownerUserId`, and
-/// MAY include `ownerDirectAddress` and `ownerEndpoints`. A server that
+/// hosts a single mailbox MAY include that mailbox's `ownerUserId`,
+/// `ownerDirectAddress`, and `ownerEndpoints`. A server that
 /// hosts more than one mailbox omits all three".
 ///
 /// `session` is the server's Session object (RFC 8620 §2). The result keeps

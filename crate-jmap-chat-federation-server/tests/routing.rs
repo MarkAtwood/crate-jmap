@@ -4,7 +4,7 @@
 //! jmap-chat-compliance-tests 7.16 and 7.20).
 //!
 //! "fed Lnnn" cites draft-atwood-jmap-chat-federation-00.md and "7.nn"
-//! jmap-chat-compliance-tests.md, both at jmap-chat-spec c08568e.
+//! jmap-chat-compliance-tests.md, both at jmap-chat-spec b1cd625.
 //! Oracle: the quoted draft and compliance-test text, the draft's
 //! `forbidden` example (fed L1248-1275) and hand-written JSON records.
 
@@ -20,7 +20,7 @@ use jmap_chat_federation_server::{
 };
 use jmap_chat_types::{ChatContact, Message};
 use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture};
-use jmap_types::{JmapError, JmapRequest};
+use jmap_types::{Id, JmapError, JmapRequest};
 use serde_json::{Value, json};
 
 /// The did:key example of the W3C did:key Method specification §Format,
@@ -359,8 +359,9 @@ async fn one_request_delivers_to_two_mailboxes() {
 
 /// 7.20: "Send `Peer/deliver` with `recipientUserId: \"nobody@<server>\"`.
 /// Verify `forbidden` and that nothing is stored and no ChatContact is
-/// created." fed L404: "If no mailbox on the receiving server has that
-/// identity, the receiving server rejects the call with `forbidden`." Dave
+/// created." fed L404 makes an unknown identity's handling
+/// implementation-defined; the harness's `mailbox_account` rejects it, as
+/// this test's oracle (7.20) assumes. Dave
 /// has a ChatContact in neither mailbox, and the message mentions Carol,
 /// so an accepted call would create placeholders.
 #[tokio::test]
@@ -373,6 +374,29 @@ async fn unknown_recipient_is_forbidden_and_writes_nothing() {
     let err = fed.deliver(args).await.expect_err("forbidden");
     assert_eq!(err, JmapError::forbidden());
     assert_eq!(state(&fed).await, before);
+}
+
+/// fed L404: for an identity no mailbox has, "what the receiving server
+/// does with the call is implementation-defined: it can, for example, ...
+/// process it in another mailbox". A backend that picks a catch-all
+/// mailbox gets the call processed there, and no other mailbox changes.
+#[tokio::test]
+async fn unknown_recipient_can_go_to_another_mailbox() {
+    let mut fed = Fed::new();
+    fed.catch_all = Some(Id::from(ACCOUNT2));
+    let response = fed
+        .deliver(new_direct_message("nobody@home.example", LOW, "M1"))
+        .await
+        .expect("processed in the catch-all mailbox");
+    assert_eq!(response["accountId"], PEER_ACCOUNT);
+    let smids = |messages: Vec<Message>| {
+        messages
+            .into_iter()
+            .map(|m| m.sender_msg_id)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(smids(fed.all_in::<Message>(ACCOUNT2).await), ["M1"]);
+    assert!(fed.all_in::<Message>(ACCOUNT).await.is_empty());
 }
 
 /// fed L404: "compared octet for octet". An identity that differs from an
@@ -498,7 +522,8 @@ async fn subscription_to_unknown_recipient_is_forbidden() {
 // ---------------------------------------------------------------------------
 
 /// fed L1248-1275: "`bob.example` hosts no mailbox for
-/// `nobody@bob.example`, so it rejects this call with `forbidden`". The
+/// `nobody@bob.example` and rejects calls naming identities it does not
+/// host, so it rejects this call with `forbidden`". The
 /// request and response are the draft's, verbatim: the server here hosts
 /// mailboxes for other owners, `alice.example` signed the request, and
 /// `P5f2` is its peer-role account (fed L408).

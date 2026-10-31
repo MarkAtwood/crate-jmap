@@ -190,8 +190,8 @@ fn anonymous_session_omits_absent_direct_address() {
     assert!(!anon.contains_key("ownerDirectAddress"));
 }
 
-/// fed c08568e L396: "a server that hosts a single mailbox SHOULD include
-/// that mailbox's `ownerUserId`, and MAY include `ownerDirectAddress` and
+/// fed b1cd625 L396: "a server that hosts a single mailbox MAY include
+/// that mailbox's `ownerUserId`, `ownerDirectAddress`, and
 /// `ownerEndpoints`. A server that hosts more than one mailbox omits all
 /// three". L304: the Session "includes `peerSigningKeys`".
 #[test]

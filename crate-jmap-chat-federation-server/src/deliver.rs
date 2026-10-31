@@ -109,21 +109,24 @@ pub trait FederationBackend: ChatBackend {
     /// MUST receive `forbidden`").
     fn authenticated_peer(&self, caller: &Self::CallerCtx) -> Option<AuthenticatedPeer>;
 
-    /// The account of the mailbox whose owner's identity is
-    /// `recipient_user_id`, or `None` when no mailbox here has that
-    /// identity.
+    /// The account of the mailbox that processes a call for
+    /// `recipient_user_id`, or `None` to reject the call.
     ///
-    /// §Server-to-Server Methods: "The receiving server processes the call
-    /// in the mailbox whose owner's identity (its `ownerUserId`) equals
-    /// `recipientUserId`, compared octet for octet." Compare without case
-    /// folding or normalization. The handlers check that
-    /// [`ChatBackend::owner_user_id`] of the returned account is
-    /// `recipient_user_id`, and answer `serverFail` when it is not.
+    /// §Server-to-Server Methods (fed b1cd625 L404): "The receiving server
+    /// processes the call in the mailbox whose owner's identity (its
+    /// `ownerUserId`) equals `recipientUserId`, compared octet for octet."
+    /// Return that mailbox when there is one, comparing without case
+    /// folding or normalization. When no mailbox has that identity, the
+    /// handling is "implementation-defined": return `None` to reject the
+    /// call, or the account of another mailbox (for example a catch-all) to
+    /// process it there. This crate does not support discarding or
+    /// forwarding such a call.
     ///
     /// `None` makes every `Peer/*` handler answer `forbidden` before it
     /// writes anything, with no `description`: the same error as every
-    /// other `forbidden` the handlers return, so that it "does not show
-    /// which identities have mailboxes there". `Err` is `serverFail`.
+    /// other `forbidden` the handlers return, as the draft asks of "a
+    /// server that rejects such a call", so that the rejection "does not
+    /// show which identities have mailboxes there". `Err` is `serverFail`.
     fn mailbox_account(
         &self,
         caller: &Self::CallerCtx,
@@ -302,12 +305,13 @@ pub(crate) async fn authenticate<B: FederationBackend>(
 ///   ([`AuthenticatedPeer::account_id`]), else `accountNotFound`: "the
 ///   `accountId` argument of every Peer/* call is the id of the single
 ///   peer-role account in the caller's session".
-/// - `recipient_user_id` must name a mailbox
-///   ([`FederationBackend::mailbox_account`]), else `forbidden` with no
-///   `description`: "If no mailbox on the receiving server has that
-///   identity, the receiving server rejects the call with `forbidden`."
-/// - That mailbox's `ownerUserId` must be `recipient_user_id`, else
-///   `serverFail`: the backend answered inconsistently.
+/// - [`FederationBackend::mailbox_account`] picks the mailbox for
+///   `recipient_user_id`; `None` is `forbidden` with no `description`.
+///   For an identity with no mailbox here, fed b1cd625 L404 makes the
+///   handling "implementation-defined: it can, for example, reject it with
+///   `forbidden`, accept it and discard it, process it in another mailbox,
+///   or forward it". This crate supports rejecting and processing in
+///   another mailbox; it does not discard or forward.
 pub(crate) async fn route<B: FederationBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -323,15 +327,6 @@ pub(crate) async fn route<B: FederationBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?
         .ok_or_else(JmapError::forbidden)?;
-    let owner = backend
-        .owner_user_id(caller, &mailbox)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
-    if owner.as_deref() != Some(recipient_user_id) {
-        return Err(JmapError::server_fail(
-            "mailbox_account returned a mailbox of another owner",
-        ));
-    }
     Ok(mailbox)
 }
 

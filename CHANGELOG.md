@@ -58,13 +58,16 @@ wire behaviour that a conforming peer can observe.
   DID-bound verification. The handlers process each call in the mailbox
   `recipientUserId` names and store there, while every response returns
   the request's `accountId`. An `accountId` other than the peer's account is
-  `accountNotFound`. An unknown recipient is `forbidden` with no
-  `description`, the same error as every other refusal, and is rejected
-  before anything, including a placeholder ChatContact, is written
-  (§Server-to-Server Methods: "the `accountId` argument of every Peer/*
-  call is the id of the single peer-role account in the caller's session";
-  "If no mailbox on the receiving server has that identity, the receiving
-  server rejects the call with `forbidden`").
+  `accountNotFound`. `FederationBackend::mailbox_account` picks the
+  mailbox: normally the recipient's own, or another for an identity with
+  no mailbox, which the draft makes implementation-defined; `None` rejects
+  the call with `forbidden` and no `description`, the same error as every
+  other refusal, before anything, including a placeholder ChatContact, is
+  written (§Server-to-Server Methods: "the `accountId` argument of every
+  Peer/* call is the id of the single peer-role account in the caller's
+  session"; for an unknown identity "what the receiving server does with
+  the call is implementation-defined"). Discarding and forwarding such a
+  call are not supported.
 - **BREAKING** **jmap-chat-federation-server**:
   `FederationPresenceBackend::subscribe_presence` returns
   `Result<Option<u64>, _>`; `None` refuses the subscription and the handler
