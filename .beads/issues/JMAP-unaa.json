@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-unaa",
+  "title": "jmap-tasks: umbrella crate for JMAP Tasks",
+  "description": "Umbrella facade for JMAP Tasks: re-exports jmap-tasks-types (always) and jmap-tasks-client / jmap-tasks-server behind client and server features, so users depend on one crate. The 0.0.1 release already does this against the published 0.4 component crates; bring it into the workspace so it versions in lockstep with its components. The name was claimed on crates.io 2026-10-30 as an early 0.0.1 release from ~/PROJECT/jmap-name-claims/ (outside this workspace). Done when: the crate lives in this workspace as a member (Cargo.toml members + [workspace.dependencies] entry once something depends on it), follows the canonical-template rule, has tests with independent oracles, a public-api/ snapshot, a RELEASING.md layer entry, and publishes on the shared jmap-* version line (replacing 0.0.1).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-30T20:28:11.026140923Z",
+  "created_by": "agent",
+  "updated_at": "2026-10-30T20:28:11.026140923Z"
+}
