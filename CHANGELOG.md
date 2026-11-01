@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-metadata-server**, **jmap-server**: draft-ietf-jmap-metadata-05
+  §2.1.1 Binary values (`{"@type": "Binary", "base64": ...}` within a
+  namespace value). `value_depth` counts a Binary as depth 0;
+  `check_metadata_depth` rejects a malformed Binary (any other member, or
+  `base64` not padded RFC 4648 §4 base64) as §3.2 rule 5, after the
+  maxDepth rule; the metadata filter predicates do not descend into a
+  Binary, so a text condition never matches its `base64` string; and
+  `apply_jmap_patch` returns the new `PatchPathError::InsideBinary`
+  (invalidPatch) for a `metadata/` or `privateMetadata/` path through a
+  Binary. Unused pad bits are not checked, pending the open list question.
 - **jmap-filenode-server**: `FileNodeBackend::max_file_node_depth`
   (defaulted to `None`, no limit) reports the account's `maxFileNodeDepth`
   for the handlers to enforce, and `MemoryBackend::with_max_file_node_depth`

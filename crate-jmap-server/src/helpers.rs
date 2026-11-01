@@ -613,6 +613,11 @@ pub enum PatchPathError {
     /// limits), so repeated path patches cannot grow a stored value's
     /// depth without bound. It is still reported as invalidPatch.
     DepthExceeded,
+    /// A part before the last is a Binary value inside a `metadata` or
+    /// `privateMetadata` namespace value: draft-ietf-jmap-metadata-05
+    /// §3.2, "a path that traverses an array or a Binary value (Section
+    /// 2.1.1) is rejected with an "invalidPatch" SetError".
+    InsideBinary,
 }
 
 impl std::fmt::Display for PatchPathError {
@@ -627,6 +632,9 @@ impl std::fmt::Display for PatchPathError {
             }
             Self::DepthExceeded => {
                 write!(f, "patch nesting exceeds {MAX_MERGE_PATCH_DEPTH} levels")
+            }
+            Self::InsideBinary => {
+                f.write_str("patch path references inside a metadata Binary value")
             }
         }
     }
@@ -660,7 +668,11 @@ impl std::error::Error for PatchPathError {}
 /// Returns [`PatchPathError`] when a part before the last does not exist
 /// ([`ParentMissing`](PatchPathError::ParentMissing)), is an array
 /// ([`InsideArray`](PatchPathError::InsideArray)) or is another
-/// non-object value ([`ParentNotObject`](PatchPathError::ParentNotObject)),
+/// non-object value ([`ParentNotObject`](PatchPathError::ParentNotObject))
+/// or is a Binary value below a `metadata/<namespace>` or
+/// `privateMetadata/<namespace>` prefix
+/// ([`InsideBinary`](PatchPathError::InsideBinary); an object with
+/// `"@type": "Binary"`, draft-ietf-jmap-metadata-05 §2.1.1),
 /// when `path` contains an invalid escape
 /// ([`InvalidEscape`](PatchPathError::InvalidEscape)), or when the
 /// number of `/`-separated segments in `path` plus the object/array
@@ -690,9 +702,19 @@ pub fn apply_jmap_patch(
         None => (None, path),
     };
     let leaf = decode_pointer_token(leaf)?;
+    let in_metadata = matches!(path.split('/').next(), Some("metadata" | "privateMetadata"));
     let mut parent = target;
-    for token in parents.into_iter().flat_map(|p| p.split('/')) {
+    for (i, token) in parents.into_iter().flat_map(|p| p.split('/')).enumerate() {
         parent = match parent.get_mut(decode_pointer_token(token)?.as_ref()) {
+            // Token 0 is the property and token 1 the namespace; a Binary
+            // is an object within the namespace value.
+            Some(Value::Object(map))
+                if in_metadata
+                    && i >= 2
+                    && map.get("@type").and_then(Value::as_str) == Some("Binary") =>
+            {
+                return Err(PatchPathError::InsideBinary);
+            }
             Some(Value::Object(map)) => map,
             Some(Value::Array(_)) => return Err(PatchPathError::InsideArray),
             Some(_) => return Err(PatchPathError::ParentNotObject),
@@ -2386,6 +2408,62 @@ mod tests {
             serde_json::Value::Null,
             PatchPathError::InsideArray,
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-metadata-05 §3.2 — "a path that traverses
+    /// an array or a Binary value (Section 2.1.1) is rejected with an
+    /// "invalidPatch" SetError"; §2.1.1 — "a patch path ... cannot address
+    /// its members". Fixture is the §2.1.1 example. The Binary itself can
+    /// still be replaced or removed, since the path then ends at it.
+    #[test]
+    fn apply_jmap_patch_through_metadata_binary_is_rejected() {
+        let before = json!({ "metadata": { "acme.example.com": {
+            "label": "draft copy",
+            "thumbprint": {
+                "@type": "Binary",
+                "base64": "VEVYVHR0eHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            }
+        } } });
+        for (path, value) in [
+            ("metadata/acme.example.com/thumbprint/base64", json!("AA==")),
+            (
+                "metadata/acme.example.com/thumbprint/base64",
+                serde_json::Value::Null,
+            ),
+            ("metadata/acme.example.com/thumbprint/x", json!(1)),
+        ] {
+            assert_patch_rejected(before.clone(), path, value, PatchPathError::InsideBinary);
+        }
+        let private = json!({ "privateMetadata": { "x.example": {
+            "b": { "@type": "Binary", "base64": "" }
+        } } });
+        assert_patch_rejected(
+            private,
+            "privateMetadata/x.example/b/base64",
+            json!("Zg=="),
+            PatchPathError::InsideBinary,
+        );
+
+        let mut target = obj(before);
+        let bin = json!({ "@type": "Binary", "base64": "Zg==" });
+        apply_jmap_patch(
+            &mut target,
+            "metadata/acme.example.com/thumbprint",
+            bin.clone(),
+        )
+        .expect("replace whole Binary");
+        assert_eq!(target["metadata"]["acme.example.com"]["thumbprint"], bin);
+    }
+
+    /// Oracle: RFC 8620 §5.3 — a path through an existing object is
+    /// allowed. -05 §2.1.1 defines a Binary only "within a namespace
+    /// value", so an `@type: "Binary"` object elsewhere is an ordinary
+    /// object.
+    #[test]
+    fn apply_jmap_patch_binary_outside_metadata_is_ordinary() {
+        let mut target = obj(json!({ "other": { "x": { "@type": "Binary", "base64": "" } } }));
+        apply_jmap_patch(&mut target, "other/x/base64", json!("Zg==")).expect("plain object");
+        assert_eq!(target["other"]["x"]["base64"], json!("Zg=="));
     }
 
     /// Oracle: RFC 8620 §5.3 — "the array MUST be replaced in its entirety
