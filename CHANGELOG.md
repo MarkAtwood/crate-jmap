@@ -16,7 +16,9 @@ wire behaviour that a conforming peer can observe.
 
 - **jmap-metadata-server**, **jmap-server**: draft-ietf-jmap-metadata-05
   §2.1.1 Binary values (`{"@type": "Binary", "base64": ...}` within a
-  namespace value). `value_depth` counts a Binary as depth 0;
+  namespace value). `value_depth` counts a Binary below the namespace
+  value as depth 0 (the namespace value itself is always measured as an
+  object, so a root `@type` cannot bypass `maxDepth`);
   `check_metadata_depth` rejects a malformed Binary (any other member, or
   `base64` not padded RFC 4648 §4 base64) as §3.2 rule 5, after the
   maxDepth rule; the metadata filter predicates do not descend into a
