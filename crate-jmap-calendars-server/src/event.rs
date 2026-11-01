@@ -42,7 +42,6 @@ use std::collections::BTreeMap;
 
 use jmap_calendars_types::{
     CalendarEvent, CalendarEventComparator, CalendarEventFilter, CalendarEventFilterCondition,
-    ParticipantIdentity,
 };
 use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{Value, json};
@@ -270,10 +269,11 @@ fn valid_calendar_ids(ids: Option<&BTreeMap<Id, bool>>) -> bool {
 
 /// draft-ietf-jmap-calendars-33 §5 `isOrigin`: true if, and only if, the
 /// event's `organizerCalendarAddress` is null or the account receives
-/// messages sent to it, i.e. it is one of the account's ParticipantIdentity
-/// `calendarAddress` values. On failure returns the serverFail SetError.
-// ponytail: exact URI string match, no case folding; a later change to the
-// account's identities does not recompute isOrigin on stored events.
+/// messages sent to it, as answered by the account-level
+/// [`CalendarsBackend::account_receives_at`]. On failure returns the
+/// serverFail SetError.
+// ponytail: a later change to the account's addresses does not recompute
+// isOrigin on stored events.
 async fn compute_is_origin<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -283,11 +283,10 @@ async fn compute_is_origin<B: CalendarsBackend>(
     let Some(address) = organizer else {
         return Ok(true);
     };
-    let (identities, _) = backend
-        .get_objects::<ParticipantIdentity>(caller, account_id, None, None)
+    backend
+        .account_receives_at(caller, account_id, address)
         .await
-        .map_err(|e| server_fail_value_from_backend(&e))?;
-    Ok(identities.iter().any(|i| i.calendar_address == address))
+        .map_err(|e| server_fail_value_from_backend(&e))
 }
 
 /// Applies the server-set and invariant rules every new CalendarEvent must

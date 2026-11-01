@@ -10,12 +10,13 @@
 //!   Calendars at all times (until it is destroyed). [...] The value for
 //!   each key in the object MUST be true."
 //!
-//! The account's own addresses are its ParticipantIdentity
-//! `calendarAddress` values.
+//! Whether the account receives messages at a URI is answered by
+//! `CalendarsBackend::account_receives_at`, which by default scans the
+//! account's ParticipantIdentity `calendarAddress` values.
 
 mod common;
 
-use common::MemoryBackend;
+use common::{FaultyBackend, MemoryBackend};
 use jmap_calendars_server::{
     handle_calendar_event_copy, handle_calendar_event_get, handle_calendar_event_set,
 };
@@ -109,6 +110,35 @@ async fn create_sets_is_origin_from_organizer() {
             "{organizer:?}"
         );
     }
+}
+
+/// isOrigin depends on whether "the account will receive messages sent to
+/// the \"organizerCalendarAddress\" URI", not on the caller's
+/// ParticipantIdentities: here the caller sees no identity at all, but the
+/// backend reports the account receives at OWN.
+#[tokio::test]
+async fn create_is_origin_uses_account_level_addresses() {
+    let backend = FaultyBackend::new();
+    backend.inner.register_account(&Id::from("acc1"));
+    backend.add_receives_at(OWN);
+    let args = json!({
+        "accountId": "acc1",
+        "create": { "c1": event(json!({ "organizerCalendarAddress": OWN })) }
+    });
+    let resp =
+        handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+            .await
+            .expect("/set must not return a top-level error")
+            .primary;
+    let id = resp["created"]["c1"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("create failed: {resp}"));
+    let args = json!({ "accountId": "acc1", "ids": [id], "properties": ["isOrigin"] });
+    let got = handle_calendar_event_get(&backend, &(), args, &[])
+        .await
+        .expect("/get must not return a top-level error")
+        .primary;
+    assert_eq!(got["list"][0]["isOrigin"], true, "{got}");
 }
 
 /// draft-ietf-jmap-calendars-33 §5: `isOrigin` is "(server-set)"; RFC 8620
