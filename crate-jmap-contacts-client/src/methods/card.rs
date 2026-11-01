@@ -244,7 +244,7 @@ impl super::SessionClient {
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`ContactCardFilterCondition`](jmap_contacts_types::ContactCardFilterCondition),
-    /// which carries the draft-ietf-jmap-metadata-04 §3.6 `metadata*`
+    /// which carries the draft-ietf-jmap-metadata-05 §3.6 `metadata*`
     /// conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&ContactCardFilter>`).
     ///
@@ -299,7 +299,7 @@ impl super::SessionClient {
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`ContactCardFilterCondition`](jmap_contacts_types::ContactCardFilterCondition),
-    /// which carries the draft-ietf-jmap-metadata-04 §3.6 `metadata*`
+    /// which carries the draft-ietf-jmap-metadata-05 §3.6 `metadata*`
     /// conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&ContactCardFilter>`).
     ///

@@ -596,11 +596,11 @@ fn extract_header_values(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Email for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)), a
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)), a
 /// requested `metadata` is returned as an object, and with
 /// `urn:ietf:params:jmap:metadata` in `using` `properties` may hold
 /// `metadata/<namespace>` subselectors; the default property list is
-/// unchanged (-04 §2, §3.1).
+/// unchanged (-05 §2, §3.1).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_get<B: MailBackend>(
@@ -783,8 +783,8 @@ pub async fn handle_email_get<B: MailBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_changes<B: MailBackend>(
@@ -838,8 +838,8 @@ fn email_sort_arg(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query<B: MailBackend>(
@@ -1075,8 +1075,8 @@ pub async fn handle_email_query<B: MailBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query_changes<B: MailBackend>(
@@ -1198,8 +1198,8 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]): a write to `metadata` or
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
-/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
-/// either in a create (-04 §3.2). The backend validates the rest.
+/// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
+/// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_set<B: MailBackend>(
@@ -1879,7 +1879,7 @@ async fn build_email_from_create<B: MailBackend>(
 
     validate_email_body(obj_val)?;
 
-    // draft-ietf-jmap-metadata-04 §3.2: the create sets the metadata
+    // draft-ietf-jmap-metadata-05 §3.2: the create sets the metadata
     // properties; the backend validates them.
     let (metadata, private_metadata) = obj_val
         .as_object()
@@ -2587,7 +2587,7 @@ pub async fn handle_email_parse<B: MailBackend>(
 /// `error` of type `stateMismatch` and the originals are left untouched.
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-05 §3.4:
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
@@ -2725,7 +2725,7 @@ pub async fn handle_email_copy<B: MailBackend>(
             }
         };
 
-        // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+        // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
         // Foo/set create rules (§3, §3.2).
         if let Some(Err(err)) = entry
             .as_object()
@@ -2769,7 +2769,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         if let Some(received_at) = received_at {
             email.received_at = received_at;
         }
-        // draft-ietf-jmap-metadata-04 §3.4: "When the request does not use
+        // draft-ietf-jmap-metadata-05 §3.4: "When the request does not use
         // this capability, only metadata is copied", "privateMetadata is
         // not copied when the destination does not support it, and
         // neither property is copied when the data type is not listed in

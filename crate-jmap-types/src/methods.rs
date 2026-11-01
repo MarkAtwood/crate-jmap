@@ -108,7 +108,7 @@ where
 /// - RFC 9425 §5 (`Quota/changes`): set when only the `used` property
 ///   changed.
 ///
-/// - draft-ietf-jmap-metadata-04 §3.3: every data type the metadata
+/// - draft-ietf-jmap-metadata-05 §3.3: every data type the metadata
 ///   capability lists, when the request's `using` includes
 ///   `urn:ietf:params:jmap:metadata`. The field is then always present,
 ///   `null` unless every updated id changed only in `metadata` and/or
@@ -176,14 +176,14 @@ pub struct ChangesResponse {
     /// Ids of objects destroyed since `old_state`.
     pub destroyed: Vec<Id>,
     /// Property names that changed (RFC 8621 §2.2, RFC 9425 §5,
-    /// draft-ietf-jmap-metadata-04 §3.3), in three states: `None` when
+    /// draft-ietf-jmap-metadata-05 §3.3), in three states: `None` when
     /// absent, `Some(None)` for `null` and `Some(Some(names))` for a
     /// list. Each state round-trips.
     ///
     /// `Mailbox/changes` and `Quota/changes` may list the properties
     /// that changed, and clients can back-reference
     /// `/updatedProperties` into a follow-up `/get`. When the request's
-    /// `using` includes `urn:ietf:params:jmap:metadata`, -04 §3.3 says
+    /// `using` includes `urn:ietf:params:jmap:metadata`, -05 §3.3 says
     /// for every listed data type that the argument "is always present,
     /// and is null when updated is empty", so a server sets `Some(None)`
     /// rather than `None` there. Other responses leave it `None` unless
@@ -616,7 +616,7 @@ mod tests {
     /// `updatedProperties: null` on the wire (RFC 8621 §2.2: "If the server
     /// is unable to tell if only counts have changed, it MUST just be null")
     /// deserializes as `Some(None)`, distinct from omitted, so it can be
-    /// re-emitted (draft-ietf-jmap-metadata-04 §3.3: "It is always
+    /// re-emitted (draft-ietf-jmap-metadata-05 §3.3: "It is always
     /// present, and is null when updated is empty").
     #[test]
     fn changes_response_accepts_explicit_null_updated_properties() {
@@ -659,7 +659,7 @@ mod tests {
         );
     }
 
-    /// draft-ietf-jmap-metadata-04 §3.3: when the request's `using`
+    /// draft-ietf-jmap-metadata-05 §3.3: when the request's `using`
     /// includes the metadata capability, updatedProperties "is always
     /// present, and is null when updated is empty". `Some(None)` must
     /// therefore serialize as an explicit `null`.
@@ -692,7 +692,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §6.8 example `Email/changes`
+    /// Oracle: draft-ietf-jmap-metadata-05 §6.8 example `Email/changes`
     /// response, which reports a metadata-only change with
     /// `"updatedProperties": ["metadata"]`. It must decode and re-encode
     /// unchanged.
@@ -1067,7 +1067,7 @@ mod tests {
         // (null updatedProperties, two vendor extras) must survive.
         let back = serde_json::to_value(&resp).expect("must serialize");
 
-        // draft-ietf-jmap-metadata-04 §3.3: updatedProperties "is always
+        // draft-ietf-jmap-metadata-05 §3.3: updatedProperties "is always
         // present, and is null when updated is empty", so an explicit
         // null is re-emitted rather than dropped.
         assert_eq!(

@@ -67,10 +67,10 @@ use jmap_server::{
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists ContactCard for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
-/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -97,8 +97,8 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_changes<B: ContactsBackend>(
@@ -132,8 +132,8 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]): a write to `metadata` or
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
-/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
-/// either in a create (-04 §3.2). The backend validates the rest.
+/// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
+/// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_set<B: ContactsBackend>(
@@ -385,7 +385,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
 /// against the source state at destroy time.
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-05 §3.4:
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
@@ -499,7 +499,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 }
             };
 
-            // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+            // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
             // Foo/set create rules (§3, §3.2).
             if let Some(Err(err)) = spec_val
                 .as_object()
@@ -526,7 +526,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             }
 
             let mut card = cards.remove(0);
-            // draft-ietf-jmap-metadata-04 §3.4: "When the request does not use
+            // draft-ietf-jmap-metadata-05 §3.4: "When the request does not use
             // this capability, only metadata is copied", "privateMetadata is
             // not copied when the destination does not support it, and
             // neither property is copied when the data type is not listed in
@@ -708,8 +708,8 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_query<B: ContactsBackend>(
@@ -742,8 +742,8 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_query_changes<B: ContactsBackend>(

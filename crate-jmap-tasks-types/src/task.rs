@@ -508,17 +508,17 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comments: Option<BTreeMap<Id, Comment>>,
 
-    // --- draft-ietf-jmap-metadata-04 §2 ---
+    // --- draft-ietf-jmap-metadata-05 §2 ---
     /// Shared metadata, keyed by namespace identifier
-    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
-    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
-    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// (draft-ietf-jmap-metadata-05 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -05 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-05 §3.2) and also decodes as
     /// `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
 
     /// The authenticated user's own metadata, keyed by namespace
-    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// identifier (draft-ietf-jmap-metadata-05 §2). Same shape and `None`
     /// handling as `metadata`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
@@ -551,8 +551,8 @@ pub struct Task {
 /// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
 /// `metadata` / `privateMetadata` properties to each listed data type,
 /// filterable through `metadata*` conditions on that type's own `/query`
-/// (draft-ietf-jmap-metadata-04 §2, §3.6). This condition carries the six
-/// -04 §3.6 conditions as typed leaf fields (bd JMAP-s4kp.4). Helpers live
+/// (draft-ietf-jmap-metadata-05 §2, §3.6). This condition carries the six
+/// -05 §3.6 conditions as typed leaf fields (bd JMAP-s4kp.4). Helpers live
 /// in `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///
@@ -618,41 +618,41 @@ pub struct TaskFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_status: Option<String>,
 
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// draft-ietf-jmap-metadata-05 §3.6 `metadataExists`: a value must be
     /// present at this path in the object's `metadata`. The path is a
     /// namespace identifier, optionally followed by an RFC 6901 JSON
     /// Pointer into the namespace value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_exists: Option<String>,
 
-    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// -05 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
     /// authenticated user's `privateMetadata`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_exists: Option<String>,
 
-    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// -05 §3.6 `metadataTextContains`: substring match under the
     /// `i;unicode-casemap` collation on the `metadata` string at a path.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_contains: Option<MetadataTextMatch>,
 
-    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// -05 §3.6 `privateMetadataTextContains`: as
     /// `metadata_text_contains`, against `privateMetadata`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_text_contains: Option<MetadataTextMatch>,
 
-    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// -05 §3.6 `metadataTextEquals`: exact code-point match on the
     /// `metadata` string at a path.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_equals: Option<MetadataTextMatch>,
 
-    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// -05 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
     /// against `privateMetadata`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_text_equals: Option<MetadataTextMatch>,
 }
 
 impl TaskFilterCondition {
-    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `true` if any of the six draft-ietf-jmap-metadata-05 §3.6
     /// `metadata*` / `privateMetadata*` fields is set.
     pub fn has_metadata_condition(&self) -> bool {
         self.metadata_exists.is_some()

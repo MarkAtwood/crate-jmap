@@ -83,9 +83,9 @@ crates, never in a support crate.
 | `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
 | `crate-jmap-chat-server/` | `jmap-chat-server` | JMAP Chat method handlers (greenfield); `verify_did_binding` (draft-atwood-jmap-chat-did-00 §DID-Bound Verification: the `peerSigningKeys` key that verified the request must be an `authentication` key of the DID Document; caller-resolved document, no I/O). Depends on `jmap-peer-auth` |
 | `crate-jmap-chat-client/` | `jmap-chat-client` | JMAP Chat client methods (greenfield) |
-| `crate-jmap-metadata-types/` | `jmap-metadata-types` | draft-ietf-jmap-metadata-04 data types — `DataTypeMetadataInfo`, `MetadataTextMatch`, namespace validation. No async |
-| `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata-04 server helpers — depth/namespace and `/set` validation, `metadata*` filter predicates and `MetadataCondition`, `/changes` classification and change tracking. No handlers, no backend trait |
-| `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata-04 client helpers — property constants, `metadata*` filter-condition builders, `/changes` helpers. No method bindings |
+| `crate-jmap-metadata-types/` | `jmap-metadata-types` | draft-ietf-jmap-metadata-05 data types — `DataTypeMetadataInfo`, `MetadataTextMatch`, namespace validation. No async |
+| `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata-05 server helpers — depth/namespace and `/set` validation, `metadata*` filter predicates and `MetadataCondition`, `/changes` classification and change tracking. No handlers, no backend trait |
+| `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata-05 client helpers — property constants, `metadata*` filter-condition builders, `/changes` helpers. No method bindings |
 | `crate-jmap-cid-types/` | `jmap-cid-types` | draft-atwood-jmap-cid-00 data types — `CidCapability` (`urn:ietf:params:jmap:cid`) and `Sha256` typed wire shape. Blob/FileNode integrity, no async |
 | `crate-jmap-did-types/` | `jmap-did-types` | draft-atwood-jmap-did-00 data types — `DidCapability` and `DidAccountCapability` (`urn:ietf:params:jmap:did`), `KeyCustody`, `Did` (DID Core §3.1 newtype, `did:web` domain and document URL), `DidKey` (did:key decode and document), `verify_plc_audit_log` (did:plc audit-log verification), `verify_webvh_log` (did:webvh log and witness verification, DIF v1.0). No async, no I/O |
 | `crate-jmap-did-resolver/` | `jmap-did-resolver` | Support crate: did:key, did:web, did:plc and did:webvh resolution I/O over the `jmap-did-types` helpers — `Resolver` (TTL cache, `refresh` when the signing key is absent from the cached document, at most once per DID per 60 s, per draft-atwood-jmap-chat-did-00 §Caching; did:webvh log and witness fetch, versions by `versionId`, rollback check), `Fetch` trait, reqwest `HttpFetcher`. No `*-types` or `*-server` crate depends on it |
@@ -139,7 +139,7 @@ jmap-jscontact-types   — RFC 9553 JSContact typed sub-types: Name, EmailAddres
                          Address, Organization, Anniversary, etc. No JMAP dep, no async.
     └── jmap-contacts-types    — consumes + re-exports at the crate root.
 
-jmap-metadata-types    — draft-ietf-jmap-metadata-04 data types: DataTypeMetadataInfo,
+jmap-metadata-types    — draft-ietf-jmap-metadata-05 data types: DataTypeMetadataInfo,
                          MetadataTextMatch, namespace validation. No async.
                          Depends on serde and serde_json only.
     └── jmap-metadata-server   — pure server helpers (validation, filter predicates,
@@ -650,7 +650,7 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   Vendors who need filterable extras have two paths:
 
   - **IETF-track** — use `draft-ietf-jmap-metadata` (currently
-    draft-04, capability URI `urn:ietf:params:jmap:metadata`). It
+    draft-05, capability URI `urn:ietf:params:jmap:metadata`). It
     adds namespace-keyed `metadata` / `privateMetadata` properties to
     each listed data type, with schema discovery via the
     capability's `dataTypes` (`namespaces` /

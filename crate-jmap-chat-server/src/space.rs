@@ -347,10 +347,10 @@ fn parse_add_member_entry(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Space for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
-/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1); see
 /// [`jmap_server::MetadataProjection`].
 ///
@@ -555,7 +555,7 @@ fn project_space_for_caller(
     // filter, then apply both. Either filter being `None` means
     // "no constraint from this layer".
     let request_filter: Option<&[String]> = properties;
-    // draft-ietf-jmap-metadata-04 §2, §3.1 only where the caller sees the
+    // draft-ietf-jmap-metadata-05 §2, §3.1 only where the caller sees the
     // whole Space: metadata is not one of the restricted-view fields.
     let metadata_source = allowed_fields.is_none().then(|| full.clone());
     let mut out = match (allowed_fields, request_filter) {
@@ -603,8 +603,8 @@ fn filter_object_fields<F: Fn(&str) -> bool>(value: Value, keep: F) -> Value {
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_changes<B: ChatBackend>(
@@ -634,8 +634,8 @@ pub async fn handle_space_changes<B: ChatBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_query<B: ChatBackend>(
@@ -740,8 +740,8 @@ pub async fn handle_space_query<B: ChatBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_query_changes<B: ChatBackend>(
@@ -973,10 +973,10 @@ fn resolve_override_targets(
 ///   structural patch key, which keeps its core meaning (`closedAt` in an
 ///   update is `invalidProperties`); any other unknown create or update
 ///   key is `invalidProperties`.
-/// - draft-ietf-jmap-metadata-04 `metadata` and `privateMetadata` are
+/// - draft-ietf-jmap-metadata-05 `metadata` and `privateMetadata` are
 ///   `invalidProperties` without `urn:ietf:params:jmap:metadata` in
-///   `using` (pass [`jmap_server::CallContext::using`]; -04 §3), as is
-///   `null` for either in a create (-04 §3.2). An update applies them as
+///   `using` (pass [`jmap_server::CallContext::using`]; -05 §3), as is
+///   `null` for either in a create (-05 §3.2). An update applies them as
 ///   RFC 8620 §5.3 PatchObject paths through
 ///   [`ChatBackend::update_object`], before the structural keys; the
 ///   backend validates the rest.
@@ -1083,7 +1083,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                 not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
-            // draft-ietf-jmap-metadata-04 §3.2: the create sets the
+            // draft-ietf-jmap-metadata-05 §3.2: the create sets the
             // metadata properties; the backend validates them.
             let (metadata, private_metadata) = match create_metadata(obj_val) {
                 Ok(maps) => maps,
@@ -1289,7 +1289,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             // Walk every key on the patch object and bucket it as:
             //   - structural (parsed into SpacePatchOp values via the
             //     StructuralKey enum, defined at module top),
-            //   - draft-ietf-jmap-metadata-04 `metadata` / `privateMetadata`
+            //   - draft-ietf-jmap-metadata-05 `metadata` / `privateMetadata`
             //     (the property or a path below it), forwarded to
             //     update_object,
             //   - metadata or a backend-registered extension property
@@ -1456,11 +1456,11 @@ pub async fn handle_space_set<B: ChatBackend>(
                 }
             }
 
-            // draft-ietf-jmap-metadata-04 §3.2: `metadata` and
+            // draft-ietf-jmap-metadata-05 §3.2: `metadata` and
             // `privateMetadata` take RFC 8620 §5.3 PatchObject paths
             // (`metadata/<namespace>/...`), which the RFC 7396 merge patch
             // of `apply_space_metadata_patch` cannot express, so they go
-            // through `update_object`, whose backend runs the -04 §3.2
+            // through `update_object`, whose backend runs the -05 §3.2
             // checks. Applied before the structural ops, so a rejected
             // metadata write leaves the Space unchanged.
             // ponytail: like the structural ops and the top-level fields

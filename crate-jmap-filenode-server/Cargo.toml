@@ -23,12 +23,12 @@ jmap-types = { workspace = true }
 jmap-filenode-types = { workspace = true }
 jmap-cid-types = { workspace = true }
 jmap-server = { workspace = true }
-# draft-ietf-jmap-metadata-04 capability URI and DataTypeMetadataInfo
+# draft-ietf-jmap-metadata-05 capability URI and DataTypeMetadataInfo
 # (serde-only); the /set handler checks `using` against the URI.
 jmap-metadata-types = { workspace = true }
 serde_json = { workspace = true }
 serde_path_to_error = { workspace = true }
-# draft-ietf-jmap-metadata-04 helpers the MemoryBackend wires in (JMAP-s4kp.6).
+# draft-ietf-jmap-metadata-05 helpers the MemoryBackend wires in (JMAP-s4kp.6).
 jmap-metadata-server = { workspace = true, optional = true }
 
 [dev-dependencies]

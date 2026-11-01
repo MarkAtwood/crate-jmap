@@ -1,6 +1,6 @@
 # jmap-metadata-types — Implementation Plan
 
-JMAP Object Metadata extension (draft-ietf-jmap-metadata-04) data types.
+JMAP Object Metadata extension (draft-ietf-jmap-metadata-05) data types.
 Types only — no method handlers, no async, no network I/O.
 
 ## Crate Family Position
@@ -15,7 +15,7 @@ jmap-metadata-types  ← this crate
 
 The base JMAP spec has no metaprotocol mechanism for a server to declare
 what vendor extras it supports or whether they can be filtered.
-`draft-ietf-jmap-metadata-04` is the IETF-track answer:
+`draft-ietf-jmap-metadata-05` is the IETF-track answer:
 
 - A capability URI `urn:ietf:params:jmap:metadata` whose account value
   maps each listed data type to a `DataTypeMetadataInfo` (§1.2.1).
@@ -78,12 +78,12 @@ from the code under test. Acceptable sources:
 3. Namespace accept/reject cases taken from the §2.1 grammar.
 
 Tests pinned to a draft example are named `*_draft_02_*`, after the
--02 example they were written from; -04 keeps those examples. When the
+-02 example they were written from; -05 keeps those examples. When the
 draft revs, update or replace them rather than mutating them silently.
 
 ## Spec References
 
-- https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04 — normative
+- https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-05 — normative
 - `~/PROJECT/IETF/specs/rfc8620.txt` — base protocol
 
 ## Dependencies
@@ -108,7 +108,7 @@ Neither public struct carries an `extra` field:
 
 ### Draft-version risk
 
-`draft-ietf-jmap-metadata-04` is an active IETF Working Group draft
+`draft-ietf-jmap-metadata-05` is an active IETF Working Group draft
 (expires 22 April 2027). All structs are `#[non_exhaustive]` so
 adding fields when the draft revs is non-breaking. The -01 → -02
 rewrite was a breaking change at every level (types, methods, wire

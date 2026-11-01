@@ -1,10 +1,10 @@
-//! draft-ietf-jmap-metadata-04 on Chat, Message and Space in the
+//! draft-ietf-jmap-metadata-05 on Chat, Message and Space in the
 //! in-memory backend opted in with `MemoryBackend::with_metadata_info`
 //! (bd JMAP-s4kp.2). draft-atwood-jmap-chat-00 (lines 667, 780, 911):
 //! "Implementations MAY include `Chat` [`Message`, `Space`] in that map".
 //!
-//! Oracle: the -04 text quoted on each test
-//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-04.txt, the
+//! Oracle: the -05 text quoted on each test
+//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-05.txt, the
 //! revision of October 2026), with hand-written requests and expected
 //! responses. The capability below allows vendor namespaces only, no
 //! private metadata, and `maxDepth` 2.
@@ -145,13 +145,13 @@ async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
 }
 
 // ---------------------------------------------------------------------------
-// /query (-04 §3.6)
+// /query (-05 §3.6)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.6: `metadataExists` "a value MUST be present at this path",
+/// -05 §3.6: `metadataExists` "a value MUST be present at this path",
 /// `metadataTextContains` matches a substring under `i;unicode-casemap`,
 /// `metadataTextEquals` matches exactly; an object without `metadata`
-/// has `{}` (-04 §2 "default: {}").
+/// has `{}` (-05 §2 "default: {}").
 #[tokio::test]
 async fn chat_query_metadata_conditions() {
     let backend = backend();
@@ -190,10 +190,10 @@ async fn chat_query_metadata_conditions() {
     );
 }
 
-/// -04 §3.6: "Any privateMetadata* condition ... MUST be rejected with an
+/// -05 §3.6: "Any privateMetadata* condition ... MUST be rejected with an
 /// "unsupportedFilter" error if supportsPrivate is false", and "A path
 /// that is not well formed ... MUST be rejected with an
-/// "invalidArguments" error" (`~2` is not an RFC 6901 escape). -04
+/// "invalidArguments" error" (`~2` is not an RFC 6901 escape). -05
 /// §1.2.1: an unlisted type "does not gain the metadata or
 /// privateMetadata properties", so its metadata filter is
 /// `unsupportedFilter` (RFC 8620 §5.5).
@@ -221,12 +221,12 @@ async fn invalid_metadata_conditions_are_rejected() {
 }
 
 // ---------------------------------------------------------------------------
-// /set (-04 §3, §3.2)
+// /set (-05 §3, §3.2)
 // ---------------------------------------------------------------------------
 
-/// -04 §2 `metadata` "default: {}", so a `metadata/<namespace>` patch
+/// -05 §2 `metadata` "default: {}", so a `metadata/<namespace>` patch
 /// finds its parent; "Setting a patch value to null removes the targeted
-/// key" keeps the other namespaces; and -04 §3.2 "In an update, null is
+/// key" keeps the other namespaces; and -05 §3.2 "In an update, null is
 /// equivalent to {}".
 #[tokio::test]
 async fn chat_update_patches_metadata() {
@@ -247,9 +247,9 @@ async fn chat_update_patches_metadata() {
     assert_eq!(chat_metadata(&backend, &id).await, json!({}));
 }
 
-/// - -04 §3: without the capability, "Foo/set MUST reject any write to
+/// - -05 §3: without the capability, "Foo/set MUST reject any write to
 ///   them with an "invalidProperties" SetError".
-/// - -04 §3.2: on create, "A value of null for either property MUST be
+/// - -05 §3.2: on create, "A value of null for either property MUST be
 ///   rejected with an "invalidProperties" SetError".
 /// - rule 2: "If the path begins with privateMetadata and supportsPrivate
 ///   is false ..., reject with "invalidProperties"."
@@ -320,12 +320,12 @@ async fn invalid_metadata_writes_are_invalid_properties() {
             "{patch}"
         );
     }
-    // -04 §2: "When returned, its value MUST be an object ({} when no
+    // -05 §2: "When returned, its value MUST be an object ({} when no
     // metadata is set), never null".
     assert_eq!(chat_metadata(&backend, &id).await, json!({}));
 }
 
-/// -04 §1.2.1: "A type that does not appear in this object does not gain
+/// -05 §1.2.1: "A type that does not appear in this object does not gain
 /// the metadata or privateMetadata properties in this account".
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
@@ -345,7 +345,7 @@ async fn unlisted_type_rejects_metadata_write() {
     assert_eq!(resp["notCreated"]["c"]["properties"], json!(["metadata"]));
 }
 
-/// -04 §3.2: "Patch errors that can be determined from the request alone
+/// -05 §3.2: "Patch errors that can be determined from the request alone
 /// (for example, two paths where one is a prefix of the other) MUST be
 /// reported with "invalidPatch" before rule 1 is evaluated", and rule 1
 /// "If the user cannot read the related object, reject with
@@ -382,15 +382,15 @@ async fn request_only_patch_error_precedes_not_found() {
 }
 
 // ---------------------------------------------------------------------------
-// /changes (-04 §3, §3.3)
+// /changes (-05 §3, §3.3)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.3: `updatedProperties` "MUST be set to a list containing only
+/// -05 §3.3: `updatedProperties` "MUST be set to a list containing only
 /// those property names (e.g., ["metadata"] ...)" when only metadata
 /// changed; with `ignoreMetadataOnlyChanges` the server "MUST exclude from
 /// the updated array any id whose only changes since sinceState ... are
 /// confined to metadata", while "The state string still advances
-/// normally"; and -04 §3: without the capability "Foo/changes MUST behave
+/// normally"; and -05 §3: without the capability "Foo/changes MUST behave
 /// as if ignoreMetadataOnlyChanges were true".
 #[tokio::test]
 async fn metadata_only_chat_change() {
@@ -424,7 +424,7 @@ async fn metadata_only_chat_change() {
     }
 }
 
-/// -04 §3.3: "If any other property ... of any id in the array may also
+/// -05 §3.3: "If any other property ... of any id in the array may also
 /// have changed ... this argument MUST be null", and "Ids with any other
 /// change remain in updated".
 #[tokio::test]
@@ -452,7 +452,7 @@ async fn mixed_change_is_reported_without_updated_properties() {
     }
 }
 
-/// -04 §3.3: "Excluded ids do not count toward maxChanges." Two changes
+/// -05 §3.3: "Excluded ids do not count toward maxChanges." Two changes
 /// fall in the window, one metadata-only; with `maxChanges` 1 the
 /// request succeeds only if the excluded one is not counted.
 #[tokio::test]
@@ -483,7 +483,7 @@ async fn excluded_ids_do_not_count_toward_max_changes() {
 // ---------------------------------------------------------------------------
 
 /// draft-atwood-jmap-chat-00 §Message/set lists the only client updates;
-/// -04 §3.2 adds `metadata` written by patch path, and §3.6 the
+/// -05 §3.2 adds `metadata` written by patch path, and §3.6 the
 /// conditions, here inside a §Message/query `chatId` filter.
 #[tokio::test]
 async fn message_metadata_update_and_query() {
@@ -520,7 +520,7 @@ async fn message_metadata_update_and_query() {
     assert_eq!(ids, json!([m1]));
 }
 
-/// -04 §3.2 on Space: a create stores the `metadata` it carries, and an
+/// -05 §3.2 on Space: a create stores the `metadata` it carries, and an
 /// update is an RFC 8620 §5.3 PatchObject ("metadata/<namespace>/..."
 /// replaces only the targeted key), alongside a top-level field.
 #[tokio::test]
@@ -569,7 +569,7 @@ async fn space_metadata_create_update_and_query() {
     assert_eq!(ids, json!([id]));
 }
 
-/// -04 §2: privateMetadata "MUST" be filtered per user; this backend has
+/// -05 §2: privateMetadata "MUST" be filtered per user; this backend has
 /// no viewer identity, so it refuses `supportsPrivate: true`, and it
 /// supports only the types draft-atwood-jmap-chat-00 names.
 #[test]
@@ -587,7 +587,7 @@ fn unnamed_type_is_refused() {
 }
 
 // ---------------------------------------------------------------------------
-// /get and the /query capability gate (-04 §2, §3, §3.1; bd JMAP-s4kp.9)
+// /get and the /query capability gate (-05 §2, §3, §3.1; bd JMAP-s4kp.9)
 // ---------------------------------------------------------------------------
 
 /// A second vendor namespace for the subselector tests.
@@ -611,12 +611,12 @@ async fn chat_get_one(
         .map(|o| o.primary["list"][0].clone())
 }
 
-/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// -05 §3.1 (L524-526): "when properties is omitted or null, the server
 /// MUST include metadata and, where supportsPrivate is true,
 /// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
 /// object ({} when no metadata is set), never null"; §2 (L306-307): "When
 /// supportsPrivate is false for the data type, this property MUST NOT be
-/// returned"; §3 (L461-463): for other requests "metadata and
+/// returned"; §3 (L510-512): for other requests "metadata and
 /// privateMetadata are not default properties of Foo/get (although they
 /// are still returned when requested by name)".
 #[tokio::test]
@@ -646,13 +646,13 @@ async fn chat_get_default_properties_follow_capability() {
     assert!(got.get("privateMetadata").is_none(), "{got}");
 }
 
-/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// -05 §3.1 (L542-549): "Multiple subselectors with the same root combine
 /// by union" and "An explicit root entry supersedes subselectors with the
-/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// same root"; (L551-554) a namespace that is not supported "MUST be
 /// silently omitted from the response, unless the object has data stored
-/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// under that namespace"; (L537-540) "Any other properties entry beginning
 /// with metadata/ or privateMetadata/ MUST be rejected with an
-/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// "invalidArguments" method-level error"; §3 (L509-510) subselectors are
 /// part of the extension, so without the capability they name no
 /// property.
 #[tokio::test]
@@ -707,7 +707,7 @@ async fn chat_get_metadata_subselectors() {
     }
 }
 
-/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// -05 §3 (L509-510): the extensions, the §3.6 filter conditions among
 /// them, "apply to requests whose using includes
 /// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
 /// filter is syntactically valid, but the server cannot process it".
@@ -756,12 +756,12 @@ async fn message_get_one(
         .map(|o| o.primary["list"][0].clone())
 }
 
-/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// -05 §3.1 (L524-526): "when properties is omitted or null, the server
 /// MUST include metadata and, where supportsPrivate is true,
 /// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
 /// object ({} when no metadata is set), never null"; §2 (L306-307): "When
 /// supportsPrivate is false for the data type, this property MUST NOT be
-/// returned"; §3 (L461-463): for other requests "metadata and
+/// returned"; §3 (L510-512): for other requests "metadata and
 /// privateMetadata are not default properties of Foo/get (although they
 /// are still returned when requested by name)".
 #[tokio::test]
@@ -792,13 +792,13 @@ async fn message_get_default_properties_follow_capability() {
     assert!(got.get("privateMetadata").is_none(), "{got}");
 }
 
-/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// -05 §3.1 (L542-549): "Multiple subselectors with the same root combine
 /// by union" and "An explicit root entry supersedes subselectors with the
-/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// same root"; (L551-554) a namespace that is not supported "MUST be
 /// silently omitted from the response, unless the object has data stored
-/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// under that namespace"; (L537-540) "Any other properties entry beginning
 /// with metadata/ or privateMetadata/ MUST be rejected with an
-/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// "invalidArguments" method-level error"; §3 (L509-510) subselectors are
 /// part of the extension, so without the capability they name no
 /// property.
 #[tokio::test]
@@ -850,7 +850,7 @@ async fn message_get_metadata_subselectors() {
     }
 }
 
-/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// -05 §3 (L509-510): the extensions, the §3.6 filter conditions among
 /// them, "apply to requests whose using includes
 /// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
 /// filter is syntactically valid, but the server cannot process it".
@@ -900,12 +900,12 @@ async fn space_get_one(
         .map(|o| o.primary["list"][0].clone())
 }
 
-/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// -05 §3.1 (L524-526): "when properties is omitted or null, the server
 /// MUST include metadata and, where supportsPrivate is true,
 /// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
 /// object ({} when no metadata is set), never null"; §2 (L306-307): "When
 /// supportsPrivate is false for the data type, this property MUST NOT be
-/// returned"; §3 (L461-463): for other requests "metadata and
+/// returned"; §3 (L510-512): for other requests "metadata and
 /// privateMetadata are not default properties of Foo/get (although they
 /// are still returned when requested by name)".
 #[tokio::test]
@@ -935,13 +935,13 @@ async fn space_get_default_properties_follow_capability() {
     assert!(got.get("privateMetadata").is_none(), "{got}");
 }
 
-/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// -05 §3.1 (L542-549): "Multiple subselectors with the same root combine
 /// by union" and "An explicit root entry supersedes subselectors with the
-/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// same root"; (L551-554) a namespace that is not supported "MUST be
 /// silently omitted from the response, unless the object has data stored
-/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// under that namespace"; (L537-540) "Any other properties entry beginning
 /// with metadata/ or privateMetadata/ MUST be rejected with an
-/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// "invalidArguments" method-level error"; §3 (L509-510) subselectors are
 /// part of the extension, so without the capability they name no
 /// property.
 #[tokio::test]
@@ -992,7 +992,7 @@ async fn space_get_metadata_subselectors() {
     }
 }
 
-/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// -05 §3 (L509-510): the extensions, the §3.6 filter conditions among
 /// them, "apply to requests whose using includes
 /// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
 /// filter is syntactically valid, but the server cannot process it".

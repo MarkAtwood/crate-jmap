@@ -1,7 +1,7 @@
-//! The in-memory backend rejects draft-ietf-jmap-metadata-04 §3.6 filter
+//! The in-memory backend rejects draft-ietf-jmap-metadata-05 §3.6 filter
 //! conditions on Email and Mailbox with `unsupportedFilter` unless
 //! `with_metadata_info` gave the type metadata (bd JMAP-xdp4; evaluation
-//! for opted-in types is in `metadata.rs`, JMAP-s4kp.1). -04 §1.2.1: an
+//! for opted-in types is in `metadata.rs`, JMAP-s4kp.1). -05 §1.2.1: an
 //! unlisted type "does not gain the metadata or privateMetadata
 //! properties".
 //!
@@ -24,7 +24,7 @@ use serde_json::{Value, json};
 
 const ACCOUNT_ID: &str = "acct1";
 /// The requests use the capability, so the rejection is the unlisted
-/// type's, not the -04 §3 one for a request without it.
+/// type's, not the -05 §3 one for a request without it.
 fn using() -> Vec<String> {
     vec!["urn:ietf:params:jmap:metadata".to_owned()]
 }

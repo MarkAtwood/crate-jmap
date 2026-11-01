@@ -228,16 +228,16 @@ known_sort!(
     jmap_contacts_types::ContactCardComparator => jmap_contacts_types::ContactCardComparatorProperty::Other,
 );
 
-/// draft-ietf-jmap-metadata-04 checks a `Foo/set` handler applies to one
+/// draft-ietf-jmap-metadata-05 checks a `Foo/set` handler applies to one
 /// create object or update patch (`entry`) before the backend sees it.
 ///
-/// - -04 §3: for a request whose `using` lacks
+/// - -05 §3: for a request whose `using` lacks
 ///   `urn:ietf:params:jmap:metadata`, "Foo/set MUST reject any write to
 ///   them with an "invalidProperties" SetError".
-/// - -04 §3.2: on create, "A value of null for either property MUST be
+/// - -05 §3.2: on create, "A value of null for either property MUST be
 ///   rejected with an "invalidProperties" SetError".
 ///
-/// The backend validates the rest (-04 §3.2 rules 1 to 4). Mirrors the
+/// The backend validates the rest (-05 §3.2 rules 1 to 4). Mirrors the
 /// canonical `jmap-mail-server` helper (bd JMAP-s4kp.1).
 ///
 /// # Errors
@@ -272,7 +272,7 @@ pub(crate) fn check_metadata_entry(
     Ok(())
 }
 
-/// Whether a `/set` key writes draft-ietf-jmap-metadata-04 `metadata` or
+/// Whether a `/set` key writes draft-ietf-jmap-metadata-05 `metadata` or
 /// `privateMetadata`: the property itself or a patch path below it.
 pub(crate) fn is_metadata_key(key: &str) -> bool {
     let root = key.split_once('/').map_or(key, |(r, _)| r);

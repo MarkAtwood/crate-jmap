@@ -1,17 +1,17 @@
-//! draft-ietf-jmap-metadata-04 properties and filter conditions on
+//! draft-ietf-jmap-metadata-05 properties and filter conditions on
 //! Principal (bd JMAP-s4kp.7).
 //!
-//! Oracle: the -04 text quoted on each test
-//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-04.txt), with
+//! Oracle: the -05 text quoted on each test
+//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-05.txt), with
 //! hand-written JSON; the Principal shape is the RFC 9670 §2 example.
 
 use jmap_metadata_types::MetadataTextMatch;
 use jmap_sharing_types::{Principal, PrincipalFilterCondition};
 use serde_json::json;
 
-/// -04 §2 adds `metadata` and `privateMetadata` (objects keyed by
+/// -05 §2 adds `metadata` and `privateMetadata` (objects keyed by
 /// namespace) to each listed type. The values land in the typed fields,
-/// not `extra`, and round-trip. -04 §3.2: "null is equivalent to {}", so
+/// not `extra`, and round-trip. -05 §3.2: "null is equivalent to {}", so
 /// `null` decodes as absent and is not re-emitted; a non-object is
 /// rejected.
 #[test]
@@ -50,7 +50,7 @@ fn principal_metadata_properties() {
     assert!(serde_json::from_value::<Principal>(raw).is_err());
 }
 
-/// The six wire names of -04 §3.6 ("metadataExists",
+/// The six wire names of -05 §3.6 ("metadataExists",
 /// "privateMetadataExists", "metadataTextContains",
 /// "privateMetadataTextContains", "metadataTextEquals",
 /// "privateMetadataTextEquals") extend "the FilterCondition object for
@@ -78,7 +78,7 @@ fn metadata_condition_names_decode_and_typos_reject() {
     );
 }
 
-/// -04 §3.6: "A MetadataTextMatch object has the following fields:"
+/// -05 §3.6: "A MetadataTextMatch object has the following fields:"
 /// `path` and `value`. A leaf combining the RFC 9670 §2.4.1 `type`
 /// condition with `metadataTextEquals` decodes both.
 #[test]

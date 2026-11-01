@@ -87,10 +87,10 @@ use jmap_server::{
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists CalendarEvent for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
-/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1); see
 /// [`jmap_server::MetadataProjection`].
 ///
@@ -242,8 +242,8 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
@@ -401,8 +401,8 @@ async fn prepare_event_patch<B: CalendarsBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]): a write to `metadata` or
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
-/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
-/// either in a create (-04 §3.2). The backend validates the rest.
+/// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
+/// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_set<B: CalendarsBackend>(
@@ -786,7 +786,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 /// `destroyFromIfInState`.
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-05 §3.4:
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
@@ -947,7 +947,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 
             // Merge: serialize source to map, overlay client-supplied properties,
             // then strip "id" so the backend assigns a fresh server id.
-            // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+            // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
             // Foo/set create rules (§3, §3.2).
             if let Some(Err(err)) = client_val
                 .as_object()
@@ -956,7 +956,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 not_created.insert(create_id, Value::from(&*err));
                 continue;
             }
-            // -04 §3.4: "When the request does not use this capability, only
+            // -05 §3.4: "When the request does not use this capability, only
             // metadata is copied", "privateMetadata is not copied when the
             // destination does not support it, and neither property is
             // copied when the data type is not listed in the destination
@@ -1027,7 +1027,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             // The copy is a CalendarEvent create in the destination account:
             // the backend applies the §5.9 create rules and the §5.10
             // destination privacy rule, and validates only the metadata
-            // supplied in the create object (-04 §3.4).
+            // supplied in the create object (-05 §3.4).
             match backend
                 .copy_object(caller, &from_account_id, &account_id, event, &client_val)
                 .await
@@ -1163,8 +1163,8 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_query<B: CalendarsBackend>(
@@ -1368,8 +1368,8 @@ fn expand_duration_seconds(f: &CalendarEventFilterCondition) -> Option<i64> {
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(

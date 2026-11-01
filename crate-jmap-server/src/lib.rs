@@ -158,7 +158,7 @@ pub struct CallContext<CallerCtx> {
     pub created_ids: BTreeMap<Id, Id>,
     /// The request's `using` capability URIs (RFC 8620 §3.3). Extensions
     /// change method behaviour per request on it; e.g.
-    /// draft-ietf-jmap-metadata-04 §3 extends `Foo/changes` only for
+    /// draft-ietf-jmap-metadata-05 §3 extends `Foo/changes` only for
     /// requests whose `using` includes `urn:ietf:params:jmap:metadata`.
     pub using: Vec<String>,
 }

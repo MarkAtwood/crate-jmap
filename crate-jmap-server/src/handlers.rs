@@ -229,7 +229,7 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 }
 
 /// [`handle_get`] for a type the backend may list for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`]).
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`]).
 ///
 /// `using` is the request's capability list ([`crate::CallContext::using`]).
 /// When `O` is listed in `accountId`, `metadata` and `privateMetadata`
@@ -237,7 +237,7 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 /// is stored), included by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, `metadata/<namespace>`
 /// subselectors applied, and `privateMetadata` never returned when
-/// `supportsPrivate` is false (-04 §2, §3, §3.1). The backend is asked for
+/// `supportsPrivate` is false (-05 §2, §3, §3.1). The backend is asked for
 /// the root property in place of each subselector. When `O` is not listed
 /// this is exactly [`handle_get`], so an unrelated property that happens to
 /// be named `metadata` is left alone.
@@ -245,7 +245,7 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 /// # Errors
 ///
 /// Those of [`handle_get`], and `invalidArguments` for a malformed
-/// `metadata/` or `privateMetadata/` entry (-04 §3.1).
+/// `metadata/` or `privateMetadata/` entry (-05 §3.1).
 pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -300,14 +300,14 @@ pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
 ///
 /// `using` is the request's capability list ([`crate::CallContext::using`]).
 /// When it includes `urn:ietf:params:jmap:metadata`, the optional
-/// `ignoreMetadataOnlyChanges` argument (draft-ietf-jmap-metadata-04 §3.3)
+/// `ignoreMetadataOnlyChanges` argument (draft-ietf-jmap-metadata-05 §3.3)
 /// is parsed, and must be a boolean; otherwise the backend is told to
-/// ignore metadata-only changes, because -04 §3 says such a request "MUST
+/// ignore metadata-only changes, because -05 §3 says such a request "MUST
 /// behave as if ignoreMetadataOnlyChanges were true".
 ///
 /// `updatedProperties` is [`ChangesResult::updated_properties`]
-/// (RFC 8621 §2.2, -04 §3.3), and `null` whenever `updated` is empty
-/// (-04 §3.3: "It is always present, and is null when updated is empty").
+/// (RFC 8621 §2.2, -05 §3.3), and `null` whenever `updated` is empty
+/// (-05 §3.3: "It is always present, and is null when updated is empty").
 /// Backends that do not track per-property change detail MUST leave it
 /// `None`: an empty array would mean "nothing about the listed objects
 /// actually changed".
@@ -1497,7 +1497,7 @@ mod tests {
     }
 
     // -----------------------------------------------------------------
-    // handle_changes: draft-ietf-jmap-metadata-04 §3, §3.3 (bd:JMAP-cbhv)
+    // handle_changes: draft-ietf-jmap-metadata-05 §3, §3.3 (bd:JMAP-cbhv)
     // -----------------------------------------------------------------
 
     const CORE: &str = "urn:ietf:params:jmap:core";
@@ -1608,8 +1608,8 @@ mod tests {
             .expect("backend must be called")
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §3 (draft-ietf-jmap-metadata-04.txt
-    /// L460-465): "These extensions apply to requests whose using includes
+    /// Oracle: draft-ietf-jmap-metadata-05 §3 (draft-ietf-jmap-metadata-05.txt
+    /// L509-514): "These extensions apply to requests whose using includes
     /// urn:ietf:params:jmap:metadata. For other requests, ... Foo/changes
     /// MUST behave as if ignoreMetadataOnlyChanges were true." The
     /// argument is not defined for such requests, so a malformed value is
@@ -1622,7 +1622,7 @@ mod tests {
         assert!(ignore_seen(&[], json!({})).await);
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L598):
+    /// Oracle: draft-ietf-jmap-metadata-05 §3.3 (L650):
     /// "*ignoreMetadataOnlyChanges*: Boolean (default: false)".
     #[tokio::test]
     async fn changes_with_metadata_capability_passes_ignore_argument() {
@@ -1650,7 +1650,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L598) types the argument
+    /// Oracle: draft-ietf-jmap-metadata-05 §3.3 (L650) types the argument
     /// "Boolean"; RFC 8620 §3.6.2 "invalidArguments: One of the arguments
     /// is of the wrong type".
     #[tokio::test]
@@ -1671,11 +1671,11 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L624-643): when "the only
+    /// Oracle: draft-ietf-jmap-metadata-05 §3.3 (L668-695): when "the only
     /// properties that have changed on every id in the updated array ...
     /// are metadata and/or privateMetadata, this argument MUST be set to a
     /// list containing only those property names (e.g., ["metadata"]"; and
-    /// the §3.3 example response (L1325) carries
+    /// the §3.3 example response (L1381) carries
     /// `"updatedProperties": ["metadata"]`.
     #[tokio::test]
     async fn changes_reports_backend_updated_properties() {
@@ -1703,7 +1703,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §3.3 (L638-639): updatedProperties
+    /// Oracle: draft-ietf-jmap-metadata-05 §3.3 (L690-691): updatedProperties
     /// "is always present, and is null when updated is empty".
     #[tokio::test]
     async fn changes_updated_properties_null_when_updated_empty() {

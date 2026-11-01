@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-04 §1.2.1 / §2.1 — validation helpers.
+//! draft-ietf-jmap-metadata-05 §1.2.1 / §2.1 — validation helpers.
 //!
 //! Provides:
 //!
@@ -15,19 +15,19 @@ use serde_json::{Map, Value};
 use crate::changes::{METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY};
 
 /// Compute the depth of a metadata namespace value per
-/// draft-ietf-jmap-metadata-04 §2.1: "a scalar (string, number, boolean
-/// or null) has depth 0; an array has the maximum depth of its elements
-/// (0 if empty); an object has depth 1 plus the maximum depth of its
-/// member values (1 if empty)."
+/// draft-ietf-jmap-metadata-05 §2.1: "a scalar (string, number, boolean
+/// or null) or a Binary value (Section 2.1.1) has depth 0; an array has
+/// the maximum depth of its elements (0 if empty); an object has depth 1
+/// plus the maximum depth of its member values (1 if empty)."
 ///
 /// Arrays do not add depth themselves, but objects inside them do:
 /// `{"x": [{"y": 1}]}` has depth 2.
 ///
-/// draft-ietf-jmap-metadata-05 §2.1 adds that a Binary value (§2.1.1,
-/// an object whose `@type` member is `"Binary"`) has depth 0, like a
-/// scalar. A Binary is an object "within a namespace value", so `value`
-/// itself is always measured as a plain object even if it has
-/// `@type: "Binary"`; only its descendants can be Binary values.
+/// A Binary value (§2.1.1, an object whose `@type` member is
+/// `"Binary"`) therefore has depth 0, like a scalar. A Binary is an
+/// object "within a namespace value", so `value` itself is always
+/// measured as a plain object even if it has `@type: "Binary"`; only its
+/// descendants can be Binary values.
 ///
 /// §2.1 also requires every namespace value to be a JSON object. This
 /// function does not check that; the caller rejects a non-object value
@@ -104,7 +104,7 @@ fn contains_malformed_binary(value: &Value) -> bool {
 }
 
 /// Returns `true` if `value` exceeds `max_depth` per
-/// draft-ietf-jmap-metadata-04 §2.1.
+/// draft-ietf-jmap-metadata-05 §2.1.
 ///
 /// Servers MUST reject writes that would exceed `maxDepth` with an
 /// `invalidProperties` SetError. `max_depth` is `u64` to match
@@ -132,7 +132,7 @@ pub fn exceeds_max_depth(value: &Value, max_depth: u64) -> bool {
 }
 
 /// Returns `true` if `namespace` is supported by the given
-/// [`DataTypeMetadataInfo`] capability (draft-ietf-jmap-metadata-04
+/// [`DataTypeMetadataInfo`] capability (draft-ietf-jmap-metadata-05
 /// §1.2.1).
 ///
 /// A namespace is supported if:
@@ -234,14 +234,14 @@ fn metadata_target(key: &str) -> Option<(&str, Option<&str>)> {
 ///
 /// `entry` is the create object or the update PatchObject; keys for
 /// other properties are ignored. `stored` is the object as stored
-/// before an update, used for the §2.1.1 migration case, and [`None`]
-/// for a create. The checks, in the order -04 §3.2 requires:
+/// before an update, used for the §2.1.2 migration case, and [`None`]
+/// for a create. The checks, in the order -05 §3.2 requires:
 ///
 /// 2. A `privateMetadata` key when `info.supports_private` is false.
 /// 3. A namespace that is not a valid identifier (§2.1), or one that
 ///    is not supported on the data type, except a removal
 ///    (`"metadata/<namespace>": null`) or a complete replacement that
-///    carries the stored value unchanged (§2.1.1).
+///    carries the stored value unchanged (§2.1.2).
 ///
 /// It also rejects a complete `metadata` or `privateMetadata` value that
 /// is not an object, and `null` on create (§3.2: "A value of null for
@@ -452,10 +452,11 @@ mod tests {
 
     // -- value_depth ------------------------------------------------------
     //
-    // Oracle: draft-ietf-jmap-metadata-04 §2.1 — "a scalar (string,
-    // number, boolean or null) has depth 0; an array has the maximum
-    // depth of its elements (0 if empty); an object has depth 1 plus the
-    // maximum depth of its member values (1 if empty)."
+    // Oracle: draft-ietf-jmap-metadata-05 §2.1 — "a scalar (string,
+    // number, boolean or null) or a Binary value (Section 2.1.1) has depth
+    // 0; an array has the maximum depth of its elements (0 if empty); an
+    // object has depth 1 plus the maximum depth of its member values (1 if
+    // empty)."
 
     #[test]
     fn depth_scalar_string() {
@@ -489,7 +490,7 @@ mod tests {
 
     #[test]
     fn depth_spec_example_flat() {
-        // Oracle: -04 §2.1 — "{"a": 1} has depth 1".
+        // Oracle: -05 §2.1 — "{"a": 1} has depth 1".
         assert_eq!(value_depth(&json!({"a": 1})), 1);
     }
 
@@ -551,7 +552,7 @@ mod tests {
 
     #[test]
     fn exceeds_scalar_never_at_max_1() {
-        // A scalar has depth 0 under -04 §2.1, below the §1.2.1 minimum
+        // A scalar has depth 0 under -05 §2.1, below the §1.2.1 minimum
         // maxDepth of 1; object-ness is the caller's check.
         assert!(!exceeds_max_depth(&json!("hello"), 1));
     }
@@ -578,7 +579,7 @@ mod tests {
 
     #[test]
     fn exceeds_max_above_u32_range() {
-        // -04 §1.2.1: "maxDepth: UnsignedInt|null"; RFC 8620 §1.3 lets an
+        // -05 §1.2.1: "maxDepth: UnsignedInt|null"; RFC 8620 §1.3 lets an
         // UnsignedInt reach 2^53-1. A maxDepth of 2^32 permits depth 2.
         assert!(!exceeds_max_depth(&json!({"a": {"b": "c"}}), 4_294_967_296));
         assert!(!exceeds_max_depth(&json!({"a": 1}), 9_007_199_254_740_991));
@@ -627,7 +628,7 @@ mod tests {
         assert!(!is_namespace_supported("has space", &info));
     }
 
-    // draft-ietf-jmap-metadata-04 §2.1: "Servers MUST reject ... a domain
+    // draft-ietf-jmap-metadata-05 §2.1: "Servers MUST reject ... a domain
     // name containing uppercase ASCII letters"; registered names are
     // "lowercase US-ASCII letters, digits, hyphens, and underscores".
     #[test]
@@ -657,7 +658,7 @@ mod tests {
 
     // -- check_metadata_write / check_metadata_depth ----------------------
 
-    /// The -04 §6.1 FileNode entry: namespaces ["photography"], no vendor
+    /// The -05 §6.1 FileNode entry: namespaces ["photography"], no vendor
     /// namespaces, no private metadata, maxDepth 3.
     fn filenode_info() -> DataTypeMetadataInfo {
         serde_json::from_value(json!({
@@ -695,7 +696,7 @@ mod tests {
 
     #[test]
     fn write_spec_6_3_patches_accepted() {
-        // Oracle: -04 §6.3 — "metadata/acme.example.com/color": "green"
+        // Oracle: -05 §6.3 — "metadata/acme.example.com/color": "green"
         // and the same path set to null.
         let info = vendor_info(3);
         assert!(
@@ -734,7 +735,7 @@ mod tests {
 
     #[test]
     fn write_private_rejected_before_namespace() {
-        // Oracle: -04 §3.2 rule 2 — "If the path begins with
+        // Oracle: -05 §3.2 rule 2 — "If the path begins with
         // privateMetadata and supportsPrivate is false for this data type,
         // reject with "invalidProperties"", evaluated before rule 3.
         let info = filenode_info();
@@ -750,7 +751,7 @@ mod tests {
 
     #[test]
     fn write_unsupported_namespace_rejected() {
-        // Oracle: -04 §3.2 rule 3 — "If the targeted namespace is not
+        // Oracle: -05 §3.2 rule 3 — "If the targeted namespace is not
         // supported on this data type, reject with "invalidProperties"".
         let info = filenode_info();
         for entry in [
@@ -767,7 +768,7 @@ mod tests {
 
     #[test]
     fn write_invalid_namespace_identifier_rejected() {
-        // Oracle: -04 §2.1 — "Servers MUST reject, with an
+        // Oracle: -05 §2.1 — "Servers MUST reject, with an
         // "invalidProperties" SetError, a /set operation that uses a key
         // that is not a valid namespace identifier, including a domain
         // name containing uppercase ASCII letters."
@@ -786,7 +787,7 @@ mod tests {
 
     #[test]
     fn write_unsupported_namespace_migration_case() {
-        // Oracle: -04 §2.1.1 — other than "a patch that removes the
+        // Oracle: -05 §2.1.2 — other than "a patch that removes the
         // namespace entirely ("metadata/<namespace>": null ...)", any /set
         // targeting it is rejected; "A complete replacement ... MAY include
         // such a namespace only with a value equal to the stored one ...
@@ -843,7 +844,7 @@ mod tests {
 
     #[test]
     fn write_null_property_on_create_rejected_update_accepted() {
-        // Oracle: -04 §3.2 — "A value of null for either property MUST be
+        // Oracle: -05 §3.2 — "A value of null for either property MUST be
         // rejected with an "invalidProperties" SetError ... In an update,
         // null is equivalent to {}."
         let info = vendor_info(3);
@@ -868,7 +869,7 @@ mod tests {
 
     #[test]
     fn depth_rejects_written_value_over_max() {
-        // Oracle: -04 §2.1 — "{"x": [{"y": 1}]} has depth 2" and writes
+        // Oracle: -05 §2.1 — "{"x": [{"y": 1}]} has depth 2" and writes
         // that "would exceed" maxDepth are rejected with
         // "invalidProperties".
         let info = vendor_info(1);
@@ -891,7 +892,7 @@ mod tests {
 
     #[test]
     fn depth_rejects_non_object_namespace_value() {
-        // Oracle: -04 §2.1 — "The value associated with each namespace key
+        // Oracle: -05 §2.1 — "The value associated with each namespace key
         // MUST be a JSON object".
         let info = vendor_info(3);
         assert!(
@@ -915,7 +916,7 @@ mod tests {
     #[test]
     fn depth_skips_removed_and_untouched_namespaces() {
         // A removed namespace has no value to measure; an untouched one
-        // was not written (-04 §2.1: "A patch that targets one namespace
+        // was not written (-05 §2.1: "A patch that targets one namespace
         // MUST NOT remove or alter any other namespace").
         let info = vendor_info(1);
         let written = json!({"metadata": {"y.example": {"deep": {"deeper": 1}}}});

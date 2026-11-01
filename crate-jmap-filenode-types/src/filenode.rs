@@ -135,7 +135,7 @@ pub struct FilesRights {
     /// User may change the sharing of this node (see RFC 9670 JMAP Sharing).
     pub may_share: bool,
     /// User may modify the shared metadata of this node
-    /// (draft-ietf-jmap-metadata-04 §4.1).
+    /// (draft-ietf-jmap-metadata-05 §4.1).
     /// `None` when the server omits it: the right is present only when the
     /// metadata capability lists this type or a type it contains (§4.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -303,15 +303,15 @@ pub struct FileNode {
     pub space_id: Option<Id>,
 
     /// Shared metadata, keyed by namespace identifier
-    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
-    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
-    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// (draft-ietf-jmap-metadata-05 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -05 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-05 §3.2) and also decodes as
     /// `None`. Absent from wire when `None`.
     #[serde(default)]
     pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
 
     /// The authenticated user's own metadata, keyed by namespace
-    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// identifier (draft-ietf-jmap-metadata-05 §2). Same shape and `None`
     /// handling as [`metadata`](Self::metadata).
     #[serde(default)]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,

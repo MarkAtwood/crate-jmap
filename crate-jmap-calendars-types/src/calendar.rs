@@ -77,7 +77,7 @@ pub struct CalendarRights {
     pub may_delete: bool,
 
     /// User may modify the shared metadata of this calendar and of the
-    /// events in it (draft-ietf-jmap-metadata-04 §4.1).
+    /// events in it (draft-ietf-jmap-metadata-05 §4.1).
     /// `None` when the server omits it: the right is present only when the
     /// metadata capability lists this type or a type it contains (§4.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -170,15 +170,15 @@ pub struct Calendar {
     pub my_rights: CalendarRights,
 
     /// Shared metadata, keyed by namespace identifier
-    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
-    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
-    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// (draft-ietf-jmap-metadata-05 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -05 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-05 §3.2) and also decodes as
     /// `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
 
     /// The authenticated user's own metadata, keyed by namespace
-    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// identifier (draft-ietf-jmap-metadata-05 §2). Same shape and `None`
     /// handling as `metadata`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,

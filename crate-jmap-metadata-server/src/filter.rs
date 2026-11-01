@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-04 §3.6 — metadata filter predicate helpers.
+//! draft-ietf-jmap-metadata-05 §3.6 — metadata filter predicate helpers.
 //!
 //! Provides three composable predicates that extension-server
 //! `MemoryBackend`s call from their `query_objects` matchers to evaluate
@@ -19,13 +19,13 @@
 //! caller's responsibility — these helpers are agnostic to it.
 //!
 //! The helpers evaluate the stored data whether or not the namespace is
-//! supported on the data type (-04 §3.6: "Conditions are evaluated
+//! supported on the data type (-05 §3.6: "Conditions are evaluated
 //! against the stored data whether or not the namespace is supported on
 //! the data type"). A path naming an absent namespace, or one that is not
 //! a valid namespace identifier, matches nothing.
 //!
 //! A path that is not well formed MUST be rejected with an
-//! `invalidArguments` error (-04 §3.6). The predicates return `false` for
+//! `invalidArguments` error (-05 §3.6). The predicates return `false` for
 //! such a path; the `/query` handler checks every condition path with
 //! [`is_well_formed_metadata_path`] first and rejects the request.
 
@@ -65,13 +65,13 @@ fn unescape_rfc6901(token: &str) -> Option<Cow<'_, str>> {
 }
 
 /// Check whether `path` is a well-formed metadata path
-/// (draft-ietf-jmap-metadata-04 §3.6).
+/// (draft-ietf-jmap-metadata-05 §3.6).
 ///
-/// -04 §3.6: "A path that is not well formed (for example, one with an
+/// -05 §3.6: "A path that is not well formed (for example, one with an
 /// invalid ~ escape) MUST be rejected with an "invalidArguments" error."
 /// A path is well formed when every `/`-separated token uses `~` only in
 /// the RFC 6901 escapes `~0` and `~1`. Whether the first token is a valid
-/// namespace identifier is not checked: -04 §3.6 says such a condition
+/// namespace identifier is not checked: -05 §3.6 says such a condition
 /// "matches no objects; it does not produce an error."
 ///
 /// A `/query` handler calls this for the path of every metadata
@@ -93,7 +93,7 @@ pub fn is_well_formed_metadata_path(path: &str) -> bool {
 
 /// Resolve a metadata path to a value within a metadata map.
 ///
-/// Path format (-04 §3.6): a namespace identifier, optionally followed by
+/// Path format (-05 §3.6): a namespace identifier, optionally followed by
 /// a JSON Pointer ([RFC 6901](https://www.rfc-editor.org/rfc/rfc6901))
 /// into the namespace value, such as `<namespace>/<key>/<subkey>`.
 ///
@@ -119,7 +119,7 @@ fn resolve_path<'a>(map: &'a Map<String, Value>, path: &str) -> Option<&'a Value
 }
 
 /// Check whether a value exists at `path` in a metadata map
-/// (draft-ietf-jmap-metadata-04 §3.6, `metadataExists` /
+/// (draft-ietf-jmap-metadata-05 §3.6, `metadataExists` /
 /// `privateMetadataExists`).
 ///
 /// A namespace-only path matches if the namespace key is present **and**
@@ -154,7 +154,7 @@ pub fn metadata_path_exists(map: &Map<String, Value>, path: &str) -> bool {
 /// Check whether the string at `path` contains `text_match.value` as a
 /// substring under the `i;unicode-casemap` collation
 /// ([RFC 5051](https://www.rfc-editor.org/rfc/rfc5051))
-/// (draft-ietf-jmap-metadata-04 §3.6, `metadataTextContains` /
+/// (draft-ietf-jmap-metadata-05 §3.6, `metadataTextContains` /
 /// `privateMetadataTextContains`).
 ///
 /// Both strings are prepared as RFC 5051 §2 describes, then compared as
@@ -204,7 +204,7 @@ fn casemap_prepare(s: &str) -> String {
 
 /// Check whether the string at `path` is exactly equal to
 /// `text_match.value`, comparing Unicode code points without case folding
-/// or normalization (draft-ietf-jmap-metadata-04 §3.6,
+/// or normalization (draft-ietf-jmap-metadata-05 §3.6,
 /// `metadataTextEquals` / `privateMetadataTextEquals`).
 ///
 /// Returns `false` if the path does not exist or the value at the path
@@ -232,7 +232,7 @@ pub fn metadata_text_equals(map: &Map<String, Value>, text_match: &MetadataTextM
     }
 }
 
-/// Wire names of the six draft-ietf-jmap-metadata-04 §3.6 condition
+/// Wire names of the six draft-ietf-jmap-metadata-05 §3.6 condition
 /// fields, in the order [`MetadataCondition`] declares them.
 const CONDITION_FIELDS: [&str; 6] = [
     "metadataExists",
@@ -243,7 +243,7 @@ const CONDITION_FIELDS: [&str; 6] = [
     "privateMetadataTextEquals",
 ];
 
-/// The six draft-ietf-jmap-metadata-04 §3.6 condition fields of one
+/// The six draft-ietf-jmap-metadata-05 §3.6 condition fields of one
 /// `FilterCondition`, decoded on the server side.
 ///
 /// This is the server's counterpart of
@@ -302,12 +302,12 @@ impl MetadataCondition {
     /// # Errors
     ///
     /// - [`MetadataFilterError::InvalidArguments`] when a field has the
-    ///   wrong JSON type, or a path is not well formed (-04 §3.6: "A path
+    ///   wrong JSON type, or a path is not well formed (-05 §3.6: "A path
     ///   that is not well formed ... MUST be rejected with an
     ///   "invalidArguments" error").
     /// - [`MetadataFilterError::UnsupportedFilter`] when a
     ///   `privateMetadata*` field is present and `info.supports_private`
-    ///   is false (-04 §3.6: "Any privateMetadata* condition ... MUST be
+    ///   is false (-05 §3.6: "Any privateMetadata* condition ... MUST be
     ///   rejected with an "unsupportedFilter" error if supportsPrivate is
     ///   false for the data type").
     pub fn take_from(
@@ -343,7 +343,7 @@ impl MetadataCondition {
     ///
     /// `metadata` is the object's `metadata` property and
     /// `private_metadata` is the viewer's own `privateMetadata`; pass
-    /// [`None`] for an absent property, which -04 §2 defaults to `{}`.
+    /// [`None`] for an absent property, which -05 §2 defaults to `{}`.
     pub fn matches(
         &self,
         metadata: Option<&Map<String, Value>>,
@@ -467,7 +467,7 @@ mod tests {
 
     #[test]
     fn well_formed_paths() {
-        // -04 §3.6 example forms: <namespace>, <namespace>/<key>,
+        // -05 §3.6 example forms: <namespace>, <namespace>/<key>,
         // <namespace>/<key>/<subkey>.
         assert!(is_well_formed_metadata_path("ns"));
         assert!(is_well_formed_metadata_path("ns/key"));
@@ -479,7 +479,7 @@ mod tests {
 
     #[test]
     fn invalid_tilde_escape_is_not_well_formed() {
-        // -04 §3.6: "one with an invalid ~ escape" MUST be rejected.
+        // -05 §3.6: "one with an invalid ~ escape" MUST be rejected.
         assert!(!is_well_formed_metadata_path("ns/a~2b"));
         assert!(!is_well_formed_metadata_path("ns/key/sub~"));
         assert!(!is_well_formed_metadata_path("n~s"));
@@ -487,7 +487,7 @@ mod tests {
 
     #[test]
     fn invalid_namespace_identifier_is_well_formed() {
-        // -04 §3.6: "a string that is not a valid namespace identifier,
+        // -05 §3.6: "a string that is not a valid namespace identifier,
         // matches no objects; it does not produce an error."
         assert!(is_well_formed_metadata_path("Not A Namespace/key"));
     }
@@ -527,7 +527,7 @@ mod tests {
 
     #[test]
     fn resolve_deep_path() {
-        // -04 §3.6: <namespace>/<key>/<subkey> walks ns -> key -> subkey.
+        // -05 §3.6: <namespace>/<key>/<subkey> walks ns -> key -> subkey.
         let map = json!({"ns": {"a": {"b": {"c": "deep"}}}})
             .as_object()
             .unwrap()
@@ -547,8 +547,8 @@ mod tests {
 
     #[test]
     fn resolve_through_array_addresses_no_value() {
-        // -04 §3.6: "a path that would traverse an array or a scalar
-        // addresses no value" — even with an RFC 6901 array index.
+        // -05 §3.6: "a path that would traverse an array, a scalar or a
+        // Binary value (Section 2.1.1) addresses no value" — even with an RFC 6901 array index.
         let map = json!({"ns": {"list": ["x", {"k": "v"}]}})
             .as_object()
             .unwrap()
@@ -659,7 +659,7 @@ mod tests {
             .as_object()
             .unwrap()
             .clone();
-        // -04 §3.6: only a namespace-only path excludes `{}`; a deeper
+        // -05 §3.6: only a namespace-only path excludes `{}`; a deeper
         // path matches whenever a value is present.
         assert!(metadata_path_exists(&map, "ns/a/b"));
         assert!(!metadata_path_exists(&map, "ns/a/b/c"));
@@ -668,7 +668,7 @@ mod tests {
 
     #[test]
     fn exists_namespace_present_scalar() {
-        // -04 §3.6: matches if "the namespace key is present and its value
+        // -05 §3.6: matches if "the namespace key is present and its value
         // is not the empty object {}".
         let map = json!({"ns": "scalar"}).as_object().unwrap().clone();
         assert!(metadata_path_exists(&map, "ns"));
@@ -833,7 +833,7 @@ mod tests {
 
     #[test]
     fn text_equals_no_normalization() {
-        // -04 §3.6: "comparing Unicode code points without case folding
+        // -05 §3.6: "comparing Unicode code points without case folding
         // or normalization". U+00E9 and U+0065 U+0301 are canonically
         // equivalent but are different code point sequences.
         let map = json!({"ns": {"tag": "\u{00E9}t\u{00E9}"}})
@@ -878,7 +878,7 @@ mod tests {
 
     #[test]
     fn spec_example_section_6_7_text_contains() {
-        // Oracle: draft-ietf-jmap-metadata-04 §6.7.
+        // Oracle: draft-ietf-jmap-metadata-05 §6.7.
         let map = json!({"acme.example.com": {"memo": "follow up"}})
             .as_object()
             .unwrap()
@@ -903,7 +903,7 @@ mod tests {
 
     #[test]
     fn take_from_spec_6_7_leaves_base_fields() {
-        // Oracle: -04 §6.7 leaf condition, with the base inMailbox field
+        // Oracle: -05 §6.7 leaf condition, with the base inMailbox field
         // merged into the same object (§3.6: the FilterCondition "is
         // extended with the optional fields").
         let mut leaf = json!({
@@ -935,7 +935,7 @@ mod tests {
 
     #[test]
     fn take_from_rejects_bad_escape_with_invalid_arguments() {
-        // Oracle: -04 §3.6 — "A path that is not well formed (for
+        // Oracle: -05 §3.6 — "A path that is not well formed (for
         // example, one with an invalid ~ escape) MUST be rejected with an
         // "invalidArguments" error."
         let mut leaf = json!({"metadataExists": "acme.example.com/a~2b"});
@@ -950,7 +950,7 @@ mod tests {
 
     #[test]
     fn take_from_rejects_wrong_type_with_invalid_arguments() {
-        // Oracle: -04 §3.6 — "metadataExists: String".
+        // Oracle: -05 §3.6 — "metadataExists: String".
         let mut leaf = json!({"metadataExists": 5});
         let err =
             MetadataCondition::take_from(leaf.as_object_mut().unwrap(), &info(false)).unwrap_err();
@@ -959,7 +959,7 @@ mod tests {
 
     #[test]
     fn take_from_rejects_private_without_supports_private() {
-        // Oracle: -04 §3.6 — "Any privateMetadata* condition (existence
+        // Oracle: -05 §3.6 — "Any privateMetadata* condition (existence
         // or text) MUST be rejected with an "unsupportedFilter" error if
         // supportsPrivate is false for the data type."
         for leaf in [
@@ -982,7 +982,7 @@ mod tests {
 
     #[test]
     fn invalid_namespace_matches_nothing_without_error() {
-        // Oracle: -04 §3.6 — "a string that is not a valid namespace
+        // Oracle: -05 §3.6 — "a string that is not a valid namespace
         // identifier, matches no objects; it does not produce an error."
         let mut leaf = json!({"metadataExists": "Not Valid"});
         let cond =
@@ -1005,7 +1005,7 @@ mod tests {
         let blue = json!({"x.example": {"tag": "blue"}});
         assert!(cond.matches(red.as_object(), None));
         assert!(!cond.matches(blue.as_object(), None));
-        // -04 §2: an absent metadata property defaults to {}.
+        // -05 §2: an absent metadata property defaults to {}.
         assert!(!cond.matches(None, None));
     }
 }

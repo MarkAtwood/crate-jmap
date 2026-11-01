@@ -167,7 +167,7 @@ fn mailbox_without_role_serializes_role_null() {
     assert!(v["role"].is_null() && v.get("role").is_some(), "{v}");
 }
 
-/// draft-ietf-jmap-metadata-04 §4.1: the rights object of every data type with
+/// draft-ietf-jmap-metadata-05 §4.1: the rights object of every data type with
 /// `myRights` "gains the following property: *maySetMetadata*: Boolean", and
 /// the right is only present when the metadata capability lists the type, so
 /// it is optional on the wire. Oracle: hand-written JSON with the spec's wire name.

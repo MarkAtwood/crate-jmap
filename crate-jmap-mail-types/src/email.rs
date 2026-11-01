@@ -342,16 +342,16 @@ pub struct Email {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
 
-    // --- draft-ietf-jmap-metadata-04 §2 ---
+    // --- draft-ietf-jmap-metadata-05 §2 ---
     /// Shared metadata, keyed by namespace identifier
-    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
-    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
-    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// (draft-ietf-jmap-metadata-05 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -05 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-05 §3.2) and also decodes as
     /// `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// The authenticated user's own metadata, keyed by namespace
-    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// identifier (draft-ietf-jmap-metadata-05 §2). Same shape and `None`
     /// handling as `metadata`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
@@ -735,9 +735,9 @@ mod tests {
         );
     }
 
-    /// Oracle: -04 §2 adds `metadata` and `privateMetadata` (objects keyed
+    /// Oracle: -05 §2 adds `metadata` and `privateMetadata` (objects keyed
     /// by namespace) to Email; hand-written JSON. The values land in the
-    /// typed fields, not `extra`, and round-trip. -04 §3.2: in an update
+    /// typed fields, not `extra`, and round-trip. -05 §3.2: in an update
     /// "null is equivalent to {}", so `null` decodes as absent.
     #[test]
     fn email_metadata_properties() {

@@ -75,10 +75,10 @@ use jmap_server::{
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Task for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
-/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -171,8 +171,8 @@ pub async fn handle_task_get<B: TasksBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_changes<B: TasksBackend>(
@@ -213,8 +213,8 @@ const TASK_ID_PROPERTIES: &[&str] = &["taskListId"];
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]): a write to `metadata` or
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
-/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
-/// either in a create (-04 §3.2). The backend validates the rest.
+/// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
+/// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_set<B: TasksBackend>(
@@ -503,7 +503,7 @@ pub async fn handle_task_set<B: TasksBackend>(
 /// ids.
 ///
 /// `using` is the request's capability list (pass
-/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-04 §3.4:
+/// [`jmap_server::CallContext::using`]). draft-ietf-jmap-metadata-05 §3.4:
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
@@ -658,7 +658,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
             // on the original." Serialize the source, overlay client-supplied
             // properties, strip the source id so the backend assigns a fresh
             // server id. Pattern mirrors jmap-calendars-server event.rs:610-642.
-            // draft-ietf-jmap-metadata-04 §3.4: metadata overrides follow the
+            // draft-ietf-jmap-metadata-05 §3.4: metadata overrides follow the
             // Foo/set create rules (§3, §3.2).
             if let Some(Err(err)) = client_val
                 .as_object()
@@ -667,7 +667,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 not_created.insert(create_id, Value::from(&*err));
                 continue;
             }
-            // -04 §3.4: "When the request does not use this capability, only
+            // -05 §3.4: "When the request does not use this capability, only
             // metadata is copied", "privateMetadata is not copied when the
             // destination does not support it, and neither property is
             // copied when the data type is not listed in the destination
@@ -717,7 +717,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 }
             };
 
-            // -04 §3.4: the backend validates only the metadata supplied in
+            // -05 §3.4: the backend validates only the metadata supplied in
             // the create object; the copied values are not revalidated.
             match backend
                 .copy_object(caller, &from_account_id, &to_account_id, task, &client_val)
@@ -849,8 +849,8 @@ pub async fn handle_task_copy<B: TasksBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_query<B: TasksBackend>(
@@ -883,8 +883,8 @@ pub async fn handle_task_query<B: TasksBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_query_changes<B: TasksBackend>(

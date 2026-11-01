@@ -160,7 +160,7 @@ impl super::SessionClient {
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`SpaceFilterCondition`](jmap_chat_types::SpaceFilterCondition), which
-    /// carries the draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// carries the draft-ietf-jmap-metadata-05 §3.6 `metadata*` conditions.
     /// Pass `None` to send `"filter": null`; name the type when you do (`None::<&SpaceFilter>`).
     ///
     /// # Errors
@@ -212,7 +212,7 @@ impl super::SessionClient {
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`SpaceFilterCondition`](jmap_chat_types::SpaceFilterCondition), which
-    /// carries the draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// carries the draft-ietf-jmap-metadata-05 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&SpaceFilter>`).
     ///
     /// # Errors

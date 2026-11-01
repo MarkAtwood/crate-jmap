@@ -69,7 +69,7 @@ impl GetObject for crate::Principal {}
 
 /// RFC 9670 §2 (rfc9670.txt:257, 287, 292): `id` is "(immutable;
 /// server-set)"; `capabilities` and `accounts` are "(server-set)".
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Principal {
     type Patch = PatchObject;

@@ -231,7 +231,7 @@ impl super::SessionClient {
     ///   (`Filter::Condition`) or a `FilterOperator` combining sub-filters
     ///   with `AND` / `OR` / `NOT`. The condition type `C` is normally
     ///   [`CalendarEventFilterCondition`](jmap_calendars_types::CalendarEventFilterCondition),
-    ///   which carries the draft-ietf-jmap-metadata-04 §3.6 `metadata*`
+    ///   which carries the draft-ietf-jmap-metadata-05 §3.6 `metadata*`
     ///   conditions. Pass `None` to omit the `filter` argument; name the
     ///   type when you do (`None::<&CalendarEventFilter>`).
     /// - `sort`: typed comparator slice. Pass `None` to omit the `sort`

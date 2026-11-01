@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-04 server-side helpers.
+//! draft-ietf-jmap-metadata-05 server-side helpers.
 //!
 //! Since -02, the draft has no standalone `Metadata` object type.
 //! Metadata becomes `metadata` and `privateMetadata` properties on

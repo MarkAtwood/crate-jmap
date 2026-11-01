@@ -265,7 +265,7 @@ pub struct ChangesResult {
     /// The current state token after applying all reported changes.
     pub new_state: jmap_types::State,
     /// The `updatedProperties` response argument (RFC 8621 §2.2,
-    /// draft-ietf-jmap-metadata-04 §3.3): the only properties that may
+    /// draft-ietf-jmap-metadata-05 §3.3): the only properties that may
     /// have changed on every id in [`updated`](Self::updated), or `None`
     /// when any other property may have changed or the backend cannot
     /// tell. [`crate::handle_changes`] sends `null` when `updated` is
@@ -451,19 +451,19 @@ pub struct ChangesParams<'a> {
     pub since_state: &'a jmap_types::State,
     /// `maxChanges`; `None` means no client limit.
     pub max_changes: Option<u64>,
-    /// `ignoreMetadataOnlyChanges` (draft-ietf-jmap-metadata-04 §3.3):
+    /// `ignoreMetadataOnlyChanges` (draft-ietf-jmap-metadata-05 §3.3):
     /// when `true`, a backend that tracks per-update changed properties
     /// MUST leave out of `updated` every id whose only changes are to
     /// `metadata` and/or `privateMetadata`, and those ids do not count
     /// toward `max_changes`. [`crate::handle_changes`] sets it `true`
     /// for a request whose `using` lacks `urn:ietf:params:jmap:metadata`
-    /// (-04 §3). A backend that does not support metadata ignores it.
+    /// (-05 §3). A backend that does not support metadata ignores it.
     pub ignore_metadata_only_changes: bool,
 }
 
 impl<'a> ChangesParams<'a> {
     /// Changes since `since_state`, with no `maxChanges` and
-    /// `ignoreMetadataOnlyChanges` false (its -04 §3.3 default).
+    /// `ignoreMetadataOnlyChanges` false (its -05 §3.3 default).
     pub fn new(since_state: &'a jmap_types::State) -> Self {
         Self {
             since_state,
@@ -1107,17 +1107,17 @@ pub trait JmapBackend: Send + Sync + 'static {
         500
     }
 
-    /// The draft-ietf-jmap-metadata-04 §1.2.1 DataTypeMetadataInfo of `O`
+    /// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo of `O`
     /// in `account_id`, as seen by `caller`, or [`None`] when the account's
     /// `urn:ietf:params:jmap:metadata` capability does not list `O`.
     ///
     /// Handlers use it where the wire shape depends on it: `Foo/get`
     /// returns `metadata` as an object (`{}` when nothing is stored),
     /// applies the `metadata/` subselectors and never returns
-    /// `privateMetadata` when `supportsPrivate` is false (-04 §2, §3.1,
+    /// `privateMetadata` when `supportsPrivate` is false (-05 §2, §3.1,
     /// through [`MetadataProjection`](crate::MetadataProjection));
     /// `Foo/copy` copies neither property into an account that does not
-    /// list `O` (-04 §3.4). Keep it in step with the `dataTypes`
+    /// list `O` (-05 §3.4). Keep it in step with the `dataTypes`
     /// advertised in the Session object.
     ///
     /// Default: [`None`], a backend without metadata.

@@ -1,19 +1,19 @@
-//! draft-ietf-jmap-metadata-04 properties and filter conditions on
+//! draft-ietf-jmap-metadata-05 properties and filter conditions on
 //! TaskList and Task (bd JMAP-s4kp.4).
 //!
-//! Oracle: the -04 text quoted on each test
-//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-04.txt), with
-//! hand-written JSON. The namespace and keys follow the -04 §6.6 example
+//! Oracle: the -05 text quoted on each test
+//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-05.txt), with
+//! hand-written JSON. The namespace and keys follow the -05 §6.6 example
 //! ("metadata/acme.example.com/approvalStatus").
 
 use jmap_metadata_types::MetadataTextMatch;
 use jmap_tasks_types::{Task, TaskFilterCondition, TaskList};
 use serde_json::json;
 
-/// -04 §2 adds `metadata` and `privateMetadata` (objects keyed by
-/// namespace) to each listed type; -04 §4.1 covers "every data type that
+/// -05 §2 adds `metadata` and `privateMetadata` (objects keyed by
+/// namespace) to each listed type; -05 §4.1 covers "every data type that
 /// has a myRights property", which a draft-ietf-jmap-tasks-06 §3 TaskList
-/// has. The values land in the typed fields, not `extra`. -04 §3.2: "null
+/// has. The values land in the typed fields, not `extra`. -05 §3.2: "null
 /// is equivalent to {}", so `null` decodes as absent; a non-object is
 /// rejected.
 #[test]
@@ -59,7 +59,7 @@ fn task_list_metadata_properties() {
     assert!(serde_json::from_value::<TaskList>(raw).is_err());
 }
 
-/// -04 §2 on Task, which -04 §4.1 lets take the right from its container
+/// -05 §2 on Task, which -05 §4.1 lets take the right from its container
 /// (the TaskList named by `taskListId`). A non-object `privateMetadata` is
 /// rejected.
 #[test]
@@ -91,7 +91,7 @@ fn task_metadata_properties() {
     assert!(serde_json::from_value::<Task>(raw).is_err());
 }
 
-/// The six wire names of -04 §3.6 ("metadataExists",
+/// The six wire names of -05 §3.6 ("metadataExists",
 /// "privateMetadataExists", "metadataTextContains",
 /// "privateMetadataTextContains", "metadataTextEquals",
 /// "privateMetadataTextEquals") extend "the FilterCondition object for
@@ -117,7 +117,7 @@ fn metadata_condition_names_decode_and_typos_reject() {
     assert!(serde_json::from_value::<TaskFilterCondition>(json!({"metadataExist": "ns"})).is_err());
 }
 
-/// -04 §3.6: "A MetadataTextMatch object has the following fields:"
+/// -05 §3.6: "A MetadataTextMatch object has the following fields:"
 /// `path` and `value`. A leaf combining the draft-ietf-jmap-tasks-06 §4 `taskListId` with
 /// `metadataTextEquals` decodes both.
 #[test]

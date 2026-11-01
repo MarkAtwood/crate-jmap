@@ -1,7 +1,7 @@
 # jmap-metadata-client — Implementation Plan
 
 Pure client-side helpers for the JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-04]).
+([draft-ietf-jmap-metadata-05]).
 
 ## Crate Family Position
 
@@ -53,10 +53,10 @@ field definitions — never derived from the code under test.
 
 ## References
 
-- **[draft-ietf-jmap-metadata-04]** — JMAP Object Metadata (normative
+- **[draft-ietf-jmap-metadata-05]** — JMAP Object Metadata (normative
   for property names, the `/changes` argument, and filter conditions).
 - **[RFC 8620]** — JMAP Core (`/get`, `/changes`, `/query`, filter
   operators).
 
-[draft-ietf-jmap-metadata-04]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
+[draft-ietf-jmap-metadata-05]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-05
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

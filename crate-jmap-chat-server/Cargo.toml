@@ -43,7 +43,7 @@ jmap-did-types = { workspace = true }
 jmap-peer-auth = { workspace = true }
 base64 = "0.22"
 jmap-server = { workspace = true }
-# draft-ietf-jmap-metadata-04 capability URI and DataTypeMetadataInfo
+# draft-ietf-jmap-metadata-05 capability URI and DataTypeMetadataInfo
 # (serde-only); the /set handlers check `using` against the URI.
 jmap-metadata-types = { workspace = true }
 # `serde::de::DeserializeOwned` trait bound on Space/set patch-entry parsers;
@@ -59,7 +59,7 @@ subtle = { workspace = true }
 # getrandom in the workspace pins to the same version. See bd:JMAP-x2gd.66.
 getrandom = { workspace = true, optional = true }
 ulid = { version = "1", optional = true }
-# draft-ietf-jmap-metadata-04 helpers the MemoryBackend wires in (JMAP-s4kp.2).
+# draft-ietf-jmap-metadata-05 helpers the MemoryBackend wires in (JMAP-s4kp.2).
 jmap-metadata-server = { workspace = true, optional = true }
 # Multi-thread runtime for the `testkit` conformance suite, so its
 # concurrency tests race on real threads.

@@ -1,7 +1,7 @@
 //! JMAP Object Metadata extension data types.
 //!
 //! Implements the data types defined in
-//! [draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
+//! [draft-ietf-jmap-metadata-05](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
 //! Types only — no method handlers, no async, no network I/O.
 //!
 //! ## Architecture change from -01 to -02

@@ -1,9 +1,9 @@
-//! draft-ietf-jmap-metadata-04 on TaskList and Task in the in-memory
+//! draft-ietf-jmap-metadata-05 on TaskList and Task in the in-memory
 //! backend opted in with `MemoryBackend::with_metadata_info`
 //! (bd JMAP-s4kp.4).
 //!
-//! Oracle: the -04 text quoted on each test
-//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-04.txt, the
+//! Oracle: the -05 text quoted on each test
+//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-05.txt, the
 //! revision of October 2026), with hand-written requests and expected
 //! responses. The capability below allows vendor namespaces only, no
 //! private metadata, and `maxDepth` 2.
@@ -178,10 +178,10 @@ fn sorted(mut ids: Vec<&str>) -> Value {
 }
 
 // ---------------------------------------------------------------------------
-// /query (-04 §3.6)
+// /query (-05 §3.6)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.6 `metadataExists`: "Matches an object if and only if a value
+/// -05 §3.6 `metadataExists`: "Matches an object if and only if a value
 /// is present at the given path within the object's metadata property. A
 /// namespace-only path matches if the namespace key is present and its
 /// value is not the empty object {}."
@@ -209,7 +209,7 @@ async fn task_query_metadata_exists() {
     }
 }
 
-/// -04 §3.6 conditions extend the type's own FilterCondition, so they sit
+/// -05 §3.6 conditions extend the type's own FilterCondition, so they sit
 /// in one leaf with draft-ietf-jmap-tasks-06 §4 `taskListId` and both must
 /// hold; `metadataTextContains` is a substring match "under the
 /// "i;unicode-casemap" collation", so case is ignored.
@@ -234,7 +234,7 @@ async fn task_query_combines_task_list_id_and_text_contains() {
     assert_eq!(task_query(&backend, filter).await.unwrap(), json!([hit]));
 }
 
-/// -04 §3.6 `metadataTextEquals`: "exactly equal to the supplied value,
+/// -05 §3.6 `metadataTextEquals`: "exactly equal to the supplied value,
 /// comparing Unicode code points without case folding".
 #[tokio::test]
 async fn task_query_text_equals_is_case_sensitive() {
@@ -248,7 +248,7 @@ async fn task_query_text_equals_is_case_sensitive() {
     assert_eq!(task_query(&backend, equals).await.unwrap(), json!([exact]));
 }
 
-/// -04 §3.6: "Any privateMetadata* condition (existence or text) MUST be
+/// -05 §3.6: "Any privateMetadata* condition (existence or text) MUST be
 /// rejected with an "unsupportedFilter" error if supportsPrivate is false
 /// for the data type", and "A path that is not well formed (for example,
 /// one with an invalid ~ escape) MUST be rejected with an
@@ -280,7 +280,7 @@ async fn invalid_conditions_are_rejected() {
     assert_eq!(error_type(err), json!("unsupportedFilter"));
 }
 
-/// -04 §1.2.1: "A type that does not appear in this object does not gain
+/// -05 §1.2.1: "A type that does not appear in this object does not gain
 /// the metadata or privateMetadata properties in this account", so a
 /// backend that did not opt Task in cannot process the condition
 /// (RFC 8620 §5.5 `unsupportedFilter`).
@@ -294,11 +294,11 @@ async fn unlisted_type_rejects_metadata_condition() {
 }
 
 // ---------------------------------------------------------------------------
-// /set (-04 §3, §3.1, §3.2, §4.1)
+// /set (-05 §3, §3.1, §3.2, §4.1)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.2 and the §6.3 example: a patch path below a namespace changes
-/// that key and keeps the others; the create stores its metadata. -04
+/// -05 §3.2 and the §6.3 example: a patch path below a namespace changes
+/// that key and keeps the others; the create stores its metadata. -05
 /// §3.2: "In an update, null is equivalent to {}".
 #[tokio::test]
 async fn task_list_patch_within_namespace_then_null() {
@@ -325,9 +325,9 @@ async fn task_list_patch_within_namespace_then_null() {
     assert_eq!(list_property(&backend, &id, "metadata").await, json!({}));
 }
 
-/// After the -04 §6.6 example: a primary property and two vendor metadata
+/// After the -05 §6.6 example: a primary property and two vendor metadata
 /// keys change in one /set call, answered with `"updated": { id: null }`.
-/// -04 §3.2 patch paths follow RFC 8620 §5.3, so "the parent of the target
+/// -05 §3.2 patch paths follow RFC 8620 §5.3, so "the parent of the target
 /// MUST exist", and a missing one is `invalidPatch` that leaves the task
 /// unchanged ("either all of these changes apply or none do").
 #[tokio::test]
@@ -376,7 +376,7 @@ async fn task_update_primary_and_metadata_atomically() {
     );
 }
 
-/// -04 §3.1: "Changes to metadata or privateMetadata alone MUST NOT update
+/// -05 §3.1: "Changes to metadata or privateMetadata alone MUST NOT update
 /// server-maintained modification timestamps of the related object".
 /// A Task's `updated` (RFC 8984 §4.1.6) is such a timestamp.
 #[tokio::test]
@@ -407,11 +407,11 @@ async fn metadata_only_update_keeps_updated_timestamp() {
 /// The set of /set rejections that answer `invalidProperties`, each with
 /// the offending request key:
 ///
-/// - -04 §3.2: "A value of null for either property MUST be rejected with
+/// - -05 §3.2: "A value of null for either property MUST be rejected with
 ///   an "invalidProperties" SetError" (create).
-/// - -04 §3: for a request without the capability, "Foo/set MUST reject
+/// - -05 §3: for a request without the capability, "Foo/set MUST reject
 ///   any write to them with an "invalidProperties" SetError".
-/// - -04 §3.2 rule 2: "If the path begins with privateMetadata and
+/// - -05 §3.2 rule 2: "If the path begins with privateMetadata and
 ///   supportsPrivate is false for this data type, reject with
 ///   "invalidProperties"."
 /// - rule 3: "If the targeted namespace is not supported on this data
@@ -474,7 +474,7 @@ async fn invalid_metadata_writes_are_invalid_properties() {
     assert_eq!(task_property(&backend, &id, "metadata").await, json!({}));
 }
 
-/// -04 §1.2.1: "A type that does not appear in this object does not gain
+/// -05 §1.2.1: "A type that does not appear in this object does not gain
 /// the metadata or privateMetadata properties in this account", so a
 /// backend that did not opt in rejects the write.
 #[tokio::test]
@@ -492,7 +492,7 @@ async fn unlisted_type_rejects_metadata_write() {
     assert_eq!(resp["notCreated"]["c"]["properties"], json!(["metadata"]));
 }
 
-/// -04 §4.1: "A write to metadata without maySetMetadata MUST be rejected
+/// -05 §4.1: "A write to metadata without maySetMetadata MUST be rejected
 /// with a "forbidden" SetError." A TaskList carries its own right; other
 /// properties stay writable.
 #[tokio::test]
@@ -514,7 +514,7 @@ async fn task_list_without_may_set_metadata_is_forbidden() {
     update_list(&backend, &id, json!({ "name": "renamed" })).await;
 }
 
-/// -04 §4.1: an object without a rights object of its own "takes the
+/// -05 §4.1: an object without a rights object of its own "takes the
 /// right from its containers. Modifying its metadata requires
 /// maySetMetadata on every container it belongs to; when the same update
 /// changes its containers, on every container both before and after the
@@ -584,7 +584,7 @@ async fn task_metadata_needs_right_on_task_list() {
     );
 }
 
-/// -04 §3.2 rule 1: "If the user cannot read the related object, reject
+/// -05 §3.2 rule 1: "If the user cannot read the related object, reject
 /// with "notFound". If the write targets metadata and the user lacks
 /// maySetMetadata (Section 4.1), reject with "forbidden"" — in that order.
 /// And: "Patch errors that can be determined from the request alone (for
@@ -625,15 +625,15 @@ async fn rule_order_invalid_patch_then_not_found_then_forbidden() {
 }
 
 // ---------------------------------------------------------------------------
-// /changes (-04 §3, §3.3)
+// /changes (-05 §3, §3.3)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.3: `updatedProperties` "MUST be set to a list containing only
+/// -05 §3.3: `updatedProperties` "MUST be set to a list containing only
 /// those property names (e.g., ["metadata"] ...)" when only metadata
 /// changed; with `ignoreMetadataOnlyChanges` the server "MUST exclude from
 /// the updated array any id whose only changes since sinceState ... are
 /// confined to metadata", while "The state string still advances
-/// normally"; and -04 §3: without the capability "Foo/changes MUST behave
+/// normally"; and -05 §3: without the capability "Foo/changes MUST behave
 /// as if ignoreMetadataOnlyChanges were true".
 #[tokio::test]
 async fn metadata_only_task_list_change() {
@@ -667,7 +667,7 @@ async fn metadata_only_task_list_change() {
     }
 }
 
-/// -04 §3.3: "If any other property ... of any id in the array may also
+/// -05 §3.3: "If any other property ... of any id in the array may also
 /// have changed ... this argument MUST be null", and "Ids with any other
 /// change remain in updated" under `ignoreMetadataOnlyChanges`.
 #[tokio::test]
@@ -695,7 +695,7 @@ async fn mixed_change_is_reported_without_updated_properties() {
     }
 }
 
-/// -04 §3.3: "Excluded ids do not count toward maxChanges." Two changes
+/// -05 §3.3: "Excluded ids do not count toward maxChanges." Two changes
 /// with `maxChanges` 1 would otherwise be `cannotCalculateChanges`
 /// (RFC 8620 §5.2) in this backend.
 #[tokio::test]
@@ -722,7 +722,7 @@ async fn excluded_ids_do_not_count_toward_max_changes() {
     assert_eq!(resp["hasMoreChanges"], json!(false), "{resp}");
 }
 
-/// -04 §3.3 on Task/changes: two tasks whose only change is metadata give
+/// -05 §3.3 on Task/changes: two tasks whose only change is metadata give
 /// `updatedProperties` `["metadata"]`.
 #[tokio::test]
 async fn metadata_only_task_changes() {
@@ -758,10 +758,10 @@ async fn metadata_only_task_changes() {
 }
 
 // ---------------------------------------------------------------------------
-// Dispatcher wiring (-04 §3)
+// Dispatcher wiring (-05 §3)
 // ---------------------------------------------------------------------------
 
-/// `register_tasks_handlers` forwards the request's `using`: -04 §3
+/// `register_tasks_handlers` forwards the request's `using`: -05 §3
 /// "Foo/set MUST reject any write to them" without the capability, and the
 /// same write succeeds with it.
 #[tokio::test]
@@ -796,7 +796,7 @@ async fn dispatcher_forwards_using() {
 }
 
 // ---------------------------------------------------------------------------
-// /get and the /query capability gate (-04 §2, §3, §3.1; bd JMAP-s4kp.9)
+// /get and the /query capability gate (-05 §2, §3, §3.1; bd JMAP-s4kp.9)
 // ---------------------------------------------------------------------------
 
 /// A second vendor namespace for the subselector tests.
@@ -820,12 +820,12 @@ async fn task_list_get_one(
         .map(|o| o.primary["list"][0].clone())
 }
 
-/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// -05 §3.1 (L524-526): "when properties is omitted or null, the server
 /// MUST include metadata and, where supportsPrivate is true,
 /// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
 /// object ({} when no metadata is set), never null"; §2 (L306-307): "When
 /// supportsPrivate is false for the data type, this property MUST NOT be
-/// returned"; §3 (L461-463): for other requests "metadata and
+/// returned"; §3 (L510-512): for other requests "metadata and
 /// privateMetadata are not default properties of Foo/get (although they
 /// are still returned when requested by name)".
 #[tokio::test]
@@ -861,13 +861,13 @@ async fn task_list_get_default_properties_follow_capability() {
     assert!(got.get("privateMetadata").is_none(), "{got}");
 }
 
-/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// -05 §3.1 (L542-549): "Multiple subselectors with the same root combine
 /// by union" and "An explicit root entry supersedes subselectors with the
-/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// same root"; (L551-554) a namespace that is not supported "MUST be
 /// silently omitted from the response, unless the object has data stored
-/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// under that namespace"; (L537-540) "Any other properties entry beginning
 /// with metadata/ or privateMetadata/ MUST be rejected with an
-/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// "invalidArguments" method-level error"; §3 (L509-510) subselectors are
 /// part of the extension, so without the capability they name no
 /// property.
 #[tokio::test]
@@ -935,12 +935,12 @@ async fn task_get_one(
         .map(|o| o.primary["list"][0].clone())
 }
 
-/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// -05 §3.1 (L524-526): "when properties is omitted or null, the server
 /// MUST include metadata and, where supportsPrivate is true,
 /// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
 /// object ({} when no metadata is set), never null"; §2 (L306-307): "When
 /// supportsPrivate is false for the data type, this property MUST NOT be
-/// returned"; §3 (L461-463): for other requests "metadata and
+/// returned"; §3 (L510-512): for other requests "metadata and
 /// privateMetadata are not default properties of Foo/get (although they
 /// are still returned when requested by name)".
 #[tokio::test]
@@ -971,13 +971,13 @@ async fn task_get_default_properties_follow_capability() {
     assert!(got.get("privateMetadata").is_none(), "{got}");
 }
 
-/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// -05 §3.1 (L542-549): "Multiple subselectors with the same root combine
 /// by union" and "An explicit root entry supersedes subselectors with the
-/// same root"; (L509-512) a namespace that is not supported "MUST be
+/// same root"; (L551-554) a namespace that is not supported "MUST be
 /// silently omitted from the response, unless the object has data stored
-/// under that namespace"; (L488-491) "Any other properties entry beginning
+/// under that namespace"; (L537-540) "Any other properties entry beginning
 /// with metadata/ or privateMetadata/ MUST be rejected with an
-/// "invalidArguments" method-level error"; §3 (L460-461) subselectors are
+/// "invalidArguments" method-level error"; §3 (L509-510) subselectors are
 /// part of the extension, so without the capability they name no
 /// property.
 #[tokio::test]
@@ -1029,7 +1029,7 @@ async fn task_get_metadata_subselectors() {
     }
 }
 
-/// -04 §3 (L460-461): the extensions, the §3.6 filter conditions among
+/// -05 §3 (L509-510): the extensions, the §3.6 filter conditions among
 /// them, "apply to requests whose using includes
 /// urn:ietf:params:jmap:metadata"; RFC 8620 §5.5 `unsupportedFilter`: "The
 /// filter is syntactically valid, but the server cannot process it".
@@ -1082,12 +1082,12 @@ async fn task_copy(b: &MemoryBackend, entry: Value, using: &[String]) -> Value {
         .primary
 }
 
-/// -04 §3.4 (L648-655): "Foo/copy copies metadata to the new object" and
+/// -05 §3.4 (L700-707): "Foo/copy copies metadata to the new object" and
 /// "When the request does not use this capability, only metadata is
 /// copied. The create object MAY include metadata and privateMetadata to
 /// override the copied values, with the same rules as a create in
 /// Foo/set"; those rules: without the capability "Foo/set MUST reject any
-/// write to them with an "invalidProperties" SetError" (§3, L463-464), and
+/// write to them with an "invalidProperties" SetError" (§3, L512-513), and
 /// on create "A value of null for either property MUST be rejected with
 /// an "invalidProperties" SetError" (§3.2).
 #[tokio::test]
@@ -1165,15 +1165,15 @@ async fn task_copy_metadata() {
     );
 }
 
-/// -04 §3.4 (L657-660): "Copied values are not revalidated against the
+/// -05 §3.4 (L709-712): "Copied values are not revalidated against the
 /// destination account: data in a copied namespace that is not supported
-/// there is handled as described in Section 2.1.1, and maxDepth applies
-/// only to values supplied in the create object." §2.1.1 (L411-412): such
+/// there is handled as described in Section 2.1.2, and maxDepth applies
+/// only to values supplied in the create object." §2.1.2 (L458-459): such
 /// data "MUST continue to be returned by /get". The source Task carries a
 /// value of depth 3 (maxDepth is 2) and the registered namespace
 /// `photography`, which the capability does not list; both are seeded,
 /// since no /set may write them. The copy keeps both, while a create
-/// object value deeper than maxDepth is still rejected (-04 §3.2 rule 4).
+/// object value deeper than maxDepth is still rejected (-05 §3.2 rule 4).
 #[tokio::test]
 async fn task_copy_does_not_revalidate_copied_metadata() {
     let b = backend().with_account(&Id::from(OTHER_ID));

@@ -299,7 +299,7 @@ impl GetObject for crate::Chat {}
 /// exclusively via the `addChannels` patch key in `Space/set`"), so they
 /// are server-set here.
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set` (draft-atwood-jmap-chat-00 lets
 /// servers list `Chat` in the capability's `dataTypes`).
 impl SetObject for crate::Chat {
@@ -361,7 +361,7 @@ impl GetObject for crate::Message {}
 /// `replyTo`, `threadRootId` and `sentAt`, and no update section changes
 /// them, so they are immutable here.
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Message {
     type Patch = PatchObject;
@@ -438,7 +438,7 @@ impl GetObject for crate::Space {}
 /// (`addRoles`, `addMembers`, ...), never as properties, so they are
 /// server-set here.
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Space {
     type Patch = PatchObject;

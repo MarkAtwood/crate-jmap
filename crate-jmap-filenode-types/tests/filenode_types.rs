@@ -890,7 +890,7 @@ fn filenode_without_space_id_omits_it() {
     assert!(back.get("spaceId").is_none(), "L122 absent: {back}");
 }
 
-/// draft-ietf-jmap-metadata-04 §4.1: the rights object of every data type with
+/// draft-ietf-jmap-metadata-05 §4.1: the rights object of every data type with
 /// `myRights` "gains the following property: *maySetMetadata*: Boolean", and
 /// the right is only present when the metadata capability lists the type, so
 /// it is optional on the wire. Oracle: hand-written JSON with the spec's wire name.

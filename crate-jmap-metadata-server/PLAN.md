@@ -1,7 +1,7 @@
 # jmap-metadata-server — Implementation Plan
 
 Pure server-side helpers for the JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04)).
+([draft-ietf-jmap-metadata-05](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-05)).
 
 ## Crate Family Position
 
@@ -13,7 +13,7 @@ jmap-metadata-types       data types
 ## What This Crate Is
 
 Stateless functions over `serde_json` values and `jmap-metadata-types`
-structs that extension servers call when implementing the draft-04
+structs that extension servers call when implementing the draft-05
 extensions to their own methods (§3). draft-02 removed the -01
 standalone `Metadata` object and its five `Metadata/*` methods, so the
 -01 `MetadataBackend` trait, `register_metadata_handlers`, and
@@ -51,7 +51,7 @@ value: `{ "dataTypes": { "<Type>": DataTypeMetadataInfo, … } }`.
 The helpers are building blocks; the extension server owns:
 
 1. `/set` rule order (§3.2): `forbidden` → private-unsupported →
-   namespace-unsupported (except §2.1.1 removal) → `maxDepth`.
+   namespace-unsupported (except §2.1.2 removal) → `maxDepth` → malformed Binary.
 2. `null` metadata on create → `invalidProperties` (§3.2).
 3. `overQuota` (§3.2.1, §5).
 4. Per-viewer `privateMetadata` visibility and state advancement

@@ -232,7 +232,7 @@ impl GetObject for crate::TaskList {}
 /// draft-ietf-jmap-tasks-06 §3 (lines 383, 496): `id` is "(immutable;
 /// server-set)", `myRights` is "(server-set)".
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::TaskList {
     type Patch = PatchObject;
@@ -269,7 +269,7 @@ impl GetObject for crate::Task {}
 /// "(server-set)". No other property, JMAP or JSCalendar, carries either
 /// attribute.
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Task {
     type Patch = PatchObject;

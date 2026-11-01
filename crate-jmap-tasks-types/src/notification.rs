@@ -118,7 +118,7 @@ pub struct TaskNotification {
 /// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
 /// `metadata` / `privateMetadata` properties to each listed data type,
 /// filterable through `metadata*` conditions on that type's own `/query`
-/// (draft-ietf-jmap-metadata-04 §2, §3.6). Helpers live in
+/// (draft-ietf-jmap-metadata-05 §2, §3.6). Helpers live in
 /// `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///

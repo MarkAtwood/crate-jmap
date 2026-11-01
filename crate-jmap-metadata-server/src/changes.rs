@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-04 §3.3 — `/changes` extension helpers.
+//! draft-ietf-jmap-metadata-05 §3.3 — `/changes` extension helpers.
 //!
 //! Provides building blocks for extension-server crates that integrate
 //! the metadata `/changes` extensions:
@@ -10,7 +10,7 @@
 //!   property names qualifies. An id the server "cannot determine" to
 //!   be metadata-only "MUST" stay in `updated`, and "Excluded ids do not
 //!   count toward maxChanges". When the request's `using` lacks
-//!   `urn:ietf:params:jmap:metadata`, -04 §3 says `Foo/changes` "MUST
+//!   `urn:ietf:params:jmap:metadata`, -05 §3 says `Foo/changes` "MUST
 //!   behave as if ignoreMetadataOnlyChanges were true".
 //!
 //! - **`updatedProperties`** (response field): for a request whose
@@ -36,11 +36,11 @@ use jmap_metadata_types::JMAP_METADATA_URI;
 use serde_json::{Map, Value};
 
 /// Wire name of the shared metadata property added by
-/// draft-ietf-jmap-metadata-04.
+/// draft-ietf-jmap-metadata-05.
 pub const METADATA_PROPERTY: &str = "metadata";
 
 /// Wire name of the per-user private metadata property added by
-/// draft-ietf-jmap-metadata-04.
+/// draft-ietf-jmap-metadata-05.
 pub const PRIVATE_METADATA_PROPERTY: &str = "privateMetadata";
 
 /// Returns `true` if `property` is a metadata extension property
@@ -60,7 +60,7 @@ pub fn is_metadata_property(property: &str) -> bool {
 }
 
 /// Returns `true` if **all** properties in `changed_properties` are
-/// metadata extension properties (draft-ietf-jmap-metadata-04 §3.3).
+/// metadata extension properties (draft-ietf-jmap-metadata-05 §3.3).
 ///
 /// Returns `false` if the slice is empty — an empty change set is not a
 /// "metadata-only change".
@@ -120,7 +120,7 @@ pub fn changed_properties(
 }
 
 /// Whether a `Foo/changes` request asks to hide metadata-only changes
-/// (draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`).
+/// (draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`).
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum MetadataOnlyChanges {
@@ -135,7 +135,7 @@ impl MetadataOnlyChanges {
     /// Mode for a request with `ignoreMetadataOnlyChanges` set to
     /// `argument` and the capability URIs `using`.
     ///
-    /// -04 §3: for a request whose `using` lacks
+    /// -05 §3: for a request whose `using` lacks
     /// `urn:ietf:params:jmap:metadata`, "Foo/changes MUST behave as if
     /// ignoreMetadataOnlyChanges were true".
     ///
@@ -163,7 +163,7 @@ impl MetadataOnlyChanges {
 }
 
 /// Per-id changed-property accumulator over one `Foo/changes` window
-/// (draft-ietf-jmap-metadata-04 §3.3).
+/// (draft-ietf-jmap-metadata-05 §3.3).
 ///
 /// A backend calls [`record`](Self::record) for each update in the
 /// window, oldest first, then asks [`is_metadata_only`](Self::is_metadata_only)
@@ -235,7 +235,7 @@ impl ChangedProperties {
     }
 
     /// The `updatedProperties` value for a response whose `updated`
-    /// array is `updated` (draft-ietf-jmap-metadata-04 §3.3).
+    /// array is `updated` (draft-ietf-jmap-metadata-05 §3.3).
     ///
     /// `count_properties` lists the Mailbox count property names
     /// (RFC 8621 §2.2) for `Mailbox/changes` and is empty for every other
@@ -355,7 +355,7 @@ mod tests {
 
     #[test]
     fn mode_without_capability_ignores() {
-        // Oracle: -04 §3 — for requests without the capability
+        // Oracle: -05 §3 — for requests without the capability
         // "Foo/changes MUST behave as if ignoreMetadataOnlyChanges were
         // true".
         let core = ["urn:ietf:params:jmap:core"];
@@ -371,7 +371,7 @@ mod tests {
 
     #[test]
     fn mode_with_capability_defaults_to_report() {
-        // Oracle: -04 §3.3 — "ignoreMetadataOnlyChanges: Boolean
+        // Oracle: -05 §3.3 — "ignoreMetadataOnlyChanges: Boolean
         // (default: false)".
         let using = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:metadata"];
         assert_eq!(
@@ -392,7 +392,7 @@ mod tests {
 
     #[test]
     fn spec_6_8_metadata_only_window() {
-        // Oracle: -04 §6.8 — two Emails whose shared metadata changed give
+        // Oracle: -05 §6.8 — two Emails whose shared metadata changed give
         // "updated": ["EM1", "EM2"], "updatedProperties": ["metadata"].
         let mut window = ChangedProperties::new();
         window.record("EM1", Some(&props(&["metadata"])));
@@ -408,7 +408,7 @@ mod tests {
 
     #[test]
     fn union_across_window_breaks_metadata_only() {
-        // Oracle: -04 §3.3 — exclude an id "whose only changes since
+        // Oracle: -05 §3.3 — exclude an id "whose only changes since
         // sinceState ... are confined to metadata and/or privateMetadata".
         let mut window = ChangedProperties::new();
         window.record("EM1", Some(&props(&["metadata"])));
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn unknown_changes_are_never_metadata_only() {
-        // Oracle: -04 §3.3 — "If the server cannot determine that an id's
+        // Oracle: -05 §3.3 — "If the server cannot determine that an id's
         // changes are metadata-only, it MUST include the id" and
         // updatedProperties "MUST be null" if "the server cannot determine
         // the answer for any id".
@@ -444,7 +444,7 @@ mod tests {
 
     #[test]
     fn updated_properties_null_when_updated_empty() {
-        // Oracle: -04 §3.3 — "It is always present, and is null when
+        // Oracle: -05 §3.3 — "It is always present, and is null when
         // updated is empty."
         let window = ChangedProperties::new();
         assert_eq!(
@@ -455,7 +455,7 @@ mod tests {
 
     #[test]
     fn ignore_mode_never_lists_metadata() {
-        // Oracle: -04 §3.3 — when ignoreMetadataOnlyChanges is true,
+        // Oracle: -05 §3.3 — when ignoreMetadataOnlyChanges is true,
         // updatedProperties "MUST NOT list metadata or privateMetadata.
         // For Mailbox/changes it may list the count properties ...; for
         // other types it MUST be null."
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn mailbox_union_of_counts_and_metadata() {
-        // Oracle: -04 §3.3 — "For Mailbox/changes, when every id in
+        // Oracle: -05 §3.3 — "For Mailbox/changes, when every id in
         // updated changed only in its counts ... and/or in metadata or
         // privateMetadata, the value is the union of the count property
         // names and the metadata property names that may have changed."

@@ -312,11 +312,11 @@ pub trait ContactsBackend: JmapBackend {
     /// Called by `ContactCard/copy` after the handler fetched the card from
     /// `from_account_id` and applied the request's patch, including any
     /// `metadata` and `privateMetadata` it supplies
-    /// (draft-ietf-jmap-metadata-04 §3.4). `create` is the request's create
-    /// object for this copy (RFC 8620 §5.4). -04 §3.4 says its `metadata`
+    /// (draft-ietf-jmap-metadata-05 §3.4). `create` is the request's create
+    /// object for this copy (RFC 8620 §5.4). -05 §3.4 says its `metadata`
     /// and `privateMetadata` follow "the same rules as a create in
     /// Foo/set", so the backend validates them as
-    /// [`create_object`](Self::create_object) does (-04 §3.2 rules 1 to 4,
+    /// [`create_object`](Self::create_object) does (-05 §3.2 rules 1 to 4,
     /// `maxDepth` only on these supplied values) and leaves the copied
     /// values unvalidated. The backend assigns the new `id`, stores the record in `to_account_id` and
     /// records the create in the state and change log as

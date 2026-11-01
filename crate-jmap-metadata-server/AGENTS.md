@@ -6,7 +6,7 @@ This crate is a **sibling under the canonical `jmap-mail-server`
 extension-server template**. Doc-comment style, lint settings, error
 conventions, and test layout must mirror `jmap-mail-server`.
 Differences are *only* the spec content (draft-ietf-jmap-metadata
-here; RFC 8621 in mail-server). draft-04 defines no methods of its
+here; RFC 8621 in mail-server). draft-05 defines no methods of its
 own, so this crate has no `Backend` trait, handler registration,
 `/set` boilerplate, or `MemoryBackend`; that is a spec-mandated
 difference, not drift.
@@ -110,5 +110,5 @@ Run all four before considering any work done.
 - Push freely — `git push`, no `pull --rebase` ritual. If a push is rejected for any reason, stop and ask the human; do NOT `pull --rebase`, merge, force-push or `git reset` (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond: jmap-metadata-types, icu_casemap, icu_normalizer, serde_json
-- Do not add handlers, a backend trait, or auth logic (draft-04 has no `Metadata/*` methods)
+- Do not add handlers, a backend trait, or auth logic (draft-05 has no `Metadata/*` methods)
 - Do not implement behavior not in draft-ietf-jmap-metadata unless explicitly directed
