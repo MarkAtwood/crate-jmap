@@ -976,6 +976,6 @@ async fn calendar_event_query_metadata_condition_wire_shape() {
                 }
             ]
         }),
-        "metadata-04 §3.6 condition wire shape mismatch"
+        "metadata-05 §3.6 condition wire shape mismatch"
     );
 }

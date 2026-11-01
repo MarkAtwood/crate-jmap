@@ -1746,7 +1746,7 @@ mod tests {
     }
 
     /// Oracle: RFC 8620 §3.3 — the Request object's `using` is "The set
-    /// of capabilities the client wishes to use"; draft-ietf-jmap-metadata-04
+    /// of capabilities the client wishes to use"; draft-ietf-jmap-metadata-05
     /// §3 makes `Foo/changes` behaviour depend on whether it "includes
     /// urn:ietf:params:jmap:metadata", so the dispatcher MUST hand every
     /// handler the request's `using` list unchanged.
