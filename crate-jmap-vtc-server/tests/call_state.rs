@@ -298,13 +298,15 @@ async fn immutable_and_server_set_properties_are_refused() {
     let id = create_id(&backend, room()).await;
     // L422-L470: `callType` and `parentCallId` are "immutable";
     // `initiatorId` is "immutable, server-set"; `endReason` and
-    // `breakoutRoomIds` are "server-set".
+    // `breakoutRoomIds` are "server-set"; L449 `joinUri` is "(String,
+    // server-set)". Each value differs from the stored one.
     for (key, value) in [
         ("callType", json!("ring")),
         ("initiatorId", json!(EVE)),
         ("endReason", json!("missed")),
         ("parentCallId", json!("P1")),
         ("breakoutRoomIds", json!(["X"])),
+        ("joinUri", json!("https://attacker.example/room")),
     ] {
         let err = update(&backend, BOB, &id, json!({ key: value }))
             .await
