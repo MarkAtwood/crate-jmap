@@ -1,1 +1,2 @@
 {"id":"01a1934b-0065-7db9-8883-e8caa57dd18b","issue_id":"JMAP-z4z0.1","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-31T18:48:48.485899997Z"}
+{"id":"01a19359-9fbf-70be-94de-173db2eb5afe","issue_id":"JMAP-z4z0.1","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 31: 954cd247 (sender_id on OutboundEvent::Receipt, BREAKING, CHANGELOG + public-api) + comment fixup; local CI all green (6628 tests stable+beta).","created_at":"2026-10-31T19:04:46.783049349Z"}

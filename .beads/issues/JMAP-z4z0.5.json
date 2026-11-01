@@ -2,13 +2,15 @@
   "id": "JMAP-z4z0.5",
   "title": "chat-server: create_message stores and enqueues as one unit",
   "description": "Supersedes JMAP-i61u (chinwag-dxgx.28). New ChatBackend method create_message(caller, account_id, create_id, build) -\u003e Result\u003c(Id, Message), BackendSetError\u003c_\u003e\u003e 'store an owner-composed Message and report its OutboundEvent::NewMessage as one unit: on Err nothing is stored and nothing is enqueued'. Default = today's behaviour (create_object then on_outbound_event), correct per the spec-method-defaults rule. message.rs ~L1691-1709 calls backend.create_message instead of create_object + on_outbound_event. MemoryBackend: one lock for mint, build, check_metadata_create, insert, state/changes, outbound_events push (factor a locked insert helper out of create_object). Document: an overriding backend may fail the create when the enqueue fails -\u003e notCreated serverFail. Tests: new tests/message_create_atomic.rs with InjectableBackend: failing create_message -\u003e notCreated serverFail, no Message, no state advance, no event; default impl keeps today's event order. Oracle: chat-00 §Message/set (store then enqueue for outbound delivery), backend.rs create_object atomicity contract. BREAKING (handler call path; trait method has a default).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-31T18:48:49.617908003Z",
   "created_by": "agent",
-  "updated_at": "2026-10-31T18:48:49.617908003Z",
+  "updated_at": "2026-10-31T20:54:38.564873501Z",
+  "closed_at": "2026-10-31T20:54:38.564873501Z",
+  "close_reason": "Batch 35: 71eeb722 (ChatBackend::create_message with today's sequence as default; MemoryBackend under one lock; additive) + doc fixup; local CI all green (6659 tests stable+beta).",
   "dependencies": [
     {
       "issue_id": "JMAP-z4z0.5",

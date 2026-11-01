@@ -2,13 +2,16 @@
   "id": "JMAP-z4z0.4",
   "title": "federation-server: outbound helpers name the recipient",
   "description": "Part c of multi-mailbox federation. crate-jmap-chat-federation-server src/outbound.rs: peer_group_update_args gains recipient_user_id (3rd param) passed to PeerGroupUpdateArgs::new; new pub fn peer_batches(contacts, recipients) -\u003e Result\u003cVec\u003cPeerBatch\u003e, OutboundError\u003e grouping recipients by contact serverUrl (contact_server_url), PeerBatch { server_url, recipients: Vec\u003c(Id, String)\u003e }: one signed request, one method call per recipient (fed L406 MAY, L967); group by serverUrl because did:key recipients have no host. crate-jmap-chat-server docs only: outbound.rs header and Presence docs (each Peer/* names its recipient; Peer/presence push: identity = owner, recipientUserId = subscriberId); backend.rs owner_user_id: a FederationBackend must return Some for every mailbox (chat-00 L347); lib.rs FederationCaller: peer-role Session has exactly one account. Tests: peer_group_update_args carries recipientUserId; peer_batches groups by serverUrl. BREAKING.",
-  "status": "open",
+  "notes": "From z4z0.2 (ac25c9db): peer_group_update_args already takes recipient_user_id (3rd param); remaining here: peer_batches and the chat-server docs.\nSpec moved (jmap-chat-spec b1cd625, fed L404): the sending server sends each Peer/* call to the peer domain that is the HOST of recipientUserId; routing for a host-less (did:key) recipient is not defined by the draft. So peer_batches should group by recipient host, not contact serverUrl; decide how to handle host-less recipients (e.g. fall back to contact serverUrl, documented as this crate's choice).\nOrchestrator 2026-10-31: peer_batches groups by the host of recipientUserId (fed b1cd625 L404); a host-less (DID) recipient falls back to its ChatContact serverUrl as this crate's documented choice (the draft defines no rule), OutboundError if it has none.",
+  "status": "closed",
   "priority": 2,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-31T18:48:49.311529102Z",
   "created_by": "agent",
-  "updated_at": "2026-10-31T18:48:49.311529102Z",
+  "updated_at": "2026-10-31T20:23:26.124260739Z",
+  "closed_at": "2026-10-31T20:23:26.124260739Z",
+  "close_reason": "Batch 34: d20ce06f (peer_batches by recipient host per fed b1cd625 L404, host-less -\u003e contact serverUrl, identity_host in peer-auth; additive) + error-path tests; local CI all green (6654 tests stable+beta).",
   "dependencies": [
     {
       "issue_id": "JMAP-z4z0.4",
