@@ -106,8 +106,7 @@ async fn non_moderator_is_forbidden_everything() {
         .await
         .expect_err("update");
     assert_eq!(err["type"], "forbidden", "{err}");
-    // L1207 "The server MUST return `forbidden` when the caller is not a
-    // moderator."
+    // Destroy: same L1356 rule.
     let resp = set(&backend, ALICE, json!({ "destroy": ["L1"] })).await;
     assert_eq!(resp["notDestroyed"]["L1"]["type"], "forbidden", "{resp}");
     assert_eq!(
