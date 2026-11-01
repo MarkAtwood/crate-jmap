@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: `FileNodeBackend::max_file_node_depth`
+  (defaulted to `None`, no limit) reports the account's `maxFileNodeDepth`
+  for the handlers to enforce, and `MemoryBackend::with_max_file_node_depth`
+  sets it on the reference backend.
+
 - **jmap-calendars-server**: `CalendarsBackend::account_receives_at`
   (defaulted, non-breaking) now decides CalendarEvent `isOrigin`.
   draft-ietf-jmap-calendars-33 §5 makes `isOrigin` account-level ("the
@@ -123,6 +128,16 @@ wire behaviour that a conforming peer can observe.
   `recipientUserId`. Which subscriptions a server accepts is
   implementation-defined; a server that refuses one rejects the call with
   `forbidden`", §Peer/subscribePresence).
+
+### Fixed
+
+- **jmap-filenode-server**: `FileNode/set` and `FileNode/copy` enforce
+  `maxFileNodeDepth` (draft-ietf-jmap-filenode-19: "one more than the
+  maximum number of ancestors a FileNode may have"). A create or copy whose
+  node would be deeper, or a `parentId` update that would put any node of
+  the moved subtree deeper, fails with `invalidProperties` naming
+  `parentId`. The draft names no error; the choice follows
+  brong/draft-gondwana-jmap-filenode#16.
 
 ## [0.4.2] - 2026-10-30
 

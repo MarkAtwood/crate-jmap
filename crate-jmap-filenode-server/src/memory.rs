@@ -287,6 +287,9 @@ struct MemoryState {
     /// FileNode, set by [`MemoryBackend::with_metadata_info`]. `None`:
     /// FileNode does not have the metadata properties.
     metadata_info: Option<DataTypeMetadataInfo>,
+    /// The `maxFileNodeDepth` of every account, set by
+    /// [`MemoryBackend::with_max_file_node_depth`]. `None`: no limit.
+    max_file_node_depth: Option<u64>,
 }
 
 impl MemoryState {
@@ -339,6 +342,7 @@ impl MemoryBackend {
             inner: Arc::new(Mutex::new(MemoryState {
                 accounts: HashMap::new(),
                 metadata_info: None,
+                max_file_node_depth: None,
             })),
         }
     }
@@ -415,6 +419,15 @@ impl MemoryBackend {
             "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
         );
         self.inner.lock().unwrap().metadata_info = Some(info);
+        self
+    }
+
+    /// Give every account the draft-ietf-jmap-filenode-19 `maxFileNodeDepth`
+    /// `max`, which [`FileNodeBackend::max_file_node_depth`] reports and the
+    /// handlers enforce. Without this call there is no limit (`null`).
+    #[must_use]
+    pub fn with_max_file_node_depth(self, max: u64) -> Self {
+        self.inner.lock().unwrap().max_file_node_depth = Some(max);
         self
     }
 
@@ -1290,6 +1303,11 @@ impl FileNodeBackend for MemoryBackend {
             .unwrap()
             .get_or_err(account_id)
             .is_some_and(|store| !store.blob_sha256.is_empty()))
+    }
+
+    /// The limit set by [`MemoryBackend::with_max_file_node_depth`].
+    fn max_file_node_depth(&self, _caller: &(), _account_id: &Id) -> Option<u64> {
+        self.inner.lock().unwrap().max_file_node_depth
     }
 
     /// Case-folding algorithm: `str::to_lowercase` (Unicode simple lowercase,
