@@ -58,6 +58,84 @@ use jmap_server::{
 };
 
 // ---------------------------------------------------------------------------
+// maxFileNodeDepth
+// ---------------------------------------------------------------------------
+
+/// Whether placing a node under `parent_id` (`None`: top level) would put it,
+/// or with `moved = Some((id, descendant_ids))` the deepest node of its
+/// subtree, deeper than `max`.
+///
+/// draft-ietf-jmap-filenode-19 §Capability: `maxFileNodeDepth` is "one more
+/// than the maximum number of ancestors a FileNode may have", so a node
+/// directly under `parent_id` has depth ancestors(parent) + 2.
+async fn exceeds_max_depth<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    parent_id: Option<&Id>,
+    moved: Option<(&Id, &[Id])>,
+    max: u64,
+) -> Result<bool, B::Error> {
+    let depth = match parent_id {
+        Some(parent) => {
+            let ancestors = backend
+                .get_ancestors(caller, account_id, std::slice::from_ref(parent))
+                .await?;
+            (ancestors.len() as u64).saturating_add(2)
+        }
+        None => 1,
+    };
+    let height = match moved {
+        Some((id, descendant_ids)) if !descendant_ids.is_empty() => {
+            let (nodes, _) = backend
+                .get_objects::<FileNode>(caller, account_id, Some(descendant_ids), None)
+                .await?;
+            subtree_height(id, &nodes)
+        }
+        _ => 0,
+    };
+    Ok(depth.saturating_add(height) > max)
+}
+
+/// Number of levels below `root` among `nodes` (its descendants).
+fn subtree_height(root: &Id, nodes: &[FileNode]) -> u64 {
+    let mut children: std::collections::HashMap<&Id, Vec<&Id>> = std::collections::HashMap::new();
+    for node in nodes {
+        if let Some(parent) = node.parent_id.as_ref() {
+            children.entry(parent).or_default().push(&node.id);
+        }
+    }
+    let mut seen = std::collections::HashSet::from([root]);
+    let mut frontier = vec![root];
+    let mut height = 0;
+    loop {
+        let next: Vec<&Id> = frontier
+            .iter()
+            .filter_map(|id| children.get(id))
+            .flatten()
+            .copied()
+            .filter(|child| seen.insert(*child))
+            .collect();
+        if next.is_empty() {
+            return height;
+        }
+        height += 1;
+        frontier = next;
+    }
+}
+
+/// SetError for a write that would exceed `maxFileNodeDepth`. The draft
+/// names no error; `invalidProperties` on `parentId` follows
+/// brong/draft-gondwana-jmap-filenode#16.
+fn max_depth_exceeded() -> Value {
+    json!({
+        "type": "invalidProperties",
+        "properties": ["parentId"],
+        "description": "the node would exceed maxFileNodeDepth"
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Capability gate
 // ---------------------------------------------------------------------------
 
@@ -654,6 +732,31 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
+            // draft-ietf-jmap-filenode-19 maxFileNodeDepth, checked before
+            // any onExists destroy so a rejected create has no side effects.
+            if let Some(max) = backend.max_file_node_depth(caller, &account_id) {
+                match exceeds_max_depth(
+                    backend,
+                    caller,
+                    &account_id,
+                    node.parent_id.as_ref(),
+                    None,
+                    max,
+                )
+                .await
+                {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        not_created.insert(create_id, max_depth_exceeded());
+                        continue;
+                    }
+                    Err(e) => {
+                        not_created.insert(create_id, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
             // Tracks the rename applied by OnExists::Rename so the
             // post-create response can enforce the spec's MUST that the
             // renamed name appears in the response (§3.2.3 lines 687-690)
@@ -1194,23 +1297,48 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         );
                         continue;
                     }
-                    match backend.get_descendant_ids(caller, &account_id, &id).await {
-                        Ok(descendant_ids) => {
-                            if descendant_ids.iter().any(|did| did == &new_parent_id) {
-                                not_updated.insert(
-                                    id_str,
-                                    json!({
-                                        "type": "invalidProperties",
-                                        "properties": ["parentId"],
-                                        "description": "moving this node to the proposed parent would create a cycle"
-                                    }),
-                                );
+                    let descendant_ids =
+                        match backend.get_descendant_ids(caller, &account_id, &id).await {
+                            Ok(descendant_ids) => descendant_ids,
+                            Err(e) => {
+                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
                                 continue;
                             }
-                        }
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
+                        };
+                    if descendant_ids.iter().any(|did| did == &new_parent_id) {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["parentId"],
+                                "description": "moving this node to the proposed parent would create a cycle"
+                            }),
+                        );
+                        continue;
+                    }
+                    // draft-ietf-jmap-filenode-19 maxFileNodeDepth applies to
+                    // every node of the moved subtree. A move to the top
+                    // level (parentId null) cannot deepen it.
+                    if let Some(max) = backend.max_file_node_depth(caller, &account_id) {
+                        match exceeds_max_depth(
+                            backend,
+                            caller,
+                            &account_id,
+                            Some(&new_parent_id),
+                            Some((&id, &descendant_ids)),
+                            max,
+                        )
+                        .await
+                        {
+                            Ok(false) => {}
+                            Ok(true) => {
+                                not_updated.insert(id_str, max_depth_exceeded());
+                                continue;
+                            }
+                            Err(e) => {
+                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                                continue;
+                            }
                         }
                     }
                 }
@@ -1751,6 +1879,32 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                 );
                             continue;
                         }
+                    }
+                    Err(e) => {
+                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
+            // draft-ietf-jmap-filenode-19 maxFileNodeDepth in the
+            // destination account. FileNode/copy copies the one node, not
+            // its children, so only the copy's own depth counts.
+            if let Some(max) = backend.max_file_node_depth(caller, &account_id) {
+                match exceeds_max_depth(
+                    backend,
+                    caller,
+                    &account_id,
+                    source_node.parent_id.as_ref(),
+                    None,
+                    max,
+                )
+                .await
+                {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        not_copied.insert(create_id, max_depth_exceeded());
+                        continue;
                     }
                     Err(e) => {
                         not_copied.insert(create_id, server_fail_value_from_backend(&e));

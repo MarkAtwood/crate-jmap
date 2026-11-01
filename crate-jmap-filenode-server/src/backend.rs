@@ -578,6 +578,37 @@ pub trait FileNodeBackend: JmapBackend {
         async { Ok(false) }
     }
 
+    /// The `maxFileNodeDepth` this account advertises, or `None` for `null`.
+    ///
+    /// draft-ietf-jmap-filenode-19 §Capability: "The maximum depth of the
+    /// FileNode hierarchy (that is, one more than the maximum number of
+    /// ancestors a FileNode may have), or null for no limit."
+    /// Return the value the session advertises for `account_id`.
+    ///
+    /// With `Some(max)`, `FileNode/set` create and `FileNode/copy` reject a
+    /// node whose depth would exceed `max`, and a `FileNode/set` update of
+    /// `parentId` rejects a move that would put any node of the moved
+    /// subtree deeper than `max`, each with `invalidProperties` naming
+    /// `parentId`. The draft names no error for this case; the choice
+    /// follows brong/draft-gondwana-jmap-filenode#16.
+    ///
+    /// The handlers count depth with [`Self::get_ancestors`] and
+    /// [`Self::get_descendant_ids`], so a backend that leaves nodes the
+    /// caller cannot discover out of those results undercounts; such a
+    /// backend enforces the exact limit in its writes.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `None`: no limit (fail-open, bd:JMAP-bghk).
+    fn max_file_node_depth(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<u64> {
+        let _ = (caller, account_id);
+        None
+    }
+
     /// The `myRights` the caller holds on the stored `node`, when this
     /// backend derives them from a policy outside the stored node.
     ///
