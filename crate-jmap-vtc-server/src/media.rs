@@ -1063,9 +1063,10 @@ async fn update_livestream<B: VtcBackend>(
     apply::<VtcLivestream, B>(backend, caller, account_id, id, from, patch, echo).await
 }
 
-/// §Destroying a Recording and §Destroying a Livestream: "The server MUST
-/// return `forbidden` when the caller is not a moderator". §Destroying a
-/// Recording: "If the recording is in state `"recording"` or `"paused"`,
+/// §VTCRecording/set and §VTCLivestream/set: "Only participants with
+/// `role: "moderator"` on the associated VTCCall MAY create, update, or
+/// destroy" these objects; "Non-moderators SHOULD receive `forbidden`."
+/// §Destroying a Recording: "If the recording is in state `"recording"` or `"paused"`,
 /// the server first stops it and delivers the `VTCRecordingStateEvent`
 /// with `state: "stopped"`." §Destroying a Livestream: "If the livestream
 /// is in state `"starting"` or `"live"`, the server first stops it, so that
