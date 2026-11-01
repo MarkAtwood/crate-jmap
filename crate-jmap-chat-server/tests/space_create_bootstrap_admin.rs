@@ -124,9 +124,11 @@ async fn space_create_adds_creator_as_member_with_admin_role() {
 /// with at least one role granting permissions sufficient to administer
 /// the Space." Administering means the gated updates succeed: §Updating a
 /// Space `name`: "Metadata fields. Require `"manage_space"` permission."
-/// and `addRoles`: "Requires `"manage_roles"`. Members may only add roles
-/// whose `position` is strictly less than their own highest-position
-/// role; servers MUST enforce this." The caller is resolved through
+/// and `addRoles` (jmap-chat-spec 77c3474 L1352): "Requires
+/// `"manage_roles"`. Members may only add roles whose `position` is
+/// strictly less than their own highest-position role; servers SHOULD
+/// enforce this." This crate enforces it by choice. The caller is
+/// resolved through
 /// `IdentityBackend` (principal `user-alice`) so the gates are enforced
 /// against the owner's member entry, the accountId (§SpaceMember `id`).
 #[tokio::test]
