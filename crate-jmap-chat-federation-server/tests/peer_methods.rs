@@ -120,9 +120,9 @@ async fn unauthenticated_caller_is_forbidden_by_every_method() {
 // Peer/receipt
 // ---------------------------------------------------------------------------
 
-/// fed L472: "The `readerUserId` MUST match the peer identity of the
-/// calling server; the receiver MUST reject the request with `forbidden`
-/// if they differ."
+/// fed (jmap-chat-spec 77c3474) L664: "The `readerUserId` MUST be a peer
+/// identity of the request ({{identity-binding}}); the receiver MUST
+/// reject the request with `forbidden` if it is not."
 #[tokio::test]
 async fn receipt_reader_must_be_the_peer_identity() {
     let fed = Fed::new();
@@ -347,8 +347,9 @@ async fn typing_is_forwarded_with_the_sender_contact_id() {
     assert!(fed.messages().await.is_empty());
 }
 
-/// fed L522: `senderUserId` "MUST match the peer identity; the receiver
-/// MUST reject the request if they differ."
+/// fed (jmap-chat-spec 77c3474) L750: `senderUserId` "MUST be a peer
+/// identity of the request ({{identity-binding}}); the receiver MUST
+/// reject the request if it is not."
 #[tokio::test]
 async fn typing_sender_must_be_the_peer_identity() {
     let fed = Fed::new();

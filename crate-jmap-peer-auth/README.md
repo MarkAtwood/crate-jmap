@@ -49,7 +49,9 @@ match bind_identity(&sender_user_id, &accepted.peer_domain) {
 }
 ```
 
-Any `Rejection` is HTTP 403. On `Rejection::UnknownKey`, refetch the
+Any `Rejection` is HTTP 403, except `Rejection::PrecedesRestart`, which
+is HTTP 503 so the sender retries with a new signature (federation draft
+§Request Signing). On `Rejection::UnknownKey`, refetch the
 peer's keys (at most once per 60 seconds per peer domain) and verify
 again before rejecting.
 

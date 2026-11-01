@@ -33,7 +33,9 @@ let peer = authenticate(request, SystemTime::now(), &keys, &replay).await?;
 # Ok(()) }
 ```
 
-Any `Err` means reject the request (HTTP 403).
+Any `Err` means reject the request (HTTP 403), except that a request
+rejected only by `Rejection::PrecedesRestart` gets HTTP 503 so the sender
+retries with a new signature (federation draft §Request Signing).
 
 ## How it works
 
