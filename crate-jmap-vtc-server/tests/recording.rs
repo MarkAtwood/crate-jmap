@@ -108,9 +108,11 @@ async fn non_moderator_is_forbidden_everything() {
         "VTCRecording",
         stored_recording("R1", "recording", "2026-06-05T14:40:00Z"),
     );
-    // L1051 "Only participants with `role: "moderator"` on the associated
-    // VTCCall MAY create, update, or destroy VTCRecording objects.
-    // Non-moderators MUST receive `forbidden`." Alice is no moderator of C1.
+    // jmap-chat-spec 77c3474 L1258 "Only participants with
+    // `role: "moderator"` on the associated VTCCall MAY create, update, or
+    // destroy VTCRecording objects. Non-moderators SHOULD receive
+    // `forbidden`." This crate enforces it by choice. Alice is no
+    // moderator of C1.
     assert_type(
         &create(&backend, ALICE, start()).await.expect_err("create"),
         "forbidden",

@@ -96,9 +96,10 @@ async fn stream_uri_and_key_are_required() {
 async fn non_moderator_is_forbidden_everything() {
     let backend = media_backend();
     live(&backend);
-    // L1149 "Only participants with `role: "moderator"` on the associated
-    // VTCCall MAY create, update, or destroy VTCLivestream objects.
-    // Non-moderators MUST receive `forbidden`."
+    // jmap-chat-spec 77c3474 L1356 "Only participants with
+    // `role: "moderator"` on the associated VTCCall MAY create, update, or
+    // destroy VTCLivestream objects. Non-moderators SHOULD receive
+    // `forbidden`." This crate enforces it by choice.
     let err = create(&backend, ALICE, start()).await.expect_err("create");
     assert_eq!(err["type"], "forbidden", "{err}");
     let err = update(&backend, ALICE, "L1", json!({ "state": "stopped" }))

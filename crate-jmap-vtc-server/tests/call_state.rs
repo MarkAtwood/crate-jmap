@@ -253,9 +253,10 @@ async fn ended_is_terminal() {
 async fn lobby_toggle_is_a_moderator_action() {
     let backend = backend();
     let id = create_id(&backend, room()).await;
-    // L719 "**Toggle lobby:** Patch `lobbyEnabled` between `true` and
-    // `false`."; L710 "Non-moderators MUST receive `forbidden` for these
-    // operations."
+    // jmap-chat-spec 77c3474 L914-915 "**Toggle lobby:** Patch
+    // `lobbyEnabled` between `true` and `false`."; L904 "Non-moderators
+    // SHOULD receive `forbidden` for these operations." This crate
+    // enforces it by choice.
     let err = update(&backend, EVE, &id, json!({ "lobbyEnabled": true }))
         .await
         .expect_err("forbidden");
@@ -317,13 +318,14 @@ async fn breakout_rooms_track_the_parent() {
     let mut child = room();
     child["parentCallId"] = json!(parent);
 
-    // L712-713 "**Create a breakout room:** Create a new VTCCall with
-    // `parentCallId` set to the current call's id."; L710 "Non-moderators
-    // MUST receive `forbidden` for these operations."
+    // jmap-chat-spec 77c3474 L906-907 "**Create a breakout room:** Create
+    // a new VTCCall with `parentCallId` set to the current call's id.";
+    // L904 "Non-moderators SHOULD receive `forbidden` for these
+    // operations." This crate enforces it by choice.
     let err = create_error(&backend, EVE, child.clone()).await;
     assert_eq!(err["type"], "forbidden", "{err}");
 
-    // L713 "The server adds the new call's id to the parent's
+    // L907 "The server adds the new call's id to the parent's
     // `breakoutRoomIds`."
     let child_id = create(&backend, BOB, child).await["id"]
         .as_str()
