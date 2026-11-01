@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.1",
+  "title": "Audit chat spec fixes 10-22..10-31",
+  "description": "Spec commits (jmap-chat-spec): 2ac2603 removeRoles drops overrides, 6c38e2f burned messages destroyed, 639dc1d field attrs (chat part), 7787c51, a21a37c forward jmap: URI strip, 1aa3917 three extension rules, 99e3667 single-mailbox owner wording, aa01dd7 unreadCount impl-defined, 77532f9 chat follows multi-mailbox, cfd3d95 typing-pref cache TTL dropped, 0a43b97, 4ffb96e (chat/wss/push/did/mimi/filenode/calendars/tasks parts). Check each against crate-jmap-chat-* crates.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:14:25.053413497Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:17:15.668337547Z",
+  "closed_at": "2026-11-01T17:17:15.668337547Z",
+  "close_reason": "Audit done: all chat commits incorporated or N/A; 639dc1d c/d test gaps -\u003e JMAP-t8ej.13",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.1",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:14:25.21449789Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

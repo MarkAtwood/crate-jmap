@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-t8ej.18",
+  "title": "filenode: act on pending upstream filenode-19 findings",
+  "description": "Tracking bead from audit JMAP-t8ej.5. brong/draft-gondwana-jmap-filenode issues, all OPEN; act once upstream decides. #6 shallow copy: crate already shallow; add doc comment + test once confirmed. #10 case-folding algorithm (PR #11): backend.rs:638-667 leaves it to backend, memory.rs uses to_lowercase; add i;unicode-casemap mode when decided. #12 Directory role: only chatspace is set-at-create (filenode.rs:1082-1097); no one-directory-per-role, no named right, L913 protection not enforced. #17 'changed' for per-user/inherited shareWith: memory backend never sets changed (memory.rs:398); blocked on per-user identity support. Not implemented, keep in mind for future beads: extract must reject '..', empty and leading-'/' names (#3/#4/#5), archive naming (#13/#14), PUT/PATCH If-Match (#7), SymLink resolution (#8/#9).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:19:32.428005897Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:32:22.051363853Z",
+  "closed_at": "2026-11-01T17:32:22.051363853Z",
+  "close_reason": "Out of scope (Mark 2026-11-01): tracks Mark's own open upstream IETF proposals; WG decisions will arrive as new draft versions",
+  "defer_until": "2027-01-01T00:00:00-08:00",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.18",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:19:32.536411536Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

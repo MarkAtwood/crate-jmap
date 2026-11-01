@@ -1,0 +1,2 @@
+{"id":"01a195c0-0366-75b1-bb4b-c5701d6b6d8b","issue_id":"JMAP-z4z0.10","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-11-01T06:15:51.398373946Z"}
+{"id":"01a195d7-7aa3-75cd-9594-f04d69a75f56","issue_id":"JMAP-z4z0.10","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 41: 9eb4b54b; all cites in vtc tests/call_state.rs re-cited to 77c3474 (21 sites, header re-pinned); local CI green 6741","created_at":"2026-11-01T06:41:29.251381255Z"}

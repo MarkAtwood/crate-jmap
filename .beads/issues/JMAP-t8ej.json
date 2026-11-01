@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-t8ej",
+  "title": "Audit: spec fixes since 10-22 incorporated into crates",
+  "description": "Mark 2026-11-01: make SURE every spec fix landed in the crates. (A) jmap-chat-spec normative commits 2ac2603 (10-22) .. 77c3474 (10-31), plus anything after. (B) upstream IETF draft review findings from jmap-chat-spec epic fph7 (calendars-33, tasks-06, filenode-19, emailpush-04, metadata-05, refplus-02, blobext-02, object-history-02) that imply crate behaviour (e.g. JMAP-j3ic isOrigin). Each check bead: per spec change, verdict incorporated (file:line proof) / missing / not applicable. Every 'missing' gets its own fix bead under this epic.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:14:13.307750761Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:14:13.307750761Z"
+}

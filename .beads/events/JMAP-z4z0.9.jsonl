@@ -1,0 +1,2 @@
+{"id":"01a195bc-be30-7eae-8d9d-d200bbd3149f","issue_id":"JMAP-z4z0.9","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-11-01T06:12:17.072963209Z"}
+{"id":"01a195ca-10be-7e15-8325-46a65199fb0f","issue_id":"JMAP-z4z0.9","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 40: e9e06a9e; stale 'MUST return forbidden when the caller is not a moderator' quote removed from livestream.rs and media.rs destroy_media doc; local CI green 6741","created_at":"2026-11-01T06:26:50.174923476Z"}

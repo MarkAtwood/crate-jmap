@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-z4z0.11",
+  "title": "Re-cite remaining vtc-server tests to spec 77c3474",
+  "description": "Found in batch 41 (JMAP-z4z0.10): after call_state.rs was re-cited, 8 vtc-server test files still pin jmap-chat-spec 3227c0f or 33702a5: tests/participant.rs, tests/common/mod.rs, tests/livestream.rs, tests/call_create.rs, tests/call_query.rs, tests/recording.rs, tests/call_end_cascade.rs, tests/delivery.rs. Re-cite every spec citation and quote in crate-jmap-vtc-server (tests and src) against 77c3474: correct line numbers, verbatim wording, correct BCP 14 keyword. Several old MUSTs are SHOULD at 77c3474 (e.g. old L706/L1207 moderator forbidden -\u003e L900/L904/L1258/L1356, old L406 e2ee forbidden -\u003e L480, old L1647 privilege escalation MUST gone); where the crate enforces a SHOULD, say it does so by choice; where the draft says nothing (e.g. VTCCall destroy), say the behaviour is crate choice. Re-pin file headers to 77c3474 once every cite in the file matches. Comment-only; no assertion, logic, CHANGELOG or public-api change. Goal: no further vtc re-cite follow-ups.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:11:32.96343791Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:37:56.474694726Z",
+  "closed_at": "2026-11-01T17:37:56.474694726Z",
+  "close_reason": "Batch 42: 8405ee46; every spec cite/quote in crate-jmap-vtc-server (11 test files + src) re-cited to 77c3474, checker 271 quoted cites; stale livestream config behaviour deliberately left tagged 3227c0f for JMAP-t8ej.10; local CI green 6741",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-z4z0.11",
+      "depends_on_id": "JMAP-z4z0",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:11:33.074673777Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

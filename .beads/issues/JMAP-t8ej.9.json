@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-t8ej.9",
+  "title": "vtc-types: hosted livestream fields and types",
+  "description": "From audit JMAP-t8ej.3 (rows 4, 6). Spec commits 6af1b94, 035a9a0, 64976f9, 1e7e6f9, 8cd777e (vtc draft at 77c3474). VTCLivestream gains mode (immutable, default \"push\"), nullable platform/streamUri/streamKey (null in hosted mode), server-set playbackEndpoints: VTCPlaybackEndpoint[] {protocol, url, credential, expiresAt, latencyHint, timeReference{mediaTimeMs, wallClock}, tracks: VTCStreamTrack[] {kind audio/video/captions/subtitles, language, label, format}, encrypted, keySystems}, and server-set failureReason (timeout/rejected/unavailable/interrupted, null unless failed; stoppedAt also set on failure). Today crate-jmap-vtc-types/src/recording.rs:109-122 has non-null stream_uri/stream_key, so the spec's hosted example fails to deserialize. Open string enums for protocol/latencyHint/kind/mode/failureReason; redact credential in Debug; add playbackEndpoints and failureReason to SERVER_SET and mode (plus platform/streamUri/streamKey per e21c776) to IMMUTABLE (backend.rs:160-163). Oracle: round-trip the draft's hosted and failed examples verbatim. BREAKING (Option fields): CHANGELOG [Unreleased] ### Changed **BREAKING** bullet; regenerate public-api snapshots.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:17:12.905752672Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:17:12.905752672Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.9",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:17:13.014750177Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

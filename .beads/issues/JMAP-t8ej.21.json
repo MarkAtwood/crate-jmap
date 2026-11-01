@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-t8ej.21",
+  "title": "metadata: act on pending upstream metadata-05 findings",
+  "description": "Tracking bead from audit JMAP-t8ej.5. Mark's list review https://mailarchive.ietf.org/arch/msg/jmap/lUjY9HLnx9Cgm8sA05qQTJTqZIU/ (no replies as of 2026-11-01). Act once the list decides. #1 copy / create with metadata:{} and maySetMetadata (crate: copy unchecked, crate-jmap-mail-server/src/memory/mod.rs:2102; metadata:{} create refused without right mod.rs:968-977). #2 per-property namespace support (is_namespace_supported validate.rs:107 ignores metadata vs privateMetadata; DataTypeMetadataInfo can't express it). #3 domain-name namespace limits 63/253 octets (namespace.rs:58-69 enforces LDH only). #5 properties:[privateMetadata] when unsupported: silently dropped (helpers.rs:1410-1460), unlisted type dropped not invalidArguments. #6 stored null inside values accepted; comparison is serde_json == (1 vs 1.0 differ?). refplus-02, object-history-02, blobext-02 reviews: all N/A (no crate implements them).",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:24:59.29201693Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:32:22.915786354Z",
+  "closed_at": "2026-11-01T17:32:22.915786354Z",
+  "close_reason": "Out of scope (Mark 2026-11-01): tracks Mark's own open upstream IETF proposals; WG decisions will arrive as new draft versions",
+  "defer_until": "2027-01-01T00:00:00-08:00",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.21",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:24:59.556933131Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

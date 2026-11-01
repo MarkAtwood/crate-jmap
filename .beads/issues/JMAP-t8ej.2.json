@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.2",
+  "title": "Audit federation spec fixes 10-30..10-31",
+  "description": "Spec commits: 3cdd8e6 503 for restart replay rejects, 30dea91 restart rule covers created skew, 03f4318 one domain many mailboxes, 38a200b guides, b00a6ee presence subscribe policy, c08568e Peer/* examples, e06d74b unknown recipient impl-defined, f2f1ac3 public ownerUserId MAY, b1cd625 route by recipient host, 4ffb96e federation part. Check against federation-types/-server/-client, peer-auth.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:14:25.413845426Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:16:48.009855809Z",
+  "closed_at": "2026-11-01T17:16:48.009855809Z",
+  "close_reason": "Audit done: 30dea91/03f4318/b00a6ee/e06d74b/f2f1ac3/b1cd625/c08568e incorporated with tests; 3cdd8e6 partial (docs say 403) -\u003e bead filed; 38a200b editorial; 4ffb96e no contradiction",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.2",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:14:25.575283987Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-t8ej.16",
+  "title": "calendars: act on pending upstream calendars-33 findings",
+  "description": "Tracking bead from audit JMAP-t8ej.5. Mark's jmapio/jmap issues, all OPEN; act on each once upstream decides (crate follows current draft text until then). #446 calendarIds-only change sends REQUEST w/o sequence bump (event.rs:700-715; add no-reschedule property set). #447 getAvailability marks organizer's own events unavailable (backend.rs:1043-1045 contract doc). #448 recurrenceOverridesBefore/After for floating events (backend.rs:803-816, 1398-1421 doc). #449 no SetError for per-event limits (backend.rs:1124-1127 'not yet enforced'; add to CalendarsLimits). #450 get half: invalidArguments when utcStart/utcEnd requested with recurrenceOverrides (event.rs:167-173). #451 getAvailability for resource principals (backend.rs:1041-1057 doc). #453 Principal/query calendarAddress filter (not implemented at all; feature, Mark decides). Details: scratchpad jmap-issues.txt / jmap-prs.txt of session 50e71050.",
+  "status": "closed",
+  "priority": 4,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:19:31.919000156Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:32:20.182445757Z",
+  "closed_at": "2026-11-01T17:32:20.182445757Z",
+  "close_reason": "Out of scope (Mark 2026-11-01): tracks Mark's own open upstream IETF proposals; WG decisions will arrive as new draft versions",
+  "defer_until": "2027-01-01T00:00:00-08:00",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.16",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:19:32.031561942Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

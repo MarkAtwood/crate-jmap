@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-t8ej.8",
+  "title": "peer-auth docs: restart rejection is 503, not 403",
+  "description": "From audit JMAP-t8ej.2 (spec 3cdd8e6: a request rejected only by the restart rule MUST get HTTP 503, not 403, so the sender retries as transient). Behaviour is in place (Rejection::PrecedesRestart doc crate-jmap-peer-auth/src/signature.rs:147-158, peer-auth-io/src/lib.rs:74; sender is_transient on 5xx, federation-server/src/outbound.rs:443-448, test tests/outbound.rs:410) but four docs still say every rejection is 403: crate-jmap-peer-auth/src/lib.rs:31, crate-jmap-peer-auth/src/signature.rs:87, crate-jmap-peer-auth/README.md:52, crate-jmap-peer-auth-io/README.md:36. Fix: say every Rejection is 403 except PrecedesRestart -\u003e 503 (sender retries with a fresh signature); cite federation draft 77c3474 line. Same bead, comment drift from 03f4318: federation-server tests/peer_methods.rs:124 and :351 and tests/presence.rs:55 still quote the pre-03f4318 'MUST reject the request if they differ'; re-quote the 77c3474 'is not a peer identity' rule. Docs/comments only; no helper API (ponytail: deployments map the variant themselves).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T17:16:47.447061033Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T17:16:47.447061033Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.8",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T17:16:47.588529049Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
