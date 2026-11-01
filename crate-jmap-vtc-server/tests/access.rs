@@ -1,6 +1,6 @@
 //! Per-call access control and E2EE rules (draft-atwood-jmap-vtc-00
 //! §Access Control, §End-to-End Encrypted Calls). Line numbers and quotes
-//! cite draft-atwood-jmap-vtc-00.md at jmap-chat-spec 6bcd9d8; each
+//! cite draft-atwood-jmap-vtc-00.md at jmap-chat-spec 77c3474; each
 //! assertion's oracle is the quoted draft text or a hand-written record.
 
 #[macro_use]
@@ -45,7 +45,7 @@ fn hidden(resp: &Value, id: &str) -> bool {
     resp["notFound"] == json!([id]) && resp["list"] == json!([])
 }
 
-/// L457: "a moderator MAY change it from `false` to `true` via update ...
+/// L480: "a moderator MAY change it from `false` to `true` via update ...
 /// The server SHOULD reject an update from `true` to `false` with
 /// `invalidProperties` naming `e2eeEnabled`, so that participants never
 /// have to detect a downgrade."
@@ -62,7 +62,7 @@ async fn e2ee_downgrade_is_invalid_properties() {
     assert_eq!(get(&backend, "C1").await["e2eeEnabled"], true);
 
     // RFC 8620 §5.3: a PatchObject value of `null` means "reset to the
-    // default value", and L457 says "Default: `false`", so `null` is the
+    // default value", and L480 says "Default: `false`", so `null` is the
     // same downgrade.
     let err = update(&backend, BOB, "C1", json!({ "e2eeEnabled": null }))
         .await
@@ -77,9 +77,9 @@ async fn e2ee_downgrade_is_invalid_properties() {
         .expect("e2eeEnabled true to true");
 }
 
-/// L1671 "Non-participants receive `notFound` for calls they cannot
-/// access"; L1660 "Non-members SHOULD receive `notFound` for `VTCCall/get`
-/// and `VTCParticipant/get` requests on the call"; L814 "The query SHOULD
+/// L1875 "Non-participants receive `notFound` for calls they cannot
+/// access"; L1864 "Non-members SHOULD receive `notFound` for `VTCCall/get`
+/// and `VTCParticipant/get` requests on the call"; L953 "The query SHOULD
 /// return only calls the authenticated user has access to".
 #[tokio::test]
 async fn inaccessible_call_is_not_found_and_not_queried() {
@@ -119,7 +119,7 @@ async fn inaccessible_call_is_not_found_and_not_queried() {
     assert_eq!(resp["list"][0]["id"], json!(pid), "{resp}");
 }
 
-/// L926: "The server SHOULD return `notFound` if the `callId` does not
+/// L1066: "The server SHOULD return `notFound` if the `callId` does not
 /// exist or the caller does not have access to it." The update and
 /// destroy paths of `VTCCall/set` answer as for a missing call (RFC 8620
 /// §5.3 `notFound`), so the response does not reveal the call.
@@ -144,7 +144,7 @@ async fn set_on_inaccessible_call_is_not_found() {
     assert_eq!(resp["notDestroyed"]["C1"]["type"], "notFound", "{resp}");
 }
 
-/// L1108 and L1206: "The server SHOULD return `notFound` for recording
+/// L1248 and L1346: "The server SHOULD return `notFound` for recording
 /// ids belonging to calls the authenticated user has no access to", and
 /// likewise for livestream ids.
 #[tokio::test]
@@ -196,7 +196,7 @@ async fn media_of_inaccessible_call_is_not_found() {
     assert_eq!(resp["list"][0]["id"], "L1", "{resp}");
 }
 
-/// L1644: "The server SHOULD NOT expose VTCParticipant records ... for the
+/// L1848: "The server SHOULD NOT expose VTCParticipant records ... for the
 /// call to users who do not have a VTCParticipant record in it, even where
 /// {{access-control}} would otherwise make the call visible to them ...
 /// For such users the server SHOULD return `notFound` for
@@ -251,8 +251,8 @@ async fn e2ee_participants_hidden_from_users_without_a_record() {
     assert_eq!(resp["ids"], json!([pid]), "{resp}");
 }
 
-/// The L1644 restriction applies only to calls with `e2eeEnabled: true`
-/// (L1619 "This section applies to calls with `e2eeEnabled: true`").
+/// The L1848 restriction applies only to calls with `e2eeEnabled: true`
+/// (L1823 "This section applies to calls with `e2eeEnabled: true`").
 #[tokio::test]
 async fn non_e2ee_participants_visible_to_call_viewers() {
     let backend = room(false);

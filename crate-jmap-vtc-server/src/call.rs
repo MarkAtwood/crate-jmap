@@ -53,8 +53,9 @@ pub(crate) const JMAP_CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 
 /// Properties only a moderator may patch: ending the call (§Ending a Call),
 /// "Toggle lobby" (§Moderator Actions on VTCCall), `policy` ("Mutable by
-/// moderators only") and `e2eeEnabled` ("the server MUST return
-/// `forbidden` if a non-moderator attempts to update `e2eeEnabled`").
+/// moderators only") and `e2eeEnabled` ("The server SHOULD return
+/// `forbidden` if a non-moderator attempts to update `e2eeEnabled`", which
+/// this crate enforces by choice).
 const MODERATOR_ONLY: &[&str] = &["state", "lobbyEnabled", "policy", "e2eeEnabled"];
 
 /// Handle `VTCCall/get` (draft-atwood-jmap-vtc-00 §VTCCall/get): standard
@@ -490,9 +491,10 @@ async fn may_end_call<B: VtcBackend>(
 /// Check one `destroy` entry and hand it to the backend.
 ///
 /// Destroying a call removes it as surely as ending it, so it takes the
-/// same permission: §Moderator Privilege Escalation requires `forbidden` for "any
-/// `VTCCall/set` operation restricted to moderators (ending a call, ...
-/// creating or closing breakout rooms, ...)".
+/// same permission. Crate choice; the draft does not address VTCCall
+/// destroy. §Moderator Privilege Escalation: "Each moderation action
+/// carries its own role check: call-level actions in {{moderator-actions}}
+/// and {{ending-a-call}}".
 async fn destroy_call<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -717,9 +719,9 @@ fn ended_patch(end_reason: CallEndReason) -> PatchObject {
 /// the same cascade as a moderator's `VTCCall/set`:
 ///
 /// - every breakout room under it that has not ended is ended first
-///   ("When a parent call ends, all child breakout-room VTCCalls MUST also
-///   be ended (transitioning them to `"ended"` and setting `endedAt`)",
-///   jmap-vtc-implementer-guide §Breakout room cleanup), with the
+///   ("when a parent call ends, its child breakout-room VTCCalls MUST also
+///   be ended", jmap-vtc-implementer-guide §Breakout room cleanup; crate
+///   choice, as the draft does not address it), with the
 ///   `endReason` §Ending a Call gives for its own state, and leaves the
 ///   parent's `breakoutRoomIds`;
 /// - each ended call's recordings in state `"recording"` or `"paused"` are
@@ -948,8 +950,9 @@ pub(crate) fn ring_deadline(
 /// `invalidProperties` SetError naming `state` when the stored `call` is
 /// not in one of `from`, the states `patch`'s `endReason` was chosen for.
 ///
-/// jmap-vtc-implementer-guide §Breakout room cleanup: "Implement
-/// parent-call end as a cascade that ends all child calls first." The
+/// jmap-vtc-implementer-guide §Breakout room cleanup: "implement
+/// parent-call end as a cascade that ends all child calls first, then the
+/// parent." The
 /// rooms are collected breadth-first through `breakoutRoomIds` and ended
 /// deepest first, so every call ends after the rooms under it. They are
 /// read with [`VtcBackend::get_objects_unscoped`], so a room `caller`

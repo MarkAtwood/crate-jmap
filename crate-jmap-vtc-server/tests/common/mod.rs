@@ -1,5 +1,5 @@
 //! Shared fixtures. Line numbers cite draft-atwood-jmap-vtc-00.md at
-//! jmap-chat-spec 3227c0f.
+//! jmap-chat-spec 77c3474.
 
 #![allow(dead_code)]
 
@@ -16,7 +16,7 @@ pub const ALICE: &str = "user:alice@example.com";
 pub const EVE: &str = "user:eve@example.com";
 pub const CHAT_URI: &str = "urn:ietf:params:jmap:chat";
 
-/// An account-level capability object, hand-written from L148-187, with
+/// An account-level capability object, hand-written from L216-258, with
 /// every call type, lobby and breakout rooms enabled.
 pub fn capability() -> Value {
     json!({
@@ -115,7 +115,7 @@ pub async fn query(
         .map(|o| o.primary)
 }
 
-/// A stored call, hand-written from the field list at L342-406, for states
+/// A stored call, hand-written from the field list at L416-480, for states
 /// the `VTCCall/set` methods cannot reach on their own.
 pub fn stored_call(id: &str, call_type: &str, state: &str, created_at: &str) -> Value {
     json!({
@@ -148,7 +148,7 @@ pub fn seed(backend: &MemoryBackend, call: Value) {
 }
 
 /// [`capability`] with `supportsRecording` and `supportsLivestream`
-/// (L163-166) enabled.
+/// (L231-234) enabled.
 pub fn media_capability() -> Value {
     let mut cap = capability();
     cap["supportsRecording"] = json!(true);
@@ -158,7 +158,7 @@ pub fn media_capability() -> Value {
 
 /// A backend under [`media_capability`] holding call `C1`: a room call
 /// in state `"active"` whose initiator is [`BOB`] ("The call initiator
-/// receives `"moderator"` by default", L294).
+/// receives `"moderator"` by default", L365).
 pub fn media_backend() -> MemoryBackend {
     let backend = backend_with(media_capability());
     seed(
@@ -196,7 +196,7 @@ macro_rules! call {
     }};
 }
 
-/// A stored recording, hand-written from the field list at L461-489.
+/// A stored recording, hand-written from the field list at L535-563.
 pub fn stored_recording(id: &str, state: &str, started_at: &str) -> Value {
     json!({
         "id": id,
@@ -212,8 +212,8 @@ pub fn stored_recording(id: &str, state: &str, started_at: &str) -> Value {
     })
 }
 
-/// A stored livestream, hand-written from the field list at L495-517 with
-/// the stream values of the L1170-1176 create example.
+/// A stored livestream, hand-written from the field list at L572-609 with
+/// the stream values of the L1382-1388 create example.
 pub fn stored_livestream(id: &str, state: &str, started_at: Value) -> Value {
     json!({
         "id": id,

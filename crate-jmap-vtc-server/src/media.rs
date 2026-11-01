@@ -44,9 +44,10 @@ use jmap_server::{
     server_fail_from_backend, server_fail_value_from_backend,
 };
 
-/// The stream configuration §Updating Stream Configuration lets an update
-/// patch "only while the livestream is in state `"stopped"` or
-/// `"failed"`".
+/// The stream configuration that §Updating Stream Configuration
+/// (jmap-chat-spec 3227c0f) lets an update patch "only while the
+/// livestream is in state `"stopped"` or `"failed"`". 77c3474 removes
+/// that section and makes these properties immutable (JMAP-t8ej.10).
 const STREAM_CONFIG: &[&str] = &["streamUri", "streamKey", "platform"];
 
 /// The two data types this module serves, for the shared `/set` driver.
@@ -613,7 +614,7 @@ async fn create_recording<B: VtcBackend>(
     )
     .await?;
 
-    // vtc L1143 "On success, the server SHOULD deliver a
+    // vtc L1283 "On success, the server SHOULD deliver a
     // `VTCRecordingStateEvent` ...
     // with `state: "recording"` to all participants in the call."
     deliver(
@@ -632,7 +633,7 @@ async fn create_recording<B: VtcBackend>(
 /// Stop every recording of `call_id` in state `"recording"` or
 /// `"paused"`, the jmap-vtc-recording-guide §Auto-stop on call end
 /// cascade: "When a VTCCall transitions to `"ended"`, the server MUST stop
-/// all active recordings for that call. Any VTCRecording in `"recording"`
+/// every recording for that call ... Any VTCRecording in `"recording"`
 /// or `"paused"` state is transitioned to `"stopped"`, with `stoppedAt` set
 /// and `VTCRecordingStateEvent` delivered."
 ///
@@ -825,8 +826,9 @@ async fn create_livestream<B: VtcBackend>(
     check_create::<VtcLivestream, B>(backend, caller, account_id, &m, |c| c.supports_livestream)
         .await?;
 
-    // "`streamUri` (String, required)", "`streamKey` (String, required)";
-    // "Optional: `platform` (String)".
+    // "`streamUri` (String, required in push mode)", "`streamKey` (String,
+    // required in push mode)"; "Optional in push mode: `platform`
+    // (String)". Push is the default mode.
     let mut bad: Vec<&str> = ["streamUri", "streamKey"]
         .into_iter()
         .filter(|k| !m.get(*k).is_some_and(Value::is_string))
@@ -1024,9 +1026,10 @@ async fn update_livestream<B: VtcBackend>(
         livestream.state,
         LivestreamState::Starting | LivestreamState::Live
     );
-    // "The server MUST return `invalidProperties` naming each patched
-    // configuration property for configuration updates while the stream is
-    // in state `"starting"` or `"live"`."
+    // jmap-chat-spec 3227c0f: "The server MUST return `invalidProperties`
+    // naming each patched configuration property for configuration updates
+    // while the stream is in state `"starting"` or `"live"`." 77c3474 makes
+    // these properties immutable (JMAP-t8ej.10).
     let config: Vec<&str> = keys
         .iter()
         .map(String::as_str)

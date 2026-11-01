@@ -1,6 +1,6 @@
 //! `VTCRecording/*` (draft-atwood-jmap-vtc-00 §VTCRecording Methods,
-//! L1035-1131) and the `VTCRecordingStateEvent` consent signal (L1517-1537).
-//! Line numbers cite draft-atwood-jmap-vtc-00.md at jmap-chat-spec 3227c0f.
+//! L1242-1338) and the `VTCRecordingStateEvent` consent signal (L1789-1809).
+//! Line numbers cite draft-atwood-jmap-vtc-00.md at jmap-chat-spec 77c3474.
 
 #[macro_use]
 mod common;
@@ -58,7 +58,7 @@ fn events(backend: &MemoryBackend) -> Vec<Value> {
         .collect()
 }
 
-/// L1064-1072: the example create body, with this fixture's call id.
+/// L1271-1279: the example create body, with this fixture's call id.
 fn start() -> Value {
     json!({ "callId": "C1" })
 }
@@ -73,8 +73,8 @@ async fn moderator_starts_a_recording_and_every_participant_is_told() {
     let created = create(&backend, BOB, start()).await.expect("start");
     let id = created["id"].as_str().expect("id");
 
-    // L1060 "The server sets `id`, `state` (to `"recording"`), `startedAt`,
-    // and `initiatedBy`." L475 `stoppedAt` "`null` while recording is
+    // L1267 "The server sets `id`, `state` (to `"recording"`), `startedAt`,
+    // and `initiatedBy`." L548 `stoppedAt` "`null` while recording is
     // active or paused."
     assert_eq!(created["state"], "recording");
     assert_eq!(created["initiatedBy"], BOB);
@@ -82,11 +82,11 @@ async fn moderator_starts_a_recording_and_every_participant_is_told() {
     assert_eq!(created["stoppedAt"], Value::Null);
     assert_eq!(stored(&backend, id).await["state"], "recording");
 
-    // vtc L1143 "On success, the server SHOULD deliver a
+    // vtc L1283 "On success, the server SHOULD deliver a
     // `VTCRecordingStateEvent`
     // ... with `state: "recording"` to all participants in the call."
-    // Shape: the L1851-1857 example event, plus the hosting account's
-    // `accountId` (draft-atwood-jmap-vtc-wss-00 L296-303).
+    // Shape: the L2163-2169 example event, plus the hosting account's
+    // `accountId` (draft-atwood-jmap-vtc-wss-00 L294-301).
     assert_eq!(
         events(&backend),
         [json!({
@@ -124,8 +124,8 @@ async fn non_moderator_is_forbidden_everything() {
         "forbidden",
     );
     let resp = set(&backend, ALICE, json!({ "destroy": ["R1"] })).await;
-    // L1102 "The server MUST return `forbidden` when the caller is not a
-    // moderator on the associated call."
+    // L1258 "Non-moderators SHOULD receive `forbidden`." This crate
+    // enforces it by choice.
     assert_type(&resp["notDestroyed"]["R1"], "forbidden");
     assert_eq!(stored(&backend, "R1").await["state"], "recording");
     assert!(events(&backend).is_empty());
@@ -137,10 +137,12 @@ async fn e2ee_call_is_forbidden() {
     let mut c = stored_call("C1", "room", "active", "2026-06-05T14:30:00Z");
     c["e2eeEnabled"] = json!(true);
     seed(&backend, c);
-    // L1074 "The server MUST return `forbidden` when the call has
-    // `e2eeEnabled: true` and the recording would require server-side media
-    // access." L406 "When `true`, the server MUST NOT access plaintext media
-    // itself." This server has no key-holding recorder (L1555-1562).
+    // L1281 "When the call has `e2eeEnabled: true`, a recording that would
+    // require server-side media access is rejected as
+    // {{e2ee-media-participants}} describes." L1834 "The server SHOULD
+    // reject with `forbidden` a recording or livestream request that can
+    // only be met by such a path." This crate enforces it by choice. This
+    // server has no key-holding recorder (L1825-1836).
     assert_type(
         &create(&backend, BOB, start()).await.expect_err("e2ee"),
         "forbidden",
@@ -155,7 +157,7 @@ async fn unsupported_recording_is_forbidden() {
         &backend,
         stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
     );
-    // L1074 "The server MUST return `forbidden` when the account-level
+    // L1281 "The server MUST return `forbidden` when the account-level
     // `supportsRecording` is `false`."
     assert_type(
         &create(&backend, BOB, start()).await.expect_err("off"),
@@ -170,7 +172,7 @@ async fn call_not_active_is_invalid_call_id() {
         &backend,
         stored_call("C1", "scheduled", "pending", "2026-06-05T14:30:00Z"),
     );
-    // L1074 "The server MUST return `invalidProperties` naming `callId` when
+    // L1281 "The server MUST return `invalidProperties` naming `callId` when
     // the call is not in state `"active"`."
     let err = create(&backend, BOB, start()).await.expect_err("pending");
     assert_type(&err, "invalidProperties");
@@ -180,7 +182,7 @@ async fn call_not_active_is_invalid_call_id() {
 #[tokio::test]
 async fn server_set_properties_are_refused_on_create() {
     let backend = media_backend();
-    // L1060 "The server sets `id`, `state` ..., `startedAt`, and
+    // L1267 "The server sets `id`, `state` ..., `startedAt`, and
     // `initiatedBy`."
     let err = create(
         &backend,
@@ -201,9 +203,9 @@ async fn pause_resume_stop_each_signal_consent() {
         "VTCRecording",
         stored_recording("R1", "recording", "2026-06-05T14:40:00Z"),
     );
-    // vtc L1149 "`"recording"` → `"paused"` ... The server delivers a
-    // `VTCRecordingStateEvent` with `state: "paused"`"; L1150 "`"paused"` →
-    // `"recording"` ... with `state: "recording"`"; L1151 "→ `"stopped"`:
+    // vtc L1289 "`"recording"` → `"paused"` ... The server delivers a
+    // `VTCRecordingStateEvent` with `state: "paused"`"; L1290 "`"paused"` →
+    // `"recording"` ... with `state: "recording"`"; L1291 "→ `"stopped"`:
     // ... The server sets `stoppedAt` and delivers a
     // `VTCRecordingStateEvent` with `state: "stopped"`."
     update(&backend, BOB, "R1", json!({ "state": "paused" }))
@@ -248,9 +250,9 @@ async fn unlisted_transitions_are_invalid_state() {
             stored_recording(id, state, "2026-06-05T14:40:00Z"),
         );
     }
-    // L1098 "The server MUST return `invalidProperties` naming `state` for
+    // L1305 "The server MUST return `invalidProperties` naming `state` for
     // any state transition not listed above (e.g., `"stopped"` →
-    // `"recording"`, `"available"` → anything)." L1098 also: the post-stop
+    // `"recording"`, `"available"` → anything)." L1305 also: the post-stop
     // transitions "are server-initiated and not client-controllable".
     for (id, to) in [("R1", "recording"), ("R2", "paused"), ("R3", "processing")] {
         let err = update(&backend, BOB, id, json!({ "state": to }))
@@ -270,7 +272,7 @@ async fn moderator_destroys_a_recording() {
         "VTCRecording",
         stored_recording("R1", "available", "2026-06-05T14:40:00Z"),
     );
-    // L1102 "`destroy` removes the VTCRecording metadata."
+    // L1309 "`destroy` removes the VTCRecording metadata."
     let resp = set(&backend, BOB, json!({ "destroy": ["R1"] })).await;
     assert_eq!(resp["destroyed"], json!(["R1"]), "{resp}");
     assert_eq!(stored(&backend, "R1").await, Value::Null);
@@ -286,7 +288,7 @@ async fn destroying_a_live_recording_stops_it_first() {
             stored_recording(id, state, "2026-06-05T14:40:00Z"),
         );
     }
-    // jmap-chat-spec 6bcd9d8 L1169: "If the recording is in state
+    // L1309: "If the recording is in state
     // `"recording"` or `"paused"`, the server first stops it and delivers
     // the `VTCRecordingStateEvent` with `state: "stopped"`."
     let resp = set(&backend, BOB, json!({ "destroy": ["R1", "R2", "R3"] })).await;
@@ -324,10 +326,10 @@ async fn query_defaults_to_started_at_descending() {
         "VTCRecording",
         stored_recording("R2", "recording", "2026-06-05T15:00:00Z"),
     );
-    // L1127 "Default sort: `startedAt` descending."
+    // L1334 "Default sort: `startedAt` descending."
     let resp = call!(handle_vtc_recording_query, &backend, BOB, json!({}));
     assert_eq!(resp["ids"], json!(["R2", "R1"]), "{resp}");
-    // L1113 `state` "Filter by recording state."
+    // L1321 `state` "Filter by recording state."
     let resp = call!(
         handle_vtc_recording_query,
         &backend,
@@ -340,7 +342,7 @@ async fn query_defaults_to_started_at_descending() {
 #[tokio::test]
 async fn query_other_sort_property_is_unsupported() {
     let backend = media_backend();
-    // L1194 "Sort properties: `startedAt`."; RFC 8620 §5.5
+    // L1334 "Sort properties: `startedAt`."; RFC 8620 §5.5
     // "unsupportedSort: The sort is syntactically valid, but includes a
     // property the server does not support sorting on".
     let Err(err) = handle_vtc_recording_query(
