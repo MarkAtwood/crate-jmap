@@ -28,7 +28,9 @@
 //!   check 1 and the `keyid` part of check 2) and verifies it
 //!   ([`SignedRequest::verify`], checks 2, 3, 4 and 6). Check 5 (replay)
 //!   is the caller's atomic test-and-insert of the [`Accepted`] pair.
-//!   Every [`Rejection`] maps to HTTP 403.
+//!   Every [`Rejection`] maps to HTTP 403 except
+//!   [`Rejection::PrecedesRestart`], which maps to HTTP 503 so the sender
+//!   retries with a new signature (federation draft 77c3474 L218).
 //! - [`PeerSigningKey`] — a usable `peerSigningKeys` entry (§Key
 //!   Publication): Ed25519 OKP JWK whose `kid` is its RFC 7638 thumbprint.
 //! - [`usable_keys`] and [`DnssecAnswer`] — the DNSSEC precedence rule

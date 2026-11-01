@@ -51,8 +51,9 @@ fn bob_with_status() -> Value {
 
 // --- Peer/subscribePresence -------------------------------------------
 
-/// fed L678: `subscriberId` "MUST match the peer identity; the remote
-/// server MUST reject the request if they differ." Nothing is recorded.
+/// fed (jmap-chat-spec 77c3474) L1022: `subscriberId` "MUST be a peer
+/// identity of the request ({{identity-binding}}); the remote server MUST
+/// reject the request if it is not." Nothing is recorded.
 #[tokio::test]
 async fn subscribe_rejects_other_subscriber() {
     let fed = Fed::new();

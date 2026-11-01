@@ -83,9 +83,14 @@ pub enum SignError {
 
 /// Why a received request is not authenticated.
 ///
-/// "The receiving server rejects a request that fails any of these checks
-/// with HTTP status 403 (Forbidden)", so every variant maps to 403. The
-/// variant names the check for logs and for the caller's key-refetch
+/// §Request Signing (federation draft 77c3474 L218): "The receiving server
+/// rejects a request that fails any of these checks with HTTP status 403
+/// (Forbidden). The exception is a request rejected only by the restart
+/// rule in {{replay}}: the receiving server MUST answer it with HTTP status
+/// 503 (Service Unavailable), and the sender retries it as a transient
+/// failure ({{error-handling}}) with a new signature." So every variant
+/// maps to 403 except [`Rejection::PrecedesRestart`], which maps to 503.
+/// The variant names the check for logs and for the caller's key-refetch
 /// logic ([`Rejection::UnknownKey`]).
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
