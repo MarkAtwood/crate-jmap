@@ -1,7 +1,7 @@
 //! `VTCCall/set` create (draft-atwood-jmap-vtc-00 §Creating a Ring Call,
-//! §Creating a Room Call, §Creating a Scheduled Call, L573). Each assertion
+//! §Creating a Room Call, §Creating a Scheduled Call, L763). Each assertion
 //! quotes its oracle; line numbers cite draft-atwood-jmap-vtc-00.md at
-//! jmap-chat-spec 3227c0f.
+//! jmap-chat-spec 77c3474.
 
 mod common;
 
@@ -11,7 +11,7 @@ use jmap_types::Id;
 use jmap_vtc_types::{CallResponse, CallRole, VtcParticipant};
 use serde_json::{Value, json};
 
-/// The ring create example, L594-604, verbatim.
+/// The ring create example, L786-796, verbatim.
 fn ring_example() -> Value {
     json!({
         "callType": "ring",
@@ -49,19 +49,19 @@ async fn ring_example_creates_a_ringing_call() {
     let backend = backend();
     let created = create(&backend, BOB, ring_example()).await;
 
-    // jmap-chat-spec 6bcd9d8 L662-671: the example `created` entry has
+    // L801-811: the example `created` entry has
     // `"state": "ringing"`, `"initiatorId": "user:bob@example.com"`,
     // `"activeParticipantCount": 1`;
-    // L434 "`"creating"` → `"ringing"`: Server transitions automatically
+    // L508 "`"creating"` → `"ringing"`: Server transitions automatically
     // when the call is created and ring notifications have been dispatched."
     assert_eq!(created["state"], "ringing");
     assert_eq!(created["initiatorId"], BOB);
     assert_eq!(created["activeParticipantCount"], 1);
-    // L589 "The server sets `id`, `initiatorId`, `createdAt`, `state`, and
+    // L781 "The server sets `id`, `initiatorId`, `createdAt`, `state`, and
     // `joinUri`."
     assert!(created["createdAt"].is_string());
     assert!(!created["joinUri"].as_str().unwrap_or_default().is_empty());
-    // L338 "VTCCall IDs are ULIDs": 26 characters of Crockford base32
+    // L412 "VTCCall IDs are ULIDs": 26 characters of Crockford base32
     // (ULID spec, github.com/ulid/spec).
     let id = created["id"].as_str().expect("id");
     assert_eq!(id.len(), 26, "{id}");
@@ -78,7 +78,7 @@ async fn ring_create_makes_participant_records_for_targets_and_initiator() {
     let created = create(&backend, BOB, ring_example()).await;
     let call_id = created["id"].as_str().expect("id");
 
-    // jmap-chat-spec 6bcd9d8 L633 "The server creates a VTCParticipant
+    // L772 "The server creates a VTCParticipant
     // record for each target (with `joinedAt: null` and `callResponse:
     // "pending"`) and one for the initiator (with `joinedAt` set to the
     // creation time, since the initiator is in the call from the start)".
@@ -100,9 +100,9 @@ async fn ring_create_makes_participant_records_for_targets_and_initiator() {
         bob.joined_at.as_ref().map(|t| json!(t)),
         Some(created["createdAt"].clone())
     );
-    // L294 "The call initiator receives `"moderator"` by default".
+    // L365 "The call initiator receives `"moderator"` by default".
     assert_eq!(bob.role, CallRole::Moderator);
-    // L303 "The server sets this to `"pending"` when creating VTCParticipant
+    // L374 "The server sets this to `"pending"` when creating VTCParticipant
     // records for ring targets".
     assert_eq!(alice.call_response, Some(CallResponse::Pending));
 }
@@ -111,7 +111,7 @@ async fn ring_create_makes_participant_records_for_targets_and_initiator() {
 async fn room_example_creates_an_active_call() {
     let backend = backend();
     backend.advertise(&Id::from(ACCOUNT), CHAT_URI);
-    // L639-649 verbatim.
+    // L831-841 verbatim.
     let created = create(
         &backend,
         BOB,
@@ -124,8 +124,8 @@ async fn room_example_creates_an_active_call() {
         }),
     )
     .await;
-    // L634 "The server sets `id`, `initiatorId`, `createdAt`, `state` (to
-    // `"active"`), and `joinUri`."; L443 "Room calls transition directly to
+    // L826 "The server sets `id`, `initiatorId`, `createdAt`, `state` (to
+    // `"active"`), and `joinUri`."; L517 "Room calls transition directly to
     // `"active"` on creation."
     assert_eq!(created["state"], "active");
     assert_eq!(created["initiatorId"], BOB);
@@ -138,8 +138,8 @@ async fn room_example_creates_an_active_call() {
 async fn scheduled_example_creates_a_pending_call() {
     let backend = backend();
     backend.advertise(&Id::from(ACCOUNT), CHAT_URI);
-    // L671-682, with `scheduledStartAt` moved from 2026-06-06 to 2099 so it
-    // is still "in the future" (L659) when the test runs.
+    // L863-874, with `scheduledStartAt` moved from 2026-06-06 to 2099 so it
+    // is still "normally in the future" (L851) when the test runs.
     let created = create(
         &backend,
         BOB,
@@ -153,7 +153,7 @@ async fn scheduled_example_creates_a_pending_call() {
         }),
     )
     .await;
-    // L666 "The server sets ... `state` (to `"pending"`)".
+    // L858 "The server sets ... `state` (to `"pending"`)".
     assert_eq!(created["state"], "pending");
     assert_eq!(created["scheduledStartAt"], "2099-06-06T10:00:00Z");
     assert_eq!(created["lobbyEnabled"], true);
@@ -162,12 +162,12 @@ async fn scheduled_example_creates_a_pending_call() {
 #[tokio::test]
 async fn scheduled_start_in_the_past_is_invalid() {
     let backend = backend();
-    // L685 "Servers MUST return `invalidProperties` naming `scheduledStartAt`
-    // when `scheduledStartAt` is in the past." The draft's own example date,
-    // 2026-06-06, is now past.
+    // L851 "Servers MAY reject past values with an `invalidProperties`
+    // SetError naming `scheduledStartAt`." This crate rejects them by
+    // choice. The draft's own example date, 2026-06-06, is now past.
     let err = create_error(&backend, BOB, scheduled_call("2026-06-06T10:00:00Z")).await;
     assert_set_error(&err, "invalidProperties", Some("scheduledStartAt"));
-    // L658 "`scheduledStartAt` (UTCDate, required)".
+    // L850 "`scheduledStartAt` (UTCDate, required)".
     let err = create_error(
         &backend,
         BOB,
@@ -180,13 +180,13 @@ async fn scheduled_start_in_the_past_is_invalid() {
 #[tokio::test]
 async fn ring_without_targets_is_invalid() {
     let backend = backend();
-    // L623 "Servers MUST return `invalidProperties` naming
+    // L815 "Servers MUST return `invalidProperties` naming
     // `targetParticipantIds` when `targetParticipantIds` is empty."
     let mut call = ring_example();
     call["targetParticipantIds"] = json!([]);
     let err = create_error(&backend, BOB, call).await;
     assert_set_error(&err, "invalidProperties", Some("targetParticipantIds"));
-    // L579 "`targetParticipantIds` (String[], required)".
+    // L771 "`targetParticipantIds` (String\[], required)".
     let mut call = ring_example();
     call.as_object_mut()
         .map(|m| m.remove("targetParticipantIds"));
@@ -197,14 +197,14 @@ async fn ring_without_targets_is_invalid() {
 #[tokio::test]
 async fn unsupported_media_type_is_invalid() {
     let backend = backend();
-    // L623 "Servers MUST return `invalidProperties` naming `mediaTypes` when
+    // L815 "Servers MUST return `invalidProperties` naming `mediaTypes` when
     // `mediaTypes` contains values not present in the account-level
     // `supportedMediaTypes`." The fixture supports audio and video only.
     let mut call = ring_example();
     call["mediaTypes"] = json!(["audio", "screen"]);
     let err = create_error(&backend, BOB, call).await;
     assert_set_error(&err, "invalidProperties", Some("mediaTypes"));
-    // L382 `mediaTypes`: "Subset of `supportedMediaTypes`", for every type.
+    // L456 `mediaTypes`: "Subset of `supportedMediaTypes`", for every type.
     let err = create_error(
         &backend,
         BOB,
@@ -234,9 +234,10 @@ async fn may_create_call_false_is_forbidden_for_every_type() {
 
 #[tokio::test]
 async fn unsupported_call_type_is_forbidden() {
-    // L623 "Servers MUST return `forbidden` when `supportsRingCalls` is
-    // `false`."; L652 "... or `supportsRoomCalls` is `false`."; L685 "... or
-    // `supportsScheduledCalls` is `false`."
+    // L815 "Servers MUST return `forbidden` when `supportsRingCalls` is
+    // `false`."; L844 "Servers MUST return `forbidden` when
+    // `supportsRoomCalls` is `false`."; L877 "Servers MUST return `forbidden`
+    // when `supportsScheduledCalls` is `false`."
     for (flag, call) in [
         ("supportsRingCalls", ring_example()),
         ("supportsRoomCalls", room_call()),
@@ -256,7 +257,7 @@ async fn unsupported_call_type_is_forbidden() {
 #[tokio::test]
 async fn chat_id_without_chat_capability_is_invalid() {
     let backend = backend();
-    // L623 / L652 / L685 "When `chatId` is supplied but
+    // L765 "When `chatId` is supplied but
     // `urn:ietf:params:jmap:chat` is not present in the server's
     // capabilities, the server MUST return `invalidProperties` naming
     // `chatId` with a description indicating the Chat capability is
@@ -282,7 +283,7 @@ async fn second_active_call_on_a_chat_is_invalid() {
     first["chatId"] = json!("C1");
     let first = create(&backend, BOB, first).await;
 
-    // L573 "When creating a VTCCall with a `chatId` that is already
+    // L763 "When creating a VTCCall with a `chatId` that is already
     // referenced by another VTCCall in `"active"` or `"ringing"` state, the
     // server MUST return an `invalidProperties` SetError naming `chatId`,
     // with description "A call is already active on this Chat.""
@@ -318,7 +319,7 @@ async fn ringing_call_also_blocks_its_chat() {
     let mut ring = ring_example();
     ring["chatId"] = json!("C1");
     assert_eq!(create(&backend, BOB, ring).await["state"], "ringing");
-    // L573 "in `"active"` or `"ringing"` state".
+    // L763 "in `"active"` or `"ringing"` state".
     let mut room = room_call();
     room["chatId"] = json!("C1");
     let err = create_error(&backend, ALICE, room).await;
@@ -328,7 +329,7 @@ async fn ringing_call_also_blocks_its_chat() {
 #[tokio::test]
 async fn server_set_properties_are_refused_on_create() {
     let backend = backend();
-    // L589 "The server sets `id`, `initiatorId`, `createdAt`, `state`, and
+    // L781 "The server sets `id`, `initiatorId`, `createdAt`, `state`, and
     // `joinUri`."
     for (key, value) in [
         ("id", json!("X")),
@@ -347,7 +348,7 @@ async fn server_set_properties_are_refused_on_create() {
 #[tokio::test]
 async fn unknown_call_type_is_invalid() {
     let backend = backend();
-    // L349 `callType`: "`"ring"`, `"room"`, or `"scheduled"`".
+    // L423 `callType`: "`"ring"`, `"room"`, or `"scheduled"`".
     let err = create_error(
         &backend,
         BOB,

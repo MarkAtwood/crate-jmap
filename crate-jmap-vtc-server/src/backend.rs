@@ -480,11 +480,11 @@ pub trait VtcBackend: JmapBackend {
     /// account advertises `urn:ietf:params:jmap:chat`
     /// ([`VtcBackend::has_capability`]). That gate deliberately narrows
     /// the VTC SHOULD, which also covers a deployment-defined block list
-    /// without Chat (L344-348, L358-361 at 29e9a41; bd:JMAP-skk9.4): a
+    /// without Chat (L342-347, L356-359 at 77c3474; bd:JMAP-skk9.4): a
     /// deployment list answered here has no effect for a recipient whose
     /// account lacks Chat. The caller identifies whose
     /// contact list to read: "the recipient's contact list"
-    /// (draft-atwood-jmap-vtc-wss-00 at 29e9a41, L347, L360), never the
+    /// (draft-atwood-jmap-vtc-wss-00 at 77c3474, L345, L357), never the
     /// call's hosting account.
     ///
     /// # Default implementation

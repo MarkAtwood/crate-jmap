@@ -1,6 +1,6 @@
 //! Delivery-time checks for VTC ephemeral events (`should_deliver`).
 //!
-//! Oracle: draft-atwood-jmap-vtc-wss-00.md at jmap-chat-spec 3227c0f;
+//! Oracle: draft-atwood-jmap-vtc-wss-00.md at jmap-chat-spec 77c3474;
 //! "wss Lnnn" cites it, "vtc Lnnn" cites draft-atwood-jmap-vtc-00.md.
 //! Events and records are hand-written JSON.
 
@@ -15,7 +15,7 @@ use jmap_vtc_types::{VtcEvent, VtcStreamEnable};
 use serde_json::{Value, json};
 
 /// A VTCParticipant record in call `call_id`, hand-written from the field
-/// list at vtc L281-330.
+/// list at vtc L352-401.
 fn participant(id: &str, call_id: &str, user: &str, role: &str, joined: bool, left: bool) -> Value {
     json!({
         "id": id,
@@ -79,7 +79,7 @@ fn all_events() -> VtcEphemeralSubscription {
 
 /// Decode `raw` as delivered over the WebSocket, which adds the hosting
 /// account's `accountId` to every VTC event (draft-atwood-jmap-vtc-wss-00
-/// L296-303).
+/// L294-301).
 fn event(mut raw: Value) -> VtcEvent {
     raw["accountId"] = json!(ACCOUNT);
     serde_json::from_value(raw).unwrap()
@@ -189,7 +189,7 @@ fn gateway_signal() -> VtcEvent {
     }))
 }
 
-/// wss L196-197: `VTCStreamDisable` cancels "all ephemeral VTC event
+/// wss L240-241: `VTCStreamDisable` cancels "all ephemeral VTC event
 /// delivery"; a connection that never enabled has nothing to deliver.
 #[tokio::test]
 async fn nothing_delivered_without_subscription() {
@@ -199,7 +199,7 @@ async fn nothing_delivered_without_subscription() {
     assert!(!delivers(&backend, ALICE, &none, &participant_event("P-EVE")).await);
 }
 
-/// wss L147-149: `eventTypes` is "An explicit list of event type names
+/// wss L159-160: `eventTypes` is "An explicit list of event type names
 /// the client wishes to receive".
 #[tokio::test]
 async fn event_types_filter_applies() {
@@ -210,7 +210,7 @@ async fn event_types_filter_applies() {
     assert!(!delivers(&backend, ALICE, &sub, &ring()).await);
 }
 
-/// wss L168-170 (jmap-chat-spec 6bcd9d8): "`VTCRecordingStateEvent` is
+/// wss L166-168: "`VTCRecordingStateEvent` is
 /// the recording consent signal ({{JMAP-VTC}}), so the server delivers it
 /// for every call the subscription covers whether or not `eventTypes`
 /// lists it." The `callIds` and current-participant checks still apply.
@@ -228,11 +228,10 @@ async fn recording_state_ignores_event_types() {
     assert!(!delivers(&backend, carol, &sub, &recording_state(BOB)).await);
 }
 
-/// wss L252-256: "Per-user events (`VTCRingEvent`, `VTCCallEndEvent`) are
+/// wss L303-308: "Per-user events (`VTCRingEvent`, `VTCCallEndEvent`) are
 /// delivered based on the authenticated user's identity and are not
-/// scoped to `callIds` in the subscription. A `VTCStreamEnable` with any
-/// non-empty subscription — regardless of `callIds` — implicitly enables
-/// delivery of per-user events."
+/// filtered by `callIds`. ... including when `callIds` is an empty array
+/// or names only calls in which the user is not a current participant."
 #[tokio::test]
 async fn per_user_events_ignore_call_ids() {
     let backend = fixture(false);
@@ -246,7 +245,7 @@ async fn per_user_events_ignore_call_ids() {
     }
 }
 
-/// wss L258-260: "Per-call events are delivered only for calls that match
+/// wss L310-312: "Per-call events are delivered only for calls that match
 /// the active subscription's `callIds` filter (or all calls if `callIds`
 /// is `null`)".
 #[tokio::test]
@@ -275,10 +274,10 @@ async fn per_call_events_follow_call_ids() {
     assert!(!delivers(&backend, ALICE, &subscribed(json!({ "callIds": [] })), &ev).await);
 }
 
-/// wss L548-551: per-call events "MUST only be delivered for calls in
-/// which the authenticated user is a current participant at delivery
-/// time"; vtc L1019 defines active as "`joinedAt != null` and `leftAt ==
-/// null`".
+/// wss L608-611: per-call events "go only to current participants of the
+/// call at delivery time"; wss L191-193: "a user is a current participant
+/// of a call when the user's VTCParticipant record in that call has a
+/// non-null `joinedAt` and a null `leftAt`".
 #[tokio::test]
 async fn per_call_events_need_current_participation() {
     let backend = fixture(false);
@@ -313,7 +312,7 @@ async fn per_call_events_need_current_participation() {
     }
 }
 
-/// wss L605-608: "Servers SHOULD verify authorization at the time of each
+/// wss L603-606: "Servers SHOULD verify authorization at the time of each
 /// ephemeral event delivery, not only at the time `VTCStreamEnable` is
 /// received, since participation, permissions, and block status can
 /// change while the connection is open".
@@ -335,11 +334,11 @@ async fn participation_rechecked_per_delivery() {
     assert!(delivers(&backend, ALICE, &sub, &ev).await);
 }
 
-/// wss L290-293: "The server MUST NOT deliver a `VTCRingEvent` or
+/// wss L342-345: "The server SHOULD NOT deliver a `VTCRingEvent` or
 /// `VTCCallEndEvent` (with `endReason` of `"cancelled"` or `"timeout"`) if
 /// the `initiatorId` corresponds to a contact whose `blocked` field is
-/// `true` on the recipient's contact list"; wss L553-555 applies it "at
-/// delivery time".
+/// `true` on the recipient's contact list"; wss L613-616 applies it "at
+/// delivery time". This crate enforces it by choice.
 #[tokio::test]
 async fn blocked_initiator_suppresses_ring_and_ring_end() {
     let backend = fixture(false);
@@ -355,7 +354,7 @@ async fn blocked_initiator_suppresses_ring_and_ring_end() {
     assert!(delivers(&backend, EVE, &sub, &ring()).await);
 }
 
-/// wss L357-376: "If a per-call event originates from a participant whose
+/// wss L356-374: "If a per-call event originates from a participant whose
 /// corresponding contact has `blocked` set to `true` on the recipient's
 /// contact list ..., the server SHOULD silently drop the event for that
 /// recipient", for `VTCParticipantEvent`, `VTCMediaStateEvent`,
@@ -380,7 +379,7 @@ async fn blocked_participant_suppresses_in_call_events() {
     assert!(delivers(&backend, BOB, &sub, &participant_event("P-EVE")).await);
 }
 
-/// wss at 29e9a41 L344-348: the block uses "the recipient's contact list
+/// wss L345-346: the block uses "the recipient's contact list
 /// (when {{JMAP-CHAT}} is present) or an equivalent deployment-defined
 /// block list". This crate deliberately narrows that SHOULD to the Chat
 /// case (bd:JMAP-skk9.4: the Scene rule, wss L826-830 of
@@ -410,10 +409,10 @@ async fn blocks_need_chat_on_the_recipient_account() {
     assert!(delivers(&backend, ALICE, &sub, &participant_event("P-EVE")).await);
 }
 
-/// wss at 29e9a41 L296-303: an event's `accountId` is "the id of the
+/// wss L296-299: an event's `accountId` is "the id of the
 /// call's hosting account ... This is usually not the recipient's personal
 /// account". The contact-list block applies "when {{JMAP-CHAT}} is
-/// present" (L347-348) on "the recipient's contact list", so Chat is read
+/// present" (L345-346) on "the recipient's contact list", so Chat is read
 /// from the recipient's own account: with Chat only on the hosting account
 /// a block suppresses nothing, and with Chat only on the recipient's
 /// account it suppresses the ring and the blocked participant's events.
@@ -452,7 +451,7 @@ async fn blocks_read_chat_on_the_recipient_account_not_the_hosting_one() {
     }
 }
 
-/// wss L378-382: "This rule does not apply to `VTCRecordingStateEvent`,
+/// wss L376-380: "This rule does not apply to `VTCRecordingStateEvent`,
 /// the consent signal that {{JMAP-VTC}} delivers to all participants
 /// regardless of block status. It also does not apply to
 /// `VTCGatewaySignal`, which is already restricted to moderators".
@@ -467,9 +466,9 @@ async fn recording_state_and_gateway_signal_ignore_blocks() {
     assert!(delivers(&backend, BOB, &sub, &gateway_signal()).await);
 }
 
-/// wss L557-559: "`VTCGatewaySignal` MUST only be delivered to
+/// wss L618-620: "`VTCGatewaySignal` SHOULD only be delivered to
 /// participants with `moderator` role unless the deployment explicitly
-/// permits broader delivery."
+/// permits broader delivery." This crate enforces it by choice.
 #[tokio::test]
 async fn gateway_signal_only_to_moderators() {
     let backend = fixture(false);
@@ -483,7 +482,7 @@ async fn gateway_signal_only_to_moderators() {
     assert!(delivers(&backend, ALICE, &sub, &gateway_signal()).await);
 }
 
-/// wss L589-591: "For calls with `e2eeEnabled: true`, the server SHOULD
+/// wss L660-662: "For calls with `e2eeEnabled: true`, the server SHOULD
 /// NOT map media streams to participant ids and SHOULD NOT deliver
 /// `VTCActiveSpeakerEvent`".
 #[tokio::test]
@@ -494,6 +493,6 @@ async fn no_active_speaker_on_e2ee_calls() {
     let e2ee = fixture(true);
     assert!(!delivers(&e2ee, ALICE, &sub, &active_speaker("P-BOB")).await);
     // Only that event: "The server generates or relays every
-    // `VTCParticipantEvent`" (wss L583-584).
+    // `VTCParticipantEvent`" (wss L654-655).
     assert!(delivers(&e2ee, ALICE, &sub, &participant_event("P-BOB")).await);
 }

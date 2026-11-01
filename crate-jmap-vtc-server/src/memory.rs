@@ -1090,7 +1090,7 @@ impl VtcBackend for MemoryBackend {
         account_id: &Id,
         call: &VtcCall,
     ) -> Result<bool, MemoryError> {
-        // "The call initiator receives `"moderator"` by default."
+        // "The call initiator receives `"moderator"` by default".
         Ok(*caller == call.initiator_id
             || self.lock().participants(account_id).any(|p| {
                 p.call_id == call.id

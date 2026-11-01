@@ -1,6 +1,6 @@
 //! Concurrent state changes between a handler's read and its write
 //! (bd: JMAP-ace5). Line numbers and quotes cite
-//! draft-atwood-jmap-vtc-00.md at jmap-chat-spec 29e9a41; each
+//! draft-atwood-jmap-vtc-00.md at jmap-chat-spec 77c3474; each
 //! assertion's oracle is the quoted draft text or a hand-written record.
 
 #[macro_use]
@@ -289,10 +289,10 @@ async fn pause_after_a_concurrent_stop_is_refused() {
         json!({ "update": { "R1": { "state": "paused" } } }),
     );
 
-    // L1149-1151 list `"recording"` -> `"paused"`, `"paused"` ->
-    // `"recording"` and `"recording"` or `"paused"` -> `"stopped"`; L1165
+    // L1289-1291 list `"recording"` -> `"paused"`, `"paused"` ->
+    // `"recording"` and `"recording"` or `"paused"` -> `"stopped"`; L1305
     // "The server MUST return `invalidProperties` naming `state` for any
-    // state transition not listed above (e.g., `"stopped"` ->
+    // state transition not listed above (e.g., `"stopped"` →
     // `"recording"`, ...)". The stored recording was stopped when the
     // pause reached the store.
     assert_state_refused(&not_updated(&resp, "R1"));
@@ -305,7 +305,7 @@ async fn pause_after_a_concurrent_stop_is_refused() {
         .clone();
     assert_eq!(stored["state"], "stopped");
     assert_eq!(stored["stoppedAt"], "2026-06-05T14:50:00Z");
-    // L1149 delivers the `"paused"` event only for the pause transition.
+    // L1289 delivers the `"paused"` event only for the pause transition.
     assert!(backend.0.recording_events_for_test().is_empty());
 }
 
@@ -326,7 +326,7 @@ async fn stop_after_a_concurrent_failure_is_refused() {
         json!({ "update": { "L1": { "state": "stopped" } } }),
     );
 
-    // L1266 "The server MUST return `invalidProperties` naming `state` if
+    // L1474 "The server MUST return `invalidProperties` naming `state` if
     // the livestream is not in state `"starting"` or `"live"`."
     assert_state_refused(&not_updated(&resp, "L1"));
     let stored = call!(
@@ -354,7 +354,7 @@ async fn end_after_a_concurrent_end_is_refused() {
         json!({ "update": { "C1": { "state": "ended" } } }),
     );
 
-    // L506 "For all call types, `"ended"` is a terminal state. The server
+    // L529 "For all call types, `"ended"` is a terminal state. The server
     // MUST NOT transition a call out of `"ended"`." The call's `endedAt`
     // and `endReason` are those of the end that reached the store first.
     assert_state_refused(&not_updated(&resp, "C1"));
@@ -389,12 +389,12 @@ async fn join_after_a_concurrent_cancel_leaves_the_call_ended() {
         json!({ "create": { "j0": { "callId": "S1", "joinMethod": "webrtc" } } }),
     );
     // The join read the call as `"pending"` and is stored, so the
-    // `"pending"` -> `"active"` transition (L503 "The first participant
+    // `"pending"` -> `"active"` transition (L525 "The first participant
     // joins") follows it.
     assert!(resp["created"]["j0"]["id"].is_string(), "resp: {resp}");
 
-    // L506 "The server MUST NOT transition a call out of `"ended"`": the
-    // moderator's cancel (L504 `"pending"` -> `"ended"`) reached the store
+    // L529 "The server MUST NOT transition a call out of `"ended"`": the
+    // moderator's cancel (L526 `"pending"` -> `"ended"`) reached the store
     // first.
     let stored = call!(
         handle_vtc_call_get,
@@ -425,7 +425,7 @@ async fn ring_timeout_after_a_concurrent_answer_leaves_the_call_active() {
         stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
     );
 
-    // 2027-01-15, long after createdAt plus the 30 s period of L1615.
+    // 2027-01-15, long after createdAt plus the 30 s period of L1819.
     let now = UNIX_EPOCH + Duration::from_secs(1_800_000_000);
     let delivered = expire_ring(
         &backend,
@@ -437,7 +437,7 @@ async fn ring_timeout_after_a_concurrent_answer_leaves_the_call_active() {
     .await
     .expect("expire_ring");
 
-    // L1615 "If the call is already `"active"` when the period expires,
+    // L1819 "If the call is already `"active"` when the period expires,
     // the call continues; the server dispatches `VTCCallEndEvent` with
     // `endReason: "timeout"` to the devices of targets whose
     // `callResponse` is still `"pending"`." The call has no pending
@@ -471,7 +471,7 @@ async fn leave_after_a_concurrent_answer_ends_the_call_completed() {
     .await
     .expect("after_leave");
 
-    // L966 "When the last active participant leaves a ring or scheduled
+    // L1106 "When the last active participant leaves a ring or scheduled
     // call, the server transitions the VTCCall to `"ended"` with
     // `endReason: "completed"`, or `"cancelled"` if the call was still
     // `"ringing"`." The stored call was active, so no ring ends either.
@@ -489,7 +489,7 @@ async fn decline_end_of_an_answered_call_is_refused() {
         stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
     );
 
-    // L930 "When all target participants have declined and the call is
+    // L1070 "When all target participants have declined and the call is
     // still `"ringing"`, the server transitions the call to `"ended"` with
     // `endReason: "declined"`": the decline path ends from `"ringing"`
     // only, and this call was answered first.
@@ -532,8 +532,8 @@ async fn moderator_end_of_a_concurrently_answered_call_completes() {
         json!({ "update": { "R1": { "state": "ended" } } }),
     );
 
-    // L488 "`"active"` → `"ended"`: All participants leave or a moderator
-    // ends the call." and L744 "`"completed"`: The call was in state
+    // L511 "`"active"` → `"ended"`: All participants leave or a moderator
+    // ends the call." and L883 "`"completed"`: The call was in state
     // `"active"` when ended." The call was answered before the end reached
     // the store, so the end applies with the reason for `"active"`.
     assert!(resp["notUpdated"].is_null(), "{resp}");
@@ -541,7 +541,7 @@ async fn moderator_end_of_a_concurrently_answered_call_completes() {
     let call = stored(&backend.0, "R1").await;
     assert_eq!(call["state"], "ended");
     assert_eq!(call["endReason"], "completed");
-    // L1422 "When a ringing call is ... cancelled ... the server delivers a
+    // L1626 "When a ringing call is ... cancelled ... the server delivers a
     // `VTCCallEndEvent`" does not apply: the call was no longer ringing.
     assert!(backend.0.events_for_test().is_empty());
 }
@@ -580,7 +580,7 @@ async fn decline_of_a_call_answered_after_the_reload_leaves_it_active() {
         json!({ "update": { alice.as_str(): { "callResponse": "declined" } } }),
     );
 
-    // L930 "When all target participants have declined and the call is
+    // L1070 "When all target participants have declined and the call is
     // still `"ringing"`, the server transitions the call to `"ended"` with
     // `endReason: "declined"`." The call was active when the end reached
     // the store, so it stays active.

@@ -1,7 +1,7 @@
 //! `VTCStreamEnable` validation and replace semantics.
 //!
 //! Oracle: draft-atwood-jmap-vtc-wss-00 §VTCStreamEnable, Semantics,
-//! L168-183. Frames are hand-written JSON.
+//! L185-225, at jmap-chat-spec 77c3474. Frames are hand-written JSON.
 
 use jmap_types::Id;
 use jmap_vtc_server::{CallScope, VtcEphemeralSubscription, VtcStreamFilter};
@@ -26,7 +26,7 @@ fn id(s: &str) -> Id {
     Id::from(s)
 }
 
-/// L168-170: "A subsequent `VTCStreamEnable` message replaces the previous
+/// L187-189: "A subsequent `VTCStreamEnable` message replaces the previous
 /// ephemeral subscription in its entirety. There is no partial-update
 /// mechanism".
 #[test]
@@ -39,15 +39,16 @@ fn subsequent_enable_replaces_in_entirety() {
         .unwrap();
     let f = filter(&sub);
     assert_eq!(f.call_ids(), &CallScope::Only(vec![id("CALL-B")]));
-    // The second frame's eventTypes was absent (Default: null, L147-153),
+    // The second frame's eventTypes was absent (Default: null, L159-165),
     // so the first frame's narrowing to VTCParticipantEvent is gone.
     assert!(f.includes("VTCRingEvent"));
     assert!(f.includes("VTCMediaStateEvent"));
 }
 
-/// L172-173: "If a `callIds` entry refers to a call in which the
-/// authenticated user is not a current participant, that entry is silently
-/// ignored." Silently: enabling succeeds and the entry is not an error.
+/// L198-200: "If a `callIds` entry refers to a call in which the
+/// authenticated user is not a current participant, that entry produces no
+/// events but is retained in the subscription record." Enabling succeeds
+/// and the entry is not an error.
 #[test]
 fn unknown_call_id_is_not_an_error() {
     let sub = enabled(json!({ "callIds": ["NOT-MY-CALL", "MY-CALL"] }));
@@ -57,16 +58,16 @@ fn unknown_call_id_is_not_an_error() {
     );
 }
 
-/// L174-175: "If all entries are ignored (or `callIds` is an empty array),
-/// the subscription is effectively empty" — accepted, not an error, and
-/// covering no call.
+/// L203-206: "If no entry refers to a call in which the user is a current
+/// participant (or `callIds` is an empty array), no per-call events are
+/// delivered" — accepted, not an error, and covering no call.
 #[test]
 fn empty_call_ids_is_accepted_and_covers_no_call() {
     let sub = enabled(json!({ "callIds": [] }));
     assert_eq!(filter(&sub).call_ids(), &CallScope::Only(vec![]));
 }
 
-/// L142-145: `callIds` is "`null` to receive events for all calls ...
+/// L154-157: `callIds` is "`null` to receive events for all calls ...
 /// Default: `null`."
 #[test]
 fn null_or_absent_call_ids_is_all() {
@@ -75,7 +76,7 @@ fn null_or_absent_call_ids_is_all() {
     }
 }
 
-/// L177-179: "Unrecognized values in `eventTypes` that appear alongside
+/// L219-221: "Unrecognized values in `eventTypes` that appear alongside
 /// recognized values MUST be silently ignored; only the recognized values
 /// take effect."
 #[test]
@@ -89,7 +90,7 @@ fn unrecognized_event_types_beside_recognized_are_ignored() {
     assert!(!f.includes("VTCRingEvent"));
 }
 
-/// L179-183: "If `eventTypes` is an empty array or contains only
+/// L221-225: "If `eventTypes` is an empty array or contains only
 /// unrecognized values, the server MUST respond with a `RequestError` ...
 /// `"urn:ietf:params:jmap:error:invalidArguments"` and MUST NOT update the
 /// current ephemeral subscription state."
@@ -111,7 +112,7 @@ fn empty_or_unrecognized_event_types_is_invalid_and_keeps_state() {
 }
 
 /// The invalid frame also leaves a never-enabled connection inactive
-/// (L182-183: "MUST NOT update the current ephemeral subscription state").
+/// (L224-225: "MUST NOT update the current ephemeral subscription state").
 #[test]
 fn invalid_first_enable_leaves_connection_inactive() {
     let mut sub = VtcEphemeralSubscription::default();
@@ -122,7 +123,7 @@ fn invalid_first_enable_leaves_connection_inactive() {
     assert_eq!(sub.filter(), None);
 }
 
-/// L147-149: `eventTypes` is "`null` to receive all event types".
+/// L160-161: `eventTypes` is "`null` to receive all event types".
 #[test]
 fn null_event_types_includes_every_type() {
     let sub = enabled(json!({ "eventTypes": null }));

@@ -189,11 +189,11 @@ enum Origin<'a> {
 /// block checks apply only when it advertises `urn:ietf:params:jmap:chat`
 /// ([`VtcBackend::has_capability`]), and then ask
 /// [`VtcBackend::is_user_blocked`] with the recipient as the caller,
-/// whose contact list is "the recipient's contact list" (L347, L360 at
-/// 29e9a41). The Chat gate is this crate's deliberate narrowing of the
+/// whose contact list is "the recipient's contact list" (L345, L357 at
+/// jmap-chat-spec 77c3474). The Chat gate is this crate's deliberate narrowing of the
 /// VTC SHOULD, chosen to match the Scene and Graph rules
 /// (bd:JMAP-skk9.4): the VTC text also allows "an equivalent
-/// deployment-defined block list" without Chat (L344-348, L358-361), and
+/// deployment-defined block list" without Chat (L342-347, L356-359), and
 /// such a list suppresses nothing for a recipient whose account lacks
 /// Chat.
 ///

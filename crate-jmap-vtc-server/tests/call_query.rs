@@ -1,6 +1,6 @@
-//! `VTCCall/query` (draft-atwood-jmap-vtc-00 §VTCCall/query, L721-759) and
+//! `VTCCall/query` (draft-atwood-jmap-vtc-00 §VTCCall/query, L917-955) and
 //! handler registration. Line numbers cite draft-atwood-jmap-vtc-00.md at
-//! jmap-chat-spec 3227c0f.
+//! jmap-chat-spec 77c3474.
 
 mod common;
 
@@ -64,7 +64,7 @@ async fn ids(backend: &MemoryBackend, args: Value) -> Vec<String> {
 #[tokio::test]
 async fn default_sort_is_created_at_descending() {
     let backend = seeded();
-    // L759 "Default sort: `createdAt` descending."
+    // L955 "Default sort: `createdAt` descending."
     assert_eq!(ids(&backend, json!({})).await, ["C3", "C2", "C1"]);
     assert_eq!(
         ids(&backend, json!({ "sort": [] })).await,
@@ -75,7 +75,7 @@ async fn default_sort_is_created_at_descending() {
 #[tokio::test]
 async fn sorts_by_created_at_and_ended_at() {
     let backend = seeded();
-    // L759 "Sort properties: `createdAt`, `endedAt`."; RFC 8620 §5.5
+    // L955 "Sort properties: `createdAt`, `endedAt`."; RFC 8620 §5.5
     // `isAscending` "(optional; default: true)".
     assert_eq!(
         ids(&backend, json!({ "sort": [{ "property": "createdAt" }] })).await,
@@ -93,7 +93,7 @@ async fn sorts_by_created_at_and_ended_at() {
 async fn other_sort_property_is_unsupported() {
     let backend = seeded();
     // RFC 8620 §5.5 "unsupportedSort: The sort is syntactically valid, but
-    // includes a property the server does not support sorting on"; L759
+    // includes a property the server does not support sorting on"; L955
     // names only `createdAt` and `endedAt`.
     let err = query(&backend, json!({ "sort": [{ "property": "subject" }] }))
         .await
@@ -104,7 +104,7 @@ async fn other_sort_property_is_unsupported() {
 #[tokio::test]
 async fn filters_by_state_call_type_and_initiator() {
     let backend = seeded();
-    // L725-734: `state`, `callType`, `initiatorId` ("Filter to calls
+    // L923-930: `state`, `callType`, `initiatorId` ("Filter to calls
     // initiated by this userId").
     assert_eq!(
         ids(&backend, json!({ "filter": { "state": "pending" } })).await,
@@ -123,7 +123,7 @@ async fn filters_by_state_call_type_and_initiator() {
 #[tokio::test]
 async fn filter_properties_combine_with_and() {
     let backend = seeded();
-    // L757 "All filter properties are combined with logical AND."
+    // L953 "All filter properties are combined with logical AND."
     assert_eq!(
         ids(
             &backend,
@@ -145,7 +145,7 @@ async fn filter_properties_combine_with_and() {
 #[tokio::test]
 async fn created_bounds_are_at_or_after_and_before() {
     let backend = seeded();
-    // L746 `createdAfter`: "Calls created at or after this time."
+    // L942 `createdAfter`: "Calls created at or after this time."
     assert_eq!(
         ids(
             &backend,
@@ -154,7 +154,7 @@ async fn created_bounds_are_at_or_after_and_before() {
         .await,
         ["C3", "C2"]
     );
-    // L749 `createdBefore`: "Calls created before this time."
+    // L945 `createdBefore`: "Calls created before this time."
     assert_eq!(
         ids(
             &backend,
@@ -168,8 +168,8 @@ async fn created_bounds_are_at_or_after_and_before() {
 #[tokio::test]
 async fn ended_bounds_skip_calls_that_have_not_ended() {
     let backend = seeded();
-    // L752 `endedAfter`: "Calls ended at or after this time."; C3 has not
-    // ended (L358 `endedAt` "`null` while the call is active or pending").
+    // L948 `endedAfter`: "Calls ended at or after this time."; C3 has not
+    // ended (L432 `endedAt` "`null` while the call is active or pending").
     assert_eq!(
         ids(
             &backend,
@@ -178,7 +178,7 @@ async fn ended_bounds_skip_calls_that_have_not_ended() {
         .await,
         ["C2"]
     );
-    // L755 `endedBefore`: "Calls ended before this time."
+    // L951 `endedBefore`: "Calls ended before this time."
     assert_eq!(
         ids(
             &backend,
@@ -192,7 +192,7 @@ async fn ended_bounds_skip_calls_that_have_not_ended() {
 #[tokio::test]
 async fn has_participant_includes_former_participants() {
     let backend = seeded();
-    // L743 `hasParticipant`: "Filter to calls in which this userId is or
+    // L939 `hasParticipant`: "Filter to calls in which this userId is or
     // was a participant." Eve joined C2 and left it.
     assert_eq!(
         ids(&backend, json!({ "filter": { "hasParticipant": EVE } })).await,
@@ -208,7 +208,7 @@ async fn has_participant_includes_former_participants() {
 #[tokio::test]
 async fn chat_filters_need_the_chat_capability() {
     let backend = seeded();
-    // L737 `chatId` and L740 `spaceId`: "Only valid when
+    // L933 `chatId` and L936 `spaceId`: "Only valid when
     // `urn:ietf:params:jmap:chat` is present; servers MUST return
     // `unsupportedFilter` otherwise."
     for filter in [
@@ -237,7 +237,7 @@ async fn chat_filters_need_the_chat_capability() {
 async fn unknown_filter_property_is_unsupported() {
     let backend = seeded();
     // RFC 8620 §5.5 "unsupportedFilter: The filter is syntactically valid,
-    // but the server cannot process it."; L725-755 define no `subject`
+    // but the server cannot process it."; L923-951 define no `subject`
     // filter.
     let err = query(&backend, json!({ "filter": { "subject": "Standup" } }))
         .await
@@ -251,7 +251,7 @@ async fn registers_the_five_vtc_call_methods() {
     let mut dispatcher: Dispatcher<String> = Dispatcher::new();
     register_vtc_handlers(&mut dispatcher, backend);
 
-    // L523-761: `VTCCall/get`, `/changes`, `/set`, `/query`,
+    // L713-957: `VTCCall/get`, `/changes`, `/set`, `/query`,
     // `/queryChanges`.
     for (method, args) in [
         (
@@ -289,7 +289,7 @@ async fn registers_the_five_vtc_call_methods() {
 async fn unknown_account_is_account_not_found() {
     let backend = seeded();
     // RFC 8620 §3.6.2 "accountNotFound: The accountId does not correspond
-    // to a valid account", checked before the L737 chat-filter rule.
+    // to a valid account", checked before the L933 chat-filter rule.
     let caller = BOB.to_owned();
     let err = jmap_vtc_server::handle_vtc_call_query(
         &backend,

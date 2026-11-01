@@ -1,8 +1,10 @@
 //! Call-end cascades: breakout rooms end with their parent
-//! (jmap-vtc-implementer-guide.md L902-906) and active recordings stop when
-//! their call ends (jmap-vtc-recording-guide.md L322-328), for a moderator's
-//! `VTCCall/set` and for a server-initiated end. Line numbers cite
-//! jmap-chat-spec 3227c0f; bare `L` numbers are draft-atwood-jmap-vtc-00.md.
+//! (jmap-vtc-implementer-guide.md L909-913; the draft does not address it,
+//! so this is crate choice following the guide) and active recordings stop
+//! when their call ends (draft L886; jmap-vtc-recording-guide.md L324-328),
+//! for a moderator's `VTCCall/set` and for a server-initiated end. Line
+//! numbers cite jmap-chat-spec 77c3474; bare `L` numbers are
+//! draft-atwood-jmap-vtc-00.md.
 
 #[macro_use]
 mod common;
@@ -67,7 +69,7 @@ async fn updated_since(backend: &MemoryBackend, since: u64) -> Vec<String> {
     ids
 }
 
-/// Start a recording on `call_id` as [`BOB`] (L1058-1060) and return its id.
+/// Start a recording on `call_id` as [`BOB`] (L1265-1267) and return its id.
 async fn start_recording(backend: &MemoryBackend, call_id: &str) -> String {
     let resp = call!(ids handle_vtc_recording_set,
         backend,
@@ -106,9 +108,9 @@ fn assert_ended(call: &Value, reason: &str) {
     assert_eq!(call["endReason"], reason, "{call}");
 }
 
-/// L1534-1537 `state` "The new recording state" and `initiatedBy` "The
+/// L1805-1809 `state` "The new recording state" and `initiatedBy` "The
 /// userId of the participant who initiated the state change";
-/// draft-atwood-jmap-vtc-wss-00 L296-303: `accountId` is "the id of the
+/// draft-atwood-jmap-vtc-wss-00 L294-301: `accountId` is "the id of the
 /// call's hosting account".
 fn assert_stopped_event(event: &Value, call_id: &str, recording_id: &str, by: &str) {
     assert_eq!(
@@ -133,21 +135,22 @@ async fn moderator_end_ends_every_breakout_room_before_the_parent() {
     let nested = room_under(&backend, Some(&first)).await;
     let before = call_state(&backend).await;
 
-    // L697-703: the example update.
+    // L891-897: the example update.
     update(&backend, BOB, &parent, json!({ "state": "ended" }))
         .await
         .expect("end parent");
 
-    // Guide L902-904 "When a parent call ends, all child breakout-room
-    // VTCCalls MUST also be ended (transitioning them to `"ended"` and
-    // setting `endedAt`)." L691 "`"completed"`: The call was in state
+    // Guide L909 "The spec does not say what happens to child
+    // breakout-room VTCCalls when a parent call ends."; guide L911-912 "when
+    // a parent call ends, its child breakout-room VTCCalls MUST also be
+    // ended". Crate choice; the draft does not address it. L883 "`"completed"`: The call was in state
     // `"active"` when ended."
     for id in [&parent, &first, &second, &nested] {
         assert_ended(&get(&backend, id).await, "completed");
     }
 
-    // Guide L906 "Implement parent-call end as a cascade that ends all
-    // child calls first." The three rooms take the first three commits:
+    // Guide L912-913 "implement parent-call end as a cascade that ends all
+    // child calls first, then the parent." The three rooms take the first three commits:
     // after them only the parent changes, and the nested room is ended
     // before the room it sits in.
     assert_eq!(
@@ -156,8 +159,8 @@ async fn moderator_end_ends_every_breakout_room_before_the_parent() {
     );
     assert!(!updated_since(&backend, before + 1).await.contains(&nested));
 
-    // L715-716 "Transition a child VTCCall to `"ended"`. The server removes
-    // its id from the parent's `breakoutRoomIds`."
+    // L910 "Transition a child VTCCall to `"ended"`. The server removes its
+    // id from the parent's `breakoutRoomIds`".
     assert_eq!(get(&backend, &parent).await["breakoutRoomIds"], json!([]));
     assert_eq!(get(&backend, &first).await["breakoutRoomIds"], json!([]));
 }
@@ -170,7 +173,7 @@ async fn moderator_end_stops_recording_and_paused_recordings() {
     let recording_id = start_recording(&backend, &call).await;
     let paused_id = start_recording(&backend, &call).await;
     let elsewhere_id = start_recording(&backend, &other).await;
-    // L1082 "`"recording"` → `"paused"`: Pause recording."
+    // L1289 "`"recording"` → `"paused"`: Pause recording."
     let resp = call!(ids handle_vtc_recording_set,
         &backend,
         BOB,
@@ -183,7 +186,7 @@ async fn moderator_end_stops_recording_and_paused_recordings() {
         .await
         .expect("end");
 
-    // Recording guide L324-326 "Any VTCRecording in `"recording"` or
+    // Recording guide L325-327 "Any VTCRecording in `"recording"` or
     // `"paused"` state is transitioned to `"stopped"`, with `stoppedAt` set
     // and `VTCRecordingStateEvent` delivered."
     for id in [&recording_id, &paused_id] {
@@ -200,8 +203,8 @@ async fn moderator_end_stops_recording_and_paused_recordings() {
         assert_stopped_event(event, &call, id, BOB);
     }
 
-    // L322 "all active recordings for that call": another call's
-    // recording keeps running.
+    // L886 "every VTCRecording for the call": another call's recording
+    // keeps running.
     assert_eq!(
         recording(&backend, &elsewhere_id).await["state"],
         "recording"
@@ -217,8 +220,8 @@ async fn server_end_cascades_through_rooms_and_recordings() {
     let child_rec = start_recording(&backend, &child).await;
     let seen = backend.recording_events_for_test().len();
 
-    // L444 "`"active"` → `"ended"`: ... a deployment-defined inactivity
-    // timeout fires." L367 "`"timeout"`: A deployment-defined inactivity
+    // L518 "`"active"` → `"ended"`: ... a deployment-defined inactivity
+    // timeout fires." L441 "`"timeout"`: A deployment-defined inactivity
     // timeout fired on an active call with no participants."
     end_call(
         &backend,
@@ -232,14 +235,14 @@ async fn server_end_cascades_through_rooms_and_recordings() {
     .expect("auto-end");
 
     assert_ended(&get(&backend, &parent).await, "timeout");
-    // Guide L902-904; the room was active, so L691 "completed".
+    // Guide L911-912; the room was active, so L883 "completed".
     assert_ended(&get(&backend, &child).await, "completed");
     for id in [&parent_rec, &child_rec] {
         assert_eq!(recording(&backend, id).await["state"], "stopped");
     }
 
-    // Recording guide L324-326; the room ends before its parent (guide
-    // L906), so its recording stops first.
+    // Recording guide L325-327; the room ends before its parent (guide
+    // L912-913), so its recording stops first.
     let events = events_after(&backend, seen);
     assert_eq!(events.len(), 2, "{events:?}");
     assert_stopped_event(&events[0], &child, &child_rec, SERVER);
@@ -254,7 +257,7 @@ async fn server_end_refuses_an_ended_or_unknown_call() {
         .await
         .expect("end");
 
-    // L705-706 "The server MUST return `invalidProperties` naming `state`
+    // L900 "The server MUST return `invalidProperties` naming `state`
     // if the call is already in state `"ended"`."
     let caller = SERVER.to_owned();
     let account = Id::from(ACCOUNT);
@@ -321,11 +324,11 @@ async fn call_end_stops_starting_and_live_livestreams() {
         .await
         .expect("end");
 
-    // Spec 6bcd9d8 draft-atwood-jmap-vtc-00 L747 "When a call ends, the
+    // L886 "When a call ends, the
     // server stops ... every VTCLivestream in state `"starting"` or
     // `"live"`, as if a moderator had set each to `"stopped"`." The child
     // room ends with its parent, so its livestream stops too. A
-    // moderator's stop, L1254: "The server sets `stoppedAt` to the current
+    // moderator's stop, L1462: "The server sets `stoppedAt` to the current
     // time."
     for id in ["LS", "LL"] {
         let l = livestream(&backend, id).await;
@@ -359,7 +362,7 @@ async fn end_cascades_through_a_room_the_moderator_cannot_access() {
     let nested = room_under(&backend, Some(&hidden)).await;
     let hidden_rec = start_recording(&backend, &hidden).await;
     seed_livestream(&backend, "LH", &hidden, "live");
-    // Spec 33702a5 draft-atwood-jmap-vtc-00 L1671 "Non-participants
+    // L1875 "Non-participants
     // receive `notFound` for calls they cannot access."
     backend.deny_call_access(BOB, &hidden);
     assert!(get(&backend, &hidden).await.is_null(), "BOB is denied");
@@ -368,20 +371,20 @@ async fn end_cascades_through_a_room_the_moderator_cannot_access() {
         .await
         .expect("end parent");
 
-    // Spec 33702a5 jmap-vtc-implementer-guide L911-913 "when a parent call
-    // ends, its child breakout-room VTCCalls MUST also be ended". The
-    // rooms were active: draft L744 "`"completed"`: The call was in state
+    // Guide L911-912 "when a parent call ends, its child breakout-room
+    // VTCCalls MUST also be ended"; crate choice, as above. The
+    // rooms were active: draft L883 "`"completed"`: The call was in state
     // `"active"` when ended."
     for id in [&parent, &hidden, &nested] {
         assert_ended(&as_alice("call", &backend, id).await, "completed");
     }
-    // Draft L771 "The server removes its id from the parent's
+    // Draft L910 "The server removes its id from the parent's
     // `breakoutRoomIds`".
     assert_eq!(
         as_alice("call", &backend, &parent).await["breakoutRoomIds"],
         json!([])
     );
-    // Draft L747 "When a call ends, the server stops every VTCRecording
+    // Draft L886 "When a call ends, the server stops every VTCRecording
     // for the call in state `"recording"` or `"paused"` and every
     // VTCLivestream in state `"starting"` or `"live"`".
     let r = as_alice("recording", &backend, &hidden_rec).await;

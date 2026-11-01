@@ -1,6 +1,6 @@
 //! `VTCLivestream/*` (draft-atwood-jmap-vtc-00 §VTCLivestream Methods,
-//! L1133-1230) and §Livestream Key Exposure (L1653-1655). Line numbers cite
-//! draft-atwood-jmap-vtc-00.md at jmap-chat-spec 3227c0f.
+//! L1340-1501) and §Livestream Key Exposure (L1933-1935). Line numbers cite
+//! draft-atwood-jmap-vtc-00.md at jmap-chat-spec 77c3474.
 
 #[macro_use]
 mod common;
@@ -42,7 +42,7 @@ async fn get_as(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
     call!(handle_vtc_livestream_get, backend, caller, args)["list"][0].clone()
 }
 
-/// L1170-1176: the example create body, with this fixture's call id.
+/// L1382-1388: the example create body, with this fixture's call id.
 fn start() -> Value {
     json!({
         "callId": "C1",
@@ -69,14 +69,14 @@ fn assert_invalid(err: &Value, properties: Value) {
 async fn moderator_starts_a_livestream() {
     let backend = media_backend();
     let created = create(&backend, BOB, start()).await.expect("start");
-    // L1181 "The server sets `id` and `state` (to `"starting"`)"; L514
+    // L1406 "The server sets `id` and `state` (to `"starting"`)"; L606
     // `startedAt` "`null` before the stream is live."
     assert!(created["id"].is_string(), "{created}");
     assert_eq!(created["state"], "starting");
     assert_eq!(created["startedAt"], Value::Null);
     assert_eq!(created["stoppedAt"], Value::Null);
     assert_eq!(created["platform"], "youtube");
-    // L1528-1531: a `VTCRecordingStateEvent` carries `livestreamId` only for
+    // L1802-1803: a `VTCRecordingStateEvent` carries `livestreamId` only for
     // a key-holding livestream bridge, which this server does not run.
     assert!(backend.recording_events_for_test().is_empty());
 }
@@ -84,8 +84,9 @@ async fn moderator_starts_a_livestream() {
 #[tokio::test]
 async fn stream_uri_and_key_are_required() {
     let backend = media_backend();
-    // L1158 "`streamUri` (String, required)", L1161 "`streamKey` (String,
-    // required)".
+    // L1368 "`streamUri` (String, required in push mode)", L1371
+    // "`streamKey` (String, required in push mode)"; L579 `mode` "Default:
+    // `"push"`."
     let err = create(&backend, BOB, json!({ "callId": "C1" }))
         .await
         .expect_err("required");
@@ -121,9 +122,12 @@ async fn e2ee_call_is_forbidden() {
     let mut c = stored_call("C1", "room", "active", "2026-06-05T14:30:00Z");
     c["e2eeEnabled"] = json!(true);
     seed(&backend, c);
-    // L1183 "The server MUST return `forbidden` when the call has
-    // `e2eeEnabled: true` and the livestream would require server-side media
-    // access." This server has no key-holding livestream bridge.
+    // L1458 "When the call has `e2eeEnabled: true`, a livestream that would
+    // require server-side media access is rejected as
+    // {{e2ee-media-participants}} describes." L1834 "The server SHOULD
+    // reject with `forbidden` a recording or livestream request that can
+    // only be met by such a path." This crate enforces it by choice. This
+    // server has no key-holding livestream bridge.
     let err = create(&backend, BOB, start()).await.expect_err("e2ee");
     assert_eq!(err["type"], "forbidden", "{err}");
 }
@@ -135,7 +139,7 @@ async fn unsupported_livestream_is_forbidden() {
         &backend,
         stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
     );
-    // L1183 "The server MUST return `forbidden` when the account-level
+    // L1458 "The server MUST return `forbidden` when the account-level
     // `supportsLivestream` is `false`."
     let err = create(&backend, BOB, start()).await.expect_err("off");
     assert_eq!(err["type"], "forbidden", "{err}");
@@ -148,7 +152,7 @@ async fn ended_call_is_invalid_call_id() {
         &backend,
         stored_call("C1", "room", "ended", "2026-06-05T14:30:00Z"),
     );
-    // L1183 "The server MUST return `invalidProperties` naming `callId` when
+    // L1458 "The server MUST return `invalidProperties` naming `callId` when
     // the call is not in state `"active"`."
     let err = create(&backend, BOB, start()).await.expect_err("ended");
     assert_invalid(&err, json!(["callId"]));
@@ -158,8 +162,8 @@ async fn ended_call_is_invalid_call_id() {
 async fn stream_key_is_blank_for_non_moderators() {
     let backend = media_backend();
     live(&backend);
-    // L562 "the server SHOULD return an empty string in `VTCLivestream/get`
-    // responses for participants whose role is not `"moderator"`"; L1731
+    // L600 "the server SHOULD return an empty string in `VTCLivestream/get`
+    // responses for participants whose role is not `"moderator"`"; L1935
     // "the server SHOULD return `streamUri` as an empty string for
     // non-moderator participants".
     let seen = get_as(&backend, ALICE, json!({ "ids": ["L1"] })).await;
@@ -167,7 +171,7 @@ async fn stream_key_is_blank_for_non_moderators() {
     assert_eq!(seen["streamUri"], "");
     assert_eq!(seen["platform"], "youtube");
 
-    // L562: moderators are not covered by the rule; Bob initiated C1.
+    // L600: moderators are not covered by the rule; Bob initiated C1.
     let seen = get_as(&backend, BOB, json!({ "ids": ["L1"] })).await;
     assert_eq!(seen["streamKey"], "sk_live_abc123def456");
     assert_eq!(seen["streamUri"], "rtmp://live.example.com/ingest");
@@ -177,7 +181,7 @@ async fn stream_key_is_blank_for_non_moderators() {
 async fn stream_key_stays_blank_when_call_id_is_not_requested() {
     let backend = media_backend();
     live(&backend);
-    // L562 "the server SHOULD return an empty string in `VTCLivestream/get`
+    // L600 "the server SHOULD return an empty string in `VTCLivestream/get`
     // responses for participants whose role is not `"moderator"`", whatever
     // the `properties`. RFC 8620 §5.1: only the requested properties (and `id`)
     // are returned.
@@ -195,7 +199,7 @@ async fn stream_key_stays_blank_when_call_id_is_not_requested() {
 async fn moderator_stops_a_live_stream() {
     let backend = media_backend();
     live(&backend);
-    // L1187 "`update` with `state: "stopped"` ends the stream. The server
+    // L1462 "`update` with `state: "stopped"` ends the stream. The server
     // sets `stoppedAt` to the current time."
     let echo = update(&backend, BOB, "L1", json!({ "state": "stopped" }))
         .await
@@ -205,7 +209,7 @@ async fn moderator_stops_a_live_stream() {
     assert!(seen["stoppedAt"].is_string(), "{seen}");
     assert_eq!(echo["stoppedAt"], seen["stoppedAt"]);
 
-    // L1199 "The server MUST return `invalidProperties` naming `state` if
+    // L1474 "The server MUST return `invalidProperties` naming `state` if
     // the livestream is not in state `"starting"` or `"live"`."
     let err = update(&backend, BOB, "L1", json!({ "state": "stopped" }))
         .await
@@ -220,8 +224,8 @@ async fn going_live_is_server_initiated() {
         .as_str()
         .expect("id")
         .to_owned();
-    // L1181 "The `"starting"` → `"live"` and `"starting"` → `"failed"`
-    // transitions are server-initiated."
+    // L615 "`"starting"` → `"live"`: server-initiated"; L616 "`"starting"`
+    // or `"live"` → `"failed"`: server-initiated".
     for to in ["live", "failed"] {
         let err = update(&backend, BOB, &id, json!({ "state": to }))
             .await
@@ -234,9 +238,8 @@ async fn going_live_is_server_initiated() {
 async fn configuration_changes_only_while_not_streaming() {
     let backend = media_backend();
     live(&backend);
-    // L1203 "The server MUST return `invalidProperties` naming each patched
-    // configuration property for configuration updates while the stream is
-    // in state `"starting"` or `"live"`."
+    // L593, L596, L599: `platform`, `streamUri` and `streamKey` are each
+    // "(String|null, immutable)".
     let err = update(
         &backend,
         BOB,
@@ -247,9 +250,11 @@ async fn configuration_changes_only_while_not_streaming() {
     .expect_err("live");
     assert_invalid(&err, json!(["platform", "streamKey"]));
 
-    // L1203 "`update` supports patching `streamUri`, `streamKey`, or
-    // `platform` only while the livestream is in state `"stopped"` or
-    // `"failed"`."
+    // jmap-chat-spec 3227c0f L1203 "`update` supports patching
+    // `streamUri`, `streamKey`, or `platform` only while the livestream is
+    // in state `"stopped"` or `"failed"`." 77c3474 removes that rule: the
+    // fields are immutable and L619 "`"stopped"` and `"failed"` are final".
+    // JMAP-t8ej.10 rewrites this half for 77c3474.
     update(&backend, BOB, "L1", json!({ "state": "stopped" }))
         .await
         .expect("stop");
@@ -273,10 +278,10 @@ async fn query_defaults_to_started_at_descending() {
         "VTCLivestream",
         stored_livestream("L2", "live", json!("2026-06-05T15:00:00Z")),
     );
-    // L1226 "Default sort: `startedAt` descending."
+    // L1497 "Default sort: `startedAt` descending."
     let resp = call!(handle_vtc_livestream_query, &backend, BOB, json!({}));
     assert_eq!(resp["ids"], json!(["L2", "L1"]), "{resp}");
-    // L1218 `state` "Filter by livestream state."
+    // L1490 `state` "Filter by livestream state."
     let resp = call!(
         handle_vtc_livestream_query,
         &backend,
@@ -288,7 +293,7 @@ async fn query_defaults_to_started_at_descending() {
 
 #[tokio::test]
 async fn destroying_a_streaming_livestream_stops_it_first() {
-    // jmap-chat-spec 33702a5 draft-atwood-jmap-vtc-00.md L1274: "`destroy`
+    // L1478: "`destroy`
     // removes the VTCLivestream metadata. If the livestream is in state
     // `"starting"` or `"live"`, the server first stops it, so that no
     // orphaned stream keeps running after the metadata is removed."
@@ -327,7 +332,7 @@ async fn destroying_a_streaming_livestream_stops_it_first() {
 #[tokio::test]
 async fn query_other_sort_property_is_unsupported() {
     let backend = media_backend();
-    // L1293 "Sort properties: `startedAt`."; RFC 8620 §5.5
+    // L1497 "Sort properties: `startedAt`."; RFC 8620 §5.5
     // "unsupportedSort: The sort is syntactically valid, but includes a
     // property the server does not support sorting on".
     let Err(err) = handle_vtc_livestream_query(
