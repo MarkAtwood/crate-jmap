@@ -92,10 +92,11 @@ async fn get_message(backend: &MemoryBackend, msg_id: &str) -> Value {
     resp["list"][0].clone()
 }
 
-/// §Message/set, Creating a Message: "A create request with a non-empty
-/// `broadcastMentions` array MUST be rejected with `forbidden` when the
-/// target is a channel Chat and the sender lacks the `"mention_broadcast"`
-/// permission in its Space."
+/// §Message/set, Creating a Message (jmap-chat-spec 77c3474 L1224): "a
+/// create request with a non-empty `broadcastMentions` array is rejected
+/// with `forbidden` when the target is a channel Chat and the sender lacks
+/// the `"mention_broadcast"` permission in its Space." The governing
+/// §BroadcastMention rule (L462) is SHOULD; this crate rejects by choice.
 ///
 /// §BroadcastMention: "The `broadcastMentions` array is authoritative for
 /// every `bodyType`". A rich body is therefore gated on the array, not

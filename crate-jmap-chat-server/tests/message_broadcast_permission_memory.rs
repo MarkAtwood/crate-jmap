@@ -102,10 +102,11 @@ fn broadcast_message(chat_id: &str) -> Value {
 /// Space permission. Servers SHOULD reject `Message/set` create or update
 /// requests that would write a broadcast mention from a sender lacking
 /// this permission with `forbidden`" (jmap-chat-spec 77c3474 L462); this
-/// crate performs the recommended rejection by choice. §Message/set: "A create request
-/// with a non-empty `broadcastMentions` array MUST be rejected with
-/// `forbidden` when the target is a channel Chat and the sender lacks the
-/// `"mention_broadcast"` permission in its Space."
+/// crate performs the recommended rejection by choice. §Message/set
+/// (77c3474 L1224): "a create request with a non-empty
+/// `broadcastMentions` array is rejected with `forbidden` when the target
+/// is a channel Chat and the sender lacks the `"mention_broadcast"`
+/// permission in its Space."
 #[tokio::test]
 async fn create_in_channel_without_mention_broadcast_is_forbidden() {
     let backend = common::account_backend();

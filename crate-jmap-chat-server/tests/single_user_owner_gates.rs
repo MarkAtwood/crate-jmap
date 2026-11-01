@@ -87,9 +87,10 @@ async fn owner_without_identity_needs_manage_channels_for_add_channels() {
     assert_updated(&update_space(&owner_space(json!(["manage_channels"])), patch).await);
 }
 
-/// §Space/set, Updating a Space, `addRoles`: "Requires `"manage_roles"`.
-/// Members may only add roles whose `position` is strictly less than their
-/// own highest-position role; servers MUST enforce this."
+/// §Space/set, Updating a Space, `addRoles` (jmap-chat-spec 77c3474
+/// L1352): "Requires `"manage_roles"`. Members may only add roles whose
+/// `position` is strictly less than their own highest-position role;
+/// servers SHOULD enforce this." This crate enforces it by choice.
 #[tokio::test]
 async fn owner_without_identity_is_bound_by_add_roles_gates() {
     let role_at = |position: u64| json!({ "addRoles": [{ "name": "Mod", "permissions": [], "position": position }] });

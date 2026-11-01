@@ -95,10 +95,12 @@ async fn seed(backend: &TrackingBackend, message: Value) -> String {
         .to_owned()
 }
 
-/// "A create request with a non-empty `broadcastMentions` array MUST be
-/// rejected with `forbidden` when the target is a channel Chat and the
-/// sender lacks the `"mention_broadcast"` permission in its Space." Only
-/// such a create is gated, so a rich body without one is accepted.
+/// Creating a Message (jmap-chat-spec 77c3474 L1224): "a create request
+/// with a non-empty `broadcastMentions` array is rejected with `forbidden`
+/// when the target is a channel Chat and the sender lacks the
+/// `"mention_broadcast"` permission in its Space." The governing
+/// §BroadcastMention rule (L462) is SHOULD; this crate rejects by choice.
+/// Only such a create is gated, so a rich body without one is accepted.
 #[tokio::test]
 async fn create_rich_body_without_broadcast_span_is_accepted() {
     let backend = TrackingBackend::with_broadcast_mention_denied();
