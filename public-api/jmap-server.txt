@@ -76,6 +76,7 @@ impl core::marker::StructuralPartialEq for jmap_server::MergePatchError
 #[non_exhaustive] pub enum jmap_server::PatchPathError
 pub jmap_server::PatchPathError::DepthExceeded
 pub jmap_server::PatchPathError::InsideArray
+pub jmap_server::PatchPathError::InsideBinary
 pub jmap_server::PatchPathError::InvalidEscape
 pub jmap_server::PatchPathError::ParentMissing
 pub jmap_server::PatchPathError::ParentNotObject

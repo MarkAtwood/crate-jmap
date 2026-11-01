@@ -12,7 +12,7 @@
 //! - Depth validation ([`value_depth`],
 //!   [`exceeds_max_depth`]) and namespace support checking
 //!   ([`is_namespace_supported`]).
-//! - `/set` validation of the §3.2 rules 2 to 4 ([`check_metadata_write`]
+//! - `/set` validation of the §3.2 rules 2 to 5 ([`check_metadata_write`]
 //!   before applying a write, [`check_metadata_depth`] after).
 //! - Property-name classification for the
 //!   `ignoreMetadataOnlyChanges` request arg and the

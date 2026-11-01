@@ -37,6 +37,8 @@ use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
+use crate::validate::is_binary;
+
 /// Unescape a single RFC 6901 JSON Pointer reference token.
 ///
 /// RFC 6901 §3 allows `~` only as `~0` (for `~`) or `~1` (for `/`).
@@ -97,14 +99,20 @@ pub fn is_well_formed_metadata_path(path: &str) -> bool {
 ///
 /// Returns [`None`] if the namespace key is absent, if a later token is
 /// not a member of the object reached so far, or if the path would
-/// traverse an array or a scalar (-04 §3.6: "a path that would traverse
-/// an array or a scalar addresses no value"). Also returns [`None`] for a
-/// path that is not well formed.
+/// traverse an array, a scalar or a Binary value (-05 §3.6: "a path that
+/// would traverse an array, a scalar or a Binary value (Section 2.1.1)
+/// addresses no value"). Also returns [`None`] for a path that is not
+/// well formed.
 fn resolve_path<'a>(map: &'a Map<String, Value>, path: &str) -> Option<&'a Value> {
     let mut tokens = path.split('/');
     let ns = unescape_rfc6901(tokens.next()?)?;
     let mut value = map.get(ns.as_ref())?;
-    for token in tokens {
+    for (i, token) in tokens.enumerate() {
+        // A Binary is an object within the namespace value, never the
+        // namespace value itself (-05 §2.1.1).
+        if i > 0 && is_binary(value) {
+            return None;
+        }
         value = value.as_object()?.get(unescape_rfc6901(token)?.as_ref())?;
     }
     Some(value)
@@ -575,6 +583,41 @@ mod tests {
         // Key "a/b" is escaped as "a~1b" in the path.
         let map = json!({"ns": {"a/b": "found"}}).as_object().unwrap().clone();
         assert_eq!(resolve_path(&map, "ns/a~1b"), Some(&json!("found")));
+    }
+
+    #[test]
+    fn binary_members_are_not_addressable() {
+        // Oracle: -05 §2.1.1 — "a patch path or filter path cannot address
+        // its members, and the text-match filter conditions (Section 3.6)
+        // never match it"; §3.6 — "a path that would traverse ... a Binary
+        // value (Section 2.1.1) addresses no value". Map is the §2.1.1
+        // example.
+        let b64 = "VEVYVHR0eHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+        let map = json!({"acme.example.com": {
+            "label": "draft copy",
+            "thumbprint": {"@type": "Binary", "base64": b64}
+        }})
+        .as_object()
+        .unwrap()
+        .clone();
+        assert!(metadata_path_exists(&map, "acme.example.com/thumbprint"));
+        assert!(!metadata_path_exists(
+            &map,
+            "acme.example.com/thumbprint/base64"
+        ));
+        assert!(!metadata_path_exists(
+            &map,
+            "acme.example.com/thumbprint/@type"
+        ));
+        for path in [
+            "acme.example.com/thumbprint",
+            "acme.example.com/thumbprint/base64",
+        ] {
+            let m: MetadataTextMatch =
+                serde_json::from_value(json!({"path": path, "value": b64})).unwrap();
+            assert!(!metadata_text_equals(&map, &m), "{path}");
+            assert!(!metadata_text_contains(&map, &m), "{path}");
+        }
     }
 
     // -- metadata_path_exists ---------------------------------------------

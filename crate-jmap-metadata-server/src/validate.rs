@@ -23,6 +23,10 @@ use crate::changes::{METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY};
 /// Arrays do not add depth themselves, but objects inside them do:
 /// `{"x": [{"y": 1}]}` has depth 2.
 ///
+/// draft-ietf-jmap-metadata-05 §2.1 adds that a Binary value (§2.1.1,
+/// an object whose `@type` member is `"Binary"`) has depth 0, like a
+/// scalar.
+///
 /// §2.1 also requires every namespace value to be a JSON object. This
 /// function does not check that; the caller rejects a non-object value
 /// (see [`serde_json::Value::is_object`]) before measuring depth.
@@ -38,12 +42,56 @@ use crate::changes::{METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY};
 /// assert_eq!(value_depth(&json!({"a": 1})), 1);
 /// assert_eq!(value_depth(&json!({"key": {"nested": "val"}})), 2);
 /// assert_eq!(value_depth(&json!({"x": [{"y": 1}]})), 2);
+/// assert_eq!(value_depth(&json!({"t": {"@type": "Binary", "base64": "AA=="}})), 1);
 /// ```
 pub fn value_depth(value: &Value) -> u64 {
     match value {
+        Value::Object(_) if is_binary(value) => 0,
         Value::Object(map) => 1 + map.values().map(value_depth).max().unwrap_or(0),
         Value::Array(arr) => arr.iter().map(value_depth).max().unwrap_or(0),
         _ => 0,
+    }
+}
+
+/// Returns `true` if `value` is a Binary value: draft-ietf-jmap-metadata-05
+/// §2.1.1, "Any object within a namespace value that has an @type member
+/// with the value "Binary" is a Binary value."
+pub(crate) fn is_binary(value: &Value) -> bool {
+    value.get("@type").and_then(Value::as_str) == Some("Binary")
+}
+
+/// Returns `true` if `binary` is a well-formed Binary value
+/// (draft-ietf-jmap-metadata-05 §2.1.1): exactly the members `@type` and
+/// `base64`, the latter "encoded in base64 with padding (Section 4 of
+/// [RFC4648])".
+///
+/// ponytail: pad bits are not checked (`"AB=="` is accepted although its
+/// unused bits are not zero); -05 does not say, and the question is open
+/// on the list.
+fn is_well_formed_binary(binary: &Map<String, Value>) -> bool {
+    let Some(Value::String(b64)) = binary.get("base64") else {
+        return false;
+    };
+    let body = b64.trim_end_matches('=');
+    binary.len() == 2
+        && b64.len() % 4 == 0
+        && b64.len() - body.len() <= 2
+        && body
+            .bytes()
+            .all(|c| c.is_ascii_alphanumeric() || c == b'+' || c == b'/')
+}
+
+/// Returns `true` if a Binary value anywhere below `value` (not `value`
+/// itself) is malformed.
+fn contains_malformed_binary(value: &Value) -> bool {
+    let malformed = |child: &Value| match child {
+        Value::Object(map) if is_binary(child) => !is_well_formed_binary(map),
+        _ => contains_malformed_binary(child),
+    };
+    match value {
+        Value::Object(map) => map.values().any(malformed),
+        Value::Array(arr) => arr.iter().any(malformed),
+        _ => false,
     }
 }
 
@@ -125,7 +173,7 @@ pub enum SetKind {
 }
 
 /// A metadata write that `Foo/set` rejects with an `invalidProperties`
-/// SetError (draft-ietf-jmap-metadata-04 §2.1, §3.2 rules 2 to 4).
+/// SetError (draft-ietf-jmap-metadata-05 §2.1, §3.2 rules 2 to 5).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvalidMetadataWrite {
     property: String,
@@ -294,7 +342,7 @@ pub fn check_metadata_write(
     Ok(())
 }
 
-/// Check §3.2 rule 4 and the §2.1 object rule for every namespace a
+/// Check §3.2 rules 4 and 5 and the §2.1 object rule for every namespace a
 /// `Foo/set` entry wrote, after the backend has applied the write.
 ///
 /// `entry` is the same create object or PatchObject passed to
@@ -304,9 +352,14 @@ pub fn check_metadata_write(
 /// object (§2.1: "The value associated with each namespace key MUST be
 /// a JSON object") whose depth does not exceed `info.max_depth` (§2.1:
 /// "servers MUST reject writes that would exceed it with an
-/// "invalidProperties" SetError"). Unsupported namespaces are skipped:
-/// [`check_metadata_write`] has already limited them to removal or the
-/// stored value.
+/// "invalidProperties" SetError"). Then, as §3.2 rule 5 of
+/// draft-ietf-jmap-metadata-05, no namespace value may contain a
+/// malformed Binary value (§2.1.1: "A Binary value that has any other
+/// member, or whose base64 member is not valid base64 with padding, is
+/// malformed"). Rule 4 is checked for every namespace before rule 5, as
+/// §3.2 requires ("the first matching rule determines the SetError").
+/// Unsupported namespaces are skipped: [`check_metadata_write`] has
+/// already limited them to removal or the stored value.
 ///
 /// # Errors
 ///
@@ -334,6 +387,7 @@ pub fn check_metadata_depth(
     written: &Map<String, Value>,
     info: &DataTypeMetadataInfo,
 ) -> Result<(), InvalidMetadataWrite> {
+    let mut values = Vec::new();
     for (key, value) in entry {
         let Some((root, rest)) = metadata_target(key) else {
             continue;
@@ -368,9 +422,19 @@ pub fn check_metadata_depth(
                     format!("namespace {ns:?} value exceeds maxDepth {max}"),
                 ));
             }
+            values.push((key, ns, ns_value));
         }
     }
-    Ok(())
+    match values
+        .into_iter()
+        .find(|(.., ns_value)| contains_malformed_binary(ns_value))
+    {
+        Some((key, ns, _)) => Err(InvalidMetadataWrite::new(
+            key,
+            format!("namespace {ns:?} value contains a malformed Binary value"),
+        )),
+        None => Ok(()),
+    }
 }
 
 #[cfg(test)]
@@ -849,5 +913,123 @@ mod tests {
         let written = json!({"metadata": {"y.example": {"deep": {"deeper": 1}}}});
         assert!(depth(json!({"metadata/x.example": null}), written.clone(), &info).is_ok());
         assert!(depth(json!({"name": "n"}), written, &info).is_ok());
+    }
+
+    // -- Binary values (draft-ietf-jmap-metadata-05 §2.1.1) ---------------
+
+    /// The -05 §2.1.1 example: "a vendor namespace holding a 32-byte
+    /// value".
+    fn spec_binary_namespace() -> Value {
+        json!({
+            "label": "draft copy",
+            "thumbprint": {
+                "@type": "Binary",
+                "base64": "VEVYVHR0eHQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            }
+        })
+    }
+
+    #[test]
+    fn depth_binary_counts_as_scalar() {
+        // Oracle: -05 §2.1 — "a scalar (string, number, boolean or null)
+        // or a Binary value (Section 2.1.1) has depth 0"; the example
+        // namespace value is therefore an object of depth-0 members.
+        assert_eq!(value_depth(&spec_binary_namespace()), 1);
+        assert_eq!(
+            value_depth(&json!({"l": [{"@type": "Binary", "base64": ""}]})),
+            1
+        );
+    }
+
+    #[test]
+    fn binary_spec_example_accepted_at_max_depth_1() {
+        // Oracle: -05 §2.1.1 example, written whole and by patch.
+        let info = vendor_info(1);
+        let ns = spec_binary_namespace();
+        assert!(
+            depth(
+                json!({"metadata": {"acme.example.com": ns}}),
+                json!({"metadata": {"acme.example.com": ns}}),
+                &info
+            )
+            .is_ok()
+        );
+        assert!(
+            depth(
+                json!({"metadata/acme.example.com/thumbprint": ns["thumbprint"]}),
+                json!({"metadata": {"acme.example.com": ns}}),
+                &info
+            )
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn malformed_binary_rejected() {
+        // Oracle: -05 §2.1.1 — "A Binary value that has any other member,
+        // or whose base64 member is not valid base64 with padding, is
+        // malformed"; §3.2 rule 5 — "reject with "invalidProperties"".
+        // RFC 4648 §4: "AA" is unpadded, "A===" has three pad characters,
+        // "A*==" uses a character outside the alphabet, "AA=A" pads
+        // mid-string, and "AA-_" is the base64url alphabet of §5.
+        let info = vendor_info(3);
+        let malformed = [
+            json!({"@type": "Binary", "base64": "AA==", "extra": 1}),
+            json!({"@type": "Binary"}),
+            json!({"@type": "Binary", "base64": 7}),
+            json!({"@type": "Binary", "base64": "AA"}),
+            json!({"@type": "Binary", "base64": "A==="}),
+            json!({"@type": "Binary", "base64": "A*=="}),
+            json!({"@type": "Binary", "base64": "AA=A"}),
+            json!({"@type": "Binary", "base64": "AA-_"}),
+        ];
+        for bin in malformed {
+            for ns_value in [json!({"b": bin}), json!({"l": [{"deep": bin}]})] {
+                let err = depth(
+                    json!({"privateMetadata/x.example": ns_value}),
+                    json!({"privateMetadata": {"x.example": ns_value}}),
+                    &info,
+                )
+                .expect_err("malformed Binary must be rejected");
+                assert_eq!(err.property(), "privateMetadata/x.example", "{ns_value}");
+            }
+        }
+    }
+
+    #[test]
+    fn well_formed_binary_variants_accepted() {
+        // Oracle: RFC 4648 §10 test vectors: BASE64("") = "",
+        // BASE64("f") = "Zg==", BASE64("foo") = "Zm9v", BASE64("fooba") = "Zm9vYmE=";
+        // "+/+/" uses the two non-alphanumeric characters of the §4 alphabet.
+        let info = vendor_info(3);
+        for b64 in ["", "Zg==", "Zm9v", "Zm9vYmE=", "+/+/"] {
+            let ns_value = json!({"b": {"@type": "Binary", "base64": b64}});
+            assert!(
+                depth(
+                    json!({"metadata": {"x.example": ns_value}}),
+                    json!({"metadata": {"x.example": ns_value}}),
+                    &info
+                )
+                .is_ok(),
+                "{b64:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn depth_rule_precedes_malformed_binary_rule() {
+        // Oracle: -05 §3.2 — rules are evaluated "in the order listed; the
+        // first matching rule determines the SetError": rule 4 (maxDepth)
+        // before rule 5 (malformed Binary), across namespaces.
+        let info = vendor_info(1);
+        let bad_bin = json!({"b": {"@type": "Binary", "base64": "AA"}});
+        let too_deep = json!({"a": {"b": 1}});
+        let err = depth(
+            json!({"metadata/a.example": bad_bin, "metadata/b.example": too_deep}),
+            json!({"metadata": {"a.example": bad_bin, "b.example": too_deep}}),
+            &info,
+        )
+        .unwrap_err();
+        assert_eq!(err.property(), "metadata/b.example");
     }
 }
