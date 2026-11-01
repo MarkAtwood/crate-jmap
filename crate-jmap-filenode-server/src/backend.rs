@@ -475,7 +475,9 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns whether a blob exists in the given account.
     ///
     /// Used by `FileNode/set` to validate `blobId` fields before creating or
-    /// updating a file node with `@type` `"File"`.
+    /// updating a file node with `@type` `"File"`, and by `FileNode/copy`
+    /// to check that a copied `File` node's blob exists in the destination
+    /// account.
     ///
     /// # Three-way result
     ///
