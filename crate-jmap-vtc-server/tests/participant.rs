@@ -212,6 +212,27 @@ async fn server_set_properties_are_refused_on_create() {
 }
 
 #[tokio::test]
+async fn e2ee_fingerprint_is_server_set() {
+    let backend = room();
+    // L397 "`e2eeFingerprint` (String|null, server-set)": "as reported by
+    // the media layer", so a client may neither create nor update it.
+    let err = join_with(&backend, ALICE, "C1", json!({"e2eeFingerprint": "AB:CD"}))
+        .await
+        .unwrap_err();
+    assert_error(&err, "invalidProperties", Some(&["e2eeFingerprint"]));
+
+    let id = id_of(&join(&backend, ALICE, "C1").await);
+    let err = pupdate(&backend, ALICE, &id, json!({"e2eeFingerprint": "AB:CD"}))
+        .await
+        .unwrap_err();
+    assert_error(&err, "invalidProperties", Some(&["e2eeFingerprint"]));
+    assert_eq!(
+        participant(&backend, &id).await["e2eeFingerprint"],
+        json!(null)
+    );
+}
+
+#[tokio::test]
 async fn joining_a_pending_scheduled_call_activates_it() {
     let backend = backend();
     seed(
@@ -976,6 +997,37 @@ async fn pending_signal_is_relayed_to_the_gateway_and_not_stored() {
     assert_eq!(s.data["referTo"], "sip:bob@example.com");
     // L1678 "`"outbound"` (from a moderator toward the external party)".
     assert_eq!(s.direction, SignalDirection::Outbound);
+    assert_eq!(
+        participant(&backend, "PG").await["gatewayData"],
+        json!({"callerIdNumber": "+14155559876"})
+    );
+}
+
+#[tokio::test]
+async fn gateway_data_is_updated_only_through_pending_signal() {
+    let backend = room_backend(gateway_capability(), json!({}));
+    seed_participant(
+        &backend,
+        record(
+            "PG",
+            "C1",
+            None,
+            "participant",
+            Some("2026-06-05T14:32:00Z"),
+        ),
+    );
+    // L380 "a `VTCParticipant/set` update can change it only through the
+    // reserved `"pendingSignal"` key." The stored value is
+    // {"callerIdNumber": "+14155559876"}.
+    let err = pupdate(
+        &backend,
+        BOB,
+        "PG",
+        json!({"gatewayData": {"callerIdNumber": "+15550000000"}}),
+    )
+    .await
+    .unwrap_err();
+    assert_error(&err, "invalidProperties", Some(&["gatewayData"]));
     assert_eq!(
         participant(&backend, "PG").await["gatewayData"],
         json!({"callerIdNumber": "+14155559876"})
