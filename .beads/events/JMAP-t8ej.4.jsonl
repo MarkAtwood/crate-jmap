@@ -1,0 +1,2 @@
+{"id":"01a1981a-f5db-7b44-aed3-039fedc9aa03","issue_id":"JMAP-t8ej.4","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-11-01T17:14:26.139739576Z"}
+{"id":"01a1981c-6b87-705e-95c4-75fb02e9eff8","issue_id":"JMAP-t8ej.4","event_type":"closed","actor":"agent","old_value":"","new_value":"Audit done: 9e1bedb partial (test gap -\u003e bead filed), d26da84 incorporated, 72ee8bb n/a consistent, 4ffb96e scene parts no contradicting code","created_at":"2026-11-01T17:16:01.799024745Z"}

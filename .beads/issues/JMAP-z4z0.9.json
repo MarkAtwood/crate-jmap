@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-z4z0.9",
+  "title": "Fix stale VTCLivestream destroy quote in livestream test",
+  "description": "Found in batch 38 (JMAP-z4z0.8): three quotes it did not check. Checked 2026-11-01 against jmap-chat-spec 77c3474:\n- crate-jmap-chat-server/src/message.rs:1880 (deletedForAll / edit rule): CORRECT. chat L1266 'Servers MUST reject deletedForAll: true for messages where senderId is not the accountId with a forbidden SetError' and L1228 'The server MUST reject an edit of any other message with a forbidden SetError'. No change.\n- crate-jmap-chat-federation-server/src/deliver.rs:628: CORRECT, verbatim at federation L1313 'both servers MUST adopt min(X, Y) (lexicographically smaller)'. No change.\n- crate-jmap-vtc-server/tests/livestream.rs:108: STALE. Quotes 'L1207 The server MUST return forbidden when the caller is not a moderator.' That sentence was in the VTCLivestream destroy section at 3227c0f L1207 and is gone at 77c3474. The governing text is now vtc L1356 'Only participants with role: \"moderator\" ... MAY create, update, or destroy VTCLivestream objects. Non-moderators SHOULD receive forbidden.', already quoted a few lines up at livestream.rs:100. Fix: drop the L1207 quote and let the destroy assertion rely on the L1356 quote above (enforced by this crate's choice). Comment-only; no assertion change.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T06:12:17.067792985Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T06:26:50.168032149Z",
+  "closed_at": "2026-11-01T06:26:50.168032149Z",
+  "close_reason": "Batch 40: e9e06a9e; stale 'MUST return forbidden when the caller is not a moderator' quote removed from livestream.rs and media.rs destroy_media doc; local CI green 6741",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-z4z0.9",
+      "depends_on_id": "JMAP-z4z0",
+      "type": "parent-child",
+      "created_at": "2026-11-01T06:12:17.196037954Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

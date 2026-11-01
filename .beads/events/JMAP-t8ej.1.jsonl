@@ -1,0 +1,2 @@
+{"id":"01a1981a-f1a0-7d87-93fc-7197f2cc3226","issue_id":"JMAP-t8ej.1","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-11-01T17:14:25.056887705Z"}
+{"id":"01a1981d-8c16-7376-a5d8-60054743f926","issue_id":"JMAP-t8ej.1","event_type":"closed","actor":"agent","old_value":"","new_value":"Audit done: all chat commits incorporated or N/A; 639dc1d c/d test gaps -\u003e JMAP-t8ej.13","created_at":"2026-11-01T17:17:15.67022762Z"}
