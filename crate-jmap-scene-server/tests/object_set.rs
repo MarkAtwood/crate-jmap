@@ -531,6 +531,43 @@ async fn region_id_is_immutable() {
 }
 
 #[tokio::test]
+async fn vendor_extension_properties_are_patchable() {
+    // 77c3474 L736 "A server that stores vendor extension properties on a
+    // Scene object (properties this document does not define) MAY also
+    // accept patches to them."
+    let backend = setup();
+    let id = create(&backend, sculpture()).await;
+    let resp = update(
+        &backend,
+        ALICE,
+        &id,
+        json!({ "vendor.example:tag": 1, "name": "Renamed" }),
+    )
+    .await;
+    assert!(resp["updated"][&id].is_object(), "{resp}");
+    let o = &get(&backend, &id).await["list"][0];
+    assert_eq!(o["vendor.example:tag"], json!(1));
+    assert_eq!(o["name"], json!("Renamed"));
+}
+
+#[tokio::test]
+async fn vendor_extension_does_not_excuse_an_immutable_patch() {
+    // 77c3474 L736 "Patches to a property this document defines as
+    // immutable or server-set are rejected as {{RFC8620}} Section 5.3
+    // describes"; L1536 "`regionId` is immutable". RFC 8620 §5.3
+    // `invalidProperties` lists the offending properties: only `regionId`.
+    let backend = setup();
+    let id = create(&backend, bare(REGION)).await;
+    let err = update_error(
+        &backend,
+        &id,
+        json!({ "vendor.example:tag": 1, "regionId": OTHER_REGION }),
+    )
+    .await;
+    assert_invalid(&err, &["regionId"]);
+}
+
+#[tokio::test]
 async fn update_applies_the_create_validations() {
     // L1701 "Same field-level validations as create: non-finite
     // position/orientation, invalid `physicsMode`, `visualRef`/`visualType`
