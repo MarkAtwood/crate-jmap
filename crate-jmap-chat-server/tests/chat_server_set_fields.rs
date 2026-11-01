@@ -6,6 +6,15 @@
 //! themselves: `activeCallId` is not a `Chat/set` patch key." and
 //! §Chat `activeCallAccountId`: "Like `activeCallId`, it is not a
 //! `Chat/set` patch key."
+//!
+//! jmap-chat-spec 77c3474 draft-atwood-jmap-chat-00 L613-625:
+//! "`categoryId` (String, optional, server-set)", "`position`
+//! (UnsignedInt, optional, server-set)", "`slowModeSeconds` (UnsignedInt,
+//! server-set)" and "`permissionOverrides` (ChannelPermission\[],
+//! server-set)", each changed "through `Space/set` ..., not through
+//! `Chat/set`" (bd:JMAP-t8ej.13). RFC 8620 §5.3 `invalidProperties`: "It
+//! contains a property that may only be set by the server ... and is
+//! different to the current value."
 
 mod common;
 
@@ -88,5 +97,30 @@ async fn chat_set_rejects_server_set_closed_at_and_active_call_id() {
             chat["activeCallAccountId"], "shared1",
             "{key}: {value}: {chat}"
         );
+    }
+}
+
+#[tokio::test]
+async fn chat_set_rejects_server_set_channel_fields() {
+    let backend = MemoryBackend::new();
+    seed_closed_group(&backend);
+    let before = stored(&backend).await;
+
+    for (key, value) in [
+        ("categoryId", json!("cat1")),
+        ("position", json!(3)),
+        ("slowModeSeconds", json!(30)),
+        (
+            "permissionOverrides",
+            json!([{ "targetId": "r1", "targetType": "role", "allow": [], "deny": [] }]),
+        ),
+    ] {
+        let resp = update(&backend, json!({ key: value })).await;
+        assert_eq!(
+            resp["notUpdated"][CHAT],
+            json!({ "type": "invalidProperties", "properties": [key] }),
+            "{key}: {resp}"
+        );
+        assert_eq!(stored(&backend).await, before, "{key}: Chat unchanged");
     }
 }
