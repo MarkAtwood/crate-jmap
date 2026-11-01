@@ -300,3 +300,26 @@ async fn backend_faults_fail_the_target_with_server_fail() {
         );
     }
 }
+
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value". The stored
+/// `id`, `bannedBy`, `createdAt` and immutable `spaceId` and `userId` sent
+/// unchanged beside a `reason` change update the ban (bd:JMAP-t8ej.23).
+#[tokio::test]
+async fn update_with_identical_read_only_values_is_updated() {
+    let resp = set(
+        &seeded(),
+        json!({ "update": { BAN_ID: {
+            "id": BAN_ID,
+            "spaceId": SPACE_ID,
+            "userId": "target",
+            "bannedBy": ACCOUNT_ID,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "reason": "x",
+        } } }),
+    )
+    .await
+    .expect("SpaceBan/set");
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+    assert!(resp["updated"].get(BAN_ID).is_some(), "{resp}");
+}

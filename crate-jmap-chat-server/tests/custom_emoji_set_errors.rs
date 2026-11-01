@@ -466,3 +466,25 @@ async fn backend_faults_fail_the_target_with_server_fail() {
         );
     }
 }
+
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value". The stored
+/// `id`, `createdBy`, `createdAt` and immutable `spaceId` sent unchanged
+/// beside a `name` change update the emoji (bd:JMAP-t8ej.23).
+#[tokio::test]
+async fn update_with_identical_read_only_values_is_updated() {
+    let resp = set(
+        &injectable(),
+        json!({ "update": { SPACE_EMOJI: {
+            "id": SPACE_EMOJI,
+            "spaceId": SPACE_ID,
+            "createdBy": ACCOUNT_ID,
+            "createdAt": "2026-01-01T00:00:00Z",
+            "name": "renamed",
+        } } }),
+    )
+    .await
+    .expect("CustomEmoji/set");
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+    assert!(resp["updated"].get(SPACE_EMOJI).is_some(), "{resp}");
+}

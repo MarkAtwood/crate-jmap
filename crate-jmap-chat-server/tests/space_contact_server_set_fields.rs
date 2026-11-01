@@ -178,3 +178,85 @@ async fn contact_update_with_endpoints_is_invalid_properties() {
     );
     assert_eq!(stored_contact(&backend).await, before);
 }
+
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value (before
+/// applying the patches to the object)." and "an entire Foo object is also
+/// a valid PatchObject". So the Space as `Space/get` returns it, with only
+/// `name` changed, updates (bd:JMAP-t8ej.23).
+#[tokio::test]
+async fn space_update_with_identical_server_set_values_is_updated() {
+    let backend = backend();
+    let resp = space_set(
+        &backend,
+        json!({ "accountId": ACCOUNT_ID, "create": { "s0": { "name": "Team" } } }),
+    )
+    .await;
+    let id = resp["created"]["s0"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("Space not created: {resp}"))
+        .to_owned();
+    let mut whole = all_spaces(&backend).await[0].clone();
+    for key in [
+        "id",
+        "roles",
+        "members",
+        "categories",
+        "uncategorizedChannelIds",
+    ] {
+        assert!(whole.get(key).is_some(), "Space/get returns {key}: {whole}");
+    }
+    whole["name"] = json!("Renamed");
+
+    let resp = space_set(
+        &backend,
+        json!({ "accountId": ACCOUNT_ID, "update": { &id: whole } }),
+    )
+    .await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert!(resp["updated"].get(&id).is_some(), "{resp}");
+    assert_eq!(all_spaces(&backend).await[0]["name"], json!("Renamed"));
+}
+
+/// RFC 8620 §5.3, as above: `login` and `id` repeated with their stored
+/// values beside a `displayName` change update the ChatContact
+/// (bd:JMAP-t8ej.23).
+#[tokio::test]
+async fn contact_update_with_identical_server_set_values_is_updated() {
+    let backend = backend();
+    backend.insert_object_for_test(
+        "ChatContact",
+        ACCOUNT_ID,
+        CONTACT,
+        json!({
+            "id": CONTACT,
+            "identity": "alice@example.com",
+            "login": "alice@example.com",
+            "firstSeenAt": "2026-01-01T00:00:00Z",
+            "lastSeenAt": "2026-01-01T00:00:00Z",
+            "blocked": false,
+        }),
+    );
+
+    let HandlerOutput { primary: resp, .. } = handle_contact_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT_ID,
+            "update": { CONTACT: {
+                "id": CONTACT,
+                "identity": "alice@example.com",
+                "login": "alice@example.com",
+                "displayName": "Alice",
+            } },
+        }),
+    )
+    .await
+    .expect("ChatContact/set");
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert!(resp["updated"].get(CONTACT).is_some(), "{resp}");
+    assert_eq!(
+        stored_contact(&backend).await["displayName"],
+        json!("Alice")
+    );
+}

@@ -4009,20 +4009,35 @@ async fn space_get_returns_created() {
 }
 
 /// Oracle: Space/set update rejects direct writes to server-managed array fields.
+///
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value ...
+/// Otherwise, the update MUST be rejected with an "invalidProperties"
+/// SetError." A new Space has no categories or uncategorized channels, so
+/// those two get non-empty values; `[]` differs from the owner's stored
+/// role and membership.
 #[tokio::test]
 async fn space_set_update_readonly_fields_rejected() {
     let backend = common::account_backend();
 
     let space_id = make_space(&backend, "Readonly Test").await;
 
-    for field in &["roles", "members", "categories", "uncategorizedChannelIds"] {
+    for (field, value) in [
+        ("roles", json!([])),
+        ("members", json!([])),
+        (
+            "categories",
+            json!([{ "id": "cat9", "name": "Ops", "position": 0, "channelIds": [] }]),
+        ),
+        ("uncategorizedChannelIds", json!(["chan9"])),
+    ] {
         let HandlerOutput { primary: resp, .. } = handle_space_set(
             &backend,
             &(),
             &std::collections::BTreeMap::new(),
             json!({
                 "accountId": ACCOUNT_ID,
-                "update": { &space_id: { (*field): [] } }
+                "update": { &space_id: { field: value } }
             }),
             &[],
         )

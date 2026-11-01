@@ -173,3 +173,21 @@ async fn destroy_with_non_string_element_is_invalid_arguments() {
         "invalidArguments",
     );
 }
+
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value". The stored
+/// `id` and immutable `chatId` sent unchanged beside a
+/// `lastReadMessageId` change update the ReadPosition (bd:JMAP-t8ej.23).
+#[tokio::test]
+async fn update_with_identical_read_only_values_is_updated() {
+    let backend = seeded();
+    let resp = set(
+        &backend,
+        json!({ "update": { RP_ID: { "id": RP_ID, "chatId": "c1", "lastReadMessageId": "m1" } } }),
+    )
+    .await
+    .expect("ReadPosition/set");
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+    assert!(resp["updated"].get(RP_ID).is_some(), "{resp}");
+    assert_eq!(stored(&backend).await["lastReadMessageId"], json!("m1"));
+}
