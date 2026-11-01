@@ -246,13 +246,15 @@ async fn objects_outside_the_visibility_set_are_hidden() {
     assert_eq!(query["ids"], json!([O1, O2]), "{query}");
 }
 
-/// L2350: "When a client attempts to interact with an object that is no
-/// longer within the client's visibility set ... the server MAY return
-/// `notFound` for JMAP method calls (`SceneObject/set`, `SceneObject/get`)
-/// targeting that object ... The server MUST NOT return `forbidden`, as
-/// that would confirm the object still exists." L2377: "All other users
-/// MUST receive `forbidden` for `SceneObject/set` updates or destroys
-/// targeting objects they do not own" applies to the visible [`O2`].
+/// jmap-chat-spec 77c3474 L2663: "When a client targets an object that is
+/// no longer within the client's visibility set ... the server MAY return
+/// `notFound` for JMAP method calls (`SceneObject/set`, `SceneObject/get`,
+/// `SceneObject/interact`) targeting that object. The server SHOULD NOT
+/// return `forbidden`, as that would confirm the object still exists."
+/// L2692: "The server SHOULD return `forbidden` to all other users for
+/// `SceneObject/set` updates or destroys targeting objects they do not
+/// own" applies to the visible [`O2`]. This crate follows both
+/// recommendations by choice.
 #[tokio::test]
 async fn set_on_a_hidden_object_is_not_found_never_forbidden() {
     let backend = scene();
