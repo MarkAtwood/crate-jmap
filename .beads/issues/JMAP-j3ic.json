@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-j3ic",
+  "title": "Calendars: compute isOrigin from account addresses, not caller",
+  "description": "compute_is_origin (crate-jmap-calendars-server/src/event.rs:248-262) loads ParticipantIdentity with the caller's context. Since calendars -32 those are per user, so isOrigin on a shared account can depend on who created or edited the event. Neil Jenkins on jmap@ (2026-10-19, thread 'draft-ietf-jmap-calendars-33: how does the server determine isOrigin?'): 'isOrigin should not depend on the user accessing the calendar; it should be the same for everyone.' Mark told the list on 2026-11-01 it would change to an account-level set.\n\nDone when: isOrigin uses one account-level set of addresses the account receives at (server-defined; e.g. the union of all users' ParticipantIdentity calendarAddress values, or the account's own addresses), independent of caller; a test shows two users with different identities on the same account get the same isOrigin. Keep the existing timing: compute on create and on organizerCalendarAddress change only (the ponytail comment about no recompute on identity change stays correct).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T05:14:10.898359882Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T05:14:10.898359882Z"
+}
