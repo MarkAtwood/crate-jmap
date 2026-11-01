@@ -351,6 +351,47 @@ async fn only_name_asset_uri_and_sha256_are_patchable() {
 }
 
 #[tokio::test]
+async fn vendor_extension_properties_are_patchable() {
+    // 77c3474 L736 "A server that stores vendor extension properties on a
+    // Scene object (properties this document does not define) MAY also
+    // accept patches to them."
+    let backend = seeded();
+    update(
+        &backend,
+        ALICE,
+        json!({ "vendor.example:tag": 1, "name": "Renamed" }),
+    )
+    .await
+    .unwrap();
+    let got = call!(
+        handle_scene_asset_get,
+        &backend,
+        ALICE,
+        json!({ "ids": ["S1"] })
+    );
+    assert_eq!(got["list"][0]["vendor.example:tag"], json!(1));
+    assert_eq!(got["list"][0]["name"], json!("Renamed"));
+}
+
+#[tokio::test]
+async fn vendor_extension_does_not_excuse_an_immutable_patch() {
+    // 77c3474 L736 "Patches to a property this document defines as
+    // immutable or server-set are rejected as {{RFC8620}} Section 5.3
+    // describes": RFC 8620 §5.3 `invalidProperties` lists the offending
+    // properties, so only `blobId`, not the vendor key.
+    let backend = seeded();
+    let err = update(
+        &backend,
+        ALICE,
+        json!({ "vendor.example:tag": 1, "blobId": "Gother" }),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(err["type"], json!("invalidProperties"));
+    assert_eq!(properties(&err), ["blobId"]);
+}
+
+#[tokio::test]
 async fn created_asset_is_owned_by_its_creator() {
     // 6bcd9d8 L275-276 `ownerId`: "The userId of the user who created this
     // asset"; L850 "Caller is not the asset's `ownerId` and lacks admin
