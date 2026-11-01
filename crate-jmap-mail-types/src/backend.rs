@@ -214,7 +214,7 @@ impl GetObject for crate::Mailbox {}
 
 /// RFC 8621 §2 (rfc8621.txt:487, 554, 567, 572, 577, 623): `id` is
 /// "(immutable; server-set)"; the four counts and `myRights` are
-/// "(server-set)". draft-ietf-jmap-metadata-04 §3.2: clients write
+/// "(server-set)". draft-ietf-jmap-metadata-05 §3.2: clients write
 /// `metadata` and `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Mailbox {
     type Patch = PatchObject;
