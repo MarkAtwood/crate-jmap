@@ -9,8 +9,8 @@
 //!
 //! jmap-chat-spec 77c3474 draft-atwood-jmap-chat-00 L613-625:
 //! "`categoryId` (String, optional, server-set)", "`position`
-//! (UnsignedInt, optional, server-set)", "`slowModeSeconds` (UnsignedInt,
-//! server-set)" and "`permissionOverrides` (ChannelPermission\[],
+//! (UnsignedInt, optional, server-set)", "`topic` (String, optional,
+//! server-set)" (L619), "`slowModeSeconds` (UnsignedInt, server-set)" and "`permissionOverrides` (ChannelPermission\[],
 //! server-set)", each changed "through `Space/set` ..., not through
 //! `Chat/set`" (bd:JMAP-t8ej.13). RFC 8620 §5.3 `invalidProperties`: "It
 //! contains a property that may only be set by the server ... and is
@@ -109,6 +109,7 @@ async fn chat_set_rejects_server_set_channel_fields() {
     for (key, value) in [
         ("categoryId", json!("cat1")),
         ("position", json!(3)),
+        ("topic", json!("New topic")),
         ("slowModeSeconds", json!(30)),
         (
             "permissionOverrides",

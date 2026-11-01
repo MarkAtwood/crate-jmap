@@ -132,7 +132,8 @@ async fn subscribe_reports_invisible_as_offline() {
 
 // --- Peer/unsubscribePresence -----------------------------------------
 
-/// fed L721: `subscriberId` "MUST match the peer identity."
+/// fed L1101 (jmap-chat-spec 77c3474): `subscriberId` "MUST be a peer
+/// identity of the request".
 #[tokio::test]
 async fn unsubscribe_rejects_other_subscriber() {
     let fed = Fed::new();
@@ -167,8 +168,9 @@ async fn unsubscribe_cancels_and_succeeds_without_subscription() {
 
 // --- Peer/presence ----------------------------------------------------
 
-/// fed L740: `identity` "MUST match the peer identity; the receiver MUST
-/// reject the request if they differ." Carol's ChatContact is untouched.
+/// fed L1152 (jmap-chat-spec 77c3474): `identity` "MUST be a peer identity
+/// of the request ...; the receiver MUST reject the request if it is not."
+/// Carol's ChatContact is untouched.
 #[tokio::test]
 async fn presence_rejects_other_identity() {
     let fed = Fed::new();

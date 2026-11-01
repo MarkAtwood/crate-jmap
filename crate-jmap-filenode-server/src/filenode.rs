@@ -4066,6 +4066,49 @@ mod tests {
         assert_eq!(resp["created"]["c2"]["blobId"], "b-absent-in-src", "{resp}");
     }
 
+    /// Oracle: FileNodeBackend::blob_exists contract, "`Err(_)` —
+    /// connectivity/transient failure. The handler maps this to
+    /// `serverFail` so the client knows to retry", not to the
+    /// `invalidProperties` of an absent blob. On `FileNode/copy` the
+    /// failure is per create entry: the one-shot fault rejects only the
+    /// first copy, and the second still lands.
+    #[tokio::test]
+    async fn copy_blob_exists_err_is_per_entry_server_fail() {
+        let backend = FaultyBackend {
+            inner: MemoryBackend::new()
+                .with_account(&Id::from("acc1"))
+                .with_account(&Id::from("acc2")),
+            faults: std::sync::Arc::default(),
+        };
+        let file = |id: &str| -> FileNode {
+            serde_json::from_value(json!({
+                "id": id, "name": id, "parentId": null, "role": null,
+                "@type": "File", "blobId": "b1", "size": 0,
+                "created": "1970-01-01T00:00:00Z", "modified": "1970-01-01T00:00:00Z"
+            }))
+            .expect("File fixture")
+        };
+        backend.seed_node("acc1", file("f1"));
+        backend.seed_node("acc1", file("f2"));
+        backend.inject_blob_exists_err("simulated S3 timeout");
+
+        let args = json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc2",
+            "create": {
+                "c1": { "id": "f1" },
+                "c2": { "id": "f2" }
+            }
+        });
+        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+            .await
+            .expect("blob_exists Err must not fail the whole call")
+            .primary;
+        assert_eq!(resp["notCreated"]["c1"]["type"], "serverFail", "{resp}");
+        assert!(resp["created"].get("c1").is_none(), "{resp}");
+        assert_eq!(resp["created"]["c2"]["blobId"], "b1", "{resp}");
+    }
+
     /// Oracle: FileNodeBackend::files_rights contract (as for
     /// `set_create_files_rights_err_keeps_create`), for `FileNode/copy`.
     #[tokio::test]
