@@ -39,6 +39,7 @@ use jmap_chat_types::{CustomEmojiComparator, CustomEmojiFilter};
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{Value, json};
 
+use crate::helpers::check_read_only_patch;
 use crate::helpers::resolved_create;
 use crate::helpers::{PropType, mistyped_create_props};
 use crate::helpers::{
@@ -49,8 +50,7 @@ use crate::helpers::{
 use crate::{ChatBackend, EmojiSetOp};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
-    query_anchor_args, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    query_anchor_args, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -498,7 +498,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -509,11 +509,16 @@ pub async fn handle_emoji_set<B: ChatBackend>(
 
             // §CustomEmoji: `id`, `createdBy` and `createdAt` are
             // server-set; `spaceId` is set only on create.
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|m| reject_read_only_patch::<CustomEmoji>(m, None))
+            if let Err(err) = check_read_only_patch::<_, CustomEmoji>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                &mut patch_val,
+            )
+            .await
             {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
+                not_updated.insert(id_str, err);
                 continue;
             }
 

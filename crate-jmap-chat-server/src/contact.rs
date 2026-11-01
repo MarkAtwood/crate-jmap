@@ -36,6 +36,7 @@ use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{Value, json};
 
 use crate::ChatBackend;
+use crate::helpers::check_read_only_patch;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, optional_arg, reject_unsupported_sort,
@@ -43,7 +44,7 @@ use crate::helpers::{
 };
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
-    query_anchor_args, reject_read_only_patch, server_fail_from_backend,
+    query_anchor_args, server_fail_from_backend,
 };
 use jmap_server::{SetError, SetErrorType};
 
@@ -313,7 +314,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
     // update
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch_val) in update_map {
+        for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
@@ -324,11 +325,16 @@ pub async fn handle_contact_set<B: ChatBackend>(
 
             // Reject patches to server-set or immutable ChatContact
             // properties (§ChatContact).
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|m| reject_read_only_patch::<ChatContact>(m, None))
+            if let Err(err) = check_read_only_patch::<_, ChatContact>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                &mut patch_val,
+            )
+            .await
             {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
+                not_updated.insert(id_str, err);
                 continue;
             }
 

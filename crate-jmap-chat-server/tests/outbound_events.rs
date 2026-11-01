@@ -1035,3 +1035,24 @@ async fn receipt_sharing_change_reports_no_presence() {
     assert!(resp["updated"].get("ps1").is_some(), "{resp}");
     assert_eq!(backend.take_outbound_events_for_test(), vec![]);
 }
+
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value". The stored
+/// `id` and `updatedAt` sent unchanged beside a presence change update the
+/// PresenceStatus and still report `Peer/presence` (bd:JMAP-t8ej.23).
+#[tokio::test]
+async fn presence_change_with_identical_server_set_values_reports_presence() {
+    let backend = backend();
+    seed_presence(&backend, true);
+    let resp = presence_update(
+        &backend,
+        json!({ "id": "ps1", "updatedAt": "2026-01-01T00:00:00Z", "presence": "busy" }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+    assert!(resp["updated"].get("ps1").is_some(), "{resp}");
+    assert_eq!(
+        backend.take_outbound_events_for_test(),
+        vec![OutboundEvent::Presence]
+    );
+}

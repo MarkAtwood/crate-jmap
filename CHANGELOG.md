@@ -161,6 +161,13 @@ wire behaviour that a conforming peer can observe.
   create already did. A missing blob fails with `invalidProperties` naming
   `blobId`; a cross-account copy no longer stores a blobId the destination
   account does not hold (brong/draft-gondwana-jmap-filenode#6).
+- **jmap-chat-server**: `Space/set`, `ChatContact/set`, `CustomEmoji/set`,
+  `SpaceBan/set`, `ReadPosition/set` and `PresenceStatus/set` updates
+  accept a server-set or immutable property sent with its stored value,
+  as RFC 8620 §5.3 allows ("Any server-set properties MAY be included in
+  the patch if their value is identical to the current server value"),
+  so a whole object from `/get` is a valid patch. A differing value is
+  still `invalidProperties`.
 
 ## [0.4.2] - 2026-10-30
 

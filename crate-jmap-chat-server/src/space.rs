@@ -49,6 +49,7 @@ use jmap_types::{Id, JmapError, PatchObject, SetObject, UTCDate};
 use serde_json::{Value, json};
 use subtle::ConstantTimeEq;
 
+use crate::helpers::check_read_only_patch;
 use crate::helpers::{
     PropType, check_metadata_entry, create_metadata, is_metadata_key, mistyped_create_props,
 };
@@ -61,8 +62,8 @@ use crate::helpers::{resolve_entry_refs, resolve_ref, resolve_refs};
 use crate::{ChatBackend, ChatLimits, InviteJoinRefusal, SpacePatchOp};
 use jmap_server::{
     HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    is_client_updatable, query_anchor_args, reject_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    is_client_updatable, query_anchor_args, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 use jmap_server::{SetError, SetErrorType};
 
@@ -1265,14 +1266,16 @@ pub async fn handle_space_set<B: ChatBackend>(
                 continue;
             }
 
-            // Reject patches to server-set Space properties, including
-            // `roles`, `members`, `categories` and `uncategorizedChannelIds`,
-            // which change only through the structural keys.
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|m| reject_read_only_patch::<Space>(m, None))
+            // Reject patches that change server-set Space properties,
+            // including `roles`, `members`, `categories` and
+            // `uncategorizedChannelIds`, which change only through the
+            // structural keys; a stored value repeated unchanged is dropped
+            // (RFC 8620 §5.3).
+            if let Err(err) =
+                check_read_only_patch::<_, Space>(backend, caller, &account_id, &id, &mut patch_val)
+                    .await
             {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
+                not_updated.insert(id_str, err);
                 continue;
             }
 

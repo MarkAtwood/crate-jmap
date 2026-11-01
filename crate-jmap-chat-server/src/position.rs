@@ -43,14 +43,13 @@ use serde_json::{Value, json};
 
 use crate::ChatBackend;
 use crate::chat::record_unread_count_changes;
+use crate::helpers::check_read_only_patch;
 use crate::helpers::resolve_refs;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, not_found_json, now_utc_string, serialize_value,
 };
-use jmap_server::{
-    HandlerOutput, backend_set_error_value, reject_read_only_patch, server_fail_from_backend,
-};
+use jmap_server::{HandlerOutput, backend_set_error_value, server_fail_from_backend};
 use jmap_server::{SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
@@ -266,11 +265,16 @@ pub async fn handle_position_set<B: ChatBackend>(
 
             // §ReadPosition: `id` and `lastReadAt` are server-set, `chatId`
             // is immutable.
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|m| reject_read_only_patch::<ReadPosition>(m, None))
+            if let Err(err) = check_read_only_patch::<_, ReadPosition>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                &mut patch_val,
+            )
+            .await
             {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
+                not_updated.insert(id_str, err);
                 continue;
             }
             // `lastReadMessageId` (String, optional). Checked here because
