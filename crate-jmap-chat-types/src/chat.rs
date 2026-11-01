@@ -241,14 +241,14 @@ pub struct Chat {
     #[serde(default)]
     pub active_call_account_id: Option<Id>,
     /// Shared metadata, keyed by namespace identifier
-    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
-    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
-    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// (draft-ietf-jmap-metadata-05 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -05 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-05 §3.2) and also decodes as
     /// `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// The authenticated user's own metadata, keyed by namespace
-    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// identifier (draft-ietf-jmap-metadata-05 §2). Same shape and `None`
     /// handling as `metadata`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
@@ -657,11 +657,11 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §2 adds `metadata` and
+    /// Oracle: draft-ietf-jmap-metadata-05 §2 adds `metadata` and
     /// `privateMetadata` (objects keyed by namespace) to each listed type,
     /// and draft-atwood-jmap-chat-00 lets servers list `Chat`; the keys are
     /// the jmap-chat-metadata-guide §1 and §4 examples. The values land in
-    /// the typed fields, not `extra`. -04 §3.2: "null is equivalent to
+    /// the typed fields, not `extra`. -05 §3.2: "null is equivalent to
     /// {}", so `null` decodes as absent; a non-object is rejected.
     #[test]
     fn chat_metadata_properties() {

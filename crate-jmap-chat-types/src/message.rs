@@ -596,14 +596,14 @@ pub struct Message {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_for_all: Option<bool>,
     /// Shared metadata, keyed by namespace identifier
-    /// (draft-ietf-jmap-metadata-04 §2). Each value is a JSON object (§2.1).
-    /// `None` when absent, which -04 §2 treats as `{}`; in an update a
-    /// `null` value "is equivalent to {}" (-04 §3.2) and also decodes as
+    /// (draft-ietf-jmap-metadata-05 §2). Each value is a JSON object (§2.1).
+    /// `None` when absent, which -05 §2 treats as `{}`; in an update a
+    /// `null` value "is equivalent to {}" (-05 §3.2) and also decodes as
     /// `None`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Map<String, serde_json::Value>>,
     /// The authenticated user's own metadata, keyed by namespace
-    /// identifier (draft-ietf-jmap-metadata-04 §2). Same shape and `None`
+    /// identifier (draft-ietf-jmap-metadata-05 §2). Same shape and `None`
     /// handling as `metadata`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
@@ -1434,7 +1434,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-metadata-04 §2 `metadata` and
+    /// Oracle: draft-ietf-jmap-metadata-05 §2 `metadata` and
     /// `privateMetadata` on a listed type; the keys are the
     /// jmap-chat-metadata-guide §2 and §5 examples. The values land in the
     /// typed fields, not `extra`, and a non-object is rejected.

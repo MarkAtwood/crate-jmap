@@ -4,13 +4,13 @@
 
 Server-side helpers for the JMAP Object Metadata
 extension
-([draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04)).
+([draft-ietf-jmap-metadata-05](https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-05)).
 No method handlers, no backend trait, no dispatcher registration, no
 `memory` feature.
 
 ## What it's for
 
-draft-04 has no standalone `Metadata` object and no `Metadata/*`
+draft-05 has no standalone `Metadata` object and no `Metadata/*`
 methods. Each data type a server lists in the capability's `dataTypes`
 gains `metadata` and `privateMetadata` properties, served by that
 type's own `Foo/get`, `Foo/set`, `Foo/changes`, `Foo/queryChanges`,
@@ -23,7 +23,7 @@ workspace's extension servers is tracked by bd JMAP-s4kp.
 |---|---|---|
 | `validate` | `value_depth`, `exceeds_max_depth` | §2.1 (depth), §3.2 rule 4 |
 | `validate` | `is_namespace_supported` | §3.1, §3.2 rule 3, §3.6 |
-| `validate` | `check_metadata_write`, `SetKind`, `InvalidMetadataWrite` | §3.2 rules 2–3, §2.1.1 migration case |
+| `validate` | `check_metadata_write`, `SetKind`, `InvalidMetadataWrite` | §3.2 rules 2–3, §2.1.2 migration case |
 | `validate` | `check_metadata_depth` | §2.1 (object value, depth), §3.2 rule 4 |
 | `changes` | `METADATA_PROPERTY`, `PRIVATE_METADATA_PROPERTY`, `is_metadata_property`, `is_metadata_only_change` | §3.3 (`ignoreMetadataOnlyChanges`, `updatedProperties`) |
 | `changes` | `changed_properties`, `ChangedProperties`, `MetadataOnlyChanges` | §3, §3.3 per-id change tracking over a `/changes` window |
@@ -95,11 +95,11 @@ jmap-metadata-types      DataTypeMetadataInfo, MetadataTextMatch,
 
 ## References
 
-- **[draft-ietf-jmap-metadata-04]** — JMAP Object Metadata (normative
+- **[draft-ietf-jmap-metadata-05]** — JMAP Object Metadata (normative
   for depth counting, namespace support, filter semantics, and
   `/changes` extensions)
 - **[RFC 8620]** — JMAP Core (`/get`, `/set`, `/changes`, `/query`,
   SetError)
 
-[draft-ietf-jmap-metadata-04]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
+[draft-ietf-jmap-metadata-05]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-05
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

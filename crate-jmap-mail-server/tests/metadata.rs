@@ -1,9 +1,9 @@
-//! draft-ietf-jmap-metadata-04 on Email and Mailbox in the in-memory
+//! draft-ietf-jmap-metadata-05 on Email and Mailbox in the in-memory
 //! backend opted in with `MemoryBackend::with_metadata_info` (bd
 //! JMAP-s4kp.1).
 //!
-//! Oracle: the -04 text quoted on each test
-//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-04.txt, the
+//! Oracle: the -05 text quoted on each test
+//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-05.txt, the
 //! revision of October 2026), with hand-written requests and expected
 //! responses. The capability below allows vendor namespaces only, no
 //! private metadata, and `maxDepth` 2.
@@ -197,10 +197,10 @@ fn sorted(mut ids: Vec<&str>) -> Value {
 }
 
 // ---------------------------------------------------------------------------
-// /query (-04 §3.6)
+// /query (-05 §3.6)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.6 `metadataExists`: "Matches an object if and only if a value
+/// -05 §3.6 `metadataExists`: "Matches an object if and only if a value
 /// is present at the given path within the object's metadata property. A
 /// namespace-only path matches if the namespace key is present and its
 /// value is not the empty object {}."
@@ -232,7 +232,7 @@ async fn mailbox_query_metadata_exists() {
     );
 }
 
-/// The -04 §6.7 example filter shape, with shared metadata: §3.6 conditions
+/// The -05 §6.7 example filter shape, with shared metadata: §3.6 conditions
 /// "compose with the data type's existing filter conditions through the
 /// usual AND/OR/NOT operators", and `metadataTextContains` is a substring
 /// match "under the "i;unicode-casemap" collation", so case is ignored.
@@ -260,7 +260,7 @@ async fn email_query_combines_mailbox_and_text_contains() {
     assert_eq!(email_query(&backend, filter).await.unwrap(), json!([hit]));
 }
 
-/// -04 §3.6 `metadataTextEquals`: "exactly equal to the supplied value,
+/// -05 §3.6 `metadataTextEquals`: "exactly equal to the supplied value,
 /// comparing Unicode code points without case folding". Under NOT the
 /// complement is returned.
 #[tokio::test]
@@ -287,7 +287,7 @@ async fn email_query_text_equals_under_not() {
     );
 }
 
-/// -04 §3.6: "Any privateMetadata* condition (existence or text) MUST be
+/// -05 §3.6: "Any privateMetadata* condition (existence or text) MUST be
 /// rejected with an "unsupportedFilter" error if supportsPrivate is false
 /// for the data type."
 #[tokio::test]
@@ -302,7 +302,7 @@ async fn private_condition_is_unsupported_filter() {
     assert_eq!(error_type(err), json!("unsupportedFilter"));
 }
 
-/// -04 §3.6: "A path that is not well formed (for example, one with an
+/// -05 §3.6: "A path that is not well formed (for example, one with an
 /// invalid ~ escape) MUST be rejected with an "invalidArguments" error."
 /// RFC 6901 §3 allows only `~0` and `~1`.
 #[tokio::test]
@@ -317,7 +317,7 @@ async fn malformed_path_is_invalid_arguments() {
     assert_eq!(error_type(err), json!("invalidArguments"));
 }
 
-/// -04 §3.6: "A condition naming an unsupported namespace with no stored
+/// -05 §3.6: "A condition naming an unsupported namespace with no stored
 /// data, or a string that is not a valid namespace identifier, matches no
 /// objects; it does not produce an error."
 #[tokio::test]
@@ -337,10 +337,10 @@ async fn unsupported_namespace_condition_matches_nothing() {
 }
 
 // ---------------------------------------------------------------------------
-// /set (-04 §3, §3.2, §4.1)
+// /set (-05 §3, §3.2, §4.1)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.2 and the §6.3 example: a patch path below a namespace changes
+/// -05 §3.2 and the §6.3 example: a patch path below a namespace changes
 /// that key and keeps the others; the create stores its metadata.
 #[tokio::test]
 async fn patch_within_namespace_keeps_other_keys() {
@@ -362,7 +362,7 @@ async fn patch_within_namespace_keeps_other_keys() {
     );
 }
 
-/// -04 §3.2: "In an update, null is equivalent to {}", and §2: when
+/// -05 §3.2: "In an update, null is equivalent to {}", and §2: when
 /// returned, metadata's "value MUST be an object ({} when no metadata is
 /// set), never null".
 #[tokio::test]
@@ -380,11 +380,11 @@ async fn update_null_stores_empty_object() {
 /// The set of /set rejections that answer `invalidProperties`, each with
 /// the offending request key:
 ///
-/// - -04 §3.2: "A value of null for either property MUST be rejected with
+/// - -05 §3.2: "A value of null for either property MUST be rejected with
 ///   an "invalidProperties" SetError" (create).
-/// - -04 §3: for a request without the capability, "Foo/set MUST reject
+/// - -05 §3: for a request without the capability, "Foo/set MUST reject
 ///   any write to them with an "invalidProperties" SetError".
-/// - -04 §3.2 rule 2: "If the path begins with privateMetadata and
+/// - -05 §3.2 rule 2: "If the path begins with privateMetadata and
 ///   supportsPrivate is false for this data type, reject with
 ///   "invalidProperties"."
 /// - rule 3: "If the targeted namespace is not supported on this data
@@ -444,7 +444,7 @@ async fn invalid_metadata_writes_are_invalid_properties() {
     assert_eq!(mailbox_metadata(&backend, &id).await, json!({}));
 }
 
-/// -04 §2.1 (L341-348): a vendor namespace is a domain name "in DNS form",
+/// -05 §2.1 (L341-348): a vendor namespace is a domain name "in DNS form",
 /// and "Servers MUST reject, with an "invalidProperties" SetError, a /set
 /// operation that uses a key that is not a valid namespace identifier".
 /// A '/' cannot appear in a DNS label, so a complete-replacement key such
@@ -469,7 +469,7 @@ async fn non_dns_namespace_key_is_invalid_properties() {
     assert_eq!(mailbox_metadata(&backend, &id).await, json!({}));
 }
 
-/// -04 §1.2.1: "A type that does not appear in this object does not gain
+/// -05 §1.2.1: "A type that does not appear in this object does not gain
 /// the metadata or privateMetadata properties in this account", so a
 /// backend that did not opt in rejects the write.
 #[tokio::test]
@@ -486,7 +486,7 @@ async fn unlisted_type_rejects_metadata_write() {
     assert_eq!(resp["notCreated"]["c"]["properties"], json!(["metadata"]));
 }
 
-/// -04 §4.1: "A write to metadata without maySetMetadata MUST be rejected
+/// -05 §4.1: "A write to metadata without maySetMetadata MUST be rejected
 /// with a "forbidden" SetError." A Mailbox carries its own right; other
 /// properties stay writable.
 #[tokio::test]
@@ -508,7 +508,7 @@ async fn mailbox_without_may_set_metadata_is_forbidden() {
     update_mailbox(&backend, &id, json!({ "name": "renamed" })).await;
 }
 
-/// -04 §4.1: an Email "takes the right from its containers. Modifying its
+/// -05 §4.1: an Email "takes the right from its containers. Modifying its
 /// metadata requires maySetMetadata on every container it belongs to; when
 /// the same update changes its containers, on every container both before
 /// and after the change; and on create, on the containers given in the
@@ -578,7 +578,7 @@ async fn email_metadata_needs_right_on_every_container() {
     );
 }
 
-/// -04 §3.2 rule 1: "If the user cannot read the related object, reject
+/// -05 §3.2 rule 1: "If the user cannot read the related object, reject
 /// with "notFound". If the write targets metadata and the user lacks
 /// maySetMetadata (Section 4.1), reject with "forbidden"" — in that order.
 #[tokio::test]
@@ -597,7 +597,7 @@ async fn missing_object_is_not_found_before_forbidden() {
     );
 }
 
-/// -04 §3.2: "Patch errors that can be determined from the request alone
+/// -05 §3.2: "Patch errors that can be determined from the request alone
 /// (for example, two paths where one is a prefix of the other) MUST be
 /// reported with "invalidPatch" before rule 1 is evaluated." Each patch
 /// below would otherwise fail rule 1 (`notFound`, `forbidden`) or rule 2
@@ -643,15 +643,15 @@ async fn request_only_patch_error_precedes_rule_1() {
 }
 
 // ---------------------------------------------------------------------------
-// /changes (-04 §3, §3.3)
+// /changes (-05 §3, §3.3)
 // ---------------------------------------------------------------------------
 
-/// -04 §3.3: `updatedProperties` "MUST be set to a list containing only
+/// -05 §3.3: `updatedProperties` "MUST be set to a list containing only
 /// those property names (e.g., ["metadata"] ...)" when only metadata
 /// changed; with `ignoreMetadataOnlyChanges` the server "MUST exclude from
 /// the updated array any id whose only changes since sinceState ... are
 /// confined to metadata", while "The state string still advances
-/// normally"; and -04 §3: without the capability "Foo/changes MUST behave
+/// normally"; and -05 §3: without the capability "Foo/changes MUST behave
 /// as if ignoreMetadataOnlyChanges were true".
 #[tokio::test]
 async fn metadata_only_mailbox_change() {
@@ -685,7 +685,7 @@ async fn metadata_only_mailbox_change() {
     }
 }
 
-/// -04 §3.3: "If any other property ... of any id in the array may also
+/// -05 §3.3: "If any other property ... of any id in the array may also
 /// have changed ... this argument MUST be null", and "Ids with any other
 /// change remain in updated" under `ignoreMetadataOnlyChanges`.
 #[tokio::test]
@@ -713,7 +713,7 @@ async fn mixed_change_is_reported_without_updated_properties() {
     }
 }
 
-/// -04 §3.3: "Excluded ids do not count toward maxChanges."
+/// -05 §3.3: "Excluded ids do not count toward maxChanges."
 #[tokio::test]
 async fn excluded_ids_do_not_count_toward_max_changes() {
     let backend = backend();
@@ -740,7 +740,7 @@ async fn excluded_ids_do_not_count_toward_max_changes() {
     assert_eq!(resp["newState"], new_state);
 }
 
-/// -04 §3.3 on Email/changes: two Emails whose only change is metadata
+/// -05 §3.3 on Email/changes: two Emails whose only change is metadata
 /// give `updatedProperties` `["metadata"]`.
 #[tokio::test]
 async fn metadata_only_email_changes() {
@@ -776,7 +776,7 @@ async fn metadata_only_email_changes() {
 }
 
 // ---------------------------------------------------------------------------
-// /get (-04 §2, §3, §3.1)
+// /get (-05 §2, §3, §3.1)
 // ---------------------------------------------------------------------------
 
 /// Run a /get with `properties` on `id` in `account` and return its one
@@ -797,12 +797,12 @@ async fn get_one(
     out.map(|o| o.primary["list"][0].clone())
 }
 
-/// -04 §3.1 (L475-477): "when properties is omitted or null, the server
+/// -05 §3.1 (L524-526): "when properties is omitted or null, the server
 /// MUST include metadata and, where supportsPrivate is true,
 /// privateMetadata"; §2 (L296-297): "When returned, its value MUST be an
 /// object ({} when no metadata is set), never null"; §2 (L306-307): "When
 /// supportsPrivate is false for the data type, this property MUST NOT be
-/// returned"; §3 (L461-463): for other requests "metadata and
+/// returned"; §3 (L510-512): for other requests "metadata and
 /// privateMetadata are not default properties of Foo/get (although they
 /// are still returned when requested by name)".
 #[tokio::test]
@@ -866,7 +866,7 @@ async fn mailbox_get_default_properties_follow_capability() {
     assert_eq!(got, json!({ "id": &bare, "metadata": {} }));
 }
 
-/// -04 §3.1 (L477-478): the default "except for Email/get, whose default
+/// -05 §3.1 (L526-527): the default "except for Email/get, whose default
 /// property list (Section 4.2 of [RFC8621]) is unchanged"; by name it is
 /// returned like any other property (L478-480).
 #[tokio::test]
@@ -901,7 +901,7 @@ async fn email_get_default_properties_unchanged() {
     assert_eq!(got, json!({ "id": &email, "metadata": { NS: { "k": 1 } } }));
 }
 
-/// -04 §3.1 (L493-500): "Multiple subselectors with the same root combine
+/// -05 §3.1 (L542-549): "Multiple subselectors with the same root combine
 /// by union. For example, ["metadata/x", "metadata/y"] returns
 /// {"metadata": {"x": ..., "y": ...}} (and nothing else under metadata)"
 /// and "An explicit root entry supersedes subselectors with the same root.
@@ -952,7 +952,7 @@ async fn get_subselectors_union_and_root_supersedes() {
     }
 }
 
-/// -04 §3.1 (L487-491): "A subselector has the form metadata/<namespace>
+/// -05 §3.1 (L536-540): "A subselector has the form metadata/<namespace>
 /// or privateMetadata/<namespace>, where <namespace> is a non-empty
 /// namespace identifier. Any other properties entry beginning with
 /// metadata/ or privateMetadata/ MUST be rejected with an
@@ -978,12 +978,12 @@ async fn get_malformed_subselector_is_invalid_arguments() {
     }
 }
 
-/// -04 §3.1 (L509-512): "A subselector naming a namespace that is not
+/// -05 §3.1 (L551-554): "A subselector naming a namespace that is not
 /// supported (Section 2.1) on the data type MUST be silently omitted from
 /// the response, unless the object has data stored under that namespace
-/// (Section 2.1.1), which is then returned." Here the data is stored
+/// (Section 2.1.2), which is then returned." Here the data is stored
 /// under a vendor namespace and the server is then reconfigured to
-/// support only the registered name `photography` (§2.1.1 L408-409:
+/// support only the registered name `photography` (§2.1.2 L455-456:
 /// "after a server reconfiguration").
 #[tokio::test]
 async fn get_unsupported_namespace_subselector() {
@@ -1019,7 +1019,7 @@ async fn get_unsupported_namespace_subselector() {
 }
 
 // ---------------------------------------------------------------------------
-// /copy (-04 §3.4)
+// /copy (-05 §3.4)
 // ---------------------------------------------------------------------------
 
 /// Email/copy one Email from [`ACCOUNT_ID`] to [`OTHER_ID`] with the
@@ -1054,10 +1054,10 @@ async fn copied_metadata(backend: &MemoryBackend, copy_resp: &Value) -> Value {
         .clone()
 }
 
-/// -04 §3.4 (L649, L653-655): "Foo/copy copies metadata to the new
+/// -05 §3.4 (L701, L705-707): "Foo/copy copies metadata to the new
 /// object", and "The create object MAY include metadata and
 /// privateMetadata to override the copied values, with the same rules as
-/// a create in Foo/set"; L650-653: "When the request does not use this
+/// a create in Foo/set"; L702-705: "When the request does not use this
 /// capability, only metadata is copied."
 #[tokio::test]
 async fn email_copy_keeps_metadata_and_takes_override() {
@@ -1094,13 +1094,13 @@ async fn email_copy_keeps_metadata_and_takes_override() {
     );
 }
 
-/// The Foo/set create rules an Email/copy override follows (-04 §3.4
-/// L653-655): §3 (L463-464) "Foo/set MUST reject any write to them with an
-/// "invalidProperties" SetError" without the capability; §3.2 (L527-528)
+/// The Foo/set create rules an Email/copy override follows (-05 §3.4
+/// L705-707): §3 (L512-513) "Foo/set MUST reject any write to them with an
+/// "invalidProperties" SetError" without the capability; §3.2 (L576-577)
 /// "A value of null for either property MUST be rejected with an
-/// "invalidProperties" SetError"; rule 2 (L569-570) privateMetadata when
-/// supportsPrivate is false; rule 3 (L572-573) an unsupported namespace;
-/// rule 4 (L576-577) maxDepth, here 2; and §4.1 / rule 1 (L566-567)
+/// "invalidProperties" SetError"; rule 2 (L609-610) privateMetadata when
+/// supportsPrivate is false; rule 3 (L621-622) an unsupported namespace;
+/// rule 4 (L625-626) maxDepth, here 2; and §4.1 / rule 1 (L606-607)
 /// "forbidden" without maySetMetadata on the container given in the
 /// create.
 #[tokio::test]
@@ -1175,10 +1175,10 @@ async fn email_copy_override_follows_set_create_rules() {
 }
 
 // ---------------------------------------------------------------------------
-// /query without the capability (-04 §3)
+// /query without the capability (-05 §3)
 // ---------------------------------------------------------------------------
 
-/// -04 §3 (L460-461): the method extensions, among them the §3.6 filter
+/// -05 §3 (L509-510): the method extensions, among them the §3.6 filter
 /// conditions, "apply to requests whose using includes
 /// urn:ietf:params:jmap:metadata". Without it the condition is not part
 /// of the FilterCondition, so RFC 8620 §5.5 "unsupportedFilter: The

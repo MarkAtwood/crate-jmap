@@ -1,19 +1,19 @@
-//! draft-ietf-jmap-metadata-04 properties and filter conditions on
+//! draft-ietf-jmap-metadata-05 properties and filter conditions on
 //! AddressBook and ContactCard (bd JMAP-s4kp.5).
 //!
-//! Oracle: the -04 text quoted on each test
-//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-04.txt), with
-//! hand-written JSON. The namespace and keys follow the -04 §6.6 example
+//! Oracle: the -05 text quoted on each test
+//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-05.txt), with
+//! hand-written JSON. The namespace and keys follow the -05 §6.6 example
 //! ("metadata/acme.example.com/approvalStatus").
 
 use jmap_contacts_types::{AddressBook, ContactCard, ContactCardFilterCondition};
 use jmap_metadata_types::MetadataTextMatch;
 use serde_json::json;
 
-/// -04 §2 adds `metadata` and `privateMetadata` (objects keyed by
-/// namespace) to each listed type; -04 §4.1 names AddressBook [RFC9610]
+/// -05 §2 adds `metadata` and `privateMetadata` (objects keyed by
+/// namespace) to each listed type; -05 §4.1 names AddressBook [RFC9610]
 /// among the types with a myRights property. The values land in the typed
-/// fields, not `extra`. -04 §3.2: "null is equivalent to {}", so `null`
+/// fields, not `extra`. -05 §3.2: "null is equivalent to {}", so `null`
 /// decodes as absent; a non-object is rejected.
 #[test]
 fn address_book_metadata_properties() {
@@ -58,7 +58,7 @@ fn address_book_metadata_properties() {
     assert!(serde_json::from_value::<AddressBook>(raw).is_err());
 }
 
-/// -04 §2 on ContactCard, which -04 §4.1 names as a type that "takes the
+/// -05 §2 on ContactCard, which -05 §4.1 names as a type that "takes the
 /// right from its containers". A non-object `privateMetadata` is rejected.
 #[test]
 fn contact_card_metadata_properties() {
@@ -113,7 +113,7 @@ fn metadata_extra_keys_collide() {
     }
 }
 
-/// The six wire names of -04 §3.6 ("metadataExists",
+/// The six wire names of -05 §3.6 ("metadataExists",
 /// "privateMetadataExists", "metadataTextContains",
 /// "privateMetadataTextContains", "metadataTextEquals",
 /// "privateMetadataTextEquals") extend "the FilterCondition object for
@@ -142,7 +142,7 @@ fn metadata_condition_names_decode_and_typos_reject() {
     );
 }
 
-/// -04 §3.6: "A MetadataTextMatch object has the following fields:"
+/// -05 §3.6: "A MetadataTextMatch object has the following fields:"
 /// `path` and `value`. A leaf combining the RFC 9610 §3.3.1
 /// `inAddressBook` with `metadataTextEquals` decodes both.
 #[test]

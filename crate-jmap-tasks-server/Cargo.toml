@@ -22,14 +22,14 @@ memory = ["dep:uuid", "dep:jmap-metadata-server"]
 jmap-types = { workspace = true }
 jmap-tasks-types = { workspace = true }
 jmap-server = { workspace = true }
-# draft-ietf-jmap-metadata-04 capability URI and DataTypeMetadataInfo
+# draft-ietf-jmap-metadata-05 capability URI and DataTypeMetadataInfo
 # (serde-only); the /set handlers check `using` against the URI.
 jmap-metadata-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_path_to_error = { workspace = true }
 uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
-# draft-ietf-jmap-metadata-04 helpers the MemoryBackend wires in (JMAP-s4kp.4).
+# draft-ietf-jmap-metadata-05 helpers the MemoryBackend wires in (JMAP-s4kp.4).
 jmap-metadata-server = { workspace = true, optional = true }
 
 [dev-dependencies]

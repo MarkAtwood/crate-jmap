@@ -917,7 +917,7 @@ async fn calendar_event_copy_omits_unset_copy_args() {
     );
 }
 
-/// `CalendarEvent/query` carries draft-ietf-jmap-metadata-04 §3.6
+/// `CalendarEvent/query` carries draft-ietf-jmap-metadata-05 §3.6
 /// conditions in a `WithMetadata<CalendarEventFilterCondition>` leaf.
 ///
 /// Oracle: §3.6 — "the FilterCondition object for Foo/query is extended

@@ -1,11 +1,11 @@
-//! draft-ietf-jmap-metadata-04 §2.1 — namespace identifier validation.
+//! draft-ietf-jmap-metadata-05 §2.1 — namespace identifier validation.
 //!
 //! Namespace identifiers are the keys of the `metadata` and
 //! `privateMetadata` objects. Each identifier is either a *registered name*
 //! (no dot) or a *domain name* (contains at least one dot).
 
 /// Returns `true` if `name` is a valid registered namespace identifier
-/// (draft-ietf-jmap-metadata-04 §2.1).
+/// (draft-ietf-jmap-metadata-05 §2.1).
 ///
 /// A registered name is a non-empty sequence of lowercase US-ASCII letters,
 /// digits, hyphens (`-`), and underscores (`_`), with **no dot** (`.`).
@@ -30,7 +30,7 @@ pub fn is_registered_namespace(name: &str) -> bool {
 }
 
 /// Returns `true` if `name` is a valid vendor (domain-name) namespace
-/// identifier (draft-ietf-jmap-metadata-04 §2.1).
+/// identifier (draft-ietf-jmap-metadata-05 §2.1).
 ///
 /// A domain-name namespace contains at least one dot (`.`) and is in DNS
 /// form (e.g. `example.com`, `acme.example.org`). Every label must be a
@@ -102,7 +102,7 @@ mod tests {
         assert!(is_registered_namespace("a1-b2_c3"));
     }
 
-    // -04 §2.1: "a sequence of lowercase US-ASCII letters, digits, hyphens,
+    // -05 §2.1: "a sequence of lowercase US-ASCII letters, digits, hyphens,
     // and underscores, with no dot".
     #[test]
     fn registered_rejects_uppercase() {
@@ -176,7 +176,7 @@ mod tests {
         assert!(!is_vendor_namespace("a. b"));
     }
 
-    // -04 §2.1: "Servers MUST reject ... a domain name containing uppercase
+    // -05 §2.1: "Servers MUST reject ... a domain name containing uppercase
     // ASCII letters."
     #[test]
     fn vendor_rejects_uppercase() {
@@ -185,14 +185,14 @@ mod tests {
         assert!(!is_vendor_namespace("acme.example.coM"));
     }
 
-    // -04 §2.1: internationalized labels "in A-label form" (ASCII).
+    // -05 §2.1: internationalized labels "in A-label form" (ASCII).
     #[test]
     fn vendor_accepts_a_label_rejects_u_label() {
         assert!(is_vendor_namespace("xn--mnchen-3ya.example"));
         assert!(!is_vendor_namespace("münchen.example"));
     }
 
-    // -04 §2.1 (L342): a domain name "in DNS form"; §3.1 (L487-491): '/'
+    // -05 §2.1 (L342): a domain name "in DNS form"; §3.1 (L536-540): '/'
     // separates the namespace from the key in patch paths and
     // subselectors, so it cannot appear inside one.
     #[test]

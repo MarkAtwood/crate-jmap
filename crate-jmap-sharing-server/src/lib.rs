@@ -175,7 +175,7 @@ where
     //
     // Each optional trailing ident binds the `CallContext` field of that
     // name: `using`, the request's capability list
-    // (draft-ietf-jmap-metadata-04 §3).
+    // (draft-ietf-jmap-metadata-05 §3).
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);

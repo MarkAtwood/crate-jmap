@@ -1,9 +1,9 @@
-//! draft-ietf-jmap-metadata-04 properties and filter conditions on
+//! draft-ietf-jmap-metadata-05 properties and filter conditions on
 //! Calendar and CalendarEvent (bd JMAP-s4kp.3).
 //!
-//! Oracle: the -04 text quoted on each test
-//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-04.txt), with
-//! hand-written JSON. The namespace and keys follow the -04 §6.6
+//! Oracle: the -05 text quoted on each test
+//! (/home/mark/PROJECT/IETF/specs/draft-ietf-jmap-metadata-05.txt), with
+//! hand-written JSON. The namespace and keys follow the -05 §6.6
 //! CalendarEvent example ("metadata/acme.example.com/approvalStatus").
 
 use jmap_calendars_types::{
@@ -13,10 +13,10 @@ use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::Filter;
 use serde_json::json;
 
-/// -04 §2 adds `metadata` and `privateMetadata` (objects keyed by
-/// namespace) to each listed type; -04 §4.1 names Calendar among the
+/// -05 §2 adds `metadata` and `privateMetadata` (objects keyed by
+/// namespace) to each listed type; -05 §4.1 names Calendar among the
 /// types that can be listed. The values land in the typed fields, not
-/// `extra`. -04 §3.2: "null is equivalent to {}", so `null` decodes as
+/// `extra`. -05 §3.2: "null is equivalent to {}", so `null` decodes as
 /// absent; a non-object is rejected.
 #[test]
 fn calendar_metadata_properties() {
@@ -64,7 +64,7 @@ fn calendar_metadata_properties() {
     assert!(serde_json::from_value::<Calendar>(raw).is_err());
 }
 
-/// -04 §2 on CalendarEvent, the type of the -04 §6.6 example. A
+/// -05 §2 on CalendarEvent, the type of the -05 §6.6 example. A
 /// non-object `privateMetadata` is rejected.
 #[test]
 fn calendar_event_metadata_properties() {
@@ -97,7 +97,7 @@ fn calendar_event_metadata_properties() {
     assert!(serde_json::from_value::<CalendarEvent>(raw).is_err());
 }
 
-/// The six wire names of -04 §3.6 ("metadataExists",
+/// The six wire names of -05 §3.6 ("metadataExists",
 /// "privateMetadataExists", "metadataTextContains",
 /// "privateMetadataTextContains", "metadataTextEquals",
 /// "privateMetadataTextEquals") extend "the FilterCondition object for
@@ -125,7 +125,7 @@ fn metadata_condition_names_decode_and_typos_reject() {
     );
 }
 
-/// -04 §3.6 conditions "compose with the data type's existing filter
+/// -05 §3.6 conditions "compose with the data type's existing filter
 /// conditions through the usual AND/OR/NOT operators": a hand-written
 /// `AND` of a draft-ietf-jmap-calendars-33 §5.11.1 `inCalendar` leaf and a
 /// `metadataTextEquals` leaf survives decoding and re-encodes unchanged.

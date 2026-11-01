@@ -1,7 +1,7 @@
 //! jmap-metadata-client — JMAP Object Metadata extension client helpers.
 //!
 //! Implements the client-side helpers for
-//! [draft-ietf-jmap-metadata-04](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
+//! [draft-ietf-jmap-metadata-05](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
 //!
 //! ## Architecture change from -01 to -02
 //!
@@ -87,21 +87,21 @@ pub const PRIVATE_METADATA_PROPERTY: &str = "privateMetadata";
 // ---------------------------------------------------------------------------
 
 /// Wire name of the `ignoreMetadataOnlyChanges` argument for `/changes`
-/// requests (draft-ietf-jmap-metadata-04 §3.3).
+/// requests (draft-ietf-jmap-metadata-05 §3.3).
 ///
 /// When set to `true` in a `/changes` request, objects whose only changes
 /// are to `metadata` and/or `privateMetadata` properties are excluded from
 /// the `updated` array in the response. The server still reports an id
 /// it "cannot determine" to be metadata-only. A request whose `using`
 /// lacks `urn:ietf:params:jmap:metadata` behaves as if this were `true`
-/// (-04 §3).
+/// (-05 §3).
 pub const IGNORE_METADATA_ONLY_CHANGES: &str = "ignoreMetadataOnlyChanges";
 
 /// Returns `true` if `property` is one of the metadata-extension properties
 /// (`metadata` or `privateMetadata`).
 ///
 /// Useful for classifying the `updatedProperties` array in a `/changes`
-/// response (draft-ietf-jmap-metadata-04 §3.3) to determine whether a
+/// response (draft-ietf-jmap-metadata-05 §3.3) to determine whether a
 /// change is metadata-only.
 ///
 /// # Examples
@@ -119,7 +119,7 @@ pub fn is_metadata_property(property: &str) -> bool {
 }
 
 /// Returns `true` if ALL properties in `updated_properties` are metadata
-/// properties (draft-ietf-jmap-metadata-04 §3.3).
+/// properties (draft-ietf-jmap-metadata-05 §3.3).
 ///
 /// A `/changes` response whose `updatedProperties` is a list indicates
 /// that only those properties changed. If every property in the list is
@@ -127,7 +127,7 @@ pub fn is_metadata_property(property: &str) -> bool {
 /// clients that don't need metadata state updates.
 ///
 /// A `Mailbox/changes` list may also name the RFC 8621 §2.2 count
-/// properties: -04 §3.3 makes it "the union of the count property names
+/// properties: -05 §3.3 makes it "the union of the count property names
 /// and the metadata property names that may have changed", for example
 /// `["totalEmails", "metadata"]`. This returns `false` for such a list
 /// because a count changed too. A caller that treats "only metadata plus
@@ -160,7 +160,7 @@ pub fn is_metadata_only_change(updated_properties: &[String]) -> bool {
 ///
 /// `path` is a namespace identifier, optionally followed by an RFC 6901
 /// JSON Pointer into the namespace value, such as `<namespace>/<key>` or
-/// `<namespace>/<key>/<subkey>` (draft-ietf-jmap-metadata-04 §3.6).
+/// `<namespace>/<key>/<subkey>` (draft-ietf-jmap-metadata-05 §3.6).
 ///
 /// # Examples
 ///

@@ -551,12 +551,12 @@ pub trait MailBackend: JmapBackend {
     /// The handler has already applied the request's overrides; for
     /// `Email/copy` (RFC 8621 §4.7) that is `mailboxIds`, any given
     /// `keywords` and `receivedAt`, any given `metadata` and
-    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.4), and the
+    /// `privateMetadata` (draft-ietf-jmap-metadata-05 §3.4), and the
     /// `threadId` assigned in `to_account_id`. `create` is the request's
-    /// create object for this copy (RFC 8620 §5.4). -04 §3.4 says its
+    /// create object for this copy (RFC 8620 §5.4). -05 §3.4 says its
     /// `metadata` and `privateMetadata` follow "the same rules as a create
     /// in Foo/set", so the backend validates them as
-    /// [`create_object`](Self::create_object) does (-04 §3.2 rules 1 to 4,
+    /// [`create_object`](Self::create_object) does (-05 §3.2 rules 1 to 4,
     /// `maxDepth` only on these supplied values) and leaves the copied
     /// values unvalidated. The backend assigns the new `id`, makes every blob
     /// the record references available in `to_account_id`, stores it and

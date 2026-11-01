@@ -261,7 +261,7 @@ impl GetObject for crate::Email {}
 /// `size`, `hasAttachment` and `preview` are "(immutable; server-set)";
 /// `mailboxIds` and `keywords` carry no attribute; every other property is
 /// "(immutable)". The `header:` forms (§4.1.3) are not struct fields.
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Email {
     type Patch = PatchObject;

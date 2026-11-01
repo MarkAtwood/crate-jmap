@@ -58,10 +58,10 @@ use jmap_server::{
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists TaskList for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
-/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -88,8 +88,8 @@ pub async fn handle_task_list_get<B: TasksBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_list_changes<B: TasksBackend>(
@@ -122,8 +122,8 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]): a write to `metadata` or
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
-/// `invalidProperties` (draft-ietf-jmap-metadata-04 §3), as is `null` for
-/// either in a create (-04 §3.2). The backend validates the rest.
+/// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
+/// either in a create (-05 §3.2). The backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_list_set<B: TasksBackend>(

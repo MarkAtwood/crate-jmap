@@ -167,7 +167,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`ShareNotificationFilterCondition`](jmap_sharing_types::ShareNotificationFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<ShareNotificationFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-05 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&ShareNotificationFilter>`).
     ///
     /// # Errors
@@ -222,7 +222,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`ShareNotificationFilterCondition`](jmap_sharing_types::ShareNotificationFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<ShareNotificationFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-05 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&ShareNotificationFilter>`).
     ///
     /// # Errors

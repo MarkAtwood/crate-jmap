@@ -59,7 +59,7 @@ pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilter
 /// (`namespaces` / `supportsVendorNamespaces` / `maxDepth`) and
 /// `metadataExists` / `metadataTextContains` / `metadataTextEquals`
 /// conditions on that type's own `/query` filter
-/// (draft-ietf-jmap-metadata-04 §1.2.1, §3.6). Helpers live in
+/// (draft-ietf-jmap-metadata-05 §1.2.1, §3.6). Helpers live in
 /// `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///
@@ -190,41 +190,41 @@ pub struct EmailFilterCondition {
     )]
     pub header: Option<Vec<String>>,
 
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadataExists`: a value must be
+    /// draft-ietf-jmap-metadata-05 §3.6 `metadataExists`: a value must be
     /// present at this path in the object's `metadata`. The path is a
     /// namespace identifier, optionally followed by an RFC 6901 JSON
     /// Pointer into the namespace value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_exists: Option<String>,
 
-    /// -04 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
+    /// -05 §3.6 `privateMetadataExists`: as `metadata_exists`, against the
     /// authenticated user's `privateMetadata`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_exists: Option<String>,
 
-    /// -04 §3.6 `metadataTextContains`: substring match under the
+    /// -05 §3.6 `metadataTextContains`: substring match under the
     /// `i;unicode-casemap` collation on the `metadata` string at a path.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_contains: Option<MetadataTextMatch>,
 
-    /// -04 §3.6 `privateMetadataTextContains`: as
+    /// -05 §3.6 `privateMetadataTextContains`: as
     /// `metadata_text_contains`, against `privateMetadata`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_text_contains: Option<MetadataTextMatch>,
 
-    /// -04 §3.6 `metadataTextEquals`: exact code-point match on the
+    /// -05 §3.6 `metadataTextEquals`: exact code-point match on the
     /// `metadata` string at a path.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_equals: Option<MetadataTextMatch>,
 
-    /// -04 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
+    /// -05 §3.6 `privateMetadataTextEquals`: as `metadata_text_equals`,
     /// against `privateMetadata`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub private_metadata_text_equals: Option<MetadataTextMatch>,
 }
 
 impl EmailFilterCondition {
-    /// `true` if any of the six draft-ietf-jmap-metadata-04 §3.6
+    /// `true` if any of the six draft-ietf-jmap-metadata-05 §3.6
     /// `metadata*` / `privateMetadata*` fields is set.
     pub fn has_metadata_condition(&self) -> bool {
         self.metadata_exists.is_some()
@@ -275,7 +275,7 @@ impl EmailFilterCondition {
 /// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
 /// `metadata` / `privateMetadata` properties to each listed data type,
 /// filterable through `metadata*` conditions on that type's own `/query`
-/// (draft-ietf-jmap-metadata-04 §2, §3.6). Helpers live in
+/// (draft-ietf-jmap-metadata-05 §2, §3.6). Helpers live in
 /// `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///
@@ -990,7 +990,7 @@ mod tests {
     }
 
     /// Oracle: the `filter` of the draft-ietf-jmap-metadata-02 §6.7 example
-    /// request, copied from the draft (-04 §3.6 still defines all three
+    /// request, copied from the draft (-05 §3.6 still defines all three
     /// leaf conditions). The metadata leaves decode inside the `AND` tree
     /// and serialize back unchanged.
     #[test]
@@ -1033,7 +1033,7 @@ mod tests {
         assert_eq!(serde_json::to_value(&filter).expect("encode"), wire);
     }
 
-    /// Oracle: the six wire names of -04 §3.6 ("metadataExists",
+    /// Oracle: the six wire names of -05 §3.6 ("metadataExists",
     /// "privateMetadataExists", "metadataTextContains",
     /// "privateMetadataTextContains", "metadataTextEquals",
     /// "privateMetadataTextEquals") each decode; a misspelt one is still

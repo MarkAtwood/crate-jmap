@@ -62,10 +62,10 @@ use jmap_server::{SetError, SetErrorType};
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Calendar for
-/// draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
-/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1); see [`jmap_server::handle_get_with_metadata`].
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -92,8 +92,8 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_changes<B: CalendarsBackend>(
@@ -124,7 +124,7 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 /// - If `false`, any calendar in the `destroy` list that still has events is
 ///   rejected with a `calendarHasEvent` SetError (draft §4.4.1).
 /// - Create and update are forwarded to the backend normally.
-/// - draft-ietf-jmap-metadata-04 §3 and §3.2: a write to `metadata` or
+/// - draft-ietf-jmap-metadata-05 §3 and §3.2: a write to `metadata` or
 ///   `privateMetadata` is `invalidProperties` without
 ///   `urn:ietf:params:jmap:metadata` in `using` (pass
 ///   [`jmap_server::CallContext::using`]), as is `null` for either in a

@@ -111,7 +111,7 @@ where
     // Each optional trailing ident binds the `CallContext` field of that name:
     // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
     // `/set` handlers use to resolve `#creationId` references, or `using`,
-    // the request's capability list (draft-ietf-jmap-metadata-04 §3).
+    // the request's capability list (draft-ietf-jmap-metadata-05 §3).
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);

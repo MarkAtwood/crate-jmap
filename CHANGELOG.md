@@ -76,6 +76,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-metadata-client**, **jmap-metadata-server** and the crates that
+  wire in metadata: docs, package descriptions and test comments now cite
+  draft-ietf-jmap-metadata-05 instead of -04. The only normative change
+  in -05 is Binary values (above); "Data in Unsupported Namespaces" moved
+  from §2.1.1 to §2.1.2.
+
 - **BREAKING** **jmap-chat-server**: `OutboundEvent::Receipt` gains
   `sender_id: Id`, the read Message's `senderId` (the original sender's
   ChatContact id). Under `burnOnRead` the Message is hard-deleted before

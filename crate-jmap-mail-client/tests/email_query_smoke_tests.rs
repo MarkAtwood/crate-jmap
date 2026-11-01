@@ -248,9 +248,9 @@ async fn email_query_sends_typed_not_operator() {
 ///
 /// Oracle: the `filter` value of the §6.7 example request ("Find all Email
 /// objects in a particular Mailbox whose private vendor memo contains the
-/// text \"follow up\""), copied from the draft. The -04 §6.7 example
-/// drops the middle `privateMetadataExists` leaf; -04 §3.6 still defines
-/// that condition, so this -02 filter remains a valid -04 request.
+/// text \"follow up\""), copied from the draft. The -05 §6.7 example
+/// drops the middle `privateMetadataExists` leaf; -05 §3.6 still defines
+/// that condition, so this -02 filter remains a valid -05 request.
 #[tokio::test]
 async fn email_query_sends_metadata_02_section_6_7_filter() {
     let server = mount_email_query().await;

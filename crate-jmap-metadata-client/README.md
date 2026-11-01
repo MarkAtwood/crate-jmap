@@ -3,12 +3,12 @@
 ## What it is
 
 Pure, stateless client-side helpers for the JMAP Object Metadata
-extension ([draft-ietf-jmap-metadata-04]). No `SessionClient`, no
+extension ([draft-ietf-jmap-metadata-05]). No `SessionClient`, no
 extension trait, no network I/O. Depends only on `serde_json`.
 
 ## What it's for
 
-draft-04 has no standalone `Metadata` object and no `Metadata/*`
+draft-05 has no standalone `Metadata` object and no `Metadata/*`
 methods. Metadata is read and written through `metadata` /
 `privateMetadata` properties on each listed data type, using that
 type's own methods (§3). Use these helpers alongside the typed
@@ -58,7 +58,7 @@ assert_eq!(
 
 ## Gotchas
 
-- **Pinned to draft-04.** draft-02 was a complete rewrite of -01;
+- **Pinned to draft-05.** draft-02 was a complete rewrite of -01;
   later revisions (or a final RFC) may change the wire shape again.
 - **Capability-dependent conditions.** Any `privateMetadata*` condition
   is rejected with `unsupportedFilter` when the data type's
@@ -97,11 +97,11 @@ serde_json
 
 ## References
 
-- **[draft-ietf-jmap-metadata-04]** — JMAP Object Metadata (normative
+- **[draft-ietf-jmap-metadata-05]** — JMAP Object Metadata (normative
   for property names, the `/changes` argument, and filter conditions).
 - **[RFC 8620]** — JMAP Core (`/get`, `/changes`, `/query`, filter
   operators).
 
-[draft-ietf-jmap-metadata-04]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
+[draft-ietf-jmap-metadata-05]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-05
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-metadata-types`]: ../crate-jmap-metadata-types

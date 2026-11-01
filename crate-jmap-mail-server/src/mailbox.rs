@@ -65,10 +65,10 @@ use jmap_server::{SetError, SetErrorType};
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Mailbox
-/// for draft-ietf-jmap-metadata-04 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// for draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
-/// `properties` may hold `metadata/<namespace>` subselectors (-04 §2,
+/// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -167,8 +167,8 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); with
 /// `urn:ietf:params:jmap:metadata` the request may set
-/// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`, and
-/// without it metadata-only changes are left out (-04 §3).
+/// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`, and
+/// without it metadata-only changes are left out (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_changes<B: MailBackend>(
@@ -224,8 +224,8 @@ fn mailbox_sort_arg(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_query<B: MailBackend>(
@@ -413,8 +413,8 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
-/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-04 §3.6
-/// filter condition is `unsupportedFilter` (-04 §3).
+/// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
+/// filter condition is `unsupportedFilter` (-05 §3).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_query_changes<B: MailBackend>(
@@ -584,7 +584,7 @@ fn parents_first(creates: &serde_json::Map<String, Value>) -> Vec<(&String, &Val
 /// - `parentId` `#creationId` references (RFC 8620 §5.3), resolved against
 ///   `created_ids` (pass [`jmap_server::CallContext::created_ids`]) and
 ///   against the creates of this call, which run parents first
-/// - draft-ietf-jmap-metadata-04 §3 and §3.2: a write to `metadata` or
+/// - draft-ietf-jmap-metadata-05 §3 and §3.2: a write to `metadata` or
 ///   `privateMetadata` is `invalidProperties` without
 ///   `urn:ietf:params:jmap:metadata` in `using` (pass
 ///   [`jmap_server::CallContext::using`]), as is `null` for either in a
@@ -880,7 +880,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
         // Returns the InvalidProperties error value if `patch` names a
         // server-set Mailbox property (RFC 8621 §2) or writes metadata the
-        // request may not write (draft-ietf-jmap-metadata-04 §3), or None
+        // request may not write (draft-ietf-jmap-metadata-05 §3), or None
         // if the patch is clean. Used in both passes to avoid duplicating
         // the check block.
         let server_set_error = |patch: &PatchObject| -> Option<Value> {
@@ -1334,7 +1334,7 @@ fn build_mailbox_from_props(
         }
     };
 
-    // draft-ietf-jmap-metadata-04 §3.2: the create sets the metadata
+    // draft-ietf-jmap-metadata-05 §3.2: the create sets the metadata
     // properties; the backend validates them.
     let (metadata, private_metadata) = props
         .as_object()

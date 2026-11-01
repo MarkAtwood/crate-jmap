@@ -159,16 +159,16 @@ where
     })))
 }
 
-/// draft-ietf-jmap-metadata-04 checks a `Foo/set` handler applies to one
+/// draft-ietf-jmap-metadata-05 checks a `Foo/set` handler applies to one
 /// create object or update patch (`entry`) before the backend sees it.
 ///
-/// - -04 §3: for a request whose `using` lacks
+/// - -05 §3: for a request whose `using` lacks
 ///   `urn:ietf:params:jmap:metadata`, "Foo/set MUST reject any write to
 ///   them with an "invalidProperties" SetError".
-/// - -04 §3.2: on create, "A value of null for either property MUST be
+/// - -05 §3.2: on create, "A value of null for either property MUST be
 ///   rejected with an "invalidProperties" SetError".
 ///
-/// The backend validates the rest (-04 §3.2 rules 1 to 4).
+/// The backend validates the rest (-05 §3.2 rules 1 to 4).
 ///
 /// # Errors
 ///
@@ -205,7 +205,7 @@ pub(crate) fn check_metadata_entry(
 pub(crate) type MetadataMaps = (Option<Map<String, Value>>, Option<Map<String, Value>>);
 
 /// The `metadata` and `privateMetadata` values of a create object, to
-/// store on the new object (draft-ietf-jmap-metadata-04 §3.2: "each
+/// store on the new object (draft-ietf-jmap-metadata-05 §3.2: "each
 /// property's value MUST be a complete JSON object"). Call after
 /// [`check_metadata_entry`], which rejects `null`.
 ///

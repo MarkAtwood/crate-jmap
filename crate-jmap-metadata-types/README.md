@@ -1,7 +1,7 @@
 # jmap-metadata-types
 
 Serde-annotated Rust types for the JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-04]). Types only — no method handlers,
+([draft-ietf-jmap-metadata-05]). Types only — no method handlers,
 no async, no network I/O.
 
 ## What it is
@@ -35,7 +35,7 @@ struct. That policy explicitly **excludes filter and comparator
 algebra**: silently round-tripping an unknown filter clause through
 the client gives the wrong record set back with no error signal.
 
-`draft-ietf-jmap-metadata-04` is the IETF-track answer. Each data type
+`draft-ietf-jmap-metadata-05` is the IETF-track answer. Each data type
 a server lists in the capability's `dataTypes` gains two properties,
 `metadata` (shared) and `privateMetadata` (per-user), whose values are
 objects keyed by namespace identifier (§2). Clients read and write them
@@ -46,7 +46,7 @@ six `metadata*` / `privateMetadata*` conditions on the data type's own
 
 ## Spec coverage
 
-**draft-ietf-jmap-metadata-04 sections implemented:**
+**draft-ietf-jmap-metadata-05 sections implemented:**
 
 - §1.2.1 — `DataTypeMetadataInfo` and `JMAP_METADATA_URI`
 - §2.1 — namespace identifier validation
@@ -97,7 +97,7 @@ The namespace predicates check syntax only. Whether a namespace is
 ## Gotchas
 
 Tests are named with `_draft_02_` where they pin a specific draft
-example (written from -02; -04 keeps those examples). When the draft revs, expect to update or replace these tests
+example (written from -02; -05 keeps those examples). When the draft revs, expect to update or replace these tests
 alongside the wire-format changes. The `#[non_exhaustive]` derive on
 every struct keeps additive spec evolution non-breaking, but a
 renamed or removed wire field is still a breaking change in the next
@@ -110,8 +110,8 @@ outside the extras-preservation policy (see the workspace
 
 ## References
 
-- **[draft-ietf-jmap-metadata-04]** — JMAP Object Metadata (normative for all type definitions)
+- **[draft-ietf-jmap-metadata-05]** — JMAP Object Metadata (normative for all type definitions)
 - **[RFC 8620]** — JMAP Core (capabilities object, `/get`, `/set`, `/query`)
 
-[draft-ietf-jmap-metadata-04]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-04
+[draft-ietf-jmap-metadata-05]: https://datatracker.ietf.org/doc/html/draft-ietf-jmap-metadata-05
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

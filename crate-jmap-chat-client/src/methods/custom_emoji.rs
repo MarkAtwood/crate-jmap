@@ -255,7 +255,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`CustomEmojiFilterCondition`](jmap_chat_types::CustomEmojiFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<CustomEmojiFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-05 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&CustomEmojiFilter>`).
     ///
     /// # Errors
@@ -307,7 +307,7 @@ impl super::SessionClient {
     /// with `AND` / `OR` / `NOT`. The condition type `C` is normally
     /// [`CustomEmojiFilterCondition`](jmap_chat_types::CustomEmojiFilterCondition); use
     /// `jmap_metadata_types::WithMetadata<CustomEmojiFilterCondition>` to add the
-    /// draft-ietf-jmap-metadata-04 §3.6 `metadata*` conditions.
+    /// draft-ietf-jmap-metadata-05 §3.6 `metadata*` conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&CustomEmojiFilter>`).
     ///
     /// # Errors

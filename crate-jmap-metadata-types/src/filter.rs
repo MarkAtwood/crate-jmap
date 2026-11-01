@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-metadata-04 §3.6 — metadata filter condition types.
+//! draft-ietf-jmap-metadata-05 §3.6 — metadata filter condition types.
 //!
 //! Provides [`MetadataTextMatch`] — the value shape used by the four
 //! text-matching filter condition fields that this extension adds to each
@@ -29,7 +29,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Value shape for the text-matching metadata filter conditions
-/// (draft-ietf-jmap-metadata-04 §3.6).
+/// (draft-ietf-jmap-metadata-05 §3.6).
 ///
 /// Used as the value of the `metadataTextContains`,
 /// `privateMetadataTextContains`, `metadataTextEquals`, and
@@ -46,13 +46,13 @@ use serde::{Deserialize, Serialize};
 ///
 /// # Path syntax
 ///
-/// draft-ietf-jmap-metadata-04 §3.6: the `path` is "a namespace
+/// draft-ietf-jmap-metadata-05 §3.6: the `path` is "a namespace
 /// identifier, optionally followed by a JSON Pointer \[RFC6901\] into the
 /// namespace value (for example, `<namespace>`, `<namespace>/<key>` or
 /// `<namespace>/<key>/<subkey>`)". `/` and `~` inside a key are escaped as
 /// `~1` and `~0` per [RFC 6901](https://www.rfc-editor.org/rfc/rfc6901).
 /// Object members are addressed by name; a path that would traverse an
-/// array or a scalar addresses no value. A server rejects a path with an
+/// array, a scalar or a Binary value addresses no value. A server rejects a path with an
 /// invalid `~` escape with `invalidArguments`. Same syntax as the string
 /// value of `metadataExists`.
 #[non_exhaustive]
@@ -82,7 +82,7 @@ impl MetadataTextMatch {
 }
 
 /// A per-type `FilterCondition` extended with the six
-/// draft-ietf-jmap-metadata-04 §3.6 condition fields.
+/// draft-ietf-jmap-metadata-05 §3.6 condition fields.
 ///
 /// §3.6: "For each data type listed in dataTypes, the FilterCondition
 /// object for Foo/query is extended with the optional fields defined
@@ -153,7 +153,7 @@ pub struct WithMetadata<C> {
 
     /// Substring match under the `i;unicode-casemap` collation
     /// ([RFC 5051](https://www.rfc-editor.org/rfc/rfc5051)) on the
-    /// `metadata` string at a path (draft-ietf-jmap-metadata-04 §3.6).
+    /// `metadata` string at a path (draft-ietf-jmap-metadata-05 §3.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_contains: Option<MetadataTextMatch>,
 
@@ -163,7 +163,7 @@ pub struct WithMetadata<C> {
 
     /// Exact match on the `metadata` string at a path, comparing Unicode
     /// code points without case folding or normalization
-    /// (draft-ietf-jmap-metadata-04 §3.6).
+    /// (draft-ietf-jmap-metadata-05 §3.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata_text_equals: Option<MetadataTextMatch>,
 

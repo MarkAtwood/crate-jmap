@@ -1,6 +1,6 @@
 //! Integration tests for jmap-metadata-types.
 //!
-//! All JSON fixtures are hand-written from draft-ietf-jmap-metadata-04 or
+//! All JSON fixtures are hand-written from draft-ietf-jmap-metadata-05 or
 //! constructed directly from the spec field descriptions. No expected
 //! value is derived from the code under test.
 //!
@@ -8,7 +8,7 @@
 //! - `*_draft_02_*` — pinned to a draft §N example, so a future spec
 //!   revision can revise or replace the test alongside the wire-format
 //!   change. The names date from -02; every pinned example is unchanged
-//!   in -04.
+//!   in -05.
 
 mod common;
 
@@ -23,7 +23,7 @@ use jmap_metadata_types::{
 
 #[test]
 fn capability_uri_matches_draft_02() {
-    // Oracle: draft-ietf-jmap-metadata-04 §1.2.1, unchanged since -01.
+    // Oracle: draft-ietf-jmap-metadata-05 §1.2.1, unchanged since -01.
     assert_eq!(JMAP_METADATA_URI, "urn:ietf:params:jmap:metadata");
 }
 

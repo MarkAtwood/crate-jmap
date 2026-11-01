@@ -733,7 +733,7 @@ pub fn apply_jmap_patch(
 /// determines, without the object it applies to.
 ///
 /// A server whose spec orders these before other checks calls this
-/// first; draft-ietf-jmap-metadata-04 §3.2 says "Patch errors that can
+/// first; draft-ietf-jmap-metadata-05 §3.2 says "Patch errors that can
 /// be determined from the request alone (for example, two paths where
 /// one is a prefix of the other) MUST be reported with "invalidPatch"
 /// before rule 1 is evaluated". [`apply_patch_object`] runs the same
@@ -1315,7 +1315,7 @@ pub fn parse_wire_id(raw: &str, property: &str) -> Result<Id, Box<SetError>> {
 }
 
 /// `true` if `using` includes `urn:ietf:params:jmap:metadata`
-/// (draft-ietf-jmap-metadata-04 §3: the extensions "apply to requests
+/// (draft-ietf-jmap-metadata-05 §3: the extensions "apply to requests
 /// whose using includes urn:ietf:params:jmap:metadata").
 pub fn uses_metadata(using: &[String]) -> bool {
     using
@@ -1323,7 +1323,7 @@ pub fn uses_metadata(using: &[String]) -> bool {
         .any(|u| u == jmap_metadata_types::JMAP_METADATA_URI)
 }
 
-/// draft-ietf-jmap-metadata-04 §3: the §3.6 filter conditions extend
+/// draft-ietf-jmap-metadata-05 §3: the §3.6 filter conditions extend
 /// `Foo/query` only for "requests whose using includes
 /// urn:ietf:params:jmap:metadata". Without it a metadata leaf anywhere in
 /// `filter`, as `is_metadata` judges a condition, is `unsupportedFilter`
@@ -1367,8 +1367,8 @@ pub fn reject_metadata_filter_without_capability<T>(
 ///
 /// # Errors
 ///
-/// `unsupportedFilter` for a -04 §3.6 condition without
-/// `urn:ietf:params:jmap:metadata` in `using` (-04 §3).
+/// `unsupportedFilter` for a -05 §3.6 condition without
+/// `urn:ietf:params:jmap:metadata` in `using` (-05 §3).
 pub fn reject_metadata_filter_arg<T: serde::de::DeserializeOwned>(
     args: &Value,
     is_metadata: fn(&T) -> bool,
@@ -1394,7 +1394,7 @@ enum Selection {
     Omit,
     /// The whole stored object.
     All,
-    /// Only these namespaces (-04 §3.1 subselectors, combined by union).
+    /// Only these namespaces (-05 §3.1 subselectors, combined by union).
     Namespaces(BTreeSet<String>),
 }
 
@@ -1410,7 +1410,7 @@ impl Selection {
     }
 
     /// The value to return for a property stored as `stored`; absent and
-    /// `null` are `{}` (-04 §2: "When returned, its value MUST be an
+    /// `null` are `{}` (-05 §2: "When returned, its value MUST be an
     /// object ({} when no metadata is set), never null").
     fn select(&self, stored: Option<&Value>) -> Option<Value> {
         let stored = stored.and_then(Value::as_object);
@@ -1430,7 +1430,7 @@ impl Selection {
 }
 
 /// How a `Foo/get` handler returns `metadata` and `privateMetadata`
-/// (draft-ietf-jmap-metadata-04 §2 and §3.1).
+/// (draft-ietf-jmap-metadata-05 §2 and §3.1).
 ///
 /// Build one per request with [`MetadataProjection::new`], then call
 /// [`MetadataProjection::apply`] on every returned object.
@@ -1445,16 +1445,16 @@ impl MetadataProjection {
     ///
     /// `properties` is the request's `properties` (`None` for the default
     /// list), `default_includes` is `false` for `Email/get`, whose
-    /// "default property list ... is unchanged" (-04 §3.1), and `true` for
+    /// "default property list ... is unchanged" (-05 §3.1), and `true` for
     /// every other type; `info` is the type's DataTypeMetadataInfo
     /// ([`JmapBackend::metadata_info`](crate::JmapBackend::metadata_info)),
     /// `None` when the type is not listed and so "does not gain the
-    /// metadata or privateMetadata properties" (-04 §1.2.1). The rules:
+    /// metadata or privateMetadata properties" (-05 §1.2.1). The rules:
     ///
     /// - Default list: both properties with the capability in `using`
     ///   ("the server MUST include metadata and, where supportsPrivate is
     ///   true, privateMetadata"), neither without it ("not default
-    ///   properties of Foo/get") (-04 §3, §3.1).
+    ///   properties of Foo/get") (-05 §3, §3.1).
     /// - A root name returns the whole property, with or without the
     ///   capability ("still returned when requested by name").
     /// - With the capability, `metadata/<namespace>` and
@@ -1466,13 +1466,13 @@ impl MetadataProjection {
     ///   namespace". Without the capability these entries are ignored like
     ///   any other unknown property.
     /// - `privateMetadata` is never returned when `supportsPrivate` is
-    ///   false (-04 §2: "this property MUST NOT be returned").
+    ///   false (-05 §2: "this property MUST NOT be returned").
     ///
     /// # Errors
     ///
     /// `invalidArguments` for an entry that begins with `metadata/` or
     /// `privateMetadata/` and is not followed by a namespace identifier
-    /// (-04 §3.1: "Any other properties entry beginning with metadata/ or
+    /// (-05 §3.1: "Any other properties entry beginning with metadata/ or
     /// privateMetadata/ MUST be rejected with an "invalidArguments"
     /// method-level error").
     pub fn new(

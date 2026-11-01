@@ -125,14 +125,14 @@ struct ChangeEntry {
     destroyed: Vec<Id>,
     /// The top-level properties this change altered on every id in
     /// `updated`, or `None` when not known. Feeds
-    /// draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges` and
+    /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
     /// `updatedProperties`.
     updated_props: Option<BTreeSet<String>>,
 }
 
 impl ChangeEntry {
     /// `true` for an update that changed only `metadata` and/or
-    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    /// `privateMetadata` (draft-ietf-jmap-metadata-05 §3.3).
     fn is_metadata_only_update(&self) -> bool {
         self.created.is_empty()
             && self.destroyed.is_empty()
@@ -205,7 +205,7 @@ struct Inner {
     space_everyone_permissions: HashMap<String, HashSet<ChatPermission>>,
     /// Source of every id this backend assigns; see [`Inner::mint_id`].
     ids: ulid::Generator,
-    /// `type_name` → the draft-ietf-jmap-metadata-04 §1.2.1
+    /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
@@ -361,8 +361,8 @@ impl MemoryBackend {
         Self::default()
     }
 
-    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -05
     /// §1.2.1). draft-atwood-jmap-chat-00 lets a server list `Chat`,
     /// `Message` and `Space` in the capability's `dataTypes`.
     ///
@@ -370,15 +370,15 @@ impl MemoryBackend {
     /// write to `metadata` or `privateMetadata` with `invalidProperties`
     /// and `Foo/query` rejects a metadata filter condition with
     /// `unsupportedFilter`. With it, `Foo/set` validates metadata writes
-    /// (-04 §3.2), `Foo/query` evaluates the -04 §3.6 conditions, and
+    /// (-05 §3.2), `Foo/query` evaluates the -05 §3.6 conditions, and
     /// `Foo/changes` honours `ignoreMetadataOnlyChanges` and reports
-    /// `updatedProperties` (-04 §3.3). Advertising the capability in the
+    /// `updatedProperties` (-05 §3.3). Advertising the capability in the
     /// session is the server's job: list `info` under `data_type` in the
     /// account's `urn:ietf:params:jmap:metadata` `dataTypes`.
     ///
     /// None of the three types has a rights object or belongs to a
     /// container with one (the Space permission model is not one, per
-    /// draft-atwood-jmap-chat-00 §Space), so -04 §4.1 asks only that the
+    /// draft-atwood-jmap-chat-00 §Space), so -05 §4.1 asks only that the
     /// account is not read-only, and this backend has no read-only
     /// accounts: every metadata write passes rule 1's `maySetMetadata`
     /// check (fail-open, JMAP-bghk).
@@ -388,7 +388,7 @@ impl MemoryBackend {
     /// Panics if `data_type` is not `"Chat"`, `"Message"` or `"Space"`,
     /// or if `info.supports_private` is true: this backend has no
     /// per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
-    /// (-04 §2).
+    /// (-05 §2).
     #[must_use]
     pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
         let type_name = metadata_type_name(data_type).unwrap_or_else(|| {
@@ -933,7 +933,7 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
-        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // draft-ietf-jmap-metadata-05 §3: jmap_server::handle_changes has
         // already folded a `using` without the capability into this flag.
         let mode = if params.ignore_metadata_only_changes {
             MetadataOnlyChanges::Ignore
@@ -965,7 +965,7 @@ impl JmapBackend for MemoryBackend {
         // when "unable to calculate an intermediate state" return
         // cannotCalculateChanges. Whole entries are taken, oldest first,
         // while their ids fit; an entry's ids bound what it adds after the
-        // dedup below. A metadata-only update under Ignore adds none: -04
+        // dedup below. A metadata-only update under Ignore adds none: -05
         // §3.3 "Excluded ids do not count toward maxChanges". The first
         // entry alone over the limit has no intermediate state.
         let mut has_more = false;
@@ -1035,7 +1035,7 @@ impl JmapBackend for MemoryBackend {
         for id in order {
             match fates.remove(&id) {
                 Some(IdFate::Created) => created.push(id),
-                // -04 §3.3: under Ignore, "exclude from the updated array
+                // -05 §3.3: under Ignore, "exclude from the updated array
                 // any id whose only changes since sinceState ... are
                 // confined to metadata and/or privateMetadata".
                 Some(IdFate::Updated)
@@ -1047,7 +1047,7 @@ impl JmapBackend for MemoryBackend {
             }
         }
 
-        // -04 §3.3 `updatedProperties`; no chat type has the RFC 8621
+        // -05 §3.3 `updatedProperties`; no chat type has the RFC 8621
         // §2.2 count properties that only Mailbox/changes may list.
         let updated_properties = window_props.updated_properties(&updated, mode, &[]);
         Ok(ChangesResult::new(
@@ -2290,8 +2290,8 @@ fn base64url_unpadded(bytes: &[u8]) -> String {
 /// if the patch does not apply or the result is not a valid `O`. Works
 /// on a clone, so an error leaves storage unchanged.
 ///
-/// A patch that writes draft-ietf-jmap-metadata-04 `metadata` or
-/// `privateMetadata` is checked in -04 §3.2 order: request-only patch
+/// A patch that writes draft-ietf-jmap-metadata-05 `metadata` or
+/// `privateMetadata` is checked in -05 §3.2 order: request-only patch
 /// errors (`invalidPatch`), rule 1 (`notFound`), rules 2 and 3
 /// ([`Inner::check_metadata_set`]), value-dependent patch errors, then
 /// rule 4 (`maxDepth`) on the value as it would be stored.
@@ -2310,7 +2310,7 @@ fn patched_copy<O: SetObject>(
         .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
     let no_patch = serde_json::Map::new();
     let patch_map = patch_val.as_object().unwrap_or(&no_patch);
-    // -04 §3.2: "Patch errors that can be determined from the request
+    // -05 §3.2: "Patch errors that can be determined from the request
     // alone (for example, two paths where one is a prefix of the other)
     // MUST be reported with "invalidPatch" before rule 1 is evaluated."
     check_patch_paths(patch_map).map_err(invalid_patch)?;
@@ -2334,13 +2334,13 @@ fn patched_copy<O: SetObject>(
     // as invalidPatch.
     let mut changed = BTreeSet::new();
     if let serde_json::Value::Object(base) = &mut current {
-        // -04 §3.2 rules 2 and 3 run before the patch is applied.
+        // -05 §3.2 rules 2 and 3 run before the patch is applied.
         let metadata_info = if metadata_type_name(O::TYPE_NAME).is_some() {
             inner.check_metadata_set(O::TYPE_NAME, SetKind::Update, patch_map, Some(base))?
         } else {
             None
         };
-        // -04 §2 `metadata` has "default: {}", so a `metadata/<namespace>`
+        // -05 §2 `metadata` has "default: {}", so a `metadata/<namespace>`
         // pointer finds its parent.
         if metadata_info.is_some() {
             base.entry("metadata")
@@ -2348,10 +2348,10 @@ fn patched_copy<O: SetObject>(
         }
         let before = base.clone();
         // The value-dependent patch errors (missing parent, path through
-        // an array) land here, after rule 3 and before rule 4 (-04 §3.2).
+        // an array or a Binary value) land here, after rule 3 and before rule 4 (-05 §3.2).
         apply_patch_object(base, patch_map).map_err(invalid_patch)?;
         if let Some(info) = &metadata_info {
-            // -04 §3.2: "In an update, null is equivalent to {}"; the
+            // -05 §3.2: "In an update, null is equivalent to {}"; the
             // patch removed the property instead.
             for property in ["metadata", "privateMetadata"] {
                 if patch_map
@@ -2364,7 +2364,7 @@ fn patched_copy<O: SetObject>(
                     );
                 }
             }
-            // -04 §3.2 rule 4 runs on the value as it would be stored.
+            // -05 §3.2 rule 4 runs on the value as it would be stored.
             check_metadata_depth(patch_map, base, info)
                 .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
         }
@@ -2397,7 +2397,7 @@ fn patched_copy<O: SetObject>(
 }
 
 /// The `TYPE_NAME` of the chat type named `data_type` if it is one this
-/// backend can give draft-ietf-jmap-metadata-04 properties
+/// backend can give draft-ietf-jmap-metadata-05 properties
 /// (draft-atwood-jmap-chat-00 names `Chat`, `Message` and `Space`).
 /// `ChatContact` has a `metadata` property of its own
 /// (draft-atwood-jmap-chat-00 §4.4) and is not one of them.
@@ -2420,7 +2420,7 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 }
 
 impl Inner {
-    /// draft-ietf-jmap-metadata-04 §3.2 rules 1 to 3 for a metadata write
+    /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
     /// type's DataTypeMetadataInfo for the rule 4 check after applying,
     /// or `None` when `entry` writes no metadata.
@@ -2440,7 +2440,7 @@ impl Inner {
         let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
             return Ok(None);
         };
-        // -04 §1.2.1: an unlisted type "does not gain the metadata or
+        // -05 §1.2.1: an unlisted type "does not gain the metadata or
         // privateMetadata properties".
         let Some(info) = self.metadata_info.get(type_name) else {
             return Err(invalid_metadata_property(
@@ -2520,9 +2520,9 @@ fn insert_created(
     Ok(())
 }
 
-/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `val` of
+/// draft-ietf-jmap-metadata-05 §3.2 checks for a created object `val` of
 /// type `type_name`: rules 1 to 3 on its metadata properties, then rule 4
-/// on the stored value. Types without the -04 properties pass unchecked.
+/// on the stored value. Types without the -05 properties pass unchecked.
 fn check_metadata_create(
     inner: &Inner,
     type_name: &'static str,
@@ -5287,7 +5287,7 @@ fn filter_matches(
     }
 }
 
-/// The six draft-ietf-jmap-metadata-04 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -5297,15 +5297,15 @@ const METADATA_CONDITION_KEYS: [&str; 6] = [
     "privateMetadataTextEquals",
 ];
 
-/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
 /// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
 /// before any object is matched.
 ///
-/// A type without `info` has no metadata (-04 §1.2.1: it "does not gain
+/// A type without `info` has no metadata (-05 §1.2.1: it "does not gain
 /// the metadata or privateMetadata properties"), so a metadata leaf is
 /// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
 /// but the server cannot process it"). Otherwise
-/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// [`MetadataCondition::take_from`] applies -05 §3.6: a malformed path is
 /// `invalidArguments`, and a `privateMetadata*` condition is
 /// `unsupportedFilter` because `supportsPrivate` is false.
 fn check_metadata_filter(
@@ -5349,9 +5349,9 @@ fn check_metadata_filter(
         })
 }
 
-/// Whether a stored object passes the draft-ietf-jmap-metadata-04 §3.6
+/// Whether a stored object passes the draft-ietf-jmap-metadata-05 §3.6
 /// conditions of one FilterCondition `cond`, matched against its
-/// `metadata` (absent means `{}`, -04 §2). A leaf without them matches.
+/// `metadata` (absent means `{}`, -05 §2). A leaf without them matches.
 /// The `privateMetadata*` conditions never reach this point:
 /// [`check_metadata_filter`] rejects them, since this backend has
 /// `supportsPrivate` false.
@@ -5380,7 +5380,7 @@ fn has_is_public_true(filter: &serde_json::Value) -> bool {
 /// - Message: see [`message_matches_filter`].
 /// - Space (§Space/query): `name` ("substring match"), `isPublic`.
 /// - CustomEmoji (§CustomEmoji/query): `spaceId`; absent returns all.
-/// - Chat, Message and Space also take the draft-ietf-jmap-metadata-04
+/// - Chat, Message and Space also take the draft-ietf-jmap-metadata-05
 ///   §3.6 conditions; see [`metadata_leaf_matches`].
 ///
 /// A Boolean property absent from the stored object takes its `false`

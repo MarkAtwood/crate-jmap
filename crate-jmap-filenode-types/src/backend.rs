@@ -67,7 +67,7 @@ impl GetObject for crate::FileNode {}
 /// SHA-256 digest of the stored blob content". draft-atwood-jmap-chat-
 /// filenode-00 §The `spaceId` Extension Property: `spaceId` is "Supplied
 /// by the client at creation and treated as immutable thereafter".
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::FileNode {
     type Patch = PatchObject;

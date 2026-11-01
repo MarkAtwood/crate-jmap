@@ -40,7 +40,7 @@ Vendors who need to filter on custom fields have two options:
 
 - **IETF-track (recommended).** Use the JMAP Object Metadata extension
   (`draft-ietf-jmap-metadata`, capability URI `urn:ietf:params:jmap:metadata`),
-  (draft-ietf-jmap-metadata-04), which adds namespace-keyed `metadata` /
+  (draft-ietf-jmap-metadata-05), which adds namespace-keyed `metadata` /
   `privateMetadata` properties to each listed data type, with
   capability-declared schema (`dataTypes` → `namespaces` /
   `supportsVendorNamespaces` / `maxDepth`, §1.2.1) and `metadataExists` /

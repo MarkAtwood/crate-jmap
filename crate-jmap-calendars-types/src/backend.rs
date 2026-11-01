@@ -223,7 +223,7 @@ impl GetObject for crate::Calendar {}
 /// "(immutable; server-set)"; `isDefault` and `myRights` are
 /// "(server-set)".
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::Calendar {
     type Patch = PatchObject;
@@ -258,7 +258,7 @@ impl GetObject for crate::CalendarEvent {}
 /// "(server-set)". No other property, JMAP or JSCalendar, carries either
 /// attribute.
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::CalendarEvent {
     type Patch = PatchObject;

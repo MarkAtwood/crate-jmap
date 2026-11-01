@@ -43,7 +43,7 @@ use serde::{Deserialize, Serialize};
 /// (`namespaces` / `supportsVendorNamespaces` / `maxDepth`) and
 /// `metadataExists` / `metadataTextContains` / `metadataTextEquals`
 /// conditions on that type's own `/query` filter
-/// (draft-ietf-jmap-metadata-04 §1.2.1, §3.6). Helpers live in
+/// (draft-ietf-jmap-metadata-05 §1.2.1, §3.6). Helpers live in
 /// `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///
@@ -112,7 +112,7 @@ pub enum Operator {
 /// `urn:ietf:params:jmap:metadata`), which adds namespace-keyed
 /// `metadata` / `privateMetadata` properties to each listed data type,
 /// filterable through `metadata*` conditions on that type's own `/query`
-/// (draft-ietf-jmap-metadata-04 §2, §3.6). Helpers live in
+/// (draft-ietf-jmap-metadata-05 §2, §3.6). Helpers live in
 /// `jmap-metadata-types`, `jmap-metadata-server`, and
 /// `jmap-metadata-client`.
 ///

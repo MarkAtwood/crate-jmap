@@ -121,7 +121,7 @@ impl GetObject for crate::AddressBook {}
 /// RFC 9610 §2 (rfc9610.txt:167, 191, 221): `id` is "(immutable;
 /// server-set)"; `isDefault` and `myRights` are "(server-set)".
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::AddressBook {
     type Patch = PatchObject;
@@ -151,7 +151,7 @@ impl GetObject for crate::ContactCard {}
 /// `addressBookIds` and the RFC 9553 Card properties carry neither
 /// attribute.
 ///
-/// draft-ietf-jmap-metadata-04 §3.2: clients write `metadata` and
+/// draft-ietf-jmap-metadata-05 §3.2: clients write `metadata` and
 /// `privateMetadata` through `Foo/set`.
 impl SetObject for crate::ContactCard {
     type Patch = PatchObject;

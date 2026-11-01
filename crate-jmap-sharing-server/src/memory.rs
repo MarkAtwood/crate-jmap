@@ -94,14 +94,14 @@ struct ChangeEntry {
     destroyed: Vec<Id>,
     /// For a single-object update, the top-level properties it altered, or
     /// `None` when not known (always `None` for a create or destroy).
-    /// Feeds draft-ietf-jmap-metadata-04 §3.3 `ignoreMetadataOnlyChanges`
+    /// Feeds draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges`
     /// and `updatedProperties`.
     updated_props: Option<BTreeSet<String>>,
 }
 
 impl ChangeEntry {
     /// `true` for an update that changed only `metadata` and/or
-    /// `privateMetadata` (draft-ietf-jmap-metadata-04 §3.3).
+    /// `privateMetadata` (draft-ietf-jmap-metadata-05 §3.3).
     fn is_metadata_only_update(&self) -> bool {
         self.created.is_empty()
             && self.destroyed.is_empty()
@@ -123,7 +123,7 @@ struct Inner {
     change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
-    /// The draft-ietf-jmap-metadata-04 §1.2.1 DataTypeMetadataInfo of
+    /// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo of
     /// Principal, set by [`MemoryBackend::with_metadata_info`]. `None`:
     /// Principal does not have the metadata properties.
     metadata_info: Option<DataTypeMetadataInfo>,
@@ -296,22 +296,22 @@ impl MemoryBackend {
         self
     }
 
-    /// Give `data_type` the draft-ietf-jmap-metadata-04 `metadata`
-    /// property, configured by `info` (the DataTypeMetadataInfo of -04
+    /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
+    /// property, configured by `info` (the DataTypeMetadataInfo of -05
     /// §1.2.1).
     ///
     /// Without this call Principal has no metadata: `Principal/set` rejects
     /// a write to `metadata` or `privateMetadata` with `invalidProperties`
     /// and `Principal/query` rejects a metadata filter condition with
     /// `unsupportedFilter`. With it, `Principal/set` validates metadata
-    /// writes (-04 §3.2), `Principal/query` evaluates the -04 §3.6
+    /// writes (-05 §3.2), `Principal/query` evaluates the -05 §3.6
     /// conditions, and `Principal/changes` honours
-    /// `ignoreMetadataOnlyChanges` and reports `updatedProperties` (-04
+    /// `ignoreMetadataOnlyChanges` and reports `updatedProperties` (-05
     /// §3.3). Advertising the capability in the session is the server's
     /// job: list `info` under `"Principal"` in the account's
     /// `urn:ietf:params:jmap:metadata` `dataTypes`.
     ///
-    /// A Principal has no rights object and no container, so -04 §4.1
+    /// A Principal has no rights object and no container, so -05 §4.1
     /// requires only that the account "is not read-only"; this backend has
     /// no read-only accounts, so it never answers `forbidden`.
     ///
@@ -325,7 +325,7 @@ impl MemoryBackend {
     ///
     /// Panics if `data_type` is not `"Principal"` or if
     /// `info.supports_private` is true: this backend has no per-user
-    /// identity (`CallerCtx` is `()`) to own `privateMetadata` (-04 §2).
+    /// identity (`CallerCtx` is `()`) to own `privateMetadata` (-05 §2).
     /// ShareNotification is not supported: RFC 9670 §3.3 rejects every
     /// create and update of it with `forbidden`, so its metadata could
     /// never be written.
@@ -580,7 +580,7 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
-        // draft-ietf-jmap-metadata-04 §3: jmap_server::handle_changes has
+        // draft-ietf-jmap-metadata-05 §3: jmap_server::handle_changes has
         // already folded a `using` without the capability into this flag.
         let mode = if params.ignore_metadata_only_changes {
             MetadataOnlyChanges::Ignore
@@ -604,7 +604,7 @@ impl JmapBackend for MemoryBackend {
         // Under Ignore a metadata-only update entry is dropped here: each
         // update entry names one id, so an id stays in `updated` exactly
         // when one of its updates since sinceState touched more than
-        // metadata (-04 §3.3: "exclude from the updated array any id whose
+        // metadata (-05 §3.3: "exclude from the updated array any id whose
         // only changes since sinceState ... are confined to metadata and/or
         // privateMetadata"), and the dropped entries do not count toward
         // maxChanges ("Excluded ids do not count toward maxChanges").
@@ -691,7 +691,7 @@ impl JmapBackend for MemoryBackend {
             }
         }
 
-        // -04 §3.3 `updatedProperties`; Principal and ShareNotification
+        // -05 §3.3 `updatedProperties`; Principal and ShareNotification
         // have none of the RFC 8621 §2.2 count properties that only
         // Mailbox/changes may list.
         let updated_properties = window_props.updated_properties(&updated, mode, &[]);
@@ -710,7 +710,7 @@ impl JmapBackend for MemoryBackend {
     /// It returns the stored objects for the type/account in lexicographic
     /// id order and honors pagination (`position`, `limit`, `anchor`).
     ///
-    /// It evaluates only the draft-ietf-jmap-metadata-04 §3.6 conditions of a
+    /// It evaluates only the draft-ietf-jmap-metadata-05 §3.6 conditions of a
     /// Principal filter (see [`MemoryBackend::with_metadata_info`]) and no
     /// comparator. Anything else fails loud, per RFC 8620 §5.5: "A server
     /// MUST reject the call with an unsupportedFilter error if it cannot
@@ -747,7 +747,7 @@ impl JmapBackend for MemoryBackend {
         }
         let inner = self.inner.lock().unwrap();
 
-        // draft-ietf-jmap-metadata-04 §3.6 on Principal: validate the
+        // draft-ietf-jmap-metadata-05 §3.6 on Principal: validate the
         // `metadata*` conditions, then evaluate the filter. Any other
         // non-empty filter is `unsupportedFilter` (RFC 8620 §5.5).
         let metadata_filter = match filter {
@@ -972,7 +972,7 @@ impl SharingBackend for MemoryBackend {
                 SetError::new(SetErrorType::InvalidPatch).with_description(description),
             ))
         };
-        // draft-ietf-jmap-metadata-04 §3.2: "Patch errors that can be
+        // draft-ietf-jmap-metadata-05 §3.2: "Patch errors that can be
         // determined from the request alone (for example, two paths where
         // one is a prefix of the other) MUST be reported with
         // "invalidPatch" before rule 1 is evaluated."
@@ -984,7 +984,7 @@ impl SharingBackend for MemoryBackend {
         let mut inner = self.inner.lock().unwrap();
         let metadata_info = metadata_info_for::<O>(&inner).cloned();
 
-        // -04 §3.2 rule 1: "If the user cannot read the related object,
+        // -05 §3.2 rule 1: "If the user cannot read the related object,
         // reject with "notFound"". Here only a missing account or object is
         // unreadable.
         //
@@ -1019,14 +1019,14 @@ impl SharingBackend for MemoryBackend {
                 O::TYPE_NAME
             ))));
         };
-        // -04 §3.2 rules 2 and 3 run before the patch is applied.
+        // -05 §3.2 rules 2 and 3 run before the patch is applied.
         let info = check_metadata_set(
             metadata_info.as_ref(),
             SetKind::Update,
             &patch_map,
             Some(base),
         )?;
-        // -04 §2 `metadata` has "default: {}", so a
+        // -05 §2 `metadata` has "default: {}", so a
         // `metadata/<namespace>` pointer finds its parent.
         if info.is_some() {
             base.entry("metadata")
@@ -1038,7 +1038,7 @@ impl SharingBackend for MemoryBackend {
         // Any `PatchPathError` is an RFC 8620 §5.3 "invalidPatch", including
         // the shared helper's nesting cap on path plus value depth. The
         // value-dependent metadata patch errors (missing parent, path
-        // through an array) land here, after rule 3 and before rule 4 (-04
+        // through an array or a Binary value) land here, after rule 3 and before rule 4 (-05
         // §3.2).
         //
         // `map_err` (not `.expect`) on `to_value(&patch)` above because
@@ -1046,7 +1046,7 @@ impl SharingBackend for MemoryBackend {
         // `create_object` comment above for the full rationale.
         apply_patch_object(base, &patch_map).map_err(|e| invalid_patch(e.to_string()))?;
         if let Some(info) = info {
-            // -04 §3.2: "In an update, null is equivalent to {}"; the patch
+            // -05 §3.2: "In an update, null is equivalent to {}"; the patch
             // removed the property instead.
             for property in ["metadata", "privateMetadata"] {
                 if patch_map
@@ -1059,7 +1059,7 @@ impl SharingBackend for MemoryBackend {
                     );
                 }
             }
-            // -04 §3.2 rule 4 runs on the value as it would be stored.
+            // -05 §3.2 rule 4 runs on the value as it would be stored.
             check_metadata_depth(&patch_map, base, info)
                 .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
         }
@@ -1139,7 +1139,7 @@ impl SharingBackend for MemoryBackend {
 }
 
 // ---------------------------------------------------------------------------
-// draft-ietf-jmap-metadata-04 helpers
+// draft-ietf-jmap-metadata-05 helpers
 // ---------------------------------------------------------------------------
 
 /// The metadata configuration that applies to `O`: the one set by
@@ -1161,14 +1161,14 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
     ))
 }
 
-/// draft-ietf-jmap-metadata-04 §3.2 rules 2 and 3 for a metadata write,
+/// draft-ietf-jmap-metadata-05 §3.2 rules 2 and 3 for a metadata write,
 /// before the write is applied. Returns the DataTypeMetadataInfo for the
 /// rule 4 check after applying, or `None` when `entry` writes no metadata.
 ///
 /// `entry` is the create object or update patch and `stored` the object
 /// before an update (`None` on create). Rule 1's `notFound` is the
 /// caller's; its `forbidden` never applies, because a Principal has no
-/// rights object and this backend has no read-only accounts (-04 §4.1).
+/// rights object and this backend has no read-only accounts (-05 §4.1).
 fn check_metadata_set<'a>(
     info: Option<&'a DataTypeMetadataInfo>,
     kind: SetKind,
@@ -1178,7 +1178,7 @@ fn check_metadata_set<'a>(
     let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
         return Ok(None);
     };
-    // -04 §1.2.1: an unlisted type "does not gain the metadata or
+    // -05 §1.2.1: an unlisted type "does not gain the metadata or
     // privateMetadata properties".
     let Some(info) = info else {
         return Err(invalid_metadata_property(
@@ -1191,7 +1191,7 @@ fn check_metadata_set<'a>(
     Ok(Some(info))
 }
 
-/// draft-ietf-jmap-metadata-04 §3.2 checks for a created object `obj`:
+/// draft-ietf-jmap-metadata-05 §3.2 checks for a created object `obj`:
 /// rules 2 and 3 on its metadata properties, then rule 4 on the stored
 /// value.
 fn check_metadata_create(
@@ -1210,7 +1210,7 @@ fn check_metadata_create(
     Ok(())
 }
 
-/// The six draft-ietf-jmap-metadata-04 §3.6 FilterCondition fields.
+/// The six draft-ietf-jmap-metadata-05 §3.6 FilterCondition fields.
 const METADATA_CONDITION_KEYS: [&str; 6] = [
     "metadataExists",
     "privateMetadataExists",
@@ -1226,15 +1226,15 @@ fn unsupported_filter(description: &str) -> BackendQueryError<MemoryError> {
     BackendQueryError::Method(err)
 }
 
-/// Validate the draft-ietf-jmap-metadata-04 §3.6 conditions on every leaf
+/// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
 /// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
 /// before any object is matched.
 ///
-/// Without `info` Principal has no metadata (-04 §1.2.1: it "does not gain
+/// Without `info` Principal has no metadata (-05 §1.2.1: it "does not gain
 /// the metadata or privateMetadata properties"), so a metadata leaf is
 /// `unsupportedFilter` (RFC 8620 §5.5: "The filter is syntactically valid,
 /// but the server cannot process it"). Otherwise
-/// [`MetadataCondition::take_from`] applies -04 §3.6: a malformed path is
+/// [`MetadataCondition::take_from`] applies -05 §3.6: a malformed path is
 /// `invalidArguments`, and a `privateMetadata*` condition is
 /// `unsupportedFilter` because `supportsPrivate` is false.
 fn check_metadata_filter(
@@ -1274,7 +1274,7 @@ fn check_metadata_filter(
 }
 
 /// Evaluate `filter` against one Principal's `metadata` (absent means
-/// `{}`, -04 §2), with RFC 8620 §5.5 AND/OR/NOT. Every leaf is evaluated,
+/// `{}`, -05 §2), with RFC 8620 §5.5 AND/OR/NOT. Every leaf is evaluated,
 /// so an unevaluable one is reported whatever the others match: a leaf
 /// with an RFC 9670 §2.4.1 condition is `unsupportedFilter`, as this
 /// backend evaluates none of them (RFC 8620 §5.5: a server "MUST reject the
@@ -1322,7 +1322,7 @@ fn principal_metadata_matches(
     }
 }
 
-/// Match the draft-ietf-jmap-metadata-04 §3.6 shared-metadata conditions of
+/// Match the draft-ietf-jmap-metadata-05 §3.6 shared-metadata conditions of
 /// one filter leaf against an object's `metadata`.
 fn metadata_matches(
     metadata: &serde_json::Map<String, serde_json::Value>,

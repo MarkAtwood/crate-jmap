@@ -1636,7 +1636,7 @@ mod tests {
         );
     }
 
-    /// draft-ietf-jmap-metadata-04 §4.1: the rights object "gains the following
+    /// draft-ietf-jmap-metadata-05 §4.1: the rights object "gains the following
     /// property: *maySetMetadata*: Boolean", present only when the metadata
     /// capability lists the type. Oracle: hand-written JSON with the spec's wire name.
     #[test]

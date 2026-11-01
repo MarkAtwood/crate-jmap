@@ -1759,7 +1759,7 @@ fn calendar_event_maps_serialize_in_sorted_key_order() {
     );
 }
 
-/// draft-ietf-jmap-metadata-04 §4.1: the rights object of every data type with
+/// draft-ietf-jmap-metadata-05 §4.1: the rights object of every data type with
 /// `myRights` "gains the following property: *maySetMetadata*: Boolean", and
 /// the right is only present when the metadata capability lists the type, so
 /// it is optional on the wire. Oracle: hand-written JSON with the spec's wire name.
