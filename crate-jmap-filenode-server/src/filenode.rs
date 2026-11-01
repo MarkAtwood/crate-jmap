@@ -1561,7 +1561,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 /// each copy entry to [`FileNodeBackend::copy_object`] in the destination
 /// account, using the source node's properties.
 ///
-/// The source nodes are fetched with `get_objects` before copying.
+/// The source nodes are fetched with `get_objects` before copying. A
+/// `File` node whose `blobId` [`FileNodeBackend::blob_exists`] reports
+/// absent in the destination account is rejected with
+/// `invalidProperties` naming `blobId`, as for a `FileNode/set` create.
 ///
 /// Each `created` entry whose node has a `Some`
 /// [`FileNodeBackend::files_rights`] in the destination account reports
@@ -1831,6 +1834,26 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             if matches!(source_node.node_type.as_ref(), Some(NodeType::File))
                 && let Some(ref blob_id) = source_node.blob_id
             {
+                // As for FileNode/set create, the blob must exist in the
+                // account the node is created in: a cross-account copy
+                // carries the source account's blobId, which the
+                // destination may not hold (RFC 8620 §6.3 Blob/copy moves
+                // blobs between accounts). Checked before any onExists
+                // destroy so a rejected copy has no side effects.
+                match backend.blob_exists(caller, &account_id, blob_id).await {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        not_copied.insert(
+                            create_id,
+                            json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
+                        );
+                        continue;
+                    }
+                    Err(e) => {
+                        not_copied.insert(create_id, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
                 match backend.blob_sha256(caller, &account_id, blob_id).await {
                     Ok(digest) => source_node.sha256 = digest,
                     Err(e) => {
@@ -2679,6 +2702,9 @@ mod tests {
         /// When `Some`, the next call to `blob_exists` returns
         /// `Err(MemoryError::new(msg))`. Cleared on consumption.
         blob_exists_err: Option<String>,
+        /// `(accountId, blobId)` pairs `blob_exists` reports absent.
+        /// Persistent.
+        missing_blobs: std::collections::HashSet<(String, String)>,
         /// When `Some`, the next call to `cid_advertised` returns
         /// `Err(MemoryError::new(msg))`. Cleared on consumption.
         cid_advertised_err: Option<String>,
@@ -2761,6 +2787,16 @@ mod tests {
         /// call. Single-shot.
         fn inject_blob_exists_err(&self, msg: &str) {
             self.faults.lock().unwrap().blob_exists_err = Some(msg.to_owned());
+        }
+
+        /// Make `blob_exists` report blob `blob_id` absent in account
+        /// `account_id`. Persistent.
+        fn set_blob_missing(&self, account_id: &str, blob_id: &str) {
+            self.faults
+                .lock()
+                .unwrap()
+                .missing_blobs
+                .insert((account_id.to_owned(), blob_id.to_owned()));
         }
 
         /// Schedule a `MemoryError::new(msg)` for the next `query_objects`
@@ -3043,9 +3079,18 @@ mod tests {
             account_id: &Id,
             blob_id: &Id,
         ) -> Result<bool, Self::Error> {
-            // Single-shot: consume the entry on this call.
-            if let Some(msg) = self.faults.lock().unwrap().blob_exists_err.take() {
-                return Err(MemoryError::new(msg));
+            {
+                let mut faults = self.faults.lock().unwrap();
+                // Single-shot: consume the entry on this call.
+                if let Some(msg) = faults.blob_exists_err.take() {
+                    return Err(MemoryError::new(msg));
+                }
+                if faults
+                    .missing_blobs
+                    .contains(&(account_id.as_ref().to_owned(), blob_id.as_ref().to_owned()))
+                {
+                    return Ok(false);
+                }
             }
             self.inner.blob_exists(&(), account_id, blob_id).await
         }
@@ -3965,6 +4010,60 @@ mod tests {
             read_only_rights(),
             "{resp}"
         );
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-19 §FileNode/copy, "a standard
+    /// Foo/copy method", and RFC 8620 §5.4, which creates "a copy of the
+    /// source object" in the destination `accountId`; FileNode/set create
+    /// rejects a blobId the account lacks with `invalidProperties`
+    /// naming `blobId`. Blobs are per account (RFC 8620 §6.3 Blob/copy
+    /// copies them "between two different accounts"), so the check is
+    /// against the destination: a blob absent there is rejected, and one
+    /// absent only in the source does not block the copy.
+    #[tokio::test]
+    async fn copy_checks_blob_exists_in_destination_account() {
+        let backend = FaultyBackend {
+            inner: MemoryBackend::new()
+                .with_account(&Id::from("acc1"))
+                .with_account(&Id::from("acc2")),
+            faults: std::sync::Arc::default(),
+        };
+        let file = |id: &str, blob: &str| -> FileNode {
+            serde_json::from_value(json!({
+                "id": id, "name": id, "parentId": null, "role": null,
+                "@type": "File", "blobId": blob, "size": 0,
+                "created": "1970-01-01T00:00:00Z", "modified": "1970-01-01T00:00:00Z"
+            }))
+            .expect("File fixture")
+        };
+        backend.seed_node("acc1", file("f1", "b-absent-in-dst"));
+        backend.seed_node("acc1", file("f2", "b-absent-in-src"));
+        backend.set_blob_missing("acc2", "b-absent-in-dst");
+        backend.set_blob_missing("acc1", "b-absent-in-src");
+
+        let args = json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc2",
+            "create": {
+                "c1": { "id": "f1" },
+                "c2": { "id": "f2" }
+            }
+        });
+        let resp = handle_filenode_copy(&backend, &(), args, "c0", &[])
+            .await
+            .expect("copy")
+            .primary;
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notCreated"]["c1"]["properties"],
+            json!(["blobId"]),
+            "{resp}"
+        );
+        assert!(resp["created"].get("c1").is_none(), "{resp}");
+        assert_eq!(resp["created"]["c2"]["blobId"], "b-absent-in-src", "{resp}");
     }
 
     /// Oracle: FileNodeBackend::files_rights contract (as for

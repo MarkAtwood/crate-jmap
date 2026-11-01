@@ -138,6 +138,11 @@ wire behaviour that a conforming peer can observe.
   the moved subtree deeper, fails with `invalidProperties` naming
   `parentId`. The draft names no error; the choice follows
   brong/draft-gondwana-jmap-filenode#16.
+- **jmap-filenode-server**: `FileNode/copy` checks that a copied `File`
+  node's `blobId` exists in the destination account, as `FileNode/set`
+  create already did. A missing blob fails with `invalidProperties` naming
+  `blobId`; a cross-account copy no longer stores a blobId the destination
+  account does not hold (brong/draft-gondwana-jmap-filenode#6).
 
 ## [0.4.2] - 2026-10-30
 
