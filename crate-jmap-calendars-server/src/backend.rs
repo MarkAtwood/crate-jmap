@@ -673,6 +673,43 @@ pub trait CalendarsBackend: JmapBackend {
         calendar_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
+    /// Returns `true` if the account will receive messages sent to the
+    /// calendar address `uri`.
+    ///
+    /// This drives the server-set `isOrigin` property
+    /// (draft-ietf-jmap-calendars-33 §5 `isOrigin`: "true if, and only if:
+    /// the event's \"organizerCalendarAddress\" property is null; or the
+    /// account will receive messages sent to the
+    /// \"organizerCalendarAddress\" URI"). The answer is account-level and
+    /// server-defined: it MUST NOT depend on which user is calling, so every
+    /// user who can see the event sees the same `isOrigin`. `caller` is
+    /// passed only so the backend can reach its storage.
+    ///
+    /// An `Err` is mapped by the handler to a per-id `serverFail`.
+    ///
+    /// The default implementation returns `true` if any
+    /// `ParticipantIdentity` visible to `caller` in `account_id` has a
+    /// `calendarAddress` exactly equal to `uri`.
+    fn account_receives_at(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        uri: &str,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        // ponytail: ParticipantIdentity is per user (calendars-33 §5), so this
+        // scan is correct only when every caller sees all of the account's
+        // identities (single-user backends). Multi-user backends must
+        // override with an account-level address set.
+        async move {
+            let (identities, _) = self
+                .get_objects::<jmap_calendars_types::ParticipantIdentity>(
+                    caller, account_id, None, None,
+                )
+                .await?;
+            Ok(identities.iter().any(|i| i.calendar_address == uri))
+        }
+    }
+
     /// Compute `utcStart` and `utcEnd` for a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) by converting the
     /// event's `start`/`duration` fields and time zone into UTC
     /// (draft-ietf-jmap-calendars-33 §5.2).

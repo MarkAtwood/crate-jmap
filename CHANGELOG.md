@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-calendars-server**: `CalendarsBackend::account_receives_at`
+  (defaulted, non-breaking) now decides CalendarEvent `isOrigin`.
+  draft-ietf-jmap-calendars-33 §5 makes `isOrigin` account-level ("the
+  account will receive messages sent to the \"organizerCalendarAddress\"
+  URI"), so it must not depend on which user created or edited the event;
+  ParticipantIdentity is per user. The default scans the ParticipantIdentity
+  objects the caller can see, which is correct for single-user backends;
+  multi-user backends should override it with the account's address set.
 - **jmap-peer-auth**: `identity_host` and `IdentityHost` expose the host of
   an identity that `bind_identity` compares (draft-atwood-jmap-chat-federation-00
   §Identity Binding rule 1), for a sending server finding where a call goes.
