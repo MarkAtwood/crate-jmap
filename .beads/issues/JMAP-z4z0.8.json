@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-z4z0.8",
+  "title": "Fix spec quotes that were wrong before the BCP 14 sweep",
+  "description": "Found during JMAP-z4z0.7 (batch 37), out of its scope because the sweep did not change these sentences: test/doc comments quote wording that the spec never had or no longer has. Re-quote each against the then-current jmap-chat-spec head (77c3474 at filing) or, where the quoted sentence exists in no revision, replace the quote with the real governing sentence. Comment-only; no test logic. Sites: chat-server tests/single_user_owner_gates.rs:92 and tests/space_create_bootstrap_admin.rs:129 ('servers MUST enforce this'; spec says SHOULD before and after the sweep); tests/typing_delivery.rs:4 and :161 (wss L250 wording gone at 77c3474); tests/message_broadcast_permission_memory.rs:105 (a §Message/set 'A create request with a non-empty broadcastMentions array MUST be rejected with forbidden' sentence absent at 4ffb96e~1 and 77c3474; the same comment now also quotes L462 SHOULD); vtc-server src/media.rs:447, tests/call_state.rs:257 and :322, tests/livestream.rs:101, tests/recording.rs:113 ('Non-moderators MUST receive forbidden'; vtc draft says SHOULD at both revisions, L325/904/1128/1204/1258/1356); scene-server tests/visibility.rs:254 ('All other users MUST receive forbidden for SceneObject/set', absent at both revisions). Do before the 0.5.0 release.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-10-31T22:02:02.905988922Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T05:40:10.427383933Z",
+  "closed_at": "2026-11-01T05:40:10.427383933Z",
+  "close_reason": "Batch 38: b49a72e6, 33075d49, 5fe6805a; comment-only re-quotes at jmap-chat-spec 77c3474; local CI green",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-z4z0.8",
+      "depends_on_id": "JMAP-z4z0",
+      "type": "parent-child",
+      "created_at": "2026-10-31T22:02:03.021326217Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

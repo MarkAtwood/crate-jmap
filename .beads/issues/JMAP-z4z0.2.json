@@ -2,13 +2,15 @@
   "id": "JMAP-z4z0.2",
   "title": "federation-types: required recipientUserId, optional ownerUserId",
   "description": "Part a of multi-mailbox federation (JMAP-ucha). crate-jmap-chat-federation-types src/peer.rs: add required pub recipient_user_id: String after account_id on PeerDeliverArgs, PeerReceiptArgs, PeerTypingArgs, PeerRetractArgs, PeerGroupUpdateArgs, PeerSubscribePresenceArgs, PeerUnsubscribePresenceArgs, PeerPresenceArgs; each constructor takes recipient_user_id as the 2nd parameter (after account_id). Field docs: account_id = the peer-role account (fed L404); subscriber_id/identity = identity of the user on the calling server. src/session.rs: FederationSession.owner_user_id -\u003e Option\u003cString\u003e; new(peer_signing_keys) + with_owner_user_id(); from_session_extra accepts absent ownerUserId; anonymous_well_known_session inserts ownerUserId only when Some, and when None strips ownerUserId/ownerDirectAddress/ownerEndpoints (fed L396). Fix stale 'MUST include ownerUserId' docs. tests/draft_examples.rs: replace only_recipient(\u0026args.extra) with extra.is_empty() + typed recipient_user_id asserts. peer-auth src/identity.rs and peer-auth-io keys.rs/lib.rs: docs only (ownerUserId is advisory owner metadata, applied only if bind_identity(owner, peer_domain) succeeds; never used for identity binding); add a bind_identity test alice@A.Example vs a.example (7.16) and a peer-auth-io test: Session without ownerUserId yields keys and owner_user_id None (7.18). BREAKING.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-31T18:48:48.758917928Z",
   "created_by": "agent",
-  "updated_at": "2026-10-31T18:48:48.758917928Z",
+  "updated_at": "2026-10-31T19:29:35.59116703Z",
+  "closed_at": "2026-10-31T19:29:35.59116703Z",
+  "close_reason": "Batch 32: ac25c9db (typed recipientUserId on Peer/* args, optional ownerUserId, peer_group_update_args recipient param landed early from z4z0.4; BREAKING, CHANGELOG + public-api) + doc fixup; local CI all green (6633 tests stable+beta).",
   "dependencies": [
     {
       "issue_id": "JMAP-z4z0.2",
