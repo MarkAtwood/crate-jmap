@@ -1,7 +1,7 @@
 //! `VTCCall/set` update: the state machine (draft-atwood-jmap-vtc-00 §State
-//! Machine, L426-455), §Ending a Call (L687-706) and §Moderator Actions on
-//! VTCCall (L708-719). Line numbers cite draft-atwood-jmap-vtc-00.md at
-//! jmap-chat-spec 3227c0f.
+//! Machine, L500-529), §Ending a Call (L879-900) and §Moderator Actions on
+//! VTCCall (L902-915). Line numbers cite draft-atwood-jmap-vtc-00.md at
+//! jmap-chat-spec 77c3474.
 //!
 //! The participant-driven transitions (`"ringing"` → `"active"` on answer,
 //! `"pending"` → `"active"` on join, ending when all leave or decline) and
@@ -45,7 +45,7 @@ fn assert_invalid_state(err: Value) {
     assert_eq!(err["properties"], json!(["state"]), "{err}");
 }
 
-/// L697-703: the example update `{"state": "ended"}`.
+/// L891-897: the example update `{"state": "ended"}`.
 fn end() -> Value {
     json!({ "state": "ended" })
 }
@@ -55,8 +55,8 @@ async fn ending_an_active_call_completes_it() {
     let backend = backend();
     let id = create_id(&backend, room()).await;
 
-    // L689 "The server sets `endedAt` ... The server sets `endReason` based
-    // on context"; L691 "`"completed"`: The call was in state `"active"`
+    // L881 "The server sets `endedAt` ... The server sets `endReason` based
+    // on context"; L883 "`"completed"`: The call was in state `"active"`
     // when ended."
     let echo = update(&backend, BOB, &id, end()).await.expect("end");
     let call = get(&backend, &id).await;
@@ -73,9 +73,10 @@ async fn ending_an_active_call_completes_it() {
 async fn initiator_ending_a_ringing_call_cancels_it() {
     let backend = backend();
     let id = create_id(&backend, ring()).await;
-    // L436 "`"ringing"` → `"ended"`: Timeout, all targets decline, or
-    // initiator cancels."; L692 "`"cancelled"`: The call was in state
-    // `"ringing"` when the initiator ended it".
+    // L510 "`"ringing"` → `"ended"`: Timeout, all targets decline, or
+    // initiator cancels."; L884 "`"cancelled"`: The call was in state
+    // `"ringing"` (the initiator withdrew the ring before anyone
+    // answered)".
     update(&backend, BOB, &id, end()).await.expect("cancel");
     let call = get(&backend, &id).await;
     assert_eq!(call["state"], "ended");
@@ -100,9 +101,9 @@ fn call_end_events(backend: &jmap_vtc_server::memory::MemoryBackend) -> Vec<Valu
 async fn cancelling_a_ringing_call_stops_the_ring() {
     let backend = backend();
     let id = create_id(&backend, ring()).await;
-    // jmap-chat-spec 33702a5 L1422 "When a ringing call is answered,
-    // declined, cancelled, or times out, the server delivers a
-    // `VTCCallEndEvent` to all devices that received the ring."; L1431
+    // L1626 "When a ringing call is answered, declined, cancelled, or times
+    // out, the server delivers a `VTCCallEndEvent` to all devices that
+    // received the ring."; L1635
     // "`"cancelled"` (initiator withdrew the ring)".
     update(&backend, BOB, &id, end()).await.expect("cancel");
     assert_eq!(
@@ -115,7 +116,7 @@ async fn cancelling_a_ringing_call_stops_the_ring() {
 async fn cancelling_a_pending_scheduled_call_rings_no_device() {
     let backend = backend();
     let id = create_id(&backend, scheduled()).await;
-    // jmap-chat-spec 33702a5 L1422: the event is for "a ringing call" and
+    // L1626: the event is for "a ringing call" and
     // "devices that received the ring"; a scheduled call never rang.
     update(&backend, BOB, &id, end()).await.expect("cancel");
     assert_eq!(get(&backend, &id).await["endReason"], "cancelled");
@@ -126,9 +127,10 @@ async fn cancelling_a_pending_scheduled_call_rings_no_device() {
 async fn ring_target_cannot_end_the_call() {
     let backend = backend();
     let id = create_id(&backend, ring()).await;
-    // L706 "The server MUST return `forbidden` if the caller is not a
-    // moderator on this call." Alice is a ring target with role
-    // "participant" (L294: only the initiator is moderator by default).
+    // L900 "The server SHOULD return `forbidden` if the caller is not a
+    // moderator on this call." This crate enforces it by choice. Alice is a
+    // ring target with role "participant" (L365 "The call initiator
+    // receives `"moderator"` by default").
     let err = update(&backend, ALICE, &id, end())
         .await
         .expect_err("forbidden");
@@ -140,9 +142,9 @@ async fn ring_target_cannot_end_the_call() {
 async fn answering_is_not_a_vtc_call_set_transition() {
     let backend = backend();
     let id = create_id(&backend, ring()).await;
-    // L435 "`"ringing"` → `"active"`: A target participant answers"; L428
+    // L509 "`"ringing"` → `"active"`: A target participant answers"; L502
     // "clients request transitions via `VTCCall/set` and the server
-    // validates them"; L706 "The server MUST return `invalidProperties`
+    // validates them"; L900 "The server MUST return `invalidProperties`
     // naming `state` for any `state` transition not permitted by the state
     // machine".
     let err = update(&backend, BOB, &id, json!({ "state": "active" }))
@@ -159,8 +161,8 @@ async fn active_ring_call_ends_completed() {
         &backend,
         stored_call("R1", "ring", "active", "2026-06-05T14:30:00Z"),
     );
-    // L437 "`"active"` → `"ended"`: All participants leave or a moderator
-    // ends the call."; L691.
+    // L511 "`"active"` → `"ended"`: All participants leave or a moderator
+    // ends the call."; L883.
     update(&backend, BOB, "R1", end()).await.expect("end");
     assert_eq!(get(&backend, "R1").await["endReason"], "completed");
 }
@@ -172,8 +174,8 @@ async fn creating_cannot_jump_to_ended() {
         &backend,
         stored_call("R2", "ring", "creating", "2026-06-05T14:30:00Z"),
     );
-    // L434: the only transition out of `"creating"` is `"ringing"`, made by
-    // the server; L706 refuses any other.
+    // L508: the only transition out of `"creating"` is `"ringing"`, made by
+    // the server; L900 refuses any other.
     let err = update(&backend, BOB, "R2", end())
         .await
         .expect_err("refused");
@@ -184,8 +186,9 @@ async fn creating_cannot_jump_to_ended() {
 async fn non_moderator_cannot_close_a_room() {
     let backend = backend();
     let id = create_id(&backend, room()).await;
-    // L444 "`"active"` → `"ended"`: A moderator explicitly closes the
-    // room"; L706 "forbidden if the caller is not a moderator".
+    // L518 "`"active"` → `"ended"`: A moderator explicitly closes the
+    // room"; L900 "The server SHOULD return `forbidden` if the caller is
+    // not a moderator on this call." This crate enforces it by choice.
     let err = update(&backend, EVE, &id, end())
         .await
         .expect_err("forbidden");
@@ -197,8 +200,8 @@ async fn non_moderator_cannot_close_a_room() {
 async fn cancelling_a_pending_scheduled_call() {
     let backend = backend();
     let id = create_id(&backend, scheduled()).await;
-    // L452 "`"pending"` → `"ended"`: A moderator cancels the scheduled call
-    // before it starts."; L365 "`"cancelled"`: The initiator withdrew a
+    // L526 "`"pending"` → `"ended"`: A moderator cancels the scheduled call
+    // before it starts."; L439 "`"cancelled"`: The initiator withdrew a
     // ringing or pending call before anyone answered/joined."
     update(&backend, BOB, &id, end()).await.expect("cancel");
     let call = get(&backend, &id).await;
@@ -210,8 +213,8 @@ async fn cancelling_a_pending_scheduled_call() {
 async fn pending_becomes_active_only_by_joining() {
     let backend = backend();
     let id = create_id(&backend, scheduled()).await;
-    // L451 "`"pending"` → `"active"`: A participant joins at or after
-    // `scheduledStartAt`." — not a `VTCCall/set` request (L706).
+    // L525 "`"pending"` → `"active"`: The first participant joins." — not
+    // a `VTCCall/set` request (L900).
     let err = update(&backend, BOB, &id, json!({ "state": "active" }))
         .await
         .expect_err("refused");
@@ -225,8 +228,8 @@ async fn active_scheduled_call_ends_completed() {
         &backend,
         stored_call("S1", "scheduled", "active", "2026-06-05T14:30:00Z"),
     );
-    // L453 "`"active"` → `"ended"`: All participants leave or a moderator
-    // ends the call."; L691.
+    // L527 "`"active"` → `"ended"`: All participants leave or a moderator
+    // ends the call."; L883.
     update(&backend, BOB, "S1", end()).await.expect("end");
     assert_eq!(get(&backend, "S1").await["endReason"], "completed");
 }
@@ -236,8 +239,8 @@ async fn ended_is_terminal() {
     let backend = backend();
     let id = create_id(&backend, room()).await;
     update(&backend, BOB, &id, end()).await.expect("end");
-    // L706 "The server MUST return `invalidProperties` naming `state` if
-    // the call is already in state `"ended"`."; L455 "`"ended"` is a
+    // L900 "The server MUST return `invalidProperties` naming `state` if
+    // the call is already in state `"ended"`."; L529 "`"ended"` is a
     // terminal state. The server MUST NOT transition a call out of
     // `"ended"`."
     for state in ["ended", "active", "pending", "ringing"] {
@@ -271,9 +274,9 @@ async fn lobby_toggle_is_a_moderator_action() {
 async fn policy_and_e2ee_are_moderator_only() {
     let backend = backend();
     let id = create_id(&backend, room()).await;
-    // L391 `policy`: "Mutable by moderators only."; L406 "the server MUST
+    // L465 `policy`: "Mutable by moderators only."; L480 "The server SHOULD
     // return `forbidden` if a non-moderator attempts to update
-    // `e2eeEnabled`".
+    // `e2eeEnabled`." This crate enforces it by choice.
     for patch in [
         json!({ "policy/muteOnEntry": true }),
         json!({ "e2eeEnabled": true }),
@@ -293,7 +296,7 @@ async fn policy_and_e2ee_are_moderator_only() {
 async fn immutable_and_server_set_properties_are_refused() {
     let backend = backend();
     let id = create_id(&backend, room()).await;
-    // L345-L397: `callType` and `parentCallId` are "immutable";
+    // L422-L470: `callType` and `parentCallId` are "immutable";
     // `initiatorId` is "immutable, server-set"; `endReason` and
     // `breakoutRoomIds` are "server-set".
     for (key, value) in [
@@ -336,9 +339,9 @@ async fn breakout_rooms_track_the_parent() {
         json!([child_id])
     );
 
-    // L715-716 "**Close a breakout room:** Transition a child VTCCall to
+    // L909-910 "**Close a breakout room:** Transition a child VTCCall to
     // `"ended"`. The server removes its id from the parent's
-    // `breakoutRoomIds`."
+    // `breakoutRoomIds` ...".
     update(&backend, BOB, &child_id, end())
         .await
         .expect("close");
@@ -366,11 +369,13 @@ async fn destroy(
 async fn ring_target_cannot_destroy_the_call() {
     let backend = backend();
     let id = create_id(&backend, ring()).await;
-    // L1647 "A participant with `role: "participant"` MUST receive
-    // `forbidden` ... for any `VTCCall/set` operation restricted to
-    // moderators (ending a call, ...)". Destroy removes the call, so it
-    // cannot be a way around L706. Alice is a ring target with role
-    // "participant" (L294).
+    // L1927 "Each moderation action carries its own role check: call-level
+    // actions in {{moderator-actions}} and {{ending-a-call}}"; L900 "The
+    // server SHOULD return `forbidden` if the caller is not a moderator on
+    // this call." The draft does not address VTCCall destroy; destroy
+    // removes the call, so this crate refuses it by choice rather than let
+    // it be a way around L900. Alice is a ring target with role
+    // "participant" (L365).
     let err = destroy(&backend, ALICE, &id).await.expect_err("forbidden");
     assert_eq!(err["type"], "forbidden", "{err}");
     assert_eq!(get(&backend, &id).await["state"], "ringing");
@@ -387,13 +392,15 @@ async fn destroying_a_breakout_room_leaves_the_parent() {
         .expect("id")
         .to_owned();
 
-    // L1647: "closing breakout rooms" is moderator-only.
+    // L909-910: closing a breakout room is a moderator action; L904
+    // "Non-moderators SHOULD receive `forbidden` for these operations."
+    // This crate enforces it by choice, for destroy as for update.
     let err = destroy(&backend, EVE, &child_id)
         .await
         .expect_err("forbidden");
     assert_eq!(err["type"], "forbidden", "{err}");
 
-    // L397 "`breakoutRoomIds` ... ids of child breakout-room VTCCalls": a
+    // L470-471 "`breakoutRoomIds` ... ids of child breakout-room VTCCalls": a
     // destroyed child is no longer one.
     destroy(&backend, BOB, &child_id).await.expect("destroy");
     assert_eq!(get(&backend, &parent).await["breakoutRoomIds"], json!([]));
