@@ -443,8 +443,10 @@ async fn is_moderator_on<B: VtcBackend>(
     }
 }
 
-/// Fetch object `id` and require the caller to be a moderator on its call:
-/// "Non-moderators MUST receive `forbidden`."
+/// Fetch object `id` and require the caller to be a moderator on its call.
+/// draft-atwood-jmap-vtc-00 §VTCRecording/set and §VTCLivestream/set
+/// (jmap-chat-spec 77c3474 L1258, L1356): "Non-moderators SHOULD receive
+/// `forbidden`." This crate enforces it by choice.
 async fn fetch_moderated<O, B>(
     backend: &B,
     caller: &B::CallerCtx,
