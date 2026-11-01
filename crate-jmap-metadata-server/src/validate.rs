@@ -25,7 +25,9 @@ use crate::changes::{METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY};
 ///
 /// draft-ietf-jmap-metadata-05 §2.1 adds that a Binary value (§2.1.1,
 /// an object whose `@type` member is `"Binary"`) has depth 0, like a
-/// scalar.
+/// scalar. A Binary is an object "within a namespace value", so `value`
+/// itself is always measured as a plain object even if it has
+/// `@type: "Binary"`; only its descendants can be Binary values.
 ///
 /// §2.1 also requires every namespace value to be a JSON object. This
 /// function does not check that; the caller rejects a non-object value
@@ -45,10 +47,16 @@ use crate::changes::{METADATA_PROPERTY, PRIVATE_METADATA_PROPERTY};
 /// assert_eq!(value_depth(&json!({"t": {"@type": "Binary", "base64": "AA=="}})), 1);
 /// ```
 pub fn value_depth(value: &Value) -> u64 {
+    let nested = |child: &Value| {
+        if is_binary(child) {
+            0
+        } else {
+            value_depth(child)
+        }
+    };
     match value {
-        Value::Object(_) if is_binary(value) => 0,
-        Value::Object(map) => 1 + map.values().map(value_depth).max().unwrap_or(0),
-        Value::Array(arr) => arr.iter().map(value_depth).max().unwrap_or(0),
+        Value::Object(map) => 1 + map.values().map(nested).max().unwrap_or(0),
+        Value::Array(arr) => arr.iter().map(nested).max().unwrap_or(0),
         _ => 0,
     }
 }
@@ -939,6 +947,25 @@ mod tests {
             value_depth(&json!({"l": [{"@type": "Binary", "base64": ""}]})),
             1
         );
+    }
+
+    #[test]
+    fn root_level_binary_type_does_not_bypass_max_depth() {
+        // Oracle: -05 §2.1.1 — a Binary is "Any object within a namespace
+        // value", so the namespace value itself is measured as an object:
+        // by the §2.1 depth rule this one has depth 4. §3.2 rule 4: "If a
+        // namespace value would exceed maxDepth, reject with
+        // "invalidProperties"" (maxDepth here is 1).
+        let info = vendor_info(1);
+        let ns = json!({"@type": "Binary", "x": {"a": {"b": {"c": 1}}}});
+        assert_eq!(value_depth(&ns), 4);
+        let err = depth(
+            json!({"metadata/x.example": ns}),
+            json!({"metadata": {"x.example": ns}}),
+            &info,
+        )
+        .expect_err("deep root-level @type:Binary value must exceed maxDepth");
+        assert_eq!(err.property(), "metadata/x.example");
     }
 
     #[test]
