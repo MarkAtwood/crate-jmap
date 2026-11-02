@@ -216,6 +216,21 @@ wire behaviour that a conforming peer can observe.
   patch from the avatar's owner, literal `{}` or empty once those values
   are dropped, succeeds as a no-op with nothing written; another user's
   empty patch is still `forbidden`.
+- **jmap-chat-server**, **jmap-vtc-server**, **jmap-scene-server**: the
+  empty-patch no-op and the server-set check above now run after the
+  permission gates, so they no longer skip them. `Space/set` rejects `{}`
+  and any server-set key on a closed Space with `forbidden`, as
+  draft-atwood-jmap-chat-00 §Space `closedAt` requires for "every
+  `Space/set` update to the Space ... except a member removing themselves
+  via `removeMembers`"; `{}` had returned `updated`. `SpaceBan/set` without
+  the `ban` permission, `CustomEmoji/set` denied by
+  `ChatBackend::may_set_custom_emoji`, and `VTCParticipant/set` by a
+  non-moderator on another participant are `forbidden` for `{}` and for
+  server-set keys, not a no-op success or `invalidProperties`.
+  `SceneAvatar/set` on another user's avatar is `forbidden` again when the
+  patch changes a server-set property, not `invalidProperties`. A
+  `VTCParticipant/set` update of a missing id is `notFound` whatever the
+  patch holds.
 
 ## [0.4.2] - 2026-10-30
 

@@ -306,6 +306,35 @@ async fn closed_space_rejects_updates_except_self_removal() {
     assert_eq!(space["closedAt"], "2026-02-01T00:00:00Z");
 }
 
+/// Oracle: draft §Space `closedAt` (jmap-chat-spec 77c3474 L911) — "The
+/// server MUST also reject ... every `Space/set` update to the Space with
+/// a `forbidden` SetError, except a member removing themselves via
+/// `removeMembers`." RFC 8620 §5.3 makes `{}` and identical server-set
+/// values an update ("Any server-set properties MAY be included in the
+/// patch if their value is identical to the current server value"), so
+/// they are `forbidden` too, as is a changed server-set value.
+#[tokio::test]
+async fn closed_space_rejects_empty_and_server_set_patches() {
+    let backend = IdentityBackend::new();
+    seed(&backend, admin_and_regular(), Some("2026-02-01T00:00:00Z"));
+    let before = space_as(&backend, ACCOUNT_ID).await;
+
+    for patch in [
+        json!({}),
+        json!({ "id": SPACE_ID }),
+        json!({ "memberCount": 2 }),
+        json!({ "memberCount": 99 }),
+    ] {
+        let resp = update_as(&backend, ACCOUNT_ID, patch.clone()).await;
+        assert_eq!(resp["updated"], Value::Null, "{patch}: {resp}");
+        assert_eq!(
+            resp["notUpdated"][SPACE_ID]["type"], "forbidden",
+            "{patch}: {resp}"
+        );
+    }
+    assert_eq!(space_as(&backend, ACCOUNT_ID).await, before);
+}
+
 /// Oracle: draft §Space/get — "the server MUST return a restricted view
 /// of the Space containing only the fields `id`, `name`, `description`,
 /// `iconBlobId`, `memberCount`, `createdAt`, `isPublic`,

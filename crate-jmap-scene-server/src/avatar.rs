@@ -497,20 +497,6 @@ async fn update_avatar<B: SceneBackend>(
         return Err(not_found());
     }
 
-    let Value::Object(mut result) = jmap_server::serialize_value(&avatar)
-        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
-    else {
-        unreachable!("a SceneAvatar serializes as a JSON object")
-    };
-    // §SceneAvatar: `id`, `userId` and `joinedAt` are server-set, `regionId`
-    // immutable. A changed value is rejected, an identical one dropped (RFC
-    // 8620 §5.3), so the checks below see only the client's changes.
-    strip_read_only_patch::<SceneAvatar>(patch.as_map_mut(), Some(&result)).map_err(|e| {
-        serde_json::Value::from(
-            &(*e).with_description("these properties are immutable or set by the server"),
-        )
-    })?;
-
     let top = |k: &str| k.split('/').next().unwrap_or(k).to_owned();
     let patched: Vec<String> = patch.as_map().keys().map(|k| top(k)).collect();
     let touched = |k: &str| patched.iter().any(|p| p == k);
@@ -536,6 +522,22 @@ async fn update_avatar<B: SceneBackend>(
             return Err(forbidden("Users MUST NOT update other users' avatars."));
         }
     }
+
+    let Value::Object(mut result) = jmap_server::serialize_value(&avatar)
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
+    else {
+        unreachable!("a SceneAvatar serializes as a JSON object")
+    };
+    // After the ownership check, so another user's avatar is `forbidden`
+    // whatever the patch holds (§Avatar Permissions).
+    // §SceneAvatar: `id`, `userId` and `joinedAt` are server-set, `regionId`
+    // immutable. A changed value is rejected, an identical one dropped (RFC
+    // 8620 §5.3), so only the client's changes are applied.
+    strip_read_only_patch::<SceneAvatar>(patch.as_map_mut(), Some(&result)).map_err(|e| {
+        serde_json::Value::from(
+            &(*e).with_description("these properties are immutable or set by the server"),
+        )
+    })?;
 
     // An empty patch, literal or left empty above, is a no-op success
     // (decision on JMAP-t8ej.25): nothing is written.
