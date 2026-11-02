@@ -202,6 +202,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: EmailSubmission/set update accepts a server-set or
+  immutable property (`id`, `threadId`, `sendAt`, `identityId`, `emailId`,
+  `envelope`, ...) repeated with its stored value, as RFC 8620 §5.3
+  allows, and drops it; a changed value is still `invalidProperties`. A
+  patch left empty is a no-op success (`updated` maps the id to `null`, no
+  write, state unchanged), like `{}`.
 - **BREAKING** **jmap-chat-filenode-server**: `space_files_rights` and the
   `check_space_update` / `check_space_destroy` gates follow the
   draft-atwood-jmap-chat-filenode-00 §Permission Mapping table rewritten

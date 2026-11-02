@@ -571,7 +571,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -581,6 +581,28 @@ pub async fn handle_submission_set<B: MailBackend>(
                     continue;
                 }
             };
+            // A changed server-set or immutable value (RFC 8621 §7) is
+            // rejected, an identical one dropped (RFC 8620 §5.3); nothing
+            // left is a no-op success.
+            match check_read_only_patch::<_, EmailSubmission>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                patch.as_map_mut(),
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
+            }
             match process_update(backend, caller, &account_id, &id, patch).await {
                 Ok(Some(obj)) => {
                     updated.insert(id_str.clone(), jmap_server::serialize_value(&obj)?);
@@ -1075,11 +1097,6 @@ async fn process_update<B: MailBackend>(
         return Err(BackendSetError::SetError(Box::new(SetError::new(
             SetErrorType::NotFound,
         ))));
-    }
-
-    // An empty patch changes nothing: a no-op success with no write.
-    if patch.is_empty() {
-        return Ok(None);
     }
 
     let current = &existing[0];
