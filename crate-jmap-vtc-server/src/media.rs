@@ -41,7 +41,7 @@ use crate::{StatefulObject, VtcBackend};
 use jmap_server::BackendSetError;
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    server_fail_from_backend, server_fail_value_from_backend, strip_read_only_patch,
 };
 
 /// The stream configuration that §Updating Stream Configuration
@@ -866,14 +866,33 @@ async fn create_livestream<B: VtcBackend>(
     to_value(&livestream)
 }
 
-/// Decode one `update` patch and collect its distinct top-level keys.
-fn parse_patch(patch: Value) -> Result<(PatchObject, Vec<String>), Value> {
-    let patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
+/// Decode one `update` patch.
+fn parse_patch(patch: Value) -> Result<PatchObject, Value> {
+    serde_json::from_value(patch).map_err(|e| {
         Value::from(
             &jmap_server::SetError::new(jmap_server::SetErrorType::InvalidPatch)
                 .with_description(e.to_string()),
         )
-    })?;
+    })
+}
+
+/// Check `patch` against the server-set and immutable properties of
+/// `stored` and collect the distinct top-level keys left.
+///
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value (before
+/// applying the patches to the object).  Otherwise, the update MUST be
+/// rejected with an "invalidProperties" SetError." A changed value is
+/// rejected and an identical one dropped. No keys left, for `{}` or a
+/// patch of identical values only, is a no-op update (decision on
+/// JMAP-t8ej.25/.27).
+fn strip_patch<O: SetObject + Serialize>(
+    patch: &mut PatchObject,
+    stored: &O,
+) -> Result<Vec<String>, Value> {
+    let current = serde_json::to_value(stored).map_err(|e| server_fail_value_from_backend(&e))?;
+    strip_read_only_patch::<O>(patch.as_map_mut(), current.as_object())
+        .map_err(|e| Value::from(&e.with_description("these properties cannot be updated")))?;
     let mut keys: Vec<String> = patch
         .as_map()
         .keys()
@@ -881,7 +900,7 @@ fn parse_patch(patch: Value) -> Result<(PatchObject, Vec<String>), Value> {
         .collect();
     keys.sort_unstable();
     keys.dedup();
-    Ok((patch, keys))
+    Ok(keys)
 }
 
 /// Requested `state` of a patch, decoded as `S`.
@@ -939,8 +958,13 @@ async fn update_recording<B: VtcBackend>(
     id: &Id,
     patch: Value,
 ) -> Result<Value, Value> {
-    let (patch, keys) = parse_patch(patch)?;
+    let mut patch = parse_patch(patch)?;
     let recording: VtcRecording = fetch_moderated(backend, caller, account_id, id).await?;
+    let keys = strip_patch(&mut patch, &recording)?;
+    // Nothing left to apply: a no-op success, with no write.
+    if keys.is_empty() {
+        return Ok(Value::Null);
+    }
 
     // "`update` supports patching `state`".
     let fixed: Vec<&str> = keys
@@ -1007,8 +1031,13 @@ async fn update_livestream<B: VtcBackend>(
     id: &Id,
     patch: Value,
 ) -> Result<Value, Value> {
-    let (patch, keys) = parse_patch(patch)?;
+    let mut patch = parse_patch(patch)?;
     let livestream: VtcLivestream = fetch_moderated(backend, caller, account_id, id).await?;
+    let keys = strip_patch(&mut patch, &livestream)?;
+    // Nothing left to apply: a no-op success, with no write.
+    if keys.is_empty() {
+        return Ok(Value::Null);
+    }
 
     let fixed: Vec<&str> = keys
         .iter()

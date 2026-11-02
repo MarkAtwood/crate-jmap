@@ -219,6 +219,14 @@ wire behaviour that a conforming peer can observe.
   allows, and drops it; a changed value is still `invalidProperties`. A
   patch left empty is a no-op success (`updated` maps the id to `null`, no
   write, state unchanged), like `{}`.
+- **jmap-vtc-server**: VTCRecording/set and VTCLivestream/set update
+  accept a server-set or immutable property (`id`, `callId`, `startedAt`,
+  `stoppedAt`, `initiatedBy`, ...) repeated with its stored value, as RFC
+  8620 §5.3 allows, and drop it; a changed value is still
+  `invalidProperties`. A patch left empty, or `{}`, is a no-op success
+  (`updated` maps the id to `null`, no write, state unchanged, no
+  `VTCRecordingStateEvent`) once the moderator gate has passed; `{}` was
+  applied as a write before.
 - **BREAKING** **jmap-chat-filenode-server**: `space_files_rights` and the
   `check_space_update` / `check_space_destroy` gates follow the
   draft-atwood-jmap-chat-filenode-00 §Permission Mapping table rewritten
