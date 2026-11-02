@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.27.4",
+  "title": "Scene/tasks/sharing identical values + avatar eject",
+  "description": "Template: jmap_server::check_read_only_patch / strip_read_only_patch (crate-jmap-server/src/helpers.rs) as used in mail (8a4d5b74 rewritten; git log --grep 'bd: JMAP-t8ej.25.1'). RFC 8620 §5.3: server-set properties MAY be in the patch if identical to the current value, else invalidProperties. Mark's decisions (on JMAP-t8ej.27 notes): {} and identical-only patches are a no-op success (updated {id:null}, no write, state unchanged); unknown-only patches and empty structural arrays stay errors. ORDER (lesson from t8ej.26): existence -\u003e permission/closed-state/forbidden gates -\u003e read-only check -\u003e no-op exit. One test per handler, oracle the RFC/spec text. reject_read_only_patch(.., None) on update in jmap-scene-server asset.rs:460, jmap-tasks-server task.rs:383 and task_list.rs:323, jmap-sharing-server principal.rs:306: pass the stored object. Also scene avatar.rs: the owner/eject key check runs on the raw patch before strip_read_only_patch, so an owner/admin eject that repeats an identical server-set value ({leftAt, id:\u003csame\u003e}) is forbidden; compute the eject key set after dropping identical values while keeping non-owner changed values forbidden.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T20:53:41.998766893Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T21:38:52.564255439Z",
+  "closed_at": "2026-11-02T21:38:52.564255439Z",
+  "close_reason": "batch 50",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.27.4",
+      "depends_on_id": "JMAP-t8ej.27",
+      "type": "parent-child",
+      "created_at": "2026-11-02T20:53:42.106422438Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

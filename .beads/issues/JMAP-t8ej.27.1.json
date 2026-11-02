@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.27.1",
+  "title": "Mail: EmailSubmission identical values + MDN test",
+  "description": "Template: jmap_server::check_read_only_patch / strip_read_only_patch (crate-jmap-server/src/helpers.rs) as used in mail (8a4d5b74 rewritten; git log --grep 'bd: JMAP-t8ej.25.1'). RFC 8620 §5.3: server-set properties MAY be in the patch if identical to the current value, else invalidProperties. Mark's decisions (on JMAP-t8ej.27 notes): {} and identical-only patches are a no-op success (updated {id:null}, no write, state unchanged); unknown-only patches and empty structural arrays stay errors. ORDER (lesson from t8ej.26): existence -\u003e permission/closed-state/forbidden gates -\u003e read-only check -\u003e no-op exit. One test per handler, oracle the RFC/spec text. jmap-mail-server submission.rs process_update (~1052) accepts only undoStatus; accept identical id/emailId/identityId/other server-set or immutable props (RFC 8621 §7: emailId, identityId immutable). Mark's DECISION: change tests/integration.rs::submission_set_update_only_undo_status_allowed (~4602) to send a DIFFERENT emailId (still expects invalidProperties); list in tests_changed. Also: decide whether MDN/send empty onSuccessUpdateEmail patch is reachable (mdn.rs ~536-549); if reachable add mdn_on_success_empty_patch_is_noop, if not, say why with file:line.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T20:53:41.167003623Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T21:38:51.374583063Z",
+  "closed_at": "2026-11-02T21:38:51.374583063Z",
+  "close_reason": "batch 50",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.27.1",
+      "depends_on_id": "JMAP-t8ej.27",
+      "type": "parent-child",
+      "created_at": "2026-11-02T20:53:41.285420291Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
