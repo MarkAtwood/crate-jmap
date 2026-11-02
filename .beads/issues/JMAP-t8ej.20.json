@@ -2,13 +2,15 @@
   "id": "JMAP-t8ej.20",
   "title": "metadata: audit crates against draft -05 (still cite -04)",
   "description": "From audit JMAP-t8ej.5: crate-jmap-metadata-server/-types docs and tests cite draft-ietf-jmap-metadata-04 throughout; -05 was published 2026-10-28. Diff -04 vs -05 (~/GIT/ietf-jmap-drafts) and check every normative change against the crates (and the shared helpers in crate-jmap-server used by 9 server crates), same verdict format as the t8ej audits (incorporated file:line / missing / n/a). File a fix bead under JMAP-t8ej per gap (Binary values already filed separately). Then re-cite -04 references to -05 (comment-only).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-01T17:24:58.674526867Z",
   "created_by": "agent",
-  "updated_at": "2026-11-01T17:24:58.674526867Z",
+  "updated_at": "2026-11-01T18:47:53.390490821Z",
+  "closed_at": "2026-11-01T18:47:53.390490821Z",
+  "close_reason": "Batch 43 (fa9778a2..a2062c94), reviewed, local CI green 6763",
   "dependencies": [
     {
       "issue_id": "JMAP-t8ej.20",

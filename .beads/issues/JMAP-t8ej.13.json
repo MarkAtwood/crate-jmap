@@ -2,13 +2,15 @@
   "id": "JMAP-t8ej.13",
   "title": "vtc and chat: tests for server-set/immutable fields",
   "description": "From audits JMAP-t8ej.3 (row 2) and t8ej.1 (639dc1d c, d). Code already rejects these; tests are missing. VTC: VTCParticipant/set create and update setting e2eeFingerprint -\u003e invalidProperties; update setting plain gatewayData -\u003e invalidProperties; VTCCall/set update setting joinUri -\u003e invalidProperties (extend the loop at vtc-server tests/call_state.rs ~L296). Chat: Space/set create and update each sending roles, members, categories, uncategorizedChannelIds as plain properties -\u003e invalidProperties, nothing stored; ChatContact/set update with endpoints -\u003e invalidProperties, contact unchanged; optionally Chat/set slowModeSeconds, permissionOverrides, categoryId, position (same list, untested). Oracle: the drafts' '(server-set)'/'(immutable)' field attributes (639dc1d). Test-only; a failing test means a real bug: fix the code.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-01T17:17:13.923029464Z",
   "created_by": "agent",
-  "updated_at": "2026-11-01T17:17:13.923029464Z",
+  "updated_at": "2026-11-01T18:47:54.002047164Z",
+  "closed_at": "2026-11-01T18:47:54.002047164Z",
+  "close_reason": "Batch 43 a2062c94: chat half done; VTC half split to JMAP-t8ej.22",
   "dependencies": [
     {
       "issue_id": "JMAP-t8ej.13",

@@ -1,1 +1,2 @@
 {"id":"01a19824-9cb4-7753-9a56-bf7c32e65832","issue_id":"JMAP-t8ej.20","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-11-01T17:24:58.67648199Z"}
+{"id":"01a19870-8534-7d62-80d1-c0443b5a9baf","issue_id":"JMAP-t8ej.20","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 43 (fa9778a2..a2062c94), reviewed, local CI green 6763","created_at":"2026-11-01T18:47:53.396877597Z"}
