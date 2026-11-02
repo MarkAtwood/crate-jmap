@@ -51,7 +51,7 @@ use crate::helpers::{
     finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
 };
 use jmap_server::{
-    HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, reject_read_only_patch,
+    HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, check_read_only_patch,
     reject_server_set, server_fail_from_backend, uses_metadata,
 };
 
@@ -260,7 +260,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -270,9 +270,27 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     continue;
                 }
             };
-            if let Some(err) = reject_read_only_patch::<ContactCard>(patch.as_map(), None) {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
-                continue;
+            // RFC 9610 §3: `id` is server-set. A changed value is rejected,
+            // an identical one dropped (RFC 8620 §5.3); nothing left is a
+            // no-op success.
+            match check_read_only_patch::<_, ContactCard>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                patch.as_map_mut(),
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
