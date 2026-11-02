@@ -52,9 +52,9 @@ use crate::helpers::{
 };
 use crate::{CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend};
 use jmap_server::{
-    HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    query_anchor_args, reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg,
+    check_read_only_patch, filter_arg, query_anchor_args, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -584,12 +584,37 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 continue;
             }
 
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|m| reject_read_only_patch::<CalendarEvent>(m, None))
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
-                continue;
+            let id = match jmap_server::parse_wire_id(&id_str, "id") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    continue;
+                }
+            };
+            // draft-ietf-jmap-calendars §5: `id`, `baseEventId` and
+            // `isOrigin` are server-set. A changed value is rejected, an
+            // identical one dropped (RFC 8620 §5.3); nothing left is a
+            // no-op success. A non-object patch is `invalidPatch` below.
+            if let Some(map) = patch_val.as_object_mut() {
+                match check_read_only_patch::<_, CalendarEvent>(
+                    backend,
+                    caller,
+                    &account_id,
+                    &id,
+                    map,
+                )
+                .await
+                {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        updated.insert(id_str, Value::Null);
+                        continue;
+                    }
+                    Err(err) => {
+                        not_updated.insert(id_str, err);
+                        continue;
+                    }
+                }
             }
             if let Some(Err(err)) = patch_val
                 .as_object()
@@ -598,14 +623,6 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
-
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
             if let Err(err) = resolve_map_key_refs(&mut patch_val, "calendarIds", created_ids) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;

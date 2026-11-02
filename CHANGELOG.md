@@ -198,6 +198,19 @@ wire behaviour that a conforming peer can observe.
   patch, literal `{}` or empty once those values are dropped, now succeeds
   as a no-op: `updated` maps the id to `null`, nothing is written, and the
   state is unchanged. An empty patch of a missing id is `notFound`.
+- **jmap-calendars-server**: `Calendar/set`, `ParticipantIdentity/set`
+  and `CalendarEvent/set` updates accept a server-set property sent with
+  its stored value (RFC 8620 §5.3); a differing value is still
+  `invalidProperties`. An empty patch, literal `{}` or empty once those
+  values are dropped, now succeeds as a no-op: `updated` maps the id to
+  `null`, nothing is written, and the state is unchanged. An empty patch
+  of a missing id is `notFound`.
+- **jmap-scene-server**: `SceneAvatar/set` updates accept `id`,
+  `regionId`, `userId` and `joinedAt` sent with their stored values (RFC
+  8620 §5.3); a differing value is still `invalidProperties`. An empty
+  patch from the avatar's owner, literal `{}` or empty once those values
+  are dropped, succeeds as a no-op with nothing written; another user's
+  empty patch is still `forbidden`.
 
 ## [0.4.2] - 2026-10-30
 
