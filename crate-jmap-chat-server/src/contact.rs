@@ -194,7 +194,8 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 ///
 /// `destroy` is rejected with `forbidden`. `update` supports `blocked`
 /// and `displayName`; `id`, `identity`, `firstSeenAt`, `lastSeenAt` are
-/// immutable or server-set and rejected in updates.
+/// immutable or server-set and rejected in updates unless identical to the stored value (RFC 8620 §5.3); an
+/// empty patch is a no-op success.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_set<B: ChatBackend>(
@@ -325,7 +326,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
 
             // Reject patches to server-set or immutable ChatContact
             // properties (§ChatContact).
-            if let Err(err) = check_read_only_patch::<_, ChatContact>(
+            match check_read_only_patch::<_, ChatContact>(
                 backend,
                 caller,
                 &account_id,
@@ -334,8 +335,15 @@ pub async fn handle_contact_set<B: ChatBackend>(
             )
             .await
             {
-                not_updated.insert(id_str, err);
-                continue;
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
 
             // draft-atwood-jmap-chat-00 §ChatContact/set:
