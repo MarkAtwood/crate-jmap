@@ -103,7 +103,7 @@ enable them in `Cargo.toml` only if you need the corresponding extension:
 
 ```toml
 [dependencies]
-jmap-mail-types = { version = "0.1", features = ["mdn", "sieve"] }
+jmap-mail-types = { version = "0.5", features = ["mdn", "sieve"] }
 ```
 
 ### `mdn` — RFC 9007 Message Disposition Notifications
@@ -139,7 +139,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-jmap-mail-types = "0.1"
+jmap-mail-types = "0.5"
 ```
 
 ### Deserializing a Mailbox from JSON

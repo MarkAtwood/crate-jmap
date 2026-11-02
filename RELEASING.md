@@ -12,21 +12,22 @@ This file documents the dependency graph and the resulting publish ordering.
 
 ## Why ordering matters
 
-`cargo publish --dry-run` will fail for the non-foundation crates against
-an empty registry: each `Cargo.toml` references `jmap-*` siblings via
-`{ path = "...", version = "0.1" }`. When publishing, cargo strips the path
-and resolves purely by version against the registry. If the registry does
-not yet have a matching version of every transitive dependency, resolution
-fails with errors like:
+A single-crate `cargo publish --dry-run -p <crate>` fails for the
+non-foundation crates when the new version is not yet on the registry:
+each `Cargo.toml` references `jmap-*` siblings via
+`{ path = "...", version = "0.5" }`. When publishing, cargo strips the path
+and resolves purely by version against the registry, so resolution fails
+with errors like:
 
 ```
-failed to select a version for the requirement `jmap-types = "^0.1.1"`
-candidate versions found which didn't match: 0.1.0
+failed to select a version for the requirement `jmap-types = "^0.5"`
+candidate versions found which didn't match: 0.4.2
 ```
 
-This is not a defect; it is the chicken-and-egg of a multi-crate workspace
-publishing version bumps. Once each layer is published, the next layer's
-dry-run starts to pass.
+`cargo publish --workspace --dry-run` does not have this problem: it
+resolves the siblings from the workspace, so it checks every crate before
+anything is published. The real publish still has to go in dependency
+order, because each crate must find its dependencies on the registry.
 
 ## Dependency graph
 
@@ -55,56 +56,56 @@ that are not also normal dependencies are listed separately):
 | `jmap-metadata-types` | 1 | (none) | (none) |
 | `jmap-metadata-client` | 1 | (none) | (none) |
 | `jmap-types` | 1 | (none) | (none) |
-| `jmap-contacts-types` | 2 | `jmap-jscontact-types`, `jmap-types` | (none) |
+| `jmap-contacts-types` | 2 | `jmap-jscontact-types`, `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-did-types` | 2 | `jmap-types` | (none) |
-| `jmap-filenode-types` | 2 | `jmap-cid-types`, `jmap-types` | (none) |
+| `jmap-filenode-types` | 2 | `jmap-cid-types`, `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-graph-types` | 2 | `jmap-types` | (none) |
 | `jmap-jscalendar-types` | 2 | `jmap-types` | (none) |
-| `jmap-mail-types` | 2 | `jmap-types` | (none) |
+| `jmap-mail-types` | 2 | `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-metadata-server` | 2 | `jmap-metadata-types` | (none) |
 | `jmap-scene-types` | 2 | `jmap-types` | (none) |
-| `jmap-server` | 2 | `jmap-types` | (none) |
-| `jmap-sharing-types` | 2 | `jmap-types` | (none) |
+| `jmap-server` | 2 | `jmap-metadata-types`, `jmap-types` | (none) |
+| `jmap-sharing-types` | 2 | `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-vtc-types` | 2 | `jmap-types` | (none) |
 | `jmap-web-push` | 2 | `jmap-types` | (none) |
 | `jmap-base-client` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-types` | (none) |
-| `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-types` | (none) |
-| `jmap-chat-types` | 3 | `jmap-did-types`, `jmap-types` | (none) |
-| `jmap-contacts-server` | 3 | `jmap-contacts-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-types` | (none) |
+| `jmap-chat-types` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-types` | (none) |
+| `jmap-contacts-server` | 3 | `jmap-contacts-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-did-resolver` | 3 | `jmap-did-types` | (none) |
-| `jmap-filenode-server` | 3 | `jmap-cid-types`, `jmap-filenode-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-filenode-server` | 3 | `jmap-cid-types`, `jmap-filenode-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-graph-server` | 3 | `jmap-graph-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-mime` | 3 | `jmap-mail-types`, `jmap-types` | (none) |
 | `jmap-peer-auth` | 3 | `jmap-did-types` | (none) |
 | `jmap-scene-server` | 3 | `jmap-scene-types`, `jmap-server`, `jmap-types` | (none) |
-| `jmap-sharing-server` | 3 | `jmap-server`, `jmap-sharing-types`, `jmap-types` | (none) |
-| `jmap-tasks-types` | 3 | `jmap-jscalendar-types`, `jmap-types` | (none) |
+| `jmap-sharing-server` | 3 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-sharing-types`, `jmap-types` | (none) |
+| `jmap-tasks-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-vtc-server` | 3 | `jmap-server`, `jmap-types`, `jmap-vtc-types` | (none) |
 | `jmap-calendars-client` | 4 | `jmap-base-client`, `jmap-calendars-types`, `jmap-types` | `jmap-metadata-types` |
-| `jmap-calendars-server` | 4 | `jmap-calendars-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-calendars-server` | 4 | `jmap-calendars-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-chat-client` | 4 | `jmap-base-client`, `jmap-chat-types`, `jmap-types` | `jmap-metadata-types` |
-| `jmap-chat-federation-types` | 4 | `jmap-chat-types`, `jmap-types` | `jmap-base-client` |
+| `jmap-chat-federation-types` | 4 | `jmap-chat-types`, `jmap-cid-types`, `jmap-types` | `jmap-base-client` |
 | `jmap-chat-mimi-types` | 4 | `jmap-types` | `jmap-chat-types` |
 | `jmap-chat-scene-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types` | (none) |
-| `jmap-chat-server` | 4 | `jmap-chat-types`, `jmap-did-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-server` | 4 | `jmap-chat-types`, `jmap-did-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-contacts-client` | 4 | `jmap-base-client`, `jmap-contacts-types`, `jmap-types` | (none) |
 | `jmap-filenode-client` | 4 | `jmap-base-client`, `jmap-filenode-types`, `jmap-types` | (none) |
 | `jmap-graph-client` | 4 | `jmap-base-client`, `jmap-graph-types`, `jmap-types` | (none) |
 | `jmap-mail-client` | 4 | `jmap-base-client`, `jmap-mail-types`, `jmap-types` | `jmap-metadata-types` |
-| `jmap-mail-server` | 4 | `jmap-mail-types`, `jmap-mime`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-mail-server` | 4 | `jmap-mail-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-mime`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-peer-auth-io` | 4 | `jmap-peer-auth` | (none) |
 | `jmap-scene-client` | 4 | `jmap-base-client`, `jmap-cid-types`, `jmap-scene-types`, `jmap-types` | (none) |
-| `jmap-scene-vtc-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types`, `jmap-vtc-types` | `jmap-server`, `jmap-vtc-server` |
+| `jmap-scene-vtc-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-server`, `jmap-types`, `jmap-vtc-types` | `jmap-vtc-server` |
 | `jmap-sharing-client` | 4 | `jmap-base-client`, `jmap-sharing-types`, `jmap-types` | (none) |
 | `jmap-tasks-client` | 4 | `jmap-base-client`, `jmap-tasks-types`, `jmap-types` | (none) |
-| `jmap-tasks-server` | 4 | `jmap-server`, `jmap-tasks-types`, `jmap-types` | (none) |
+| `jmap-tasks-server` | 4 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-tasks-types`, `jmap-types` | (none) |
 | `jmap-vtc-client` | 4 | `jmap-base-client`, `jmap-types`, `jmap-vtc-types` | (none) |
-| `jmap-chat-calendars-server` | 5 | `jmap-calendars-server`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-types` | `jmap-chat-server` |
-| `jmap-chat-federation-server` | 5 | `jmap-chat-federation-types`, `jmap-chat-server`, `jmap-chat-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-calendars-server` | 5 | `jmap-calendars-server`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-server`, `jmap-types` | `jmap-chat-server` |
+| `jmap-chat-federation-server` | 5 | `jmap-chat-federation-types`, `jmap-chat-server`, `jmap-chat-types`, `jmap-cid-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-chat-filenode-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-filenode-server`, `jmap-filenode-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-chat-mimi-client` | 5 | `jmap-base-client`, `jmap-chat-mimi-types`, `jmap-types` | (none) |
 | `jmap-chat-mimi-server` | 5 | `jmap-chat-mimi-types`, `jmap-server`, `jmap-types` | (none) |
-| `jmap-chat-tasks-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-tasks-server`, `jmap-tasks-types`, `jmap-types` | (none) |
+| `jmap-chat-tasks-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-server`, `jmap-tasks-server`, `jmap-tasks-types`, `jmap-types` | (none) |
 | `jmap-chat-vtc-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-server`, `jmap-types`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
 | `jmap-graph-projection-server` | 5 | `jmap-contacts-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-server`, `jmap-types` | `jmap-mail-server` |
 
@@ -236,17 +237,17 @@ All five must succeed. The `README.md`, `PLAN.md`, and `AGENTS.md` files
 are checked-in artifacts and do not need a separate action; `cargo publish`
 includes them automatically.
 
-For each crate, run:
+Check every crate in one run:
 
 ```bash
-cargo publish --dry-run -p <crate-name>
+cargo publish --workspace --dry-run
 ```
 
-This will fail for crates whose dependencies are not yet on the registry
-under the new version — that is expected. The dry-run is most useful for
-the foundation crates (`jmap-types`, `jmap-mime`, `jmap-server`,
-`jmap-base-client`) where dependencies are already published or
-self-contained.
+It packages and builds all crates against each other's new versions, so a
+failure here is a real defect. A per-crate `cargo publish --dry-run -p
+<crate-name>` fails for any crate whose dependencies are not yet on the
+registry under the new version; use it only for the foundation crates or
+after their dependencies are published.
 
 ## Version bump conventions
 
@@ -288,6 +289,14 @@ servers' handlers, new required `copy_object` methods on the Tasks,
 Calendars and FileNode backends, stricter wire validation of Ids, sorts
 and metadata namespaces), so the shared line is now `0.4.x` and the
 workspace dependency requirements are `"0.4"`. `CHANGELOG.md` lists every
+break.
+
+The 0.5.0 release moves every publishable crate to `0.5.0`. Changes since
+`0.4.2` break the 0.4 API (`OutboundEvent::Receipt` and the `Peer/*`
+argument types gain fields, `AuthenticatedPeer` and `FederationBackend`
+change, FileNode `depth`, `onExists` and `forbiddenNodeNames` follow
+draft-ietf-jmap-filenode-19), so the shared line is now `0.5.x` and the
+workspace dependency requirements are `"0.5"`. `CHANGELOG.md` lists every
 break.
 
 ### Third-party majors in public APIs

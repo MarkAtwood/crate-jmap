@@ -19,7 +19,7 @@ depend on this crate.
 
 ```toml
 [dependencies]
-jmap-peer-auth = "0.4"
+jmap-peer-auth = "0.5"
 ```
 
 Sending a request to a peer:

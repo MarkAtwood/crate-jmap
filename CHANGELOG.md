@@ -12,6 +12,8 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-02
+
 ### Added
 
 - **jmap-server**: `check_read_only_patch` fetches the stored object only
@@ -180,7 +182,7 @@ wire behaviour that a conforming peer can observe.
   non-null `isSubscribed` or `shareWith` (or a `shareWith/<id>` patch) on
   a File or SymLink with `invalidProperties` (-19 §3.1); before, the value
   was accepted and silently dropped.
-- **jmap-filenode-server**: a `FileNode/copy` whose create entry overrides
+- **BREAKING** **jmap-filenode-server**: a `FileNode/copy` whose create entry overrides
   `@type` drops the source properties the new `@type` does not define (a
   Directory's `role` or `isSubscribed` copied as a File) instead of
   rejecting the copy with `invalidProperties`. -19 §3.1 makes only a
@@ -202,7 +204,7 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
-- **jmap-chat-server**: Chat/set and Message/set update accept a
+- **BREAKING** **jmap-chat-server**: Chat/set and Message/set update accept a
   server-set or immutable property (`id`, `kind`, `closedAt`, `chatId`,
   `senderId`, `sentAt`, ...) repeated with its stored value, as RFC 8620
   §5.3 allows, and drop it; a changed value is still `invalidProperties`.
@@ -213,13 +215,13 @@ wire behaviour that a conforming peer can observe.
   update of a missing Chat or Message is `notFound` before its patch keys
   are checked, after the request-only `invalidPatch` checks
   (draft-ietf-jmap-metadata-05 §3.2).
-- **jmap-mail-server**: EmailSubmission/set update accepts a server-set or
+- **BREAKING** **jmap-mail-server**: EmailSubmission/set update accepts a server-set or
   immutable property (`id`, `threadId`, `sendAt`, `identityId`, `emailId`,
   `envelope`, ...) repeated with its stored value, as RFC 8620 §5.3
   allows, and drops it; a changed value is still `invalidProperties`. A
   patch left empty is a no-op success (`updated` maps the id to `null`, no
   write, state unchanged), like `{}`.
-- **jmap-vtc-server**: VTCRecording/set and VTCLivestream/set update
+- **BREAKING** **jmap-vtc-server**: VTCRecording/set and VTCLivestream/set update
   accept a server-set or immutable property (`id`, `callId`, `startedAt`,
   `stoppedAt`, `initiatedBy`, ...) repeated with its stored value, as RFC
   8620 §5.3 allows, and drop it; a changed value is still
@@ -227,7 +229,7 @@ wire behaviour that a conforming peer can observe.
   (`updated` maps the id to `null`, no write, state unchanged, no
   `VTCRecordingStateEvent`) once the moderator gate has passed; `{}` was
   applied as a write before.
-- **jmap-scene-server**: SceneAsset/set update accepts a server-set or
+- **BREAKING** **jmap-scene-server**: SceneAsset/set update accepts a server-set or
   immutable property (`id`, `accountId`, `ownerId`, `blobId`, `mediaType`,
   `size`, `createdAt`) repeated with its stored value, as RFC 8620 §5.3
   allows, and drops it; a changed value is still `invalidProperties`. A
@@ -237,14 +239,14 @@ wire behaviour that a conforming peer can observe.
   a region owner or administrator that also repeats a server-set value
   with its stored value (`{"leftAt": ..., "id": ...}`) now ejects instead
   of being `forbidden`; a changed one still is.
-- **jmap-tasks-server**: Task/set and TaskList/set updates accept a
+- **BREAKING** **jmap-tasks-server**: Task/set and TaskList/set updates accept a
   server-set property (`id`, `baseTaskId`, `isOrigin`, `myRights`)
   repeated with its stored value, as RFC 8620 §5.3 allows, and drop it; a
   changed value is still `invalidProperties`. A patch left empty, or `{}`,
   is a no-op success (`updated` maps the id to `null`, no write, state
   unchanged); an empty patch of a missing id is `notFound`. Task/set
   routes a patch to the per-user path on its keys less the dropped ones.
-- **jmap-sharing-server**: Principal/set update accepts a server-set
+- **BREAKING** **jmap-sharing-server**: Principal/set update accepts a server-set
   property (`id`, `capabilities`, `accounts`) repeated with its stored
   value, as RFC 8620 §5.3 allows, and drops it; a changed value is still
   `invalidProperties`. A patch left empty, or `{}`, is a no-op success
@@ -266,19 +268,19 @@ wire behaviour that a conforming peer can observe.
   draft-ietf-jmap-filenode-19 §5 gives such a node "no myRights. The
   user's rights on it are those in its parent's myRights". Since Files
   stopped carrying `myRights`, every metadata write to one was accepted.
-- **jmap-filenode-server**: `FileNode/set` and `FileNode/copy` enforce
+- **BREAKING** **jmap-filenode-server**: `FileNode/set` and `FileNode/copy` enforce
   `maxFileNodeDepth` (draft-ietf-jmap-filenode-19: "one more than the
   maximum number of ancestors a FileNode may have"). A create or copy whose
   node would be deeper, or a `parentId` update that would put any node of
   the moved subtree deeper, fails with `invalidProperties` naming
   `parentId`. The draft names no error; the choice follows
   brong/draft-gondwana-jmap-filenode#16.
-- **jmap-filenode-server**: `FileNode/copy` checks that a copied `File`
+- **BREAKING** **jmap-filenode-server**: `FileNode/copy` checks that a copied `File`
   node's `blobId` exists in the destination account, as `FileNode/set`
   create already did. A missing blob fails with `invalidProperties` naming
   `blobId`; a cross-account copy no longer stores a blobId the destination
   account does not hold (brong/draft-gondwana-jmap-filenode#6).
-- **jmap-chat-server**: `Space/set`, `ChatContact/set`, `CustomEmoji/set`,
+- **BREAKING** **jmap-chat-server**: `Space/set`, `ChatContact/set`, `CustomEmoji/set`,
   `SpaceBan/set`, `ReadPosition/set` and `PresenceStatus/set` updates
   accept a server-set or immutable property sent with its stored value,
   as RFC 8620 §5.3 allows ("Any server-set properties MAY be included in
@@ -290,7 +292,7 @@ wire behaviour that a conforming peer can observe.
   unchanged. It was `invalidPatch` on the first four, and on
   `ReadPosition/set` and `PresenceStatus/set` it rewrote `lastReadAt` or
   `updatedAt`. An empty patch of a missing id is `notFound`.
-- **jmap-mail-server**: `Mailbox/set`, `Email/set`, `Identity/set`,
+- **BREAKING** **jmap-mail-server**: `Mailbox/set`, `Email/set`, `Identity/set`,
   `SieveScript/set` and the implicit `Email/set` of
   `EmailSubmission/set` and `MDN/send` `onSuccessUpdateEmail` accept a
   server-set or immutable property sent with its stored value (RFC 8620
@@ -300,33 +302,33 @@ wire behaviour that a conforming peer can observe.
   `VacationResponse/set` and `EmailSubmission/set` updates: `updated` maps
   the id to `null`, nothing is written, and the state is unchanged. An
   empty patch of a missing id is `notFound`.
-- **jmap-vtc-server**: `VTCCall/set` and `VTCParticipant/set` updates
+- **BREAKING** **jmap-vtc-server**: `VTCCall/set` and `VTCParticipant/set` updates
   accept a server-set or immutable property sent with its stored value
   (RFC 8620 §5.3); a differing value is still `invalidProperties`. An
   empty patch, literal `{}` or empty once those values are dropped, now
   succeeds as a no-op: `updated` maps the id to `null`, nothing is
   written, and the state is unchanged. An empty patch of a missing id is
   `notFound`.
-- **jmap-contacts-server**: `AddressBook/set` and `ContactCard/set`
+- **BREAKING** **jmap-contacts-server**: `AddressBook/set` and `ContactCard/set`
   updates accept a server-set property sent with its stored value (RFC
   8620 §5.3); a differing value is still `invalidProperties`. An empty
   patch, literal `{}` or empty once those values are dropped, now succeeds
   as a no-op: `updated` maps the id to `null`, nothing is written, and the
   state is unchanged. An empty patch of a missing id is `notFound`.
-- **jmap-calendars-server**: `Calendar/set`, `ParticipantIdentity/set`
+- **BREAKING** **jmap-calendars-server**: `Calendar/set`, `ParticipantIdentity/set`
   and `CalendarEvent/set` updates accept a server-set property sent with
   its stored value (RFC 8620 §5.3); a differing value is still
   `invalidProperties`. An empty patch, literal `{}` or empty once those
   values are dropped, now succeeds as a no-op: `updated` maps the id to
   `null`, nothing is written, and the state is unchanged. An empty patch
   of a missing id is `notFound`.
-- **jmap-scene-server**: `SceneAvatar/set` updates accept `id`,
+- **BREAKING** **jmap-scene-server**: `SceneAvatar/set` updates accept `id`,
   `regionId`, `userId` and `joinedAt` sent with their stored values (RFC
   8620 §5.3); a differing value is still `invalidProperties`. An empty
   patch from the avatar's owner, literal `{}` or empty once those values
   are dropped, succeeds as a no-op with nothing written; another user's
   empty patch is still `forbidden`.
-- **jmap-chat-server**, **jmap-vtc-server**, **jmap-scene-server**: the
+- **BREAKING** **jmap-chat-server**, **jmap-vtc-server**, **jmap-scene-server**: the
   empty-patch no-op and the server-set check above now run after the
   permission gates, so they no longer skip them. `Space/set` rejects `{}`
   and any server-set key on a closed Space with `forbidden`, as

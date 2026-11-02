@@ -42,7 +42,7 @@ async, no network I/O. JMAP wire envelopes and identity types come from
 
 ```toml
 [dependencies]
-jmap-jscalendar-types = "0.1"
+jmap-jscalendar-types = "0.5"
 ```
 
 Transitively pulls in `jmap-types`, `serde`, `serde_json`. Parse a
