@@ -190,3 +190,80 @@ async fn update_null_required_property_is_invalid_properties() {
     );
     assert_eq!(get(&dispatcher, &id).await, before);
 }
+
+/// Oracle: RFC 8620 §5.3 — "Any server-set properties MAY be included in
+/// the patch if their value is identical to the current server value
+/// (before applying the patches to the object)." RFC 9670 §2: `id` is
+/// "(immutable; server-set)", `capabilities` and `accounts` are
+/// "(server-set)". The fixture stores `capabilities: {}` and
+/// `accounts: null`.
+///
+/// With nothing else, the update is a no-op (decision on JMAP-t8ej.25):
+/// `updated` maps the id to null and the state does not move.
+#[tokio::test]
+async fn update_identical_server_set_values_is_a_noop() {
+    let (dispatcher, id) = setup().await;
+    let before = get(&dispatcher, &id).await;
+    let resp = update(
+        &dispatcher,
+        &id,
+        json!({ "id": id.as_ref(), "capabilities": {}, "accounts": null }),
+    )
+    .await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(resp["updated"], json!({ id.as_ref(): null }), "{resp}");
+    assert_eq!(resp["oldState"], resp["newState"], "{resp}");
+    assert_eq!(get(&dispatcher, &id).await, before);
+}
+
+/// Oracle: RFC 8620 §5.3 — an identical server-set value is allowed, so
+/// the `name` change next to it applies.
+#[tokio::test]
+async fn update_identical_server_set_value_with_change_applies() {
+    let (dispatcher, id) = setup().await;
+    let resp = update(
+        &dispatcher,
+        &id,
+        json!({ "capabilities": {}, "name": "Alice Jones" }),
+    )
+    .await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(get(&dispatcher, &id).await["name"], "Alice Jones");
+}
+
+/// Oracle: RFC 8620 §5.3 — a server-set value that differs from the
+/// stored one "MUST be rejected with an "invalidProperties" SetError".
+#[tokio::test]
+async fn update_changed_server_set_value_is_invalid_properties() {
+    let (dispatcher, id) = setup().await;
+    let before = get(&dispatcher, &id).await;
+    let resp = update(
+        &dispatcher,
+        &id,
+        json!({ "accounts": { "acc1": { "name": "x" } }, "name": "Alice Jones" }),
+    )
+    .await;
+    assert_eq!(
+        resp["notUpdated"][id.as_ref()]["type"],
+        "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notUpdated"][id.as_ref()]["properties"],
+        json!(["accounts"]),
+        "{resp}"
+    );
+    assert_eq!(get(&dispatcher, &id).await, before);
+}
+
+/// Oracle: decision on JMAP-t8ej.25 — a literal `{}` is a no-op success.
+#[tokio::test]
+async fn update_empty_patch_is_a_noop() {
+    let (dispatcher, id) = setup().await;
+    let before = get(&dispatcher, &id).await;
+    let resp = update(&dispatcher, &id, json!({})).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(resp["updated"], json!({ id.as_ref(): null }), "{resp}");
+    assert_eq!(resp["oldState"], resp["newState"], "{resp}");
+    assert_eq!(get(&dispatcher, &id).await, before);
+}
