@@ -12,7 +12,7 @@ draft-atwood-jmap-chat-filenode-00 that apply when one server offers
 |---|---|
 | `check_root_create` | chat-filenode §Creating the File Tree Root: `spaceId` required, Space exists and the caller is a member (`forbidden`), one root per Space (`alreadyExists` with `existingId`), `manage_space` required (`forbidden`, §Permission Mapping) |
 | `space_files_rights` | chat-filenode §Permission Mapping: the `FilesRights` a Space role grants on a node (`myRights`), `None` outside a Space file tree; a non-member gets no flag |
-| `check_space_create`, `check_space_update`, `check_space_destroy` | chat-filenode §Permission Mapping: refuse with `forbidden` a create without `mayAddChildren` on the parent, an update without the right for each patched property (any `shareWith` change, as no role has `mayShare`), and a destroy without `mayDelete` (the root needs `manage_space`) |
+| `check_space_create`, `check_space_update`, `check_space_destroy` | chat-filenode §Permission Mapping: refuse with `forbidden` a create without `mayAddChildren` on the parent, an update without the right for each patched property (any `shareWith` change, as no role has `mayShare`), and a destroy without `mayDelete`; nobody may destroy, rename or move the tree root |
 | `check_space_quota` | chat-filenode §Account-Level Capability Object `maxSpaceStorageBytes`: a create that would take the Space file tree over the limit is `overQuota` |
 | `create_space_file_tree` | chat-filenode §Account-Level Capability Object `autoCreateFileTree`: insert the root when a Space is created |
 | `resolve_filenode_attachment` | chat-filenode §filenodeId: an Attachment linked by `filenodeId` must name a file in the channel's Space file tree (`invalidProperties` naming `filenodeId`), the sender needs read access (`forbidden`), and absent `blobId`, `filename`, `contentType`, `size` and `sha256` are filled from the FileNode |
@@ -75,8 +75,8 @@ do not apply to file tree access.
   plus the new node's `size`: call it after setting the server-set `size`
   from the blob, and re-check under the insert's transaction. It reads the
   whole tree per create; a large deployment keeps a per-Space total.
-- `create_space_file_tree` names the root after the Space id; members
-  with `manage_space` may rename it.
+- `create_space_file_tree` names the root after the Space id. No member
+  may rename, move or destroy the root; it goes only with its Space.
 - `resolve_filenode_attachment` rejects a supplied `blobId`, `size` or
   `sha256` that differs from the FileNode's, and keeps a supplied
   `filename` or `contentType`.

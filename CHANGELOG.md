@@ -194,6 +194,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-chat-filenode-server**: `space_files_rights` and the
+  `check_space_update` / `check_space_destroy` gates follow the
+  draft-atwood-jmap-chat-filenode-00 §Permission Mapping table rewritten
+  for filenode-19 (jmap-chat-spec ebdf95e). Every Directory in a Space file
+  tree, the root included, reports the same flags, and a File or SymLink
+  takes its parent's: `"manage_channels"` or `"manage_space"` grant
+  `mayDelete`, `mayRename` and `mayModifyContent` everywhere, so
+  `mayModifyContent` is now `true` on Directories and the root. "No member
+  can destroy, rename, or move the root through `FileNode/set`": a
+  `"manage_space"` member who could before is now refused with
+  `forbidden`; the root goes only with its Space.
 - **jmap-filenode-server**: `FileNode/set` and `FileNode/copy` enforce
   `maxFileNodeDepth` (draft-ietf-jmap-filenode-19: "one more than the
   maximum number of ancestors a FileNode may have"). A create or copy whose

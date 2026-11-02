@@ -2,30 +2,34 @@
 //! `FilesRights` mapping.
 //!
 //! Oracle: draft-atwood-jmap-chat-filenode-00.md at jmap-chat-spec
-//! 6bcd9d8 ("filenode Lnnn"):
+//! ebdf95e ("filenode Lnnn"):
 //!
 //! - L153: "FileNode/changes responses SHOULD be scoped to file trees the
 //!   requesting user has access to, so that a user who is not a member of
 //!   a Space receives no change notifications for that Space's file tree."
 //! - L159: "Users who are not members of the Space ... SHOULD NOT be
 //!   granted access to the Space file tree".
-//! - L161: "Each row includes the grants of the rows above it. A member
-//!   holding multiple roles receives the union of all applicable grants.
-//!   A flag no applicable row grants is `false`. ... `mayAddChildren` is
-//!   always `false` on nodes whose `@type` does not permit children, and
-//!   `mayModifyContent` is `false` on a Directory, including the tree
-//!   root."
-//! - L165-168, the table: `"view"` `mayRead`; `"send"` "The above, plus
-//!   `mayAddChildren`"; `"manage_channels"` "The above, plus `mayDelete`,
-//!   `mayRename`, and `mayModifyContent` on every node except the tree
-//!   root"; `"manage_space"` "The above, plus `mayDelete` and `mayRename`
-//!   on the tree root".
-//! - L170: "No role is granted `mayShare`. ... the server rejects a
+//! - L161: "the `FilesRights` flags ... the server reports in the
+//!   `myRights` of every Directory in the Space file tree, including the
+//!   tree root, and enforces. ... a File or SymLink takes its rights from
+//!   its parent Directory. Each row includes the grants of the rows above
+//!   it. A member holding multiple roles receives the union of all
+//!   applicable grants. A flag no applicable row grants is `false`."
+//! - L165-167, the table: `"view"` `mayRead`; `"send"` "The above, plus
+//!   `mayAddChildren`"; `"manage_channels"` or `"manage_space"` "The
+//!   above, plus `mayDelete`, `mayRename`, and `mayModifyContent`".
+//! - L169: "The tree root reports these rights like any other Directory
+//!   ... They do not let anyone destroy, rename, or move the root itself".
+//! - L171: "No role is granted `mayShare`. ... the server rejects a
 //!   `FileNode/set` update that changes `shareWith` on a node in a Space
 //!   file tree with a `forbidden` SetError."
-//! - L176: "Creating the Space file tree root ... requires
-//!   `"manage_space"` permission, and so, by the table above, does
-//!   destroying it."
+//! - L173: "Replacing an existing file ... here only `"manage_channels"`
+//!   and above hold. A member with only `"send"` uploads a new file
+//!   instead".
+//! - L177: "No member can destroy, rename, or move the root through
+//!   `FileNode/set`: {{JMAP-FILENODE}} rejects these with `forbidden` for
+//!   any Directory with a role. The root is removed only when its Space is
+//!   destroyed".
 //!
 //! draft-ietf-jmap-filenode §FileNode properties defines `mayRename` as
 //! "rename or move this node" and `mayModifyContent` as "update the
@@ -190,43 +194,34 @@ fn rights(granted: &[&str]) -> Value {
     r
 }
 
-/// The table row by row, on the tree root, a directory and a file, with
-/// L161's `@type` rules applied. `mayShare` is never granted (L170).
+/// The table row by row (L165-167). L161 and L169: the root reports the
+/// rights "like any other Directory", and the file takes its parent
+/// Directory's. `mayShare` is never granted (L171).
 #[tokio::test]
 async fn table_rows_on_root_directory_and_file() {
     let read = "mayRead";
     let add = "mayAddChildren";
-    let del = "mayDelete";
-    let ren = "mayRename";
-    let content = "mayModifyContent";
-    for (permission, root, dir, file) in [
-        ("view", vec![read], vec![read], vec![read]),
-        ("send", vec![read, add], vec![read, add], vec![read]),
-        (
-            "manage_channels",
-            vec![read, add],
-            vec![read, add, del, ren],
-            vec![read, del, ren, content],
-        ),
-        (
-            "manage_space",
-            vec![read, add, del, ren],
-            vec![read, add, del, ren],
-            vec![read, del, ren, content],
-        ),
+    let manage = [
+        "mayRead",
+        "mayAddChildren",
+        "mayDelete",
+        "mayRename",
+        "mayModifyContent",
+    ];
+    for (permission, granted) in [
+        ("view", vec![read]),
+        ("send", vec![read, add]),
+        ("manage_channels", manage.to_vec()),
+        ("manage_space", manage.to_vec()),
     ] {
         let f = Fixture::new(&[permission]);
-        assert_eq!(
-            f.rights("root").await,
-            Some(rights(&root)),
-            "{permission} root"
-        );
-        assert_eq!(
-            f.rights("docs").await,
-            Some(rights(&dir)),
-            "{permission} docs"
-        );
-        assert_eq!(f.rights("f1").await, Some(rights(&file)), "{permission} f1");
+        for id in ["root", "docs", "f1"] {
+            assert_eq!(
+                f.rights(id).await,
+                Some(rights(&granted)),
+                "{permission} {id}"
+            );
+        }
     }
 }
 
@@ -245,6 +240,7 @@ async fn union_over_held_roles() {
         f.rights("f1").await,
         Some(rights(&[
             "mayRead",
+            "mayAddChildren",
             "mayDelete",
             "mayRename",
             "mayModifyContent"
@@ -356,8 +352,10 @@ async fn create_needs_may_add_children_on_the_parent() {
     );
 }
 
-/// L161: `mayAddChildren` is `false` on a node whose `@type` does not
-/// permit children, whatever the role.
+/// L161: only a Directory has `myRights`; a File takes its parent's.
+/// draft-ietf-jmap-filenode-19 §3.2.3 makes "a node the child of a node
+/// whose @type does not permit children" an error, so no role adds a
+/// child to a File.
 #[tokio::test]
 async fn create_under_a_file_is_forbidden() {
     let f = Fixture::new(&["manage_space"]);
@@ -381,7 +379,7 @@ async fn create_outside_a_space_tree_is_unchecked() {
     assert_eq!(f.create(node).await, None);
 }
 
-/// L170: "No role is granted `mayShare`. ... the server rejects a
+/// L171: "No role is granted `mayShare`. ... the server rejects a
 /// `FileNode/set` update that changes `shareWith` on a node in a Space
 /// file tree with a `forbidden` SetError", even for `"manage_space"`.
 #[tokio::test]
@@ -405,7 +403,7 @@ async fn share_with_change_is_forbidden_for_every_role() {
     }
 }
 
-/// L170 rejects an update that "changes `shareWith`": restating the
+/// L171 rejects an update that "changes `shareWith`": restating the
 /// stored `null` changes nothing.
 #[tokio::test]
 async fn share_with_unchanged_passes() {
@@ -414,7 +412,7 @@ async fn share_with_unchanged_passes() {
 }
 
 /// L167: renaming a non-root node needs `"manage_channels"`; `"send"`
-/// cannot rename, even a file they could have uploaded (L172).
+/// cannot rename, even a file they could have uploaded (L173).
 #[tokio::test]
 async fn rename_needs_manage_channels() {
     let patch = json!({ "name": "renamed.txt" });
@@ -431,24 +429,43 @@ async fn rename_needs_manage_channels() {
     );
 }
 
-/// L167-168: `mayRename` on the tree root needs `"manage_space"`.
+/// L169 and L177: "No member can destroy, rename, or move the root
+/// through `FileNode/set`", although the root reports `mayRename`.
 #[tokio::test]
-async fn renaming_the_root_needs_manage_space() {
-    let patch = json!({ "name": "files" });
+async fn nobody_renames_or_moves_the_root() {
+    for permission in ["manage_channels", "manage_space"] {
+        let f = Fixture::new(&[permission]);
+        for patch in [json!({ "name": "files" }), json!({ "parentId": "loose" })] {
+            assert_eq!(
+                f.update("root", patch).await.as_deref(),
+                Some("forbidden"),
+                "{permission}"
+            );
+        }
+    }
+}
+
+/// L167: `mayModifyContent` is granted on Directories too, the root
+/// included (L169), so `"manage_channels"` may set the root's `modified`.
+#[tokio::test]
+async fn root_content_change_needs_manage_channels() {
+    let patch = json!({ "modified": "2026-02-01T00:00:00Z" });
     assert_eq!(
-        Fixture::new(&["manage_channels"])
+        Fixture::new(&["send"])
             .update("root", patch.clone())
             .await
             .as_deref(),
         Some("forbidden")
     );
     assert_eq!(
-        Fixture::new(&["manage_space"]).update("root", patch).await,
+        Fixture::new(&["manage_channels"])
+            .update("root", patch)
+            .await,
         None
     );
 }
 
-/// L167 and L172: replacing a file's content (`blobId`) needs
+/// L167 and L173: replacing a file's content (`blobId`) needs
 /// `"manage_channels"`: "A member with only `"send"` uploads a new file
 /// instead".
 #[tokio::test]
@@ -510,7 +527,7 @@ async fn move_into_a_non_member_tree_is_forbidden() {
     );
 }
 
-/// L167: `"manage_channels"` may destroy any node except the root;
+/// L167: `"manage_channels"` may destroy any node below the root;
 /// `"send"` may not.
 #[tokio::test]
 async fn destroy_needs_manage_channels() {
@@ -525,15 +542,15 @@ async fn destroy_needs_manage_channels() {
     );
 }
 
-/// L176: destroying the root "requires `"manage_space"` permission".
+/// L177: "No member can destroy ... the root through `FileNode/set`
+/// ... The root is removed only when its Space is destroyed".
 #[tokio::test]
-async fn destroying_the_root_needs_manage_space() {
-    assert_eq!(
-        Fixture::new(&["manage_channels"])
-            .destroy("root")
-            .await
-            .as_deref(),
-        Some("forbidden")
-    );
-    assert_eq!(Fixture::new(&["manage_space"]).destroy("root").await, None);
+async fn nobody_destroys_the_root() {
+    for permission in ["manage_channels", "manage_space"] {
+        assert_eq!(
+            Fixture::new(&[permission]).destroy("root").await.as_deref(),
+            Some("forbidden"),
+            "{permission}"
+        );
+    }
 }
