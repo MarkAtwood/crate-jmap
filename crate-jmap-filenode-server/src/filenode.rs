@@ -2210,6 +2210,16 @@ fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<Fi
             }
             map.insert(k.clone(), v.clone());
         }
+        // draft-ietf-jmap-filenode-19 §3.1: only a property the client
+        // sets is an error when the @type does not define it. A source
+        // property the overridden @type does not define (a Directory's
+        // isSubscribed under "@type": "File") is dropped instead.
+        let node_type = map.get("@type").and_then(Value::as_str).map(str::to_owned);
+        map.retain(|k, _| {
+            over_obj.contains_key(k)
+                || property_owner(k)
+                    .is_none_or(|owner| node_type.as_deref() == Some(owner.to_wire_str()))
+        });
     }
 
     serde_path_to_error::deserialize::<_, FileNode>(merged).map_err(|e| {
@@ -2253,6 +2263,8 @@ fn create_type_error(node: &FileNode) -> Option<Value> {
                 ("size", node.size.is_some()),
                 ("mediaType", node.media_type.is_some()),
                 ("executable", node.executable.is_some()),
+                ("isSubscribed", node.is_subscribed.is_some()),
+                ("shareWith", node.share_with.is_some()),
                 ("role", node.role.is_some()),
                 ("target", node.target.is_some()),
             ]
@@ -2293,12 +2305,15 @@ fn create_type_error(node: &FileNode) -> Option<Value> {
 }
 
 /// The `@type` that defines a type-specific property
-/// (draft-ietf-jmap-filenode-16 §3.1.2-§3.1.4), or `None` for a common or
-/// unknown property.
+/// (draft-ietf-jmap-filenode-19 §3.1.2-§3.1.5), or `None` for a common or
+/// unknown property. The §3.1.2 container properties `isSubscribed` and
+/// `shareWith` are "defined for every FileNode whose @type permits
+/// children; of the types defined in this document, only \"Directory\"
+/// does" (`myRights` is server-set and rejected before this check).
 fn property_owner(property: &str) -> Option<NodeType> {
     match property {
         "blobId" | "size" | "mediaType" | "executable" => Some(NodeType::File),
-        "role" => Some(NodeType::Directory),
+        "role" | "isSubscribed" | "shareWith" => Some(NodeType::Directory),
         "target" => Some(NodeType::Symlink),
         _ => None,
     }
