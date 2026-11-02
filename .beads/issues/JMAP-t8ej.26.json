@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.26",
+  "title": "Empty-patch no-op skips closedAt/permission gates",
+  "description": "Regression from batch 45 (0f48f5cc). The {} no-op exit (Ok(true)) in chat-server runs before the gates: space.rs no-op ~1285 precedes the closedAt check ~1381, so {} to a closed Space returns updated {id:null}, but draft-atwood-jmap-chat-00 (054dcb1 ~L911) says the server MUST reject every Space/set update to a closed Space with forbidden, except self-removal. Likewise ban.rs (stored_ban_denied/may_set_space_ban) and emoji.rs (may_set_custom_emoji): a caller without update permission gets success for {} instead of forbidden. Fix: no-op exit after existence + permission/closedAt gates. Also check scene avatar.rs (b8b8436d): strip_read_only_patch now runs before the owner check, so a non-owner gets invalidProperties instead of forbidden; restore owner check first. Same ordering audit for mail/vtc/contacts/calendars no-op exits. Tests: oracle the spec MUST text.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T04:25:40.05493663Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T10:27:36.021915322Z",
+  "closed_at": "2026-11-02T10:27:36.021915322Z",
+  "close_reason": "batch 46, 6a3916fe, CI green",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.26",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-02T04:25:40.176700904Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

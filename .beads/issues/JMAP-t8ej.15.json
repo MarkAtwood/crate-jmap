@@ -2,13 +2,15 @@
   "id": "JMAP-t8ej.15",
   "title": "filenode-server: check blob exists on FileNode/copy",
   "description": "From audit JMAP-t8ej.5 (filenode-19 finding brong/draft-gondwana-jmap-filenode#6). FileNode/set create checks backend.blob_exists (crate-jmap-filenode-server/src/filenode.rs:634) but FileNode/copy does not, so a cross-account copy stores the source account's blobId unchecked (memory.rs:989-999) and the destination may not have the blob. Fix: for File nodes, call blob_exists on the destination account before copy_object; missing -\u003e invalidProperties naming blobId (RFC 8620 /copy semantics; blob must exist in the target account). Test: cross-account copy of a File whose blob is absent in the destination -\u003e notCreated invalidProperties blobId; present -\u003e created. If upstream later adopts 'server copies the blob', replace with a backend copy_blob hook (separate bead).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-01T17:19:31.666684701Z",
   "created_by": "agent",
-  "updated_at": "2026-11-01T17:19:31.666684701Z",
+  "updated_at": "2026-11-01T18:47:52.890777751Z",
+  "closed_at": "2026-11-01T18:47:52.890777751Z",
+  "close_reason": "Batch 43 (fa9778a2..a2062c94), reviewed, local CI green 6763",
   "dependencies": [
     {
       "issue_id": "JMAP-t8ej.15",

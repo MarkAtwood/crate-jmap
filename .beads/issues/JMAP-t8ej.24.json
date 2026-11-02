@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.24",
+  "title": "Batch 43 review leftovers (federation quote, tests)",
+  "description": "Minor review findings from batch 43. (1) crate-jmap-chat-federation-server/tests/presence.rs ~L134 and ~L170-171 still quote pre-03f4318 'MUST match the peer identity; ... reject the request if they differ' for Peer/unsubscribePresence and Peer/presence identity; re-quote jmap-chat-spec 77c3474 L1101 and L1152 ('MUST be a peer identity of the request'). Comment-only. (2) filenode-server FileNode/copy: the new blob_exists Err branch (per-entry serverFail in notCopied, ~filenode.rs:1852) has no test; add one with a faulty backend. (3) chat-server tests/chat_server_set_fields.rs leaves out Chat topic (draft-atwood-jmap-chat-00 77c3474 L619, server-set); add it to the test.",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T18:47:51.285498493Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T19:57:43.008070271Z",
+  "closed_at": "2026-11-01T19:57:43.008070271Z",
+  "close_reason": "Batch 44 (a22b574a, b91e9111, a15f26be), reviewed, local CI green 6772",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.24",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T18:47:51.412350929Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

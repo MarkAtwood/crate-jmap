@@ -1,0 +1,2 @@
+{"id":"01a19a55-5e02-7ad5-8a44-275110438d83","issue_id":"JMAP-t8ej.25.2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-11-02T03:37:28.322710595Z"}
+{"id":"01a19a81-8279-74ae-a53f-1863752e3af5","issue_id":"JMAP-t8ej.25.2","event_type":"closed","actor":"agent","old_value":"","new_value":"batch 45, CI green at 0f48f5cc","created_at":"2026-11-02T04:25:41.241309774Z"}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.22",
+  "title": "vtc-server: tests for server-set/immutable fields",
+  "description": "Split from JMAP-t8ej.13 (batch 43 did only the chat half; the agent wrongly treated these as part of the deferred livestream work, which they are not). Oracle: '(server-set)'/'(immutable)' attributes at jmap-chat-spec 77c3474 (from 639dc1d). Code already rejects these (crate-jmap-vtc-types/src/backend.rs SERVER_SET/IMMUTABLE; vtc-server participant.rs). Tests: VTCParticipant/set create and update setting e2eeFingerprint -\u003e invalidProperties; update setting plain gatewayData -\u003e invalidProperties (pendingSignal path stays allowed); VTCCall/set update setting joinUri -\u003e invalidProperties (extend the loop at tests/call_state.rs ~L296). Use a value different from the stored one (RFC 8620 §5.3 allows an identical server-set value). Test-only; do not touch livestream config/STREAM_CONFIG (JMAP-t8ej.10).",
+  "status": "closed",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T18:47:50.701311766Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T19:57:42.76478007Z",
+  "closed_at": "2026-11-01T19:57:42.76478007Z",
+  "close_reason": "Batch 44 (a22b574a, b91e9111, a15f26be), reviewed, local CI green 6772",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.22",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T18:47:50.831388616Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

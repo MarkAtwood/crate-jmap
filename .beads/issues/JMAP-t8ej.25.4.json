@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.25.4",
+  "title": "Calendars+scene: identical server-set values, {} no-op",
+  "description": "Mirror the mail template to jmap-calendars-server calendar.rs:339, participant_identity.rs:254, event.rs:589. Also check scene-server avatar.rs update path and fix it the same way if it rejects identical server-set values. Mark's decision (on JMAP-t8ej.25 notes): an empty patch {} — literal, or empty after dropping identical server-set values — SUCCEEDS as a no-op: updated {id: null}, no write, state unchanged. RFC 8620 §5.3: server-set properties MAY be in the patch if identical to the current value, else invalidProperties. One test per handler.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T03:37:28.873954475Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T04:25:42.025210331Z",
+  "closed_at": "2026-11-02T04:25:42.025210331Z",
+  "close_reason": "batch 45, CI green at 0f48f5cc",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.25.4",
+      "depends_on_id": "JMAP-t8ej.25",
+      "type": "parent-child",
+      "created_at": "2026-11-02T03:37:29.001710967Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

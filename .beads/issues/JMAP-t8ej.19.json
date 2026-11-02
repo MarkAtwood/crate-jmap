@@ -2,13 +2,15 @@
   "id": "JMAP-t8ej.19",
   "title": "metadata-server: support -05 Binary values",
   "description": "From audit JMAP-t8ej.5 (Mark's metadata-05 list review, finding 7; https://mailarchive.ietf.org/arch/msg/jmap/lUjY9HLnx9Cgm8sA05qQTJTqZIU/). draft-ietf-jmap-metadata-05 §2.1.1 adds Binary objects (@type: \"Binary\", base64); the crate has none. Gaps: value_depth (crate-jmap-metadata-server/src/validate.rs:42) counts a Binary as depth \u003e=1, -05 says 0; no invalidProperties for a malformed Binary (extra members, non-padded/invalid base64; §3.2 rule 5, after the depth check in check_metadata_depth validate.rs:332); filter paths descend into Binary members (resolve_path filter.rs:103) and text conditions can match the base64 string (filter.rs:177, :220), -05 says paths cannot address Binary members and text never matches one; apply_jmap_patch (crate-jmap-server/src/helpers.rs:677-697) must return invalidPatch for a path through a Binary. Oracle: the -05 §2.1.1 example and rule text (~/GIT/ietf-jmap-drafts). Leave the review's open questions (pad bits, whole namespace value as Binary) alone until the list answers.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-01T17:24:58.016558283Z",
   "created_by": "agent",
-  "updated_at": "2026-11-01T17:24:58.016558283Z",
+  "updated_at": "2026-11-01T18:47:53.142418337Z",
+  "closed_at": "2026-11-01T18:47:53.142418337Z",
+  "close_reason": "Batch 43 (fa9778a2..a2062c94), reviewed, local CI green 6763",
   "dependencies": [
     {
       "issue_id": "JMAP-t8ej.19",

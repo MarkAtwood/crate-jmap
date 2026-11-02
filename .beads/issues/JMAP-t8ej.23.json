@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.23",
+  "title": "chat-server: Space/set accepts identical server-set values",
+  "description": "Found by batch 43 (JMAP-t8ej.13 agent). RFC 8620 §5.3: a server-set property in an update is not an error when its value is identical to the current one. Space/set update calls reject_read_only_patch with current=None (crate-jmap-chat-server/src/space.rs ~L1271), so it rejects a server-set key (roles, members, categories, uncategorizedChannelIds) even when the sent value equals the stored one. Fix: pass the stored Space so identical values pass, as other handlers do. Test: update sending the stored roles value unchanged -\u003e updated (oracle RFC 8620 §5.3 text); a different value -\u003e invalidProperties (existing test). Check other chat handlers for the same current=None pattern and list them.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-01T18:47:50.991924844Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-01T19:57:42.535823082Z",
+  "closed_at": "2026-11-01T19:57:42.535823082Z",
+  "close_reason": "Batch 44 (a22b574a, b91e9111, a15f26be), reviewed, local CI green 6772",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.23",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-01T18:47:51.118446028Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,2 @@
+{"id":"01a19870-7ab3-7e6d-bd40-b5f4d9c8719c","issue_id":"JMAP-t8ej.22","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-11-01T18:47:50.707946277Z"}
+{"id":"01a198b0-71f3-73dd-af92-3f8e9b44dbea","issue_id":"JMAP-t8ej.22","event_type":"closed","actor":"agent","old_value":"","new_value":"Batch 44 (a22b574a, b91e9111, a15f26be), reviewed, local CI green 6772","created_at":"2026-11-01T19:57:42.771253764Z"}
