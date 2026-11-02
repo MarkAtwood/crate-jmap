@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.28",
+  "title": "chat-filenode rights: align with spec ebdf95e",
+  "description": "jmap-chat-spec ebdf95e rewrote draft-atwood-jmap-chat-filenode-00 #permissions for filenode-19. crate-jmap-chat-filenode-server/src/lib.rs space_files_rights (~600-623) and its doc table (~540-556) implement the OLD table: mayModifyContent false on Directories and the root; root mayDelete/mayRename need manage_space (tier 4). New spec: rights are reported in myRights of every Directory incl. the root; a File/SymLink takes its parent Directory's rights; manage_channels OR manage_space get mayDelete, mayRename, mayModifyContent (no root exception); nobody may destroy, rename or move the root via FileNode/set (forbidden, role Directory); root removed only with its Space. Creating the root still needs manage_space. check_space_destroy and the update gate (~717) must follow. Depends on the base filenode crates' rights model (they implement -16; see the -16-\u003e-19 gap bead).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T16:07:37.99584308Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T16:49:00.002653881Z",
+  "closed_at": "2026-11-02T16:49:00.002653881Z",
+  "close_reason": "batch 47: d92dd316",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.28",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-02T16:07:38.112977995Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
