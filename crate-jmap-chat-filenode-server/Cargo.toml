@@ -9,6 +9,7 @@ license.workspace = true
 description = "Chat binding for the JMAP FileNode server (draft-atwood-jmap-chat-filenode-00): Space file tree root validation, per-Space quota, auto-created roots"
 keywords = ["jmap", "filenode", "chat", "server"]
 categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

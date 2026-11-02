@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Tasks method handlers — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "draft-jmap-tasks", "server", "tasks"]
 categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [features]
 # Public, feature-gated in-memory reference implementation of TasksBackend.

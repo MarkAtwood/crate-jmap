@@ -9,6 +9,7 @@ license.workspace = true
 description = "did:key, did:web, did:plc and did:webvh resolution with a refresh-on-failure cache for the jmap-* crates"
 keywords = ["jmap", "did", "resolver", "identity"]
 categories = ["network-programming", "asynchronous"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-did-types = { workspace = true }

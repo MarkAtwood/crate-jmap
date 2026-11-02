@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP VTC extension data types (draft-atwood-jmap-vtc-00)"
 keywords = ["jmap", "vtc", "video", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

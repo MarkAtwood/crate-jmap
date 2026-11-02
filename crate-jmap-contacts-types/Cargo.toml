@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Contacts extension data types (RFC 9610)"
 keywords = ["jmap", "contacts", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

@@ -83,6 +83,8 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- All published crates: packages no longer ship the per-crate `AGENTS.md`,
+  `CLAUDE.md` and `PLAN.md` agent files (`exclude` in each `[package]`).
 - **jmap-metadata-client**, **jmap-metadata-server** and the crates that
   wire in metadata: docs, package descriptions and test comments now cite
   draft-ietf-jmap-metadata-05 instead of -04. The only normative change

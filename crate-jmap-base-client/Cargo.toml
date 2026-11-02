@@ -9,6 +9,7 @@ license.workspace = true
 description = "RFC 8620 JMAP base client — auth-agnostic, session fetch, blob, SSE, WebSocket"
 keywords = ["jmap", "rfc8620", "client", "async"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

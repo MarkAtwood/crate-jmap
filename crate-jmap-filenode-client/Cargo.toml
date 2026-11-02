@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP FileNode HTTP client — extension trait over jmap-base-client"
 keywords = ["jmap", "draft-jmap-filenode", "client", "filenode"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

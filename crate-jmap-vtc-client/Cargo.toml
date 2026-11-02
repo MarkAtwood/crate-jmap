@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP VTC HTTP client (draft-atwood-jmap-vtc-00) — extension trait over jmap-base-client"
 keywords = ["jmap", "vtc", "video", "client"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

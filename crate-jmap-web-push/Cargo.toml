@@ -9,6 +9,7 @@ license.workspace = true
 description = "Web Push delivery (RFC 8291 encryption, RFC 8292 VAPID, retry) for JMAP push messages"
 keywords = ["jmap", "web-push", "vapid", "push"]
 categories = ["network-programming", "asynchronous"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 base64 = "0.22"

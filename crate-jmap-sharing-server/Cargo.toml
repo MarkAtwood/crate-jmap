@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Sharing method handlers (RFC 9670 Principal/ShareNotification) — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "rfc9670", "server", "sharing"]
 categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [features]
 # Public, feature-gated in-memory reference implementation of SharingBackend.

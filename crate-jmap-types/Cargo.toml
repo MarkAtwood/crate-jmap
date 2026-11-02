@@ -9,6 +9,7 @@ license.workspace = true
 description = "Shared JMAP wire types (RFC 8620) for the jmap-* crate family"
 keywords = ["jmap", "rfc8620", "types", "wire-format"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 serde = { workspace = true }

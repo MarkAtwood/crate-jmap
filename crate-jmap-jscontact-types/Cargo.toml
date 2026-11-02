@@ -9,6 +9,7 @@ license.workspace = true
 description = "JSContact (RFC 9553) typed sub-types for the jmap-* crate family"
 keywords = ["jmap", "jscontact", "rfc9553", "types", "wire-format"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 serde = { workspace = true }

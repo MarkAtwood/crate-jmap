@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Object Metadata extension data types (draft-ietf-jmap-metadata-*)"
 keywords = ["jmap", "metadata", "annotation", "types"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 serde = { workspace = true }

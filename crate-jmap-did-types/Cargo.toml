@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Decentralized Identifiers extension data types (draft-atwood-jmap-did-00)"
 keywords = ["jmap", "did", "identity", "types"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 base64 = "0.22"

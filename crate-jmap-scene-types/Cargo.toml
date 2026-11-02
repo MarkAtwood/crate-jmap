@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Scene extension data types (draft-atwood-jmap-scene-00)"
 keywords = ["jmap", "scene", "spatial", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

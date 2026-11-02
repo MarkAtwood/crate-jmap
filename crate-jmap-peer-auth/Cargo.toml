@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Chat federation peer authentication: RFC 9421 request signing and verification (draft-atwood-jmap-chat-federation-00), no I/O"
 keywords = ["jmap", "federation", "http-signatures", "ed25519"]
 categories = ["authentication", "cryptography"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 base64 = "0.22"
