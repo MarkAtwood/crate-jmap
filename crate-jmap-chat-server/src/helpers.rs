@@ -284,22 +284,19 @@ where
 /// Check a `/set` update `patch` against the server-set and immutable
 /// properties of `O`, then drop the ones it names.
 ///
-/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
-/// if their value is identical to the current server value (before
-/// applying the patches to the object).  Otherwise, the update MUST be
-/// rejected with an "invalidProperties" SetError." When the patch names
-/// such a property, the stored object `id` is fetched and passed to
-/// [`jmap_server::reject_read_only_patch`]; a patch naming none skips the
-/// fetch. A missing object leaves nothing to compare, so the key is
-/// rejected. The keys that pass hold their stored value and are removed,
-/// leaving only the client changes for the handler's own allow-list.
+/// Delegates to [`jmap_server::check_read_only_patch`] (RFC 8620 §5.3),
+/// which fetches the stored object `id` only when the patch names such a
+/// property or is empty, rejects a changed value, and removes the
+/// identical ones, leaving only the client changes for the handler's own
+/// allow-list. A missing object leaves nothing to compare, so a read-only
+/// key is rejected.
 ///
 /// A non-object `patch` is left for the caller to reject.
 ///
 /// # Errors
 ///
-/// The `notUpdated` value: the `invalidProperties` SetError, or
-/// `serverFail` when the fetch fails.
+/// The `notUpdated` value: `notFound`, the `invalidProperties` SetError,
+/// or `serverFail` when the fetch fails.
 pub(crate) async fn check_read_only_patch<B, O>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -314,27 +311,9 @@ where
     let Value::Object(map) = patch else {
         return Ok(());
     };
-    let read_only = |key: &str| {
-        let prop = key.split('/').next().unwrap_or(key);
-        O::SERVER_SET.contains(&prop) || O::IMMUTABLE.contains(&prop)
-    };
-    if !map.keys().any(|k| read_only(k)) {
-        return Ok(());
-    }
-    let (found, _) = backend
-        .get_objects::<O>(caller, account_id, Some(std::slice::from_ref(id)), None)
+    jmap_server::check_read_only_patch::<B, O>(backend, caller, account_id, id, map)
         .await
-        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?;
-    let current = match found.first().map(serde_json::to_value).transpose() {
-        Ok(Some(Value::Object(m))) => Some(m),
-        Ok(_) => None,
-        Err(e) => return Err(jmap_server::server_fail_value_from_backend(&e)),
-    };
-    if let Some(err) = jmap_server::reject_read_only_patch::<O>(map, current.as_ref()) {
-        return Err(Value::from(&err));
-    }
-    map.retain(|k, _| !read_only(k));
-    Ok(())
+        .map(|_| ())
 }
 
 /// Keep only the keys listed in `prop_set` (plus `"id"` which callers add).

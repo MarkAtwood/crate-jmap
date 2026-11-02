@@ -58,8 +58,8 @@ use crate::helpers::{
 };
 use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_start,
+    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg,
+    check_read_only_patch, filter_arg, limit_or_max, reject_server_set, resolve_query_start,
     server_fail_from_backend,
 };
 
@@ -709,7 +709,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                 }
                 // Convert wire-format Value into a typed PatchObject before
                 // the immutable-field guard. RFC 8620 §5.3.
-                let patch = match PatchObject::deserialize(&patch_val) {
+                let mut patch = match PatchObject::deserialize(&patch_val) {
                     Ok(p) => p,
                     Err(e) => {
                         email_not_updated.insert(
@@ -722,11 +722,26 @@ pub async fn handle_submission_set<B: MailBackend>(
                         continue;
                     }
                 };
-                // Apply same immutable-field guard as handle_email_set patches.
-                if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
-                    email_not_updated
-                        .insert(email_id.as_ref().to_owned(), serde_json::Value::from(&err));
-                    continue;
+                // Apply the same read-only guard as handle_email_set patches
+                // (RFC 8620 §5.3).
+                match check_read_only_patch::<_, Email>(
+                    backend,
+                    caller,
+                    &account_id,
+                    &email_id,
+                    patch.as_map_mut(),
+                )
+                .await
+                {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        email_updated.insert(email_id.as_ref().to_owned(), Value::Null);
+                        continue;
+                    }
+                    Err(err) => {
+                        email_not_updated.insert(email_id.as_ref().to_owned(), err);
+                        continue;
+                    }
                 }
                 match backend
                     .update_object::<Email>(caller, &account_id, &email_id, patch)
@@ -1060,6 +1075,11 @@ async fn process_update<B: MailBackend>(
         return Err(BackendSetError::SetError(Box::new(SetError::new(
             SetErrorType::NotFound,
         ))));
+    }
+
+    // An empty patch changes nothing: a no-op success with no write.
+    if patch.is_empty() {
+        return Ok(None);
     }
 
     let current = &existing[0];

@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `check_read_only_patch` fetches the stored object only
+  when an update patch names a server-set or immutable property or is
+  empty, rejects a changed value, drops the identical ones (RFC 8620
+  §5.3), and reports a patch left empty as a no-op; `strip_read_only_patch`
+  does the same against a stored object the caller already has.
+  jmap-chat-server's update handlers use it.
+
 - **jmap-metadata-server**, **jmap-server**: draft-ietf-jmap-metadata-05
   §2.1.1 Binary values (`{"@type": "Binary", "base64": ...}` within a
   namespace value). `value_depth` counts a Binary below the namespace
@@ -168,6 +175,16 @@ wire behaviour that a conforming peer can observe.
   the patch if their value is identical to the current server value"),
   so a whole object from `/get` is a valid patch. A differing value is
   still `invalidProperties`.
+- **jmap-mail-server**: `Mailbox/set`, `Email/set`, `Identity/set`,
+  `SieveScript/set` and the implicit `Email/set` of
+  `EmailSubmission/set` and `MDN/send` `onSuccessUpdateEmail` accept a
+  server-set or immutable property sent with its stored value (RFC 8620
+  §5.3), so a whole object from `/get` is a valid patch; a differing value
+  is still `invalidProperties`. An empty patch, literal `{}` or empty once
+  those values are dropped, now succeeds as a no-op on these paths and on
+  `VacationResponse/set` and `EmailSubmission/set` updates: `updated` maps
+  the id to `null`, nothing is written, and the state is unchanged. An
+  empty patch of a missing id is `notFound`.
 
 ## [0.4.2] - 2026-10-30
 

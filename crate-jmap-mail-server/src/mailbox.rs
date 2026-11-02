@@ -47,8 +47,8 @@ use crate::helpers::{
     serialize_value,
 };
 use jmap_server::{
-    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_start,
+    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg,
+    check_read_only_patch, filter_arg, limit_or_max, reject_server_set, resolve_query_start,
     server_fail_from_backend,
 };
 use jmap_server::{SetError, SetErrorType};
@@ -878,19 +878,13 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     .is_some_and(|v| v.is_null())
             });
 
-        // Returns the InvalidProperties error value if `patch` names a
-        // server-set Mailbox property (RFC 8621 §2) or writes metadata the
-        // request may not write (draft-ietf-jmap-metadata-05 §3), or None
-        // if the patch is clean. Used in both passes to avoid duplicating
-        // the check block.
-        let server_set_error = |patch: &PatchObject| -> Option<Value> {
-            reject_read_only_patch::<Mailbox>(patch.as_map(), None)
-                .map(|e| serde_json::Value::from(&e))
-                .or_else(|| {
-                    check_metadata_entry(patch.as_map(), false, using)
-                        .err()
-                        .map(|e| serde_json::Value::from(&*e))
-                })
+        // Returns the error value if `patch` writes metadata the request
+        // may not write (draft-ietf-jmap-metadata-05 §3), or None if the
+        // patch is clean. Used in both passes.
+        let metadata_error = |patch: &PatchObject| -> Option<Value> {
+            check_metadata_entry(patch.as_map(), false, using)
+                .err()
+                .map(|e| serde_json::Value::from(&*e))
         };
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---
@@ -906,7 +900,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -917,8 +911,29 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 }
             };
 
-            // Reject patches that touch server-set fields.
-            if let Some(err) = server_set_error(&patch) {
+            // A changed server-set Mailbox value (RFC 8621 §2) is rejected,
+            // an identical one dropped (RFC 8620 §5.3); nothing left is a
+            // no-op success.
+            match check_read_only_patch::<_, Mailbox>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                patch.as_map_mut(),
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
+            }
+            if let Some(err) = metadata_error(&patch) {
                 not_updated.insert(id_str, err);
                 continue;
             }
@@ -967,7 +982,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -978,8 +993,29 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 }
             };
 
-            // Reject patches that touch server-set fields.
-            if let Some(err) = server_set_error(&patch) {
+            // A changed server-set Mailbox value (RFC 8621 §2) is rejected,
+            // an identical one dropped (RFC 8620 §5.3); nothing left is a
+            // no-op success.
+            match check_read_only_patch::<_, Mailbox>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                patch.as_map_mut(),
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
+            }
+            if let Some(err) = metadata_error(&patch) {
                 not_updated.insert(id_str, err);
                 continue;
             }
