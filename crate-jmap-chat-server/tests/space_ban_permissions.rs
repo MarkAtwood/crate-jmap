@@ -101,6 +101,30 @@ async fn update_requires_ban_permission() {
     assert!(allowed["updated"].get(BAN_ID).is_some(), "{allowed:?}");
 }
 
+/// jmap-chat-spec 77c3474 L1533 "`update` supports: `reason`,
+/// `expiresAt`. Requires `"ban"` permission in the Space." and RFC 8620
+/// §5.3 `forbidden`: "The action would violate an ACL or other permissions
+/// policy." An empty patch and a server-set key are updates too, so the
+/// permission gate refuses them before any no-op or read-only check.
+#[tokio::test]
+async fn empty_or_server_set_update_requires_ban_permission() {
+    for patch in [json!({}), json!({ "bannedBy": "someone-else" })] {
+        let body = json!({ "update": { BAN_ID: patch.clone() } });
+        let denied = set(&seeded(false), body).await;
+        assert_eq!(denied["updated"], Value::Null, "{patch}: {denied}");
+        assert_eq!(
+            denied["notUpdated"][BAN_ID]["type"], "forbidden",
+            "{patch}: {denied}"
+        );
+    }
+
+    // With the permission, `{}` is the no-op success RFC 8620 §5.3
+    // `updated` describes: "null if none" changed.
+    let allowed = set(&seeded(true), json!({ "update": { BAN_ID: {} } })).await;
+    assert_eq!(allowed["notUpdated"], Value::Null, "{allowed}");
+    assert_eq!(allowed["updated"], json!({ BAN_ID: null }), "{allowed}");
+}
+
 /// "`destroy` lifts the ban. Requires `"ban"` permission in the Space."
 #[tokio::test]
 async fn destroy_requires_ban_permission() {

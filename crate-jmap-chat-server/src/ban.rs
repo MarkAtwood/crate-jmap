@@ -355,6 +355,14 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 }
             };
 
+            // The permission gate runs before the read-only and no-op
+            // checks, so a caller who may not update the ban gets
+            // `forbidden` even for `{}`.
+            if let Some(err) = stored_ban_denied(backend, caller, &account_id, &id).await {
+                not_updated.insert(id_str, err);
+                continue;
+            }
+
             // §SpaceBan: `id`, `bannedBy` and `createdAt` are server-set,
             // `spaceId` and `userId` immutable.
             match check_read_only_patch::<_, SpaceBan>(
@@ -393,11 +401,6 @@ pub async fn handle_ban_set<B: ChatBackend>(
                     id_str,
                     json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
                 );
-                continue;
-            }
-
-            if let Some(err) = stored_ban_denied(backend, caller, &account_id, &id).await {
-                not_updated.insert(id_str, err);
                 continue;
             }
 

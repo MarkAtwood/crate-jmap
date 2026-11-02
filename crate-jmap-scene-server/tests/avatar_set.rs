@@ -810,6 +810,22 @@ async fn empty_patch_of_another_users_avatar_is_forbidden() {
 }
 
 #[tokio::test]
+async fn server_set_patch_of_another_users_avatar_is_forbidden() {
+    // 77c3474 L2524 "Users may not update other users' avatars." and L2388
+    // "The server SHOULD return `forbidden` if the caller's userId does not
+    // match the SceneAvatar record's userId": the ownership check comes
+    // before the server-set check, so a changed `userId` from another user
+    // is `forbidden`, not `invalidProperties`.
+    let backend = setup();
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let err = update_error(&backend, CAROL, &id, json!({ "userId": CAROL })).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
+}
+
+#[tokio::test]
 async fn spec_leave_example() {
     // 6bcd9d8 L2302 "A user leaves by calling `SceneAvatar/set` with an
     // update setting `leftAt`. The server records its own current time as

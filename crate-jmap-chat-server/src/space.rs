@@ -1267,6 +1267,28 @@ pub async fn handle_space_set<B: ChatBackend>(
                 continue;
             }
 
+            // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
+            // MUST also reject ... every `Space/set` update to the Space
+            // with a `forbidden` SetError, except a member removing
+            // themselves via `removeMembers`." Checked before the
+            // read-only and no-op checks so that `{}` and server-set keys
+            // are `forbidden` too. A patch that may be a self-removal is
+            // checked again once parsed, below.
+            let closed = match backend
+                .get_objects::<Space>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
+                .await
+            {
+                Ok((spaces, _)) => spaces.first().is_some_and(|s| s.closed_at.is_some()),
+                Err(e) => {
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
+            if closed && patch_val.get("removeMembers") != Some(&json!([account_id])) {
+                not_updated.insert(id_str, space_closed());
+                continue;
+            }
+
             // Reject patches that change server-set Space properties,
             // including `roles`, `members`, `categories` and
             // `uncategorizedChannelIds`, which change only through the
@@ -1376,37 +1398,15 @@ pub async fn handle_space_set<B: ChatBackend>(
                 continue;
             }
 
-            // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
-            // MUST also reject ... every `Space/set` update to the Space
-            // with a `forbidden` SetError, except a member removing
-            // themselves via `removeMembers`." The owner removes themselves
-            // by the accountId (§Terminology).
+            // The closedAt gate above, for a patch that also names other
+            // changes. The owner removes themselves by the accountId
+            // (§Terminology).
             let self_removal = clean_patch.is_empty()
                 && object_metadata_patch.is_empty()
                 && matches!(ops.as_slice(), [SpacePatchOp::RemoveMember(m)] if *m == account_id);
-            if !self_removal {
-                match backend
-                    .get_objects::<Space>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&id)),
-                        None,
-                    )
-                    .await
-                {
-                    Ok((spaces, _)) if spaces.first().is_some_and(|s| s.closed_at.is_some()) => {
-                        not_updated.insert(
-                            id_str,
-                            json!({ "type": "forbidden", "description": "the Space is closed" }),
-                        );
-                        continue;
-                    }
-                    Ok(_) => {}
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
+            if closed && !self_removal {
+                not_updated.insert(id_str, space_closed());
+                continue;
             }
 
             // Reject SpaceRole.position == 0 per draft-atwood-jmap-chat-00
@@ -2025,6 +2025,12 @@ pub async fn handle_space_join<B: ChatBackend>(
 
     create_channel_read_positions(backend, caller, &account_id, &space_id).await;
     joined()
+}
+
+/// The `forbidden` SetError for a `Space/set` update to a closed Space
+/// (draft-atwood-jmap-chat-00 §Space `closedAt`).
+fn space_closed() -> Value {
+    json!({ "type": "forbidden", "description": "the Space is closed" })
 }
 
 /// Create the owner's ReadPosition for every channel Chat of `space_id`.

@@ -358,6 +358,26 @@ async fn gate_receives_the_targeted_emoji_scope_and_op() {
     );
 }
 
+/// jmap-chat-spec 77c3474 L1478: "Servers SHOULD return a `forbidden`
+/// SetError ({{RFC8620}} §5.3) when the caller is not authorized to act on
+/// the targeted emoji", which this crate does by choice. `{}` and a
+/// server-set key target the emoji as much as a rename, so a denying gate
+/// refuses them before any no-op or read-only check.
+#[tokio::test]
+async fn empty_or_server_set_update_is_forbidden_when_gate_denies() {
+    for patch in [json!({}), json!({ "createdBy": "someone-else" })] {
+        let backend = tracking(TrackingBackend::with_emoji_set_denied());
+        let resp = set(
+            &backend,
+            json!({ "update": { GLOBAL_EMOJI: patch.clone() } }),
+        )
+        .await
+        .expect("CustomEmoji/set");
+        assert_eq!(resp["updated"], Value::Null, "{patch}: {resp}");
+        assert_set_error(&resp, "notUpdated", GLOBAL_EMOJI, "forbidden", None);
+    }
+}
+
 /// RFC 8620 §5.3: a create that fails validation is `invalidProperties`
 /// whatever the caller's rights, so the authorization gate has nothing
 /// to decide for it.

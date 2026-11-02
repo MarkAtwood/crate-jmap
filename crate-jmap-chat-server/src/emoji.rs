@@ -508,6 +508,53 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 }
             };
 
+            // Authorization gate (draft-atwood-jmap-chat-00 commit
+            // `9344aec`). Pre-fetch the existing emoji to learn its
+            // `spaceId`. If the pre-fetch reports the id as not
+            // found, skip the gate entirely — `update_object` will
+            // surface `notFound` and we don't want to consume an
+            // authorization decision for a non-existent target. A
+            // pre-fetch storage error is surfaced as `serverFail`.
+            // The gate runs before the read-only and no-op checks, so a
+            // caller who may not update the emoji gets `forbidden` even
+            // for `{}`.
+            let (found, _not_found) = match backend
+                .get_objects::<CustomEmoji>(
+                    caller,
+                    &account_id,
+                    Some(std::slice::from_ref(&id)),
+                    None,
+                )
+                .await
+            {
+                Ok(result) => result,
+                Err(e) => {
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
+            if let Some(emoji) = found.first() {
+                match backend
+                    .may_set_custom_emoji(
+                        caller,
+                        &account_id,
+                        emoji.space_id.as_ref(),
+                        EmojiSetOp::Update,
+                    )
+                    .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
+                        continue;
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
             // §CustomEmoji: `id`, `createdBy` and `createdAt` are
             // server-set; `spaceId` is set only on create.
             match check_read_only_patch::<_, CustomEmoji>(
@@ -547,50 +594,6 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                     json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
                 );
                 continue;
-            }
-
-            // Authorization gate (draft-atwood-jmap-chat-00 commit
-            // `9344aec`). Pre-fetch the existing emoji to learn its
-            // `spaceId`. If the pre-fetch reports the id as not
-            // found, skip the gate entirely — `update_object` will
-            // surface `notFound` and we don't want to consume an
-            // authorization decision for a non-existent target. A
-            // pre-fetch storage error is surfaced as `serverFail`.
-            let (found, _not_found) = match backend
-                .get_objects::<CustomEmoji>(
-                    caller,
-                    &account_id,
-                    Some(std::slice::from_ref(&id)),
-                    None,
-                )
-                .await
-            {
-                Ok(result) => result,
-                Err(e) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-            if let Some(emoji) = found.first() {
-                match backend
-                    .may_set_custom_emoji(
-                        caller,
-                        &account_id,
-                        emoji.space_id.as_ref(),
-                        EmojiSetOp::Update,
-                    )
-                    .await
-                {
-                    Ok(Ok(())) => {}
-                    Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
             }
 
             match backend

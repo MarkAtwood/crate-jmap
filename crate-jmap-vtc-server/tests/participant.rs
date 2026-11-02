@@ -444,6 +444,26 @@ async fn only_moderators_update_other_participants() {
     );
 }
 
+#[tokio::test]
+async fn non_moderator_empty_or_server_set_patch_of_another_is_forbidden() {
+    // 77c3474 L1128 "Non-moderators SHOULD receive `forbidden` for updates
+    // targeting other participants." RFC 8620 §5.3 `forbidden`: "The
+    // action would violate an ACL or other permissions policy." `{}` and a
+    // server-set key are updates too, so the gate refuses them before any
+    // no-op or read-only check.
+    let backend = room();
+    let alice = id_of(&join(&backend, ALICE, "C1").await);
+    join(&backend, CAROL, "C1").await;
+    let before = participant(&backend, &alice).await;
+    for patch in [json!({}), json!({"userId": CAROL})] {
+        let err = pupdate(&backend, CAROL, &alice, patch.clone())
+            .await
+            .unwrap_err();
+        assert_error(&err, "forbidden", None);
+    }
+    assert_eq!(participant(&backend, &alice).await, before);
+}
+
 // ---- Lobby ----
 
 #[tokio::test]
