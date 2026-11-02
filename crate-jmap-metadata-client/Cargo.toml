@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Object Metadata extension client helpers (draft-ietf-jmap-metadata-05) — property constants, filter-condition builders, and /changes helpers for metadata-augmented requests"
 keywords = ["jmap", "draft-jmap-metadata", "client", "metadata"]
 categories = ["network-programming", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 serde_json = { workspace = true }

@@ -9,6 +9,7 @@ license.workspace = true
 description = "Backend-agnostic JMAP server framework (RFC 8620): parsing, ResultReference resolution, and Dispatcher"
 keywords = ["jmap", "rfc8620", "server", "dispatcher"]
 categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

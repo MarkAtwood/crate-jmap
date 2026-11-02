@@ -9,6 +9,7 @@ license.workspace = true
 description = "RFC 8621 JMAP for Mail data types (Mailbox, Thread, Email, Identity, EmailSubmission, SearchSnippet)"
 keywords = ["jmap", "email", "mail", "types", "rfc8621"]
 categories = ["email", "encoding"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [features]
 mdn = []

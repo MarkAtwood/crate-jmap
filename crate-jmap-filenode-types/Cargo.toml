@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP FileNode extension data types (draft-ietf-jmap-filenode-*)"
 keywords = ["jmap", "filenode", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-cid-types = { workspace = true }

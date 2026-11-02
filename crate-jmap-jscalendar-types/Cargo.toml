@@ -9,6 +9,7 @@ license.workspace = true
 description = "JSCalendar (RFC 8984) typed sub-types for the jmap-* crate family"
 keywords = ["jmap", "jscalendar", "rfc8984", "types", "wire-format"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

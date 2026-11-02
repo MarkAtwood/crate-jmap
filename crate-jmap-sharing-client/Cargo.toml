@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Sharing HTTP client — extension trait over jmap-base-client (RFC 9670)"
 keywords = ["jmap", "rfc9670", "client", "sharing"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

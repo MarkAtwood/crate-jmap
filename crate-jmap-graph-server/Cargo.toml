@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Graph method handlers (draft-atwood-jmap-graph-00) — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "graph", "server"]
 categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [features]
 # Public, feature-gated in-memory reference implementation of GraphBackend.

@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Blob Content Identifiers extension data types (draft-atwood-jmap-cid-00)"
 keywords = ["jmap", "cid", "sha256", "blob", "types"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 base64 = "0.22"

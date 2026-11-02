@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Chat extension data types (draft-atwood-jmap-chat-*)"
 keywords = ["jmap", "chat", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-cid-types = { workspace = true }

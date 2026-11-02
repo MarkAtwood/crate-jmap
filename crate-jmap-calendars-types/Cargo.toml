@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Calendars extension data types (draft-ietf-jmap-calendars-*)"
 keywords = ["jmap", "calendars", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

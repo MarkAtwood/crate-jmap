@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Chat federation peer-auth I/O: peerSigningKeys fetch and cache, DNSSEC _jmap-peer lookup, replay store (draft-atwood-jmap-chat-federation-00)"
 keywords = ["jmap", "federation", "dnssec", "http-signatures"]
 categories = ["network-programming", "authentication", "asynchronous"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 hickory-resolver = { version = "0.26.3", default-features = false, features = ["dnssec-ring", "system-config", "tokio"] }

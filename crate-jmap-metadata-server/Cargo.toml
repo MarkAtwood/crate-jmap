@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Object Metadata extension helpers (draft-ietf-jmap-metadata-05) — pure functions for depth validation, namespace support, filter predicates, and /changes classification"
 keywords = ["jmap", "draft-jmap-metadata", "server", "metadata"]
 categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-metadata-types = { workspace = true }

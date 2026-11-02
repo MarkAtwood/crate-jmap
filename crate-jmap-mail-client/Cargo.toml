@@ -9,6 +9,7 @@ license.workspace = true
 description = "RFC 8621 JMAP for Mail client — Email, Mailbox, Thread, Identity, EmailSubmission methods"
 keywords = ["jmap", "rfc8621", "client", "mail"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }

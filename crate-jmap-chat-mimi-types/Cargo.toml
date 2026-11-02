@@ -9,6 +9,7 @@ license.workspace = true
 description = "JMAP Chat MIMI provider extension data types (draft-atwood-jmap-chat-mimi-00)"
 keywords = ["jmap", "chat", "mimi", "mls", "types"]
 categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
 jmap-types = { workspace = true }
