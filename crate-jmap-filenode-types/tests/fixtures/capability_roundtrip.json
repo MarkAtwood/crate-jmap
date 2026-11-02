@@ -4,7 +4,6 @@
         "fileNodeQuerySortOptions": ["name", "size"],
         "supportedNodeTypes": ["Directory", "File", "SymLink"],
         "forbiddenNameChars": "/\\",
-        "forbiddenNodeNames": [".", ".."],
         "caseInsensitiveNames": false,
         "mayCreateTopLevelFileNode": true,
         "webTrashUrl": "https://example.com/trash",

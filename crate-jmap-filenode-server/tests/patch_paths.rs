@@ -16,18 +16,16 @@ use jmap_server::{HandlerOutput, JmapBackend};
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-/// Seed a File node `id` whose `shareWith` holds a single "existing" entry.
-fn seed_file(backend: &MemoryBackend, id: &str) {
+/// Seed a Directory `id` whose `shareWith` holds a single "existing" entry.
+/// A Directory, since draft-ietf-jmap-filenode-19 §3.1.2 defines shareWith
+/// only on nodes whose @type permits children.
+fn seed_dir(backend: &MemoryBackend, id: &str) {
     let node: FileNode = serde_json::from_value(json!({
         "id": id,
         "name": id,
         "parentId": null,
         "role": null,
-        "@type": "File",
-        "target": null,
-        "blobId": "B-blob1",
-        "mediaType": "text/plain",
-        "size": 7,
+        "@type": "Directory",
         "shareWith": {
             "existing": {
                 "mayRead": true,
@@ -59,8 +57,8 @@ async fn stored(backend: &MemoryBackend, id: &str) -> Value {
 /// assert "bad" is invalidPatch and unchanged, and "ok" is updated.
 async fn assert_invalid_patch(bad_patch: Value, ok_patch: Value) {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-    seed_file(&backend, "bad");
-    seed_file(&backend, "ok");
+    seed_dir(&backend, "bad");
+    seed_dir(&backend, "ok");
     let before = stored(&backend, "bad").await;
 
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
@@ -90,12 +88,12 @@ async fn assert_invalid_patch(bad_patch: Value, ok_patch: Value) {
     );
 }
 
-/// "mediaType" exists but is a String, so "mediaType/x" has no existing
-/// object part to set "x" in.
+/// "name" exists but is a String, so "name/x" has no existing object part
+/// to set "x" in.
 #[tokio::test]
 async fn pointer_through_string_property_is_invalid_patch() {
     assert_invalid_patch(
-        json!({ "mediaType/x": "y" }),
+        json!({ "name/x": "y" }),
         json!({ "shareWith/existing/mayShare": true }),
     )
     .await;

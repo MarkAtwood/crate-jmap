@@ -81,7 +81,7 @@ All `pub async fn` on `SessionClient`:
 | `filenode_set` | `create, update, destroy, if_in_state, params` | `FileNode/set` | `SetResponse<PartialObject>` |
 | `filenode_copy` | `params, create` | `FileNode/copy` | `SetResponse<PartialObject>` |
 | `filenode_query` | `filter, sort, &QueryParams, depth` | `FileNode/query` | `QueryResponse` |
-| `filenode_query_changes` | `since_query_state, max_changes, filter, sort, up_to_id, calculate_total` | `FileNode/queryChanges` | `QueryChangesResponse` |
+| `filenode_query_changes` | `since_query_state, max_changes, filter, sort, up_to_id, calculate_total, depth` | `FileNode/queryChanges` | `QueryChangesResponse` |
 
 **`filenode_get`** — `FileNodeGetParams { fetch_parents: Some(true), .. }` asks the server to include all ancestor
 nodes of the requested IDs in the response list (§3.2.1).
@@ -90,8 +90,9 @@ nodes of the requested IDs in the response list (§3.2.1).
 optional `on_destroy_remove_children`, `on_exists`, `compare_case_insensitively` and
 `if_from_in_state` (§3.2.4).
 
-**`filenode_query`** — `depth: Option<u64>` controls recursive descent: `None` or
-`Some(0)` means no recursion; `Some(n)` recurses `n` levels into subdirectories.
+**`filenode_query`** / **`filenode_query_changes`** — `depth: Option<u64>` is the
+draft-ietf-jmap-filenode-19 §3.2.5 maximum depth, counted from the top level (top-level
+nodes are at depth 0), at which a node can match; `None` means no limit.
 
 ## Response types
 
@@ -125,11 +126,13 @@ Controls what happens when a new node's name collides with an existing sibling:
 |---|---|---|
 | `Replace` | `"replace"` | Destroy the existing node and create the new one in its place |
 | `Rename` | `"rename"` | Suffix the new node's name (e.g. `"report-1.pdf"`) to avoid the collision |
-| `Newest` | `"newest"` | Replace the existing node only if the incoming item has a strictly later `modified`; otherwise reject with `alreadyExists` |
-| `Unchanged` | `"unchanged"` | Replace the existing node only if the `ifUnchangedBy` precondition (JMAP-CONDITIONAL, passed via `extra`) holds; otherwise reject. A server without JMAP-CONDITIONAL rejects it with `invalidArguments` |
+
+draft-ietf-jmap-filenode-19 removed `"newest"` and `"unchanged"`. To replace only
+the node it expects, a client destroys that node and creates the new one in the same
+`FileNode/set`, with an `ifUnchangedBy` precondition (JMAP-CONDITIONAL) on the destroy.
 
 `FileNodeOnExists` is `#[non_exhaustive]` because the `onExists` value set
-has grown across draft revisions; a `match` on it needs a wildcard arm.
+has changed across draft revisions; a `match` on it needs a wildcard arm.
 
 When `onExists` is absent, the server defaults to returning an `alreadyExists` SetError
 with `existingId` pointing to the conflicting node.
@@ -155,7 +158,8 @@ typed `async fn`.
 
 ## Gotchas
 
-- `filenode_query` with `depth > 0` sends exactly **one** HTTP request to the JMAP server with the `depth` integer as a JSON field. The O(depth) backend calls are made by the server handler internally as it calls `query_objects` per level against its storage backend — the client has no visibility into this and does not issue multiple HTTP round-trips. Backends can override `FileNodeBackend::query_subtree` to reduce server-side backend calls to a single recursive query.
+- `filenode_query` and `filenode_query_changes` send `depth` only when it is `Some`;
+  `None` leaves it out, which the server reads as no limit.
 - No integration tests against a real JMAP server; tests use request-shape oracles and
   serialization checks only.
 

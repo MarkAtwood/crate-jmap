@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-filenode-16 §2.1 — account-level capability object.
+//! draft-ietf-jmap-filenode-19 §2.1 — account-level capability object.
 //!
 //! Provides [`FileNodeCapability`] and the capability URI constant
 //! [`JMAP_FILENODE_URI`].
@@ -15,7 +15,10 @@ use crate::NodeType;
 pub const JMAP_FILENODE_URI: &str = "urn:ietf:params:jmap:filenode";
 
 /// Account-level capability for the JMAP FileNode extension
-/// (draft-ietf-jmap-filenode-16 §2.1).
+/// (draft-ietf-jmap-filenode-19 §2.1).
+///
+/// -19 removed the -16 `forbiddenNodeNames` member; a capability from a
+/// -16 server that still sends it deserializes with the member ignored.
 ///
 /// The value of the `urn:ietf:params:jmap:filenode` key in `accountCapabilities`.
 ///
@@ -49,12 +52,6 @@ pub struct FileNodeCapability {
     ///
     /// Always serialized (as `null` when `None`).
     pub forbidden_name_chars: Option<String>,
-
-    /// Complete names the server will not accept (compared case-insensitively).
-    /// `null` means no specific names are forbidden.
-    ///
-    /// Always serialized (as `null` when `None`).
-    pub forbidden_node_names: Option<Vec<String>>,
 
     /// The `@type` values the server allows clients to create in this account.
     /// MUST include `"Directory"` and `"File"`; MAY include `"SymLink"` and other

@@ -286,6 +286,42 @@ fn filenode_share_with_populated_map() {
     assert!(!rights.may_share);
 }
 
+/// draft-ietf-jmap-filenode-19 §3.1.2: isSubscribed, myRights and shareWith
+/// are defined "for every FileNode whose @type permits children; of the
+/// types defined in this document, only "Directory" does.  They do not
+/// appear on other nodes, whose rights come from their parent".
+#[test]
+fn container_properties_only_on_directories() {
+    let rights = serde_json::json!({
+        "mayRead": true, "mayAddChildren": true, "mayRename": true,
+        "mayDelete": true, "mayModifyContent": true, "mayShare": true
+    });
+    for (ty, extra, container) in [
+        ("Directory", serde_json::json!({ "role": null }), true),
+        ("File", serde_json::json!({ "blobId": "b1" }), false),
+        ("SymLink", serde_json::json!({ "target": ["a"] }), false),
+    ] {
+        let mut wire = serde_json::json!({
+            "id": "n1", "parentId": "p1", "@type": ty, "name": "n",
+            "isSubscribed": false,
+            "myRights": rights,
+            "shareWith": { "u1": rights }
+        });
+        for (k, v) in extra.as_object().unwrap() {
+            wire[k] = v.clone();
+        }
+        let node: FileNode = serde_json::from_value(wire.clone()).unwrap();
+        let out = serde_json::to_value(&node).unwrap();
+        for key in ["isSubscribed", "myRights", "shareWith"] {
+            if container {
+                assert_eq!(out[key], wire[key], "{ty} {key}: {out}");
+            } else {
+                assert!(out.get(key).is_none(), "{ty} must not emit {key}: {out}");
+            }
+        }
+    }
+}
+
 #[test]
 fn filenode_roundtrip_file() {
     // Build via JSON deserialization, then serialize and deserialize again.
@@ -356,7 +392,7 @@ fn capability_uri_constant() {
 
 #[test]
 fn capability_deserialize_from_spec_example() {
-    // Taken verbatim from draft-ietf-jmap-filenode-16 §2.1.1 capability example.
+    // Taken verbatim from draft-ietf-jmap-filenode-19 §2.1.1 capability example.
     let json = &common::fixture("capability_deserialize_from_spec_example.json");
 
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
@@ -375,18 +411,6 @@ fn capability_deserialize_from_spec_example() {
         ]
     );
     assert_eq!(cap.forbidden_name_chars, Some("/<>:\"\\|?*".to_owned()));
-    assert!(
-        cap.forbidden_node_names
-            .as_ref()
-            .unwrap()
-            .contains(&"CON".to_owned())
-    );
-    assert!(
-        cap.forbidden_node_names
-            .as_ref()
-            .unwrap()
-            .contains(&".".to_owned())
-    );
     assert!(!cap.case_insensitive_names);
     assert!(!cap.may_create_top_level_file_node);
     assert_eq!(
@@ -446,7 +470,6 @@ fn capability_null_depth_and_nullables() {
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     assert_eq!(cap.max_file_node_depth, None);
     assert_eq!(cap.forbidden_name_chars, None);
-    assert_eq!(cap.forbidden_node_names, None);
     assert_eq!(cap.web_trash_url, None);
     assert_eq!(cap.web_url_template, None);
     assert_eq!(cap.web_write_url_template, None);
@@ -476,11 +499,12 @@ fn capability_nullable_fields_serialize_as_null_not_absent() {
     );
     assert!(obj["forbiddenNameChars"].is_null());
 
+    // draft-ietf-jmap-filenode-19 §12: "Removed the forbiddenNodeNames
+    // capability".
     assert!(
-        obj.contains_key("forbiddenNodeNames"),
-        "forbiddenNodeNames must be present"
+        !obj.contains_key("forbiddenNodeNames"),
+        "forbiddenNodeNames must not be emitted"
     );
-    assert!(obj["forbiddenNodeNames"].is_null());
 
     assert!(
         obj.contains_key("webTrashUrl"),
@@ -499,6 +523,29 @@ fn capability_nullable_fields_serialize_as_null_not_absent() {
         "webWriteUrlTemplate must be present"
     );
     assert!(obj["webWriteUrlTemplate"].is_null());
+}
+
+#[test]
+fn capability_ignores_removed_forbidden_node_names() {
+    // draft-ietf-jmap-filenode-19 §12: "Removed the forbiddenNodeNames
+    // capability". A -16 server still sends it; it must not break parsing,
+    // and it is not re-emitted.
+    let json = serde_json::json!({
+        "maxFileNodeDepth": null,
+        "maxSizeFileNodeName": 100,
+        "fileNodeQuerySortOptions": ["name"],
+        "supportedNodeTypes": ["Directory", "File"],
+        "forbiddenNameChars": null,
+        "forbiddenNodeNames": [".", ".."],
+        "caseInsensitiveNames": false,
+        "mayCreateTopLevelFileNode": true,
+        "webTrashUrl": null,
+        "webUrlTemplate": null,
+        "webWriteUrlTemplate": null
+    });
+    let cap: FileNodeCapability = serde_json::from_value(json).unwrap();
+    let out = serde_json::to_value(&cap).unwrap();
+    assert!(out.get("forbiddenNodeNames").is_none(), "{out}");
 }
 
 #[test]
@@ -703,20 +750,25 @@ fn spec_3_1_5_example_deserializes() {
 
 #[test]
 fn spec_3_1_5_example_round_trips() {
-    // The example omits common properties "for brevity" (§3.1.5); the ones
-    // this crate always emits are the required-and-nullable `shareWith` and
-    // `isSubscribed`, "Boolean" (default: true) per §3.1.1.
+    // The example omits common properties "for brevity"
+    // (draft-ietf-jmap-filenode-19 §3.1.6); the ones this crate always emits
+    // are the Directory's required-and-nullable `shareWith` and its
+    // `isSubscribed`, "Boolean" (default: true). -19 §3.1.2 defines both only
+    // "for every FileNode whose @type permits children; [...] only
+    // "Directory" does.  They do not appear on other nodes".
     let expected: Vec<serde_json::Value> = serde_json::from_str(&spec_3_1_5_example()).unwrap();
     let nodes: Vec<FileNode> = serde_json::from_str(&spec_3_1_5_example()).unwrap();
     for (node, want) in nodes.iter().zip(expected) {
         let mut want = want;
-        want.as_object_mut()
-            .unwrap()
-            .insert("shareWith".to_owned(), serde_json::Value::Null);
-        want.as_object_mut()
-            .unwrap()
-            .entry("isSubscribed")
-            .or_insert(serde_json::Value::Bool(true));
+        if want["@type"] == "Directory" {
+            want.as_object_mut()
+                .unwrap()
+                .insert("shareWith".to_owned(), serde_json::Value::Null);
+            want.as_object_mut()
+                .unwrap()
+                .entry("isSubscribed")
+                .or_insert(serde_json::Value::Bool(true));
+        }
         assert_eq!(serde_json::to_value(node).unwrap(), want);
     }
 }

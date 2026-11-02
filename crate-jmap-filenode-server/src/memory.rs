@@ -2212,7 +2212,9 @@ mod tests {
 
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
-        // Seed a FileNode with shareWith already populated (one entry, "existing").
+        // Seed a Directory with shareWith already populated (one entry,
+        // "existing"); draft-ietf-jmap-filenode-19 §3.1.2 defines shareWith
+        // only on nodes whose @type permits children.
         // This makes the path-style mutations exercise both add (new userId)
         // and remove (existing userId → null) branches without first having
         // to materialize shareWith from null. The null-parent gap is a
@@ -2222,11 +2224,7 @@ mod tests {
             "name": "shared-doc",
             "parentId": null,
             "role": null,
-            "@type": "File",
-            "target": null,
-            "blobId": "B-blob1",
-            "mediaType": "text/plain",
-            "size": 7,
+            "@type": "Directory",
             "shareWith": {
                 "existing": {
                     "mayRead": true,

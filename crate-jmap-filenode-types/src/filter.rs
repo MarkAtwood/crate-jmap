@@ -143,7 +143,10 @@ pub struct FileNodeFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
 
-    /// Equivalent to `body` OR `nameMatch` OR `mediaTypeMatch`.
+    /// draft-ietf-jmap-filenode-19 §3.2.5: "Matches a node if the _body_
+    /// condition with this value matches, or if its name or mediaType
+    /// contains this value, compared case-insensitively."  A substring
+    /// match, not the `nameMatch` / `mediaTypeMatch` glob that -16 used.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<String>,
 

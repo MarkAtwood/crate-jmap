@@ -4,7 +4,6 @@
         "fileNodeQuerySortOptions": ["name"],
         "supportedNodeTypes": ["Directory", "File", "VendorType"],
         "forbiddenNameChars": null,
-        "forbiddenNodeNames": null,
         "caseInsensitiveNames": false,
         "mayCreateTopLevelFileNode": false,
         "webTrashUrl": null,

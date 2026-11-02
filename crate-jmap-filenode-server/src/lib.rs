@@ -1,4 +1,4 @@
-//! JMAP FileNode extension method handlers (draft-ietf-jmap-filenode-16).
+//! JMAP FileNode extension method handlers (draft-ietf-jmap-filenode-19).
 //!
 //! # Usage
 //!

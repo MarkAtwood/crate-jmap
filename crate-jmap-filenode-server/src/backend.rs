@@ -99,6 +99,11 @@ impl CaseFolding {
 ///   `executable`, and `mayShare` to change `shareWith`.
 /// - Destroy: `mayDelete`, which an `onExists` replacement also needs on the
 ///   existing node.
+///
+/// draft-ietf-jmap-filenode-19 §5: these rights are checked "in the rights
+/// of the node itself; for a node with no myRights, these are its parent's
+/// rights". Only a `Directory` has `myRights` of its own (-19 §3.1.2), so a
+/// write to a `File` or `SymLink` is checked against its parent's.
 /// - Copy: the source must be discoverable in `fromAccountId`, and the copy
 ///   is a create in `accountId`.
 ///
@@ -614,12 +619,21 @@ pub trait FileNodeBackend: JmapBackend {
     /// The `myRights` the caller holds on the stored `node`, when this
     /// backend derives them from a policy outside the stored node.
     ///
-    /// draft-ietf-jmap-filenode-16 §FileNode properties makes `myRights`
-    /// "server-set": "The set of rights (ACLs) the user has in relation to
-    /// this node". `handle_filenode_get` calls this method for each node in
-    /// its `list`, including the ancestors `fetchParents` appends, unless
+    /// draft-ietf-jmap-filenode-19 §3.1.2 makes `myRights` "server-set":
+    /// "The set of rights (ACLs) the user has in relation to this node". It
+    /// is defined only on nodes whose `@type` permits children, so the
+    /// handlers ask this method only about `Directory` nodes: -19 §5 "A
+    /// node whose @type does not permit children has no myRights. The
+    /// user's rights on it are those in its parent's myRights". -19 §5 also
+    /// makes a node's `myRights` "the union of the rights granted to the
+    /// user by the shareWith entries on the node and on all its ancestors";
+    /// an override that derives rights from `shareWith` computes that union
+    /// itself (it can read the ancestors with [`Self::get_ancestors`]).
+    ///
+    /// `handle_filenode_get` calls this method for each Directory in its
+    /// `list`, including the ancestors `fetchParents` appends, unless
     /// `properties` excludes `myRights`. `handle_filenode_set` and
-    /// `handle_filenode_copy` call it for each node they create, after
+    /// `handle_filenode_copy` call it for each Directory they create, after
     /// [`Self::create_object`] stores it, since RFC 8620 §5.3 puts "all
     /// server-set properties" in `created`. A deployment offering
     /// draft-atwood-jmap-chat-filenode-00 returns the result of
@@ -748,13 +762,14 @@ pub trait FileNodeBackend: JmapBackend {
     /// Return all FileNode IDs in the subtree rooted at any node in `root_ids`,
     /// up to `max_depth` levels deep.
     ///
-    /// # `max_depth` semantics (draft-ietf-jmap-filenode-13 §3.2.5)
+    /// # `max_depth` semantics
     ///
-    /// `max_depth` is the **number of levels of subdirectories to recurse
-    /// into**, matching the spec's `depth` argument:
+    /// `max_depth` is the **number of levels below each root to include**.
+    /// This is not the draft-ietf-jmap-filenode-19 §3.2.5 `FileNode/query`
+    /// `depth` argument, which counts from the top level of the account and
+    /// which `handle_filenode_query` applies itself.
     ///
-    /// - `0`: do not recurse — returns an empty `Vec`. (Spec: "If absent,
-    ///   null, or zero, do not recurse.")
+    /// - `0`: returns an empty `Vec`.
     /// - `1`: include direct children of every `root_id` (one level of
     ///   descent).
     /// - `N`: include up to `N` levels of descendants.

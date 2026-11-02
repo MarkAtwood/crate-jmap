@@ -606,7 +606,7 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
 
 // ---------------------------------------------------------------------------
 // Test 8: query with depth=1 returns directory and its direct children
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.5 (depth parameter).
+// Oracle: draft-ietf-jmap-filenode-19 §3.2.5 (depth parameter).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -653,8 +653,10 @@ async fn filenode_query_depth_one_returns_children() {
     .await
     .expect("create children must succeed");
 
-    // Query isTopLevel=true with depth=1.
-    // §3.2.5: depth=1 expands one level below the initial result.
+    // Query with depth=1 and no filter. -19 §3.2.5: depth is "The maximum
+    // depth in the tree, counted from the top level, at which a node can
+    // match: nodes with a null parentId are at depth 0, their children at
+    // depth 1".
     let HandlerOutput {
         primary: q_resp, ..
     } = handle_filenode_query(
@@ -662,7 +664,7 @@ async fn filenode_query_depth_one_returns_children() {
         &(),
         json!({
             "accountId": "acc1",
-            "filter": { "isTopLevel": true },
+            "filter": null,
             "sort": null,
             "depth": 1
         }),
@@ -1425,42 +1427,6 @@ async fn filenode_copy_replace_cascade_lists_all_destroyed_ids() {
 }
 
 #[tokio::test]
-async fn filenode_copy_newest_replace_lists_destroyed_id() {
-    let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
-    backend.seed_node(
-        &Id::from("src"),
-        make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
-    );
-    backend.seed_node(
-        &Id::from("dst"),
-        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
-    );
-
-    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
-        &backend,
-        &(),
-        json!({
-            "fromAccountId": "src",
-            "accountId": "dst",
-            "onExists": "newest",
-            "create": { "c": { "id": "src-1", "role": null } }
-        }),
-        "c0",
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    assert!(
-        resp["created"]["c"].is_object(),
-        "copy must succeed: {resp}"
-    );
-    assert_eq!(destroyed_ids(&resp), vec!["dst-1".to_owned()], "{resp}");
-}
-
-#[tokio::test]
 async fn filenode_copy_without_collision_omits_destroyed() {
     let backend = MemoryBackend::new()
         .with_account(&Id::from("src"))
@@ -1489,97 +1455,6 @@ async fn filenode_copy_without_collision_omits_destroyed() {
     assert!(
         resp.get("destroyed").is_none(),
         "destroyed must be omitted when nothing was destroyed: {resp}"
-    );
-}
-
-// Oracle: draft-ietf-jmap-filenode-16 L692-697: "If "newest", the server
-// compares the modified timestamp of the incoming item with that of the
-// existing FileNode.  If the incoming item has a strictly later modified
-// value, the existing node is destroyed and the operation proceeds as with
-// "replace".  Otherwise the operation is rejected as with null, returning
-// an "alreadyExists" error with the existingId of the surviving node."
-// Expected ids are the seeded node ids.
-
-#[tokio::test]
-async fn filenode_copy_newest_cascade_lists_all_destroyed_ids() {
-    let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
-    backend.seed_node(
-        &Id::from("src"),
-        make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
-    );
-    backend.seed_node(
-        &Id::from("dst"),
-        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
-    );
-    backend.seed_node(
-        &Id::from("dst"),
-        make_dir_with_modified("dst-2", "child", Some("dst-1"), "2020-01-01T00:00:00Z"),
-    );
-
-    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
-        &backend,
-        &(),
-        json!({
-            "fromAccountId": "src",
-            "accountId": "dst",
-            "onExists": "newest",
-            "onDestroyRemoveChildren": true,
-            "create": { "c": { "id": "src-1", "role": null } }
-        }),
-        "c0",
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    assert!(
-        resp["created"]["c"].is_object(),
-        "copy must succeed: {resp}"
-    );
-    assert_eq!(
-        destroyed_ids(&resp),
-        vec!["dst-1".to_owned(), "dst-2".to_owned()],
-        "{resp}"
-    );
-}
-
-#[tokio::test]
-async fn filenode_copy_newest_not_later_omits_destroyed() {
-    // Equal timestamps: the incoming item is not "strictly later".
-    let backend = MemoryBackend::new()
-        .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
-    backend.seed_node(
-        &Id::from("src"),
-        make_dir_with_modified("src-1", "doc", None, "2020-01-01T00:00:00Z"),
-    );
-    backend.seed_node(
-        &Id::from("dst"),
-        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
-    );
-
-    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
-        &backend,
-        &(),
-        json!({
-            "fromAccountId": "src",
-            "accountId": "dst",
-            "onExists": "newest",
-            "create": { "c": { "id": "src-1", "role": null } }
-        }),
-        "c0",
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    assert_eq!(resp["notCreated"]["c"]["type"], "alreadyExists", "{resp}");
-    assert_eq!(resp["notCreated"]["c"]["existingId"], "dst-1", "{resp}");
-    assert!(
-        resp.get("destroyed").is_none(),
-        "a rejected collision destroys nothing: {resp}"
     );
 }
 
@@ -2558,468 +2433,99 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
 }
 
 // ---------------------------------------------------------------------------
-// FileNode/set — onExists="newest"
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 — "If 'newest', the server
-// compares the 'modified' timestamp of the incoming item and the existing
-// item. If the incoming item has a strictly later 'modified' value,
-// proceed as if 'replace'. Otherwise, reject as if null (alreadyExists)."
+// FileNode/set and FileNode/copy — onExists "newest" and "unchanged" removed.
+// Oracle: draft-ietf-jmap-filenode-19 §3.2.3 defines onExists null,
+// "replace" and "rename", then: "Any other value is rejected with an
+// "invalidArguments" error."  §12 (-19): "Removed the "newest" and
+// "unchanged" values of onExists."  RFC 8620 §3.6.2: a method-level error
+// is returned instead of the method response, so nothing is changed.
 // ---------------------------------------------------------------------------
 
-/// Helper: build a directory node with a specific `modified` timestamp.
-fn make_dir_with_modified(
-    id: &str,
-    name: &str,
-    parent_id: Option<&str>,
-    modified: &str,
-) -> FileNode {
-    let v = json!({
-        "id": id,
-        "parentId": parent_id,
-        "@type": "Directory",
-        "blobId": null,
-        "target": null,
-        "size": null,
-        "name": name,
-        "shareWith": null,
-        "role": null,
-        "modified": modified
-    });
-    serde_json::from_value(v).expect("make_dir_with_modified: deserialization must succeed")
-}
-
-/// Oracle: incoming modified is strictly later → behaves like "replace".
-#[tokio::test]
-async fn filenode_set_on_exists_newest_incoming_wins() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-
-    // Seed an existing directory with an older modified timestamp.
-    backend.seed_node(
-        &Id::from("acc1"),
-        make_dir_with_modified("existing-1", "shared", None, "2020-01-01T00:00:00Z"),
-    );
-
-    // Create a new node with the same name and a LATER modified timestamp.
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "onExists": "newest",
-            "create": {
-                "n": {
-                    "@type": "Directory",
-                    "name": "shared",
-                    "parentId": null,
-                    "role": null,
-                    "modified": "2025-06-01T00:00:00Z"
-                }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    // Incoming is newer → must replace: new node in `created`.
-    assert!(
-        resp["created"].is_object() && resp["created"]["n"].is_object(),
-        "incoming-newer must be created: {resp}"
-    );
-    // The old node must have been destroyed.
-    let destroyed = resp["destroyed"]
-        .as_array()
-        .expect("destroyed must be array");
-    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
-    assert!(
-        destroyed_strs.contains(&"existing-1"),
-        "the existing node must be in the destroyed list: {resp}"
-    );
-}
-
-/// Oracle: existing modified is later or equal → reject with alreadyExists.
-#[tokio::test]
-async fn filenode_set_on_exists_newest_existing_wins() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-
-    // Seed an existing directory with a LATER modified timestamp.
-    backend.seed_node(
-        &Id::from("acc1"),
-        make_dir_with_modified("existing-2", "shared", None, "2025-06-01T00:00:00Z"),
-    );
-
-    // Attempt to create a node with the same name but an OLDER modified timestamp.
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "onExists": "newest",
-            "create": {
-                "n": {
-                    "@type": "Directory",
-                    "name": "shared",
-                    "parentId": null,
-                    "role": null,
-                    "modified": "2020-01-01T00:00:00Z"
-                }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    // Existing is newer → must reject with alreadyExists.
-    let not_created = &resp["notCreated"]["n"];
-    assert!(
-        not_created.is_object(),
-        "existing-newer must produce notCreated: {resp}"
-    );
-    assert_eq!(
-        not_created["type"], "alreadyExists",
-        "must be alreadyExists when existing is newer: {resp}"
-    );
-    assert_eq!(
-        not_created["existingId"], "existing-2",
-        "alreadyExists must include existingId: {resp}"
-    );
-}
-
-/// Oracle: when both nodes lack a modified timestamp, the incoming node
-/// is NOT strictly later (empty == empty), so reject with alreadyExists.
-#[tokio::test]
-async fn filenode_set_on_exists_newest_both_missing_modified() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-
-    // Seed a directory with no modified timestamp.
-    backend.seed_node(&Id::from("acc1"), make_dir("existing-3", "shared", None));
-
-    // Create a new node with the same name — also no modified timestamp.
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "onExists": "newest",
-            "create": {
-                "n": {
-                    "@type": "Directory",
-                    "name": "shared",
-                    "parentId": null,
-                    "role": null
-                }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    // Neither has modified → "" > "" is false → alreadyExists.
-    let not_created = &resp["notCreated"]["n"];
-    assert!(
-        not_created.is_object(),
-        "both-missing-modified must produce notCreated: {resp}"
-    );
-    assert_eq!(
-        not_created["type"], "alreadyExists",
-        "must be alreadyExists when both lack modified: {resp}"
-    );
-}
-
-/// Oracle: FileNode/copy with onExists="newest" — incoming source node
-/// is strictly later → replace in destination account.
-#[tokio::test]
-async fn filenode_copy_on_exists_newest_incoming_wins() {
+/// Send `onExists: on_exists` with a create colliding with a directory
+/// "shared" that has a child (via FileNode/copy when `copy`), and assert
+/// invalidArguments with both nodes still present.
+async fn assert_removed_on_exists_rejected(copy: bool, on_exists: &str) {
     let backend = MemoryBackend::new()
         .with_account(&Id::from("src"))
-        .with_account(&Id::from("dst"));
-
-    // Source node with a LATER modified timestamp.
+        .with_account(&Id::from("acc1"));
+    backend.seed_node(&Id::from("src"), make_dir("src-1", "shared", None));
+    backend.seed_node(&Id::from("acc1"), make_dir("existing-1", "shared", None));
     backend.seed_node(
-        &Id::from("src"),
-        make_dir_with_modified("src-1", "doc", None, "2025-06-01T00:00:00Z"),
-    );
-    // Destination node with an OLDER modified timestamp.
-    backend.seed_node(
-        &Id::from("dst"),
-        make_dir_with_modified("dst-1", "doc", None, "2020-01-01T00:00:00Z"),
+        &Id::from("acc1"),
+        make_dir("child-1", "child", Some("existing-1")),
     );
 
-    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+    let err = if copy {
+        handle_filenode_copy(
+            &backend,
+            &(),
+            json!({
+                "fromAccountId": "src",
+                "accountId": "acc1",
+                "onExists": on_exists,
+                "onDestroyRemoveChildren": true,
+                "create": { "c": { "id": "src-1", "role": null } }
+            }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect_err("a removed onExists value must be a method error")
+    } else {
+        handle_filenode_set(
+            &backend,
+            &(),
+            &std::collections::BTreeMap::new(),
+            json!({
+                "accountId": "acc1",
+                "onExists": on_exists,
+                "onDestroyRemoveChildren": true,
+                "create": {
+                    "n": {
+                        "@type": "Directory",
+                        "name": "shared",
+                        "parentId": null,
+                        "role": null,
+                        "modified": "2099-01-01T00:00:00Z"
+                    }
+                }
+            }),
+            &[],
+        )
+        .await
+        .expect_err("a removed onExists value must be a method error")
+    };
+    assert_eq!(err.error_type.to_string(), "invalidArguments", "{err:?}");
+
+    let HandlerOutput { primary: get, .. } = handle_filenode_get(
         &backend,
         &(),
-        json!({
-            "fromAccountId": "src",
-            "accountId": "dst",
-            "onExists": "newest",
-            "create": {
-                "c": { "id": "src-1", "role": null }
-            }
-        }),
-        "c0",
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    // Source is newer → must replace: new copy in `created`.
-    assert!(
-        resp["created"].is_object() && resp["created"]["c"].is_object(),
-        "copy newest incoming-wins must produce created entry: {resp}"
-    );
-
-    // Verify the old destination node is actually gone.
-    let HandlerOutput {
-        primary: get_resp, ..
-    } = handle_filenode_get(
-        &backend,
-        &(),
-        json!({
-            "accountId": "dst",
-            "ids": ["dst-1"]
-        }),
+        json!({ "accountId": "acc1", "ids": ["existing-1", "child-1"] }),
         &[],
     )
     .await
     .expect("get must succeed");
-    let not_found = get_resp["notFound"]
-        .as_array()
-        .expect("notFound must be array");
-    let not_found_strs: Vec<&str> = not_found.iter().filter_map(|v| v.as_str()).collect();
-    assert!(
-        not_found_strs.contains(&"dst-1"),
-        "the existing destination node must have been destroyed: {get_resp}"
-    );
+    assert_eq!(get["notFound"], json!([]), "nothing destroyed: {get}");
 }
 
-/// Oracle: onExists="newest" with children and onDestroyRemoveChildren=false
-/// MUST return nodeHasChildren — the cascade guard is preserved.
 #[tokio::test]
-async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-
-    // Seed: parent "shared" with a child.
-    let HandlerOutput {
-        primary: resp_parent,
-        ..
-    } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "create": {
-                "p": { "@type": "Directory", "name": "shared", "parentId": null, "role": null }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("seed parent must succeed");
-    let parent_id = resp_parent["created"]["p"]["id"]
-        .as_str()
-        .expect("parent id")
-        .to_owned();
-
-    let _ = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "create": {
-                "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("seed child must succeed");
-
-    // Attempt newest (incoming is later) without onDestroyRemoveChildren.
-    // The existing node has children → must return nodeHasChildren.
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "onExists": "newest",
-            "create": {
-                "n": {
-                    "@type": "Directory",
-                    "name": "shared",
-                    "parentId": null,
-                    "role": null,
-                    "modified": "2099-01-01T00:00:00Z"
-                }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    let not_created = &resp["notCreated"]["n"];
-    assert!(
-        not_created.is_object(),
-        "newest with children must produce notCreated: {resp}"
-    );
-    assert_eq!(
-        not_created["type"], "nodeHasChildren",
-        "without onDestroyRemoveChildren, newest must return nodeHasChildren: {resp}"
-    );
+async fn filenode_set_on_exists_newest_is_invalid_arguments() {
+    assert_removed_on_exists_rejected(false, "newest").await;
 }
 
-/// Oracle: onExists="newest" with children and onDestroyRemoveChildren=true
-/// MUST cascade-destroy children and create the new node.
 #[tokio::test]
-async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-
-    // Seed: parent "shared" with a child.
-    let HandlerOutput {
-        primary: resp_parent,
-        ..
-    } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "create": {
-                "p": { "@type": "Directory", "name": "shared", "parentId": null, "role": null }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("seed parent must succeed");
-    let parent_id = resp_parent["created"]["p"]["id"]
-        .as_str()
-        .expect("parent id")
-        .to_owned();
-
-    let HandlerOutput {
-        primary: resp_child,
-        ..
-    } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "create": {
-                "c": { "@type": "Directory", "name": "child", "parentId": &parent_id, "role": null }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("seed child must succeed");
-    let child_id = resp_child["created"]["c"]["id"]
-        .as_str()
-        .expect("child id")
-        .to_owned();
-
-    // Newest with onDestroyRemoveChildren=true: incoming is later → cascade
-    // destroy old parent + child, then create new node.
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "onExists": "newest",
-            "onDestroyRemoveChildren": true,
-            "create": {
-                "n": {
-                    "@type": "Directory",
-                    "name": "shared",
-                    "parentId": null,
-                    "role": null,
-                    "modified": "2099-01-01T00:00:00Z"
-                }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    // New node must be created.
-    assert!(
-        resp["created"].is_object() && resp["created"]["n"].is_object(),
-        "newest+cascade must create the new node: {resp}"
-    );
-
-    // Destroyed list must include old parent and child.
-    let destroyed = resp["destroyed"]
-        .as_array()
-        .expect("destroyed must be array");
-    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
-    assert!(
-        destroyed_strs.contains(&parent_id.as_str()),
-        "destroyed must include the replaced parent {parent_id}: {resp}"
-    );
-    assert!(
-        destroyed_strs.contains(&child_id.as_str()),
-        "destroyed must include the cascaded child {child_id}: {resp}"
-    );
+async fn filenode_set_on_exists_unchanged_is_invalid_arguments() {
+    assert_removed_on_exists_rejected(false, "unchanged").await;
 }
 
-/// Oracle: a malformed `modified` string must NOT beat a valid existing
-/// timestamp. Regression for Skoll HIGH-2 — raw client JSON was previously
-/// compared lexicographically without validation.
 #[tokio::test]
-async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+async fn filenode_copy_on_exists_newest_is_invalid_arguments() {
+    assert_removed_on_exists_rejected(true, "newest").await;
+}
 
-    // Seed with a real modified timestamp.
-    backend.seed_node(
-        &Id::from("acc1"),
-        make_dir_with_modified("existing-m", "shared", None, "2020-01-01T00:00:00Z"),
-    );
-
-    // Attempt newest with a malformed "modified" that would lexicographically
-    // win ("9999" > "2020-...") if not validated.
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({
-            "accountId": "acc1",
-            "onExists": "newest",
-            "create": {
-                "n": {
-                    "@type": "Directory",
-                    "name": "shared",
-                    "parentId": null,
-                    "role": null,
-                    "modified": "9999"
-                }
-            }
-        }),
-        &[],
-    )
-    .await
-    .expect("must not return top-level error");
-
-    // Malformed incoming → treated as empty → "" > "2020-..." is false →
-    // must reject with alreadyExists.
-    let not_created = &resp["notCreated"]["n"];
-    assert!(
-        not_created.is_object(),
-        "malformed modified must produce notCreated: {resp}"
-    );
-    assert_eq!(
-        not_created["type"], "alreadyExists",
-        "malformed modified must be rejected as alreadyExists: {resp}"
-    );
+#[tokio::test]
+async fn filenode_copy_on_exists_unchanged_is_invalid_arguments() {
+    assert_removed_on_exists_rejected(true, "unchanged").await;
 }
 
 // ---------------------------------------------------------------------------
@@ -3368,11 +2874,6 @@ async fn assert_invalid_create_keeps_existing(on_exists: &str) {
 #[tokio::test]
 async fn filenode_set_create_invalid_replace_keeps_existing() {
     assert_invalid_create_keeps_existing("replace").await;
-}
-
-#[tokio::test]
-async fn filenode_set_create_invalid_newest_keeps_existing() {
-    assert_invalid_create_keeps_existing("newest").await;
 }
 
 // ---------------------------------------------------------------------------

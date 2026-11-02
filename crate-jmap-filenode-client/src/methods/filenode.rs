@@ -61,11 +61,12 @@ pub struct FileNodeGetParams {
 }
 
 /// The action to take when a FileNode with the same name already exists
-/// (draft-ietf-jmap-filenode-16 §3.2.3 `onExists` argument).
+/// (draft-ietf-jmap-filenode-19 §3.2.3 `onExists` argument).
 ///
-/// The `onExists` value set has grown across draft revisions (`"newest"`
-/// in -14, `"unchanged"` in -16), so this enum is `#[non_exhaustive]` and
-/// a `match` outside this crate needs a wildcard arm:
+/// The `onExists` value set has changed across draft revisions (-19
+/// removed `"newest"` and `"unchanged"`), so this enum is
+/// `#[non_exhaustive]` and a `match` outside this crate needs a wildcard
+/// arm:
 ///
 /// ```compile_fail,E0004
 /// use jmap_filenode_client::FileNodeOnExists;
@@ -73,11 +74,13 @@ pub struct FileNodeGetParams {
 ///     match o {
 ///         FileNodeOnExists::Replace => 0,
 ///         FileNodeOnExists::Rename => 1,
-///         FileNodeOnExists::Newest => 2,
-///         FileNodeOnExists::Unchanged => 3,
 ///     }
 /// }
 /// ```
+///
+/// To replace only the node it expects, a client destroys that node and
+/// creates the new one in the same `FileNode/set`, with an `ifUnchangedBy`
+/// precondition (JMAP-CONDITIONAL) on the destroy (-19 §3.2.3).
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -86,19 +89,6 @@ pub enum FileNodeOnExists {
     Replace,
     /// Rename the new node to avoid the collision.
     Rename,
-    /// "If the incoming item has a strictly later modified value, the
-    /// existing node is destroyed and the operation proceeds as with
-    /// "replace". Otherwise the operation is rejected as with null,
-    /// returning an "alreadyExists" error with the existingId of the
-    /// surviving node."
-    Newest,
-    /// Replace the colliding node only if the precondition the client
-    /// supplies in the `ifUnchangedBy` argument (JMAP-CONDITIONAL) for that
-    /// node's id is satisfied; otherwise the server rejects as with null.
-    /// Pass `ifUnchangedBy` through the params' `extra` map. "A server that
-    /// does not support [JMAP-CONDITIONAL] MUST reject "unchanged" with an
-    /// "invalidArguments" error."
-    Unchanged,
 }
 
 /// Parameters for FileNode/set requests
@@ -506,10 +496,12 @@ impl super::SessionClient {
     }
 
     /// Query FileNode IDs with optional filter, sort, and pagination
-    /// (draft-ietf-jmap-filenode-16 §3.2.5).
+    /// (draft-ietf-jmap-filenode-19 §3.2.5).
     ///
-    /// The `depth` parameter controls recursive descent: `None` or `Some(0)`
-    /// means no recursion; `Some(n)` recurses `n` levels into subdirectories.
+    /// `depth` is draft-ietf-jmap-filenode-19 §3.2.5 "The maximum depth in
+    /// the tree, counted from the top level, at which a node can match:
+    /// nodes with a null parentId are at depth 0, their children at depth 1,
+    /// and so on." `None` omits it, which "If null, there is no limit".
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -557,7 +549,7 @@ impl super::SessionClient {
     }
 
     /// Fetch query-result changes for FileNode since `since_query_state`
-    /// (draft-ietf-jmap-filenode-16 §3.2.6).
+    /// (draft-ietf-jmap-filenode-19 §3.2.6).
     ///
     /// Returns which FileNode IDs were removed from or added to the query
     /// result set since the given state. `max_changes` may be `None`.
@@ -568,7 +560,9 @@ impl super::SessionClient {
     /// which entries entered or left the result set.
     ///
     /// `up_to_id` is the highest-index id the client has cached;
-    /// `calculate_total` requests the new total result count.
+    /// `calculate_total` requests the new total result count. `depth` MUST
+    /// match the original query's too: -19 §3.2.6 queryChanges "also takes
+    /// the depth argument of FileNode/query, with the same meaning".
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
     /// (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -595,6 +589,7 @@ impl super::SessionClient {
     ///   server cannot honour the request given the supplied filter /
     ///   sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
+    #[allow(clippy::too_many_arguments)] // RFC 8620 §5.6 + -19 §3.2.6 depth
     pub async fn filenode_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
@@ -603,6 +598,7 @@ impl super::SessionClient {
         sort: Option<&[FileNodeComparator]>,
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
+        depth: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
         // Defence-in-depth: see filenode_changes.
         if since_query_state.as_ref().is_empty() {
@@ -629,6 +625,9 @@ impl super::SessionClient {
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
+        }
+        if let Some(d) = depth {
+            args["depth"] = d.into();
         }
         let req = super::build_request("FileNode/queryChanges", args, super::USING_FILENODE);
         let resp = self.call_internal(api_url, &req).await?;
@@ -711,26 +710,6 @@ mod tests {
     fn file_node_on_exists_rename_serializes() {
         let val = serde_json::to_value(FileNodeOnExists::Rename).expect("serialize");
         assert_eq!(val, json!("rename"), "Rename must serialize to \"rename\"");
-    }
-
-    /// Oracle: FileNodeOnExists::Newest serializes to "newest".
-    /// Expected value taken directly from draft-ietf-jmap-filenode-16 §3.2.3.
-    #[test]
-    fn file_node_on_exists_newest_serializes() {
-        let val = serde_json::to_value(FileNodeOnExists::Newest).expect("serialize");
-        assert_eq!(val, json!("newest"), "Newest must serialize to \"newest\"");
-    }
-
-    /// Oracle: FileNodeOnExists::Unchanged serializes to "unchanged".
-    /// Expected value taken directly from draft-ietf-jmap-filenode-16 §3.2.3.
-    #[test]
-    fn file_node_on_exists_unchanged_serializes() {
-        let val = serde_json::to_value(FileNodeOnExists::Unchanged).expect("serialize");
-        assert_eq!(
-            val,
-            json!("unchanged"),
-            "Unchanged must serialize to \"unchanged\""
-        );
     }
 
     /// Oracle: FileNodeSetParams with onDestroyRemoveChildren=true serializes correctly.

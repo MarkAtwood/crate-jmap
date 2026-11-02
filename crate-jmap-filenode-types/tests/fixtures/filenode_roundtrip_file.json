@@ -9,24 +9,5 @@
         "created": "2025-01-01T00:00:00Z",
         "modified": "2025-06-01T00:00:00Z",
         "changed": "2025-06-01T00:00:00Z",
-        "executable": true,
-        "isSubscribed": false,
-        "myRights": {
-            "mayRead": true,
-            "mayAddChildren": false,
-            "mayRename": true,
-            "mayDelete": true,
-            "mayModifyContent": true,
-            "mayShare": true
-        },
-        "shareWith": {
-            "u1": {
-                "mayRead": true,
-                "mayAddChildren": false,
-                "mayRename": false,
-                "mayDelete": false,
-                "mayModifyContent": false,
-                "mayShare": false
-            }
-        }
+        "executable": true
     }

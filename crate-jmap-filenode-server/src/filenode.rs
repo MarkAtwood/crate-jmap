@@ -44,7 +44,7 @@
 use std::collections::BTreeMap;
 
 use jmap_filenode_types::{FileNode, NodeRole, NodeType};
-use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject};
 use serde_json::{Value, json};
 
 use crate::FileNodeBackend;
@@ -186,9 +186,11 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 /// appended to the response `list` (deduplicated against already-present nodes).
 /// Oracle: §3.2.1.
 ///
-/// Unless `properties` excludes `myRights`, each node in `list` whose
+/// Unless `properties` excludes `myRights`, each Directory in `list` whose
 /// [`FileNodeBackend::files_rights`] is `Some` reports that value as its
-/// `myRights`, which draft-ietf-jmap-filenode-16 makes "server-set".
+/// `myRights`, which draft-ietf-jmap-filenode-19 §3.1.2 makes "server-set".
+/// A File or SymLink has no `myRights` (-19 §5: "The user's rights on it
+/// are those in its parent's myRights").
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists FileNode for
@@ -322,8 +324,10 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     Ok(HandlerOutput::new(response).with_extra(tail))
 }
 
-/// Replace the `myRights` of each node in a `FileNode/get` response `list`
-/// with the [`FileNodeBackend::files_rights`] result, where it is `Some`.
+/// Replace the `myRights` of each Directory in a `FileNode/get` response
+/// `list` with the [`FileNodeBackend::files_rights`] result, where it is
+/// `Some`. Other nodes have no `myRights` (-19 §5), so the hook is not
+/// asked about them.
 ///
 /// ponytail: re-reads every listed node with one `get_objects` call,
 /// because `properties` may have stripped the fields a rights policy
@@ -359,7 +363,7 @@ async fn report_files_rights<B: FileNodeBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
     let mut rights = std::collections::HashMap::new();
-    for node in &nodes {
+    for node in nodes.iter().filter(|n| has_my_rights(n)) {
         if let Some(r) = backend
             .files_rights(caller, &account_id, node)
             .await
@@ -386,6 +390,14 @@ async fn report_files_rights<B: FileNodeBackend>(
     Ok(())
 }
 
+/// Whether `node` has a `myRights` of its own: draft-ietf-jmap-filenode-19
+/// §5 "A node whose @type does not permit children has no myRights. The
+/// user's rights on it are those in its parent's myRights". Of the types
+/// this crate creates, only `Directory` permits children (-19 §3.1.2).
+fn has_my_rights(node: &FileNode) -> bool {
+    node.node_type == Some(NodeType::Directory)
+}
+
 /// Replace the `myRights` of a `FileNode/set` or `FileNode/copy`
 /// `created` entry with the [`FileNodeBackend::files_rights`] result for
 /// the created `node`, where it is `Some`.
@@ -401,6 +413,9 @@ async fn report_created_files_rights<B: FileNodeBackend>(
     node: &FileNode,
     entry: &mut Value,
 ) {
+    if !has_my_rights(node) {
+        return;
+    }
     if let (Ok(Some(rights)), Value::Object(m)) =
         (backend.files_rights(caller, account_id, node).await, entry)
     {
@@ -452,9 +467,6 @@ enum OnExists {
     Replace,
     /// `"rename"` — take the name from [`FileNodeBackend::find_unique_name`].
     Rename,
-    /// `"newest"` — compare modified timestamps; replace only if incoming is
-    /// strictly later, otherwise reject with `alreadyExists`.
-    Newest,
 }
 
 /// The FileNode properties that hold the id of another record, which a
@@ -489,7 +501,7 @@ const FILENODE_ID_PROPERTIES: &[&str] = &["parentId", "spaceId"];
 ///
 /// ## Rights in `created`
 ///
-/// Each `created` entry whose node has a `Some`
+/// Each `created` Directory entry whose node has a `Some`
 /// [`FileNodeBackend::files_rights`] reports that value as its `myRights`.
 ///
 /// ## Creation id references
@@ -556,10 +568,9 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             None | Some(Value::Null) => OnExists::Reject,
             Some(Value::String(s)) if s == "replace" => OnExists::Replace,
             Some(Value::String(s)) if s == "rename" => OnExists::Rename,
-            Some(Value::String(s)) if s == "newest" => OnExists::Newest,
             Some(other) => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "invalid onExists value: expected \"replace\", \"rename\", \"newest\" or null; got {}",
+                    "invalid onExists value: expected \"replace\", \"rename\" or null; got {}",
                     jmap_server::json_type_name(other)
                 )));
             }
@@ -891,106 +902,6 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                     }
                                 }
                                 // Fall through to create the renamed node.
-                            }
-                            OnExists::Newest => {
-                                // draft-ietf-jmap-filenode-16 §3.2.3: compare
-                                // modified timestamps. If the incoming item has
-                                // a strictly later modified value, proceed as
-                                // with "replace". Otherwise reject as with null.
-                                //
-                                // Validate the incoming modified through
-                                // UTCDate::new_validated to prevent malformed
-                                // strings (e.g. "9999") from lexicographically
-                                // beating any real timestamp.
-                                let incoming_modified = node
-                                    .modified
-                                    .as_ref()
-                                    .and_then(|d| UTCDate::new_validated(d.as_ref()).ok())
-                                    .map(|d| d.as_ref().to_owned())
-                                    .unwrap_or_default();
-                                let (existing_nodes, _): (Vec<FileNode>, _) = backend
-                                    .get_objects::<FileNode>(
-                                        caller,
-                                        &account_id,
-                                        Some(std::slice::from_ref(&existing_id)),
-                                        None,
-                                    )
-                                    .await
-                                    .map_err(|e| server_fail_from_backend(&e))?;
-                                let existing_modified = existing_nodes
-                                    .first()
-                                    .and_then(|n| n.modified.as_ref())
-                                    .map(|d| d.as_ref())
-                                    .unwrap_or("");
-                                if incoming_modified.as_str() > existing_modified {
-                                    // Incoming is strictly later — fall through
-                                    // to the Replace logic below.
-                                } else {
-                                    not_created.insert(
-                                        create_id,
-                                        json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() }),
-                                    );
-                                    continue;
-                                }
-                                // Proceed with replace: destroy existing node
-                                // (same cascade logic as OnExists::Replace).
-                                let desc_ids = match backend
-                                    .get_descendant_ids(caller, &account_id, &existing_id)
-                                    .await
-                                {
-                                    Ok(ids) => ids,
-                                    Err(e) => {
-                                        not_created
-                                            .insert(create_id, server_fail_value_from_backend(&e));
-                                        continue;
-                                    }
-                                };
-                                if !desc_ids.is_empty() && !on_destroy_remove_children {
-                                    not_created.insert(
-                                        create_id,
-                                        json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
-                                    );
-                                    continue;
-                                }
-                                let mut cascade_failed = false;
-                                for desc_id in &desc_ids {
-                                    match backend
-                                        .destroy_object::<FileNode>(caller, &account_id, desc_id)
-                                        .await
-                                    {
-                                        Ok(()) => {
-                                            mutated = true;
-                                            destroyed_list
-                                                .push(Value::String(desc_id.as_ref().to_owned()));
-                                        }
-                                        Err(e) => {
-                                            not_created.insert(
-                                                create_id.clone(),
-                                                backend_set_error_value(e),
-                                            );
-                                            cascade_failed = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if cascade_failed {
-                                    continue;
-                                }
-                                match backend
-                                    .destroy_object::<FileNode>(caller, &account_id, &existing_id)
-                                    .await
-                                {
-                                    Ok(()) => {
-                                        mutated = true;
-                                        destroyed_list
-                                            .push(Value::String(existing_id.as_ref().to_owned()));
-                                    }
-                                    Err(e) => {
-                                        not_created.insert(create_id, backend_set_error_value(e));
-                                        continue;
-                                    }
-                                }
-                                // Fall through to create the new node.
                             }
                         }
                     }
@@ -1566,7 +1477,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 /// absent in the destination account is rejected with
 /// `invalidProperties` naming `blobId`, as for a `FileNode/set` create.
 ///
-/// Each `created` entry whose node has a `Some`
+/// Each `created` Directory entry whose node has a `Some`
 /// [`FileNodeBackend::files_rights`] in the destination account reports
 /// that value as its `myRights`.
 ///
@@ -1669,10 +1580,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             None | Some(Value::Null) => OnExists::Reject,
             Some(Value::String(s)) if s == "replace" => OnExists::Replace,
             Some(Value::String(s)) if s == "rename" => OnExists::Rename,
-            Some(Value::String(s)) if s == "newest" => OnExists::Newest,
             Some(other) => {
                 return Err(JmapError::invalid_arguments(format!(
-                    "invalid onExists value: expected \"replace\", \"rename\", \"newest\" or null; got {}",
+                    "invalid onExists value: expected \"replace\", \"rename\" or null; got {}",
                     jmap_server::json_type_name(other)
                 )));
             }
@@ -1698,7 +1608,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     // Tracks (copy_id, source_id) pairs for successfully copied entries so
     // the implicit `onSuccessDestroyOriginal` Foo/set can destroy them.
     let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
-    // Ids destroyed by onExists "replace"/"newest", including
+    // Ids destroyed by onExists "replace", including
     // onDestroyRemoveChildren cascades. RFC 8620 §5.4 defines no
     // `destroyed` on Foo/copy, but §3.2.4 gives copy FileNode/set's
     // onExists "with the same behaviour", and §3.2.3 says "the server
@@ -2069,102 +1979,6 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                 }
                             }
                         }
-                        OnExists::Newest => {
-                            // draft-ietf-jmap-filenode-16 §3.2.3: compare
-                            // modified timestamps. Incoming strictly later →
-                            // replace; otherwise → alreadyExists.
-                            //
-                            // Note: source_node.modified is already a typed
-                            // Option<UTCDate> (deserialized from the source
-                            // account). The `modified` field is server-owned
-                            // (listed in SERVER_OWNED at
-                            // merge_filenode_overrides), so any client override
-                            // in the copy descriptor is silently dropped — the
-                            // comparison always uses the source node's original
-                            // timestamp.
-                            let incoming_modified = source_node
-                                .modified
-                                .as_ref()
-                                .map(|d| d.as_ref())
-                                .unwrap_or("");
-                            let (existing_nodes, _): (Vec<FileNode>, _) = backend
-                                .get_objects::<FileNode>(
-                                    caller,
-                                    &account_id,
-                                    Some(std::slice::from_ref(&existing_id)),
-                                    None,
-                                )
-                                .await
-                                .map_err(|e| server_fail_from_backend(&e))?;
-                            let existing_modified = existing_nodes
-                                .first()
-                                .and_then(|n| n.modified.as_ref())
-                                .map(|d| d.as_ref())
-                                .unwrap_or("");
-                            if incoming_modified > existing_modified {
-                                // Incoming is strictly later — proceed with
-                                // replace (same cascade as OnExists::Replace).
-                            } else {
-                                not_copied.insert(
-                                    create_id,
-                                    json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() }),
-                                );
-                                continue;
-                            }
-                            let desc_ids = match backend
-                                .get_descendant_ids(caller, &account_id, &existing_id)
-                                .await
-                            {
-                                Ok(ids) => ids,
-                                Err(e) => {
-                                    not_copied
-                                        .insert(create_id, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                            };
-                            if !desc_ids.is_empty() && !on_destroy_remove_children {
-                                not_copied.insert(
-                                    create_id,
-                                    json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
-                                );
-                                continue;
-                            }
-                            let mut cascade_failed = false;
-                            for desc_id in &desc_ids {
-                                match backend
-                                    .destroy_object::<FileNode>(caller, &account_id, desc_id)
-                                    .await
-                                {
-                                    Ok(()) => {
-                                        mutated = true;
-                                        destroyed.push(desc_id.clone());
-                                    }
-                                    Err(e) => {
-                                        not_copied
-                                            .insert(create_id.clone(), backend_set_error_value(e));
-                                        cascade_failed = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if cascade_failed {
-                                continue;
-                            }
-                            match backend
-                                .destroy_object::<FileNode>(caller, &account_id, &existing_id)
-                                .await
-                            {
-                                Ok(()) => {
-                                    mutated = true;
-                                    destroyed.push(existing_id.clone());
-                                }
-                                Err(e) => {
-                                    not_copied.insert(create_id, backend_set_error_value(e));
-                                    continue;
-                                }
-                            }
-                            // Fall through to create the new node.
-                        }
                     }
                 }
             }
@@ -2494,22 +2308,33 @@ fn property_owner(property: &str) -> Option<NodeType> {
 // FileNode/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/query` method call (draft-ietf-jmap-filenode-16 §3.2.5).
+/// Handle a `FileNode/query` method call (draft-ietf-jmap-filenode-19 §3.2.5).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
 /// `filter`, optional `sort`, optional `position` / `anchor` /
 /// `anchorOffset`, optional `limit`, optional `calculateTotal`),
-/// augmented with the draft §3.2.5 `depth` non-negative integer argument;
-/// the returned `Value` is the §5.5 `/query` response shape (`accountId`,
-/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
-/// `total`, optional `limit`).
+/// augmented with the -19 §3.2.5 `depth` argument; the returned `Value` is
+/// the §5.5 `/query` response shape (`accountId`, `queryState`,
+/// `canCalculateChanges`, `position`, `ids`, optional `total`, optional
+/// `limit`).
 ///
-/// Supports the `depth` argument (§3.2.5): when `depth > 0`, the query is
-/// recursively expanded by re-querying with `parentId = <matched_id>` for up to
-/// `depth` additional levels. IDs are deduplicated across all levels.
+/// `depth` is "The maximum depth in the tree, counted from the top level,
+/// at which a node can match: nodes with a null parentId are at depth 0,
+/// their children at depth 1, and so on. [...] If null, there is no
+/// limit." (-19 §3.2.5). Absent or `null` delegates to
+/// [`jmap_server::handle_query`]; any other value that is not an
+/// UnsignedInt is `invalidArguments`.
 ///
-/// When `depth` is absent, `null`, or `0`, the query is a flat one-liner
-/// delegated to [`jmap_server::handle_query`].
+/// With a `depth`, the handler queries without the window arguments, drops
+/// the ids deeper than `depth` (reading their ancestors with
+/// [`FileNodeBackend::get_ancestors`]), and applies `position` / `anchor`
+/// / `anchorOffset` / `limit` to what remains. The response then has
+/// `canCalculateChanges: false`, since the backend's query state does not
+/// cover the depth limit.
+///
+/// ponytail: a `depth` query reads the whole unwindowed result and the
+/// ancestors of every id in it. The upgrade is a backend hook that applies
+/// the depth limit in storage.
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
@@ -2520,7 +2345,7 @@ fn property_owner(property: &str) -> Option<NodeType> {
 pub async fn handle_filenode_query<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    args: Value,
+    mut args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     jmap_server::reject_metadata_filter_arg(
@@ -2529,75 +2354,140 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         using,
     )?;
     ensure_filenode_supported(backend, caller, &args).await?;
-    // Extract depth before delegating — the generic handler strips unrecognised args.
-    let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
+    let Some(max_depth) = depth_arg(&args)? else {
+        return jmap_server::handle_query::<FileNode, B>(backend, caller, args).await;
+    };
 
-    // Delegate to the generic query handler for the first (level-0) result.
-    // The generic handler owns account_id parsing; we recover it from
-    // the response shape if depth > 0 needs it for the recursion call.
-    // Matches the canonical jmap-mail-server pass-through pattern.
+    // RFC 8620 §5.5 window arguments, applied after the depth limit.
+    let (limit, position, anchor, anchor_offset) = match args.as_object_mut() {
+        Some(map) => {
+            let limit = match map.remove("limit") {
+                None | Some(Value::Null) => None,
+                Some(v) => Some(v.as_u64().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "limit: expected a non-negative integer, got {}",
+                        jmap_server::json_type_name(&v)
+                    ))
+                })?),
+            };
+            let position = match map.remove("position") {
+                None | Some(Value::Null) => 0,
+                Some(v) => v.as_i64().ok_or_else(|| {
+                    JmapError::invalid_arguments(format!(
+                        "position: expected an integer, got {}",
+                        jmap_server::json_type_name(&v)
+                    ))
+                })?,
+            };
+            let (anchor, anchor_offset) = jmap_server::query_anchor_args(map)?;
+            map.remove("anchor");
+            map.remove("anchorOffset");
+            (limit, position, anchor, anchor_offset)
+        }
+        None => (None, 0, None, 0),
+    };
+
     let HandlerOutput {
         primary: mut response,
         extra_invocations: tail,
         ..
     } = jmap_server::handle_query::<FileNode, B>(backend, caller, args).await?;
 
-    if depth == 0 {
-        return Ok(HandlerOutput::new(response).with_extra(tail));
-    }
-
     let Some(account_id) = response
         .get("accountId")
-        .and_then(|v| v.as_str())
+        .and_then(Value::as_str)
         .map(Id::from)
     else {
         return Ok(HandlerOutput::new(response).with_extra(tail));
     };
-
-    // depth > 0: use backend.query_subtree for recursive expansion.
-    // query_subtree returns all descendant IDs up to `depth` levels deep.
-    // root_ids are the IDs from the initial query result.
-    let root_ids: Vec<Id> = response["ids"]
+    let ids: Vec<Id> = response["ids"]
         .as_array()
         .map(|a| a.iter().filter_map(|v| v.as_str().map(Id::from)).collect())
         .unwrap_or_default();
-
-    if root_ids.is_empty() {
-        return Ok(HandlerOutput::new(response).with_extra(tail));
-    }
-
-    // draft-ietf-jmap-filenode-16 §3.2.5: when `depth > 0` the client is
-    // requesting an expanded subtree. A backend error here is not optional
-    // — silently downgrading to a flat result would surface as a
-    // successful depth=N query containing only the level-0 ids, with no
-    // way for the client to detect the partiality.
-    let descendant_ids = backend
-        .query_subtree(caller, &account_id, &root_ids, depth)
-        .await
-        .map_err(JmapError::from)?;
-
-    // Merge root_ids + descendant_ids, preserving root order then descendant order.
-    let mut combined: Vec<Value> = root_ids
-        .iter()
-        .map(|id| Value::String(id.as_ref().to_owned()))
+    let depths = node_depths(backend, caller, &account_id, &ids).await?;
+    let kept: Vec<Id> = ids
+        .into_iter()
+        .zip(depths)
+        .filter(|(_, depth)| *depth <= max_depth)
+        .map(|(id, _)| id)
         .collect();
-    for id in &descendant_ids {
-        combined.push(Value::String(id.as_ref().to_owned()));
-    }
-    let total = combined.len() as u64;
-    response["ids"] = Value::Array(combined);
-    if let Some(t) = response.get_mut("total") {
-        *t = Value::Number(total.into());
-    }
 
+    let start = jmap_server::resolve_query_start(&kept, position, anchor.as_ref(), anchor_offset)?;
+    let page: Vec<&Id> = kept[start..]
+        .iter()
+        .take(jmap_server::limit_or_max(limit))
+        .collect();
+    response["ids"] = json!(page);
+    response["position"] = json!(start);
+    response["canCalculateChanges"] = Value::Bool(false);
+    if let Some(total) = response.get_mut("total") {
+        *total = json!(kept.len());
+    }
     Ok(HandlerOutput::new(response).with_extra(tail))
+}
+
+/// The -19 §3.2.5 `depth` argument: "UnsignedInt|null" (default: null).
+fn depth_arg(args: &Value) -> Result<Option<u64>, JmapError> {
+    match args.get("depth") {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => v.as_u64().map(Some).ok_or_else(|| {
+            JmapError::invalid_arguments(format!(
+                "depth: expected a non-negative integer or null, got {}",
+                jmap_server::json_type_name(v)
+            ))
+        }),
+    }
+}
+
+/// The depth of each of `ids`, in order, counted from the top level
+/// (-19 §3.2.5: "nodes with a null parentId are at depth 0").
+///
+/// A chain that does not reach the top level (an ancestor the backend did
+/// not return, or a cycle) is `serverFail`, never a silently dropped id.
+async fn node_depths<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    ids: &[Id],
+) -> Result<Vec<u64>, JmapError> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let (nodes, _) = backend
+        .get_objects::<FileNode>(caller, account_id, Some(ids), None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let ancestors = backend
+        .get_ancestors(caller, account_id, ids)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let parents: std::collections::HashMap<&Id, Option<&Id>> = nodes
+        .iter()
+        .chain(&ancestors)
+        .map(|n| (&n.id, n.parent_id.as_ref()))
+        .collect();
+    let broken = || JmapError::server_fail("FileNode ancestor chain does not reach the top level");
+    ids.iter()
+        .map(|id| {
+            let mut parent = *parents.get(id).ok_or_else(broken)?;
+            let mut depth = 0u64;
+            while let Some(p) = parent {
+                depth += 1;
+                if depth > parents.len() as u64 {
+                    return Err(broken());
+                }
+                parent = *parents.get(p).ok_or_else(broken)?;
+            }
+            Ok(depth)
+        })
+        .collect()
 }
 
 // ---------------------------------------------------------------------------
 // FileNode/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/queryChanges` method call (draft-ietf-jmap-filenode-16 §3.2.6).
+/// Handle a `FileNode/queryChanges` method call (draft-ietf-jmap-filenode-19 §3.2.6).
 ///
 /// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
 /// optional `filter`, optional `sort`, `sinceQueryState`, optional
@@ -2605,6 +2495,12 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
 /// returned `Value` is the §5.6 `/queryChanges` response shape
 /// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
 /// `removed`, `added`).
+///
+/// -19 §3.2.6: queryChanges "also takes the depth argument of
+/// FileNode/query, with the same meaning". A non-null `depth` is
+/// `cannotCalculateChanges` (RFC 8620 §5.6), matching the
+/// `canCalculateChanges: false` that [`handle_filenode_query`] returns for
+/// it; one that is not an UnsignedInt or null is `invalidArguments`.
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
@@ -2624,6 +2520,9 @@ pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
         using,
     )?;
     ensure_filenode_supported(backend, caller, &args).await?;
+    if depth_arg(&args)?.is_some() {
+        return Err(JmapError::cannot_calculate_changes());
+    }
     jmap_server::handle_query_changes::<FileNode, B>(backend, caller, args).await
 }
 
@@ -3860,6 +3759,37 @@ mod tests {
         assert_eq!(by_id("n2")["myRights"], Value::Null, "{resp}");
     }
 
+    /// Oracle: draft-ietf-jmap-filenode-19 §3.1.2 defines isSubscribed,
+    /// myRights and shareWith "for every FileNode whose @type permits
+    /// children; of the types defined in this document, only "Directory"
+    /// does.  They do not appear on other nodes, whose rights come from
+    /// their parent"; §5: "A node whose @type does not permit children has
+    /// no myRights." A hook result for a File is therefore not reported.
+    #[tokio::test]
+    async fn get_reports_no_container_properties_on_file() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("d1", None, "d1"));
+        let file: FileNode = serde_json::from_value(json!({
+            "id": "f1", "parentId": "d1", "@type": "File", "name": "f1",
+            "blobId": "b1", "isSubscribed": false, "shareWith": null,
+            "myRights": read_only_rights()
+        }))
+        .expect("file fixture");
+        backend.seed_node("acc1", file);
+        backend.set_files_rights("f1", read_only_rights());
+
+        let args = json!({ "accountId": "acc1", "ids": ["f1"] });
+        let resp = handle_filenode_get(&backend, &(), args, &[])
+            .await
+            .expect("get")
+            .primary;
+        let node = &resp["list"][0];
+        assert_eq!(node["id"], "f1", "{resp}");
+        for key in ["isSubscribed", "myRights", "shareWith"] {
+            assert!(node.get(key).is_none(), "File must not carry {key}: {resp}");
+        }
+    }
+
     /// Oracle: draft-ietf-jmap-filenode-16 L431-434 (as above) for every
     /// node in `list`, including the ancestors `fetchParents` appends.
     #[tokio::test]
@@ -4208,9 +4138,47 @@ mod tests {
         assert!(resp["ids"].is_array());
     }
 
-    // ── depth parameter (draft-ietf-jmap-filenode-16 §3.2.5) ────────────────
+    // ── depth parameter (draft-ietf-jmap-filenode-19 §3.2.5) ────────────────
+    //
+    // Oracle, -19 §3.2.5: "depth: "UnsignedInt|null" (default: null) The
+    // maximum depth in the tree, counted from the top level, at which a node
+    // can match: nodes with a null parentId are at depth 0, their children
+    // at depth 1, and so on.  This applies whatever the filter; conditions
+    // such as parentId and ancestorId only select among the nodes within
+    // it, and depth is never counted from them.  So ancestorId without
+    // depth matches the whole subtree.  If null, there is no limit."
 
-    /// Oracle: depth absent → flat query, same result as before.
+    /// Seed dir1 (depth 0) > child1, child2 (depth 1) > grandchild1
+    /// (depth 2, under child1).
+    fn depth_tree() -> FaultyBackend {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
+        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
+        backend.seed_node(
+            "acc1",
+            make_filenode("grandchild1", Some("child1"), "grandchild1"),
+        );
+        backend
+    }
+
+    /// The sorted ids of a FileNode/query on [`depth_tree`].
+    async fn depth_query_ids(args: Value) -> Vec<String> {
+        let HandlerOutput { primary: resp, .. } =
+            handle_filenode_query(&depth_tree(), &(), args, &[])
+                .await
+                .expect("query must succeed");
+        let mut ids: Vec<String> = resp["ids"]
+            .as_array()
+            .expect("ids must be array")
+            .iter()
+            .map(|v| v.as_str().expect("id string").to_owned())
+            .collect();
+        ids.sort();
+        ids
+    }
+
+    /// Oracle: depth absent on an empty account → no ids.
     #[tokio::test]
     async fn query_depth_absent_flat_query() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
@@ -4221,7 +4189,7 @@ mod tests {
         assert!(resp["ids"].as_array().unwrap().is_empty());
     }
 
-    /// Oracle: depth=0 → same as absent, no recursion.
+    /// Oracle: depth=0 on an empty account → no ids.
     #[tokio::test]
     async fn query_depth_zero_flat_query() {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
@@ -4232,191 +4200,181 @@ mod tests {
         assert!(resp["ids"].as_array().unwrap().is_empty());
     }
 
-    /// Oracle: depth=0 with a non-empty account returns ONLY the level-0
-    /// match set, NOT the recursive subtree. Regression guard for
-    /// bd:JMAP-510h.45 — the trait doc previously claimed
-    /// `0 = direct children only` which contradicted both the spec
-    /// (draft-ietf-jmap-filenode-16 §3.2.5 "If absent, null, or zero,
-    /// do not recurse") and the handler's actual short-circuit. This
-    /// test pins down the spec semantics: depth=0 must not include
-    /// children even when children exist.
+    /// Oracle: depth=0 matches only nodes with a null parentId, even when
+    /// they have children (regression guard for bd:JMAP-510h.45).
     #[tokio::test]
     async fn query_depth_zero_excludes_children_even_when_present() {
-        let backend = FaultyBackend::new_with_account("acc1");
-        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
-        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
-        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
-
-        let args = json!({
+        let ids = depth_query_ids(json!({
             "accountId": "acc1",
             "depth": 0,
             "filter": {"isTopLevel": true},
             "sort": null
-        });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed for depth=0 with seeded children");
-        let ids = resp["ids"].as_array().expect("ids must be array");
-        assert_eq!(
-            ids.len(),
-            1,
-            "depth=0 must return only the level-0 match (dir1), not its children: {resp}"
-        );
-        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
-        assert_eq!(id_strs, vec!["dir1"], "level-0 match must be dir1");
+        }))
+        .await;
+        assert_eq!(ids, ["dir1"]);
     }
 
-    /// Oracle: depth=1 → initial result plus direct children of matched nodes.
-    /// Backend is seeded so that "dir1" has children ["child1", "child2"].
-    /// The initial query returns ["dir1"] (via parentId=None/root filter);
-    /// depth=1 expansion fetches parentId="dir1" and adds children.
+    /// Oracle: depth=1 with no filter matches depth 0 and depth 1.
     #[tokio::test]
     async fn query_depth_one_returns_children() {
-        let backend = FaultyBackend::new_with_account("acc1");
-        // Root-level node returned by the initial query.
-        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
-        // dir1's children.
-        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
-        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
-
-        let args = json!({
-            "accountId": "acc1",
-            "depth": 1,
-            "filter": {"isTopLevel": true},
-            "sort": null
-        });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed for depth=1");
-        let ids = resp["ids"].as_array().expect("ids must be array");
-        // dir1 + child1 + child2 = 3 ids total.
-        assert_eq!(
-            ids.len(),
-            3,
-            "depth=1 must include dir and its children: {ids:?}"
-        );
-        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
-        assert!(id_strs.contains(&"dir1"), "dir1 must be in result");
-        assert!(id_strs.contains(&"child1"), "child1 must be in result");
-        assert!(id_strs.contains(&"child2"), "child2 must be in result");
+        let ids = depth_query_ids(json!({ "accountId": "acc1", "depth": 1 })).await;
+        assert_eq!(ids, ["child1", "child2", "dir1"]);
     }
 
-    /// Oracle: depth=1 with a deep tree stops at 1 level.
-    /// child1 has grandchildren, but depth=1 must NOT return them.
+    /// Oracle: depth applies whatever the filter, so an isTopLevel filter
+    /// with depth=1 still matches only top-level nodes (-16 expanded the
+    /// matches' children instead).
     #[tokio::test]
     async fn query_depth_one_stops_at_first_level() {
-        let backend = FaultyBackend::new_with_account("acc1");
-        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
-        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
-        backend.seed_node(
-            "acc1",
-            make_filenode("grandchild1", Some("child1"), "grandchild1"),
-        );
-
-        let args = json!({
+        let ids = depth_query_ids(json!({
             "accountId": "acc1",
             "depth": 1,
-            "filter": {"isTopLevel": true},
-            "sort": null
-        });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed");
-        let ids = resp["ids"].as_array().expect("ids must be array");
-        // dir1 + child1 = 2; grandchild1 must NOT appear.
-        assert_eq!(ids.len(), 2, "depth=1 must stop at direct children");
-        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
-        assert!(
-            !id_strs.contains(&"grandchild1"),
-            "grandchild must not appear at depth=1"
-        );
+            "filter": {"isTopLevel": true}
+        }))
+        .await;
+        assert_eq!(ids, ["dir1"]);
     }
 
-    /// Oracle: depth=2 → two levels of expansion.
+    /// Oracle: depth=2 reaches the grandchild.
     #[tokio::test]
     async fn query_depth_two_returns_grandchildren() {
-        let backend = FaultyBackend::new_with_account("acc1");
-        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
-        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
-        backend.seed_node(
-            "acc1",
-            make_filenode("grandchild1", Some("child1"), "grandchild1"),
-        );
-
-        let args = json!({
-            "accountId": "acc1",
-            "depth": 2,
-            "filter": {"isTopLevel": true},
-            "sort": null
-        });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed");
-        let ids = resp["ids"].as_array().expect("ids must be array");
-        // dir1 + child1 + grandchild1 = 3.
-        assert_eq!(ids.len(), 3, "depth=2 must include grandchild");
-        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
-        assert!(
-            id_strs.contains(&"grandchild1"),
-            "grandchild1 must appear at depth=2"
-        );
+        let ids = depth_query_ids(json!({ "accountId": "acc1", "depth": 2 })).await;
+        assert_eq!(ids, ["child1", "child2", "dir1", "grandchild1"]);
     }
 
-    /// Oracle: query_subtree with depth=1 returns same results as the manual loop.
-    /// Regression test: the refactored implementation must produce identical output.
+    /// Oracle: "depth is never counted from" ancestorId: depth=1 under
+    /// ancestorId dir1 matches the depth-1 children, not the depth-2
+    /// grandchild.
     #[tokio::test]
     async fn query_depth_one_via_subtree_matches_manual_loop() {
-        let backend = FaultyBackend::new_with_account("acc1");
-        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
-        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
-        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
-
-        let args = json!({
+        let ids = depth_query_ids(json!({
             "accountId": "acc1",
             "depth": 1,
-            "filter": {"isTopLevel": true},
-            "sort": null
-        });
-        let HandlerOutput { primary: resp, .. } = handle_filenode_query(&backend, &(), args, &[])
-            .await
-            .expect("must succeed");
-        let ids = resp["ids"].as_array().expect("ids array");
-        assert_eq!(ids.len(), 3, "dir1 + child1 + child2 = 3");
+            "filter": {"ancestorId": "dir1"}
+        }))
+        .await;
+        assert_eq!(ids, ["child1", "child2"]);
     }
 
-    /// Oracle: handle_filenode_query with depth>0 must propagate a backend
-    /// failure FROM THE DEPTH-EXPANSION PATH as a JMAP serverFail, not
-    /// silently downgrade to a flat (level-0-only) result.
-    ///
-    /// Setup: seed level-0 (root) so the initial top-level query succeeds,
-    /// then arm `query_objects` to fail on its second call (the first
-    /// per-level call inside `query_subtree`). The handler must surface
-    /// that Err rather than swallowing it and returning the level-0
-    /// result.
-    ///
-    /// Regression for bd JMAP-510h.5 — the prior code used
-    /// `match backend.query_subtree(...) { Err(e) => { let _ = e;
-    /// return Ok((response, tail)); } }` which made a depth>0 failure
-    /// indistinguishable from a depth>0 success with zero descendants.
+    /// Oracle: "ancestorId without depth matches the whole subtree", and
+    /// an explicit null depth is the same.
+    #[tokio::test]
+    async fn query_ancestor_without_depth_matches_whole_subtree() {
+        let expected = ["child1", "child2", "grandchild1"];
+        let absent = depth_query_ids(json!({
+            "accountId": "acc1",
+            "filter": {"ancestorId": "dir1"}
+        }))
+        .await;
+        assert_eq!(absent, expected);
+        let null = depth_query_ids(json!({
+            "accountId": "acc1",
+            "depth": null,
+            "filter": {"ancestorId": "dir1"}
+        }))
+        .await;
+        assert_eq!(null, expected);
+    }
+
+    /// Oracle: RFC 8620 §5.5 "position" is "The zero-based index of the
+    /// first result in the ids array within the complete list of query
+    /// results", and "total" is "The total number of Foos in the results
+    /// (given the filter)"; with -19 §3.2.5 depth those results are the
+    /// depth-limited ones. Sorted by name: child1, child2, dir1.
+    #[tokio::test]
+    async fn query_depth_applies_window_after_depth_limit() {
+        let HandlerOutput { primary: resp, .. } = handle_filenode_query(
+            &depth_tree(),
+            &(),
+            json!({
+                "accountId": "acc1",
+                "depth": 1,
+                "sort": [{"property": "name"}],
+                "position": 1,
+                "limit": 1,
+                "calculateTotal": true
+            }),
+            &[],
+        )
+        .await
+        .expect("query must succeed");
+        assert_eq!(resp["ids"], json!(["child2"]), "{resp}");
+        assert_eq!(resp["position"], 1, "{resp}");
+        assert_eq!(resp["total"], 3, "{resp}");
+        assert_eq!(resp["canCalculateChanges"], false, "{resp}");
+    }
+
+    /// Oracle: RFC 8620 §5.5 anchorNotFound: "An anchor argument was
+    /// supplied, but it cannot be found in the results of the query." The
+    /// grandchild exists but is outside depth 1.
+    #[tokio::test]
+    async fn query_depth_anchor_outside_depth_is_anchor_not_found() {
+        let err = handle_filenode_query(
+            &depth_tree(),
+            &(),
+            json!({ "accountId": "acc1", "depth": 1, "anchor": "grandchild1" }),
+            &[],
+        )
+        .await
+        .expect_err("anchor outside the depth limit must fail");
+        assert_eq!(err.error_type.to_string(), "anchorNotFound");
+    }
+
+    /// Oracle: -19 §3.2.5 types depth "UnsignedInt|null"; RFC 8620 §3.6.2
+    /// invalidArguments for an argument "of the wrong type".
+    #[tokio::test]
+    async fn query_depth_wrong_type_is_invalid_arguments() {
+        for depth in [json!(-1), json!("1"), json!(1.5)] {
+            let err = handle_filenode_query(
+                &depth_tree(),
+                &(),
+                json!({ "accountId": "acc1", "depth": depth }),
+                &[],
+            )
+            .await
+            .expect_err("a non-UnsignedInt depth must fail");
+            assert_eq!(err.error_type.to_string(), "invalidArguments", "{depth}");
+        }
+    }
+
+    /// Oracle: -19 §3.2.6 queryChanges "also takes the depth argument";
+    /// RFC 8620 §5.6 "cannotCalculateChanges: The server cannot calculate
+    /// the changes from the queryState string given by the client." A null
+    /// depth is no limit and goes through.
+    #[tokio::test]
+    async fn query_changes_with_depth_cannot_calculate_changes() {
+        let backend = depth_tree();
+        let err = handle_filenode_query_changes(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "sinceQueryState": "0", "depth": 1 }),
+            &[],
+        )
+        .await
+        .expect_err("a depth queryChanges must fail");
+        assert_eq!(err.error_type.to_string(), "cannotCalculateChanges");
+        handle_filenode_query_changes(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "sinceQueryState": "0", "depth": null }),
+            &[],
+        )
+        .await
+        .expect("a null depth is no limit");
+    }
+
+    /// Oracle: a depth query must surface a backend failure while reading
+    /// ancestors as a JMAP error, not silently return unlimited or empty
+    /// results (bd JMAP-510h.5).
     #[tokio::test]
     async fn query_depth_gt_zero_propagates_query_subtree_err() {
-        let backend = FaultyBackend::new_with_account("acc1");
-        backend.seed_node("acc1", make_filenode("root", None, "root"));
-        // Succeed on the initial top-level query_objects (call 0),
-        // fail on the per-level recursion inside query_subtree (call 1).
-        backend.inject_query_objects_err_after("simulated DB timeout", 1);
-
-        let args = json!({
-            "accountId": "acc1",
-            "depth": 1,
-            "filter": {"isTopLevel": true},
-            "sort": null
-        });
+        let backend = depth_tree();
+        backend.inject_get_ancestors_err("simulated DB timeout");
+        let args = json!({ "accountId": "acc1", "depth": 1 });
         let result = handle_filenode_query(&backend, &(), args, &[]).await;
         assert!(
             result.is_err(),
-            "depth>0 + backend failure during expansion must produce \
-             JMAP error, not a silently-downgraded flat result. got Ok: {:?}",
+            "depth + backend failure must produce a JMAP error. got Ok: {:?}",
             result.ok()
         );
     }
@@ -4430,18 +4388,15 @@ mod tests {
     /// > "unsupportedFilter": The "filter" is syntactically valid, but the
     /// > server cannot process it.
     ///
-    /// A backend `BackendQueryError::Method` raised while `query_subtree`
-    /// expands `depth > 0` (draft-ietf-jmap-filenode-16 §3.2.5) MUST reach
-    /// the client unchanged, not as `serverFail` (bd JMAP-yt1w.24).
+    /// A backend `BackendQueryError::Method` raised by the query of a
+    /// `depth` request (draft-ietf-jmap-filenode-19 §3.2.5) MUST reach the
+    /// client unchanged, not as `serverFail` (bd JMAP-yt1w.24).
     #[tokio::test]
     async fn query_depth_gt_zero_passes_backend_method_error_through() {
-        let backend = FaultyBackend::new_with_account("acc1");
-        backend.seed_node("acc1", make_filenode("root", None, "root"));
+        let backend = depth_tree();
         let mut injected = JmapError::unsupported_filter();
         injected.description = Some("backend cannot expand this subtree".into());
-        // Call 0 is the top-level query; call 1 is the first per-level
-        // query inside query_subtree.
-        backend.inject_query_objects_method_err_after(injected, 1);
+        backend.inject_query_objects_method_err_after(injected, 0);
 
         let args = json!({
             "accountId": "acc1",
@@ -4450,7 +4405,7 @@ mod tests {
         });
         let err = handle_filenode_query(&backend, &(), args, &[])
             .await
-            .expect_err("a backend method error during expansion must fail the call");
+            .expect_err("a backend method error must fail the call");
 
         assert_eq!(
             serde_json::to_value(&err).expect("JmapError must serialize"),
@@ -5307,8 +5262,8 @@ mod tests {
         assert!(!desc.contains("CANARY"), "{desc}");
     }
 
-    /// draft-ietf-jmap-filenode-16 §3.2.3 types `onExists` as one of
-    /// "replace", "rename", "newest" or null, so an object is the wrong type
+    /// draft-ietf-jmap-filenode-19 §3.2.3 types `onExists` as
+    /// "String|null" ("replace" or "rename"), so an object is the wrong type
     /// (RFC 8620 §3.6.2 invalidArguments). The §3.6.1 description names
     /// only the JSON type and never echoes the client value (bd JMAP-zegc).
     #[tokio::test]

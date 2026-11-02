@@ -154,6 +154,40 @@ wire behaviour that a conforming peer can observe.
   implementation-defined; a server that refuses one rejects the call with
   `forbidden`", §Peer/subscribePresence).
 
+- **BREAKING** **jmap-filenode-server**, **jmap-filenode-client**:
+  `FileNode/query` `depth` follows draft-ietf-jmap-filenode-19 §3.2.5: "The
+  maximum depth in the tree, counted from the top level, at which a node
+  can match", whatever the filter, and absent or `null` "there is no
+  limit". It no longer expands the matches' subtrees, and absent or `0` no
+  longer means "do not recurse". A depth query windows after the depth
+  limit and reports `canCalculateChanges: false`; a non-integer `depth` is
+  `invalidArguments`. `FileNode/queryChanges` "also takes the depth
+  argument" (-19 §3.2.6): a non-null `depth` is `cannotCalculateChanges`.
+  `SessionClient::filenode_query_changes` takes a new final
+  `depth: Option<u64>` argument.
+- **BREAKING** **jmap-filenode-types**, **jmap-filenode-server**:
+  `isSubscribed`, `myRights` and `shareWith` are emitted only on nodes
+  whose `@type` permits children (Directory), per -19 §3.1.2 "They do not
+  appear on other nodes, whose rights come from their parent". A File or
+  SymLink no longer serializes them, and `FileNode/get`, `FileNode/set`
+  and `FileNode/copy` no longer ask `FileNodeBackend::files_rights` about
+  such a node (-19 §5: "A node whose @type does not permit children has no
+  myRights"). The `files_rights` signature is unchanged; its docs now say
+  a backend computes the -19 §5 union over ancestors itself.
+
+### Removed
+
+- **BREAKING** **jmap-filenode-client**, **jmap-filenode-server**: the
+  `onExists` values `"newest"` and `"unchanged"`, which
+  draft-ietf-jmap-filenode-19 §12 removed. `FileNodeOnExists::Newest` and
+  `FileNodeOnExists::Unchanged` are gone, and `FileNode/set` and
+  `FileNode/copy` reject `"newest"` with `invalidArguments` (-19 §3.2.3:
+  "Any other value is rejected with an "invalidArguments" error").
+- **BREAKING** **jmap-filenode-types**: `FileNodeCapability::forbidden_node_names`
+  and its `forbiddenNodeNames` wire member (-19 §12: "Removed the
+  forbiddenNodeNames capability"). A capability that still carries it
+  deserializes with the member ignored.
+
 ### Fixed
 
 - **jmap-filenode-server**: `FileNode/set` and `FileNode/copy` enforce
