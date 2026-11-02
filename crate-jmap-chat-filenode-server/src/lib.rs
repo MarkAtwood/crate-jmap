@@ -535,24 +535,27 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// if `node` is not in a Space file tree.
 ///
 /// Return the result from [`FileNodeBackend::files_rights`], which
-/// `FileNode/get` reports as the node's `myRights`: the table gives "the
-/// `FilesRights` flags ... the server reports in `myRights` and enforces on
-/// each FileNode in the Space file tree". "Each row includes the grants of
-/// the rows above it", and the member's permissions are the union over
-/// their SpaceRoles plus the `@everyone` role, as for [`check_root_create`]:
+/// `FileNode/get` reports as a Directory's `myRights`: the table gives "the
+/// `FilesRights` flags ... the server reports in the `myRights` of every
+/// Directory in the Space file tree, including the tree root, and
+/// enforces". "Each row includes the grants of the rows above it", and the
+/// member's permissions are the union over their SpaceRoles plus the
+/// `@everyone` role, as for [`check_root_create`]:
 ///
 /// | Highest permission held | Flags `true` |
 /// |---|---|
 /// | `view` | `mayRead` |
 /// | `send` | the above, plus `mayAddChildren` |
-/// | `manage_channels` | the above, plus `mayDelete`, `mayRename` and `mayModifyContent` on every node except the tree root |
-/// | `manage_space` | the above, plus `mayDelete` and `mayRename` on the tree root |
+/// | `manage_channels` or `manage_space` | the above, plus `mayDelete`, `mayRename` and `mayModifyContent` |
 ///
 /// "A flag no applicable row grants is `false`", so `mayShare` and any
 /// flag a later draft adds are always `false`, and a non-member, who
-/// "SHOULD NOT be granted access", gets no flag at all. `mayAddChildren`
-/// is `false` on a node whose `@type` is not `Directory`, and
-/// `mayModifyContent` is `false` on a Directory.
+/// "SHOULD NOT be granted access", gets no flag at all. Every Directory in
+/// the tree, the root included, gets the same flags. "A File or SymLink
+/// takes its rights from its parent Directory", so a File or SymLink gets
+/// them too: these are the rights the `FileNode/set` gates check for it.
+/// The root's flags "do not let anyone destroy, rename, or move the root
+/// itself": [`check_space_update`] and [`check_space_destroy`] refuse that.
 ///
 /// A node with no flag is not discoverable (draft-ietf-jmap-filenode
 /// §Access Control), so the read path leaves it out: `FileNode/get`
@@ -611,15 +614,13 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
         .and_then(|p| TIERS.iter().rposition(|t| p.contains(t)))
         .map_or(0, |i| i + 1);
 
-    let is_root = is_tree_root(node);
-    let is_directory = node.node_type == Some(NodeType::Directory);
-    let manages = if is_root { tier >= 4 } else { tier >= 3 };
+    let manages = tier >= 3;
     let mut rights = FilesRights::default();
     rights.may_read = tier >= 1;
-    rights.may_add_children = tier >= 2 && is_directory;
+    rights.may_add_children = tier >= 2;
     rights.may_delete = manages;
     rights.may_rename = manages;
-    rights.may_modify_content = tier >= 3 && !is_root && !is_directory;
+    rights.may_modify_content = manages;
     Ok(Some(rights))
 }
 
@@ -682,7 +683,10 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
 ///   changes `shareWith` on a node in a Space file tree with a `forbidden`
 ///   SetError". A patch setting the whole of `shareWith` to its stored
 ///   value changes nothing and passes.
-/// - `name` and `parentId`: `mayRename`, "rename or move this node".
+/// - `name` and `parentId`: `mayRename`, "rename or move this node". On
+///   the tree root a changed `name` or `parentId` is refused for every
+///   member: "No member can destroy, rename, or move the root through
+///   `FileNode/set`".
 /// - `blobId`, `mediaType`, `target`, `modified`, `accessed` and
 ///   `executable`: `mayModifyContent`, "the content-related properties of
 ///   this node".
@@ -711,9 +715,14 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
     if let Some(rights) = rights {
         let share_with =
             serde_json::to_value(&node.share_with).expect("shareWith serializes to JSON");
+        let is_root = is_tree_root(node);
         for (key, value) in patch.as_map() {
             let allowed = match key.split('/').next().unwrap_or(key) {
                 "shareWith" => key == "shareWith" && *value == share_with,
+                "name" if is_root => {
+                    rights.may_rename && value.as_str() == Some(node.name.as_str())
+                }
+                "parentId" if is_root => rights.may_rename && value.is_null(),
                 "name" | "parentId" => rights.may_rename,
                 "blobId" | "mediaType" | "target" | "modified" | "accessed" | "executable" => {
                     rights.may_modify_content
@@ -754,11 +763,12 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
 
 /// Check a `FileNode/set` destroy of the stored `node` against the
 /// draft-atwood-jmap-chat-filenode-00 §Permission Mapping table: a node in
-/// a Space file tree needs `mayDelete` from [`space_files_rights`].
-/// `"manage_channels"` holds it on every node except the tree root, and
-/// destroying the root requires `"manage_space"`, as "Creating the Space
-/// file tree root ... requires `"manage_space"` permission, and so, by the
-/// table above, does destroying it."
+/// a Space file tree needs `mayDelete` from [`space_files_rights`], which
+/// `"manage_channels"` and `"manage_space"` hold. The tree root is refused
+/// for every member: "No member can destroy, rename, or move the root
+/// through `FileNode/set`" and "The root is removed only when its Space is
+/// destroyed", through [`destroy_space_file_tree`], whose server-context
+/// destroys do not go through this check.
 ///
 /// This covers the `onExists` replacements of draft-ietf-jmap-filenode,
 /// which "require `mayDelete` on the existing node, and fail with
@@ -781,6 +791,9 @@ pub async fn check_space_destroy<C: ChatBackend, F: FileNodeBackend>(
     let rights =
         space_files_rights(chat, chat_caller, files, files_caller, account_id, node).await?;
     Ok(match rights {
+        Some(_) if is_tree_root(node) => Err(forbidden(
+            "the Space file tree root is removed only with its Space",
+        )),
         Some(r) if !r.may_delete => Err(forbidden(
             "destroying this Space file tree node requires mayDelete",
         )),
@@ -789,8 +802,10 @@ pub async fn check_space_destroy<C: ChatBackend, F: FileNodeBackend>(
 }
 
 /// Whether the owner of `account_id` may add children to the stored node
-/// `parent_id`: `mayAddChildren` from [`space_files_rights`], or `true`
-/// when the node is not stored or not in a Space file tree.
+/// `parent_id`: `mayAddChildren` from [`space_files_rights`] on a
+/// Directory, as only a node whose `@type` permits children can have
+/// them, or `true` when the node is not stored or not in a Space file
+/// tree.
 async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
     chat_caller: &C::CallerCtx,
@@ -813,7 +828,8 @@ async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
     };
     let rights =
         space_files_rights(chat, chat_caller, files, files_caller, account_id, parent).await?;
-    Ok(rights.is_none_or(|r| r.may_add_children))
+    let is_directory = parent.node_type == Some(NodeType::Directory);
+    Ok(rights.is_none_or(|r| r.may_add_children && is_directory))
 }
 
 /// Whether `node` is a Space file tree root: a top-level node with role
