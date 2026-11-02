@@ -1,0 +1,16 @@
+{
+  "id": "JMAP-y1n5",
+  "title": "watch: jmapio/jmap Calendars and EmailPush PRs/issues",
+  "description": "Filed 2026-10-31/11-01 from implementing crate-jmap: Calendars issues #446-#453, #455 and PR #454; EmailPush issues #473-#481 and PRs #474-#482. No response as of 2026-11-02. Neil edits specs by direct commit, so fixes may land as his commits, not merged PRs: check spec diffs, not just PR state. Tasks items deliberately left alone (draft dormant).",
+  "status": "deferred",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T19:18:05.926647667Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T19:18:05.926647667Z",
+  "defer_until": "2026-11-09T00:00:00-08:00",
+  "labels": [
+    "upstream-watch"
+  ]
+}

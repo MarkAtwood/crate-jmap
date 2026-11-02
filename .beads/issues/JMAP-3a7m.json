@@ -1,0 +1,16 @@
+{
+  "id": "JMAP-3a7m",
+  "title": "watch: JMAP list implementation reviews (blobext, object-history, refplus, metadata)",
+  "description": "Mark posted implementation reviews from crate-jmap to jmap@ietf.org on 2026-11-01: draft-ietf-jmap-blobext-02, -object-history-02, -refplus-02, -metadata-05 (issues + line numbers). No replies as of 2026-11-02. Check the list (IETF IMAP archive or Fastmail IETF folder); answer replies; turn agreed fixes into crate-jmap work. JMAP session at IETF 127: Thu 2026-11-19 09:00 PT.",
+  "status": "deferred",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T19:18:05.873433166Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T19:18:05.873433166Z",
+  "defer_until": "2026-11-09T00:00:00-08:00",
+  "labels": [
+    "upstream-watch"
+  ]
+}
