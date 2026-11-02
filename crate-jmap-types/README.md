@@ -73,7 +73,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-jmap-types = "0.1"
+jmap-types = "0.5"
 ```
 
 ### Identifiers
