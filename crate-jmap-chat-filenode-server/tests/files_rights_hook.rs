@@ -259,9 +259,12 @@ fn rights(granted: &[&str]) -> Value {
 }
 
 /// L165-166 for a `"send"` member: `mayRead` and `mayAddChildren` on the
-/// root and on a directory, `mayRead` alone on a file (L161, no children).
-/// The ancestors `fetchParents` appends carry their rights too. `loose` is
-/// outside every Space tree, so it keeps its stored `myRights`.
+/// root and on a directory. The file has no `myRights`:
+/// draft-ietf-jmap-filenode-19 §5 "A node whose @type does not permit
+/// children has no myRights. The user's rights on it are those in its
+/// parent's myRights". The ancestors `fetchParents` appends carry their
+/// rights too. `loose` is outside every Space tree, so it keeps its stored
+/// `myRights`.
 #[tokio::test]
 async fn get_reports_space_role_rights() {
     let deployment = Deployment::with_send_member();
@@ -283,6 +286,6 @@ async fn get_reports_space_role_rights() {
     let add = "mayAddChildren";
     assert_eq!(my_rights("root"), rights(&[read, add]), "{resp}");
     assert_eq!(my_rights("docs"), rights(&[read, add]), "{resp}");
-    assert_eq!(my_rights("f1"), rights(&[read]), "{resp}");
+    assert_eq!(my_rights("f1"), Value::Null, "{resp}");
     assert_eq!(my_rights("loose"), Value::Null, "{resp}");
 }

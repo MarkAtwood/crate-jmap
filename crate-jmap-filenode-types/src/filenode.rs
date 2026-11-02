@@ -160,7 +160,7 @@ pub struct FilesRights {
 /// | `@type` | Emitted type-specific properties |
 /// |---|---|
 /// | `File` | `blobId`, `size`, `sha256` (each only when `Some`); `mediaType`, `executable` (always; their defaults `"application/octet-stream"` and `false` when `None`) |
-/// | `Directory` | `role` (always; `null` when `None`, as it is `String|null`) |
+/// | `Directory` | `role` and `shareWith` (always; `null` when `None`, as both are nullable); `isSubscribed` (always; `true` when `None`); `myRights` (only when `Some`) |
 /// | `SymLink` | `target` (only when `Some`) |
 /// | absent or unrecognised | every type-specific property that is `Some` |
 ///
@@ -169,10 +169,17 @@ pub struct FilesRights {
 ///
 /// ## Common properties
 ///
-/// `parentId` and `shareWith` are required-and-nullable: always emitted, as `null`
-/// when `None`.  `@type`, `created`, `modified`, `accessed`, `changed`,
-/// `isSubscribed`, `myRights`, `metadata` and `privateMetadata` are omitted
-/// when `None`.
+/// `parentId` is required-and-nullable: always emitted, as `null` when `None`.
+/// `@type`, `created`, `modified`, `accessed`, `changed`, `metadata` and
+/// `privateMetadata` are omitted when `None`.
+///
+/// ## Container properties
+///
+/// draft-ietf-jmap-filenode-19 §3.1.2 defines `isSubscribed`, `myRights` and
+/// `shareWith` "for every FileNode whose @type permits children; of the types
+/// defined in this document, only "Directory" does.  They do not appear on
+/// other nodes, whose rights come from their parent".  A `File` or `SymLink`
+/// therefore never emits them.
 ///
 /// ## `modified` and `accessed` semantics
 ///
@@ -277,19 +284,24 @@ pub struct FileNode {
 
     /// Whether the current user is subscribed to this node.  Default: true.
     ///
-    /// Per-user property.  `None` serializes as `true`.
+    /// Per-user property.  `None` serializes as `true`.  Only on nodes whose
+    /// `@type` permits children (-19 §3.1.2); never emitted on a `File` or
+    /// `SymLink`.
     pub is_subscribed: Option<bool>,
 
     /// ACL rights the authenticated user holds for this node (server-set).
     ///
-    /// Absent from wire when `None`.
+    /// Absent from wire when `None`.  Only on nodes whose `@type` permits
+    /// children: a `File` or `SymLink` has none, and the user's rights on it
+    /// "are those in its parent's myRights" (-19 §5).
     pub my_rights: Option<FilesRights>,
 
     /// Map of userId → rights for users this node is shared with.
     ///
-    /// Required-and-nullable: always present in wire JSON.
-    /// `null` when the requesting user lacks `myRights.mayShare` or the node is
-    /// not shared.
+    /// Required-and-nullable on nodes whose `@type` permits children: always
+    /// present in their wire JSON, `null` when the requesting user lacks
+    /// `myRights.mayShare` or the node is not shared.  Never emitted on a
+    /// `File` or `SymLink` (-19 §3.1.2).
     pub share_with: Option<BTreeMap<Id, FilesRights>>,
 
     /// Special role identifying this directory's purpose.  `Directory` only
@@ -354,10 +366,12 @@ impl Serialize for FileNode {
             changed: Option<&'a UTCDate>,
             #[serde(skip_serializing_if = "Option::is_none")]
             executable: Option<bool>,
-            is_subscribed: bool,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            is_subscribed: Option<bool>,
             #[serde(skip_serializing_if = "Option::is_none")]
             my_rights: Option<&'a FilesRights>,
-            share_with: Option<&'a BTreeMap<Id, FilesRights>>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            share_with: Option<Option<&'a BTreeMap<Id, FilesRights>>>,
             #[serde(skip_serializing_if = "Option::is_none")]
             role: Option<Option<&'a NodeRole>>,
             #[serde(skip_serializing_if = "Option::is_none")]
@@ -401,6 +415,9 @@ impl Serialize for FileNode {
         };
         let defines = |owner: &NodeType| known.is_none_or(|t| t == owner);
         let file = defines(&NodeType::File);
+        // -19 §3.1.2: isSubscribed, myRights and shareWith "do not appear
+        // on other nodes" than those whose @type permits children.
+        let container = defines(&NodeType::Directory);
         let wire_role = match known {
             Some(NodeType::Directory) => Some(role.as_ref()),
             Some(_) => None,
@@ -430,9 +447,9 @@ impl Serialize for FileNode {
                 Some(NodeType::File) => Some(executable.unwrap_or(false)),
                 _ => executable.filter(|_| file),
             },
-            is_subscribed: is_subscribed.unwrap_or(true),
-            my_rights: my_rights.as_ref(),
-            share_with: share_with.as_ref(),
+            is_subscribed: container.then(|| is_subscribed.unwrap_or(true)),
+            my_rights: my_rights.as_ref().filter(|_| container),
+            share_with: container.then_some(share_with.as_ref()),
             role: wire_role,
             space_id: space_id.as_ref(),
             metadata: metadata.as_ref(),

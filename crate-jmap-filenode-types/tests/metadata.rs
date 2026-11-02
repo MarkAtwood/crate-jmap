@@ -15,13 +15,14 @@ use serde_json::json;
 /// `metadata/photography`. The values land in the typed fields, not
 /// `extra`, and round-trip. -05 §3.2: "null is equivalent to {}", so
 /// `null` decodes as absent and is not re-emitted; a non-object is
-/// rejected.
+/// rejected. The File carries no isSubscribed or shareWith, which
+/// draft-ietf-jmap-filenode-19 §3.1.2 defines only on nodes whose @type
+/// permits children.
 #[test]
 fn file_node_metadata_properties() {
     let mut raw = json!({
         "id": "f1", "parentId": null, "@type": "File", "name": "IMG_0001.jpg",
         "blobId": "b1", "mediaType": "image/jpeg", "executable": false,
-        "isSubscribed": true, "shareWith": null,
         "metadata": {"photography": {"cameraMake": "Canon", "iso": 400}},
         "privateMetadata": {"acme.example.com": {"pinned": true}}
     });

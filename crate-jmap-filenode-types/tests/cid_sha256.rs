@@ -10,6 +10,9 @@ use serde_json::{Value, json};
 /// draft-atwood-jmap-cid-00 L158: the `sha256` example value.
 const DRAFT_SHA256: &str = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
 
+/// A File in -19 wire shape: no isSubscribed, myRights or shareWith, which
+/// draft-ietf-jmap-filenode-19 §3.1.2 says "do not appear on other nodes"
+/// than those whose @type permits children.
 fn file_node(sha256: Value) -> Value {
     json!({
         "id": "fn1",
@@ -20,9 +23,7 @@ fn file_node(sha256: Value) -> Value {
         "sha256": sha256,
         "name": "test.txt",
         "mediaType": "text/plain",
-        "executable": false,
-        "isSubscribed": true,
-        "shareWith": null
+        "executable": false
     })
 }
 

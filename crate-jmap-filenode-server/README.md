@@ -2,7 +2,7 @@
 
 ## What it is
 
-JMAP FileNode ([draft-ietf-jmap-filenode-16]) method handlers and the
+JMAP FileNode ([draft-ietf-jmap-filenode-19]) method handlers and the
 `FileNodeBackend` trait. Plugs into [`jmap-server`]'s `Dispatcher`. Implements
 all 6 FileNode method names. Storage-agnostic — consumers implement the
 `FileNodeBackend` trait for their own data layer.
@@ -57,7 +57,7 @@ be shared with other parts of your application.
 
 ## Registered methods
 
-All 6 method names from draft-ietf-jmap-filenode-16 §3.2 are registered:
+All 6 method names from draft-ietf-jmap-filenode-19 §3.2 are registered:
 
 | Object | Methods |
 |---|---|
@@ -188,12 +188,15 @@ The reference `memory::MemoryBackend` does **not** implement any of
 the checks below — it returns `None` from `principal_id` and stores
 whatever the handler hands it. Production backends MUST implement each
 of the following or they will silently accept JMAP requests that
-draft-ietf-jmap-filenode-16 mandates the server to reject. ACL denials
+draft-ietf-jmap-filenode-19 mandates the server to reject. ACL denials
 are `forbidden` SetErrors.
 
-Rights are the `FilesRights` in `myRights` (§3.1.1), derived from the
-`shareWith` ACLs on a node and its ancestors: "if mayRead is set on a
-node, all its child nodes are also readable" (§5).
+Rights are the `FilesRights` in `myRights` (§3.1.2): "the union of the
+rights granted to the user by the shareWith entries on the node and on all
+its ancestors" (§5). Only a Directory has `myRights`; "A node whose @type
+does not permit children has no myRights. The user's rights on it are
+those in its parent's myRights" (§5), so `FileNode/get` reports no
+`myRights`, `isSubscribed` or `shareWith` on a File or SymLink.
 
 ### FileNode/set and FileNode/copy (§2.1, §3.1.1, §3.2.3, §3.2.4)
 
@@ -291,9 +294,8 @@ When a new node's name collides with an existing sibling (detected via `find_sib
   the new node is created.
 - `onExists: "rename"` — the handler iterates through suffixed names (`name-1`, `name-2`, …)
   up to 100 attempts until a unique name is found. Beyond 100 attempts, `serverFail` is returned.
-- `onExists: "newest"` — the handler compares the `modified` timestamp of the incoming node
-  with the existing node. If the incoming timestamp is strictly later, proceeds as with
-  `"replace"`. Otherwise, rejects with `alreadyExists`.
+- Any other value, including `"newest"` and `"unchanged"` (removed in
+  draft-ietf-jmap-filenode-19), is rejected with `invalidArguments`.
 
 ### FileNode/set destroy — nodeHasChildren guard and cascade
 
@@ -317,11 +319,15 @@ requested node ID and appends the results (deduplicated by ID) to the response `
 
 ### FileNode/query — depth parameter
 
-When `depth > 0`, the handler calls `FileNodeBackend::query_subtree` with the initial
-query result IDs as roots and the requested depth. IDs are deduplicated across levels before
-returning. `depth: 0` or absent returns only direct matches of the base filter. The default
-`query_subtree` implementation calls `query_objects` with a `parentId` filter once per level
-(O(depth) backend calls); backends can override it with a single recursive query.
+`depth` (draft-ietf-jmap-filenode-19 §3.2.5) is the maximum depth, counted from the top
+level, at which a node can match: top-level nodes are at depth 0. It limits the results
+whatever the filter; `parentId` and `ancestorId` never change where it is counted from.
+Absent or `null` means no limit and delegates to the generic `/query` handler. With a
+`depth`, the handler queries without the window arguments, reads the ancestors of the
+results with `get_ancestors` to drop nodes deeper than `depth`, then applies
+`position` / `anchor` / `anchorOffset` / `limit`; the response has
+`canCalculateChanges: false`, and `FileNode/queryChanges` with a non-null `depth` returns
+`cannotCalculateChanges`.
 
 ### FileNode/copy — cross-account copy
 
@@ -377,7 +383,8 @@ until the family is published to crates.io.
 
 - `get_ancestors`, `get_descendant_ids`, `find_sibling_by_name`, and `blob_exists` have no
   default implementations; backends must implement all four.
-- The `FileNode/query` depth expansion calls `FileNodeBackend::query_subtree` once. The **default** `query_subtree` implementation calls `query_objects` with a `parentId` filter once per depth level (O(depth) backend calls). Backends with a nested-sets model, closure table, or recursive CTE should override `query_subtree` with a single bulk query.
+- A `FileNode/query` with a `depth` reads the whole unwindowed result plus one
+  `get_objects` and one `get_ancestors` call over it, then windows in memory.
 - The `onExists: "rename"` suffix loop is capped at 100 attempts; beyond that,
   `serverFail` is returned.
 - No production storage backend ships with this crate. A tree-backed reference
@@ -391,9 +398,9 @@ until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-16]** — JMAP FileNode (normative for all method semantics)
+- **[draft-ietf-jmap-filenode-19]** — JMAP FileNode (normative for all method semantics)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference, `/set` response shape)
 
-[draft-ietf-jmap-filenode-16]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/16/
+[draft-ietf-jmap-filenode-19]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/19/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server

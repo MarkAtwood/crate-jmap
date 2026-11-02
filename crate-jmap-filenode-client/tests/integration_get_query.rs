@@ -399,6 +399,7 @@ async fn filenode_query_changes_returns_added_and_removed() {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("filenode_query_changes_returns_added_and_removed: must succeed");
@@ -460,6 +461,7 @@ async fn filenode_query_changes_with_filter_sort_upto_calculatetotal() {
         )]),
         Some(&up_to),
         Some(true),
+        Some(1),
     )
     .await
     .expect("filenode_query_changes_with_filter_sort_upto_calculatetotal: must succeed");
@@ -496,6 +498,9 @@ async fn filenode_query_changes_with_filter_sort_upto_calculatetotal() {
         json!(true),
         "calculateTotal must be on the wire (RFC 8620 §5.6)"
     );
+    // draft-ietf-jmap-filenode-19 §3.2.6: queryChanges "also takes the
+    // depth argument of FileNode/query".
+    assert_eq!(args["depth"], json!(1), "depth must be on the wire");
 }
 
 /// `FileNode/queryChanges` with all None optional args must NOT emit
@@ -530,9 +535,17 @@ async fn filenode_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
-    sc.filenode_query_changes(&since, None, None::<&FileNodeFilter>, None, None, None)
-        .await
-        .expect("filenode_query_changes_all_none_omits_optional_wire_keys: must succeed");
+    sc.filenode_query_changes(
+        &since,
+        None,
+        None::<&FileNodeFilter>,
+        None,
+        None,
+        None,
+        None,
+    )
+    .await
+    .expect("filenode_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
     let reqs = server
         .received_requests()
@@ -552,4 +565,5 @@ async fn filenode_query_changes_all_none_omits_optional_wire_keys() {
         args.get("maxChanges").is_none(),
         "maxChanges must be omitted"
     );
+    assert!(args.get("depth").is_none(), "depth must be omitted");
 }

@@ -127,7 +127,6 @@ read session capabilities.
 | `maxFileNodeDepth` | `UnsignedInt\|null` | max hierarchy depth; null = no limit |
 | `maxSizeFileNodeName` | `UnsignedInt` | max name length in UTF-8 octets; MUST be ≥ 100 |
 | `forbiddenNameChars` | `String\|null` | characters forbidden in names; null = no restriction |
-| `forbiddenNodeNames` | `String[]\|null` | complete names forbidden (case-insensitive); null = no restriction |
 | `fileNodeQuerySortOptions` | `String[]` | supported sort properties for FileNode/query |
 | `mayCreateTopLevelFileNode` | `Boolean` | user may create nodes with null parentId |
 | `webTrashUrl` | `String\|null` | web URL for trash folder; null if unavailable |

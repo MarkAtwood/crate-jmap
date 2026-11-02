@@ -176,7 +176,6 @@ pub fn jmap_filenode_types::FileNode::deserialize<__D>(__D) -> core::result::Res
 pub jmap_filenode_types::FileNodeCapability::case_insensitive_names: bool
 pub jmap_filenode_types::FileNodeCapability::file_node_query_sort_options: alloc::vec::Vec<alloc::string::String>
 pub jmap_filenode_types::FileNodeCapability::forbidden_name_chars: core::option::Option<alloc::string::String>
-pub jmap_filenode_types::FileNodeCapability::forbidden_node_names: core::option::Option<alloc::vec::Vec<alloc::string::String>>
 pub jmap_filenode_types::FileNodeCapability::max_file_node_depth: core::option::Option<u64>
 pub jmap_filenode_types::FileNodeCapability::max_size_file_node_name: u64
 pub jmap_filenode_types::FileNodeCapability::may_create_top_level_file_node: bool
