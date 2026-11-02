@@ -184,8 +184,9 @@ pub async fn handle_position_changes<B: ChatBackend>(
 /// Validation enforced here (not in the backend):
 /// - `create` and `destroy` are rejected with `forbidden`.
 /// - `id`, `chatId` and `lastReadAt` are server-set/immutable and
-///   rejected in updates.
-/// - Every successful update sets `lastReadAt` to the current time.
+///   rejected in updates unless identical to the stored value (RFC 8620 §5.3).
+/// - Every successful update sets `lastReadAt` to the current time,
+///   except an empty patch, which is a no-op success.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 ///
@@ -265,7 +266,7 @@ pub async fn handle_position_set<B: ChatBackend>(
 
             // §ReadPosition: `id` and `lastReadAt` are server-set, `chatId`
             // is immutable.
-            if let Err(err) = check_read_only_patch::<_, ReadPosition>(
+            match check_read_only_patch::<_, ReadPosition>(
                 backend,
                 caller,
                 &account_id,
@@ -274,8 +275,15 @@ pub async fn handle_position_set<B: ChatBackend>(
             )
             .await
             {
-                not_updated.insert(id_str, err);
-                continue;
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
             // `lastReadMessageId` (String, optional). Checked here because
             // the server-added `lastReadAt` below stops the backend's

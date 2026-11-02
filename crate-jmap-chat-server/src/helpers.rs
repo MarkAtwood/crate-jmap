@@ -291,7 +291,9 @@ where
 /// allow-list. A missing object leaves nothing to compare, so a read-only
 /// key is rejected.
 ///
-/// A non-object `patch` is left for the caller to reject.
+/// Returns `true` when nothing is left to apply (literal `{}`, or only
+/// identical values): the update is a no-op success. A non-object `patch`
+/// returns `false` and is left for the caller to reject.
 ///
 /// # Errors
 ///
@@ -303,17 +305,15 @@ pub(crate) async fn check_read_only_patch<B, O>(
     account_id: &Id,
     id: &Id,
     patch: &mut Value,
-) -> Result<(), Value>
+) -> Result<bool, Value>
 where
     B: ChatBackend,
     O: jmap_server::GetObject + jmap_server::SetObject + serde::Serialize + Send + Sync,
 {
     let Value::Object(map) = patch else {
-        return Ok(());
+        return Ok(false);
     };
-    jmap_server::check_read_only_patch::<B, O>(backend, caller, account_id, id, map)
-        .await
-        .map(|_| ())
+    jmap_server::check_read_only_patch::<B, O>(backend, caller, account_id, id, map).await
 }
 
 /// Keep only the keys listed in `prop_set` (plus `"id"` which callers add).

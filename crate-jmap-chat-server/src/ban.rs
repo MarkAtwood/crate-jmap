@@ -165,7 +165,8 @@ pub async fn handle_ban_changes<B: ChatBackend>(
 /// - `spaceId` and `userId` are required on create.
 /// - `bannedBy` is set server-side from `accountId`; never accepted from client.
 /// - `id`, `spaceId`, `userId`, `bannedBy`, `createdAt` are server-set/immutable
-///   and rejected in updates.
+///   and rejected in updates unless identical to the stored value (RFC 8620 §5.3); an empty patch is a
+///   no-op success.
 ///
 /// Create, update and destroy each consult
 /// [`ChatBackend::may_set_space_ban`] for the ban's Space.
@@ -356,7 +357,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
 
             // §SpaceBan: `id`, `bannedBy` and `createdAt` are server-set,
             // `spaceId` and `userId` immutable.
-            if let Err(err) = check_read_only_patch::<_, SpaceBan>(
+            match check_read_only_patch::<_, SpaceBan>(
                 backend,
                 caller,
                 &account_id,
@@ -365,8 +366,15 @@ pub async fn handle_ban_set<B: ChatBackend>(
             )
             .await
             {
-                not_updated.insert(id_str, err);
-                continue;
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
 
             // §SpaceBan/set: "`update` supports: `reason`, `expiresAt`", the

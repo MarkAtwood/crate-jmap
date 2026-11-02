@@ -968,7 +968,8 @@ fn resolve_override_targets(
 ///
 /// Validation enforced here (not in the backend):
 /// - `name` is required on create.
-/// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates.
+/// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates
+///   unless identical to the stored value (RFC 8620 §5.3); an empty patch is a no-op success.
 /// - Keys listed by [`ChatBackend::space_extension_properties`] are
 ///   accepted on create and update, except a core Space property or a
 ///   structural patch key, which keeps its core meaning (`closedAt` in an
@@ -1271,12 +1272,24 @@ pub async fn handle_space_set<B: ChatBackend>(
             // `uncategorizedChannelIds`, which change only through the
             // structural keys; a stored value repeated unchanged is dropped
             // (RFC 8620 §5.3).
-            if let Err(err) =
-                check_read_only_patch::<_, Space>(backend, caller, &account_id, &id, &mut patch_val)
-                    .await
+            match check_read_only_patch::<_, Space>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                &mut patch_val,
+            )
+            .await
             {
-                not_updated.insert(id_str, err);
-                continue;
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
 
             // The patch must be a JSON object. Reject `null`, arrays, and

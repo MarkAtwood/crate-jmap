@@ -174,7 +174,12 @@ wire behaviour that a conforming peer can observe.
   as RFC 8620 §5.3 allows ("Any server-set properties MAY be included in
   the patch if their value is identical to the current server value"),
   so a whole object from `/get` is a valid patch. A differing value is
-  still `invalidProperties`.
+  still `invalidProperties`. An empty patch, literal `{}` or empty once
+  those values are dropped, now succeeds as a no-op on these six methods:
+  `updated` maps the id to `null`, nothing is written, and the state is
+  unchanged. It was `invalidPatch` on the first four, and on
+  `ReadPosition/set` and `PresenceStatus/set` it rewrote `lastReadAt` or
+  `updatedAt`. An empty patch of a missing id is `notFound`.
 - **jmap-mail-server**: `Mailbox/set`, `Email/set`, `Identity/set`,
   `SieveScript/set` and the implicit `Email/set` of
   `EmailSubmission/set` and `MDN/send` `onSuccessUpdateEmail` accept a

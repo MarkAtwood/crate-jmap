@@ -176,8 +176,9 @@ pub async fn handle_presence_changes<B: ChatBackend>(
 /// maps).
 ///
 /// PresenceStatus is a singleton — create and destroy are forbidden. Only
-/// `update` is permitted. `id` is immutable; `updatedAt` is always injected
-/// server-side and MUST NOT be accepted from the client body.
+/// `update` is permitted. `id` and `updatedAt` are rejected in an update
+/// unless identical to the stored value (RFC 8620 §5.3); `updatedAt` is set server-side on every
+/// update except an empty patch, which is a no-op success.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_presence_set<B: ChatBackend>(
@@ -245,7 +246,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
             };
 
             // §PresenceStatus: `id` and `updatedAt` are server-set.
-            if let Err(err) = check_read_only_patch::<_, PresenceStatus>(
+            match check_read_only_patch::<_, PresenceStatus>(
                 backend,
                 caller,
                 &account_id,
@@ -254,8 +255,15 @@ pub async fn handle_presence_set<B: ChatBackend>(
             )
             .await
             {
-                not_updated.insert(id_str, err);
-                continue;
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
 
             // draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence:

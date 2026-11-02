@@ -312,7 +312,8 @@ pub async fn handle_emoji_query_changes<B: ChatBackend>(
 /// - `name` is required on create and must match `/^[a-z0-9_-]+$/`.
 /// - `blobId` is required on create.
 /// - `id`, `createdBy`, `createdAt`, `spaceId` are server-set or immutable and
-///   rejected in updates.
+///   rejected in updates unless identical to the stored value (RFC 8620 §5.3); an empty patch is a
+///   no-op success.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 ///
@@ -509,7 +510,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
 
             // §CustomEmoji: `id`, `createdBy` and `createdAt` are
             // server-set; `spaceId` is set only on create.
-            if let Err(err) = check_read_only_patch::<_, CustomEmoji>(
+            match check_read_only_patch::<_, CustomEmoji>(
                 backend,
                 caller,
                 &account_id,
@@ -518,8 +519,15 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             )
             .await
             {
-                not_updated.insert(id_str, err);
-                continue;
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
 
             // §CustomEmoji/set: "`update` supports: `name`, `blobId`", the
