@@ -1,5 +1,6 @@
-//! Server-set values and empty patches in `VTCCall/set` and
-//! `VTCParticipant/set` updates (bd:JMAP-t8ej.25.2).
+//! Server-set values and empty patches in `VTCCall/set`,
+//! `VTCParticipant/set` (bd:JMAP-t8ej.25.2), `VTCRecording/set` and
+//! `VTCLivestream/set` (bd:JMAP-t8ej.27.3) updates.
 //!
 //! Oracle, RFC 8620 §5.3 (update): "Any server-set properties MAY be
 //! included in the patch if their value is identical to the current server
@@ -11,11 +12,15 @@
 //! id to null, nothing is written, and the state is unchanged (decision
 //! recorded on JMAP-t8ej.25).
 
+#[macro_use]
 mod common;
 
 use common::*;
-use jmap_vtc_server::handle_vtc_participant_set;
 use jmap_vtc_server::memory::MemoryBackend;
+use jmap_vtc_server::{
+    handle_vtc_livestream_get, handle_vtc_livestream_set, handle_vtc_participant_get,
+    handle_vtc_participant_set, handle_vtc_recording_get, handle_vtc_recording_set,
+};
 use serde_json::{Value, json};
 
 /// Assert `resp` reports `id` as a no-op update: `updated[id]` is null,
@@ -63,6 +68,19 @@ async fn pset(backend: &MemoryBackend, mut args: Value) -> Value {
     .primary
 }
 
+/// [`BOB`]'s view of VTCParticipant `id`, as `/get` returns it.
+async fn pget(backend: &MemoryBackend, id: &str) -> Value {
+    handle_vtc_participant_get(
+        backend,
+        &BOB.to_owned(),
+        json!({ "accountId": ACCOUNT, "ids": [id] }),
+    )
+    .await
+    .expect("VTCParticipant/get")
+    .primary["list"][0]
+        .clone()
+}
+
 /// [`BOB`] joins a new room call; returns his VTCParticipant as `/get`
 /// returns it.
 async fn joined(backend: &MemoryBackend) -> Value {
@@ -74,17 +92,8 @@ async fn joined(backend: &MemoryBackend) -> Value {
     .await;
     let id = resp["created"]["p0"]["id"]
         .as_str()
-        .unwrap_or_else(|| panic!("join failed: {resp}"))
-        .to_owned();
-    jmap_vtc_server::handle_vtc_participant_get(
-        backend,
-        &BOB.to_owned(),
-        json!({ "accountId": ACCOUNT, "ids": [id] }),
-    )
-    .await
-    .expect("VTCParticipant/get")
-    .primary["list"][0]
-        .clone()
+        .unwrap_or_else(|| panic!("join failed: {resp}"));
+    pget(backend, id).await
 }
 
 /// The VTCCall server-set and immutable properties a room call has.
@@ -169,6 +178,7 @@ async fn participant_identical_server_set_values_are_a_noop() {
     let patch = pick(&before, PARTICIPANT_READ_ONLY);
     let resp = pset(&backend, json!({ "update": { &id: patch } })).await;
     assert_noop(&resp, &id);
+    assert_eq!(pget(&backend, &id).await, before);
 }
 
 /// Decision on JMAP-t8ej.25: a literal `{}` is a no-op success.
@@ -179,6 +189,7 @@ async fn participant_empty_patch_is_a_noop() {
     let id = before["id"].as_str().expect("id").to_owned();
     let resp = pset(&backend, json!({ "update": { &id: {} } })).await;
     assert_noop(&resp, &id);
+    assert_eq!(pget(&backend, &id).await, before);
 }
 
 /// §5.3 "Otherwise, the update MUST be rejected with an
@@ -196,4 +207,188 @@ async fn participant_changed_server_set_value_is_invalid_properties() {
     let err = &resp["notUpdated"][&id];
     assert_eq!(err["type"], "invalidProperties", "{resp}");
     assert_eq!(err["properties"], json!(["speakerTimeMs"]), "{resp}");
+}
+
+/// The VTCRecording server-set and immutable properties,
+/// draft-atwood-jmap-vtc-00 L535-563 (jmap-chat-spec 77c3474).
+const RECORDING_READ_ONLY: &[&str] = &[
+    "id",
+    "callId",
+    "startedAt",
+    "stoppedAt",
+    "initiatedBy",
+    "blobId",
+    "size",
+    "duration",
+    "mediaType",
+];
+
+/// The VTCLivestream server-set and immutable properties this crate
+/// stores, draft-atwood-jmap-vtc-00 L572-609 (jmap-chat-spec 77c3474).
+const LIVESTREAM_READ_ONLY: &[&str] = &["id", "callId", "startedAt", "stoppedAt"];
+
+/// Run `VTCRecording/set` as `caller` with `args`.
+async fn rset(backend: &MemoryBackend, caller: &str, args: Value) -> Value {
+    call!(ids handle_vtc_recording_set, backend, caller, args)
+}
+
+/// VTCRecording `id` as `/get` returns it to [`BOB`].
+async fn rget(backend: &MemoryBackend, id: &str) -> Value {
+    call!(
+        handle_vtc_recording_get,
+        backend,
+        BOB,
+        json!({ "ids": [id] })
+    )["list"][0]
+        .clone()
+}
+
+/// Run `VTCLivestream/set` as [`BOB`] with `args`.
+async fn lset(backend: &MemoryBackend, args: Value) -> Value {
+    call!(ids handle_vtc_livestream_set, backend, BOB, args)
+}
+
+/// VTCLivestream `id` as `/get` returns it to [`BOB`], a moderator.
+async fn lget(backend: &MemoryBackend, id: &str) -> Value {
+    call!(
+        handle_vtc_livestream_get,
+        backend,
+        BOB,
+        json!({ "ids": [id] })
+    )["list"][0]
+        .clone()
+}
+
+/// A `media_backend` with recording R1 in state `"recording"`.
+fn recording_backend() -> MemoryBackend {
+    let backend = media_backend();
+    seed_as(
+        &backend,
+        "VTCRecording",
+        stored_recording("R1", "recording", "2026-06-05T14:40:00Z"),
+    );
+    backend
+}
+
+/// A `media_backend` with livestream L1 in state `"live"`.
+fn livestream_backend() -> MemoryBackend {
+    let backend = media_backend();
+    seed_as(
+        &backend,
+        "VTCLivestream",
+        stored_livestream("L1", "live", json!("2026-06-05T14:41:00Z")),
+    );
+    backend
+}
+
+/// §5.3: server-set and immutable VTCRecording values sent as `/get`
+/// returns them are allowed; with nothing else, the update is a no-op, so
+/// no `VTCRecordingStateEvent` is delivered either.
+#[tokio::test]
+async fn recording_identical_server_set_values_are_a_noop() {
+    let backend = recording_backend();
+    let before = rget(&backend, "R1").await;
+    let patch = pick(&before, RECORDING_READ_ONLY);
+    let resp = rset(&backend, BOB, json!({ "update": { "R1": patch } })).await;
+    assert_noop(&resp, "R1");
+    assert_eq!(rget(&backend, "R1").await, before);
+    assert!(backend.recording_events_for_test().is_empty());
+}
+
+/// Decision on JMAP-t8ej.25: a literal `{}` is a no-op success.
+#[tokio::test]
+async fn recording_empty_patch_is_a_noop() {
+    let backend = recording_backend();
+    let before = rget(&backend, "R1").await;
+    let resp = rset(&backend, BOB, json!({ "update": { "R1": {} } })).await;
+    assert_noop(&resp, "R1");
+    assert_eq!(rget(&backend, "R1").await, before);
+}
+
+/// §5.3: identical server-set values do not block the `state` change
+/// beside them (draft-atwood-jmap-vtc-00 L1289 `"recording"` ->
+/// `"paused"`).
+#[tokio::test]
+async fn recording_identical_values_beside_a_state_change_apply() {
+    let backend = recording_backend();
+    let mut patch = pick(&rget(&backend, "R1").await, RECORDING_READ_ONLY);
+    patch["state"] = json!("paused");
+    let resp = rset(&backend, BOB, json!({ "update": { "R1": patch } })).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(rget(&backend, "R1").await["state"], "paused");
+}
+
+/// §5.3 "Otherwise, the update MUST be rejected with an
+/// "invalidProperties" SetError."
+#[tokio::test]
+async fn recording_changed_server_set_value_is_invalid_properties() {
+    let backend = recording_backend();
+    let resp = rset(
+        &backend,
+        BOB,
+        json!({ "update": { "R1": { "startedAt": "2000-01-01T00:00:00Z" } } }),
+    )
+    .await;
+    let err = &resp["notUpdated"]["R1"];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["startedAt"]), "{resp}");
+}
+
+/// L1258 "Non-moderators SHOULD receive `forbidden`", checked before the
+/// no-op exit: ALICE is no moderator of C1.
+#[tokio::test]
+async fn recording_empty_patch_by_non_moderator_is_forbidden() {
+    let backend = recording_backend();
+    let resp = rset(&backend, ALICE, json!({ "update": { "R1": {} } })).await;
+    assert_eq!(resp["notUpdated"]["R1"]["type"], "forbidden", "{resp}");
+}
+
+/// §5.3: server-set and immutable VTCLivestream values sent as `/get`
+/// returns them are allowed; with nothing else, the update is a no-op.
+#[tokio::test]
+async fn livestream_identical_server_set_values_are_a_noop() {
+    let backend = livestream_backend();
+    let before = lget(&backend, "L1").await;
+    let patch = pick(&before, LIVESTREAM_READ_ONLY);
+    let resp = lset(&backend, json!({ "update": { "L1": patch } })).await;
+    assert_noop(&resp, "L1");
+    assert_eq!(lget(&backend, "L1").await, before);
+}
+
+/// Decision on JMAP-t8ej.25: a literal `{}` is a no-op success.
+#[tokio::test]
+async fn livestream_empty_patch_is_a_noop() {
+    let backend = livestream_backend();
+    let before = lget(&backend, "L1").await;
+    let resp = lset(&backend, json!({ "update": { "L1": {} } })).await;
+    assert_noop(&resp, "L1");
+    assert_eq!(lget(&backend, "L1").await, before);
+}
+
+/// §5.3: identical server-set values do not block the stop beside them
+/// (draft-atwood-jmap-vtc-00 L1462 "`update` with `state: "stopped"` ends
+/// the stream").
+#[tokio::test]
+async fn livestream_identical_values_beside_a_stop_apply() {
+    let backend = livestream_backend();
+    let mut patch = pick(&lget(&backend, "L1").await, LIVESTREAM_READ_ONLY);
+    patch["state"] = json!("stopped");
+    let resp = lset(&backend, json!({ "update": { "L1": patch } })).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(lget(&backend, "L1").await["state"], "stopped");
+}
+
+/// §5.3 "Otherwise, the update MUST be rejected with an
+/// "invalidProperties" SetError."
+#[tokio::test]
+async fn livestream_changed_server_set_value_is_invalid_properties() {
+    let backend = livestream_backend();
+    let resp = lset(
+        &backend,
+        json!({ "update": { "L1": { "stoppedAt": "2000-01-01T00:00:00Z" } } }),
+    )
+    .await;
+    let err = &resp["notUpdated"]["L1"];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["stoppedAt"]), "{resp}");
 }
