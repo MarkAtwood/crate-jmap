@@ -46,7 +46,7 @@ use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, now_utc_string, reject_unsupported_sort,
 };
-use crate::helpers::{resolve_entry_refs, resolve_refs, resolved_create};
+use crate::helpers::{resolve_entry_refs, resolve_refs, resolved_create, strip_read_only_patch};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, is_client_updatable, reject_server_set,
@@ -1183,36 +1183,21 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 continue;
             }
 
-            // Only the keys §Chat/set "Updating a Chat" defines may be
-            // patched: the client-settable Chat properties that are not
-            // immutable, and [`MEMBER_PATCH_KEYS`]. Any other key names a
-            // server-set, immutable or `Space/set`-managed property and is
-            // `invalidProperties` (RFC 8620 §5.3). JSON Pointer paths count
-            // by their first segment.
-            let bad_props: Vec<&str> = patch_val
-                .as_object()
-                .map(|obj| {
-                    obj.keys()
-                        .map(String::as_str)
-                        .filter(|k| {
-                            let top = k.split('/').next().unwrap_or(k);
-                            !(is_client_updatable::<Chat>(top) || MEMBER_PATCH_KEYS.contains(&top))
-                        })
-                        .collect()
-                })
-                .unwrap_or_default();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
-                continue;
-            }
+            // draft-ietf-jmap-metadata-05 §3.2: patch errors "that can be
+            // determined from the request alone ... MUST be reported with
+            // "invalidPatch"" before `notFound`.
             if let Some(Err(err)) = patch_val
                 .as_object()
                 .map(|o| check_metadata_entry(o, false, using))
             {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Some(Err(e)) = patch_val.as_object().map(jmap_server::check_patch_paths) {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidPatch", "description": e.to_string() }),
+                );
                 continue;
             }
 
@@ -1230,9 +1215,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
 
-            // The stored Chat, read once for every check below. A Chat
-            // that does not resolve is left for update_object to surface
-            // `notFound`.
+            // The stored Chat, read once for every check below.
             let stored = match backend
                 .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
                 .await
@@ -1243,23 +1226,58 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             };
+            let Some(chat) = &stored else {
+                not_updated.insert(id_str, Value::from(&SetError::new(SetErrorType::NotFound)));
+                continue;
+            };
+
+            // RFC 8620 §5.3: "Any server-set properties MAY be included in
+            // the patch if their value is identical to the current server
+            // value ... Otherwise, the update MUST be rejected with an
+            // "invalidProperties" SetError." Identical values are dropped
+            // here, so the checks below see only the client changes.
+            if let Err(err) = strip_read_only_patch::<Chat>(patch.as_map_mut(), chat) {
+                not_updated.insert(id_str, err);
+                continue;
+            }
+
+            // Only the keys §Chat/set "Updating a Chat" defines may be
+            // patched: the client-settable Chat properties that are not
+            // immutable, and [`MEMBER_PATCH_KEYS`]. Any other key is
+            // `invalidProperties`. JSON Pointer paths count by their first
+            // segment.
+            let bad_props: Vec<&str> = patch
+                .as_map()
+                .keys()
+                .map(String::as_str)
+                .filter(|k| {
+                    let top = k.split('/').next().unwrap_or(k);
+                    !(is_client_updatable::<Chat>(top) || MEMBER_PATCH_KEYS.contains(&top))
+                })
+                .collect();
+            if !bad_props.is_empty() {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidProperties", "properties": bad_props }),
+                );
+                continue;
+            }
+
             // Per-Chat restrictions of extension-bound Chats; see
             // `ChatBackend::may_update_chat`.
-            if let Some(chat) = &stored {
-                let patch_keys: Vec<&str> = patch.as_map().keys().map(String::as_str).collect();
-                match backend
-                    .may_update_chat(caller, &account_id, chat, &patch_keys)
-                    .await
-                {
-                    Ok(Ok(())) => {}
-                    Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
+            let patch_keys: Vec<&str> = patch.as_map().keys().map(String::as_str).collect();
+            match backend
+                .may_update_chat(caller, &account_id, chat, &patch_keys)
+                .await
+            {
+                Ok(Ok(())) => {}
+                Ok(Err(set_err)) => {
+                    not_updated.insert(id_str, serde_json::Value::from(&set_err));
+                    continue;
+                }
+                Err(e) => {
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                    continue;
                 }
             }
 
@@ -1275,7 +1293,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 let top = k.split('/').next().unwrap_or(k);
                 MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
             });
-            if touches_closed_keys && let Some(chat) = &stored {
+            if touches_closed_keys {
                 if chat.closed_at.is_some() {
                     not_updated.insert(
                         id_str,
@@ -1306,6 +1324,13 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             }
 
+            // Nothing left once identical values are dropped (or a literal
+            // `{}`): a no-op success with no write (RFC 8620 §5.3).
+            if patch.is_empty() {
+                updated.insert(id_str, Value::Null);
+                continue;
+            }
+
             // draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat": the
             // member patch keys are operations on `members`, not
             // properties. They are applied to the stored list here and
@@ -1317,10 +1342,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
             if MEMBER_PATCH_KEYS
                 .iter()
                 .any(|k| patch.as_map().contains_key(*k))
-                && let Some(stored) = &stored
             {
                 let max_members = backend.limits(caller, &account_id).max_group_chat_members;
-                match apply_member_patch_keys(stored, &account_id, patch.as_map(), max_members) {
+                match apply_member_patch_keys(chat, &account_id, patch.as_map(), max_members) {
                     Ok((members, closes)) => {
                         member_change = Some((members.clone(), closes));
                         let map = patch.as_map_mut();
@@ -1375,9 +1399,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // ponytail: check-then-update is not atomic; a Message
             // hard-deleted between the two leaves a stale pin. A backend
             // needing strictness re-checks inside its update transaction.
-            if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds")
-                && let Some(stored) = &stored
-            {
+            if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds") {
                 let pins = match new_pins
                     .iter()
                     .filter_map(Value::as_str)
@@ -1392,7 +1414,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 };
                 let added: Vec<Id> = pins
                     .into_iter()
-                    .filter(|pin| !stored.pinned_message_ids.contains(pin))
+                    .filter(|pin| !chat.pinned_message_ids.contains(pin))
                     .collect();
                 if !added.is_empty() {
                     match backend
