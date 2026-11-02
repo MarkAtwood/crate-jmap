@@ -51,7 +51,7 @@ use crate::helpers::{
     finalize_set_response, reject_unsupported_sort, resolve_refs,
 };
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, bool_arg, reject_read_only_patch, reject_server_set,
+    HandlerOutput, backend_set_error_value, bool_arg, check_read_only_patch, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend,
 };
 
@@ -334,32 +334,6 @@ pub async fn handle_task_set<B: TasksBackend>(
                 }
             };
 
-            // Route to the per-user update path when every patch key targets
-            // a per-user Task property (draft-tasks-06 §4.5.1).
-            //
-            // PatchObject keys are RFC 6901 JSON Pointers (RFC 8620 §5.3), so a
-            // per-user keyword toggle is sent as `keywords/done`, not bare
-            // `keywords`. Classify on the FIRST pointer segment (the substring
-            // before the first '/'), not the whole key.
-            //
-            // The null short-circuit that was here previously (`v.is_null() ||
-            // ...`) misclassified a delete-shared-property patch like
-            // `{"title": null}` as per-user-only, and an empty patch object as
-            // per-user-only via vacuous-truth on `iter().all`. Both go to
-            // `update_object` now: deletions are shared mutations, and an
-            // empty patch is a no-op that should not bump per-user state.
-            //
-            // Per-user property names (`keywords`, `color`, `freeBusyStatus`,
-            // `useDefaultAlerts`, `alerts`) contain no `/` or `~`, so a plain
-            // `split('/').next()` is correct without RFC 6901 unescaping.
-            let is_per_user_only = patch_val.as_object().is_some_and(|m| {
-                !m.is_empty()
-                    && m.keys().all(|k| {
-                        let head = k.split('/').next().unwrap_or(k);
-                        jmap_tasks_types::is_per_user_task_property(head)
-                    })
-            });
-
             if let Err(err) = resolve_refs(&mut patch_val, TASK_ID_PROPERTIES, created_ids) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
@@ -367,10 +341,8 @@ pub async fn handle_task_set<B: TasksBackend>(
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError. Conversion runs
-            // after the isDraft and per-user-routing introspection above so
-            // those checks operate on the raw wire shape.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            // values produce an `invalidPatch` SetError.
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -380,10 +352,49 @@ pub async fn handle_task_set<B: TasksBackend>(
                     continue;
                 }
             };
-            if let Some(err) = reject_read_only_patch::<Task>(patch.as_map(), None) {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
-                continue;
+            // draft-ietf-jmap-tasks-06 §4: `id`, `baseTaskId` and `isOrigin`
+            // are server-set. A changed value is rejected, an identical one
+            // dropped (RFC 8620 §5.3); nothing left is a no-op success.
+            match check_read_only_patch::<_, Task>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                patch.as_map_mut(),
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
+
+            // Route to the per-user update path when every patch key targets
+            // a per-user Task property (draft-tasks-06 §4.5.1). Classified
+            // after the identical server-set values are dropped above, so
+            // they do not force a per-user change onto the shared path.
+            //
+            // PatchObject keys are RFC 6901 JSON Pointers (RFC 8620 §5.3), so a
+            // per-user keyword toggle is sent as `keywords/done`, not bare
+            // `keywords`. Classify on the FIRST pointer segment (the substring
+            // before the first '/'), not the whole key.
+            //
+            // A delete-shared-property patch like `{"title": null}` is a
+            // shared mutation and goes to `update_object`.
+            //
+            // Per-user property names (`keywords`, `color`, `freeBusyStatus`,
+            // `useDefaultAlerts`, `alerts`) contain no `/` or `~`, so a plain
+            // `split('/').next()` is correct without RFC 6901 unescaping.
+            let is_per_user_only = patch.as_map().keys().all(|k| {
+                let head = k.split('/').next().unwrap_or(k);
+                jmap_tasks_types::is_per_user_task_property(head)
+            });
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
@@ -1442,6 +1453,30 @@ mod tests {
             backend.per_user_calls.load(Ordering::Relaxed),
             1,
             "JSON-pointer patch on per-user properties must route to update_task_per_user"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 "Any server-set properties MAY be included in
+    /// the patch if their value is identical to the current server value"
+    /// and draft-tasks-06 §4.5.1: an identical `id` is no change, so a
+    /// patch of it and a per-user keyword toggle is per-user only and
+    /// routes to update_task_per_user.
+    #[tokio::test]
+    async fn set_identical_id_with_per_user_patch_routes_to_per_user_update() {
+        use std::sync::atomic::Ordering;
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.seed_task("acc1", "t1", false);
+        let args = json!({
+            "accountId": "acc1",
+            "update": { "t1": { "id": "t1", "keywords/done": true } }
+        });
+        let _ = handle_task_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])
+            .await
+            .expect("must not return top-level error");
+        assert_eq!(
+            backend.per_user_calls.load(Ordering::Relaxed),
+            1,
+            "identical id must not move a per-user patch to update_object"
         );
     }
 

@@ -28,8 +28,8 @@ use crate::helpers::{
 };
 use jmap_server::{
     HandlerOutput, SetError, SetErrorType, backend_set_error_value, now_utc_string,
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    strip_read_only_patch,
 };
 
 /// The mandatory-to-implement visual asset media type: "The IANA media
@@ -435,7 +435,8 @@ async fn fetch_modifiable<B: SceneBackend>(
 
 /// One §SceneAsset/set update. `Ok` is the `updated` echo.
 /// Vendor extension properties stay patchable and the spec-defined immutable
-/// or server-set ones do not (§Extension Properties in Updates,
+/// or server-set ones do not, unless sent with their stored value (RFC 8620
+/// §5.3) (§Extension Properties in Updates,
 /// jmap-chat-spec 77c3474 L736: "MAY also accept patches to them";
 /// "Patches to a property this document defines as immutable or server-set
 /// are rejected as {{RFC8620}} Section 5.3 describes").
@@ -446,21 +447,29 @@ async fn update_asset<B: SceneBackend>(
     id: &Id,
     patch: Value,
 ) -> Result<Value, Value> {
-    let patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
+    let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
         serde_json::Value::from(
             &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
         )
     })?;
-    fetch_modifiable(backend, caller, account_id, id).await?;
+    let asset = fetch_modifiable(backend, caller, account_id, id).await?;
+    let Value::Object(stored) = jmap_server::serialize_value(&asset)
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
+    else {
+        unreachable!("a SceneAsset serializes as a JSON object")
+    };
 
-    // "Attempting to change a property other than `name`, `assetUri`, or
-    // `sha256`" is `invalidProperties` for each server-set or immutable
-    // property; vendor extension properties stay patchable
-    // (§Extension Properties in Updates).
-    if let Some(e) = reject_read_only_patch::<SceneAsset>(patch.as_map(), None) {
-        return Err(serde_json::Value::from(
-            &e.with_description("these properties cannot be changed"),
-        ));
+    // 77c3474 L912: "Attempting to change `id`, `accountId`, `ownerId`,
+    // `blobId`, `mediaType`, `size`, or `createdAt`" is `invalidProperties`;
+    // an identical value is dropped (RFC 8620 §5.3). Vendor extension
+    // properties stay patchable (§Extension Properties in Updates).
+    strip_read_only_patch::<SceneAsset>(patch.as_map_mut(), Some(&stored)).map_err(|e| {
+        serde_json::Value::from(&(*e).with_description("these properties cannot be changed"))
+    })?;
+    // An empty patch, literal or left empty above, is a no-op success
+    // (decision on JMAP-t8ej.25): nothing is written.
+    if patch.as_map().is_empty() {
+        return Ok(Value::Null);
     }
     let cap = capability(backend, caller, account_id).await?;
     let bad = malformed(patch.as_map(), &cap);

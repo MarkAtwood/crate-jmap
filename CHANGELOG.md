@@ -227,6 +227,29 @@ wire behaviour that a conforming peer can observe.
   (`updated` maps the id to `null`, no write, state unchanged, no
   `VTCRecordingStateEvent`) once the moderator gate has passed; `{}` was
   applied as a write before.
+- **jmap-scene-server**: SceneAsset/set update accepts a server-set or
+  immutable property (`id`, `accountId`, `ownerId`, `blobId`, `mediaType`,
+  `size`, `createdAt`) repeated with its stored value, as RFC 8620 §5.3
+  allows, and drops it; a changed value is still `invalidProperties`. A
+  patch left empty, or `{}`, is a no-op success (`updated` maps the id to
+  `null`, no write, state unchanged) once the owner/admin gate has passed;
+  `{}` went to the backend as an update before. A SceneAvatar/set eject by
+  a region owner or administrator that also repeats a server-set value
+  with its stored value (`{"leftAt": ..., "id": ...}`) now ejects instead
+  of being `forbidden`; a changed one still is.
+- **jmap-tasks-server**: Task/set and TaskList/set updates accept a
+  server-set property (`id`, `baseTaskId`, `isOrigin`, `myRights`)
+  repeated with its stored value, as RFC 8620 §5.3 allows, and drop it; a
+  changed value is still `invalidProperties`. A patch left empty, or `{}`,
+  is a no-op success (`updated` maps the id to `null`, no write, state
+  unchanged); an empty patch of a missing id is `notFound`. Task/set
+  routes a patch to the per-user path on its keys less the dropped ones.
+- **jmap-sharing-server**: Principal/set update accepts a server-set
+  property (`id`, `capabilities`, `accounts`) repeated with its stored
+  value, as RFC 8620 §5.3 allows, and drops it; a changed value is still
+  `invalidProperties`. A patch left empty, or `{}`, is a no-op success
+  (`updated` maps the id to `null`, no write, state unchanged); an empty
+  patch of a missing id is `notFound`.
 - **BREAKING** **jmap-chat-filenode-server**: `space_files_rights` and the
   `check_space_update` / `check_space_destroy` gates follow the
   draft-atwood-jmap-chat-filenode-00 §Permission Mapping table rewritten

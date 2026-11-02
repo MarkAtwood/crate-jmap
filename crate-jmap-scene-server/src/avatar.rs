@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 
 use jmap_scene_types::SceneAvatarComparator;
 use jmap_scene_types::{SceneAvatar, SceneRegion};
-use jmap_types::{Id, JmapError, PatchObject};
+use jmap_types::{Id, JmapError, PatchObject, SetObject};
 use serde_json::{Map, Value, json};
 
 use crate::SceneBackend;
@@ -497,8 +497,24 @@ async fn update_avatar<B: SceneBackend>(
         return Err(not_found());
     }
 
+    let Value::Object(mut result) = jmap_server::serialize_value(&avatar)
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
+    else {
+        unreachable!("a SceneAvatar serializes as a JSON object")
+    };
+    // A server-set or immutable property sent with its stored value is not
+    // a change (RFC 8620 §5.3), so it does not count against an eject
+    // ("an eject update patches no other property", 77c3474 L2524). A
+    // changed one stays, so another user's patch with it is `forbidden`.
+    let read_only =
+        |k: &str| SceneAvatar::SERVER_SET.contains(&k) || SceneAvatar::IMMUTABLE.contains(&k);
     let top = |k: &str| k.split('/').next().unwrap_or(k).to_owned();
-    let patched: Vec<String> = patch.as_map().keys().map(|k| top(k)).collect();
+    let patched: Vec<String> = patch
+        .as_map()
+        .iter()
+        .filter(|(k, v)| !(read_only(k) && result.get(*k).unwrap_or(&Value::Null) == *v))
+        .map(|(k, _)| top(k))
+        .collect();
     let touched = |k: &str| patched.iter().any(|p| p == k);
     let left_to = patch.as_map().get("leftAt").cloned();
 
@@ -523,11 +539,6 @@ async fn update_avatar<B: SceneBackend>(
         }
     }
 
-    let Value::Object(mut result) = jmap_server::serialize_value(&avatar)
-        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?
-    else {
-        unreachable!("a SceneAvatar serializes as a JSON object")
-    };
     // After the ownership check, so another user's avatar is `forbidden`
     // whatever the patch holds (§Avatar Permissions).
     // §SceneAvatar: `id`, `userId` and `joinedAt` are server-set, `regionId`

@@ -448,6 +448,70 @@ async fn update_of_unknown_asset_is_not_found() {
     assert_eq!(err["type"], json!("notFound"));
 }
 
+async fn get_s1(backend: &MemoryBackend) -> Value {
+    call!(
+        handle_scene_asset_get,
+        backend,
+        ALICE,
+        json!({ "ids": ["S1"] })
+    )["list"][0]
+        .clone()
+}
+
+#[tokio::test]
+async fn identical_server_set_values_are_a_noop() {
+    // RFC 8620 §5.3: "Any server-set properties MAY be included in the
+    // patch if their value is identical to the current server value
+    // (before applying the patches to the object)." 77c3474 L912 names
+    // `id`, `accountId`, `ownerId`, `blobId`, `mediaType`, `size` and
+    // `createdAt` immutable or server-set. With nothing else, the update
+    // is a no-op (decision on JMAP-t8ej.25): `updated` maps the id to
+    // null and the state does not move.
+    let backend = seeded();
+    let before = get_s1(&backend).await;
+    let patch = json!({
+        "id": "S1",
+        "accountId": ACCOUNT,
+        "ownerId": ALICE,
+        "blobId": "blob-S1",
+        "mediaType": "model/gltf-binary",
+        "size": 10,
+        "createdAt": "2026-06-06T10:05:00Z"
+    });
+    let resp = set(&backend, ALICE, json!({ "update": { "S1": patch } })).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(resp["updated"], json!({ "S1": null }), "{resp}");
+    assert_eq!(resp["oldState"], resp["newState"], "{resp}");
+    assert_eq!(get_s1(&backend).await, before);
+}
+
+#[tokio::test]
+async fn identical_server_set_value_with_change_applies() {
+    // RFC 8620 §5.3: an identical server-set value is allowed, so the
+    // L764 `name` change next to it applies.
+    let backend = seeded();
+    update(
+        &backend,
+        ALICE,
+        json!({ "ownerId": ALICE, "size": 10, "name": "Renamed" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(get_s1(&backend).await["name"], json!("Renamed"));
+}
+
+#[tokio::test]
+async fn identical_server_set_values_from_non_owner_are_forbidden() {
+    // L778 "Caller does not own the asset and lacks admin privileges" is
+    // `forbidden`, whatever the patch holds: the permission check comes
+    // before the no-op.
+    let backend = seeded();
+    let err = update(&backend, BOB, json!({ "id": "S1" }))
+        .await
+        .unwrap_err();
+    assert_eq!(err["type"], json!("forbidden"));
+}
+
 #[tokio::test]
 async fn update_to_unsupported_media_type_is_invalid() {
     // 6bcd9d8 L284 `mediaType` "(String, immutable)"; L844 lists it among

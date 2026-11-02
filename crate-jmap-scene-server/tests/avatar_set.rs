@@ -889,6 +889,41 @@ async fn double_leave_is_invalid_properties() {
 }
 
 #[tokio::test]
+async fn eject_with_identical_server_set_values_applies() {
+    // 77c3474 L2524 "region owners and administrators may set `leftAt` on
+    // another user's avatar to eject them; an eject update patches no
+    // other property". RFC 8620 §5.3: "Any server-set properties MAY be
+    // included in the patch if their value is identical to the current
+    // server value", so repeating L678 `id` and L684 `userId` changes no
+    // other property.
+    let backend = setup();
+    let alice = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let eject = json!({ "leftAt": "2026-06-06T10:22:15Z", "id": alice, "userId": ALICE });
+    let resp = update(&backend, BOB, &alice, eject).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert!(get(&backend, &alice).await["leftAt"].is_string());
+    assert_eq!(active_avatar_count(&backend, REGION).await, 0);
+}
+
+#[tokio::test]
+async fn eject_with_changed_server_set_value_is_forbidden() {
+    // 77c3474 L2524: another user's avatar takes only a `leftAt` eject; a
+    // changed `userId` is another property, so `forbidden`.
+    let backend = setup();
+    let alice = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let eject = json!({ "leftAt": "2026-06-06T10:22:15Z", "userId": CAROL });
+    let err = update_error(&backend, BOB, &alice, eject).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
+    assert_eq!(get(&backend, &alice).await["leftAt"], Value::Null);
+}
+
+#[tokio::test]
 async fn spec_eject_example() {
     // 6bcd9d8 L2624 "Region owners and administrators MAY eject avatars by
     // setting `leftAt` on another user's SceneAvatar; the server records
