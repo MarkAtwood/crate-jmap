@@ -178,6 +178,12 @@ wire behaviour that a conforming peer can observe.
   non-null `isSubscribed` or `shareWith` (or a `shareWith/<id>` patch) on
   a File or SymLink with `invalidProperties` (-19 §3.1); before, the value
   was accepted and silently dropped.
+- **jmap-filenode-server**: a `FileNode/copy` whose create entry overrides
+  `@type` drops the source properties the new `@type` does not define (a
+  Directory's `role` or `isSubscribed` copied as a File) instead of
+  rejecting the copy with `invalidProperties`. -19 §3.1 makes only a
+  property the client sets an error, and "Properties that this document
+  defines for one type MUST NOT appear on a FileNode of another type".
 
 ### Removed
 
@@ -205,6 +211,11 @@ wire behaviour that a conforming peer can observe.
   can destroy, rename, or move the root through `FileNode/set`": a
   `"manage_space"` member who could before is now refused with
   `forbidden`; the root goes only with its Space.
+- **jmap-filenode-server**: `MemoryBackend` checks a metadata write to a
+  File or SymLink against its parent Directory's `maySetMetadata`, as
+  draft-ietf-jmap-filenode-19 §5 gives such a node "no myRights. The
+  user's rights on it are those in its parent's myRights". Since Files
+  stopped carrying `myRights`, every metadata write to one was accepted.
 - **jmap-filenode-server**: `FileNode/set` and `FileNode/copy` enforce
   `maxFileNodeDepth` (draft-ietf-jmap-filenode-19: "one more than the
   maximum number of ancestors a FileNode may have"). A create or copy whose

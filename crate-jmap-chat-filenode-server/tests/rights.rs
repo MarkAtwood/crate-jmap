@@ -445,6 +445,24 @@ async fn nobody_renames_or_moves_the_root() {
     }
 }
 
+/// L177 refuses only a rename or move of the root. A patch restating the
+/// root's stored `name` ("S1" in the fixture) and its `parentId` null
+/// renames and moves nothing, so a member holding `mayRename` (L167) may
+/// send it.
+#[tokio::test]
+async fn restating_root_name_and_parent_passes() {
+    for permission in ["manage_channels", "manage_space"] {
+        let f = Fixture::new(&[permission]);
+        for patch in [
+            json!({ "name": "S1" }),
+            json!({ "parentId": null }),
+            json!({ "name": "S1", "parentId": null }),
+        ] {
+            assert_eq!(f.update("root", patch).await, None, "{permission}");
+        }
+    }
+}
+
 /// L167: `mayModifyContent` is granted on Directories too, the root
 /// included (L169), so `"manage_channels"` may set the root's `modified`.
 #[tokio::test]

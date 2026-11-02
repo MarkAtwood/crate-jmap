@@ -2968,6 +2968,70 @@ async fn filenode_copy_rejects_other_type_property() {
     assert_eq!(err["properties"], json!(["executable"]), "{resp}");
 }
 
+// Oracle: draft-ietf-jmap-filenode-19 §3.1 — "Properties that this document
+// defines for one type MUST NOT appear on a FileNode of another type; they
+// are omitted rather than set to null." Only a property the client sets is
+// an error: one the source carries but the overriding @type does not
+// define is dropped from the copy.
+#[tokio::test]
+async fn filenode_copy_type_override_drops_source_type_properties() {
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    let HandlerOutput { primary: seed, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "src",
+            "create": { "s": { "@type": "Directory", "name": "documents", "parentId": null,
+                               "role": "documents", "isSubscribed": false } }
+        }),
+        &[],
+    )
+    .await
+    .expect("seed must not return top-level error");
+    let src_id = seed["created"]["s"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("seed directory must be created: {seed}"))
+        .to_owned();
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": { "c": { "id": &src_id, "@type": "File", "blobId": "b1" } }
+        }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["notCreated"].is_null(), "{resp}");
+    let new_id = resp["created"]["c"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("copy must be created: {resp}"))
+        .to_owned();
+    let HandlerOutput { primary: got, .. } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "dst", "ids": [&new_id] }),
+        &[],
+    )
+    .await
+    .expect("FileNode/get must succeed");
+    let copy = got["list"][0]
+        .as_object()
+        .unwrap_or_else(|| panic!("copy must be returned: {got}"));
+    assert_eq!(copy["@type"], json!("File"), "{got}");
+    for prop in ["role", "isSubscribed"] {
+        assert!(!copy.contains_key(prop), "{prop} must be omitted: {got}");
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Container properties on a File or SymLink.
 // Oracle: draft-ietf-jmap-filenode-19 §3.1.2 — isSubscribed and shareWith

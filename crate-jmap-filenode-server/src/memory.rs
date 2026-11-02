@@ -395,9 +395,10 @@ impl MemoryBackend {
     /// job: list `info` under `"FileNode"` in the account's
     /// `urn:ietf:params:jmap:metadata` `dataTypes`.
     ///
-    /// A FileNode has a rights object of its own (-05 §4.1 names FileNode
-    /// among the types with `myRights`), so an update that writes
-    /// `metadata` needs `myRights.maySetMetadata` on the node itself; an
+    /// -05 §4.1 names FileNode among the types with `myRights`, so an
+    /// update that writes `metadata` needs `myRights.maySetMetadata`: on
+    /// the node itself, or for a `File` or `SymLink`, which has no
+    /// `myRights`, on its parent (draft-ietf-jmap-filenode-19 §5). An
     /// absent `maySetMetadata` allows the write (fail-open, JMAP-bghk).
     /// This backend never sets `changed`, so a metadata-only change leaves
     /// it alone, as -05 §3.1 requires.
@@ -1075,6 +1076,19 @@ impl FileNodeBackend for MemoryBackend {
             ))
         })?;
 
+        // draft-ietf-jmap-filenode-19 §5: "A node whose @type does not
+        // permit children has no myRights. The user's rights on it are
+        // those in its parent's myRights".
+        let rights_node = match node.node_type {
+            Some(NodeType::File | NodeType::Symlink) => {
+                node.parent_id.as_ref().and_then(|p| store.nodes.get(p))
+            }
+            _ => Some(&node),
+        };
+        let may_set_metadata = rights_node
+            .and_then(|n| n.my_rights.as_ref())
+            .and_then(|r| r.may_set_metadata);
+
         let mut updated_props = None;
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
             // -05 §3.2 rules 1 to 3 run before the patch is applied.
@@ -1083,6 +1097,7 @@ impl FileNodeBackend for MemoryBackend {
                 SetKind::Update,
                 patch_obj,
                 Some(obj),
+                may_set_metadata,
             )?;
             // -05 §2 `metadata` has "default: {}", so a
             // `metadata/<namespace>` pointer finds its parent.
@@ -1686,14 +1701,16 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 /// metadata.
 ///
 /// `entry` is the create object or update patch and `stored` the node
-/// before an update (`None` on create). Rule 1's `notFound` is the
-/// caller's: this backend has no read rights, so only a missing node is
-/// unreadable.
+/// before an update (`None` on create). `may_set_metadata` is the
+/// caller's `maySetMetadata` right on the node (`None` on create, where
+/// the node has no rights yet). Rule 1's `notFound` is the caller's: this
+/// backend has no read rights, so only a missing node is unreadable.
 fn check_metadata_set<'a>(
     info: Option<&'a DataTypeMetadataInfo>,
     kind: SetKind,
     entry: &serde_json::Map<String, serde_json::Value>,
     stored: Option<&serde_json::Map<String, serde_json::Value>>,
+    may_set_metadata: Option<bool>,
 ) -> Result<Option<&'a DataTypeMetadataInfo>, BackendSetError<MemoryError>> {
     let Some(first) = entry.keys().find(|k| crate::helpers::is_metadata_key(k)) else {
         return Ok(None);
@@ -1707,19 +1724,13 @@ fn check_metadata_set<'a>(
         ));
     };
     // Rule 1 / -05 §4.1: "A write to metadata without maySetMetadata MUST
-    // be rejected with a "forbidden" SetError". A FileNode has its own
-    // rights object; a node being created has none yet. An absent right
-    // allows the write (fail-open, JMAP-bghk).
+    // be rejected with a "forbidden" SetError". An absent right allows
+    // the write (fail-open, JMAP-bghk).
     let writes_shared = entry.keys().any(|k| {
         crate::helpers::is_metadata_key(k)
             && k.split_once('/').map_or(k.as_str(), |(root, _)| root) == "metadata"
     });
-    let denied = stored
-        .and_then(|n| n.get("myRights"))
-        .and_then(|r| r.get("maySetMetadata"))
-        .and_then(serde_json::Value::as_bool)
-        == Some(false);
-    if writes_shared && denied {
+    if writes_shared && may_set_metadata == Some(false) {
         return Err(BackendSetError::SetError(Box::new(
             SetError::new(SetErrorType::Forbidden)
                 .with_description("maySetMetadata is required to write metadata"),
@@ -1746,7 +1757,7 @@ fn check_metadata_create(
         .filter(|(k, _)| is_metadata_property(k))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
-    if let Some(info) = check_metadata_set(info, SetKind::Create, &entry, None)? {
+    if let Some(info) = check_metadata_set(info, SetKind::Create, &entry, None, None)? {
         check_metadata_depth(&entry, obj, info)
             .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
     }

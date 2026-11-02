@@ -13,39 +13,39 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FileNodeProperty {
-    /// The `id` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `id` property (draft-ietf-jmap-filenode-19 §3.1.1).
     Id,
-    /// The `parentId` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `parentId` property (draft-ietf-jmap-filenode-19 §3.1.1).
     ParentId,
-    /// The `@type` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `@type` property (draft-ietf-jmap-filenode-19 §3.1.1).
     NodeType,
-    /// The `blobId` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `blobId` property (draft-ietf-jmap-filenode-19 §3.1.3).
     BlobId,
-    /// The `target` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `target` property (draft-ietf-jmap-filenode-19 §3.1.5).
     Target,
-    /// The `size` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `size` property (draft-ietf-jmap-filenode-19 §3.1.3).
     Size,
-    /// The `name` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `name` property (draft-ietf-jmap-filenode-19 §3.1.1).
     Name,
-    /// The `mediaType` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `mediaType` property (draft-ietf-jmap-filenode-19 §3.1.3).
     MediaType,
-    /// The `created` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `created` property (draft-ietf-jmap-filenode-19 §3.1.1).
     Created,
-    /// The `modified` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `modified` property (draft-ietf-jmap-filenode-19 §3.1.1).
     Modified,
-    /// The `accessed` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `accessed` property (draft-ietf-jmap-filenode-19 §3.1.1).
     Accessed,
-    /// The `changed` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `changed` property (draft-ietf-jmap-filenode-19 §3.1.1).
     Changed,
-    /// The `executable` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `executable` property (draft-ietf-jmap-filenode-19 §3.1.3).
     Executable,
-    /// The `isSubscribed` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `isSubscribed` property (draft-ietf-jmap-filenode-19 §3.1.2).
     IsSubscribed,
-    /// The `myRights` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `myRights` property (draft-ietf-jmap-filenode-19 §3.1.2).
     MyRights,
-    /// The `shareWith` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `shareWith` property (draft-ietf-jmap-filenode-19 §3.1.2).
     ShareWith,
-    /// The `role` property (draft-ietf-jmap-filenode-16 §3.1).
+    /// The `role` property (draft-ietf-jmap-filenode-19 §3.1.4).
     Role,
 }
 
