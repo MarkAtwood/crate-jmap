@@ -728,6 +728,87 @@ async fn region_id_and_server_set_properties_are_fixed() {
     assert_invalid(&err, &["orientation"]);
 }
 
+/// Assert `resp` reports `id` as a no-op update: `updated[id]` is null,
+/// nothing failed, and the state did not move.
+fn assert_noop(resp: &Value, id: &str) {
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    let updated = resp["updated"]
+        .as_object()
+        .unwrap_or_else(|| panic!("{resp}"));
+    assert_eq!(updated.get(id), Some(&Value::Null), "{resp}");
+    assert_eq!(resp["oldState"], resp["newState"], "{resp}");
+}
+
+#[tokio::test]
+async fn identical_server_set_values_are_a_noop() {
+    // RFC 8620 §5.3: "Any server-set properties MAY be included in the
+    // patch if their value is identical to the current server value
+    // (before applying the patches to the object)." 77c3474 L678 `id`,
+    // L681 `regionId`, L684 `userId`, L702 `joinedAt`. With nothing else,
+    // the update is a no-op (decision on JMAP-t8ej.25).
+    let backend = setup();
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let before = get(&backend, &id).await;
+    let patch = json!({
+        "id": before["id"],
+        "regionId": before["regionId"],
+        "userId": before["userId"],
+        "joinedAt": before["joinedAt"]
+    });
+    let resp = update(&backend, ALICE, &id, patch).await;
+    assert_noop(&resp, &id);
+    assert_eq!(get(&backend, &id).await, before);
+}
+
+#[tokio::test]
+async fn identical_server_set_value_with_change_applies() {
+    // RFC 8620 §5.3: an identical server-set value is allowed, so the
+    // client change next to it applies.
+    let backend = setup();
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let before = get(&backend, &id).await;
+    let patch = json!({ "userId": before["userId"], "displayName": "Alice C." });
+    let resp = update(&backend, ALICE, &id, patch).await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert!(resp["updated"].get(&id).is_some(), "{resp}");
+    assert_eq!(get(&backend, &id).await["displayName"], "Alice C.");
+}
+
+#[tokio::test]
+async fn empty_patch_is_a_noop() {
+    // Decision on JMAP-t8ej.25: a literal `{}` is a no-op success.
+    let backend = setup();
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let before = get(&backend, &id).await;
+    let resp = update(&backend, ALICE, &id, json!({})).await;
+    assert_noop(&resp, &id);
+    assert_eq!(get(&backend, &id).await, before);
+}
+
+#[tokio::test]
+async fn empty_patch_of_another_users_avatar_is_forbidden() {
+    // 77c3474 L2388 "The server SHOULD return `forbidden` if the caller's
+    // userId does not match the SceneAvatar record's userId, unless the
+    // caller is the region owner or an administrator ejecting the
+    // avatar": an empty patch ejects nobody.
+    let backend = setup();
+    let id = enter(&backend, ALICE, REGION).await["id"]
+        .as_str()
+        .unwrap()
+        .to_owned();
+    let err = update_error(&backend, CAROL, &id, json!({})).await;
+    assert_eq!(err["type"], "forbidden", "{err}");
+}
+
 #[tokio::test]
 async fn spec_leave_example() {
     // 6bcd9d8 L2302 "A user leaves by calling `SceneAvatar/set` with an
