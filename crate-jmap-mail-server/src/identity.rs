@@ -38,7 +38,7 @@ use crate::helpers::{
 };
 use jmap_mail_types::Identity;
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
+    HandlerOutput, backend_set_error_value, check_read_only_patch, reject_server_set,
     server_fail_from_backend,
 };
 
@@ -366,7 +366,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -378,10 +378,26 @@ pub async fn handle_identity_set<B: MailBackend>(
             };
 
             // RFC 8621 §6: `email` is immutable; `id` and `mayDelete` are
-            // server-set.
-            if let Some(err) = reject_read_only_patch::<Identity>(patch.as_map(), None) {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
-                continue;
+            // server-set. A changed value is rejected, an identical one
+            // dropped (RFC 8620 §5.3); nothing left is a no-op success.
+            match check_read_only_patch::<_, Identity>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                patch.as_map_mut(),
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str, Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
             }
 
             match backend

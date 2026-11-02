@@ -4,9 +4,10 @@ use std::borrow::Cow;
 use std::collections::BTreeSet;
 
 pub use jmap_types::json_type_name;
-use jmap_types::{Id, JmapError, SetObject, UTCDate};
+use jmap_types::{GetObject, Id, JmapError, SetObject, UTCDate};
 
-use crate::backend::{SetError, SetErrorType};
+use crate::backend::{JmapBackend, SetError, SetErrorType};
+use crate::handlers::server_fail_value_from_backend;
 use serde_json::{Map, Value};
 
 /// Serialize any [`serde::Serialize`] type to a [`serde_json::Value`],
@@ -1244,6 +1245,96 @@ pub fn reject_read_only_patch<O: SetObject>(
         .collect();
     (!rejected.is_empty())
         .then(|| SetError::new(SetErrorType::InvalidProperties).with_properties(rejected))
+}
+
+/// Whether patch key `key` names a [`SetObject::SERVER_SET`] or
+/// [`SetObject::IMMUTABLE`] property of `O`: its first JSON Pointer segment
+/// is the property name (RFC 8620 §5.3).
+fn names_read_only<O: SetObject>(key: &str) -> bool {
+    let prop = key.split('/').next().unwrap_or(key);
+    O::SERVER_SET.contains(&prop) || O::IMMUTABLE.contains(&prop)
+}
+
+/// Reject a `/set` update `patch` that changes a server-set or immutable
+/// property of `O`, then drop the keys that repeat the stored value.
+///
+/// Runs [`reject_read_only_patch`] with `current`, the stored object. When
+/// that passes, every key naming such a property holds its stored value
+/// (RFC 8620 §5.3) and is removed, leaving only the client changes. An
+/// empty result is a no-op update.
+///
+/// # Errors
+///
+/// The `invalidProperties` [`SetError`] from [`reject_read_only_patch`].
+pub fn strip_read_only_patch<O: SetObject>(
+    patch: &mut Map<String, Value>,
+    current: Option<&Map<String, Value>>,
+) -> Result<(), Box<SetError>> {
+    if let Some(err) = reject_read_only_patch::<O>(patch, current) {
+        return Err(Box::new(err));
+    }
+    patch.retain(|k, _| !names_read_only::<O>(k));
+    Ok(())
+}
+
+/// Check a `/set` update `patch` of the stored object `id` against the
+/// server-set and immutable properties of `O`, and report a no-op.
+///
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in the patch
+/// if their value is identical to the current server value (before
+/// applying the patches to the object).  Otherwise, the update MUST be
+/// rejected with an "invalidProperties" SetError." The stored object is
+/// fetched only when the patch names such a property or is empty; then
+/// [`strip_read_only_patch`] rejects a changed value and drops the
+/// identical ones, leaving only the client changes for the handler's own
+/// checks.
+///
+/// Returns `Ok(true)` when nothing is left to apply, for a literal `{}` or
+/// a patch of identical server-set values: the update succeeds as a no-op,
+/// with no write, `updated` mapping `id` to `null`, and the state unchanged.
+/// A missing object leaves nothing to compare, so a read-only key is
+/// rejected as `invalidProperties`, and an empty patch is `notFound`.
+///
+/// # Errors
+///
+/// The `notUpdated` value: `notFound` for an empty patch of a missing
+/// object, the `invalidProperties` SetError, or `serverFail` when the fetch
+/// fails.
+pub async fn check_read_only_patch<B, O>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    patch: &mut Map<String, Value>,
+) -> Result<bool, Value>
+where
+    B: JmapBackend,
+    O: GetObject + SetObject + serde::Serialize + Send + Sync,
+{
+    if !patch.is_empty() && !patch.keys().any(|k| names_read_only::<O>(k)) {
+        return Ok(false);
+    }
+    let (found, _) = backend
+        .get_objects::<O>(caller, account_id, Some(std::slice::from_ref(id)), None)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    let current = match found.first().map(serde_json::to_value).transpose() {
+        Ok(Some(Value::Object(m))) => Some(m),
+        Ok(Some(_)) => {
+            return Err(server_fail_value_from_backend(
+                "stored object is not a JSON object",
+            ));
+        }
+        Ok(None) => None,
+        Err(e) => return Err(server_fail_value_from_backend(&e)),
+    };
+    if patch.is_empty() {
+        return current
+            .map(|_| true)
+            .ok_or_else(|| Value::from(&SetError::new(SetErrorType::NotFound)));
+    }
+    strip_read_only_patch::<O>(patch, current.as_ref()).map_err(|e| Value::from(&*e))?;
+    Ok(patch.is_empty())
 }
 
 /// Whether a client may change `prop` of `O` in a `/set` update: it is in

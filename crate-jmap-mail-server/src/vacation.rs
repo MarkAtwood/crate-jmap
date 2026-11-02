@@ -40,7 +40,7 @@ use crate::helpers::{
     finalize_set_response,
 };
 use jmap_server::{BackendSetError, SetError, SetErrorType};
-use jmap_server::{HandlerOutput, reject_read_only_patch, server_fail_from_backend};
+use jmap_server::{HandlerOutput, server_fail_from_backend, strip_read_only_patch};
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -210,7 +210,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -222,12 +222,17 @@ pub async fn handle_vacation_set<B: MailBackend>(
             };
 
             // The stored `id` is always "singleton" (RFC 8621 §8), so a
-            // whole-object patch may repeat it (RFC 8620 §5.3).
+            // whole-object patch may repeat it (RFC 8620 §5.3); it is
+            // dropped, and nothing left is a no-op success.
             let stored = serde_json::Map::from_iter([("id".to_owned(), json!(SINGLETON_ID))]);
-            if let Some(err) =
-                reject_read_only_patch::<VacationResponse>(patch.as_map(), Some(&stored))
+            if let Err(err) =
+                strip_read_only_patch::<VacationResponse>(patch.as_map_mut(), Some(&stored))
             {
-                not_updated.insert(id.clone(), serde_json::Value::from(&err));
+                not_updated.insert(id.clone(), serde_json::Value::from(&*err));
+                continue;
+            }
+            if patch.is_empty() {
+                updated.insert(id.clone(), Value::Null);
                 continue;
             }
 

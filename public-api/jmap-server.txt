@@ -308,6 +308,7 @@ pub fn jmap_server::bool_arg(&serde_json::map::Map<alloc::string::String, serde_
 pub fn jmap_server::changes_error_from_backend<E: core::error::Error>(jmap_server::BackendChangesError<E>) -> jmap_types::error::JmapError
 pub fn jmap_server::check_known_capabilities<S: core::convert::AsRef<str>>(&jmap_types::wire::JmapRequest, &[S]) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_server::check_patch_paths(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(), jmap_server::PatchPathError>
+pub async fn jmap_server::check_read_only_patch<B, O>(&B, &<B as jmap_server::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<bool, serde_json::value::Value> where B: jmap_server::JmapBackend, O: jmap_types::backend::GetObject + jmap_types::backend::SetObject + serde_core::ser::Serialize + core::marker::Send + core::marker::Sync
 pub fn jmap_server::enforce_max_objects_in_get(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, u64) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_server::enforce_max_objects_in_set(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, u64) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_server::error_invocation(&str, jmap_types::error::JmapError) -> jmap_types::wire::Invocation
@@ -347,6 +348,7 @@ pub fn jmap_server::serialize_value<T: serde_core::ser::Serialize>(T) -> core::r
 pub fn jmap_server::server_fail_from_backend<E: core::fmt::Display + ?core::marker::Sized>(&E) -> jmap_types::error::JmapError
 pub fn jmap_server::server_fail_value_from_backend<E: core::fmt::Display + ?core::marker::Sized>(&E) -> serde_json::value::Value
 pub fn jmap_server::state_change_for(&jmap_types::push::PushSubscription, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::id::State>>) -> core::option::Option<jmap_types::push::StateChange>
+pub fn jmap_server::strip_read_only_patch<O: jmap_types::backend::SetObject>(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, core::option::Option<&serde_json::map::Map<alloc::string::String, serde_json::value::Value>>) -> core::result::Result<(), alloc::boxed::Box<jmap_types::set_error::SetError>>
 pub fn jmap_server::take_bool_arg(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &str, bool) -> bool
 pub fn jmap_server::uses_metadata(&[alloc::string::String]) -> bool
 pub fn jmap_server::utc_date_from_epoch_seconds(i64) -> core::option::Option<jmap_types::id::UTCDate>

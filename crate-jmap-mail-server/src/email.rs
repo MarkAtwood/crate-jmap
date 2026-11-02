@@ -52,8 +52,8 @@ use crate::helpers::{
     serialize_value, uses_metadata,
 };
 use jmap_server::{
-    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg, filter_arg,
-    limit_or_max, reject_read_only_patch, reject_server_set, resolve_query_offset,
+    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg,
+    check_read_only_patch, filter_arg, limit_or_max, reject_server_set, resolve_query_offset,
     resolve_query_start, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
 };
 use jmap_server::{SetError, SetErrorType};
@@ -1345,7 +1345,7 @@ pub async fn handle_email_set<B: MailBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -1356,10 +1356,27 @@ pub async fn handle_email_set<B: MailBackend>(
                 }
             };
 
-            // Check for immutable field violations in the patch keys.
-            if let Some(err) = reject_read_only_patch::<Email>(patch.as_map(), None) {
-                not_updated.insert(id_str.clone(), serde_json::Value::from(&err));
-                continue;
+            // A changed server-set or immutable value is rejected, an
+            // identical one dropped (RFC 8620 §5.3); nothing left is a
+            // no-op success.
+            match check_read_only_patch::<_, Email>(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                patch.as_map_mut(),
+            )
+            .await
+            {
+                Ok(false) => {}
+                Ok(true) => {
+                    updated.insert(id_str.clone(), Value::Null);
+                    continue;
+                }
+                Err(err) => {
+                    not_updated.insert(id_str.clone(), err);
+                    continue;
+                }
             }
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
                 not_updated.insert(id_str.clone(), serde_json::Value::from(&*err));
