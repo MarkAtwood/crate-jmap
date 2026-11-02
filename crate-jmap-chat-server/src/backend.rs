@@ -2318,9 +2318,11 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Once per update entry whose Message and Chat resolve, AFTER the
     /// patch keys and `bodyType` are validated and BEFORE the sender,
-    /// edit-limit and reaction checks and `update_object`. `patch_keys`
-    /// are the keys exactly as the client sent them, so a reaction change
-    /// appears as `reactions/<senderReactionId>`. The return mapping is
+    /// edit-limit and reaction checks and `update_object`, even for an
+    /// empty patch. `patch_keys` are the keys as the client sent them,
+    /// less server-set and immutable keys that repeat the stored value
+    /// (RFC 8620 §5.3), so a reaction change appears as
+    /// `reactions/<senderReactionId>`. The return mapping is
     /// the same as [`Self::may_set_custom_emoji`].
     ///
     /// # Default implementation
@@ -2351,8 +2353,10 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Once per update entry whose Chat resolves, AFTER the patch keys
     /// are validated and BEFORE the closed-group, admin, member-patch and
-    /// `pinnedMessageIds` checks and `update_object`. `patch_keys` are
-    /// the keys exactly as the client sent them. The return mapping is
+    /// `pinnedMessageIds` checks and `update_object`, even for an empty
+    /// patch. `patch_keys` are the keys as the client sent them, less
+    /// server-set and immutable keys that repeat the stored value (RFC
+    /// 8620 §5.3). The return mapping is
     /// the same as [`Self::may_set_custom_emoji`].
     ///
     /// # Default implementation

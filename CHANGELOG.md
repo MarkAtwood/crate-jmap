@@ -202,6 +202,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-chat-server**: Chat/set and Message/set update accept a
+  server-set or immutable property (`id`, `kind`, `closedAt`, `chatId`,
+  `senderId`, `sentAt`, ...) repeated with its stored value, as RFC 8620
+  §5.3 allows, and drop it; a changed value is still `invalidProperties`.
+  A patch left empty, or `{}`, is a no-op success (`updated` maps the id to
+  `null`, no write, state unchanged) once the `may_update_chat` /
+  `may_update_message` hooks and the closed-group and sender gates have
+  passed. Those hooks now get the patch keys less the dropped ones. An
+  update of a missing Chat or Message is `notFound` before its patch keys
+  are checked, after the request-only `invalidPatch` checks
+  (draft-ietf-jmap-metadata-05 §3.2).
 - **jmap-mail-server**: EmailSubmission/set update accepts a server-set or
   immutable property (`id`, `threadId`, `sendAt`, `identityId`, `emailId`,
   `envelope`, ...) repeated with its stored value, as RFC 8620 §5.3

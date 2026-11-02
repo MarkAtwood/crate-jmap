@@ -316,6 +316,36 @@ where
     jmap_server::check_read_only_patch::<B, O>(backend, caller, account_id, id, map).await
 }
 
+/// Reject a `/set` update `patch` that changes a server-set or immutable
+/// property of `O`, then drop the keys that repeat `stored`'s value.
+///
+/// For a handler that has already fetched `stored`; see
+/// [`jmap_server::strip_read_only_patch`] (RFC 8620 §5.3). An empty
+/// result is a no-op update.
+///
+/// # Errors
+///
+/// The `notUpdated` value: the `invalidProperties` SetError, or
+/// `serverFail` when `stored` does not serialize to a JSON object.
+pub(crate) fn strip_read_only_patch<O>(
+    patch: &mut Map<String, Value>,
+    stored: &O,
+) -> Result<(), Value>
+where
+    O: jmap_server::SetObject + serde::Serialize,
+{
+    let current = match serde_json::to_value(stored) {
+        Ok(Value::Object(m)) => m,
+        Ok(_) => {
+            return Err(jmap_server::server_fail_value_from_backend(
+                "stored object is not a JSON object",
+            ));
+        }
+        Err(e) => return Err(jmap_server::server_fail_value_from_backend(&e)),
+    };
+    jmap_server::strip_read_only_patch::<O>(patch, Some(&current)).map_err(|e| Value::from(&*e))
+}
+
 /// Keep only the keys listed in `prop_set` (plus `"id"` which callers add).
 ///
 /// Used by `/get` handlers to respect the RFC 8620 §5.1 `properties` field.

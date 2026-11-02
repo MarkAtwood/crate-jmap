@@ -125,3 +125,55 @@ async fn chat_set_rejects_server_set_channel_fields() {
         assert_eq!(stored(&backend).await, before, "{key}: Chat unchanged");
     }
 }
+
+/// Oracle: RFC 8620 §5.3: "Any server-set properties MAY be included in
+/// the patch if their value is identical to the current server value
+/// (before applying the patches to the object).  Otherwise, the update
+/// MUST be rejected with an "invalidProperties" SetError." The repeated
+/// values are the hand-written seed, so a patch of only those succeeds
+/// (`updated` maps the id to null) with no write and no state change, and
+/// the same values beside a client change let that change apply.
+/// draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is set, the
+/// server MUST reject with a `forbidden` SetError ... every `Chat/set`
+/// update that changes ... shared group settings", identical values or
+/// not.
+#[tokio::test]
+async fn chat_set_admits_identical_server_set_values() {
+    let backend = MemoryBackend::new();
+    seed_closed_group(&backend);
+    let before = stored(&backend).await;
+    let same = json!({
+        "id": CHAT,
+        "kind": "group",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "closedAt": CLOSED_AT,
+        "activeCallId": "call1",
+        "activeCallAccountId": "shared1",
+    });
+
+    let resp = update(&backend, same.clone()).await;
+    assert_eq!(resp["updated"], json!({ CHAT: null }), "{resp}");
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+    assert_eq!(resp["newState"], resp["oldState"], "{resp}");
+    assert_eq!(stored(&backend).await, before);
+
+    let mut with_change = same.clone();
+    with_change["muted"] = json!(true);
+    let resp = update(&backend, with_change).await;
+    assert!(resp["updated"].get(CHAT).is_some(), "{resp}");
+    assert_eq!(stored(&backend).await["muted"], json!(true));
+
+    let mut changed = same.clone();
+    changed["activeCallId"] = json!("call2");
+    let resp = update(&backend, changed).await;
+    assert_eq!(
+        resp["notUpdated"][CHAT],
+        json!({ "type": "invalidProperties", "properties": ["activeCallId"] }),
+        "{resp}"
+    );
+
+    let mut shared = same;
+    shared["name"] = json!("Renamed");
+    let resp = update(&backend, shared).await;
+    assert_eq!(resp["notUpdated"][CHAT]["type"], "forbidden", "{resp}");
+}

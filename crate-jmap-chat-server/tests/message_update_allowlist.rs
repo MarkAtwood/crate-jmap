@@ -74,8 +74,10 @@ async fn get(backend: &MemoryBackend, id: &str) -> Value {
 /// `sentAt`, `attachments`, `actions`, `replyTo` and `threadRootId` only
 /// under "Creating a Message". Top-level `reactions` is not a §Message/set
 /// update: reactions are "mutated via standard JSON Pointer patch keys on
-/// the `reactions` map". Each patch is rejected with `invalidProperties`
-/// naming that property, and the stored Message is unchanged.
+/// the `reactions` map". Each value differs from the stored one (RFC 8620
+/// §5.3 admits an identical server-set value), so each patch is rejected
+/// with `invalidProperties` naming that property, and the stored Message
+/// is unchanged.
 #[tokio::test]
 async fn non_updatable_properties_are_invalid_properties() {
     let cases = [
@@ -103,8 +105,11 @@ async fn non_updatable_properties_are_invalid_properties() {
             "editHistory",
             json!([{ "body": "x", "bodyType": "text/plain", "editedAt": "2024-01-01T00:00:01Z" }]),
         ),
-        ("attachments", json!([])),
-        ("actions", json!([])),
+        (
+            "attachments",
+            json!([{ "blobId": "b1", "type": "text/plain", "size": 1 }]),
+        ),
+        ("actions", json!([{ "id": "a1", "label": "OK" }])),
         ("replyTo", json!("m2")),
         ("threadRootId", json!("m2")),
         ("reactions", json!({})),
@@ -176,5 +181,47 @@ async fn top_level_reactions_cannot_wipe_other_senders() {
     assert_eq!(
         get(&backend, &id).await["reactions"],
         json!({ "r1": other })
+    );
+}
+
+/// Oracle: RFC 8620 §5.3: "Any server-set properties MAY be included in
+/// the patch if their value is identical to the current server value
+/// (before applying the patches to the object).  Otherwise, the update
+/// MUST be rejected with an "invalidProperties" SetError." `chatId` and
+/// `sentAt` repeat the create input, and `senderId` is the accountId
+/// (draft-atwood-jmap-chat-00 §Message `senderId`). A patch of only those
+/// succeeds (`updated` maps the id to null) with no write and no state
+/// change; beside a §Message/set edit of `body`, the edit applies.
+#[tokio::test]
+async fn identical_server_set_values_are_admitted() {
+    let backend = MemoryBackend::new();
+    let id = create_message(&backend).await;
+    let before = get(&backend, &id).await;
+    let same = json!({
+        "id": id,
+        "chatId": "c1",
+        "senderId": ACCOUNT_ID,
+        "sentAt": "2024-01-01T00:00:00Z",
+    });
+
+    let resp = update(&backend, &id, same.clone()).await;
+    assert_eq!(resp["updated"], json!({ &id: null }), "{resp:?}");
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp:?}");
+    assert_eq!(resp["newState"], resp["oldState"], "{resp:?}");
+    assert_eq!(get(&backend, &id).await, before);
+
+    let mut with_edit = same.clone();
+    with_edit["body"] = json!("edited");
+    let resp = update(&backend, &id, with_edit).await;
+    assert!(resp["updated"].get(&id).is_some(), "{resp:?}");
+    assert_eq!(get(&backend, &id).await["body"], "edited");
+
+    let mut changed = same;
+    changed["chatId"] = json!("c2");
+    let resp = update(&backend, &id, changed).await;
+    assert_eq!(
+        resp["notUpdated"][&id],
+        json!({ "type": "invalidProperties", "properties": ["chatId"] }),
+        "{resp:?}"
     );
 }
