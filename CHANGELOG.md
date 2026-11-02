@@ -185,6 +185,13 @@ wire behaviour that a conforming peer can observe.
   `VacationResponse/set` and `EmailSubmission/set` updates: `updated` maps
   the id to `null`, nothing is written, and the state is unchanged. An
   empty patch of a missing id is `notFound`.
+- **jmap-vtc-server**: `VTCCall/set` and `VTCParticipant/set` updates
+  accept a server-set or immutable property sent with its stored value
+  (RFC 8620 §5.3); a differing value is still `invalidProperties`. An
+  empty patch, literal `{}` or empty once those values are dropped, now
+  succeeds as a no-op: `updated` maps the id to `null`, nothing is
+  written, and the state is unchanged. An empty patch of a missing id is
+  `notFound`.
 
 ## [0.4.2] - 2026-10-30
 

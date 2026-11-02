@@ -43,8 +43,8 @@ use crate::helpers::{parents_first, resolve_refs};
 use crate::media::{stop_livestreams, stop_recordings};
 use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
-    reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, backend_set_error_value, now_utc_string, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, strip_read_only_patch,
 };
 
 /// Capability URI of draft-atwood-jmap-chat-00, which gates the Chat binding
@@ -522,11 +522,34 @@ async fn update_call<B: VtcBackend>(
     id: &Id,
     patch: Value,
 ) -> Result<Value, Value> {
-    let patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
+    let mut patch: PatchObject = serde_json::from_value(patch).map_err(|e| {
         serde_json::Value::from(
             &SetError::new(SetErrorType::InvalidPatch).with_description(e.to_string()),
         )
     })?;
+
+    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id).await?;
+    let current = call
+        .as_ref()
+        .map(serde_json::to_value)
+        .transpose()
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    // §VTCCall: the immutable and server-set properties, `joinUri`
+    // included; `state` stays patchable. A changed value is rejected, an
+    // identical one dropped (RFC 8620 §5.3).
+    strip_read_only_patch::<VtcCall>(
+        patch.as_map_mut(),
+        current.as_ref().and_then(Value::as_object),
+    )
+    .map_err(|e| {
+        serde_json::Value::from(&e.with_description("these properties cannot be updated"))
+    })?;
+    let call =
+        call.ok_or_else(|| serde_json::Value::from(&SetError::new(SetErrorType::NotFound)))?;
+    // Nothing left to apply: a no-op success, with no write.
+    if patch.as_map().is_empty() {
+        return Ok(Value::Null);
+    }
 
     let mut keys: Vec<&str> = patch
         .as_map()
@@ -535,18 +558,6 @@ async fn update_call<B: VtcBackend>(
         .collect();
     keys.sort_unstable();
     keys.dedup();
-
-    // §VTCCall: the immutable and server-set properties, `joinUri`
-    // included; `state` stays patchable.
-    if let Some(e) = reject_read_only_patch::<VtcCall>(patch.as_map(), None) {
-        return Err(serde_json::Value::from(
-            &e.with_description("these properties cannot be updated"),
-        ));
-    }
-
-    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
-        .await?
-        .ok_or_else(|| serde_json::Value::from(&SetError::new(SetErrorType::NotFound)))?;
 
     if keys.iter().any(|k| MODERATOR_ONLY.contains(k)) {
         let allowed = if keys == ["state"] {

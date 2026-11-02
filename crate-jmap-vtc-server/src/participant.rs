@@ -45,9 +45,8 @@ use crate::helpers::{
 };
 use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{
-    HandlerOutput, apply_patch_object, backend_set_error_value, now_utc_string,
-    reject_read_only_patch, reject_server_set, server_fail_from_backend,
-    server_fail_value_from_backend,
+    HandlerOutput, apply_patch_object, backend_set_error_value, now_utc_string, reject_server_set,
+    server_fail_from_backend, server_fail_value_from_backend, strip_read_only_patch,
 };
 
 /// The properties "The server sets" at join or dial-out that an update may
@@ -690,6 +689,30 @@ async fn update_participant<B: VtcBackend>(
     })?;
     let signal = patch.as_map_mut().remove(PENDING_SIGNAL);
 
+    let old = fetch_one::<VtcParticipant, _>(backend, caller, account_id, id).await?;
+    let current = old
+        .as_ref()
+        .map(serde_json::to_value)
+        .transpose()
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    // §VTCParticipant: the immutable and server-set properties. A client
+    // reaches `gatewayData` only through [`PENDING_SIGNAL`], removed above.
+    // A changed value is rejected, an identical one dropped (RFC 8620
+    // §5.3).
+    strip_read_only_patch::<VtcParticipant>(
+        patch.as_map_mut(),
+        current.as_ref().and_then(Value::as_object),
+    )
+    .map_err(|e| {
+        serde_json::Value::from(&e.with_description("these properties cannot be updated"))
+    })?;
+    // "An unknown VTCParticipant id yields `notFound`".
+    let old = old.ok_or_else(not_found)?;
+    // Nothing left to apply: a no-op success, with no write.
+    if patch.as_map().is_empty() && signal.is_none() {
+        return Ok(Value::Null);
+    }
+
     let mut keys: Vec<String> = patch
         .as_map()
         .keys()
@@ -698,18 +721,6 @@ async fn update_participant<B: VtcBackend>(
     keys.sort_unstable();
     keys.dedup();
     let has = |k: &str| keys.iter().any(|key| key == k);
-    // §VTCParticipant: the immutable and server-set properties. A client
-    // reaches `gatewayData` only through [`PENDING_SIGNAL`], removed above.
-    if let Some(e) = reject_read_only_patch::<VtcParticipant>(patch.as_map(), None) {
-        return Err(serde_json::Value::from(
-            &e.with_description("these properties cannot be updated"),
-        ));
-    }
-
-    // "An unknown VTCParticipant id yields `notFound`".
-    let old = fetch_one::<VtcParticipant, _>(backend, caller, account_id, id)
-        .await?
-        .ok_or_else(not_found)?;
     let call = fetch_one::<VtcCall, _>(backend, caller, account_id, &old.call_id)
         .await?
         .ok_or_else(not_found)?;
