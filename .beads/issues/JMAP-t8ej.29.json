@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.29",
+  "title": "Filenode -16 -\u003e -19: breaking wire/API changes",
+  "description": "Before 0.5.0. Posted draft-ietf-jmap-filenode-19 (https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-19.txt) vs crates' -16 baseline. (1) §3.2.3 remove onExists newest/unchanged: client FileNodeOnExists::{Newest,Unchanged} (client/src/methods/filenode.rs:94,101), server parser (server/filenode.rs:457, :562). (2) §2.1 remove forbiddenNodeNames: types/src/capability.rs:57 pub field + wire key. (3) §3.2.5 query depth counts from top level; absent/null = no limit (server/filenode.rs:2533 defaults 0); §3.2.6 queryChanges takes depth. (4) §3.1.2/§5 myRights, shareWith, isSubscribed only on nodes that permit children; Files take parent's rights (get handler server/filenode.rs:299). Check whether FileNodeBackend::files_rights (server/backend.rs:654) must change for inheritance (breaking trait change -\u003e do it now). (5) cheap: §3.2.5 text filter substring not glob (memory.rs:1592,1839). Update -16 citations (server/lib.rs:1, README). Gap analysis: scratchpad drafts fn-16.txt/fn-19.txt; sized ~0.5 day. Fix filenode first, then chat-filenode (t8ej.28).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T16:09:29.719359943Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T16:48:59.614483076Z",
+  "closed_at": "2026-11-02T16:48:59.614483076Z",
+  "close_reason": "batch 47: df5a2d7b, 145b6722",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.29",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-02T16:09:29.831720417Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}

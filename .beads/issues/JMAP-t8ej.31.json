@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-t8ej.31",
+  "title": "Batch 47 leftovers: File metadata rights gap",
+  "description": "Regression from df5a2d7b (filenode -19): MemoryBackend maySetMetadata check (crate-jmap-filenode-server/src/memory.rs ~1718) reads the node's own stored myRights; Files no longer carry myRights, so metadata writes to Files now always pass. -19 §5: a File's rights are its parent Directory's. Fix: use parent rights for non-Directory nodes; test with oracle -19 §5 text. Also: (a) FileNode/copy with an @type override now silently drops source-carried type-specific props (merge_filenode_overrides ~2213, e.g. role dropped when Directory copied as File; used to be invalidProperties) - matches -19 §3.1 but needs a CHANGELOG line and a test of the drop branch; (b) chat-filenode check_space_update root branches (~721) that allow restating the root name / parentId null have no positive test; (c) jmap-filenode-types README (lines 3,71,137,140) and src/backend.rs:16-46 still cite -16 §3.1.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T16:48:58.936378728Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T18:59:25.415402055Z",
+  "closed_at": "2026-11-02T18:59:25.415402055Z",
+  "close_reason": "batch 48: 5a44a29a, CI green",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-t8ej.31",
+      "depends_on_id": "JMAP-t8ej",
+      "type": "parent-child",
+      "created_at": "2026-11-02T16:48:59.076860886Z",
+      "created_by": "agent",
+      "metadata": "{}"
+    }
+  ]
+}
