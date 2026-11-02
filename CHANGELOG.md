@@ -174,6 +174,10 @@ wire behaviour that a conforming peer can observe.
   such a node (-19 §5: "A node whose @type does not permit children has no
   myRights"). The `files_rights` signature is unchanged; its docs now say
   a backend computes the -19 §5 union over ancestors itself.
+  `FileNode/set` create and update and `FileNode/copy` now reject a
+  non-null `isSubscribed` or `shareWith` (or a `shareWith/<id>` patch) on
+  a File or SymLink with `invalidProperties` (-19 §3.1); before, the value
+  was accepted and silently dropped.
 
 ### Removed
 

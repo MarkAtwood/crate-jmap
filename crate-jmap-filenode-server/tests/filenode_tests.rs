@@ -2968,6 +2968,157 @@ async fn filenode_copy_rejects_other_type_property() {
     assert_eq!(err["properties"], json!(["executable"]), "{resp}");
 }
 
+// ---------------------------------------------------------------------------
+// Container properties on a File or SymLink.
+// Oracle: draft-ietf-jmap-filenode-19 §3.1.2 — isSubscribed and shareWith
+// "are defined for every FileNode whose @type permits children; of the types
+// defined in this document, only "Directory" does.  They do not appear on
+// other nodes". §3.1 — "An attempt to create or update a FileNode that sets
+// a property not defined for its @type to a non-null value is an
+// "invalidProperties" error.  The server MUST ignore a null value for such a
+// property, both on create and on update." Regression for the JMAP-t8ej.29
+// review: a File accepted both and silently dropped them.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_create_rejects_container_property_on_non_container() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let rights = json!({
+        "mayRead": true, "mayAddChildren": false, "mayRename": false,
+        "mayDelete": false, "mayModifyContent": false, "mayShare": false
+    });
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "f": { "@type": "File", "name": "f", "parentId": null, "blobId": "b1",
+                       "isSubscribed": false },
+                "l": { "@type": "SymLink", "name": "l", "parentId": null, "target": ["f"],
+                       "shareWith": { "bob": rights } },
+                "n": { "@type": "File", "name": "n", "parentId": null, "blobId": "b1",
+                       "isSubscribed": null, "shareWith": null }
+            }
+        }),
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+
+    for (cid, prop) in [("f", "isSubscribed"), ("l", "shareWith")] {
+        let err = &resp["notCreated"][cid];
+        assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+        assert_eq!(err["properties"], json!([prop]), "{cid}: {resp}");
+    }
+    assert!(
+        resp["created"]["n"]["id"].is_string(),
+        "null container properties must be ignored: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_set_update_rejects_container_property_on_non_container() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "f": { "@type": "File", "name": "f", "parentId": null, "blobId": "b1" },
+                "l": { "@type": "SymLink", "name": "l", "parentId": null, "target": ["f"] }
+            }
+        }),
+        &[],
+    )
+    .await
+    .expect("seed create must not return top-level error");
+    let id = |cid: &str| {
+        resp["created"][cid]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("seed {cid} must be created: {resp}"))
+            .to_owned()
+    };
+    let (file_id, link_id) = (id("f"), id("l"));
+    let rights = json!({
+        "mayRead": true, "mayAddChildren": false, "mayRename": false,
+        "mayDelete": false, "mayModifyContent": false, "mayShare": false
+    });
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "acc1",
+            "update": {
+                &file_id: { "isSubscribed": true },
+                &link_id: { "shareWith/bob": rights }
+            }
+        }),
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["updated"].is_null(), "nothing may be updated: {resp}");
+    assert_eq!(
+        resp["oldState"], resp["newState"],
+        "a rejected update must not advance state: {resp}"
+    );
+    for (id, prop) in [(&file_id, "isSubscribed"), (&link_id, "shareWith")] {
+        let err = &resp["notUpdated"][id];
+        assert_eq!(err["type"], "invalidProperties", "{id}: {resp}");
+        assert_eq!(err["properties"], json!([prop]), "{id}: {resp}");
+    }
+}
+
+#[tokio::test]
+async fn filenode_copy_rejects_container_property_on_non_container() {
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "src",
+            "create": { "l": { "@type": "SymLink", "name": "l", "parentId": null, "target": ["x"] } }
+        }),
+        &[],
+    )
+    .await
+    .expect("seed create must not return top-level error");
+    let src_id = resp["created"]["l"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("seed must be created: {resp}"))
+        .to_owned();
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": { "c": { "id": &src_id, "isSubscribed": false } }
+        }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+
+    assert!(resp["created"].is_null(), "nothing may be copied: {resp}");
+    let err = &resp["notCreated"]["c"];
+    assert_eq!(err["type"], "invalidProperties", "{resp}");
+    assert_eq!(err["properties"], json!(["isSubscribed"]), "{resp}");
+}
+
 /// Create one node per `(create_id, properties)` entry and return the ids.
 async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec<String> {
     let keys: Vec<String> = create.as_object().unwrap().keys().cloned().collect();
