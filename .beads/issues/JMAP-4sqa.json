@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-4sqa",
+  "title": "Find where draft-ietf-jmap-calendars -33 source is edited",
+  "description": "jmapio/jmap spec/calendars still builds -12 (Mark's issue #455) and was last touched in 2024, while the draft is at -33. Find the real editor's repo so the Calendars items (#446-#455, PR #454) reach where the text is edited; move or cross-link them.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T19:18:05.978959548Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T19:18:05.978959548Z",
+  "labels": [
+    "jmap"
+  ]
+}
