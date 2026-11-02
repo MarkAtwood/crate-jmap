@@ -1,6 +1,6 @@
 # jmap-filenode-types
 
-Serde-annotated Rust types for the JMAP FileNode extension ([draft-ietf-jmap-filenode-16]).
+Serde-annotated Rust types for the JMAP FileNode extension ([draft-ietf-jmap-filenode-19]).
 Types only — no method handlers, no async, no network I/O.
 
 ## What it is
@@ -68,13 +68,13 @@ decision is bd JMAP-lbdy.
 
 ## Spec coverage
 
-**draft-ietf-jmap-filenode-16 sections implemented:**
+**draft-ietf-jmap-filenode-19 sections implemented:**
 
-- §3.1 — `FileNode` object: `@type`, `id`, `parentId`, `blobId`, `target`, `size`,
+- §3.1 to §3.1.5 — `FileNode` object: `@type`, `id`, `parentId`, `blobId`, `target`, `size`,
   `name`, `mediaType`, `created`, `modified`, `shareWith`, `myRights`, `role`;
   properties not defined for a node's `@type` are omitted on serialization
 - §3.1 (IANA registries §11.5, §11.6) — `NodeType` and `NodeRole` registered values
-- §3.2.3 — `FileNodeFilterCondition` query filter
+- §3.2.5 — `FileNodeFilterCondition` query filter
 - §2.1 — `FileNodeCapability` and `JMAP_FILENODE_URI`
 
 ## How to use
@@ -134,8 +134,8 @@ round-trip without data loss.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-16]** — JMAP FileNode (normative for all type definitions)
+- **[draft-ietf-jmap-filenode-19]** — JMAP FileNode (normative for all type definitions)
 - **[RFC 8620]** — JMAP Core (Id, State, SetError, request/response shape)
 
-[draft-ietf-jmap-filenode-16]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-filenode-19]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

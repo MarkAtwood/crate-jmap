@@ -469,6 +469,36 @@ async fn node_without_may_set_metadata_is_forbidden() {
     update_node(&backend, "locked", json!({ "name": "renamed" })).await;
 }
 
+/// A File has no rights object of its own: draft-ietf-jmap-filenode-19 §5,
+/// "A node whose @type does not permit children has no myRights. The
+/// user's rights on it are those in its parent's myRights". So -05 §4.1's
+/// "A write to metadata without maySetMetadata MUST be rejected with a
+/// "forbidden" SetError" applies to a File through its parent Directory.
+#[tokio::test]
+async fn file_takes_may_set_metadata_from_parent() {
+    let backend = backend();
+    for (dir, file, allowed) in [("locked", "f1", false), ("open", "f2", true)] {
+        seed_dir(&backend, dir, allowed);
+        backend.seed_object(
+            &Id::from(ACCOUNT_ID),
+            "FileNode",
+            &Id::from(file),
+            json!({
+                "id": file, "@type": "File", "name": file, "parentId": dir,
+                "blobId": "b1", "size": 0, "changed": "2024-01-01T00:00:00Z"
+            }),
+        );
+    }
+    let patch = json!({ "metadata/acme.example.com": { "k": 1 } });
+    let resp = node_set(&backend, json!({ "update": { "f1": patch } }), &using()).await;
+    assert_eq!(
+        resp["notUpdated"]["f1"]["type"],
+        json!("forbidden"),
+        "{resp}"
+    );
+    update_node(&backend, "f2", patch).await;
+}
+
 /// -05 §3.2 rule 1: "If the user cannot read the related object, reject
 /// with "notFound". If the write targets metadata and the user lacks
 /// maySetMetadata (Section 4.1), reject with "forbidden"" — in that order.
