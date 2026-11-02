@@ -4599,12 +4599,14 @@ async fn submission_set_update_only_undo_status_allowed() {
         .expect("must get id")
         .to_owned();
 
-    // Try to update a field other than undoStatus.
+    // Try to change a field other than undoStatus. RFC 8620 §5.3 allows
+    // an identical value of an immutable property, so send a different
+    // emailId (RFC 8621 §7: "emailId: "Id" (immutable)").
     let update_args = serde_json::json!({
         "accountId": account_id.as_ref(),
         "update": {
             submission_id.clone(): {
-                "emailId": email_id.as_ref(),
+                "emailId": "e-different",
             }
         }
     });

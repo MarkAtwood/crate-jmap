@@ -21,7 +21,8 @@ use std::collections::BTreeMap;
 use common::MemoryBackend;
 use jmap_mail_server::{
     MailBackend, handle_email_get, handle_email_set, handle_identity_get, handle_identity_set,
-    handle_mailbox_get, handle_mailbox_set, handle_submission_set, handle_vacation_set,
+    handle_mailbox_get, handle_mailbox_set, handle_submission_get, handle_submission_set,
+    handle_vacation_set,
 };
 use jmap_mail_types::Identity;
 use jmap_server::HandlerOutput;
@@ -359,6 +360,45 @@ async fn submission_empty_patch_is_noop() {
         &(),
         &BTreeMap::new(),
         json!({ "accountId": ACCOUNT, "update": { &id: {} } }),
+        "c2",
+    )
+    .await
+    .expect("EmailSubmission/set");
+    assert_noop(&resp, &id);
+}
+
+/// RFC 8621 §7: `id`, `threadId` and `sendAt` are "(immutable;
+/// server-set)", `identityId`, `emailId` and `envelope` "(immutable)".
+/// §5.3 lets a patch repeat them with their stored values; with nothing
+/// else in it the update is a no-op success.
+#[tokio::test]
+async fn submission_update_with_identical_server_set_values_is_noop() {
+    let backend = backend();
+    let (id, email_id, _) = submit(&backend, |_| json!({})).await;
+    let HandlerOutput { primary: got, .. } = handle_submission_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": ACCOUNT,
+            "ids": [&id],
+            "properties": ["threadId", "sendAt", "identityId", "envelope"],
+        }),
+    )
+    .await
+    .expect("EmailSubmission/get");
+    let stored = &got["list"][0];
+    let HandlerOutput { primary: resp, .. } = handle_submission_set(
+        &backend,
+        &(),
+        &BTreeMap::new(),
+        json!({ "accountId": ACCOUNT, "update": { &id: {
+            "id": &id,
+            "emailId": email_id.as_ref(),
+            "identityId": stored["identityId"],
+            "threadId": stored["threadId"],
+            "sendAt": stored["sendAt"],
+            "envelope": stored["envelope"],
+        } } }),
         "c2",
     )
     .await
