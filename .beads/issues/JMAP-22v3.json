@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-22v3",
+  "title": "0.5.0 release prep (no publish)",
+  "description": "Prepare the 0.5.0 release; do NOT publish, tag or push. (1) Bump every publishable crate version 0.4.2 -\u003e 0.5.0 and the 34 workspace dependency requirements version = \"0.4\" -\u003e \"0.5\" in the root Cargo.toml (and any other 0.4 requirement anywhere, incl. jmap-testjig); update the root Cargo.toml comment that names the 0.4 line; Cargo.lock regenerated. (2) CHANGELOG: rename [Unreleased] to [0.5.0] - 2026-11-02, add a fresh empty [Unreleased] above it, update compare links if the file has them; keep every entry, check BREAKING markers are present on API removals/renames and wire changes listed in the section (report any missing; do not rewrite history). (3) Follow RELEASING.md: recheck the dependency layers (its jq command) and update the layer table if it changed; check crates.io keyword length (\u003c=20 chars) and other known blockers listed there. (4) Dry run: cargo publish --workspace --dry-run (cargo 1.99 supports it; it overlays unpublished workspace versions) - must exit 0; if it cannot work for a structural reason, fall back to dry-run of the layer-0 crates and report. Also cargo package --list sanity for one crate shows no AGENTS/CLAUDE/PLAN.md. (5) Update README/docs that state the current version (e.g. dependency snippets \"0.4\"), grep for 0.4.2 and \"0.4\" leftovers and report each. One or two commits (chore(release): 0.5.0).",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-02T22:07:27.089547225Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-02T22:28:08.12578301Z",
+  "closed_at": "2026-11-02T22:28:08.12578301Z",
+  "close_reason": "batch 51: 00b724fe; dry-run publish ok; not published"
+}
