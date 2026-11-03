@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-l7sr",
+  "title": "RELEASING.md: document workspace publish + rate limit",
+  "description": "0.5.0 was published with `cargo publish --workspace` (cargo 1.99) from a clean worktree at the tag, not layer by layer. crates.io allowed a burst of 30 new versions, then returned 429 Too Many Requests (about 1 update/minute after). The remaining 27 went out via a retry loop (copy at ~/Cache/crate-jmap-handoff-2026-10-22/publish-resume.sh): check the sparse index for each crate's new version, run cargo publish -p on the remainder, sleep 70s on 429, stop on any other error. Took 01:55-02:21 UTC 2026-11-03. Update RELEASING.md's publish procedure to this, mention the burst limit, and decide whether to commit the script under scripts/.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-03T02:27:24.153179034Z",
+  "created_by": "agent",
+  "updated_at": "2026-11-03T02:27:24.153179034Z"
+}
