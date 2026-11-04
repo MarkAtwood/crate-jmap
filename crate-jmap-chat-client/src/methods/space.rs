@@ -586,9 +586,7 @@ impl super::SessionClient {
                         obj["color"] = entry;
                     }
                     if let Some(perms) = r.permissions {
-                        obj["permissions"] = serde_json::Value::Array(
-                            perms.iter().copied().map(serde_json::Value::from).collect(),
-                        );
+                        obj["permissions"] = jmap_base_client::to_args(perms)?;
                     }
                     if let Some(p) = r.position {
                         obj["position"] = p.into();

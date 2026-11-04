@@ -338,9 +338,7 @@ impl super::SessionClient {
             create_obj["expires"] = exp.as_ref().into();
         }
         if let Some(types) = input.types {
-            create_obj["types"] = serde_json::Value::Array(
-                types.iter().copied().map(serde_json::Value::from).collect(),
-            );
+            create_obj["types"] = jmap_base_client::to_args(types)?;
         }
         let has_chat_push = input.chat_push.is_some();
         if let Some(cp) = input.chat_push {
@@ -424,12 +422,7 @@ impl super::SessionClient {
                 patch_map.insert("types".into(), serde_json::Value::Null);
             }
             Patch::Set(types) => {
-                patch_map.insert(
-                    "types".into(),
-                    serde_json::Value::Array(
-                        types.iter().copied().map(serde_json::Value::from).collect(),
-                    ),
-                );
+                patch_map.insert("types".into(), jmap_base_client::to_args(types)?);
             }
         }
         match &patch.chat_push {

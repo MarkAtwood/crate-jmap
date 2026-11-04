@@ -152,6 +152,40 @@ async fn push_subscription_create_with_chat_push_declares_extension() {
     );
 }
 
+/// `PushSubscription/set` create with `types: Some(_)` must put a
+/// `types` JSON array of type-name strings, in caller order, on the
+/// create object (RFC 8620 §7.2: "types: `String[]|null`").
+#[tokio::test]
+async fn push_subscription_create_types_serialises_string_array() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "PushSubscription/set",
+        json!({ "created": { "my-sub-1": { "id": "ps-server-1" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let types = ["Mailbox", "Email"];
+    let input = jmap_chat_client::PushSubscriptionCreateInput {
+        client_id: Some("my-sub-1"),
+        device_client_id: "device-abc",
+        url: "https://push.example.com/endpoint",
+        expires: None,
+        types: Some(&types),
+        chat_push: None,
+    };
+    let _ = sc
+        .push_subscription_create(&input, None)
+        .await
+        .expect("push_subscription_create: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["create"]["my-sub-1"]["types"],
+        json!(["Mailbox", "Email"])
+    );
+}
+
 /// `PushSubscription/set` create must reject an empty `device_client_id`
 /// or empty `url` client-side, before any HTTP request
 /// (misc.rs:205-214).
