@@ -2,13 +2,15 @@
   "id": "JMAP-lrgt.11",
   "title": "Declare chat crates' 0.4 API stable in docs",
   "description": "Freeze blocker from the fifth 2026-10-21 freeze review. JMAP-lrgt acceptance criteria require 'CHANGELOG and crate docs declare the 0.4 API stable for the chat crates'; no bead tracks it. At HEAD 860a4c2a: crate-jmap-chat-{types,server,client}/README.md L3-5 still say 'Pre-stable (0.3.x) ... Expect breaking changes, especially new required ChatBackend methods, until the 0.4 API freeze'; CHANGELOG.md [Unreleased] (L13) has no stability statement; Cargo.toml versions are 0.3.0. Update the three README banners and crate-level docs, add a CHANGELOG note stating the 0.4 stability promise (what semver covers: ChatBackend required methods, pub types; additive seams), against jmap-chat-spec 33702a5. Do last, after lrgt.9/lrgt.10 children close and JMAP-kgx2 is decided.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-21T11:31:58.191101505Z",
   "created_by": "agent",
-  "updated_at": "2026-10-21T11:31:58.191101505Z",
+  "updated_at": "2026-11-04T17:46:45.957986936Z",
+  "closed_at": "2026-11-04T17:46:45.957986936Z",
+  "close_reason": "Superseded: no 0.4 stability declaration was made. 0.5.0 shipped BREAKING chat-crate changes, and the chat READMEs now say (Mark-approved, 0972e7a4) 'Pre-stable (0.x) ... breaking changes ... in any minor release before 1.0'. A stability promise, if wanted, belongs to a 1.0 milestone.",
   "dependencies": [
     {
       "issue_id": "JMAP-lrgt.11",

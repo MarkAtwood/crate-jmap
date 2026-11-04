@@ -1,1 +1,2 @@
 {"id":"01a1934a-ffb9-7d6b-a20c-2190dd7f9e1c","issue_id":"JMAP-z4z0","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-31T18:48:48.31388032Z"}
+{"id":"01a1a7ab-9fbd-7a22-a07e-79c95092945c","issue_id":"JMAP-z4z0","event_type":"closed","actor":"agent","old_value":"","new_value":"All 11 children closed; shipped in 0.5.0 (release commit 0972e7a4, tag v0.5.0, published 2026-11-03).","created_at":"2026-11-04T17:46:45.053666241Z"}
