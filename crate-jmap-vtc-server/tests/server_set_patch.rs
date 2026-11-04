@@ -392,3 +392,19 @@ async fn livestream_changed_server_set_value_is_invalid_properties() {
     assert_eq!(err["type"], "invalidProperties", "{resp}");
     assert_eq!(err["properties"], json!(["stoppedAt"]), "{resp}");
 }
+
+/// L1356 "Only participants with `role: "moderator"` on the associated
+/// VTCCall MAY create, update, or destroy VTCLivestream objects.
+/// Non-moderators SHOULD receive `forbidden`." ALICE, no moderator of C1,
+/// gets `forbidden` for `{}` as for a stop, not a no-op success.
+#[tokio::test]
+async fn livestream_empty_patch_by_non_moderator_is_forbidden() {
+    let backend = livestream_backend();
+    for patch in [json!({}), json!({ "state": "stopped" })] {
+        let resp = call!(ids handle_vtc_livestream_set, &backend, ALICE,
+            json!({ "update": { "L1": patch } }));
+        assert_eq!(resp["notUpdated"]["L1"]["type"], "forbidden", "{resp}");
+        assert!(resp["updated"].is_null(), "{resp}");
+    }
+    assert_eq!(lget(&backend, "L1").await["state"], "live");
+}
