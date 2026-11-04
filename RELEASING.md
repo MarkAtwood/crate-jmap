@@ -210,9 +210,11 @@ six new crates (`jmap-jscalendar-types`, `jmap-jscontact-types`,
 wave introduced 26 new crates (the Scene, VTC, Graph, DID, peer-auth,
 web-push, MIMI and chat-bridge crates): the first five published within
 a minute, then crates.io accepted one new crate every ten minutes, so the
-wave took 3.5 hours. Budget ten minutes per new crate beyond the fifth,
-and publish with a script that retries on 429 after a few minutes rather
-than failing the wave.
+wave took 3.5 hours. Budget ten minutes per new crate beyond the fifth.
+`scripts/publish.sh` retries on 429, but gives up after 60 attempts 70
+seconds apart (about 70 minutes), so a release adding many new crates will
+hit that cap and must be rerun. A rerun resumes: published crates are
+skipped.
 
 ### 4. Uncommitted changes block `cargo publish`
 
@@ -224,8 +226,7 @@ yet committed into git
 ```
 
 This is a safety check, not a defect. Either commit first, or pass
-`--allow-dirty` (required when applying the bd:JMAP-31o4 workaround
-above).
+`--allow-dirty`.
 
 ## Pre-publish checklist
 
@@ -257,7 +258,8 @@ after their dependencies are published.
 
 ## Version bump conventions
 
-This workspace uses a shared `0.1.X` line. Bumping a `*-types` crate is a
+All publishable crates share one version (currently `0.5.0`) and are
+versioned together. Bumping a `*-types` crate is a
 potential SemVer event for every consumer that re-exports its types — see
 the canonical-template propagation rule in `AGENTS.md`. When in doubt,
 bump every consumer in the same release wave.
