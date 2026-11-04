@@ -1,14 +1,14 @@
 # Releasing
 
-The 57 publishable `jmap-*` crates in this workspace must be published to
-crates.io in **topological order**. Each layer depends on the previous one
-being indexed on the registry, so a single `cargo publish` of a leaf crate
-fails until all its transitive dependencies have published.
+The 57 publishable `jmap-*` crates in this workspace must reach crates.io
+in **topological order**: each crate must find its dependencies on the
+registry. `cargo publish` with several `-p` flags orders them itself, and
+`scripts/publish.sh` wraps it (see "Publish procedure").
 
 (`jmap-testjig` is also a workspace member but carries `publish = false`
-and is skipped at every step below.)
+and is never published.)
 
-This file documents the dependency graph and the resulting publish ordering.
+This file documents the dependency graph and the publish procedure.
 
 ## Why ordering matters
 
@@ -45,9 +45,9 @@ below). A crate's own self-dev-dependency is not an ordering edge.
 | 4 | `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-scene-server`, `jmap-chat-server`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-graph-client`, `jmap-mail-client`, `jmap-mail-server`, `jmap-peer-auth-io`, `jmap-scene-client`, `jmap-scene-vtc-server`, `jmap-sharing-client`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client` |
 | 5 | `jmap-chat-calendars-server`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-graph-projection-server` |
 
-Crates within the same layer have no dependencies on each other and can be
-published in parallel. Direct `jmap-*` edges per crate (dev-dependencies
-that are not also normal dependencies are listed separately):
+Crates within the same layer have no dependencies on each other. Direct
+`jmap-*` edges per crate (dev-dependencies that are not also normal
+dependencies are listed separately):
 
 | Crate | Layer | `jmap-*` dependencies | `jmap-*` dev-dependencies |
 |---|---|---|---|
@@ -121,20 +121,26 @@ cargo metadata --format-version 1 --no-deps | jq -r '.packages[]
 
 ## Publish procedure
 
-For each layer, in order:
-
-1. Wait for the registry to index the previous layer.
-   crates.io typically indexes within seconds; `cargo publish` blocks on
-   indexing by default, so sequential publishes within a layer are safe.
-2. For each crate in the current layer, run from the workspace root:
+1. Tag the release commit (`git tag v<version>`); do not push the tag yet.
+2. Publish from a clean worktree at the tag, so no local change can slip
+   into a package:
    ```bash
-   cargo publish -p <crate-name>
+   git worktree add ../rel-<version> v<version>
+   ../rel-<version>/scripts/publish.sh <version>
    ```
-3. Verify the publish succeeded (`Published <crate> v<version> at registry
-   crates-io`) before moving to the next layer.
+   The script lists the publishable crates from `cargo metadata`, checks
+   the crates.io sparse index for each one's `<version>`, and runs one
+   `cargo publish -p ... -p ...` for the rest; cargo publishes them in
+   dependency order and waits for each to be indexed. On `429 Too Many
+   Requests` it sleeps 70 seconds and retries the remainder. Any other
+   failure stops it. It is safe to rerun: published crates are skipped.
+3. After every crate is up, push the tag (`git push origin v<version>`)
+   and remove the worktree.
 
-Within a layer, ordering does not matter. Crates may be published in
-parallel by spawning multiple `cargo publish` processes.
+crates.io allows a burst of 30 new versions, then about one per minute.
+The 0.5.0 release published the first 30 crates at once and the last 27
+in 26 minutes (01:55 to 02:21 UTC on 2026-11-03). New crates have a
+stricter limit; see blocker 3 below.
 
 ## Known publish blockers
 
