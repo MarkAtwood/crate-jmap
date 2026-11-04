@@ -4,8 +4,8 @@
 //! Oracle for response shapes: RFC 9670 §3.4 (query), §3.5 (queryChanges).
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
-#[path = "common/mod.rs"]
-mod common;
+#[path = "helpers.rs"]
+mod helpers;
 
 use jmap_sharing_types::{ShareNotificationFilter, ShareNotificationFilterCondition};
 use jmap_types::Filter;
@@ -43,7 +43,7 @@ async fn share_notification_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let mut cond = ShareNotificationFilterCondition::default();
     cond.object_type = Some("Mailbox".into());
     let resp = sc
@@ -108,7 +108,7 @@ async fn share_notification_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .share_notification_query_changes(
             &State::from("nqs1"),
@@ -170,7 +170,7 @@ async fn share_notification_query_changes_with_filter_sort_upto_calculatetotal()
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let since = State::from("nqs1");
     let up_to = jmap_types::Id::from("notif-100");
     let mut cond = ShareNotificationFilterCondition::default();
@@ -252,7 +252,7 @@ async fn share_notification_query_changes_all_none_omits_optional_wire_keys() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let since = State::from("nqs1");
     sc.share_notification_query_changes(
         &since,

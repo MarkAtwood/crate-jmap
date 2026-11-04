@@ -52,7 +52,7 @@ pub fn make_session(server: &MockServer) -> jmap_base_client::Session {
 //
 // `#[allow(dead_code)]` is required because `cargo` compiles each
 // integration-test file in `tests/` as a separate binary, and each binary
-// independently checks for unused items in `mod common;`. Binaries that
+// independently checks for unused items in `mod helpers;`. Binaries that
 // don't call `make_client` (notably `helpers_smoke.rs`) would otherwise
 // trigger `dead_code`. This is a documented cargo limitation; see
 // https://doc.rust-lang.org/cargo/reference/cargo-targets.html#integration-tests

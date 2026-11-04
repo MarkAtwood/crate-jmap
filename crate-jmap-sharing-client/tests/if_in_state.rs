@@ -7,8 +7,8 @@
 //! applied to the current state." Each call is checked on the recorded
 //! request body only; the mock's empty response is irrelevant here.
 
-#[path = "common/mod.rs"]
-mod common;
+#[path = "helpers.rs"]
+mod helpers;
 
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
@@ -41,7 +41,7 @@ async fn sent(server: &MockServer) -> Vec<(String, Option<Value>)> {
 }
 
 async fn send_all(server: &MockServer, if_in_state: Option<&State>) {
-    let sc = common::make_client(server);
+    let sc = helpers::make_client(server);
     let d = || Some(vec![Id::from("x")]);
     let _ = sc.principal_set(None, None, d(), if_in_state).await;
     let _ = sc

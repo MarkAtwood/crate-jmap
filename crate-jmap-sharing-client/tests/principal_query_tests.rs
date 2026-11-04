@@ -3,8 +3,8 @@
 //! Oracle for response shapes: RFC 9670 §2.4 (query), §2.5 (queryChanges).
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
-#[path = "common/mod.rs"]
-mod common;
+#[path = "helpers.rs"]
+mod helpers;
 
 use jmap_sharing_types::{PrincipalFilter, PrincipalFilterCondition, PrincipalType};
 use jmap_types::Filter;
@@ -42,7 +42,7 @@ async fn principal_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let mut cond = PrincipalFilterCondition::default();
     cond.type_ = Some(PrincipalType::Individual);
     let resp = sc
@@ -107,7 +107,7 @@ async fn principal_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .principal_query_changes(
             &State::from("qs1"),
@@ -164,7 +164,7 @@ async fn principal_query_changes_with_filter_sort_upto_calculatetotal() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let up_to = jmap_types::Id::from("p-100");
     let mut cond = PrincipalFilterCondition::default();
@@ -239,7 +239,7 @@ async fn principal_query_changes_all_none_omits_optional_wire_keys() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     sc.principal_query_changes(&since, None, None::<&PrincipalFilter>, None, None, None)
         .await
