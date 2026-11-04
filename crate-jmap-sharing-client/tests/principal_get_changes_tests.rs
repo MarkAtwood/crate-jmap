@@ -3,8 +3,8 @@
 //! Oracle for response shapes: RFC 9670 §2.1 (get), §2.2 (changes).
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
-#[path = "common/mod.rs"]
-mod common;
+#[path = "helpers.rs"]
+mod helpers;
 
 use jmap_types::{Id, State};
 use serde_json::json;
@@ -48,7 +48,7 @@ async fn principal_get_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .principal_get(None, None)
         .await
@@ -104,7 +104,7 @@ async fn principal_get_specific_ids_sends_array() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     sc.principal_get(Some(&[Id::from("p-joe")]), None)
         .await
         .expect("principal_get_specific_ids_sends_array: must succeed");
@@ -151,7 +151,7 @@ async fn principal_changes_sends_since_state() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .principal_changes(&State::from("s1"), None)
         .await

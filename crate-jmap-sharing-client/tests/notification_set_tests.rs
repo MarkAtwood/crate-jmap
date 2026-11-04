@@ -7,8 +7,8 @@
 //! ShareNotification objects." The implementation accepts only destroy to
 //! enforce this at the type level.
 
-#[path = "common/mod.rs"]
-mod common;
+#[path = "helpers.rs"]
+mod helpers;
 
 use jmap_types::Id;
 use serde_json::json;
@@ -47,7 +47,7 @@ async fn share_notification_set_destroy_only_wire() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .share_notification_set(vec![Id::from("notif-1")], None)
         .await
@@ -123,7 +123,7 @@ async fn share_notification_set_empty_destroy() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .share_notification_set(vec![], None)
         .await

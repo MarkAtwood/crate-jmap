@@ -5,8 +5,8 @@
 //! Oracle for fixture: tests/fixtures/sharing/share_notification_get_response.json
 //!   (hand-written from RFC 9670 §3 ShareNotification field descriptions).
 
-#[path = "common/mod.rs"]
-mod common;
+#[path = "helpers.rs"]
+mod helpers;
 
 use jmap_types::State;
 use serde_json::json;
@@ -36,7 +36,7 @@ async fn share_notification_get_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .share_notification_get(None, None)
         .await
@@ -86,7 +86,7 @@ async fn share_notification_changes_sends_since_state() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .share_notification_changes(&State::from("n-s1"), None)
         .await

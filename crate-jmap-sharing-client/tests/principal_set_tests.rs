@@ -3,8 +3,8 @@
 //! Oracle for response shapes: RFC 9670 §2.3 (set).
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
-#[path = "common/mod.rs"]
-mod common;
+#[path = "helpers.rs"]
+mod helpers;
 
 use jmap_types::Id;
 use serde_json::json;
@@ -42,7 +42,7 @@ async fn principal_set_destroy_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .principal_set(None, None, Some(vec![Id::from("p-joe")]), None)
         .await
@@ -94,7 +94,7 @@ async fn principal_set_create_returns_forbidden() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let create_obj = json!({
         "c1": {
             "type": "individual",
@@ -143,7 +143,7 @@ async fn principal_set_created_omits_client_sent_properties() {
         .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
         .mount(&server)
         .await;
-    let sc = common::make_client(&server);
+    let sc = helpers::make_client(&server);
     let resp = sc
         .principal_set(
             Some(json!({ "k1": { "type": "group", "name": "Team" } })),
