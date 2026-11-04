@@ -3,13 +3,15 @@
   "title": "Layer E: Implement draft-atwood-jmap-chat-filenode-00 (new jmap-chat-filenode-{types,server,client} crates)",
   "description": "Spec: draft-atwood-jmap-chat-filenode-00.\n\nNOT WORKED in the JMAP-v9py compliance sweep; filed for a later session.\n\nCapability: urn:ietf:params:jmap:chat:filenode (meaningful only with both urn:ietf:params:jmap:chat AND urn:ietf:params:jmap:filenode).\n\n## What needs to land\n\n- FileNode role registered: urn:jmap:chat:filenode:space\n- FileNode extension property: spaceId (immutable; on FileNodes whose role is urn:jmap:chat:filenode:space)\n- Attachment extension: filenodeId, thumbnailBlobId\n- Space permission → FileNode permission mapping table (view → read, send → read+create, manage_channels → +delete, manage_space → +administer)\n- Capability struct fields: maxSpaceStorageBytes, autoCreateFileTree\n\n## Dependencies\n\n- jmap-filenode-types must be stable (workspace already has this crate)\n- jmap-chat-types Space + Attachment extension shape\n\n## Out-of-scope per spec\n\n- Group-chat / direct-chat file storage\n- Federation (file tree access in mailbox-per-user)\n- Per-channel FileNode ACL overrides",
   "notes": "2026-10-19 spec gap audit: residual work filed as children of this epic (chat-filenode spaceId filter/extension, root validation, authorizer hook, quota/auto-create, filenodeId attachments, tree destroy, crate placement decision). Folded in: JMAP-0x31, JMAP-5mx0, JMAP-f7ye. Depends on chat-00 conformance and chat extension seams epics.\nCrate placement decided 2026-10-20 (JMAP-v9py.16.8): binding crate-jmap-chat-\u003cx\u003e-server for cross-layer server rules; chat-object fields in chat-types; client helpers in chat-client unless they need the other layer's client.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-05-12T23:37:34Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-10-20T01:05:04.947758463Z",
+  "updated_at": "2026-11-04T17:49:31.746531855Z",
+  "closed_at": "2026-11-04T17:49:31.746531855Z",
+  "close_reason": "Stale: all children closed and the crates exist at 0.5.0 (P3 triage 2026-11-04).",
   "metadata": {},
   "dependencies": [
     {

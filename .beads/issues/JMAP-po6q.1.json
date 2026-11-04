@@ -2,13 +2,15 @@
   "id": "JMAP-po6q.1",
   "title": "vtc-types/server/client: hosted livestream support",
   "description": "Implement the vtc-00 hosted-livestream additions once specified (spec epic jmap-chat-spec-xpzz): types, state machine incl. long starting and failure, playback-credential flow, track lists. Blocked on spec.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-21T21:34:22.759212519Z",
   "created_by": "agent",
-  "updated_at": "2026-10-21T21:34:22.759212519Z",
+  "updated_at": "2026-11-04T17:49:33.071755106Z",
+  "closed_at": "2026-11-04T17:49:33.071755106Z",
+  "close_reason": "Duplicate of JMAP-t8ej.9-.12 (VTC livestream redesign: types, server, per-viewer endpoints); the spec it waited on has landed.",
   "dependencies": [
     {
       "issue_id": "JMAP-po6q.1",
