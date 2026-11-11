@@ -3252,10 +3252,10 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
     }
 }
 
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.2 — "Setting blobId to null is
-/// an "invalidProperties" error." / "Setting mediaType to null is an
-/// "invalidProperties" error."; §3.1.4 — "Setting target to null is an
-/// "invalidProperties" error."
+/// Oracle: draft-ietf-jmap-filenode-19 §3.1.2 — "Setting blobId to null is
+/// an "invalidProperties" error."; §3.1.4 — "Setting target to null is an
+/// "invalidProperties" error." (mediaType left this list in filenode-17; see
+/// `filenode_set_null_media_type_resets_to_default`.)
 #[tokio::test]
 async fn filenode_set_update_null_type_property_is_invalid_properties() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
@@ -3263,15 +3263,13 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
         &backend,
         json!({
             "f1": { "@type": "File", "name": "f1", "blobId": "B1", "mediaType": "text/plain" },
-            "f2": { "@type": "File", "name": "f2", "blobId": "B1", "mediaType": "text/plain" },
             "l": { "@type": "SymLink", "name": "l", "target": ["f1"] }
         }),
     )
     .await;
     let cases = [
         (&ids[0], "blobId", json!("B1")),
-        (&ids[1], "mediaType", json!("text/plain")),
-        (&ids[2], "target", json!(["f1"])),
+        (&ids[1], "target", json!(["f1"])),
     ];
 
     let mut update = serde_json::Map::new();
@@ -3305,6 +3303,63 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
         .await
         .expect("get must succeed");
         assert_eq!(&g_resp["list"][0][prop], stored, "{prop}: {g_resp}");
+    }
+}
+
+/// Oracle: draft-ietf-jmap-filenode-19 §3.1.2 — mediaType: "If not provided
+/// on creation, or if set to null, the server sets it to
+/// "application/octet-stream"."; Changes, -17: "Setting mediaType to null
+/// now resets it to "application/octet-stream" rather than being an error."
+/// Regression for bd JMAP-wkfn.
+#[tokio::test]
+async fn filenode_set_null_media_type_resets_to_default() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    // "c": null on create; "u": a real value, then null on update.
+    let ids = create_nodes(
+        &backend,
+        json!({
+            "c": { "@type": "File", "name": "c", "blobId": "B1", "mediaType": null },
+            "u": { "@type": "File", "name": "u", "blobId": "B1", "mediaType": "text/plain" }
+        }),
+    )
+    .await;
+    let (created_id, updated_id) = (&ids[0], &ids[1]);
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({ "accountId": "acc1", "update": { updated_id: { "mediaType": null } } }),
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    assert!(resp["notUpdated"].is_null(), "update must succeed: {resp}");
+    assert!(
+        resp["updated"]
+            .as_object()
+            .is_some_and(|m| m.contains_key(updated_id)),
+        "{resp}"
+    );
+
+    let HandlerOutput {
+        primary: g_resp, ..
+    } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [created_id, updated_id], "properties": ["mediaType"] }),
+        &[],
+    )
+    .await
+    .expect("get must succeed");
+    let list = g_resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 2, "{g_resp}");
+    for node in list {
+        assert_eq!(
+            node["mediaType"],
+            json!("application/octet-stream"),
+            "{g_resp}"
+        );
     }
 }
 
