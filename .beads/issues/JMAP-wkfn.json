@@ -1,0 +1,17 @@
+{
+  "id": "JMAP-wkfn",
+  "title": "FileNode/set: null mediaType must reset to default (filenode-17+)",
+  "description": "draft-ietf-jmap-filenode-17 changed null mediaType from invalidProperties to a reset: -19 §3.1.2 'If not provided on creation, or if set to null, the server sets it to \"application/octet-stream\".' Changelog -17: 'Setting mediaType to null now resets it to \"application/octet-stream\" rather than being an error.' crate-jmap-filenode-server still rejects it (src/filenode.rs nulled list, from JMAP-f233 per -16), and tests/filenode_tests.rs filenode_set_update_null_type_property_is_invalid_properties asserts the old behavior. Raised by Mark on jmap@ietf.org 2026-10-18, accepted by Bron the same day.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-11T20:50:35.353605716Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-11T21:00:55.230618458Z",
+  "closed_at": "2026-11-11T21:00:55.230618458Z",
+  "close_reason": "Fixed: null mediaType resets to application/octet-stream per filenode-19 §3.1.2; workspace 6865 passed, clippy clean",
+  "labels": [
+    "spec-sync"
+  ]
+}

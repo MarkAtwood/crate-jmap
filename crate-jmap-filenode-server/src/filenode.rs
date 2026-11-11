@@ -1026,13 +1026,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     property_owner(prop).map(|owner| (prop, owner, v.is_null()))
                 })
                 .collect();
-            // §3.1.1, §3.1.2, §3.1.4: name, blobId, mediaType and target
-            // are not nullable and have no default; a null one defined for
-            // the node's @type is invalidProperties (other types' nulls are
+            // §3.1.1, §3.1.2, §3.1.4: name, blobId and target are not
+            // nullable and have no default; a null one defined for the
+            // node's @type is invalidProperties (other types' nulls are
             // ignored, above). Defaulted properties reset on null (RFC 8620
-            // §5.3): a removed executable or isSubscribed reads back as its
-            // default; created is filled in below.
-            let mut nulled: Vec<&str> = ["name", "blobId", "mediaType", "target"]
+            // §5.3; draft-ietf-jmap-filenode-19 §3.1): a removed mediaType,
+            // executable or isSubscribed reads back as its default; created
+            // is filled in below. mediaType was invalidProperties until
+            // filenode-17 (bd JMAP-wkfn).
+            let mut nulled: Vec<&str> = ["name", "blobId", "target"]
                 .into_iter()
                 .filter(|p| patch.as_map().get(*p).is_some_and(Value::is_null))
                 .collect();
