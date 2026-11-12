@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-3kbu.1",
+  "title": "Rework FileNode/copy to deep-copy subtrees per filenode-20",
+  "description": "566c2b6/686e240/020da7f, draft lines 612-664: copying a Directory copies its subtree atomically; blobs are copied into the destination account; created/modified/accessed kept unless overridden; shareWith, role, isSubscribed not copied; source needs mayRead; implicit destroy for onSuccessDestroyOriginal uses onDestroyRemoveChildren=true. Crate: copies one node (crate-jmap-filenode-server filenode.rs:1826), rejects blobs absent from destination (:1749-1768), drops timestamp overrides (:1719, :2201), copies shareWith/role (merge_filenode_overrides :2186; memory.rs:1003), implicit destroy follows client flag (:2048-2120), depth check ignores subtree height (:1826).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:57.355665939Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:57.355665939Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-3kbu.1",
+      "depends_on_id": "JMAP-3kbu",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:17:57.475811342Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

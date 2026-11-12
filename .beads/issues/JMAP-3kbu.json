@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-3kbu",
+  "title": "Sync FileNode crates to draft-ietf-jmap-filenode-20",
+  "description": "Bron resolved Mark's FileNode issues and merged his PRs (#5 #9 #11 #14 #16) into filenode-20 (posted 2026-11-02), then simplified copy/move (686e240) and did a review pass (020da7f, a9e1e9f). Baseline -19 = db8fce1; current = brong/draft-gondwana-jmap-filenode a9e1e9f (/data/GIT/draft-gondwana-jmap-filenode). Already matching: max-depth error and depth-by-ancestors (filenode.rs:746,1232), onExists replace listing destroyed descendants (:836-867), same-account copy and copy-into-own-subtree error (:1778-1823), null timestamps -\u003e server time (:1156-1162). N/A (not implemented in the crates): SymLink resolution, archive/extract (incl. Bron's leading-'/' ignored, '.' dropped), Direct HTTP Write ETag/If-Match/412/507.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:57.175715975Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:57.175715975Z",
+  "labels": [
+    "spec-sync"
+  ]
+}
