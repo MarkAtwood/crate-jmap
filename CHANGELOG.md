@@ -12,6 +12,39 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+### Added
+
+- **jmap-calendars-server**: `CalendarEvent/set` enforces the per-event
+  account limits of draft-ietf-jmap-calendars-34 §5.9. `CalendarsLimits`
+  gains `max_calendars_per_event`, `max_participants_per_event`,
+  `min_date_time_epoch_seconds` and `max_date_time_epoch_seconds` (all
+  `None`, no limit, by default) with `with_*` setters; a create or update
+  that breaks one is `invalidProperties` naming the offending properties.
+  A floating `LocalDateTime` compares as though it were UTC (§1.5.1); a
+  zoned one is rejected by the handler only when more than a day out of
+  range, the rest being the backend's.
+- **jmap-calendars-types**: `BusyStatus::for_event` and
+  `IncludeInAvailability::counts_event` implement the -34 §2.2
+  participation rules for `Principal/getAvailability`: an event the
+  Principal declined or delegated is not relevant, and `"confirmed"`
+  covers a confirmed event the Principal is not a participant of, has
+  accepted, or owns at `"needs-action"`.
+
+### Changed
+
+- **jmap-calendars-server**: `CalendarEvent/get` rejects a `properties`
+  list naming `utcStart` or `utcEnd` together with `recurrenceOverrides`
+  with `invalidArguments` (draft-ietf-jmap-calendars-34 §5.7).
+- **jmap-calendars-types**, **jmap-calendars-server**,
+  **jmap-calendars-client**, **jmap-tasks-types**: cite
+  draft-ietf-jmap-calendars-34. The backend trait docs state the -34
+  rules for when an update sends an iTIP REQUEST (only on an `isDraft`
+  true to false change or a `sequence` change), the `timeZone` get
+  argument (also translates floating recurrence ids for
+  `recurrenceOverridesBefore`/`After`), per-user availability lookup,
+  CalendarAlert and CalendarEventNotification ids for instance-only
+  events, and the `noSupportedScheduleMethods` wording.
+
 ## [0.5.0] - 2026-11-02
 
 ### Added
