@@ -99,7 +99,7 @@ nodes are at depth 0), at which a node can match; `None` means no limit.
 | Type | Used for |
 |---|---|
 | `GetResponse<FileNode>` | `filenode_get` — typed list of FileNode objects |
-| `SetResponse<PartialObject>` | `filenode_set`, `filenode_copy` — created/updated/destroyed maps; RFC 8620 §5.3 `created` values hold only the properties the client did not send. `filenode_copy` keeps this shape, not `CopyResponse`, for the `destroyed` list draft-16 §3.2.3 requires |
+| `SetResponse<PartialObject>` | `filenode_set`, `filenode_copy` — created/updated/destroyed maps; RFC 8620 §5.3 `created` values hold only the properties the client did not send. `filenode_copy` keeps this shape, not `CopyResponse`, for the `destroyed` list draft-ietf-jmap-filenode-20 §3.2.4 requires |
 | `ChangesResponse` | `filenode_changes` — added, updated, and destroyed ID lists |
 | `QueryResponse` | `filenode_query` — ordered list of matching IDs |
 | `QueryChangesResponse` | `filenode_query_changes` — added and removed ID lists |
