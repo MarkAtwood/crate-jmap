@@ -260,7 +260,7 @@ fn rights(granted: &[&str]) -> Value {
 
 /// L165-166 for a `"send"` member: `mayRead` and `mayAddChildren` on the
 /// root and on a directory. The file has no `myRights`:
-/// draft-ietf-jmap-filenode-19 §5 "A node whose @type does not permit
+/// draft-ietf-jmap-filenode-20 §5 "A node whose @type does not permit
 /// children has no myRights. The user's rights on it are those in its
 /// parent's myRights". The ancestors `fetchParents` appends carry their
 /// rights too. `loose` is outside every Space tree, so it keeps its stored

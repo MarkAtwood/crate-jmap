@@ -22,7 +22,7 @@ pub fn make_session(server: &MockServer) -> jmap_base_client::Session {
                 "isPersonal": true,
                 "isReadOnly": false,
                 "accountCapabilities": {
-                    // draft-ietf-jmap-filenode-19 §2.1.1 example value.
+                    // draft-ietf-jmap-filenode-20 §2.1.1 example value.
                     "urn:ietf:params:jmap:filenode": {
                         "maxFileNodeDepth": 50,
                         "maxSizeFileNodeName": 255,

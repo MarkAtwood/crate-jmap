@@ -2,7 +2,7 @@
 
 ## What it is
 
-Typed client methods for the JMAP FileNode extension ([draft-ietf-jmap-filenode-13]). Wraps
+Typed client methods for the JMAP FileNode extension ([draft-ietf-jmap-filenode-20]). Wraps
 [`jmap-base-client`] transport with strongly-typed request builders and response types for
 all 6 JMAP FileNode method names.
 
@@ -91,7 +91,7 @@ optional `on_destroy_remove_children`, `on_exists`, `compare_case_insensitively`
 `if_from_in_state` (§3.2.4).
 
 **`filenode_query`** / **`filenode_query_changes`** — `depth: Option<u64>` is the
-draft-ietf-jmap-filenode-19 §3.2.5 maximum depth, counted from the top level (top-level
+draft-ietf-jmap-filenode-20 §3.2.5 maximum depth, counted from the top level (top-level
 nodes are at depth 0), at which a node can match; `None` means no limit.
 
 ## Response types
@@ -165,9 +165,9 @@ typed `async fn`.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-13]** — JMAP FileNode
+- **[draft-ietf-jmap-filenode-20]** — JMAP FileNode
 - **[RFC 8620]** — JMAP Core
 
-[draft-ietf-jmap-filenode-13]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-filenode-20]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client

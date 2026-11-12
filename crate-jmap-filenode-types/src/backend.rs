@@ -13,39 +13,39 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FileNodeProperty {
-    /// The `id` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `id` property (draft-ietf-jmap-filenode-20 §3.1.1).
     Id,
-    /// The `parentId` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `parentId` property (draft-ietf-jmap-filenode-20 §3.1.1).
     ParentId,
-    /// The `@type` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `@type` property (draft-ietf-jmap-filenode-20 §3.1.1).
     NodeType,
-    /// The `blobId` property (draft-ietf-jmap-filenode-19 §3.1.3).
+    /// The `blobId` property (draft-ietf-jmap-filenode-20 §3.1.3).
     BlobId,
-    /// The `target` property (draft-ietf-jmap-filenode-19 §3.1.5).
+    /// The `target` property (draft-ietf-jmap-filenode-20 §3.1.5).
     Target,
-    /// The `size` property (draft-ietf-jmap-filenode-19 §3.1.3).
+    /// The `size` property (draft-ietf-jmap-filenode-20 §3.1.3).
     Size,
-    /// The `name` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `name` property (draft-ietf-jmap-filenode-20 §3.1.1).
     Name,
-    /// The `mediaType` property (draft-ietf-jmap-filenode-19 §3.1.3).
+    /// The `mediaType` property (draft-ietf-jmap-filenode-20 §3.1.3).
     MediaType,
-    /// The `created` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `created` property (draft-ietf-jmap-filenode-20 §3.1.1).
     Created,
-    /// The `modified` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `modified` property (draft-ietf-jmap-filenode-20 §3.1.1).
     Modified,
-    /// The `accessed` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `accessed` property (draft-ietf-jmap-filenode-20 §3.1.1).
     Accessed,
-    /// The `changed` property (draft-ietf-jmap-filenode-19 §3.1.1).
+    /// The `changed` property (draft-ietf-jmap-filenode-20 §3.1.1).
     Changed,
-    /// The `executable` property (draft-ietf-jmap-filenode-19 §3.1.3).
+    /// The `executable` property (draft-ietf-jmap-filenode-20 §3.1.3).
     Executable,
-    /// The `isSubscribed` property (draft-ietf-jmap-filenode-19 §3.1.2).
+    /// The `isSubscribed` property (draft-ietf-jmap-filenode-20 §3.1.2).
     IsSubscribed,
-    /// The `myRights` property (draft-ietf-jmap-filenode-19 §3.1.2).
+    /// The `myRights` property (draft-ietf-jmap-filenode-20 §3.1.2).
     MyRights,
-    /// The `shareWith` property (draft-ietf-jmap-filenode-19 §3.1.2).
+    /// The `shareWith` property (draft-ietf-jmap-filenode-20 §3.1.2).
     ShareWith,
-    /// The `role` property (draft-ietf-jmap-filenode-19 §3.1.4).
+    /// The `role` property (draft-ietf-jmap-filenode-20 §3.1.4).
     Role,
 }
 
@@ -60,9 +60,9 @@ impl JmapObject for crate::FileNode {
 
 impl GetObject for crate::FileNode {}
 
-/// draft-ietf-jmap-filenode-16 §2 (lines 349, 362, 414, 431, 483): `@type`
-/// is "(immutable)", `id` is "(immutable; server-set)", `changed`,
-/// `myRights` and `size` are "(server-set)". draft-atwood-jmap-cid-00
+/// draft-ietf-jmap-filenode-20 §3.1.1: `@type` is "(immutable)", `id` is
+/// "(immutable; server-set)" and `changed` is "(server-set)"; §3.1.2 and
+/// §3.1.3 mark `myRights` and `size` "(server-set)". draft-atwood-jmap-cid-00
 /// §FileNode Extension: for `sha256` "the server MUST set this to the
 /// SHA-256 digest of the stored blob content". draft-atwood-jmap-chat-
 /// filenode-00 §The `spaceId` Extension Property: `spaceId` is "Supplied

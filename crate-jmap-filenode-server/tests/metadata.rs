@@ -469,7 +469,7 @@ async fn node_without_may_set_metadata_is_forbidden() {
     update_node(&backend, "locked", json!({ "name": "renamed" })).await;
 }
 
-/// A File has no rights object of its own: draft-ietf-jmap-filenode-19 §5,
+/// A File has no rights object of its own: draft-ietf-jmap-filenode-20 §5,
 /// "A node whose @type does not permit children has no myRights. The
 /// user's rights on it are those in its parent's myRights". So -05 §4.1's
 /// "A write to metadata without maySetMetadata MUST be rejected with a

@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-filenode-19 §2.1 — account-level capability object.
+//! draft-ietf-jmap-filenode-20 §2.1 — account-level capability object.
 //!
 //! Provides [`FileNodeCapability`] and the capability URI constant
 //! [`JMAP_FILENODE_URI`].
@@ -15,7 +15,7 @@ use crate::NodeType;
 pub const JMAP_FILENODE_URI: &str = "urn:ietf:params:jmap:filenode";
 
 /// Account-level capability for the JMAP FileNode extension
-/// (draft-ietf-jmap-filenode-19 §2.1).
+/// (draft-ietf-jmap-filenode-20 §2.1).
 ///
 /// -19 removed the -16 `forbiddenNodeNames` member; a capability from a
 /// -16 server that still sends it deserializes with the member ignored.
@@ -38,8 +38,9 @@ pub const JMAP_FILENODE_URI: &str = "urn:ietf:params:jmap:filenode";
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileNodeCapability {
-    /// Maximum depth of the FileNode hierarchy (one more than the max ancestor count),
-    /// or `null` for no limit.
+    /// "The maximum number of levels in the FileNode hierarchy, or null for no
+    /// limit. A FileNode may have at most one fewer ancestors than this value,
+    /// so 1 allows only top-level nodes" (draft-ietf-jmap-filenode-20 §2.1).
     ///
     /// Always serialized (as `null` when `None`).
     pub max_file_node_depth: Option<u64>,

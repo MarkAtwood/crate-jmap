@@ -1,7 +1,7 @@
 //! Wiremock integration tests for FileNode/get, /changes, /query, /queryChanges.
 //!
 //! Oracle for all response shapes:
-//!   - draft-ietf-jmap-filenode-16 §3.2.1 (get), §3.2.2 (changes),
+//!   - draft-ietf-jmap-filenode-20 §3.2.1 (get), §3.2.2 (changes),
 //!     §3.2.5 (query), §3.2.6 (queryChanges).
 //!   - RFC 8620 §3.4 JMAP batch response envelope.
 
@@ -21,7 +21,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// FileNode JSON for a `File` node in the draft-16 wire shape.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.5 example node "n3" — `@type`
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.6 example node "n3" — `@type`
 /// is `"File"`, the file-only properties are blobId, size, mediaType and
 /// executable, and properties of other node types are omitted.
 fn file_node_fixture(id: &str, name: &str, parent_id: Option<&str>) -> serde_json::Value {
@@ -39,7 +39,7 @@ fn file_node_fixture(id: &str, name: &str, parent_id: Option<&str>) -> serde_jso
 
 /// FileNode JSON for a `Directory` node in the draft-16 wire shape.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.5 example node "n1" — `@type`
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.6 example node "n1" — `@type`
 /// is `"Directory"`, role is the only directory-specific property, and
 /// file/symlink properties are omitted.
 fn directory_node_fixture(id: &str, name: &str, parent_id: Option<&str>) -> serde_json::Value {
@@ -59,7 +59,7 @@ fn directory_node_fixture(id: &str, name: &str, parent_id: Option<&str>) -> serd
 /// FileNode/get with fetchParents=Some(true) sends fetchParents in request and
 /// returns the fetched node list including parent nodes.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.2.1 — fetchParents argument causes server
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.1 — fetchParents argument causes server
 /// to also return ancestor nodes for every requested ID.
 /// Response: RFC 8620 §5.1 GetResponse shape.
 #[tokio::test]
@@ -185,7 +185,7 @@ async fn filenode_get_with_fetch_parents() {
 
 /// FileNode/get with fetchParents=None must NOT include fetchParents in the request.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.2.1 — fetchParents is optional; when
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.1 — fetchParents is optional; when
 /// absent the server uses its default (no parent fetching). Sending null would be
 /// a protocol error; the key must simply be absent.
 #[tokio::test]
@@ -293,7 +293,7 @@ async fn filenode_changes_returns_change_lists() {
 /// FileNode/query with depth=Some(2) and a parentId filter sends both in the request
 /// and returns the matching ID list.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.2.5 — depth argument controls recursive
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.5 — depth argument controls recursive
 /// descent; filter is a standard RFC 8620 FilterCondition object.
 /// Response: RFC 8620 §5.5 QueryResponse shape.
 #[tokio::test]
@@ -418,7 +418,7 @@ async fn filenode_query_changes_returns_added_and_removed() {
 /// `FileNode/queryChanges` with filter, sort, upToId, and calculateTotal
 /// must emit all four optional args on the wire (RFC 8620 §5.6).
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.2.5 — `parentId` and
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.5 — `parentId` and
 /// `nodeType` are valid FileNode filter fields, and `nodeType` matches
 /// `@type` values such as `"File"` (§3.1); the comparator shape
 /// (property + isAscending) follows RFC 8620 §5.5.
@@ -498,7 +498,7 @@ async fn filenode_query_changes_with_filter_sort_upto_calculatetotal() {
         json!(true),
         "calculateTotal must be on the wire (RFC 8620 §5.6)"
     );
-    // draft-ietf-jmap-filenode-19 §3.2.6: queryChanges "also takes the
+    // draft-ietf-jmap-filenode-20 §3.2.6: queryChanges "also takes the
     // depth argument of FileNode/query".
     assert_eq!(args["depth"], json!(1), "depth must be on the wire");
 }

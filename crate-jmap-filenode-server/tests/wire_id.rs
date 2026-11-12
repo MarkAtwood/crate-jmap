@@ -51,7 +51,7 @@ async fn filenode_set_rejects_malformed_update_and_destroy_ids() {
     assert_invalid_id(&resp["notDestroyed"]["bad id"], &resp);
 }
 
-/// draft-ietf-jmap-filenode-16 `parentId` is "Id|null"; a create naming
+/// draft-ietf-jmap-filenode-20 `parentId` is "Id|null"; a create naming
 /// `"bad id"` there fails with `invalidProperties` and creates nothing.
 #[tokio::test]
 async fn filenode_set_create_rejects_malformed_parent_id() {
@@ -89,7 +89,7 @@ async fn filenode_get_rejects_malformed_ids() {
     assert_eq!(err.error_type, MethodErrorType::InvalidArguments);
 }
 
-/// draft-ietf-jmap-filenode-16 types `shareWith` "Id[FilesRights]|null",
+/// draft-ietf-jmap-filenode-20 types `shareWith` "Id[FilesRights]|null",
 /// so each key is an Id. A `"bad id"` key on create, or as the id segment
 /// of a `shareWith/<id>/<right>` patch path, is `invalidProperties` naming
 /// `shareWith`. A well-formed segment (`p1`) passes the check and reaches

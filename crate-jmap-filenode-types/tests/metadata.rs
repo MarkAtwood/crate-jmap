@@ -16,7 +16,7 @@ use serde_json::json;
 /// `extra`, and round-trip. -05 §3.2: "null is equivalent to {}", so
 /// `null` decodes as absent and is not re-emitted; a non-object is
 /// rejected. The File carries no isSubscribed or shareWith, which
-/// draft-ietf-jmap-filenode-19 §3.1.2 defines only on nodes whose @type
+/// draft-ietf-jmap-filenode-20 §3.1.2 defines only on nodes whose @type
 /// permits children.
 #[test]
 fn file_node_metadata_properties() {

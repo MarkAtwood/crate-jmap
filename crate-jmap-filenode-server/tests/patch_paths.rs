@@ -17,7 +17,7 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// Seed a Directory `id` whose `shareWith` holds a single "existing" entry.
-/// A Directory, since draft-ietf-jmap-filenode-19 §3.1.2 defines shareWith
+/// A Directory, since draft-ietf-jmap-filenode-20 §3.1.2 defines shareWith
 /// only on nodes whose @type permits children.
 fn seed_dir(backend: &MemoryBackend, id: &str) {
     let node: FileNode = serde_json::from_value(json!({

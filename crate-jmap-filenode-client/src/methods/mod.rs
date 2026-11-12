@@ -29,7 +29,7 @@ pub use jmap_types::{
 /// [`build_request`]. Pass directly to `jmap_base_client::extract_response`.
 pub(crate) const CALL_ID: &str = "r1";
 
-/// Capability URIs for JMAP FileNode method calls (draft-ietf-jmap-filenode-13).
+/// Capability URIs for JMAP FileNode method calls (draft-ietf-jmap-filenode-20).
 pub(crate) const USING_FILENODE: &[&str] = &[
     "urn:ietf:params:jmap:core",
     jmap_filenode_types::JMAP_FILENODE_URI,
@@ -227,7 +227,7 @@ mod tests {
     }
 
     /// Oracle: USING_FILENODE contains exactly the two capability URIs.
-    /// Expected values are taken from draft-ietf-jmap-filenode-13 §2.1.
+    /// Expected values are taken from draft-ietf-jmap-filenode-20 §2.1.
     #[test]
     fn using_filenode_contains_correct_uris() {
         let req = build_request("FileNode/get", json!({}), USING_FILENODE);

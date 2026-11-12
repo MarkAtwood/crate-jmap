@@ -6,7 +6,7 @@ This crate is a **sibling under the canonical `jmap-mail-types`
 extension-types template**. Module layout, type-naming idioms,
 `#[non_exhaustive]` policy, serde attribute style, doc-comment
 style, and test layout must mirror `jmap-mail-types`. Differences
-are *only* the spec content (draft-ietf-jmap-filenode-14 here;
+are *only* the spec content (draft-ietf-jmap-filenode-20 here;
 RFC 8621 in mail-types).
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
@@ -30,7 +30,7 @@ for full workflow context.
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — planned types, module layout, source material
-2. Read the relevant draft-ietf-jmap-filenode-14 section before
+2. Read the relevant draft-ietf-jmap-filenode-20 section before
    implementing any type
 3. Cross-check the canonical sibling
    `~/PROJECT/crate-jmap/crate-jmap-mail-types/` for the type/serde
@@ -39,7 +39,7 @@ for full workflow context.
 
 ## What This Is
 
-JMAP FileNode extension data types (draft-ietf-jmap-filenode-14).
+JMAP FileNode extension data types (draft-ietf-jmap-filenode-20).
 Types only — no method handlers. No async. Consumed by
 `jmap-filenode-server` and `jmap-filenode-client`.
 
@@ -58,7 +58,7 @@ still compile.
 ## Spec Reference
 
 ```
-~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-14.txt   ← normative
+~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-20.txt   ← normative
 ~/PROJECT/IETF/specs/rfc8620.txt                       ← base protocol
 ```
 
@@ -93,7 +93,7 @@ Run all four before considering any work done.
 | Async | None — sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Dependencies | jmap-types, jmap-cid-types, serde, serde_json only (jmap-cid-types for `FileNode.sha256`, draft-atwood-jmap-cid-00) |
-| Field names | Must match draft-ietf-jmap-filenode-14 exactly |
+| Field names | Must match draft-ietf-jmap-filenode-20 exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from spec examples — never from code under test |
 | Attribute order | `#[non_exhaustive]` → `#[derive(...)]` → `#[serde(...)]` on every type |
@@ -112,5 +112,5 @@ Run all four before considering any work done.
 - Do not add dependencies beyond jmap-types, jmap-cid-types, serde, serde_json
 - Do not add async, tokio, or axum
 - Do not add method handler logic — types only
-- Do not add fields or types not present in draft-ietf-jmap-filenode-14
+- Do not add fields or types not present in draft-ietf-jmap-filenode-20
   unless explicitly directed (`sha256` comes from draft-atwood-jmap-cid-00)

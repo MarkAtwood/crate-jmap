@@ -1,6 +1,6 @@
 //! Integration tests for jmap-filenode-types.
 //!
-//! All JSON fixtures are hand-written from draft-ietf-jmap-filenode-16 or
+//! All JSON fixtures are hand-written from draft-ietf-jmap-filenode-20 or
 //! constructed directly from the spec field descriptions.  No expected value is
 //! derived from the code under test.
 //!
@@ -161,7 +161,7 @@ fn files_rights_roundtrip() {
 
 #[test]
 fn filenode_file_deserialize() {
-    // Constructed from §3.1.1 and §3.1.2 field descriptions for a File node.
+    // Constructed from §3.1.1 and §3.1.3 field descriptions for a File node.
     let json = &common::fixture("filenode_file_deserialize.json");
 
     let node: FileNode = serde_json::from_str(json).unwrap();
@@ -187,7 +187,7 @@ fn filenode_file_deserialize() {
 
 #[test]
 fn filenode_directory_deserialize() {
-    // §3.1.3: a Directory carries no File or SymLink properties.
+    // §3.1.4: a Directory carries no File or SymLink properties.
     let json = &common::fixture("filenode_directory_deserialize.json");
 
     let node: FileNode = serde_json::from_str(json).unwrap();
@@ -241,8 +241,8 @@ fn filenode_unknown_node_type_becomes_other() {
 
 #[test]
 fn filenode_nullable_fields_serialize_as_null_not_absent() {
-    // §3.1.1: parentId and shareWith are `|null` common properties; §3.1.3: role
-    // is `String|null` on a Directory.  All three must round-trip as `null`.
+    // §3.1.1: parentId is `Id|null`; §3.1.2: shareWith is `|null` on a
+    // container; §3.1.4: role is `String|null` on a Directory.  All three must round-trip as `null`.
     // §3.1: File and SymLink properties MUST NOT appear on a Directory.
     let json = &common::fixture("filenode_nullable_fields_serialize_as_null_not_absent.json");
     let node: FileNode = serde_json::from_str(json).unwrap();
@@ -256,7 +256,7 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
         assert!(obj[key].is_null(), "{key} must be null");
     }
     assert_eq!(obj["@type"], "Directory");
-    // §3.1.1: isSubscribed is "Boolean" (default: true).
+    // §3.1.2: isSubscribed is "Boolean" (default: true).
     assert_eq!(obj["isSubscribed"], true, "got: {out}");
 
     for key in [
@@ -286,7 +286,7 @@ fn filenode_share_with_populated_map() {
     assert!(!rights.may_share);
 }
 
-/// draft-ietf-jmap-filenode-19 §3.1.2: isSubscribed, myRights and shareWith
+/// draft-ietf-jmap-filenode-20 §3.1.2: isSubscribed, myRights and shareWith
 /// are defined "for every FileNode whose @type permits children; of the
 /// types defined in this document, only "Directory" does.  They do not
 /// appear on other nodes, whose rights come from their parent".
@@ -335,12 +335,12 @@ fn filenode_roundtrip_file() {
 }
 
 // ---------------------------------------------------------------------------
-// FileNode — role field nullable semantics (§3.1.3 type: String|null)
+// FileNode — role field nullable semantics (§3.1.4 type: String|null)
 // ---------------------------------------------------------------------------
 
 #[test]
 fn filenode_role_serializes_as_null() {
-    // Oracle: §3.1.3 types a Directory's `role` as `String|null`.  A Directory
+    // Oracle: §3.1.4 types a Directory's `role` as `String|null`.  A Directory
     // with role None must produce "role":null in wire JSON, not absence of the key.
     let json = &common::fixture("filenode_role_serializes_as_null.json");
     let node: FileNode = serde_json::from_str(json).expect("deserialize FileNode with role null");
@@ -361,7 +361,7 @@ fn filenode_role_serializes_as_null() {
 
 #[test]
 fn filenode_role_null_round_trips() {
-    // Oracle: §3.1.3 — role: null → deserialize → None → serialize → "role":null.
+    // Oracle: §3.1.4 — role: null → deserialize → None → serialize → "role":null.
     let json = &common::fixture("filenode_role_null_round_trips.json");
     let node: FileNode = serde_json::from_str(json).expect("first deserialize");
     assert_eq!(node.role, None);
@@ -392,7 +392,7 @@ fn capability_uri_constant() {
 
 #[test]
 fn capability_deserialize_from_spec_example() {
-    // Taken verbatim from draft-ietf-jmap-filenode-19 §2.1.1 capability example.
+    // Taken verbatim from draft-ietf-jmap-filenode-20 §2.1.1 capability example.
     let json = &common::fixture("capability_deserialize_from_spec_example.json");
 
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
@@ -429,7 +429,7 @@ fn capability_deserialize_from_spec_example() {
 
 #[test]
 fn capability_supported_node_types_from_spec_example() {
-    // supportedNodeTypes value from the draft-ietf-jmap-filenode-16 §2.1.1 example.
+    // supportedNodeTypes value from the draft-ietf-jmap-filenode-20 §2.1.1 example.
     let json = &common::fixture("capability_supported_node_types_from_spec_example.json");
     let cap: FileNodeCapability = serde_json::from_str(json).unwrap();
     assert_eq!(
@@ -715,10 +715,10 @@ fn file_node_preserves_vendor_extras() {
 }
 
 // ---------------------------------------------------------------------------
-// draft-ietf-jmap-filenode-16 §3.1 / §3.1.5 — @type and type-specific properties
+// draft-ietf-jmap-filenode-20 §3.1 / §3.1.6 — @type and type-specific properties
 // ---------------------------------------------------------------------------
 
-/// The §3.1.5 example array, copied verbatim from draft-ietf-jmap-filenode-16.
+/// The §3.1.6 example array, copied verbatim from draft-ietf-jmap-filenode-20.
 fn spec_3_1_5_example() -> String {
     common::fixture("spec_3_1_5_example.json")
 }
@@ -751,9 +751,9 @@ fn spec_3_1_5_example_deserializes() {
 #[test]
 fn spec_3_1_5_example_round_trips() {
     // The example omits common properties "for brevity"
-    // (draft-ietf-jmap-filenode-19 §3.1.6); the ones this crate always emits
+    // (draft-ietf-jmap-filenode-20 §3.1.6); the ones this crate always emits
     // are the Directory's required-and-nullable `shareWith` and its
-    // `isSubscribed`, "Boolean" (default: true). -19 §3.1.2 defines both only
+    // `isSubscribed`, "Boolean" (default: true). -20 §3.1.2 defines both only
     // "for every FileNode whose @type permits children; [...] only
     // "Directory" does.  They do not appear on other nodes".
     let expected: Vec<serde_json::Value> = serde_json::from_str(&spec_3_1_5_example()).unwrap();
@@ -852,7 +852,7 @@ fn filenode_old_wire_names_are_not_recognised() {
     assert_eq!(node.extra.len(), 2);
 }
 
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.2 `mediaType: "String" (default:
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.3 `mediaType: "String" (default:
 /// "application/octet-stream")` and `executable: "Boolean" (default: false)`;
 /// "If not provided on creation, the server sets it to
 /// "application/octet-stream"."
@@ -959,7 +959,7 @@ fn files_rights_may_set_metadata_typed_and_optional() {
 /// `nodeType` and `role` filter values outside the known sets survive a
 /// round trip unchanged.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.2.5 (lines
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.5 (lines
 /// 823-833): "nodeType: "String" ... Only nodes whose @type is precisely
 /// this value match" and "role: "String" ... Only nodes with precisely
 /// this role match". Expected JSON is hand-written.

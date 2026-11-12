@@ -22,7 +22,7 @@ use serde::Serialize;
 // ---------------------------------------------------------------------------
 
 /// Parameters for FileNode/get requests
-/// (draft-ietf-jmap-filenode-16 §3.2.1).
+/// (draft-ietf-jmap-filenode-20 §3.2.1).
 ///
 /// Carries the extension-specific request arguments beyond the standard
 /// RFC 8620 §5.1 `accountId` / `ids` / `properties` set, which are passed
@@ -40,7 +40,7 @@ use serde::Serialize;
 pub struct FileNodeGetParams {
     /// If `Some(true)`, the server returns all ancestor nodes of the
     /// requested ids in addition to the requested nodes themselves
-    /// (draft-ietf-jmap-filenode-16 §3.2.1). Server default when absent
+    /// (draft-ietf-jmap-filenode-20 §3.2.1). Server default when absent
     /// is `false`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_parents: Option<bool>,
@@ -61,7 +61,7 @@ pub struct FileNodeGetParams {
 }
 
 /// The action to take when a FileNode with the same name already exists
-/// (draft-ietf-jmap-filenode-19 §3.2.3 `onExists` argument).
+/// (draft-ietf-jmap-filenode-20 §3.2.3 `onExists` argument).
 ///
 /// The `onExists` value set has changed across draft revisions (-19
 /// removed `"newest"` and `"unchanged"`), so this enum is
@@ -80,7 +80,7 @@ pub struct FileNodeGetParams {
 ///
 /// To replace only the node it expects, a client destroys that node and
 /// creates the new one in the same `FileNode/set`, with an `ifUnchangedBy`
-/// precondition (JMAP-CONDITIONAL) on the destroy (-19 §3.2.3).
+/// precondition (JMAP-CONDITIONAL) on the destroy (-20 §3.2.3).
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
@@ -92,7 +92,7 @@ pub enum FileNodeOnExists {
 }
 
 /// Parameters for FileNode/set requests
-/// (draft-ietf-jmap-filenode-16 §3.2.3).
+/// (draft-ietf-jmap-filenode-20 §3.2.3).
 ///
 /// All fields are optional; omitted fields take server defaults.
 #[derive(Debug, Default, Clone, serde::Serialize)]
@@ -128,7 +128,7 @@ pub struct FileNodeSetParams {
 }
 
 /// Parameters for FileNode/copy requests
-/// (draft-ietf-jmap-filenode-16 §3.2.4).
+/// (draft-ietf-jmap-filenode-20 §3.2.4).
 ///
 /// `from_account_id` is the source account; the destination account is the
 /// session's primary FileNode account. `on_destroy_remove_children`,
@@ -193,7 +193,7 @@ pub struct FileNodeCopyParams {
 // ---------------------------------------------------------------------------
 
 impl super::SessionClient {
-    /// Fetch FileNode objects by IDs (draft-ietf-jmap-filenode-16 §3.2.1).
+    /// Fetch FileNode objects by IDs (draft-ietf-jmap-filenode-20 §3.2.1).
     ///
     /// If `ids` is `None`, the server returns all FileNodes for the account,
     /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
@@ -203,7 +203,7 @@ impl super::SessionClient {
     /// than the cap.
     /// Pass `properties: None` to return all fields.
     /// Use `params` to set FileNode-specific top-level arguments such as
-    /// `fetchParents` (draft-ietf-jmap-filenode-16 §3.2.1) and vendor
+    /// `fetchParents` (draft-ietf-jmap-filenode-20 §3.2.1) and vendor
     /// extensions via the [`FileNodeGetParams::extra`] flatten field. Pass
     /// `params: None` for the spec-default behavior.
     ///
@@ -272,7 +272,7 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to FileNode objects since `since_state`
-    /// (draft-ietf-jmap-filenode-16 §3.2.2).
+    /// (draft-ietf-jmap-filenode-20 §3.2.2).
     ///
     /// If `has_more_changes` is true in the response, call again with
     /// `new_state` as `since_state` until the flag is false.
@@ -316,7 +316,7 @@ impl super::SessionClient {
     }
 
     /// Create, update, or destroy FileNode objects
-    /// (draft-ietf-jmap-filenode-16 §3.2.3).
+    /// (draft-ietf-jmap-filenode-20 §3.2.3).
     ///
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
@@ -399,7 +399,7 @@ impl super::SessionClient {
     }
 
     /// Copy FileNode objects from `params.from_account_id` into this account
-    /// (draft-ietf-jmap-filenode-16 §3.2.4 — FileNode/copy).
+    /// (draft-ietf-jmap-filenode-20 §3.2.4 — FileNode/copy).
     ///
     /// `params` carries `fromAccountId` plus the optional destination-side
     /// arguments shared with `FileNode/set`:
@@ -422,10 +422,10 @@ impl super::SessionClient {
     ///
     /// This returns a [`SetResponse`] rather than the RFC 8620 §5.4
     /// [`CopyResponse`](jmap_types::CopyResponse) because
-    /// draft-ietf-jmap-filenode-16 §3.2.4 gives FileNode/copy the
-    /// FileNode/set `onExists` behaviour, under which "the server MUST
-    /// include the id of the replaced item in the destroyed response
-    /// list" (§3.2.3); `CopyResponse` has no `destroyed`. The response's
+    /// draft-ietf-jmap-filenode-20 §3.2.4 adds `destroyed` to the
+    /// FileNode/copy response: "The ids of the FileNodes in the destination
+    /// account that were destroyed because onExists replaced them";
+    /// `CopyResponse` has no `destroyed`. The response's
     /// `fromAccountId` lands in [`SetResponse::extra`]. Each `created`
     /// value is a [`PartialObject`] holding the server-set properties.
     ///
@@ -496,9 +496,9 @@ impl super::SessionClient {
     }
 
     /// Query FileNode IDs with optional filter, sort, and pagination
-    /// (draft-ietf-jmap-filenode-19 §3.2.5).
+    /// (draft-ietf-jmap-filenode-20 §3.2.5).
     ///
-    /// `depth` is draft-ietf-jmap-filenode-19 §3.2.5 "The maximum depth in
+    /// `depth` is draft-ietf-jmap-filenode-20 §3.2.5 "The maximum depth in
     /// the tree, counted from the top level, at which a node can match:
     /// nodes with a null parentId are at depth 0, their children at depth 1,
     /// and so on." `None` omits it, which "If null, there is no limit".
@@ -549,7 +549,7 @@ impl super::SessionClient {
     }
 
     /// Fetch query-result changes for FileNode since `since_query_state`
-    /// (draft-ietf-jmap-filenode-19 §3.2.6).
+    /// (draft-ietf-jmap-filenode-20 §3.2.6).
     ///
     /// Returns which FileNode IDs were removed from or added to the query
     /// result set since the given state. `max_changes` may be `None`.
@@ -561,7 +561,7 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count. `depth` MUST
-    /// match the original query's too: -19 §3.2.6 queryChanges "also takes
+    /// match the original query's too: -20 §3.2.6 queryChanges "also takes
     /// the depth argument of FileNode/query, with the same meaning".
     ///
     /// `filter` is an RFC 8620 §5.5 `Filter`: a bare condition
@@ -589,7 +589,7 @@ impl super::SessionClient {
     ///   server cannot honour the request given the supplied filter /
     ///   sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    #[allow(clippy::too_many_arguments)] // RFC 8620 §5.6 + -19 §3.2.6 depth
+    #[allow(clippy::too_many_arguments)] // RFC 8620 §5.6 + -20 §3.2.6 depth
     pub async fn filenode_query_changes<C: Serialize>(
         &self,
         since_query_state: &State,
@@ -693,7 +693,7 @@ mod tests {
     // ── Serialization oracles ───────────────────────────────────────────────
 
     /// Oracle: FileNodeOnExists::Replace serializes to "replace".
-    /// Expected value taken directly from draft-ietf-jmap-filenode-16 §3.2.3.
+    /// Expected value taken directly from draft-ietf-jmap-filenode-20 §3.2.3.
     #[test]
     fn file_node_on_exists_replace_serializes() {
         let val = serde_json::to_value(FileNodeOnExists::Replace).expect("serialize");
@@ -705,7 +705,7 @@ mod tests {
     }
 
     /// Oracle: FileNodeOnExists::Rename serializes to "rename".
-    /// Expected value taken directly from draft-ietf-jmap-filenode-16 §3.2.3.
+    /// Expected value taken directly from draft-ietf-jmap-filenode-20 §3.2.3.
     #[test]
     fn file_node_on_exists_rename_serializes() {
         let val = serde_json::to_value(FileNodeOnExists::Rename).expect("serialize");
@@ -713,7 +713,7 @@ mod tests {
     }
 
     /// Oracle: FileNodeSetParams with onDestroyRemoveChildren=true serializes correctly.
-    /// Expected field name "onDestroyRemoveChildren" from draft-ietf-jmap-filenode-16 §3.2.3.
+    /// Expected field name "onDestroyRemoveChildren" from draft-ietf-jmap-filenode-20 §3.2.3.
     #[test]
     fn filenode_set_params_on_destroy_serializes() {
         let params = FileNodeSetParams {
@@ -777,7 +777,7 @@ mod tests {
 
     /// Oracle: SetResponse<FileNode> deserializes from RFC 8620 §5.3 shape
     /// with a typed FileNode in the created map.
-    /// FileNode JSON follows the draft-ietf-jmap-filenode-16 §3.1.5 directory
+    /// FileNode JSON follows the draft-ietf-jmap-filenode-20 §3.1.6 directory
     /// example: `@type` is `"Directory"` and file/symlink properties are omitted.
     #[test]
     fn set_response_with_typed_file_node_deserializes() {
@@ -860,7 +860,7 @@ mod tests {
     /// compare_case_insensitively serializes all three named fields
     /// (fromAccountId, onDestroyRemoveChildren, compareCaseInsensitively).
     /// Expected field names from RFC 8620 §5.4 (fromAccountId) and
-    /// draft-ietf-jmap-filenode-16 §3.2.4 / §3.2.3 (the /set arguments).
+    /// draft-ietf-jmap-filenode-20 §3.2.4 / §3.2.3 (the /set arguments).
     #[test]
     fn filenode_copy_params_all_fields_serializes() {
         let params = FileNodeCopyParams {
