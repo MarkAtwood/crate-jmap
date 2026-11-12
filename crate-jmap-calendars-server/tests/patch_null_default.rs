@@ -3,7 +3,7 @@
 //!
 //! Oracle: RFC 8620 §5.3: "If null, set to the default value if specified
 //! for this property; otherwise, remove the property from the patched
-//! object." Each test quotes the draft-ietf-jmap-calendars-33 line that
+//! object." Each test quotes the draft-ietf-jmap-calendars-34 line that
 //! specifies the default it expects.
 
 mod common;
@@ -104,7 +104,7 @@ async fn get_identity(backend: &MemoryBackend) -> Value {
     resp["list"][0].clone()
 }
 
-/// draft-ietf-jmap-calendars-33 line 774:
+/// draft-ietf-jmap-calendars-34 line 794:
 /// "*sortOrder*: UnsignedInt (default: 0)".
 #[tokio::test]
 async fn calendar_sort_order_null_resets_to_zero() {
@@ -118,7 +118,7 @@ async fn calendar_sort_order_null_resets_to_zero() {
     assert_eq!(cal["sortOrder"], 0, "{cal}");
 }
 
-/// draft-ietf-jmap-calendars-33 line 808:
+/// draft-ietf-jmap-calendars-34 line 819:
 /// "*isVisible*: Boolean (default: true)".
 #[tokio::test]
 async fn calendar_is_visible_null_resets_to_true() {
@@ -132,7 +132,7 @@ async fn calendar_is_visible_null_resets_to_true() {
     assert_eq!(cal["isVisible"], true, "{cal}");
 }
 
-/// draft-ietf-jmap-calendars-33 line 630:
+/// draft-ietf-jmap-calendars-34 line 642:
 /// "*name*: String (default: "")".
 #[tokio::test]
 async fn participant_identity_name_null_resets_to_empty() {
@@ -148,7 +148,7 @@ async fn participant_identity_name_null_resets_to_empty() {
 
 /// RFC 8620 §5.3: "If null, set to the default value if specified for
 /// this property; otherwise, remove the property from the patched
-/// object." draft-ietf-jmap-calendars-33 line 750 gives "*name*: String"
+/// object." draft-ietf-jmap-calendars-34 line 760 gives "*name*: String"
 /// with no default, so the patched Calendar is, per RFC 8620 §5.3
 /// "invalidProperties", "invalid in some way". The rejected update must
 /// leave the stored calendar readable and unchanged.
@@ -165,7 +165,7 @@ async fn calendar_required_name_null_is_invalid_properties() {
 
 /// RFC 8620 §5.3: "If null, set to the default value if specified for
 /// this property; otherwise, remove the property from the patched
-/// object." draft-ietf-jmap-calendars-33 line 634 gives
+/// object." draft-ietf-jmap-calendars-34 line 646 gives
 /// "*calendarAddress*: String" with no default, so the update is
 /// "invalidProperties" and the stored identity stays readable.
 #[tokio::test]

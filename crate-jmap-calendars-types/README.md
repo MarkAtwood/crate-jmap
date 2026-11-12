@@ -1,6 +1,6 @@
 # jmap-calendars-types
 
-Serde-annotated Rust types for JMAP Calendars ([draft-ietf-jmap-calendars-33]) and
+Serde-annotated Rust types for JMAP Calendars ([draft-ietf-jmap-calendars-34]) and
 JSCalendar ([RFC 8984]).
 
 **Types only** — no method handlers, no async, no network I/O. Sits between
@@ -57,7 +57,7 @@ Module column names the source file only; the modules are private.
 
 ## What it's for
 
-draft-ietf-jmap-calendars-33 data types, consumed by
+draft-ietf-jmap-calendars-34 data types, consumed by
 `jmap-calendars-server` (method handlers + the `CalendarsBackend` trait)
 and `jmap-calendars-client` (typed method bindings). Re-exports
 the `jmap-jscalendar-types` sub-objects at the crate root so callers can
@@ -107,7 +107,7 @@ decision is bd JMAP-lbdy.
 
 ## Spec coverage
 
-### draft-ietf-jmap-calendars-33
+### draft-ietf-jmap-calendars-34
 
 | Section | Topic |
 |---|---|
@@ -267,7 +267,7 @@ typed structs without reading RFC 8984 §3.3 on extensibility.
 ### `iCalendar` wire name
 
 The `icalendar` field on `CalendarEvent` carries the `iCalendar` property
-(draft-ietf-jmap-calendars-33 §5.7), an ICalComponent object holding
+(draft-ietf-jmap-calendars-34 §5.7), an ICalComponent object holding
 iCalendar data that converted to the event. It is only returned when
 explicitly requested. The field carries an explicit rename rather than
 relying on `rename_all = "camelCase"`:
@@ -298,7 +298,7 @@ pub icalendar: Option<serde_json::Value>,
   field; it falls into the extras catch-all and round-trips under its own
   spelling. Pinned in `calendar_event_draft26_icalcomponent_lands_in_extras`.
 
-- **Draft expired.** draft-ietf-jmap-calendars-33 is an expired Internet-Draft,
+- **Draft, not RFC.** draft-ietf-jmap-calendars-34 is an Internet-Draft,
   not a published RFC. Some ambiguous field semantics use best-judgment
   interpretation based on the JSCalendar RFC 8984 normative base. The type
   definitions will need review when (if) the draft is published.
@@ -321,7 +321,7 @@ remain that way until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-calendars-33]** — JMAP Calendars binding (Calendar,
+- **[draft-ietf-jmap-calendars-34]** — JMAP Calendars binding (Calendar,
   CalendarEvent additions, CalendarEventNotification, ParticipantIdentity,
   capability objects, error codes)
 - **[RFC 8984]** — JSCalendar Event format (all JSCalendar Event properties,
@@ -329,6 +329,6 @@ remain that way until the family is published to crates.io.
 - **[RFC 8620]** — JMAP Core (request format, PatchObject, SetError,
   ResultReference)
 
-[draft-ietf-jmap-calendars-33]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
+[draft-ietf-jmap-calendars-34]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

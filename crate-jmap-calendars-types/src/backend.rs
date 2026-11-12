@@ -14,33 +14,33 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalendarProperty {
-    /// The `id` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `id` property (draft-ietf-jmap-calendars-34 §4).
     Id,
-    /// The `name` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `name` property (draft-ietf-jmap-calendars-34 §4).
     Name,
-    /// The `description` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `description` property (draft-ietf-jmap-calendars-34 §4).
     Description,
-    /// The `color` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `color` property (draft-ietf-jmap-calendars-34 §4).
     Color,
-    /// The `sortOrder` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `sortOrder` property (draft-ietf-jmap-calendars-34 §4).
     SortOrder,
-    /// The `isSubscribed` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `isSubscribed` property (draft-ietf-jmap-calendars-34 §4).
     IsSubscribed,
-    /// The `isVisible` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `isVisible` property (draft-ietf-jmap-calendars-34 §4).
     IsVisible,
-    /// The `isDefault` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `isDefault` property (draft-ietf-jmap-calendars-34 §4).
     IsDefault,
-    /// The `includeInAvailability` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `includeInAvailability` property (draft-ietf-jmap-calendars-34 §4).
     IncludeInAvailability,
-    /// The `defaultAlertsWithTime` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `defaultAlertsWithTime` property (draft-ietf-jmap-calendars-34 §4).
     DefaultAlertsWithTime,
-    /// The `defaultAlertsWithoutTime` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `defaultAlertsWithoutTime` property (draft-ietf-jmap-calendars-34 §4).
     DefaultAlertsWithoutTime,
-    /// The `timeZone` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `timeZone` property (draft-ietf-jmap-calendars-34 §4).
     TimeZone,
-    /// The `shareWith` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `shareWith` property (draft-ietf-jmap-calendars-34 §4).
     ShareWith,
-    /// The `myRights` property (draft-ietf-jmap-calendars-33 §4).
+    /// The `myRights` property (draft-ietf-jmap-calendars-34 §4).
     MyRights,
 }
 
@@ -48,29 +48,29 @@ pub enum CalendarProperty {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalendarEventProperty {
-    /// The `id` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `id` property (draft-ietf-jmap-calendars-34 §5).
     Id,
-    /// The `baseEventId` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `baseEventId` property (draft-ietf-jmap-calendars-34 §5).
     BaseEventId,
-    /// The `calendarIds` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `calendarIds` property (draft-ietf-jmap-calendars-34 §5).
     CalendarIds,
-    /// The `isDraft` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `isDraft` property (draft-ietf-jmap-calendars-34 §5).
     IsDraft,
-    /// The `isOrigin` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `isOrigin` property (draft-ietf-jmap-calendars-34 §5).
     IsOrigin,
-    /// The `utcStart` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `utcStart` property (draft-ietf-jmap-calendars-34 §5).
     UtcStart,
-    /// The `utcEnd` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `utcEnd` property (draft-ietf-jmap-calendars-34 §5).
     UtcEnd,
-    /// The `useDefaultAlerts` property (draft-ietf-jmap-calendars-33 §5).
+    /// The `useDefaultAlerts` property (draft-ietf-jmap-calendars-34 §5).
     UseDefaultAlerts,
-    /// The `mayInviteSelf` property (draft-ietf-jmap-calendars-33 §5.1.1).
+    /// The `mayInviteSelf` property (draft-ietf-jmap-calendars-34 §5.1.1).
     MayInviteSelf,
-    /// The `mayInviteOthers` property (draft-ietf-jmap-calendars-33 §5.1.2).
+    /// The `mayInviteOthers` property (draft-ietf-jmap-calendars-34 §5.1.2).
     MayInviteOthers,
-    /// The `hideAttendees` property (draft-ietf-jmap-calendars-33 §5.1.3).
+    /// The `hideAttendees` property (draft-ietf-jmap-calendars-34 §5.1.3).
     HideAttendees,
-    /// The `blobId` property (draft-ietf-jmap-calendars-33 §5.3).
+    /// The `blobId` property (draft-ietf-jmap-calendars-34 §5.3).
     BlobId,
     /// The `uid` property, inherited from the JSCalendar Event object (RFC 8984 §4.1.2).
     Uid,
@@ -87,7 +87,7 @@ pub enum CalendarEventProperty {
 }
 
 /// Names of [`CalendarEvent`](crate::CalendarEvent) properties that the JMAP
-/// Calendars draft (draft-ietf-jmap-calendars-33 §5.4) classifies as
+/// Calendars draft (draft-ietf-jmap-calendars-34 §5.4) classifies as
 /// **per-user**.
 ///
 /// Per-user properties belong to the authenticated user's view of the event;
@@ -97,7 +97,7 @@ pub enum CalendarEventProperty {
 ///
 /// This list mirrors the properties with "Is Per-User" set to "Yes" in
 /// the IANA "JSCalendar Properties" registry (draft-ietf-calext-jscalendarbis-22
-/// §7.4.2), which draft-ietf-jmap-calendars-33 §5.4 now refers to.
+/// §7.4.2), which draft-ietf-jmap-calendars-34 §5.4 now refers to.
 ///
 /// **Maintainer note (internal layout).** Internally this list is split
 /// into two private halves — `PER_USER_PROPERTIES_IN_ENUM` and
@@ -144,7 +144,7 @@ pub const PER_USER_CALENDAR_EVENT_PROPERTIES: &[&str] = &[
 #[allow(dead_code)]
 const PER_USER_PROPERTIES_IN_ENUM: &[&str] = &["useDefaultAlerts"];
 
-/// Per-user property wire-names from draft-ietf-jmap-calendars-33 §5.4
+/// Per-user property wire-names from draft-ietf-jmap-calendars-34 §5.4
 /// that do **not** yet have a corresponding [`CalendarEventProperty`]
 /// variant.
 ///
@@ -160,7 +160,7 @@ const PER_USER_PROPERTIES_NOT_YET_IN_ENUM: &[&str] =
     &["keywords", "color", "freeBusyStatus", "alerts"];
 
 /// Returns `true` if `name` is a per-user [`CalendarEvent`](crate::CalendarEvent)
-/// property name per draft-ietf-jmap-calendars-33 §5.4.
+/// property name per draft-ietf-jmap-calendars-34 §5.4.
 ///
 /// See [`PER_USER_CALENDAR_EVENT_PROPERTIES`] for the full set. This is a
 /// wire-protocol property classification: the spec list is fixed by IANA
@@ -174,23 +174,23 @@ pub fn is_per_user_calendar_event_property(name: &str) -> bool {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CalendarEventNotificationProperty {
-    /// The `id` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `id` property (draft-ietf-jmap-calendars-34 §7).
     Id,
-    /// The `created` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `created` property (draft-ietf-jmap-calendars-34 §7).
     Created,
-    /// The `changedBy` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `changedBy` property (draft-ietf-jmap-calendars-34 §7).
     ChangedBy,
-    /// The `comment` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `comment` property (draft-ietf-jmap-calendars-34 §7).
     Comment,
-    /// The `type` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `type` property (draft-ietf-jmap-calendars-34 §7).
     Type,
-    /// The `calendarEventId` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `calendarEventId` property (draft-ietf-jmap-calendars-34 §7).
     CalendarEventId,
-    /// The `isDraft` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `isDraft` property (draft-ietf-jmap-calendars-34 §7).
     IsDraft,
-    /// The `event` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `event` property (draft-ietf-jmap-calendars-34 §7).
     Event,
-    /// The `eventPatch` property (draft-ietf-jmap-calendars-33 §7).
+    /// The `eventPatch` property (draft-ietf-jmap-calendars-34 §7).
     EventPatch,
 }
 
@@ -198,13 +198,13 @@ pub enum CalendarEventNotificationProperty {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ParticipantIdentityProperty {
-    /// The `id` property (draft-ietf-jmap-calendars-33 §3).
+    /// The `id` property (draft-ietf-jmap-calendars-34 §3).
     Id,
-    /// The `name` property (draft-ietf-jmap-calendars-33 §3).
+    /// The `name` property (draft-ietf-jmap-calendars-34 §3).
     Name,
-    /// The `calendarAddress` property (draft-ietf-jmap-calendars-33 §3).
+    /// The `calendarAddress` property (draft-ietf-jmap-calendars-34 §3).
     CalendarAddress,
-    /// The `isDefault` property (draft-ietf-jmap-calendars-33 §3).
+    /// The `isDefault` property (draft-ietf-jmap-calendars-34 §3).
     IsDefault,
 }
 
@@ -219,7 +219,7 @@ impl JmapObject for crate::Calendar {
 
 impl GetObject for crate::Calendar {}
 
-/// draft-ietf-jmap-calendars-33 §4 (lines 747, 816, 907): `id` is
+/// draft-ietf-jmap-calendars-34 §4 (lines 757, 827, 916): `id` is
 /// "(immutable; server-set)"; `isDefault` and `myRights` are
 /// "(server-set)".
 ///
@@ -253,7 +253,7 @@ impl JmapObject for crate::CalendarEvent {
 
 impl GetObject for crate::CalendarEvent {}
 
-/// draft-ietf-jmap-calendars-33 §5 (lines 1133, 1138, 1151): `id` and
+/// draft-ietf-jmap-calendars-34 §5 (lines 1146, 1151, 1164): `id` and
 /// `baseEventId` are "(immutable; server-set)", `isOrigin` is
 /// "(server-set)". No other property, JMAP or JSCalendar, carries either
 /// attribute.
@@ -337,9 +337,9 @@ impl GetObject for crate::CalendarEventNotification {}
 /// safe placeholder that satisfies the trait bound while keeping the
 /// type-system contract aligned with sibling types (RFC 8620 §5.3).
 ///
-/// draft-ietf-jmap-calendars-33 §7.3: "Only destroy is supported; any
+/// draft-ietf-jmap-calendars-34 §7.3: "Only destroy is supported; any
 /// attempt to create/update MUST be rejected", so every property is
-/// server-set; `id` (line 2601) is also "(immutable; server-set)".
+/// server-set; `id` (line 2677) is also "(immutable; server-set)".
 impl SetObject for crate::CalendarEventNotification {
     type Patch = PatchObject;
     const SERVER_SET: &'static [&'static str] = &[
@@ -369,7 +369,7 @@ impl JmapObject for crate::ParticipantIdentity {
 
 impl GetObject for crate::ParticipantIdentity {}
 
-/// draft-ietf-jmap-calendars-33 §3 (lines 627, 638): `id` is "(immutable;
+/// draft-ietf-jmap-calendars-34 §3 (lines 639, 650): `id` is "(immutable;
 /// server-set)", `isDefault` is "(server-set)".
 impl SetObject for crate::ParticipantIdentity {
     type Patch = PatchObject;
@@ -533,7 +533,7 @@ mod tests {
     /// Pinning test: the per-user property list MUST match the IANA-registered
     /// set in draft-ietf-jmap-calendars-26 §10.8.2 exactly.
     ///
-    /// draft-ietf-jmap-calendars-33 dropped §10.8 and refers to the "Is
+    /// draft-ietf-jmap-calendars-34 dropped §10.8 and refers to the "Is
     /// Per-User" column of draft-ietf-calext-jscalendarbis-22 §7.4, which
     /// marks the same five properties "Yes"; the -26 list stays the oracle
     /// because it fixes an order.
@@ -769,7 +769,7 @@ mod tests {
     }
 
     /// Oracle: RFC 8620 §5.5 (line 2368) types the /query `filter` as
-    /// "FilterOperator|FilterCondition|null". draft-ietf-jmap-calendars-33
+    /// "FilterOperator|FilterCondition|null". draft-ietf-jmap-calendars-34
     /// §5.11 names the CalendarEvent `inCalendar` condition and §7.4 the
     /// CalendarEventNotification `calendarEventIds` condition. A
     /// hand-written NOT tree decodes as each filter.

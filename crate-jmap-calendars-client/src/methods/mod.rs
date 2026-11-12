@@ -37,7 +37,7 @@ pub use jmap_types::{
 // ---------------------------------------------------------------------------
 
 /// Response type for `CalendarEvent/parse`
-/// (draft-ietf-jmap-calendars-33 §5.13).
+/// (draft-ietf-jmap-calendars-34 §5.13).
 ///
 /// `parsed` maps each blob id to the list of `CalendarEvent` objects parsed
 /// from that blob (a blob may contain multiple VEVENT components).
@@ -77,7 +77,7 @@ pub struct CalendarEventParseResponse {
 // ---------------------------------------------------------------------------
 
 /// Response type for `Principal/getAvailability`
-/// (draft-ietf-jmap-calendars-33 §2.2).
+/// (draft-ietf-jmap-calendars-34 §2.2).
 ///
 /// `list` contains the busy periods for the queried principal within the
 /// requested time range.
@@ -110,7 +110,7 @@ pub struct PrincipalGetAvailabilityResponse {
 // ---------------------------------------------------------------------------
 
 /// Extra method-level arguments for `Calendar/set`
-/// (draft-ietf-jmap-calendars-33 §4.4).
+/// (draft-ietf-jmap-calendars-34 §4.4).
 ///
 /// All fields are optional. Pass `None` (or `Default::default()`) when not
 /// needed. The `if_in_state` optimistic-concurrency guard remains a
@@ -121,20 +121,20 @@ pub struct PrincipalGetAvailabilityResponse {
 #[serde(rename_all = "camelCase")]
 pub struct CalendarSetParams {
     /// If `true`, destroying a calendar also destroys all its events
-    /// (draft-ietf-jmap-calendars-33 §4.4). Server default: false (the
+    /// (draft-ietf-jmap-calendars-34 §4.4). Server default: false (the
     /// server MUST reject a destroy on a calendar with events,
     /// returning the `calendarHasEvent` SetError).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_events: Option<bool>,
 
     /// Calendar to make the account default once every create, update
-    /// and destroy in the call succeeds (draft-ietf-jmap-calendars-33
+    /// and destroy in the call succeeds (draft-ietf-jmap-calendars-34
     /// §4.3, `onSuccessSetIsDefault: Id|null`): an existing calendar
     /// id, or `"#"` followed by a creation id from this call's `create`
     /// map. A `String`, not [`Id`], because `#` is not a valid `Id`
     /// character. The server ignores an id it cannot find or a change
     /// it does not permit. A call with only this field set is valid
-    /// (draft-ietf-jmap-calendars-33 §8.4).
+    /// (draft-ietf-jmap-calendars-34 §8.4).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success_set_is_default: Option<String>,
 
@@ -159,7 +159,7 @@ pub struct CalendarSetParams {
 // ---------------------------------------------------------------------------
 
 /// Extra method-level arguments for `CalendarEvent/set`
-/// (draft-ietf-jmap-calendars-33 §5.9).
+/// (draft-ietf-jmap-calendars-34 §5.9).
 ///
 /// Pass `None` (or `Default::default()`) when not needed. Mirrors the
 /// canonical `MailboxSetParams` shape in `jmap-mail-client`.
@@ -169,7 +169,7 @@ pub struct CalendarEventSetParams {
     /// If `true`, the server sends iTIP scheduling messages for changes
     /// to scheduled events: to all participants when it is the origin of
     /// the event, otherwise back to the origin
-    /// (draft-ietf-jmap-calendars-33 §5.9, §5.9.2). Server default:
+    /// (draft-ietf-jmap-calendars-34 §5.9, §5.9.2). Server default:
     /// false.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub send_scheduling_messages: Option<bool>,
@@ -195,7 +195,7 @@ pub struct CalendarEventSetParams {
 // ---------------------------------------------------------------------------
 
 /// Extra method-level arguments for `ParticipantIdentity/set`
-/// (draft-ietf-jmap-calendars-33 §3.3).
+/// (draft-ietf-jmap-calendars-34 §3.3).
 ///
 /// Pass `None` (or `Default::default()`) when not needed. Mirrors the
 /// canonical `MailboxSetParams` shape in `jmap-mail-client`.
@@ -203,7 +203,7 @@ pub struct CalendarEventSetParams {
 #[serde(rename_all = "camelCase")]
 pub struct ParticipantIdentitySetParams {
     /// Identity to make the default once every create, update and
-    /// destroy in the call succeeds (draft-ietf-jmap-calendars-33 §3.3,
+    /// destroy in the call succeeds (draft-ietf-jmap-calendars-34 §3.3,
     /// `onSuccessSetIsDefault: Id|null`): an existing identity id, or
     /// `"#"` followed by a creation id from this call's `create` map.
     /// A `String`, not [`Id`], because `#` is not a valid `Id`
@@ -232,7 +232,7 @@ pub struct ParticipantIdentitySetParams {
 // CalendarEvent/copy parameters
 // ---------------------------------------------------------------------------
 
-/// Arguments for `CalendarEvent/copy` (draft-ietf-jmap-calendars-33 §5.10).
+/// Arguments for `CalendarEvent/copy` (draft-ietf-jmap-calendars-34 §5.10).
 ///
 /// Mirrors the canonical `EmailCopyParams` shape in `jmap-mail-client`
 /// (workspace canonical extension-client template).
@@ -276,7 +276,7 @@ pub struct CalendarEventCopyParams {
 // ---------------------------------------------------------------------------
 
 /// Extra parameters accepted by `CalendarEvent/get`
-/// (draft-ietf-jmap-calendars-33 §5.4).
+/// (draft-ietf-jmap-calendars-34 §5.4).
 ///
 /// All fields are optional. Pass `None` for any field to omit it from the
 /// request (the server uses its default).
@@ -315,7 +315,7 @@ pub struct CalendarEventGetParams {
 }
 
 /// Extra parameters accepted by `CalendarEvent/parse`
-/// (draft-ietf-jmap-calendars-33 §5.13).
+/// (draft-ietf-jmap-calendars-34 §5.13).
 ///
 /// Mirrors the canonical [`EmailParseParams`] shape from
 /// `jmap-mail-client`: optional spec-defined fields plus a `flatten`-ed
@@ -344,7 +344,7 @@ pub struct CalendarEventParseParams {
 }
 
 /// Extra parameters accepted by `Principal/getAvailability`
-/// (draft-ietf-jmap-calendars-33 §2.2).
+/// (draft-ietf-jmap-calendars-34 §2.2).
 ///
 /// All fields are optional. Pass `None` for any field to omit it from
 /// the request (the server uses its default).
@@ -377,14 +377,14 @@ pub struct PrincipalGetAvailabilityParams {
 /// [`build_request`]. Pass directly to `jmap_base_client::extract_response`.
 pub(crate) const CALL_ID: &str = "r1";
 
-/// Capability URIs for JMAP Calendars method calls (draft-ietf-jmap-calendars-33).
+/// Capability URIs for JMAP Calendars method calls (draft-ietf-jmap-calendars-34).
 pub(crate) const USING_CALENDARS: &[&str] = &[
     "urn:ietf:params:jmap:core",
     jmap_calendars_types::JMAP_CALENDARS_URI,
 ];
 
 /// Capability URIs for `CalendarEvent/parse`
-/// (draft-ietf-jmap-calendars-33 §5.13).
+/// (draft-ietf-jmap-calendars-34 §5.13).
 pub(crate) const USING_PARSE: &[&str] = &[
     "urn:ietf:params:jmap:core",
     jmap_calendars_types::JMAP_CALENDARS_URI,
@@ -392,7 +392,7 @@ pub(crate) const USING_PARSE: &[&str] = &[
 ];
 
 /// Capability URIs for `Principal/getAvailability`
-/// (draft-ietf-jmap-calendars-33 §2.2).
+/// (draft-ietf-jmap-calendars-34 §2.2).
 pub(crate) const USING_AVAILABILITY: &[&str] = &[
     "urn:ietf:params:jmap:core",
     jmap_calendars_types::JMAP_PRINCIPALS_AVAILABILITY_URI,
@@ -594,7 +594,7 @@ mod tests {
     }
 
     /// Oracle: USING_CALENDARS contains exactly the two required capability URIs.
-    /// Expected values are from draft-ietf-jmap-calendars-33 §1.
+    /// Expected values are from draft-ietf-jmap-calendars-34 §1.
     #[test]
     fn using_calendars_contains_correct_uris() {
         let req = build_request("Calendar/get", json!({}), USING_CALENDARS);
@@ -740,7 +740,7 @@ mod tests {
     }
 
     /// Oracle: CalendarEventParseResponse deserializes from a spec-derived JSON
-    /// fixture (draft-ietf-jmap-calendars-33 §5.13).
+    /// fixture (draft-ietf-jmap-calendars-34 §5.13).
     #[test]
     fn calendar_event_parse_response_deserializes() {
         let raw = json!({
@@ -765,7 +765,7 @@ mod tests {
     }
 
     /// Oracle: PrincipalGetAvailabilityResponse deserializes from a
-    /// spec-derived JSON fixture (draft-ietf-jmap-calendars-33 §2.2;
+    /// spec-derived JSON fixture (draft-ietf-jmap-calendars-34 §2.2;
     /// `busyStatus` "MUST be one of" confirmed, tentative, unavailable).
     #[test]
     fn principal_get_availability_response_deserializes() {
@@ -847,7 +847,7 @@ mod tests {
     /// All Some fields appear; None fields are absent via
     /// `skip_serializing_if`. Independent of the production builder —
     /// directly exercises the struct's Serialize derive against the
-    /// expected wire shape from draft-ietf-jmap-calendars-33 §5.4.
+    /// expected wire shape from draft-ietf-jmap-calendars-34 §5.4.
     #[test]
     fn calendar_event_get_params_serializes() {
         let params = CalendarEventGetParams {
@@ -898,7 +898,7 @@ mod tests {
     /// Oracle: CalendarSetParams with on_destroy_remove_events serializes
     /// the field at the expected camelCase wire name.
     /// Expected field name "onDestroyRemoveEvents" from
-    /// draft-ietf-jmap-calendars-33 §4.4.
+    /// draft-ietf-jmap-calendars-34 §4.4.
     #[test]
     fn calendar_set_params_on_destroy_remove_events_serializes() {
         let params = CalendarSetParams {
@@ -924,7 +924,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §8.4 — the
+    /// Oracle: draft-ietf-jmap-calendars-34 §8.4 — the
     /// default-calendar change request carries
     /// `"onSuccessSetIsDefault": "062adcfa-105d-455c-bc60-6db68b69c3f3"`.
     #[test]
@@ -940,7 +940,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §8.2, Figure 9 — the
+    /// Oracle: draft-ietf-jmap-calendars-34 §8.2, Figure 9 — the
     /// CalendarEvent/set request carries `"sendSchedulingMessages": true`.
     #[test]
     fn calendar_event_set_params_send_scheduling_messages_serializes() {
@@ -955,7 +955,7 @@ mod tests {
         assert_eq!(empty, json!({}));
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §3.3 — a creation reference
+    /// Oracle: draft-ietf-jmap-calendars-34 §3.3 — a creation reference
     /// is "the creation id prefixed with a `#`", sent under
     /// `onSuccessSetIsDefault`.
     #[test]

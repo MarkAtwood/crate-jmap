@@ -1,7 +1,7 @@
 //! Integration tests for `jmap-calendars-server` using `MemoryBackend`.
 //!
 //! All expected values are derived from the spec
-//! (draft-ietf-jmap-calendars-33) and RFC 8620, not from the code under
+//! (draft-ietf-jmap-calendars-34) and RFC 8620, not from the code under
 //! test. Wire-shape literals are hand-written from the draft's prose.
 //!
 //! These tests exercise the cookie-cut canonical shape established by
@@ -174,7 +174,7 @@ async fn calendar_changes_no_changes_since_current_state() {
 
 // ---------------------------------------------------------------------------
 // Test 4: Calendar/set destroy with no events succeeds
-// Oracle: draft-ietf-jmap-calendars-33 §4.4 — destroy proceeds when the
+// Oracle: draft-ietf-jmap-calendars-34 §4.4 — destroy proceeds when the
 // calendar has no events; oldState bumps to newState.
 // ---------------------------------------------------------------------------
 
@@ -211,7 +211,7 @@ async fn calendar_set_destroy_empty_calendar_succeeds() {
 
 // ---------------------------------------------------------------------------
 // Test 5: Calendar/set destroy with events → calendarHasEvent error
-// Oracle: draft-ietf-jmap-calendars-33 §4.4, §10.8.1 — destroy of a
+// Oracle: draft-ietf-jmap-calendars-34 §4.4, §10.8.1 — destroy of a
 // Calendar that has events MUST fail with the spec-registered name
 // `calendarHasEvent` (singular).
 // ---------------------------------------------------------------------------
@@ -632,7 +632,7 @@ async fn calendar_event_query_non_id_anchor_is_invalid_arguments() {
     assert_eq!(err.error_type.to_string(), "invalidArguments");
 }
 
-/// draft-ietf-jmap-calendars-33 L3224 (IANA registration):
+/// draft-ietf-jmap-calendars-34 L3448 (IANA registration):
 /// "Capability Name:  urn:ietf:params:jmap:calendars". The constant is
 /// declared in jmap-calendars-types and re-exported at this crate's root.
 #[test]
@@ -647,7 +647,7 @@ fn capability_uri_calendars_matches_draft() {
 // CalendarEvent/query evaluates an RFC 8620 §5.5 filter tree
 // Oracle: RFC 8620 §5.5 types `filter` as "FilterOperator|FilterCondition|null";
 // "AND": all of the conditions must match, "OR": at least one must match,
-// "NOT": none of the conditions must match. draft-ietf-jmap-calendars-33
+// "NOT": none of the conditions must match. draft-ietf-jmap-calendars-34
 // §5.11 `inCalendar`: the event must be in this calendar. Expected ids are
 // read off the hand-written fixture: e1 is in cal1, e2 in cal2, e3 in both.
 // Bead: JMAP-skk9.2.
@@ -746,7 +746,7 @@ async fn calendar_query_rejects_filter_backend_cannot_evaluate() {
 // Oracle: RFC 8620 §5.5: "A server MUST reject the call with an
 // unsupportedSort error if it cannot sort by the given properties." The
 // reference MemoryBackend honors no comparator, so a sort the handler accepts
-// as listed (draft-ietf-jmap-calendars-33 §5.11.2: "id, uid, start") must
+// as listed (draft-ietf-jmap-calendars-34 §5.11.2: "id, uid, start") must
 // still fail loud at the backend rather than come back in id order. An empty
 // sort asks for no comparator, so it is not an error. Bead: JMAP-yt1w.47.
 // ---------------------------------------------------------------------------
@@ -774,7 +774,7 @@ async fn calendar_query_rejects_sort_backend_cannot_apply() {
     assert_eq!(resp["ids"], json!(["e1", "e2", "e3", "e4"]), "{resp}");
 }
 
-/// draft-ietf-jmap-calendars-33 §4: `isDefault` and `myRights` are
+/// draft-ietf-jmap-calendars-34 §4: `isDefault` and `myRights` are
 /// "(server-set)". RFC 8620 §1.1: "The client MUST NOT send this property
 /// when creating", and RFC 8620 §5.3 lists that under `invalidProperties`;
 /// RFC 8620 §5.3: `created` "includes all server-set properties".
@@ -821,7 +821,7 @@ async fn calendar_set_create_server_set_properties() {
 // "total" is "The number of results in the current query". A server that
 // cannot calculate them answers "cannotCalculateChanges". Expected ids are
 // read off the hand-written creates: only the event in cal1 matches
-// `inCalendar: cal1` (draft-ietf-jmap-calendars-33 §5.11). The reference
+// `inCalendar: cal1` (draft-ietf-jmap-calendars-34 §5.11). The reference
 // backend honors no comparator, so a sort makes the changes uncalculable.
 // Bead: JMAP-yt1w.48.
 // ---------------------------------------------------------------------------

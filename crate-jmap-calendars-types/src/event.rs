@@ -1,7 +1,7 @@
 //! CalendarEvent object and CalendarEventFilterCondition.
 //!
 //! Normative references:
-//!   - draft-ietf-jmap-calendars-33 §5 — JMAP-specific additions
+//!   - draft-ietf-jmap-calendars-34 §5 — JMAP-specific additions
 //!   - RFC 8984 §2.1, §4, §5.1 — JSCalendar Event properties
 
 use std::collections::BTreeMap;
@@ -11,7 +11,7 @@ use jmap_metadata_types::MetadataTextMatch;
 use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
-/// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-33 §5; RFC 8984 §5.1).
+/// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-34 §5; RFC 8984 §5.1).
 ///
 /// `CalendarEvent` is a JSCalendar Event with additional JMAP-specific properties.
 /// Every field is `Option<T>` because RFC 8620 §5.1 allows partial responses
@@ -109,7 +109,7 @@ pub struct CalendarEvent {
     /// object (draft-ietf-calext-jscalendar-icalendar-28 §5.1.1).
     ///
     /// Only returned when explicitly requested via `properties:["iCalendar"]`
-    /// (draft-ietf-jmap-calendars-33 §5.7: a null `properties` returns all
+    /// (draft-ietf-jmap-calendars-34 §5.7: a null `properties` returns all
     /// properties except `iCalendar`). Kept as a `serde_json::Value` per the
     /// workspace Sloppy-Value policy: it carries jCal arrays (RFC 7265).
     ///
@@ -127,7 +127,7 @@ pub struct CalendarEvent {
     // ── JSCalendar metadata properties (RFC 8984 §4.1) ───────────────────────
     /// JSCalendar version this event conforms to, e.g. `"2.0"`
     /// (draft-ietf-calext-jscalendarbis-22 §3.1.2). The server sets it when
-    /// a create omits it (draft-ietf-jmap-calendars-33 §5.9).
+    /// a create omits it (draft-ietf-jmap-calendars-34 §5.9).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
 
@@ -363,7 +363,7 @@ pub struct CalendarEvent {
 
 /// Serialize an unset `Boolean (default: false)` property as `false`.
 ///
-/// draft-ietf-jmap-calendars-33 §5.7: the "isDraft" and "useDefaultAlerts"
+/// draft-ietf-jmap-calendars-34 §5.7: the "isDraft" and "useDefaultAlerts"
 /// properties MUST be included on each object returned by `CalendarEvent/get`.
 fn serialize_false_if_none<S: serde::Serializer>(
     value: &Option<bool>,
@@ -379,7 +379,7 @@ fn some_false() -> Option<bool> {
 }
 
 /// Filter condition for `CalendarEvent/query`
-/// (draft-ietf-jmap-calendars-33 §5.11.1).
+/// (draft-ietf-jmap-calendars-34 §5.11.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
 /// CalendarEvent.
@@ -451,7 +451,7 @@ pub struct CalendarEventFilterCondition {
     pub owner: Option<String>,
 
     /// Matches against the name or email of any participant
-    /// (draft-ietf-jmap-calendars-33 §5.11.1 `participant`).
+    /// (draft-ietf-jmap-calendars-34 §5.11.1 `participant`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub participant: Option<String>,
 
@@ -506,7 +506,7 @@ impl CalendarEventFilterCondition {
 }
 
 /// Concrete filter type for CalendarEvent/query
-/// (draft-ietf-jmap-calendars-33 §5.11).
+/// (draft-ietf-jmap-calendars-34 §5.11).
 ///
 /// Alias for `jmap_types::Filter<CalendarEventFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.
@@ -517,7 +517,7 @@ impl CalendarEventFilterCondition {
 pub type CalendarEventFilter = jmap_types::Filter<CalendarEventFilterCondition>;
 
 /// The property to sort by in a [`CalendarEventComparator`]
-/// (draft-ietf-jmap-calendars-33 §5.11.2: "The following properties MUST
+/// (draft-ietf-jmap-calendars-34 §5.11.2: "The following properties MUST
 /// be supported for sorting: id, uid, start" and "SHOULD be supported for
 /// sorting: created, updated").
 ///
@@ -534,7 +534,7 @@ pub enum CalendarEventComparatorProperty {
     Uid,
     /// Sort by `start`, as an absolute point in time rather than the
     /// lexical `start` value; a floating event's start is read in the
-    /// query's `timeZone` (draft-ietf-jmap-calendars-33 §5.11.2).
+    /// query's `timeZone` (draft-ietf-jmap-calendars-34 §5.11.2).
     Start,
     /// Sort by `created`.
     Created,
@@ -554,7 +554,7 @@ impl_string_enum!(CalendarEventComparatorProperty, "a CalendarEvent sort propert
 );
 
 /// Comparator for `CalendarEvent/query`
-/// (draft-ietf-jmap-calendars-33 §5.11.2).
+/// (draft-ietf-jmap-calendars-34 §5.11.2).
 ///
 /// Build one with [`CalendarEventComparator::new`]; the struct is
 /// `#[non_exhaustive]`.

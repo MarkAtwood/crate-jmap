@@ -25,7 +25,7 @@ use jmap_types::PatchObject;
 // CalendarsBackend trait
 // ---------------------------------------------------------------------------
 
-/// Storage backend for JMAP Calendars method handlers (draft-ietf-jmap-calendars-33).
+/// Storage backend for JMAP Calendars method handlers (draft-ietf-jmap-calendars-34).
 ///
 /// Implementors provide the actual data access; the method handler modules
 /// in this crate translate between JMAP wire protocol and backend calls.
@@ -39,7 +39,7 @@ use jmap_types::PatchObject;
 ///
 /// # Recurrence expansion contracts
 ///
-/// ## `expandRecurrences` (draft-ietf-jmap-calendars-33 §5.11)
+/// ## `expandRecurrences` (draft-ietf-jmap-calendars-34 §5.11)
 ///
 /// When a `CalendarEvent/query` request includes `"expandRecurrences": true`,
 /// the backend **MUST** expand recurring events into individual instances
@@ -59,7 +59,7 @@ use jmap_types::PatchObject;
 /// returned as a single master object and the backend MUST NOT synthesise
 /// per-instance ids.
 ///
-/// ## `recurrenceOverrides` patch passthrough (draft-ietf-jmap-calendars-33 §5.9.1)
+/// ## `recurrenceOverrides` patch passthrough (draft-ietf-jmap-calendars-34 §5.9.1)
 ///
 /// `recurrenceOverrides` is a two-level JSON Pointer patch path:
 /// the outer key is `"recurrenceOverrides"` and the inner key is a
@@ -77,7 +77,7 @@ use jmap_types::PatchObject;
 /// restructure the path.  Backends must preserve unaffected override entries
 /// unchanged when applying a partial patch.
 ///
-/// ## `sendSchedulingMessages` (draft-ietf-jmap-calendars-33 §5.9, §5.9.2)
+/// ## `sendSchedulingMessages` (draft-ietf-jmap-calendars-34 §5.9, §5.9.2)
 ///
 /// `CalendarEvent/set` accepts a `sendSchedulingMessages` Boolean argument
 /// (default `false`). When `true`, the backend MUST send appropriate iTIP
@@ -207,7 +207,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// not revalidated against the destination account"). Every other rule
     /// of [`create_calendar_event`](Self::create_calendar_event) with
     /// [`CalendarEventSetArgs::default()`] applies to the copy, and the
-    /// backend also enforces draft-ietf-jmap-calendars-33 §5.10: "If the
+    /// backend also enforces draft-ietf-jmap-calendars-34 §5.10: "If the
     /// account being copied into does not belong to the user and the
     /// "privacy" property of the event to be created would be anything
     /// other than "public" (whether inherited from the event being copied
@@ -330,7 +330,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// The handlers perform the cross-record effects the client chooses,
     /// through explicit backend calls, and the backend does not repeat
-    /// them. `Calendar/set` (draft-ietf-jmap-calendars-33 §4.4) rejects
+    /// them. `Calendar/set` (draft-ietf-jmap-calendars-34 §4.4) rejects
     /// a non-empty Calendar with `calendarHasEvent`, or with
     /// `onDestroyRemoveEvents` destroys the CalendarEvents only in that
     /// Calendar and removes it from the other events' `calendarIds`,
@@ -354,7 +354,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// # Types in scope
     ///
     /// Implementors should answer for the JMAP object types this
-    /// trait covers (draft-ietf-jmap-calendars-33): `Calendar`,
+    /// trait covers (draft-ietf-jmap-calendars-34): `Calendar`,
     /// `CalendarEvent`, `CalendarEventNotification`, and
     /// `ParticipantIdentity`. Backends MAY answer for object types
     /// from sibling extensions (`Email`, `Chat`, etc.) if they also
@@ -364,7 +364,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// # Callers
     ///
-    /// As of draft-ietf-jmap-calendars-33 the calendars handler library
+    /// As of draft-ietf-jmap-calendars-34 the calendars handler library
     /// itself does NOT consult `supports_type` — every method in
     /// [`register_calendars_handlers`](crate::register_calendars_handlers)
     /// is registered unconditionally. The intended caller is the server
@@ -391,7 +391,7 @@ pub trait CalendarsBackend: JmapBackend {
     ) -> bool;
 
     /// Apply a patch that contains only per-user [`CalendarEvent`](jmap_calendars_types::CalendarEvent) properties
-    /// (draft-ietf-jmap-calendars-33 §5.4).
+    /// (draft-ietf-jmap-calendars-34 §5.4).
     ///
     /// There is no default: delegating to [`update_object`](Self::update_object)
     /// is correct only for a single-user backend whose `update_object` leaves
@@ -414,7 +414,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// Implementors MUST verify that the caller may modify per-user properties
     /// on the target event and MUST return [`BackendSetError::SetError`] with
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. That is the Calendar's
-    /// `mayUpdatePrivate` right, which draft-ietf-jmap-calendars-33 §4 defines
+    /// `mayUpdatePrivate` right, which draft-ietf-jmap-calendars-34 §4 defines
     /// as: "The user may modify per-user properties (see Section 5.4) on all
     /// events in the calendar, even if they would not otherwise have permission
     /// to modify that event." The write-access rule of [`Self::update_object`]
@@ -431,7 +431,7 @@ pub trait CalendarsBackend: JmapBackend {
     > + Send;
 
     /// Create a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
-    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-33 §5.9).
+    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-34 §5.9).
     ///
     /// The handler has already checked `calendarIds`, filled in an omitted
     /// `@type` and `version`, and set `isOrigin`. The backend owns the
@@ -496,7 +496,7 @@ pub trait CalendarsBackend: JmapBackend {
 
     /// Apply a partial update to a
     /// [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
-    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-33 §5.9).
+    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-34 §5.9).
     ///
     /// Receives the per-call [`CalendarEventSetArgs`]. When
     /// `args.send_scheduling_messages` is `true`, the backend MUST send
@@ -547,7 +547,7 @@ pub trait CalendarsBackend: JmapBackend {
     }
 
     /// Destroy a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
-    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-33 §5.9).
+    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-34 §5.9).
     ///
     /// Receives the per-call [`CalendarEventSetArgs`]. When
     /// `args.send_scheduling_messages` is `true`, the backend MUST send
@@ -579,7 +579,7 @@ pub trait CalendarsBackend: JmapBackend {
     }
 
     /// Report which changes of one `CalendarEvent/set` request break the
-    /// uid/privacy invariant (draft-ietf-jmap-calendars-33 §5.9):
+    /// uid/privacy invariant (draft-ietf-jmap-calendars-34 §5.9):
     ///
     /// > After applying all the creates, updates, and destroys in the "/set"
     /// > request, if the Account would contain two or more CalendarEvent
@@ -629,7 +629,7 @@ pub trait CalendarsBackend: JmapBackend {
     }
 
     /// `true` if the caller may copy `source` out of `from_account_id`
-    /// with `CalendarEvent/copy` (draft-ietf-jmap-calendars-33 §5.10):
+    /// with `CalendarEvent/copy` (draft-ietf-jmap-calendars-34 §5.10):
     ///
     /// > If the account being copied from does not belong to the user and
     /// > the "privacy" property of the event being copied is "private", the
@@ -695,7 +695,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// calendar address `uri`.
     ///
     /// This drives the server-set `isOrigin` property
-    /// (draft-ietf-jmap-calendars-33 §5 `isOrigin`: "true if, and only if:
+    /// (draft-ietf-jmap-calendars-34 §5 `isOrigin`: "true if, and only if:
     /// the event's \"organizerCalendarAddress\" property is null; or the
     /// account will receive messages sent to the
     /// \"organizerCalendarAddress\" URI"). The answer is account-level and
@@ -714,7 +714,7 @@ pub trait CalendarsBackend: JmapBackend {
         account_id: &jmap_types::Id,
         uri: &str,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        // ponytail: ParticipantIdentity is per user (calendars-33 §5), so this
+        // ponytail: ParticipantIdentity is per user (calendars-34 §5), so this
         // scan is correct only when every caller sees all of the account's
         // identities (single-user backends). Multi-user backends must
         // override with an account-level address set.
@@ -730,7 +730,7 @@ pub trait CalendarsBackend: JmapBackend {
 
     /// Compute `utcStart` and `utcEnd` for a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) by converting the
     /// event's `start`/`duration` fields and time zone into UTC
-    /// (draft-ietf-jmap-calendars-33 §5.2).
+    /// (draft-ietf-jmap-calendars-34 §5.2).
     ///
     /// Returns `(utc_start, utc_end)` as [`UTCDate`](jmap_types::UTCDate) values,
     /// or `None` for each if the corresponding data is absent or the time zone
@@ -813,7 +813,7 @@ pub trait CalendarsBackend: JmapBackend {
     }
 
     /// Fetch [`CalendarEvent`](jmap_calendars_types::CalendarEvent)s honouring
-    /// the §5.7 extra arguments (draft-ietf-jmap-calendars-33).
+    /// the §5.7 extra arguments (draft-ietf-jmap-calendars-34).
     ///
     /// Receives the standard get parameters (ids, properties) alongside the
     /// parsed [`CalendarEventGetArgs`] carrying:
@@ -878,7 +878,7 @@ pub trait CalendarsBackend: JmapBackend {
     }
 
     /// Run a `CalendarEvent/query` request honouring the §5.11 extra
-    /// arguments (draft-ietf-jmap-calendars-33).
+    /// arguments (draft-ietf-jmap-calendars-34).
     ///
     /// Receives the standard RFC 8620 §5.5 query parameters (filter, sort,
     /// limit, position, anchor, anchorOffset) as a [`QueryParams`],
@@ -922,7 +922,7 @@ pub trait CalendarsBackend: JmapBackend {
     }
 
     /// Set the default `Calendar` for the account
-    /// (draft-ietf-jmap-calendars-33 §4.3 `onSuccessSetIsDefault`).
+    /// (draft-ietf-jmap-calendars-34 §4.3 `onSuccessSetIsDefault`).
     ///
     /// Called by `Calendar/set` after all create/update/destroy operations
     /// succeed without error. Returns a [`SetDefaultResult`] describing what
@@ -977,7 +977,7 @@ pub trait CalendarsBackend: JmapBackend {
     }
 
     /// Set the default `ParticipantIdentity` for the account
-    /// (draft-ietf-jmap-calendars-33 §3.3 `onSuccessSetIsDefault`).
+    /// (draft-ietf-jmap-calendars-34 §3.3 `onSuccessSetIsDefault`).
     ///
     /// Same contract as [`set_default_calendar`](Self::set_default_calendar)
     /// but for `ParticipantIdentity`. Silently ignores not-found / forbidden
@@ -997,7 +997,7 @@ pub trait CalendarsBackend: JmapBackend {
         async { Ok(SetDefaultResult::default()) }
     }
 
-    /// Parse calendar event blobs (draft-ietf-jmap-calendars-33 §5.13).
+    /// Parse calendar event blobs (draft-ietf-jmap-calendars-34 §5.13).
     ///
     /// Returns parsed events for each blob, or classifies blobs as `notFound`
     /// or `notParsable`. Conversion follows
@@ -1019,7 +1019,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// - `None` — return all server-defined "default" properties.
     ///   The default set is the same as `CalendarEvent/get` with
-    ///   `properties = null` (draft-ietf-jmap-calendars-33 §5.7).
+    ///   `properties = null` (draft-ietf-jmap-calendars-34 §5.7).
     /// - `Some(&[])` — return only the spec-required keys (notably
     ///   `@type`, plus any property the server cannot omit while
     ///   keeping the result self-describing). Treat as "confirm
@@ -1058,7 +1058,7 @@ pub trait CalendarsBackend: JmapBackend {
         properties: Option<&[String]>,
     ) -> impl std::future::Future<Output = Result<CalendarEventParseResult, Self::Error>> + Send;
 
-    /// Fetch availability data for a principal (draft-ietf-jmap-calendars-33 §2.2).
+    /// Fetch availability data for a principal (draft-ietf-jmap-calendars-34 §2.2).
     ///
     /// `utc_start` and `utc_end` are [`UTCDate`](jmap_types::UTCDate) values
     /// (RFC 8620 §1.4 wire form) bounding the half-open interval queried.
@@ -1109,7 +1109,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Backends that enforce caps such as
     /// [`max_expanded_query_duration_seconds`](CalendarsLimits::max_expanded_query_duration_seconds)
-    /// (draft-ietf-jmap-calendars-33 §1.5 `maxExpandedQueryDuration`)
+    /// (draft-ietf-jmap-calendars-34 §1.5 `maxExpandedQueryDuration`)
     /// return them through this method. The default implementation returns
     /// [`CalendarsLimits::default`], which carries conservative
     /// reference-impl-grade values suitable for tests and single-tenant
@@ -1125,7 +1125,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// break.
     ///
     /// Consumers that wish to surface caps to clients via JMAP session
-    /// capability advertisement (draft-ietf-jmap-calendars-33 §1.5
+    /// capability advertisement (draft-ietf-jmap-calendars-34 §1.5
     /// `urn:ietf:params:jmap:calendars` capability fields, e.g.
     /// `maxExpandedQueryDuration`) read the value here and format it
     /// for the session response — this kit does not advertise caps on
@@ -1175,7 +1175,7 @@ pub trait CalendarsBackend: JmapBackend {
 ///
 /// `max_expanded_query_duration_seconds` corresponds to the
 /// `maxExpandedQueryDuration` capability field
-/// (draft-ietf-jmap-calendars-33 §1.5). The spec's wire shape is an
+/// (draft-ietf-jmap-calendars-34 §1.5). The spec's wire shape is an
 /// ISO 8601 [`Duration`](jmap_calendars_types::Duration);
 /// consumers formatting the session capability convert from this
 /// integer-seconds representation. The integer representation is the
@@ -1252,7 +1252,7 @@ pub trait CalendarsBackend: JmapBackend {
 pub struct CalendarsLimits {
     /// Maximum query window (in seconds) the server will honour when
     /// `CalendarEvent/query` is invoked with `expandRecurrences = true`
-    /// (draft-ietf-jmap-calendars-33 §5.11, §10.8.3). Enforced against
+    /// (draft-ietf-jmap-calendars-34 §5.11, §10.8.3). Enforced against
     /// the difference between the filter's `before` and `after` values.
     /// When exceeded, the backend returns the method-level
     /// `expandDurationTooLarge` error per §10.8.3 as
@@ -1353,7 +1353,7 @@ impl CalendarsLimits {
     }
 }
 
-/// Result of a `CalendarEvent/parse` operation (draft-ietf-jmap-calendars-33 §5.13).
+/// Result of a `CalendarEvent/parse` operation (draft-ietf-jmap-calendars-34 §5.13).
 ///
 /// Marked `#[non_exhaustive]` so future calendars-draft revisions (e.g. an
 /// iCalendar parse-warnings vector or a per-blob error map) can be added
@@ -1441,7 +1441,7 @@ impl CalendarEventParseResult {
 
 /// Result of [`set_default_calendar`](CalendarsBackend::set_default_calendar)
 /// or [`set_default_participant_identity`](CalendarsBackend::set_default_participant_identity)
-/// (draft-ietf-jmap-calendars-33 §3.3, §4.3 `onSuccessSetIsDefault`).
+/// (draft-ietf-jmap-calendars-34 §3.3, §4.3 `onSuccessSetIsDefault`).
 ///
 /// Both `new_default` and `previous_default` are `None` by default, modelling
 /// a backend that does not maintain a notion of "the default".
@@ -1515,7 +1515,7 @@ impl SetDefaultResult {
 /// Result of [`privacy_conflicts`](CalendarsBackend::privacy_conflicts): the
 /// changes of one `CalendarEvent/set` request that touch a uid whose events
 /// would end up with different `privacy` values
-/// (draft-ietf-jmap-calendars-33 §5.9).
+/// (draft-ietf-jmap-calendars-34 §5.9).
 ///
 /// `#[non_exhaustive]` like [`SetDefaultResult`]; construct it with
 /// [`PrivacyConflicts::new`] or [`PrivacyConflicts::default`] (no conflicts).
@@ -1540,7 +1540,7 @@ impl PrivacyConflicts {
 }
 
 /// Per-call arguments for `CalendarEvent/get` operations
-/// (draft-ietf-jmap-calendars-33 §5.7).
+/// (draft-ietf-jmap-calendars-34 §5.7).
 ///
 /// Carries the §5.7 extras parsed from the JMAP request that need to be
 /// threaded to the backend.
@@ -1584,7 +1584,7 @@ pub struct CalendarEventGetArgs {
 }
 
 /// Per-call arguments for `CalendarEvent/query` operations
-/// (draft-ietf-jmap-calendars-33 §5.11).
+/// (draft-ietf-jmap-calendars-34 §5.11).
 ///
 /// Carries the §5.11 extra args parsed from the JMAP request that need to be
 /// threaded to the backend.
@@ -1610,7 +1610,7 @@ pub struct CalendarEventQueryArgs {
 }
 
 /// Per-call arguments for `CalendarEvent/set` operations
-/// (draft-ietf-jmap-calendars-33 §5.9).
+/// (draft-ietf-jmap-calendars-34 §5.9).
 ///
 /// Carries args parsed from the JMAP request that need to be threaded to the
 /// backend on a per-create / per-update / per-destroy basis.
@@ -1622,7 +1622,7 @@ pub struct CalendarEventQueryArgs {
 #[non_exhaustive]
 #[derive(Debug, Clone, Default)]
 pub struct CalendarEventSetArgs {
-    /// `sendSchedulingMessages` (draft-ietf-jmap-calendars-33 §5.9, default
+    /// `sendSchedulingMessages` (draft-ietf-jmap-calendars-34 §5.9, default
     /// `false`). When `true`, the backend MUST send appropriate iTIP
     /// scheduling messages on success per §5.9.2, or return a
     /// `noSupportedScheduleMethods` SetError when it cannot send to the

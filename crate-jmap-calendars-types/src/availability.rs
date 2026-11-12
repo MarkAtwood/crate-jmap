@@ -150,7 +150,7 @@ fn principal_participant<'a>(
 }
 
 /// A single busy period returned by `Principal/getAvailability`
-/// (draft-ietf-jmap-calendars-33 §2.2).
+/// (draft-ietf-jmap-calendars-34 §2.2).
 ///
 /// The server returns an array of `BusyPeriod` objects representing time ranges
 /// when the principal is occupied.  If `showDetails` was `false` in the request
@@ -196,7 +196,7 @@ pub struct BusyPeriod {
     /// server-side projection of the [`crate::CalendarEvent`] rather
     /// than the full object:
     ///
-    /// - draft-ietf-jmap-calendars-33 §2.2 (the `Principal/getAvailability`
+    /// - draft-ietf-jmap-calendars-34 §2.2 (the `Principal/getAvailability`
     ///   `eventProperties` argument) restricts the returned representation
     ///   to a caller-requested property subset.
     /// - The server also enforces privacy and `mayReadItems` permission

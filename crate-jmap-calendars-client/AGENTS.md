@@ -7,7 +7,7 @@ extension-client template**. Module layout, `Jmap*Ext` extension-trait
 shape, `SessionClient` shape, `with_*_session` accessor, `/get` and
 `/set` builder patterns, Id-validation helpers, doc-comment style,
 and test layout must mirror `jmap-mail-client`. Differences are
-*only* the spec content (draft-ietf-jmap-calendars-33 here; RFC 8621
+*only* the spec content (draft-ietf-jmap-calendars-34 here; RFC 8621
 in mail-client).
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
@@ -24,7 +24,7 @@ in mail-client).
 
 ## What This Is
 
-JMAP Calendars extension client methods (draft-ietf-jmap-calendars-33)
+JMAP Calendars extension client methods (draft-ietf-jmap-calendars-34)
 on top of `jmap-base-client`. Implements `Calendar/*`, `CalendarEvent/*`,
 `CalendarEventNotification/*`, `ParticipantIdentity/*`, and the
 `Principal/getAvailability` companion.
@@ -52,7 +52,9 @@ Run all four before considering any work done.
 
 ## Source Material
 
-- `~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-33.txt`
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-calendars-34.txt`
+  (not yet posted to the datatracker; until it is, read the editor's copy,
+  `rfc/src/calendars.xml` in jmapio/jmap at 8b1218b)
   — normative for all method signatures, arguments, and response
   fields
 - `~/PROJECT/IETF/specs/rfc8984.txt` — JSCalendar

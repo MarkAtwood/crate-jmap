@@ -2,7 +2,7 @@
 
 ## What it is
 
-JMAP Calendars ([draft-ietf-jmap-calendars-33]) method handlers and the
+JMAP Calendars ([draft-ietf-jmap-calendars-34]) method handlers and the
 `CalendarsBackend` trait. Backend-agnostic — plugs into
 `jmap-server::Dispatcher`. Implements all 19 Calendars method names.
 
@@ -11,7 +11,7 @@ own data layer.
 
 ## What it's for
 
-Implements draft-ietf-jmap-calendars-33 — Calendar, CalendarEvent,
+Implements draft-ietf-jmap-calendars-34 — Calendar, CalendarEvent,
 CalendarEventNotification, ParticipantIdentity, and the
 `Principal/getAvailability` query — so consumers can wire JMAP Calendars
 method dispatch into their HTTP transport. Sibling to `jmap-mail-server` (the
@@ -132,7 +132,7 @@ pub trait CalendarsBackend: JmapBackend {
     // Per-user-property classification lives in jmap-calendars-types as the
     // free function `is_per_user_calendar_event_property` and the constant
     // slice `PER_USER_CALENDAR_EVENT_PROPERTIES`. It is wire-protocol
-    // metadata (draft-ietf-jmap-calendars-33 §5.4; draft-ietf-calext-jscalendarbis-22 §7.4) and intentionally
+    // metadata (draft-ietf-jmap-calendars-34 §5.4; draft-ietf-calext-jscalendarbis-22 §7.4) and intentionally
     // not a trait method, so backends cannot redefine the spec list.
 
     /// Apply a patch consisting only of per-user CalendarEvent properties
@@ -223,7 +223,7 @@ pub trait CalendarsBackend: JmapBackend {
     { async { Ok(vec![]) } }
 
     /// Implementation-defined per-account caps for this caller and
-    /// account (draft-ietf-jmap-calendars-33 §1.5 capability fields, e.g.
+    /// account (draft-ietf-jmap-calendars-34 §1.5 capability fields, e.g.
     /// `maxExpandedQueryDuration`). Workspace cross-extension pattern
     /// per AGENTS.md "Backend caps and limits": every extension trait
     /// exposes a `limits(caller, account_id) -> XxxLimits` sync default
@@ -283,10 +283,10 @@ the checks below — it returns `None` from `principal_id`, stores
 whatever the handler hands it, and inherits the fail-open defaults of
 `privacy_conflicts` and `may_copy_calendar_event`. Production backends
 MUST implement each of the following or they will silently accept JMAP
-requests that draft-ietf-jmap-calendars-33 mandates the server to
+requests that draft-ietf-jmap-calendars-34 mandates the server to
 reject. ACL denials are `forbidden` SetErrors unless noted.
 
-### Calendar/set (draft-ietf-jmap-calendars-33 §1.5.1, §4, §4.3)
+### Calendar/set (draft-ietf-jmap-calendars-34 §1.5.1, §4, §4.3)
 
 1. **Create requires the account's `mayCreateCalendar`** (§1.5.1).
 
@@ -514,13 +514,13 @@ remain that way until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-calendars-33]** — JMAP Calendars binding (normative for
+- **[draft-ietf-jmap-calendars-34]** — JMAP Calendars binding (normative for
   all method semantics, error codes, and capability definitions)
 - **[RFC 8984]** — JSCalendar Event format (normative for CalendarEvent
   content: JSCalendar properties, recurrence, alerts, participants)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference,
   `/set` response shape, `/copy` semantics)
 
-[draft-ietf-jmap-calendars-33]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
+[draft-ietf-jmap-calendars-34]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

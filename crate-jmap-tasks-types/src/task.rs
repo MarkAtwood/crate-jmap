@@ -597,7 +597,7 @@ pub struct TaskFilterCondition {
     /// Task `due` date must be on or after this `LocalDateTime`,
     /// interpreted in the query's `timeZone` argument (Task/query is
     /// CalendarEvent/query: draft-ietf-jmap-tasks-06 §4.13,
-    /// draft-ietf-jmap-calendars-33 §5.11.1).
+    /// draft-ietf-jmap-calendars-34 §5.11.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<LocalDateTime>,
 

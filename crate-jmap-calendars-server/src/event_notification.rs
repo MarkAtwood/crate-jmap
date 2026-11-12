@@ -1,4 +1,4 @@
-//! CalendarEventNotification/* method handlers (draft-ietf-jmap-calendars-33 §7).
+//! CalendarEventNotification/* method handlers (draft-ietf-jmap-calendars-34 §7).
 //!
 //! CalendarEventNotifications are server-created records. Clients may only
 //! query and destroy them. Any attempt to create or update a
@@ -21,7 +21,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
 //! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
-//! arguments defined by draft-ietf-jmap-calendars-33 §7. The returned
+//! arguments defined by draft-ietf-jmap-calendars-34 §7. The returned
 //! `Value` is the corresponding method-response object per the same
 //! section refs.
 //!
@@ -62,7 +62,7 @@ use jmap_server::{SetError, SetErrorType};
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/get` method call
-/// (draft-ietf-jmap-calendars-33 §7.1).
+/// (draft-ietf-jmap-calendars-34 §7.1).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
@@ -82,7 +82,7 @@ pub async fn handle_calendar_event_notification_get<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/changes` method call
-/// (draft-ietf-jmap-calendars-33 §7.2).
+/// (draft-ietf-jmap-calendars-34 §7.2).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -103,7 +103,7 @@ pub async fn handle_calendar_event_notification_changes<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/set` method call
-/// (draft-ietf-jmap-calendars-33 §7.3).
+/// (draft-ietf-jmap-calendars-34 §7.3).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps); the
@@ -239,7 +239,7 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/query` method call
-/// (draft-ietf-jmap-calendars-33 §7.4).
+/// (draft-ietf-jmap-calendars-34 §7.4).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
 /// `filter`, optional `sort`, optional `position` / `anchor` /
@@ -263,7 +263,7 @@ pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEventNotification/queryChanges` method call
-/// (draft-ietf-jmap-calendars-33 §7.5).
+/// (draft-ietf-jmap-calendars-34 §7.5).
 ///
 /// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
 /// optional `filter`, optional `sort`, `sinceQueryState`, optional
@@ -295,7 +295,7 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
     /// valid, but includes a property the server does not support sorting
-    /// on". draft-ietf-jmap-calendars-33 §7.4.2: "The \"created\" property MUST be
+    /// on". draft-ietf-jmap-calendars-34 §7.4.2: "The \"created\" property MUST be
     /// supported for sorting." and lists no other; `calendarEventId` is not among them.
     #[tokio::test]
     async fn query_unlisted_sort_property_returns_unsupported_sort() {
@@ -323,7 +323,7 @@ mod tests {
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §7.4.2: "The \"created\" property MUST be
+    /// Oracle: draft-ietf-jmap-calendars-34 §7.4.2: "The \"created\" property MUST be
     /// supported for sorting." and lists no other, so a `created` sort is accepted.
     #[tokio::test]
     async fn query_listed_sort_property_is_accepted() {
@@ -335,7 +335,7 @@ mod tests {
     }
 
     /// Oracle: create entries must produce `forbidden` in notCreated.
-    /// Source: draft-ietf-jmap-calendars-33 §7.3 — notifications are server-created.
+    /// Source: draft-ietf-jmap-calendars-34 §7.3 — notifications are server-created.
     #[tokio::test]
     async fn set_create_returns_forbidden_not_created() {
         let backend = MockBackend::new_with_account("acc1");

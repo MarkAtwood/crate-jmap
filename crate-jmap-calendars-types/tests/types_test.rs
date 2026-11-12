@@ -1,7 +1,7 @@
 //! Integration tests for jmap-calendars-types.
 //!
 //! Test oracles are hand-written JSON fixtures constructed directly from:
-//!   - draft-ietf-jmap-calendars-33 §4 (Calendar), §5 (CalendarEvent),
+//!   - draft-ietf-jmap-calendars-34 §4 (Calendar), §5 (CalendarEvent),
 //!     §7 (CalendarEventNotification), §3 (ParticipantIdentity)
 //!   - RFC 8984 §4 (JSCalendar sub-objects), §5.1 (Event-specific properties)
 //!
@@ -24,7 +24,7 @@ use jmap_types::Id;
 // ─── Calendar ────────────────────────────────────────────────────────────────
 
 /// Deserialize a full Calendar from hand-written JSON and verify key fields.
-/// Oracle derived from draft-ietf-jmap-calendars-33 §4 field descriptions.
+/// Oracle derived from draft-ietf-jmap-calendars-34 §4 field descriptions.
 #[test]
 fn calendar_deserialize_full() {
     // r##"..."## needed because color value contains `"#`.
@@ -114,7 +114,7 @@ fn calendar_rights_default_all_false() {
 }
 
 /// All eight boolean fields serialize to the correct camelCase wire names.
-/// Oracle: field names from draft-ietf-jmap-calendars-33 §4.
+/// Oracle: field names from draft-ietf-jmap-calendars-34 §4.
 #[test]
 fn calendar_rights_wire_names() {
     // Deserialize from known-good JSON then re-serialize to check wire names.
@@ -191,7 +191,7 @@ fn calendar_event_all_none() {
 
 /// Unset `isDraft` / `useDefaultAlerts` serialize as their `false` default.
 ///
-/// Oracle: draft-ietf-jmap-calendars-33 §5.7: "In addition, the "id",
+/// Oracle: draft-ietf-jmap-calendars-34 §5.7: "In addition, the "id",
 /// "calendarIds", "isOrigin", "isDraft", and "useDefaultAlerts" properties
 /// MUST be included on each object." §5 types both as
 /// "Boolean (default: false)".
@@ -443,7 +443,7 @@ fn calendar_event_filter_condition_wire_names() {
     assert_eq!(out["before"], "2024-12-31T23:59:59");
 }
 
-/// draft-ietf-jmap-calendars-33 §5.11.1 renamed the `attendee` condition:
+/// draft-ietf-jmap-calendars-34 §5.11.1 renamed the `attendee` condition:
 /// "*participant*: String Looks for the text in the name or email fields of
 /// a participant in the "participants" property of the event". The old
 /// -26 name is now an unknown key, which the filter refuses.
@@ -470,7 +470,7 @@ fn calendar_event_filter_condition_participant_replaces_attendee() {
 // ─── CalendarEventNotification ────────────────────────────────────────────────
 
 /// Deserialize a full CalendarEventNotification from hand-written JSON.
-/// Oracle: draft-ietf-jmap-calendars-33 §7 field descriptions.
+/// Oracle: draft-ietf-jmap-calendars-34 §7 field descriptions.
 #[test]
 fn notification_deserialize() {
     let json = &common::fixture("notification_deserialize.json");
@@ -555,7 +555,7 @@ fn notification_type_other_roundtrip() {
 /// The `type` filter condition carries the same value set as the
 /// notification's `type` property.
 ///
-/// Oracle: draft-ietf-jmap-calendars-33 §7.4.1 (line 2709):
+/// Oracle: draft-ietf-jmap-calendars-34 §7.4.1 (line 2789):
 /// "*type*: String / The "type" property must be the same to match the
 /// condition." Expected values are hand-written.
 #[test]
@@ -671,7 +671,7 @@ fn calendars_account_capability_roundtrip() {
 }
 
 /// `maxAvailabilityDuration` is a Duration on the wire and round-trips
-/// unchanged. Oracle: draft-ietf-jmap-calendars-33 §1.5.2
+/// unchanged. Oracle: draft-ietf-jmap-calendars-34 §1.5.2
 /// "maxAvailabilityDuration: Duration"; hand-written fixture.
 #[test]
 fn principals_availability_account_capability_roundtrip() {
@@ -794,11 +794,11 @@ fn person_null_fields() {
     assert!(p.calendar_address.is_none());
 }
 
-// ─── BusyPeriod (draft-ietf-jmap-calendars-33 §2.2) ─────────────────────────
+// ─── BusyPeriod (draft-ietf-jmap-calendars-34 §2.2) ─────────────────────────
 
 /// Deserialize a BusyPeriod with all fields set.
 ///
-/// Oracle: field types from draft-ietf-jmap-calendars-33 §2.2 field descriptions.
+/// Oracle: field types from draft-ietf-jmap-calendars-34 §2.2 field descriptions.
 /// busyStatus values: "confirmed", "tentative", "unavailable".
 #[test]
 fn busy_period_full_deserialize() {
@@ -874,7 +874,7 @@ fn busy_period_wire_names() {
 
 /// An absent `busyStatus` takes the draft default.
 ///
-/// Oracle: draft-ietf-jmap-calendars-33 §2.2, `busyStatus`:
+/// Oracle: draft-ietf-jmap-calendars-34 §2.2, `busyStatus`:
 /// "String (default: "unavailable")".
 #[test]
 fn busy_period_absent_busy_status_defaults_to_unavailable() {
@@ -885,7 +885,7 @@ fn busy_period_absent_busy_status_defaults_to_unavailable() {
 
 /// `busyStatus` is a closed set: a value outside it is rejected.
 ///
-/// Oracle: draft-ietf-jmap-calendars-33 §2.2, `busyStatus`: "This MUST be
+/// Oracle: draft-ietf-jmap-calendars-34 §2.2, `busyStatus`: "This MUST be
 /// one of" "confirmed", "tentative", "unavailable". `"busy"` is not.
 #[test]
 fn busy_period_rejects_unknown_busy_status() {
@@ -895,7 +895,7 @@ fn busy_period_rejects_unknown_busy_status() {
 
 /// Each `busyStatus` variant serializes to the draft's wire string.
 ///
-/// Oracle: draft-ietf-jmap-calendars-33 §2.2 value list.
+/// Oracle: draft-ietf-jmap-calendars-34 §2.2 value list.
 #[test]
 fn busy_status_wire_strings() {
     for (v, wire) in [
@@ -907,11 +907,11 @@ fn busy_status_wire_strings() {
     }
 }
 
-// ─── PrincipalCalendarsCapability (calendars-33 §2.1) ────────────────────────
+// ─── PrincipalCalendarsCapability (calendars-34 §2.1) ────────────────────────
 
 /// Deserialize PrincipalCalendarsCapability with accountId populated.
 ///
-/// Oracle: field names from draft-ietf-jmap-calendars-33 §2.1 field descriptions.
+/// Oracle: field names from draft-ietf-jmap-calendars-34 §2.1 field descriptions.
 #[test]
 fn principal_calendars_capability_with_account_id() {
     let json = &common::fixture("principal_calendars_capability_with_account_id.json");
@@ -930,7 +930,7 @@ fn principal_calendars_capability_with_account_id() {
     );
 }
 
-/// draft-ietf-jmap-calendars-33 §2.1: "*calendarAddress*: String|null If
+/// draft-ietf-jmap-calendars-34 §2.1: "*calendarAddress*: String|null If
 /// this Principal may be added as a participant to an event, this is the
 /// calendarAddress to use to receive iTIP scheduling messages; otherwise,
 /// this is null." Required-nullable: `null` parses and re-serializes as
@@ -1113,7 +1113,7 @@ fn link_with_href_roundtrip() {
 
 #[test]
 fn link_with_blob_id_roundtrip() {
-    // Oracle: draft-ietf-jmap-calendars-33 §5.3 — blobId may be set instead of href.
+    // Oracle: draft-ietf-jmap-calendars-34 §5.3 — blobId may be set instead of href.
     let json = &common::fixture("link_with_blob_id_roundtrip.json");
     let link: Link =
         serde_json::from_str(json).expect("link_with_blob_id_roundtrip: must deserialize");
@@ -1185,7 +1185,7 @@ fn link_wire_names() {
 
 #[test]
 fn calendar_alert_with_recurrence_id_roundtrip() {
-    // Oracle: draft-ietf-jmap-calendars-33 §6.4 CalendarAlert push-notification object.
+    // Oracle: draft-ietf-jmap-calendars-34 §6.4 CalendarAlert push-notification object.
     // A recurring-event alert: recurrenceId is present and non-null.
     let json = &common::fixture("calendar_alert_with_recurrence_id_roundtrip.json");
     let alert: CalendarAlert = serde_json::from_str(json)
@@ -1214,7 +1214,7 @@ fn calendar_alert_with_recurrence_id_roundtrip() {
 
 #[test]
 fn calendar_alert_recurrence_id_null_for_non_recurring() {
-    // Oracle: draft-ietf-jmap-calendars-33 §6.4 — recurrenceId is null for non-recurring events.
+    // Oracle: draft-ietf-jmap-calendars-34 §6.4 — recurrenceId is null for non-recurring events.
     // It MUST serialize as null (not be omitted) so receivers can distinguish
     // recurring from non-recurring events.
     let json = &common::fixture("calendar_alert_recurrence_id_null_for_non_recurring.json");
@@ -1427,10 +1427,10 @@ fn participant_schedule_status_roundtrip() {
 }
 
 // ---------------------------------------------------------------------------
-// CalendarEvent.iCalendar (calendars-33 §5.7)
+// CalendarEvent.iCalendar (calendars-34 §5.7)
 // ---------------------------------------------------------------------------
 
-/// draft-ietf-jmap-calendars-33 §5.7 names the property "iCalendar" (see
+/// draft-ietf-jmap-calendars-34 §5.7 names the property "iCalendar" (see
 /// [I-D.ietf-calext-jscalendar-icalendar]), whose value is an
 /// ICalComponent object. Fixture: Figure 9 of
 /// draft-ietf-calext-jscalendar-icalendar-28.
@@ -1454,7 +1454,7 @@ fn calendar_event_icalendar_roundtrip() {
     assert_eq!(out["iCalendar"], ical);
 }
 
-/// The draft-26 `iCalComponent` key is not the draft-33 property: a peer
+/// The draft-26 `iCalComponent` key is not the draft-34 property: a peer
 /// still sending it must not be read as `iCalendar`. It stays in the
 /// extras catch-all and round-trips under its own spelling.
 #[test]
@@ -1471,7 +1471,7 @@ fn calendar_event_draft26_icalcomponent_lands_in_extras() {
     assert!(reser.get("iCalendar").is_none());
 }
 
-/// draft-ietf-jmap-calendars-33 §5.7: "The "iCalendar" property is also
+/// draft-ietf-jmap-calendars-34 §5.7: "The "iCalendar" property is also
 /// only returned if explicitly requested", so an unset value is absent
 /// from the wire.
 #[test]
@@ -1487,7 +1487,7 @@ fn calendar_event_icalendar_absent_when_none() {
 
 /// draft-ietf-calext-jscalendarbis-22 §3.1.2: "version: String ... The
 /// JSCalendar version of this object." Figure 10 of
-/// draft-ietf-jmap-calendars-33 returns `"version": "2.0"` in `created`.
+/// draft-ietf-jmap-calendars-34 returns `"version": "2.0"` in `created`.
 #[test]
 fn calendar_event_version_is_typed() {
     let wire = serde_json::json!({ "id": "E-5d5776f6", "@type": "Event", "version": "2.0" });
@@ -1701,7 +1701,7 @@ fn participant_identity_preserves_vendor_extras() {
 // (bd:JMAP-ky8g.1).
 //
 // Independent oracle: hand-written JSON shaped against
-// draft-ietf-jmap-calendars-33 §6.4 example text with `@type` omitted.
+// draft-ietf-jmap-calendars-34 §6.4 example text with `@type` omitted.
 
 /// `CalendarAlert` deserialize succeeds when `@type` is absent and
 /// defaults to `"CalendarAlert"`. Re-serialize emits the field with
@@ -1784,7 +1784,7 @@ fn calendar_rights_may_set_metadata_typed_and_optional() {
 
 // ─── CalendarEventComparator ─────────────────────────────────────────────────
 
-/// draft-ietf-jmap-calendars-33 §5.11.2: "The following properties MUST be
+/// draft-ietf-jmap-calendars-34 §5.11.2: "The following properties MUST be
 /// supported for sorting: id, uid, start" and "SHOULD be supported for
 /// sorting: created, updated". A name not listed (including the draft-26
 /// `recurrenceId`) survives as `Other` and re-encodes to the same JSON

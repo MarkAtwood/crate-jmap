@@ -28,7 +28,7 @@ fn assert_strict<T: DeserializeOwned>(known: Value, typo: Value) {
     }
 }
 
-/// draft-ietf-jmap-calendars-33 §5.11.1 FilterCondition: `inCalendar`,
+/// draft-ietf-jmap-calendars-34 §5.11.1 FilterCondition: `inCalendar`,
 /// `title`.
 #[test]
 fn calendar_event_filter_condition_is_strict() {
@@ -38,7 +38,7 @@ fn calendar_event_filter_condition_is_strict() {
     );
 }
 
-/// draft-ietf-jmap-calendars-33 §7.4.1 CalendarEventNotification/query
+/// draft-ietf-jmap-calendars-34 §7.4.1 CalendarEventNotification/query
 /// FilterCondition: `type`, `calendarEventIds`.
 #[test]
 fn notification_filter_condition_is_strict() {
