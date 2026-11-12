@@ -109,13 +109,13 @@ impl CaseFolding {
 ///   `onDestroyRemoveChildren` cascade over a hidden descendant; the
 ///   handler sees only the descendants [`get_descendant_ids`](Self::get_descendant_ids)
 ///   returns, so the backend refuses the destroy of their parent.
+/// - Copy: the source must be discoverable in `fromAccountId`, and the copy
+///   is a create in `accountId`.
 ///
 /// draft-ietf-jmap-filenode-20 §5: these rights are checked "in the rights
 /// of the node itself; for a node with no myRights, these are its parent's
 /// rights". Only a `Directory` has `myRights` of its own (-20 §3.1.2), so a
 /// write to a `File` or `SymLink` is checked against its parent's.
-/// - Copy: the source must be discoverable in `fromAccountId`, and the copy
-///   is a create in `accountId`.
 ///
 /// # Directory roles
 ///
@@ -387,12 +387,13 @@ pub trait FileNodeBackend: JmapBackend {
     /// - **Blob existence when `blobId` changes** to a non-null value:
     ///   same shape as the create-side invariant.
     ///
-    /// - **Immutable-property prevention**: certain fields (`id`,
-    ///   `@type`, `created`, server-managed timestamps) are
-    ///   immutable per the spec. The handler rejects patches that
-    ///   touch them with `invalidProperties` before reaching this
-    ///   method; the backend MAY assume the patch does not contain
-    ///   those keys.
+    /// - **Immutable-property prevention**: the server-set properties
+    ///   (`id`, `changed`, `myRights`, `size`, `sha256`) and the immutable
+    ///   ones (`@type`, `spaceId`) cannot be patched. The handler rejects
+    ///   patches that touch them with `invalidProperties` before reaching
+    ///   this method; the backend MAY assume the patch does not contain
+    ///   those keys. `created` is not among them: draft-ietf-jmap-filenode-20
+    ///   §3.1.2 lets a client set it under `mayModifyContent`.
     ///
     /// # Patch format
     ///
