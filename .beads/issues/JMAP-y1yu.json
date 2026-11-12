@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-y1yu",
+  "title": "(optional) Decide on draft-ietf-jmap-conditional-02 (conditional/atomic Foo/set)",
+  "description": "draft-ietf-jmap-conditional-02 (WG draft, posted 2026-10-26; successor of draft-gondwana-jmap-conditional-00) adds capability urn:ietf:params:jmap:conditional: preconditions on any Foo/set (section 3, stateMismatch SetError), atomic Foo/set (section 4, atomicFailure and cannotApplyAtomically method errors), with FileNode force-with-lease, conditional destroy and atomic rename/replace examples (section 5). Implementations: Cyrus, Fastmail. crate-jmap has no implementation: no conditional symbols; the generic /set path is in crate-jmap-server. Like emailpush and blobext (JMAP-r44n, JMAP-tna1): do only if wanted. If not wanted, close as N/A, no crate. If wanted: types (capability and error codes) in crate-jmap-types, evaluation and atomic apply in the crate-jmap-server set path with a backend hook for atomicity, client builders in crate-jmap-base-client. Source: /data/PROJECT/IETF/specs/draft-ietf-jmap-conditional-02.{txt,xml} (downloaded 2026-11-12).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T22:31:53.519582926Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T22:31:53.519582926Z",
+  "labels": [
+    "spec-sync"
+  ]
+}
