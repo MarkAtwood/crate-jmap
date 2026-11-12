@@ -550,7 +550,13 @@ async fn report_created_files_rights<B: FileNodeBackend>(
 // FileNode/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `FileNode/changes` method call (draft-ietf-jmap-filenode-16 §3.2.2).
+/// Handle a `FileNode/changes` method call (draft-ietf-jmap-filenode-20 §3.2.2).
+///
+/// -20 §3.2.2: "A node can be reported as changed without any change to
+/// its own properties: see changed for per-user properties, and "Access
+/// Control" for changes to a node's rights or discoverability." Which ids
+/// the backend logs for an update is its contract; see "State and change
+/// log" on [`FileNodeBackend::create_object`].
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the

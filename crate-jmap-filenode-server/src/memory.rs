@@ -400,8 +400,7 @@ impl MemoryBackend {
     /// the node itself, or for a `File` or `SymLink`, which has no
     /// `myRights`, on its parent (draft-ietf-jmap-filenode-19 §5). An
     /// absent `maySetMetadata` allows the write (fail-open, JMAP-bghk).
-    /// This backend never sets `changed`, so a metadata-only change leaves
-    /// it alone, as -05 §3.1 requires.
+    /// A metadata-only change leaves `changed` alone, as -05 §2.2 requires.
     ///
     /// # Panics
     ///
@@ -916,6 +915,43 @@ impl JmapBackend for MemoryBackend {
     }
 }
 
+/// Whether a change to `property` updates `changed`.
+///
+/// draft-ietf-jmap-filenode-20 §3.1.1: the server updates `changed`
+/// "whenever such a property is modified", one "that has the same value for
+/// every user", and "A change to a per-user property (isSubscribed, or
+/// privateMetadata ...) ... need not update changed". -20 lists `metadata`
+/// among the properties that do, but draft-ietf-jmap-metadata-05 §2.2 says
+/// "Changes to metadata or privateMetadata alone MUST NOT update
+/// server-maintained modification timestamps of the related object, such
+/// as the changed property of FileNode ... This overrides any requirement
+/// of those specifications", so `metadata` does not either.
+fn updates_changed(property: &str) -> bool {
+    !matches!(property, "changed" | "isSubscribed") && !is_metadata_property(property)
+}
+
+/// Every descendant of `id` among `nodes`.
+fn descendant_ids(nodes: &HashMap<Id, FileNode>, id: &Id) -> Vec<Id> {
+    let mut children: HashMap<&Id, Vec<&Id>> = HashMap::new();
+    for node in nodes.values() {
+        if let Some(parent) = node.parent_id.as_ref() {
+            children.entry(parent).or_default().push(&node.id);
+        }
+    }
+    let mut seen = std::collections::HashSet::from([id]);
+    let mut pending = vec![id];
+    let mut found = Vec::new();
+    while let Some(current) = pending.pop() {
+        for child in children.get(current).into_iter().flatten() {
+            if seen.insert(child) {
+                found.push((*child).clone());
+                pending.push(child);
+            }
+        }
+    }
+    found
+}
+
 /// The `forbidden` SetError for destroying, renaming or moving a Directory
 /// with a role (draft-ietf-jmap-filenode-20 §5).
 fn role_forbidden() -> BackendSetError<MemoryError> {
@@ -967,19 +1003,31 @@ impl MemoryBackend {
         let new_id = store.next_node_id();
         let obj = build(&new_id)?;
         // Store as a typed FileNode: serialize the built O and read it back.
-        let v = serde_json::to_value(&obj).map_err(|e| {
+        let mut v = serde_json::to_value(&obj).map_err(|e| {
             BackendSetError::Other(MemoryError::serde(
                 format_args!("create_object: serialize {}", O::TYPE_NAME),
                 &e,
             ))
         })?;
-        if let Some(obj) = v.as_object() {
+        if let Some(obj) = v.as_object_mut() {
             let supplied = supplied.and_then(serde_json::Value::as_object);
             check_metadata_create(metadata_info.as_ref(), supplied.unwrap_or(obj), obj)?;
+            // draft-ietf-jmap-filenode-20 §3.1.1 `changed` is server-set;
+            // §3.2.4 gives a copy "a new changed value".
+            obj.insert(
+                "changed".to_owned(),
+                serde_json::json!(jmap_server::now_utc_string()),
+            );
         }
-        let node: FileNode = serde_json::from_value(v).map_err(|e| {
+        let node: FileNode = serde_json::from_value(v.clone()).map_err(|e| {
             BackendSetError::Other(MemoryError::serde(
                 "create_object: deserialize FileNode",
+                &e,
+            ))
+        })?;
+        let obj: O = serde_json::from_value(v).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde(
+                format_args!("create_object: deserialize {}", O::TYPE_NAME),
                 &e,
             ))
         })?;
@@ -1136,7 +1184,16 @@ impl FileNodeBackend for MemoryBackend {
                 check_metadata_depth(patch_obj, obj, info)
                     .map_err(|e| invalid_metadata_property(e.property(), e.description()))?;
             }
-            updated_props = Some(changed_properties(&before, obj));
+            let mut props = changed_properties(&before, obj);
+            if props.iter().any(|p| updates_changed(p)) {
+                obj.insert(
+                    "changed".to_owned(),
+                    serde_json::json!(jmap_server::now_utc_string()),
+                );
+                // -05 §3.3 `updatedProperties` names it too.
+                props.insert("changed".to_owned());
+            }
+            updated_props = Some(props);
         }
 
         // A patched value of the wrong type is the client's error, not ours.
@@ -1154,8 +1211,26 @@ impl FileNodeBackend for MemoryBackend {
             return Err(role_forbidden());
         }
 
+        let share_with_changed = updated_props
+            .as_ref()
+            .is_some_and(|props| props.contains("shareWith"));
         store.nodes.insert(id.clone(), updated_node.clone());
         store.bump_state(ChangeType::Updated, id.clone(), updated_props);
+        // draft-ietf-jmap-filenode-20 §5: "A node's rights can change
+        // without any change to the node itself: through a change to
+        // shareWith on an ancestor ... The server MUST report every node
+        // whose rights for a user changed as changed in FileNode/changes".
+        // This backend has no users, so it reports the whole subtree; only
+        // `myRights` changed for them, and not their `changed` (§3.1.1).
+        if share_with_changed {
+            for descendant in descendant_ids(&store.nodes, id) {
+                store.bump_state(
+                    ChangeType::Updated,
+                    descendant,
+                    Some(BTreeSet::from(["myRights".to_owned()])),
+                );
+            }
+        }
 
         let result_v = serde_json::to_value(&updated_node).map_err(|e| {
             BackendSetError::Other(MemoryError::serde(

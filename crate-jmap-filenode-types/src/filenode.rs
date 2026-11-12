@@ -125,7 +125,8 @@ pub struct FilesRights {
     /// User may destroy this node.
     pub may_delete: bool,
     /// User may update content-related properties (`blobId`, `mediaType`, `target`,
-    /// `modified`, `accessed`, `executable`).
+    /// `created`, `modified`, `accessed`, `executable`; draft-ietf-jmap-filenode-20
+    /// §3.1.2).
     pub may_modify_content: bool,
     /// User may change the sharing of this node (see RFC 9670 JMAP Sharing).
     pub may_share: bool,
@@ -176,12 +177,15 @@ pub struct FilesRights {
 /// other nodes, whose rights come from their parent".  A `File` or `SymLink`
 /// therefore never emits them.
 ///
-/// ## `modified` and `accessed` semantics
+/// ## Timestamp semantics (draft-ietf-jmap-filenode-20 §3.1.1)
 ///
-/// Both are client-managed.  The server does NOT automatically update them on change.
-/// Setting either to `null` in an update (`None` after deserialization) signals the
-/// server to reset it to the current time.  This differs from `changed`, which the
-/// server sets automatically and clients cannot set.
+/// `created`, `modified` and `accessed` are client-managed: the server never
+/// updates `created` or `accessed` itself, and updates `modified` only on a
+/// Direct HTTP Write.  Each defaults to the current server time, so setting one
+/// to `null` in an update (`None` after deserialization) resets it to the
+/// current time (RFC 8620 §5.3).  `changed` is server-set: the server updates it
+/// whenever a property that "has the same value for every user" changes, and
+/// clients cannot set it.
 ///
 /// ## `share_with` visibility
 ///
@@ -239,7 +243,8 @@ pub struct FileNode {
     /// to `"application/octet-stream"`.
     pub media_type: Option<String>,
 
-    /// The date the node was created.
+    /// The date the node was created.  "The server never updates it
+    /// automatically" (draft-ietf-jmap-filenode-20 §3.1.1).
     ///
     /// Default: current server time.  Absent from wire when `None`.
     ///
@@ -249,26 +254,35 @@ pub struct FileNode {
     /// transparent newtype around `String`.
     pub created: Option<UTCDate>,
 
-    /// The date the node was last updated, client-managed.
+    /// "The date the content of the node was last modified"
+    /// (draft-ietf-jmap-filenode-20 §3.1.1), client-managed.
     ///
-    /// Setting to `null` in an update signals the server to reset to the current time.
-    /// The server does NOT auto-update this value.  Absent from wire when `None`.
+    /// Setting to `null` in an update resets it to its default, the current time.
+    /// The server updates it itself only on a Direct HTTP Write.  Absent from wire
+    /// when `None`.
     ///
     /// See [`created`](Self::created) for the typing rationale.
     pub modified: Option<UTCDate>,
 
-    /// The date the node was last accessed, client-managed.
+    /// The date the node was last accessed, client-managed.  "The server never
+    /// updates it automatically" (draft-ietf-jmap-filenode-20 §3.1.1).
     ///
-    /// Setting to `null` in an update signals the server to reset to the current time.
-    /// The server does NOT auto-update this value.  Absent from wire when `None`.
+    /// Setting to `null` in an update resets it to its default, the current time.
+    /// Absent from wire when `None`.
     ///
     /// See [`created`](Self::created) for the typing rationale.
     pub accessed: Option<UTCDate>,
 
-    /// The date the server last recorded a change to any property (server-set).
+    /// "The date the server last recorded a change to a property of this node
+    /// that has the same value for every user" (draft-ietf-jmap-filenode-20
+    /// §3.1.1, server-set).
     ///
-    /// Automatically updated on every mutation.  Not settable by clients.
-    /// Absent from wire when `None`.
+    /// Not every mutation updates it: "A change to a per-user property
+    /// (isSubscribed, or privateMetadata ...), or to the node's rights because of
+    /// a change to an ancestor's shareWith or a move ..., need not update
+    /// changed", and draft-ietf-jmap-metadata-05 §2.2 keeps a metadata-only
+    /// change from updating it.  Not settable by clients.  Absent from wire when
+    /// `None`.
     ///
     /// See [`created`](Self::created) for the typing rationale.
     pub changed: Option<UTCDate>,

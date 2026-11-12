@@ -204,27 +204,37 @@ those in its parent's myRights" (§5), so `FileNode/get` reports no
 
 1. **Create requires `mayAddChildren` on the parent**, or the
    account's `mayCreateTopLevelFileNode` (§2.1) when `parentId` is
-   null.
+   null; so does a move, to its new parent or the top level.
 
 2. **Update requires the right for each property changed:**
    `mayRename` to change `name`, `parentId` (plus `mayAddChildren`
    on a new parent) or `role`; `mayModifyContent` to change `blobId`,
-   `mediaType`, `target`, `modified`, `accessed` or `executable`;
-   `mayShare` to change `shareWith`.
+   `mediaType`, `target`, `created`, `modified`, `accessed` or
+   `executable`; `mayShare` to change `shareWith`.
 
 3. **Destroy requires `mayDelete`**, including on the existing node
-   that an `onExists: "replace"` create overwrites.
+   that an `onExists: "replace"` create overwrites. A destroy that would
+   remove nodes the user cannot discover is `forbidden` (§3.2.3).
 
 4. **`FileNode/copy`** requires `mayRead` on each copied node in
    `fromAccountId` (§3.2.4); the copy is a create in `accountId` and follows
    check 1.
 
-### Reads (§5)
+### Reads and changes (§3.1.1, §5)
 
 5. **Discoverability.** "Nodes which are not "discoverable" MUST
    return notFound errors if fetched with FileNode/get and MUST NOT be
    returned in response to FileNode/query." `get_objects` and
    `query_objects` leave them out.
+
+6. **Change reporting.** `changed` is server-set and moves only for
+   properties that have the same value for every user (§3.1.1; not
+   `isSubscribed`, `privateMetadata`, or a metadata-only change per
+   draft-ietf-jmap-metadata-05 §2.2). A `shareWith` change or a move
+   that changes the rights of descendants reports them as updated for
+   the affected users, and nodes a user can no longer discover as
+   destroyed (§5). The reference backend sets `changed` and reports the
+   subtree of a `shareWith` change.
 
 ### Structural invariants are not ACLs
 
