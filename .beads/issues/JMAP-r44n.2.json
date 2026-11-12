@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.2",
+  "title": "EmailPush: split across pushes before truncating Email properties",
+  "description": "#476 (e4fb0e6): MUST NOT drop properties unless a single Email alone would exceed the push size limit; then keep a prefix of the priority-ordered list. Test an oversized batch and an oversized single Email.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:24.720563759Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:24.720563759Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.2",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:17:24.842488393Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

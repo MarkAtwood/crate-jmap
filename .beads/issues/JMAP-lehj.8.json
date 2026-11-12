@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-lehj.8",
+  "title": "Align noSupportedScheduleMethods docs with -34 wording",
+  "description": "2658658 (#455): error now 'cannot send to the calendar address of at least one of the recipients'. Behaviour already matches; update doc sites backend.rs:91-92, 455, 498, 1469-1470.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:23.786185051Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:23.786185051Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lehj.8",
+      "depends_on_id": "JMAP-lehj",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:17:23.905122133Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

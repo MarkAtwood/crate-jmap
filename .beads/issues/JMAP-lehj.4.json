@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-lehj.4",
+  "title": "Spec availability per-user lookup for Principal; refresh isSubscribed doc",
+  "description": "cfc3b31 (#451): getAvailability uses the Principal's own per-user isSubscribed/includeInAvailability, defaults if never set (rooms); isSubscribed defaults true for all calendars in the user's own account. Create default (calendar.rs:228) and chat seed calendar (chat-calendars-server lib.rs:166) already fit; comment calendar.rs:218-221 quotes old text; get_availability docs (backend.rs:1039-1046) silent on per-user lookup. Also check backend-created calendars default to true.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:22.613117599Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:22.613117599Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lehj.4",
+      "depends_on_id": "JMAP-lehj",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:17:22.732499903Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

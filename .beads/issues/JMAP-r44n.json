@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-r44n",
+  "title": "Implement draft-ietf-jmap-emailpush-05 (EmailPushConfig, EmailPush)",
+  "description": "crate-jmap has no EmailPush implementation (no emailPush symbols; an emailPush member in PushSubscription/set lands in the generic extra catch-all, crate-jmap-types push.rs:160-186; JMAP-t8ej.5 notes 'emailpush-04 N/A (no crate)'). Note: Mark's jmapio/jmap EmailPush issues #473-#481 said 'found implementing -04 in crate-jmap', but no such code exists on any branch. Target the editor's -05 (jmapio/jmap f8f44fd, 2026-11-04) so the Nov changes are built in. Optional work: do only if EmailPush support is wanted. Crates: crate-jmap-types, crate-jmap-server, crate-jmap-mail-server, crate-jmap-web-push.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:24.254124995Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:24.254124995Z",
+  "labels": [
+    "spec-sync"
+  ]
+}
