@@ -206,7 +206,7 @@ use jmap_calendars_types::BusyPeriod;
 let json = r#"{
     "utcStart": "2024-06-15T09:00:00Z",
     "utcEnd": "2024-06-15T10:00:00Z",
-    "busyStatus": "busy"
+    "busyStatus": "confirmed"
 }"#;
 
 let period: BusyPeriod = serde_json::from_str(json).unwrap();

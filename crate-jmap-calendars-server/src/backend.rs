@@ -1071,10 +1071,15 @@ pub trait CalendarsBackend: JmapBackend {
     /// (such as a meeting room), the §4 default applies: `isSubscribed` true
     /// for Calendars in the Principal's own account, `includeInAvailability`
     /// `"all"` there.
-    /// `busyStatus` is `"confirmed"` only when the event is confirmed and
-    /// the Principal's `participationStatus` is `"accepted"`, and each
-    /// BusyPeriod `event` MUST be the caller's `hideAttendees`-filtered
-    /// view (§2.2, §5.7).
+    /// An event the Principal declined or delegated is not relevant, even in
+    /// a calendar with `includeInAvailability` `"all"`. `busyStatus` is
+    /// `"confirmed"` when the event is confirmed and the Principal is not a
+    /// participant, has accepted, or is an owner still at `"needs-action"`
+    /// (draft-ietf-jmap-calendars-34 §2.2).
+    /// [`IncludeInAvailability::counts_event`](jmap_calendars_types::IncludeInAvailability::counts_event)
+    /// and [`BusyStatus::for_event`](jmap_calendars_types::BusyStatus::for_event)
+    /// implement these participation rules. Each BusyPeriod `event` MUST be
+    /// the caller's `hideAttendees`-filtered view (§2.2, §5.7).
     ///
     /// The §2.2 errors (`notFound`, `forbidden`, `tooLarge`, `rateLimit`)
     /// are returned as [`BackendQueryError::Method`], e.g.

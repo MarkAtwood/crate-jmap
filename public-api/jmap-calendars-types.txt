@@ -22,6 +22,8 @@ pub use jmap_calendars_types::VirtualLocation
 pub jmap_calendars_types::BusyStatus::Confirmed
 pub jmap_calendars_types::BusyStatus::Tentative
 pub jmap_calendars_types::BusyStatus::Unavailable
+impl jmap_calendars_types::BusyStatus
+pub fn jmap_calendars_types::BusyStatus::for_event(&jmap_calendars_types::CalendarEvent, &[&str]) -> Self
 impl core::clone::Clone for jmap_calendars_types::BusyStatus
 pub fn jmap_calendars_types::BusyStatus::clone(&self) -> jmap_calendars_types::BusyStatus
 impl core::cmp::Eq for jmap_calendars_types::BusyStatus
@@ -171,6 +173,8 @@ impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarPropert
 pub jmap_calendars_types::IncludeInAvailability::All
 pub jmap_calendars_types::IncludeInAvailability::Attending
 pub jmap_calendars_types::IncludeInAvailability::None
+impl jmap_calendars_types::IncludeInAvailability
+pub fn jmap_calendars_types::IncludeInAvailability::counts_event(&self, &jmap_calendars_types::CalendarEvent, &[&str]) -> bool
 impl core::clone::Clone for jmap_calendars_types::IncludeInAvailability
 pub fn jmap_calendars_types::IncludeInAvailability::clone(&self) -> jmap_calendars_types::IncludeInAvailability
 impl core::cmp::Eq for jmap_calendars_types::IncludeInAvailability
