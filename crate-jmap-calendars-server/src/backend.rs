@@ -820,16 +820,20 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// - `recurrence_overrides_before` — when set, the backend MUST omit any
     ///   recurrence override whose recurrence id (translated into UTC) is on
-    ///   or after this UTCDateTime.
+    ///   or after this UTCDateTime. A floating event's recurrence ids are
+    ///   translated with `time_zone`.
     /// - `recurrence_overrides_after` — when set, the backend MUST omit any
     ///   recurrence override whose recurrence id (translated into UTC) is
-    ///   before this UTCDateTime.
+    ///   before this UTCDateTime. A floating event's recurrence ids are
+    ///   translated with `time_zone`.
     /// - `reduce_participants` — when `true`, the backend MUST return only
     ///   participants with the `"owner"` role or matching the user's
     ///   ParticipantIdentities, in both the base event's `participants` and
     ///   in any recurrence override.
-    /// - `time_zone` — the time zone (default `"Etc/UTC"` when `None`) used
-    ///   when computing `utcStart` / `utcEnd` for floating events. The
+    /// - `time_zone` — the time zone (default `"Etc/UTC"` when `None`) for
+    ///   floating events (a null `timeZone`): it is used to compute their
+    ///   `utcStart` / `utcEnd` and to translate their recurrence ids into UTC
+    ///   for the two bounds above (draft-ietf-jmap-calendars-34 §5.7). The
     ///   handler also forwards this value to
     ///   [`compute_utc_times`](Self::compute_utc_times) for consistency.
     ///
@@ -1433,9 +1437,13 @@ pub struct CalendarEventGetArgs {
     /// returns only participants with the `"owner"` role or those matching
     /// the user's ParticipantIdentities.
     pub reduce_participants: bool,
-    /// `timeZone` (default `"Etc/UTC"` when `None`). Used for computing
-    /// `utcStart` / `utcEnd` of floating events when those properties are
-    /// requested. Has no effect if the response does not include them.
+    /// `timeZone` (default `"Etc/UTC"` when `None`). The time zone for
+    /// floating events (a null `timeZone` property): used to compute their
+    /// `utcStart` / `utcEnd`, and to translate their recurrence ids into UTC
+    /// for [`Self::recurrence_overrides_before`] and
+    /// [`Self::recurrence_overrides_after`] (draft-ietf-jmap-calendars-34
+    /// §5.7). Has no effect unless `utcStart` or `utcEnd` is requested or
+    /// one of those bounds is given.
     ///
     /// This crate does not check the value against the IANA Time Zone
     /// Database; validating the zone name is the backend's job.

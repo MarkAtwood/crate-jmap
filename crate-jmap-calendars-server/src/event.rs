@@ -77,9 +77,13 @@ use jmap_server::{
 ///   lower recurrence-id bound (forwarded to the backend).
 /// - `reduceParticipants`: Boolean (default false) — return only owner /
 ///   user's-identity participants (forwarded to the backend).
-/// - `timeZone`: TimeZoneId (default "Etc/UTC") — used to compute
-///   `utcStart` / `utcEnd` for floating events when those properties are
-///   requested. The handler injects the computed values via
+/// - `timeZone`: TimeZoneId (default "Etc/UTC") — the time zone for
+///   floating events, forwarded to the backend. It is used to compute their
+///   `utcStart` / `utcEnd` when those properties are requested, and to
+///   translate their recurrence ids into UTC for
+///   `recurrenceOverridesBefore` / `recurrenceOverridesAfter`
+///   (draft-ietf-jmap-calendars-34 §5.7). The handler injects the computed
+///   UTC values via
 ///   [`compute_utc_times`](crate::CalendarsBackend::compute_utc_times)
 ///   so a backend that doesn't override
 ///   [`get_calendar_events`](crate::CalendarsBackend::get_calendar_events)
