@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-tna1.3",
+  "title": "(optional) Implement object-history-03 (history get, restore, destroyed query)",
+  "description": "No code exists. -03: Foo/get includeReplaced/includeDestroyed with historyAfter/Before/Skip/Limit ignored unless a flag is true; multi-id paging = one call per id; per-version expires in objectHistory; new Foo/set restore argument (final version + optional patch, server-set properties kept; Email/SieveScript/missing-container/conflict notes) replacing create-with-old-id; Foo/changes reports a restored id as updated or created, never destroyed; Foo/query onlyDestroyed/destroyedAfter/destroyedBefore; destruction via other protocols/server counts; non-current versions are not blob references (affects blobHasReference, Blob/lookup, GC).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:20:39.317850128Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:20:39.317850128Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:20:39.437117606Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

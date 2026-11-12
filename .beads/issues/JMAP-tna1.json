@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-tna1",
+  "title": "Track blobext-03 and object-history-03 (Mark's review points accepted)",
+  "description": "blobext-03 and object-history-03 (posted 2026-11-02) took all 12 of Mark's 2026-11-01 list review points plus editorial (see JMAP-3a7m). crate-jmap has no server implementation of either draft: the only blob code is crate-jmap-chat-client/src/methods/blob.rs (Blob/lookup, Blob/convert client, citing blobext-01). Sources: /data/PROJECT/IETF/specs/draft-ietf-jmap-blobext-03.xml, draft-ietf-jmap-object-history-03.xml; upstream repos brong/draft-gondwana-jmap-blobext and brong/draft-gondwana-jmap-object-history are live again (commits 2026-11-03/04). Server implementation children are optional; do them only if these extensions are wanted.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:20:38.55629906Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:20:38.55629906Z",
+  "labels": [
+    "spec-sync"
+  ]
+}
