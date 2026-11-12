@@ -94,6 +94,10 @@ use jmap_server::{
 /// §3.1); see
 /// [`jmap_server::MetadataProjection`].
 ///
+/// A `properties` list naming `utcStart` or `utcEnd` together with
+/// `recurrenceOverrides` is `invalidArguments` (draft-ietf-jmap-calendars-34
+/// §5.7).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     backend: &B,
@@ -171,6 +175,19 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
         None => false,
         Some(props) => props.iter().any(|p| p == "utcStart" || p == "utcEnd"),
     };
+    // draft-ietf-jmap-calendars-34 §5.7: if utcStart or utcEnd is
+    // requested, "the "recurrenceOverrides" property MUST NOT be requested
+    // ...; otherwise, the server MUST reject the call with an
+    // invalidArguments error".
+    if want_utc
+        && properties
+            .as_deref()
+            .is_some_and(|props| props.iter().any(|p| p == "recurrenceOverrides"))
+    {
+        return Err(JmapError::invalid_arguments(
+            "properties: recurrenceOverrides cannot be requested with utcStart or utcEnd",
+        ));
+    }
 
     let projection = MetadataProjection::new(
         properties.as_deref(),
@@ -2305,6 +2322,45 @@ mod tests {
             "accountId": "acc",
             "ids": null,
             "properties": ["id", "title"]
+        });
+        let result = handle_calendar_event_get(&backend, &(), args, &[]).await;
+        assert!(result.is_ok(), "must not error: {result:?}");
+    }
+
+    /// A `properties` list naming `utcStart` or `utcEnd` together with
+    /// `recurrenceOverrides` makes `CalendarEvent/get` fail with
+    /// `invalidArguments` (draft-ietf-jmap-calendars-34 §5.7: "otherwise, the
+    /// server MUST reject the call with an invalidArguments error").
+    #[tokio::test]
+    async fn get_utc_property_with_recurrence_overrides_returns_invalid_arguments() {
+        for utc_property in ["utcStart", "utcEnd"] {
+            let backend = MockBackend::new_with_account("acc");
+            let args = json!({
+                "accountId": "acc",
+                "ids": null,
+                "properties": ["id", utc_property, "recurrenceOverrides"]
+            });
+            let err = handle_calendar_event_get(&backend, &(), args, &[])
+                .await
+                .expect_err("utc property with recurrenceOverrides must be rejected");
+            assert_eq!(
+                err.error_type.to_string(),
+                "invalidArguments",
+                "{utc_property}: wrong error type: {err:?}"
+            );
+        }
+    }
+
+    /// `recurrenceOverrides` without `utcStart`/`utcEnd` stays a valid
+    /// `CalendarEvent/get` request; only the combination is forbidden
+    /// (draft-ietf-jmap-calendars-34 §5.7).
+    #[tokio::test]
+    async fn get_recurrence_overrides_without_utc_properties_does_not_error() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "ids": null,
+            "properties": ["id", "recurrenceOverrides"]
         });
         let result = handle_calendar_event_get(&backend, &(), args, &[]).await;
         assert!(result.is_ok(), "must not error: {result:?}");
