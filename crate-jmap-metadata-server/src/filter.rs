@@ -184,17 +184,41 @@ pub fn metadata_path_exists(map: &Map<String, Value>, path: &str) -> bool {
 /// ```
 pub fn metadata_text_contains(map: &Map<String, Value>, text_match: &MetadataTextMatch) -> bool {
     match resolve_path(map, &text_match.path) {
-        Some(Value::String(s)) => casemap_prepare(s).contains(&casemap_prepare(&text_match.value)),
+        Some(Value::String(s)) => {
+            unicode_casemap_prepare(s).contains(&unicode_casemap_prepare(&text_match.value))
+        }
         _ => false,
     }
 }
 
-/// RFC 5051 §2 preparation: the "titlecased canonicalized UTF-8" form.
+/// Prepare `s` for the `i;unicode-casemap` collation
+/// ([RFC 5051](https://www.rfc-editor.org/rfc/rfc5051) §2): the
+/// "titlecased canonicalized UTF-8" form.
 ///
-/// Step (2)(a) is the simple titlecase mapping; step (2)(b) decomposes
-/// each code point on its own. NFKD of the whole string would also
-/// reorder combining marks across code points, which RFC 5051 does not.
-fn casemap_prepare(s: &str) -> String {
+/// Each code point is replaced by its simple titlecase mapping (step
+/// (2)(a)), then by its full compatibility decomposition (step (2)(b)),
+/// one code point at a time. NFKD of the whole string would also reorder
+/// combining marks across code points, which RFC 5051 does not.
+///
+/// "Following the above preparation process on each string, the equality,
+/// ordering, and substring operations are as for i;octet" (RFC 5051 §2):
+/// two strings are equal under the collation exactly when their prepared
+/// forms are equal. Besides [`metadata_text_contains`], draft-ietf-jmap-
+/// filenode-20 §1.1 uses this collation for every case-insensitive name
+/// comparison, so FileNode backends share this function.
+///
+/// # Examples
+///
+/// ```
+/// use jmap_metadata_server::unicode_casemap_prepare;
+///
+/// assert_eq!(
+///     unicode_casemap_prepare("Report.TXT"),
+///     unicode_casemap_prepare("report.txt"),
+/// );
+/// assert_ne!(unicode_casemap_prepare("a"), unicode_casemap_prepare("b"));
+/// ```
+pub fn unicode_casemap_prepare(s: &str) -> String {
     let case = CaseMapper::new();
     let nfkd = DecomposingNormalizerBorrowed::new_nfkd();
     s.chars()

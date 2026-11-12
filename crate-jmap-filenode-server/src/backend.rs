@@ -20,22 +20,22 @@ use jmap_server::{
 
 /// Case-folding mode for [`FileNodeBackend::find_sibling_by_name`].
 ///
-/// JMAP FileNode (`draft-ietf-jmap-filenode-13` §3.2.3
+/// JMAP FileNode (draft-ietf-jmap-filenode-20 §3.2.3
 /// `compareCaseInsensitively`) is a Boolean on the wire, but the backend
 /// trait uses a typed enum so call sites are self-documenting and the
 /// algorithm space is open for future variants without a SemVer break.
-///
-/// The specific algorithm used by `Insensitive` is implementation-defined;
-/// see [`FileNodeBackend::find_sibling_by_name`] for the contract gap and
-/// the workspace policy on case-folding.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CaseFolding {
     /// Byte-for-byte (case-sensitive) comparison.
     Sensitive,
-    /// Implementation-defined case-insensitive comparison. The specific
-    /// algorithm is the backend's choice; see the trait method's doc for
-    /// the operational contract.
+    /// Comparison under the `i;unicode-casemap` collation (RFC 5051).
+    ///
+    /// draft-ietf-jmap-filenode-20 §1.1: "Where this document compares
+    /// names case-insensitively, the comparison uses the
+    /// "i;unicode-casemap" collation". Two names are equal under it when
+    /// their RFC 5051 §2 prepared forms are equal;
+    /// `jmap_metadata_server::unicode_casemap_prepare` computes that form.
     Insensitive,
 }
 
@@ -677,41 +677,26 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns the id of any sibling node that already has the given name, or
     /// `None` if the name is unique within that parent.
     ///
-    /// `parent_id` is `None` for the root level. `folding` controls the
-    /// comparison (many file systems treat names case-insensitively).
+    /// `parent_id` is `None` for the top level. `folding` controls the
+    /// comparison.
     ///
     /// Used by `FileNode/set` to enforce the `alreadyExists` constraint.
     ///
-    /// # Case-folding policy
+    /// # Case folding
     ///
-    /// **The case-folding algorithm used for `case_insensitive = true` is
-    /// implementation-defined and the workspace does not standardise it.**
-    /// Implementations vary widely:
-    ///
-    /// - ASCII fold only (a..z ↔ A..Z).
-    /// - Unicode simple case fold (e.g. `str::to_lowercase` in Rust).
-    /// - Unicode full case fold ("ß" → "ss"; Unicode Standard Annex §3.13).
-    /// - Turkish/Azerbaijani locale folding ("I" ↔ "ı", "İ" ↔ "i").
-    /// - HFS+ decomposition + fold (macOS native).
-    /// - ICU locale-aware collation.
-    /// - Filesystem-native (NTFS upcase table, APFS normalisation-insensitive).
-    ///
-    /// Each choice can disagree with another on the same input pair. A backend
-    /// that uses Unicode simple lowercase will not collide on "I" / "ı"; an
-    /// NTFS-backed CIFS share on a Turkish-locale Windows host will. JMAP
-    /// FileNode (`draft-ietf-jmap-filenode-13` §3.2.3 `compareCaseInsensitively`)
-    /// is silent on the algorithm and so is the workspace.
-    ///
-    /// This is by design: the workspace ships a kit, not a server. The choice
-    /// of folding algorithm is properly the consumer's, scoped to the storage
-    /// backend they wire up. The reference `memory::MemoryBackend` (gated
-    /// behind the `memory` feature) uses `str::to_lowercase` (Unicode simple
-    /// lowercase, locale-independent), which is suitable for tests and demos
-    /// but is NOT a recommendation for production.
-    ///
-    /// Implementers SHOULD document the algorithm their backend uses in
-    /// public-facing docs, and SHOULD NOT mix folding algorithms within a
-    /// single account namespace.
+    /// With [`CaseFolding::Insensitive`], names compare under the
+    /// `i;unicode-casemap` collation (draft-ietf-jmap-filenode-20 §1.1,
+    /// RFC 5051): equal when their RFC 5051 §2 prepared forms are equal,
+    /// as `jmap_metadata_server::unicode_casemap_prepare` computes them.
+    /// A backend whose account advertises `caseInsensitiveNames` compares
+    /// this way even when `folding` is [`CaseFolding::Sensitive`]: -20
+    /// §2.1 makes that server treat names "as case-insensitive for all
+    /// name collision checks". A storage layer whose
+    /// native folding differs (ASCII-only, Unicode full case folding,
+    /// locale-dependent folding, normalization-insensitive file systems)
+    /// can disagree with the collation on some pairs, such as "ß" and
+    /// "ss" or a dotless "ı" and "I", and then reports collisions the
+    /// draft does not, or misses ones it requires.
     fn find_sibling_by_name(
         &self,
         caller: &Self::CallerCtx,

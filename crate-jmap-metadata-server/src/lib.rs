@@ -28,6 +28,9 @@
 //!   `invalidArguments` rejection ([`is_well_formed_metadata_path`]), and
 //!   [`MetadataCondition`], which takes the six fields off a decoded
 //!   `FilterCondition` and evaluates them.
+//! - The RFC 5051 `i;unicode-casemap` preparation those text conditions
+//!   use, [`unicode_casemap_prepare`], which FileNode backends also use
+//!   for case-insensitive names (draft-ietf-jmap-filenode-20 §1.1).
 //!
 //! Everything operates on `serde_json` values and
 //! [`jmap_metadata_types`] structs, so a backend that stores objects as
@@ -55,7 +58,7 @@ pub use changes::{
 };
 pub use filter::{
     MetadataCondition, MetadataFilterError, is_well_formed_metadata_path, metadata_path_exists,
-    metadata_text_contains, metadata_text_equals,
+    metadata_text_contains, metadata_text_equals, unicode_casemap_prepare,
 };
 pub use validate::{
     InvalidMetadataWrite, SetKind, check_metadata_depth, check_metadata_write, exceeds_max_depth,

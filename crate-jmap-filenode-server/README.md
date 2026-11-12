@@ -150,8 +150,10 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns the id of any sibling node that already has the given name,
     /// or None if the name is unique within that parent.
     ///
-    /// parent_id is None for the root level. folding selects the name
-    /// comparison. Used by FileNode/set to enforce the alreadyExists constraint.
+    /// parent_id is None for the top level. folding selects the name
+    /// comparison; CaseFolding::Insensitive is the i;unicode-casemap
+    /// collation (draft-ietf-jmap-filenode-20 §1.1). Used by FileNode/set
+    /// to enforce the alreadyExists constraint.
     fn find_sibling_by_name(
         &self,
         caller: &Self::CallerCtx,

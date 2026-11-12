@@ -29,6 +29,9 @@ wire behaviour that a conforming peer can observe.
   Principal declined or delegated is not relevant, and `"confirmed"`
   covers a confirmed event the Principal is not a participant of, has
   accepted, or owns at `"needs-action"`.
+- **jmap-metadata-server**: `unicode_casemap_prepare` exposes the RFC 5051
+  §2 `i;unicode-casemap` preparation that `metadataTextContains` already
+  used, so FileNode backends can compare names with it.
 
 ### Changed
 
@@ -44,6 +47,12 @@ wire behaviour that a conforming peer can observe.
   `recurrenceOverridesBefore`/`After`), per-user availability lookup,
   CalendarAlert and CalendarEventNotification ids for instance-only
   events, and the `noSupportedScheduleMethods` wording.
+- **jmap-filenode-server**: `CaseFolding::Insensitive` is now the
+  `i;unicode-casemap` collation that draft-ietf-jmap-filenode-20 §1.1
+  names for every case-insensitive name comparison, not an
+  implementation-defined fold. The reference `MemoryBackend` compares
+  prepared names instead of `str::to_lowercase`, so fullwidth and other
+  compatibility forms now collide with their plain forms.
 
 ## [0.5.0] - 2026-11-02
 

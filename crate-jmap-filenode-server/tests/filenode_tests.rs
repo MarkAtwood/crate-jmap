@@ -1266,6 +1266,52 @@ async fn filenode_copy_rename_memory_backend_folds_case() {
     assert_eq!(resp["created"]["c"]["name"], "doc-2", "{resp}");
 }
 
+/// draft-ietf-jmap-filenode-20 §1.1: "Where this document compares names
+/// case-insensitively, the comparison uses the "i;unicode-casemap"
+/// collation". RFC 5051 §2 prepares each code point by its titlecase
+/// mapping and then its compatibility decomposition, so fullwidth
+/// "ＤＯＣ" (U+FF24 U+FF2F U+FF23) and dotless "ı" (U+0131, titlecase "I")
+/// prepare to "DOC" and "I", the same as "doc" and "i". Plain lowercasing
+/// keeps both apart.
+#[tokio::test]
+async fn filenode_set_compare_case_insensitively_uses_unicode_casemap() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let doc = create_node(&backend, "acc1", "doc", None, "s0").await;
+    let i = create_node(&backend, "acc1", "i", None, "s1").await;
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({
+            "accountId": "acc1",
+            "compareCaseInsensitively": true,
+            "create": {
+                "fullwidth": { "@type": "Directory", "name": "\u{FF24}\u{FF2F}\u{FF23}",
+                               "parentId": null },
+                "dotless": { "@type": "Directory", "name": "\u{0131}", "parentId": null },
+                "ss": { "@type": "Directory", "name": "\u{00DF}", "parentId": null }
+            }
+        }),
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    assert_eq!(
+        resp["notCreated"]["fullwidth"],
+        json!({ "type": "alreadyExists", "existingId": doc }),
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["dotless"],
+        json!({ "type": "alreadyExists", "existingId": i }),
+        "{resp}"
+    );
+    // "ß" (U+00DF) has no simple titlecase mapping and no decomposition,
+    // so it collides with nothing here.
+    assert!(resp["created"]["ss"].is_object(), "{resp}");
+}
+
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
     let backend = MemoryBackend::new()
