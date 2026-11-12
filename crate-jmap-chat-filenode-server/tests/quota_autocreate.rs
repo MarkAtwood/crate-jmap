@@ -2,21 +2,21 @@
 //! capability fields.
 //!
 //! Oracle: draft-atwood-jmap-chat-filenode-00.md at jmap-chat-spec
-//! 33702a5 ("filenode Lnnn"):
+//! 662085d:
 //!
-//! - L119: "Maximum total blob storage in bytes across all FileNodes in a
-//!   single Space's file tree. ... When a `FileNode/set` create would
-//!   cause the Space file tree to exceed this limit, the server MUST
-//!   return an `overQuota` SetError (as defined in {{RFC8620}} Section
-//!   5.3)."
-//! - L122: "When `true`, the server automatically creates a Space file
-//!   tree root for each new Space at Space creation time and includes the
-//!   new FileNode in subsequent `FileNode/changes` responses."
-//! - L126: "A Space's file tree is rooted at a single FileNode
-//!   identified by the well-known `role` value `"chatspace"` and the
-//!   `spaceId` extension property".
-//! - L149: "When a file tree exists for the Space, exactly one matching
-//!   FileNode is returned."
+//! - `maxSpaceStorageBytes`: "Maximum total blob storage in bytes across
+//!   all FileNodes in a single Space's file tree, counting all of its
+//!   Space roots. ... When a `FileNode/set` create would cause the Space
+//!   file tree to exceed this limit, the server MUST return an `overQuota`
+//!   SetError (as defined in {{RFC8620}} Section 5.3)."
+//! - `autoCreateFileTree`: "When `true`, the server automatically creates
+//!   one Space root for each new Space at Space creation time and includes
+//!   the new FileNode in subsequent `FileNode/changes` responses."
+//! - §Terminology: Space root: "A Directory FileNode whose `spaceId`
+//!   matches the Space's `id`"; Space file tree: "All FileNodes associated
+//!   with a given Space: its Space roots and every FileNode below them."
+//! - §Discovering Space Roots: "The result contains every Space root of
+//!   that Space".
 //!
 //! Records are hand-written JSON from the drafts' field lists.
 
@@ -28,7 +28,6 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
-const ROLE: &str = "chatspace";
 const LIMIT: u64 = 100;
 
 fn node(v: Value) -> FileNode {
@@ -42,7 +41,7 @@ fn dir(id: &str, parent: Option<&str>) -> FileNode {
 fn space_root(id: &str, space_id: &str) -> FileNode {
     node(
         json!({ "id": id, "@type": "Directory", "name": id, "parentId": null,
-                 "role": ROLE, "spaceId": space_id }),
+                 "spaceId": space_id }),
     )
 }
 
@@ -83,7 +82,7 @@ async fn check(files: &MemoryBackend, new: FileNode) -> Option<Value> {
         .map(|e| serde_json::to_value(e).expect("SetError serializes"))
 }
 
-/// L119: only a create that would "exceed" the limit is refused; 60 + 40
+/// `maxSpaceStorageBytes`: only a create that would "exceed" the limit is refused; 60 + 40
 /// reaches 100 without exceeding it.
 #[tokio::test]
 async fn create_reaching_the_limit_passes() {
@@ -91,7 +90,7 @@ async fn create_reaching_the_limit_passes() {
     assert_eq!(check(&files, file("new", "r1", 40)).await, None);
 }
 
-/// L119: "the server MUST return an `overQuota` SetError": 60 + 41 > 100.
+/// `maxSpaceStorageBytes`: "the server MUST return an `overQuota` SetError": 60 + 41 > 100.
 #[tokio::test]
 async fn create_exceeding_the_limit_is_over_quota() {
     let files = fixture();
@@ -99,7 +98,7 @@ async fn create_exceeding_the_limit_is_over_quota() {
     assert_eq!(err["type"], "overQuota");
 }
 
-/// L119: the total is "across all FileNodes in a single Space's file
+/// `maxSpaceStorageBytes`: the total is "across all FileNodes in a single Space's file
 /// tree", so a create deep in the tree counts the whole tree.
 #[tokio::test]
 async fn nested_create_counts_the_whole_tree() {
@@ -108,7 +107,7 @@ async fn nested_create_counts_the_whole_tree() {
     assert_eq!(err["type"], "overQuota");
 }
 
-/// L119: the limit is per "single Space's file tree": S2's 1000 bytes do
+/// `maxSpaceStorageBytes`: the limit is per "single Space's file tree": S2's 1000 bytes do
 /// not count against S1, and S2 alone is already over.
 #[tokio::test]
 async fn other_spaces_tree_is_not_counted() {
@@ -118,8 +117,27 @@ async fn other_spaces_tree_is_not_counted() {
     assert_eq!(err["type"], "overQuota");
 }
 
-/// L119, L126: the limit applies to Space file trees only, those rooted
-/// at a node with role `chatspace`.
+/// The limit applies to Space file trees only, those below a node with a
+/// `spaceId`.
+/// The total is "counting all of its Space roots": a second S1 root, here
+/// below the plain directory, adds its 30 bytes to S1's 60, and a create
+/// below it counts S1's first tree.
+#[tokio::test]
+async fn every_space_root_counts() {
+    let files = fixture();
+    let second = node(json!({ "id": "r1b", "@type": "Directory", "name": "r1b",
+                              "parentId": "plain", "spaceId": "S1" }));
+    files.seed_node(&Id::from(ACCOUNT), second);
+    files.seed_node(&Id::from(ACCOUNT), file("f5", "r1b", 30));
+    assert_eq!(check(&files, file("new", "r1", 10)).await, None);
+    for parent in ["r1", "r1b"] {
+        let err = check(&files, file("new", parent, 11))
+            .await
+            .expect("refused");
+        assert_eq!(err["type"], "overQuota", "below {parent}");
+    }
+}
+
 #[tokio::test]
 async fn node_outside_a_space_tree_is_not_checked() {
     let files = fixture();
@@ -127,8 +145,10 @@ async fn node_outside_a_space_tree_is_not_checked() {
     assert_eq!(check(&files, dir("top", None)).await, None);
 }
 
-/// L122: the root is created "at Space creation time" and is the Space's
-/// file tree root (L126), found by the discovery query (L149).
+/// `autoCreateFileTree`: the root is created "at Space creation time" and
+/// is a Space root, found by the `spaceId` discovery query. It has no
+/// `role`, which draft-ietf-jmap-filenode-20 §3.1.4 would allow on one
+/// Directory per account only.
 #[tokio::test]
 async fn auto_created_root_is_the_spaces_root() {
     let files = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
@@ -138,13 +158,13 @@ async fn auto_created_root_is_the_spaces_root() {
     let wire = serde_json::to_value(&root).expect("FileNode serializes");
     assert_eq!(wire["@type"], "Directory");
     assert_eq!(wire["parentId"], Value::Null);
-    assert_eq!(wire["role"], ROLE);
+    assert_eq!(wire["role"], Value::Null);
     assert_eq!(wire["spaceId"], "S1");
 
     let out = handle_filenode_query(
         &files,
         &(),
-        json!({ "accountId": ACCOUNT, "filter": { "role": ROLE, "spaceId": "S1" } }),
+        json!({ "accountId": ACCOUNT, "filter": { "spaceId": "S1" } }),
         &[],
     )
     .await
@@ -152,7 +172,7 @@ async fn auto_created_root_is_the_spaces_root() {
     assert_eq!(out.primary["ids"], json!([id]));
 }
 
-/// L122: the server "includes the new FileNode in subsequent
+/// `autoCreateFileTree`: the server "includes the new FileNode in subsequent
 /// `FileNode/changes` responses."
 #[tokio::test]
 async fn auto_created_root_is_in_filenode_changes() {

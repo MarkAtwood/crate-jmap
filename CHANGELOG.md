@@ -47,6 +47,26 @@ wire behaviour that a conforming peer can observe.
   `recurrenceOverridesBefore`/`After`), per-user availability lookup,
   CalendarAlert and CalendarEventNotification ids for instance-only
   events, and the `noSupportedScheduleMethods` wording.
+- **BREAKING** **jmap-filenode-types**: `NodeRole::ChatSpace` is gone.
+  draft-atwood-jmap-chat-filenode-00 dropped the `chatspace` role and now
+  identifies a Space root by `spaceId` alone; the string parses as
+  `NodeRole::Other("chatspace")`.
+- **BREAKING** **jmap-filenode-server**: Directory roles follow
+  draft-ietf-jmap-filenode-20. `FileNode/set` rejects a create or update
+  that would leave two Directories with one role (checked against the
+  whole call, so a role can move) with `invalidProperties`, and renaming,
+  moving or destroying a Directory with a role (also by cascade or
+  `onExists` replacement) with `forbidden`; `MemoryBackend` re-checks the
+  latter. The `chatspace`-only role gate is gone, and `spaceId` is
+  allowed on any Directory.
+- **BREAKING** **jmap-chat-filenode-server**: a Space root is any
+  Directory with `spaceId`, and a Space may have several.
+  `check_root_create` no longer requires a role or caps a Space at one
+  root (no `alreadyExists`); renaming or destroying a Space root needs
+  `manage_space`, and moving one is refused. `check_space_quota`,
+  `space_files_rights`, `resolve_filenode_attachment` and
+  `destroy_space_file_tree` cover every Space root of the Space, and
+  `create_space_file_tree` creates a root without a role.
 - **jmap-filenode-server**: `CaseFolding::Insensitive` is now the
   `i;unicode-casemap` collation that draft-ietf-jmap-filenode-20 §1.1
   names for every case-insensitive name comparison, not an

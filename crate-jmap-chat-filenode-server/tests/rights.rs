@@ -18,18 +18,20 @@
 //! - L165-167, the table: `"view"` `mayRead`; `"send"` "The above, plus
 //!   `mayAddChildren`"; `"manage_channels"` or `"manage_space"` "The
 //!   above, plus `mayDelete`, `mayRename`, and `mayModifyContent`".
-//! - L169: "The tree root reports these rights like any other Directory
-//!   ... They do not let anyone destroy, rename, or move the root itself".
+//! - L169 (jmap-chat-spec 662085d): "A Space root reports these rights
+//!   like any other Directory ... They do not decide who may destroy,
+//!   rename, or move the Space root itself".
 //! - L171: "No role is granted `mayShare`. ... the server rejects a
 //!   `FileNode/set` update that changes `shareWith` on a node in a Space
 //!   file tree with a `forbidden` SetError."
 //! - L173: "Replacing an existing file ... here only `"manage_channels"`
 //!   and above hold. A member with only `"send"` uploads a new file
 //!   instead".
-//! - L177: "No member can destroy, rename, or move the root through
-//!   `FileNode/set`: {{JMAP-FILENODE}} rejects these with `forbidden` for
-//!   any Directory with a role. The root is removed only when its Space is
-//!   destroyed".
+//! - L177 (jmap-chat-spec 662085d): "Creating, renaming, or destroying a
+//!   Space root requires `"manage_space"` permission, whatever the root's
+//!   `myRights` report; the server SHOULD reject these from other members
+//!   with `forbidden`. ... the server SHOULD reject a `FileNode/set` update
+//!   that changes a Space root's `parentId` with `forbidden`."
 //!
 //! draft-ietf-jmap-filenode §FileNode properties defines `mayRename` as
 //! "rename or move this node" and `mayModifyContent` as "update the
@@ -54,7 +56,6 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";
-const ROLE: &str = "chatspace";
 
 struct Fixture {
     chat: ChatMemory,
@@ -97,12 +98,12 @@ impl Fixture {
         let files = FilesMemory::new().with_account(&Id::from(ACCOUNT));
         for node in [
             json!({ "id": "root", "@type": "Directory", "name": "S1", "parentId": null,
-                    "role": ROLE, "spaceId": SPACE }),
+                    "spaceId": SPACE }),
             json!({ "id": "docs", "@type": "Directory", "name": "docs", "parentId": "root" }),
             json!({ "id": "f1", "@type": "File", "name": "f1.txt", "parentId": "docs",
                     "blobId": "b1", "size": 3, "mediaType": "text/plain" }),
             json!({ "id": "root-s2", "@type": "Directory", "name": "S2", "parentId": null,
-                    "role": ROLE, "spaceId": "S2" }),
+                    "spaceId": "S2" }),
             json!({ "id": "other", "@type": "Directory", "name": "other", "parentId": "root-s2" }),
             json!({ "id": "loose", "@type": "Directory", "name": "loose", "parentId": null }),
         ] {
@@ -429,23 +430,40 @@ async fn rename_needs_manage_channels() {
     );
 }
 
-/// L169 and L177: "No member can destroy, rename, or move the root
-/// through `FileNode/set`", although the root reports `mayRename`.
+/// L177: renaming a Space root needs `"manage_space"`, which
+/// `"manage_channels"` lacks although the root reports `mayRename` for it.
 #[tokio::test]
-async fn nobody_renames_or_moves_the_root() {
+async fn only_manage_space_renames_the_root() {
+    let rename = json!({ "name": "files" });
+    assert_eq!(
+        Fixture::new(&["manage_channels"])
+            .update("root", rename.clone())
+            .await
+            .as_deref(),
+        Some("forbidden")
+    );
+    assert_eq!(
+        Fixture::new(&["manage_space"]).update("root", rename).await,
+        None
+    );
+}
+
+/// L177: a changed `parentId` on a Space root is refused for every member.
+#[tokio::test]
+async fn nobody_moves_the_root() {
     for permission in ["manage_channels", "manage_space"] {
-        let f = Fixture::new(&[permission]);
-        for patch in [json!({ "name": "files" }), json!({ "parentId": "loose" })] {
-            assert_eq!(
-                f.update("root", patch).await.as_deref(),
-                Some("forbidden"),
-                "{permission}"
-            );
-        }
+        assert_eq!(
+            Fixture::new(&[permission])
+                .update("root", json!({ "parentId": "loose" }))
+                .await
+                .as_deref(),
+            Some("forbidden"),
+            "{permission}"
+        );
     }
 }
 
-/// L177 refuses only a rename or move of the root. A patch restating the
+/// L177 governs only a rename or move of the root. A patch restating the
 /// root's stored `name` ("S1" in the fixture) and its `parentId` null
 /// renames and moves nothing, so a member holding `mayRename` (L167) may
 /// send it.
@@ -560,15 +578,17 @@ async fn destroy_needs_manage_channels() {
     );
 }
 
-/// L177: "No member can destroy ... the root through `FileNode/set`
-/// ... The root is removed only when its Space is destroyed".
+/// L177: destroying a Space root needs `"manage_space"`, "whatever the
+/// root's `myRights` report": `"manage_channels"` holds `mayDelete` and
+/// is still refused.
 #[tokio::test]
-async fn nobody_destroys_the_root() {
-    for permission in ["manage_channels", "manage_space"] {
-        assert_eq!(
-            Fixture::new(&[permission]).destroy("root").await.as_deref(),
-            Some("forbidden"),
-            "{permission}"
-        );
-    }
+async fn only_manage_space_destroys_the_root() {
+    assert_eq!(
+        Fixture::new(&["manage_channels"])
+            .destroy("root")
+            .await
+            .as_deref(),
+        Some("forbidden")
+    );
+    assert_eq!(Fixture::new(&["manage_space"]).destroy("root").await, None);
 }

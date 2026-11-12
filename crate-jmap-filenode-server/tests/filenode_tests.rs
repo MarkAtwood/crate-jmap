@@ -3607,18 +3607,18 @@ async fn filenode_set_update_null_defaulted_resets_to_default() {
 
 // ---------------------------------------------------------------------------
 // FileNode/query filters on the `spaceId` extension property.
-// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 6bcd9d8)
-//   L135: "Servers MUST support `spaceId` as a filter criterion in
-//          `FileNode/query`, enabling clients to efficiently locate the root
-//          for a given Space."
-//   L149: "clients issue a `FileNode/query` request filtering on
-//          `role: \"chatspace\"` and `spaceId: <id>`. When a
-//          file tree exists for the Space, exactly one matching FileNode is
-//          returned. When no file tree exists, the result is empty"
+// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 662085d)
+//   §Space File Tree: "A Space has zero, one, or more Space roots, each a
+//          Directory identified by the `spaceId` extension property".
+//   §The `spaceId` Extension Property: "Servers MUST support `spaceId` as a
+//          filter criterion in `FileNode/query`, enabling clients to
+//          efficiently locate the roots of a given Space."
+//   §Discovering Space Roots: "The result contains every Space root of that
+//          Space, and is empty when the Space has none".
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-async fn filenode_query_space_id_returns_only_matching_space_root() {
+async fn filenode_query_space_id_returns_every_space_root() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
@@ -3627,59 +3627,54 @@ async fn filenode_query_space_id_returns_only_matching_space_root() {
         json!({
             "accountId": "acc1",
             "create": {
-                "r1": { "@type": "Directory", "name": "space-one", "parentId": null,
-                        "role": "chatspace", "spaceId": "S1" },
-                "r2": { "@type": "Directory", "name": "space-two", "parentId": null,
-                        "role": "chatspace", "spaceId": "S2" }
+                "a": { "@type": "Directory", "name": "one-a", "parentId": null, "spaceId": "S1" },
+                "b": { "@type": "Directory", "name": "one-b", "parentId": null, "spaceId": "S1" },
+                "c": { "@type": "Directory", "name": "two", "parentId": null, "spaceId": "S2" }
             }
         }),
         &[],
     )
     .await
     .expect("create Space roots must succeed");
-    let r1 = resp["created"]["r1"]["id"]
-        .as_str()
-        .unwrap_or_else(|| panic!("r1 must be created: {resp}"))
-        .to_owned();
-    assert!(resp["created"]["r2"]["id"].is_string(), "{resp}");
+    let created = |cid: &str| {
+        resp["created"][cid]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("{cid} must be created: {resp}"))
+            .to_owned()
+    };
+    let mut s1 = vec![created("a"), created("b")];
+    s1.sort();
+    created("c");
 
     let query = |space_id: &'static str| {
         handle_filenode_query(
             &backend,
             &(),
-            json!({
-                "accountId": "acc1",
-                "filter": { "role": "chatspace", "spaceId": space_id }
-            }),
+            json!({ "accountId": "acc1", "filter": { "spaceId": space_id } }),
             &[],
         )
     };
 
     let HandlerOutput { primary: q, .. } = query("S1").await.expect("query S1 must succeed");
-    assert_eq!(q["ids"], json!([r1]), "L149: exactly one root for S1: {q}");
+    let mut ids: Vec<String> = serde_json::from_value(q["ids"].clone()).expect("ids");
+    ids.sort();
+    assert_eq!(ids, s1, "every Space root of S1: {q}");
 
     let HandlerOutput { primary: q, .. } = query("S3").await.expect("query S3 must succeed");
-    assert_eq!(
-        q["ids"],
-        json!([]),
-        "L149: no tree for S3, empty result: {q}"
-    );
+    assert_eq!(q["ids"], json!([]), "S3 has no Space root: {q}");
 }
 
 // ---------------------------------------------------------------------------
-// The `spaceId` extension property: root-only and immutable.
-// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 6bcd9d8)
-//   L130: "This document defines the following extension property on
-//          FileNode objects that serve as Space file tree roots (i.e., where
-//          `role` is `\"chatspace\"`):"
-//   L132-133: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
-//          this FileNode is associated with. Supplied by the client at
-//          creation and treated as immutable thereafter. Absent on all
-//          FileNode objects that are not Space file tree roots."
-// RFC 8620 §5.3: "invalidProperties: The record given is invalid in some way."
+// The `spaceId` extension property: Directory-only and immutable.
+// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 662085d)
+//   §Creating a Space Root: "When a client creates a FileNode with
+//          `spaceId`, its `@type` ... MUST be `\"Directory\"`."
+//   §The `spaceId` Extension Property: "`spaceId` (String, immutable): ...
+//          Because it is immutable, {{RFC8620}} Section 5.3 has the server
+//          reject an update that changes it with `invalidProperties`."
 // ---------------------------------------------------------------------------
 
-/// Creates a Space file tree root for `space_id` and returns its id.
+/// Creates a Space root for `space_id` and returns its id.
 async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         backend,
@@ -3689,7 +3684,7 @@ async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
             "accountId": "acc1",
             "create": {
                 "r": { "@type": "Directory", "name": "space", "parentId": null,
-                       "role": "chatspace", "spaceId": space_id }
+                       "spaceId": space_id }
             }
         }),
         &[],
@@ -3698,7 +3693,7 @@ async fn create_space_root(backend: &MemoryBackend, space_id: &str) -> String {
     .expect("create Space root must succeed");
     resp["created"]["r"]["id"]
         .as_str()
-        .unwrap_or_else(|| panic!("L130: a Space root may carry spaceId: {resp}"))
+        .unwrap_or_else(|| panic!("a Directory may carry spaceId: {resp}"))
         .to_owned()
 }
 
@@ -3716,7 +3711,7 @@ async fn get_space_id(backend: &MemoryBackend, id: &str) -> serde_json::Value {
 }
 
 #[tokio::test]
-async fn filenode_set_create_space_id_on_non_root_rejected() {
+async fn filenode_set_create_space_id_on_non_directory_rejected() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let HandlerOutput { primary: resp, .. } = handle_filenode_set(
         &backend,
@@ -3725,20 +3720,20 @@ async fn filenode_set_create_space_id_on_non_root_rejected() {
         json!({
             "accountId": "acc1",
             "create": {
-                "noRole": { "@type": "Directory", "name": "a", "parentId": null,
-                            "role": null, "spaceId": "S1" },
-                "otherRole": { "@type": "Directory", "name": "b", "parentId": null,
-                               "role": "documents", "spaceId": "S1" }
+                "file": { "@type": "File", "name": "a", "parentId": null,
+                          "blobId": "b1", "spaceId": "S1" },
+                "link": { "@type": "SymLink", "name": "b", "parentId": null,
+                          "target": ["a"], "spaceId": "S1" }
             }
         }),
         &[],
     )
     .await
     .expect("FileNode/set must succeed");
-    for cid in ["noRole", "otherRole"] {
+    for cid in ["file", "link"] {
         let err = &resp["notCreated"][cid];
-        assert_eq!(err["type"], "invalidProperties", "L133 {cid}: {resp}");
-        assert_eq!(err["properties"], json!(["spaceId"]), "L133 {cid}: {resp}");
+        assert_eq!(err["type"], "invalidProperties", "{cid}: {resp}");
+        assert_eq!(err["properties"], json!(["spaceId"]), "{cid}: {resp}");
     }
     assert!(
         resp["created"].as_object().is_none_or(|m| m.is_empty()),
@@ -3750,7 +3745,7 @@ async fn filenode_set_create_space_id_on_non_root_rejected() {
 async fn filenode_set_create_space_root_reports_space_id() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
     let root = create_space_root(&backend, "S1").await;
-    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L132");
+    assert_eq!(get_space_id(&backend, &root).await, json!("S1"));
 }
 
 #[tokio::test]
@@ -3768,14 +3763,10 @@ async fn filenode_set_update_space_id_rejected() {
         .await
         .expect("FileNode/set must succeed");
         let err = &resp["notUpdated"][&root];
-        assert_eq!(err["type"], "invalidProperties", "L133 {patch}: {resp}");
-        assert_eq!(
-            err["properties"],
-            json!(["spaceId"]),
-            "L133 {patch}: {resp}"
-        );
+        assert_eq!(err["type"], "invalidProperties", "{patch}: {resp}");
+        assert_eq!(err["properties"], json!(["spaceId"]), "{patch}: {resp}");
     }
-    assert_eq!(get_space_id(&backend, &root).await, json!("S1"), "L133");
+    assert_eq!(get_space_id(&backend, &root).await, json!("S1"));
 }
 
 #[tokio::test]
@@ -3793,91 +3784,221 @@ async fn filenode_set_update_adding_space_id_to_non_root_rejected() {
     .expect("FileNode/set must succeed");
     assert_eq!(
         resp["notUpdated"]["d1"]["type"], "invalidProperties",
-        "L133: {resp}"
+        "{resp}"
     );
-    assert!(get_space_id(&backend, "d1").await.is_null(), "L133");
+    assert!(get_space_id(&backend, "d1").await.is_null());
 }
 
-#[tokio::test]
-async fn filenode_set_update_role_off_space_root_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-    let root = create_space_root(&backend, "S1").await;
-    for patch in [json!({ "role": "documents" }), json!({ "role": null })] {
-        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-            &backend,
-            &(),
-            &std::collections::BTreeMap::new(),
-            json!({ "accountId": "acc1", "update": { root.clone(): patch } }),
-            &[],
-        )
-        .await
-        .expect("FileNode/set must succeed");
-        let err = &resp["notUpdated"][&root];
-        assert_eq!(
-            err["type"], "invalidProperties",
-            "L130/L133 {patch}: {resp}"
-        );
-        assert_eq!(
-            err["properties"],
-            json!(["role"]),
-            "L130/L133 {patch}: {resp}"
-        );
-    }
+// ---------------------------------------------------------------------------
+// Directory roles.
+// Oracle: draft-ietf-jmap-filenode-20
+//   §3.1.4 role: "At most one Directory in an account has a given role;
+//          setting a role that another Directory already has is an
+//          "invalidProperties" error. As for sibling names, the server
+//          checks this against the result of all the creates, updates and
+//          destroys in a FileNode/set together, so a client can move a role
+//          from one Directory to another in a single method."
+//   §5: "A Directory with a role cannot be destroyed, renamed or moved; the
+//          server rejects any attempt with "forbidden". ... A client that
+//          needs to destroy, rename or move such a Directory first clears
+//          its role".
+// ---------------------------------------------------------------------------
+
+/// Runs FileNode/set on account acc1 with the given arguments.
+async fn set_acc1(backend: &MemoryBackend, args: Value) -> Value {
+    let mut args = args;
+    args["accountId"] = json!("acc1");
+    let HandlerOutput { primary, .. } =
+        handle_filenode_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
+            .await
+            .expect("FileNode/set must not fail at method level");
+    primary
 }
 
-// Oracle: draft-atwood-jmap-chat-filenode-00 (jmap-chat-spec 6bcd9d8)
-//   L145: "The `role` value `\"chatspace\"` can be set only when a FileNode
-//          is created. A server MUST reject a `FileNode/set` update that
-//          changes `role` to or from `\"chatspace\"` with an
-//          `invalidProperties` SetError ({{RFC8620}} Section 5.3) naming
-//          `role`."
-#[tokio::test]
-async fn filenode_set_update_role_to_chatspace_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-    backend.seed_node(&Id::from("acc1"), make_dir("d1", "plain", None));
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
-        &backend,
+/// The stored `role` of each of `ids` in acc1, in order.
+async fn roles_of(backend: &MemoryBackend, ids: &[&str]) -> Vec<Value> {
+    let HandlerOutput { primary: resp, .. } = handle_filenode_get(
+        backend,
         &(),
-        &std::collections::BTreeMap::new(),
-        json!({ "accountId": "acc1", "update": { "d1": { "role": "chatspace" } } }),
-        &[],
-    )
-    .await
-    .expect("FileNode/set must succeed");
-    let err = &resp["notUpdated"]["d1"];
-    assert_eq!(err["type"], "invalidProperties", "L145: {resp}");
-    assert_eq!(err["properties"], json!(["role"]), "L145: {resp}");
-    let HandlerOutput { primary: got, .. } = handle_filenode_get(
-        &backend,
-        &(),
-        json!({ "accountId": "acc1", "ids": ["d1"], "properties": ["role"] }),
+        json!({ "accountId": "acc1", "ids": ids, "properties": ["role"] }),
         &[],
     )
     .await
     .expect("FileNode/get must succeed");
-    assert!(
-        got["list"][0]["role"].is_null(),
-        "L145: role unchanged: {got}"
+    ids.iter()
+        .map(|id| {
+            resp["list"]
+                .as_array()
+                .and_then(|l| l.iter().find(|n| n["id"] == *id))
+                .map_or(json!("<missing>"), |n| n["role"].clone())
+        })
+        .collect()
+}
+
+/// acc1 with top-level Directories "docs" (role documents) and "plain".
+fn backend_with_role_dir() -> MemoryBackend {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let mut docs = make_dir("docs", "docs", None);
+    docs.role = Some(jmap_filenode_types::NodeRole::from("documents"));
+    backend.seed_node(&Id::from("acc1"), docs);
+    backend.seed_node(&Id::from("acc1"), make_dir("plain", "plain", None));
+    backend
+}
+
+#[tokio::test]
+async fn filenode_set_role_already_held_is_invalid_properties() {
+    let backend = backend_with_role_dir();
+    let resp = set_acc1(
+        &backend,
+        json!({
+            "create": { "c": { "@type": "Directory", "name": "new", "parentId": null,
+                               "role": "documents" } },
+            "update": { "plain": { "role": "documents" } }
+        }),
+    )
+    .await;
+    for err in [&resp["notCreated"]["c"], &resp["notUpdated"]["plain"]] {
+        assert_eq!(err["type"], "invalidProperties", "{resp}");
+        assert_eq!(err["properties"], json!(["role"]), "{resp}");
+    }
+    assert_eq!(
+        roles_of(&backend, &["docs", "plain"]).await,
+        [json!("documents"), Value::Null]
     );
 }
 
 #[tokio::test]
-async fn filenode_set_update_space_root_keeping_chatspace_accepted() {
+async fn filenode_set_two_creates_with_one_role_are_both_rejected() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
-    let root = create_space_root(&backend, "S1").await;
-    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+    let resp = set_acc1(
         &backend,
-        &(),
-        &std::collections::BTreeMap::new(),
-        json!({ "accountId": "acc1",
-                "update": { root.clone(): { "role": "chatspace", "name": "renamed" } } }),
-        &[],
+        json!({ "create": {
+            "a": { "@type": "Directory", "name": "a", "parentId": null, "role": "music" },
+            "b": { "@type": "Directory", "name": "b", "parentId": null, "role": "music" }
+        } }),
     )
-    .await
-    .expect("FileNode/set must succeed");
-    assert!(
-        resp["updated"].get(&root).is_some(),
-        "L145: role not changed, so not rejected: {resp}"
+    .await;
+    for cid in ["a", "b"] {
+        assert_eq!(
+            resp["notCreated"][cid]["properties"],
+            json!(["role"]),
+            "{resp}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn filenode_set_moves_role_between_directories_in_one_call() {
+    let backend = backend_with_role_dir();
+    let resp = set_acc1(
+        &backend,
+        json!({ "update": {
+            "plain": { "role": "documents" },
+            "docs": { "role": null }
+        } }),
+    )
+    .await;
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+    assert_eq!(
+        roles_of(&backend, &["docs", "plain"]).await,
+        [Value::Null, json!("documents")]
+    );
+
+    // A create may also take a role that an update in the same call frees.
+    let resp = set_acc1(
+        &backend,
+        json!({
+            "create": { "c": { "@type": "Directory", "name": "new", "parentId": null,
+                               "role": "documents" } },
+            "update": { "plain": { "role": "pictures" } }
+        }),
+    )
+    .await;
+    assert!(resp["created"]["c"].is_object(), "{resp}");
+    assert!(resp["notUpdated"].is_null(), "{resp}");
+}
+
+#[tokio::test]
+async fn filenode_set_rename_move_destroy_of_role_directory_forbidden() {
+    let backend = backend_with_role_dir();
+    let resp = set_acc1(
+        &backend,
+        json!({ "update": { "docs": { "name": "renamed" } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"]["docs"]["type"], "forbidden", "{resp}");
+
+    let resp = set_acc1(
+        &backend,
+        json!({ "update": { "docs": { "parentId": "plain" } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"]["docs"]["type"], "forbidden", "{resp}");
+
+    // Clearing the role in the same patch does not count: the client
+    // "first clears its role".
+    let resp = set_acc1(
+        &backend,
+        json!({ "update": { "docs": { "name": "renamed", "role": null } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"]["docs"]["type"], "forbidden", "{resp}");
+
+    let resp = set_acc1(&backend, json!({ "destroy": ["docs"] })).await;
+    assert_eq!(resp["notDestroyed"]["docs"]["type"], "forbidden", "{resp}");
+
+    // Patching name and parentId to their stored values renames and moves
+    // nothing.
+    let resp = set_acc1(
+        &backend,
+        json!({ "update": { "docs": { "name": "docs", "parentId": null } } }),
+    )
+    .await;
+    assert!(resp["updated"].get("docs").is_some(), "{resp}");
+    assert_eq!(roles_of(&backend, &["docs"]).await, [json!("documents")]);
+
+    // Once the role is cleared the Directory can go.
+    let resp = set_acc1(
+        &backend,
+        json!({ "update": { "docs": { "role": null } }, "destroy": ["docs"] }),
+    )
+    .await;
+    assert_eq!(resp["destroyed"], json!(["docs"]), "{resp}");
+}
+
+#[tokio::test]
+async fn filenode_set_removing_role_directory_with_ancestor_forbidden() {
+    let backend = backend_with_role_dir();
+    let mut nested = make_dir("nested", "nested", Some("plain"));
+    nested.role = Some(jmap_filenode_types::NodeRole::from("music"));
+    backend.seed_node(&Id::from("acc1"), nested);
+
+    let resp = set_acc1(
+        &backend,
+        json!({ "onDestroyRemoveChildren": true, "destroy": ["plain"] }),
+    )
+    .await;
+    assert_eq!(resp["notDestroyed"]["plain"]["type"], "forbidden", "{resp}");
+
+    // onExists "replace" destroys the existing node the same way.
+    let resp = set_acc1(
+        &backend,
+        json!({
+            "onExists": "replace",
+            "onDestroyRemoveChildren": true,
+            "create": {
+                "r1": { "@type": "Directory", "name": "docs", "parentId": null },
+                "r2": { "@type": "Directory", "name": "plain", "parentId": null }
+            }
+        }),
+    )
+    .await;
+    for cid in ["r1", "r2"] {
+        assert_eq!(resp["notCreated"][cid]["type"], "forbidden", "{resp}");
+    }
+    assert_eq!(
+        roles_of(&backend, &["docs", "plain", "nested"]).await,
+        [json!("documents"), Value::Null, json!("music")]
     );
 }
 

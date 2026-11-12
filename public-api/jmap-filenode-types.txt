@@ -62,7 +62,6 @@ impl core::hash::Hash for jmap_filenode_types::FileNodeProperty
 pub fn jmap_filenode_types::FileNodeProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::StructuralPartialEq for jmap_filenode_types::FileNodeProperty
 #[non_exhaustive] pub enum jmap_filenode_types::NodeRole
-pub jmap_filenode_types::NodeRole::ChatSpace
 pub jmap_filenode_types::NodeRole::Documents
 pub jmap_filenode_types::NodeRole::Downloads
 pub jmap_filenode_types::NodeRole::Home

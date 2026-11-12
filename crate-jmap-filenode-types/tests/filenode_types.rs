@@ -889,39 +889,30 @@ fn share_with_serializes_in_sorted_key_order() {
 }
 
 // ---------------------------------------------------------------------------
-// draft-atwood-jmap-chat-filenode-00 extension (jmap-chat-spec 6bcd9d8)
-//   L267-268: register Role `chatspace` in the "JMAP
-//             FileNode Roles" registry.
-//   L132-133: "`spaceId` (String, immutable): The `id` of the JMAP Chat Space
-//             this FileNode is associated with. ... Absent on all FileNode
-//             objects that are not Space file tree roots."
+// draft-atwood-jmap-chat-filenode-00 extension (jmap-chat-spec 662085d)
+//   Space root: "A Directory FileNode whose `spaceId` matches the Space's
+//             `id`." 662085d dropped the `chatspace` role and its
+//             registration.
+//   `spaceId` (String, immutable): "The `id` of the JMAP Chat Space this
+//             FileNode is associated with. ... Absent on all FileNode
+//             objects that are not Space roots."
 // ---------------------------------------------------------------------------
 
+/// The `chatspace` role is no longer registered, so it parses as an
+/// unrecognised role, which clients "MUST ignore" (draft-ietf-jmap-filenode-20
+/// §3.1.4), and round-trips unchanged.
 #[test]
-fn node_role_chat_space_parses_and_roundtrips() {
+fn node_role_chatspace_is_unregistered() {
     let role: NodeRole = serde_json::from_str("\"chatspace\"").unwrap();
-    assert_eq!(role, NodeRole::ChatSpace);
+    assert_eq!(role, NodeRole::Other("chatspace".to_owned()));
     assert_eq!(serde_json::to_string(&role).unwrap(), "\"chatspace\"");
-}
-
-/// 33702a5 L126: the Space root is "identified by the well-known `role`
-/// value `"chatspace"`". The old `urn:jmap:chat:filenode:space` string was
-/// dropped with no alias (CHANGELOG clean break), so it is an unregistered
-/// role and must not be read as a Space root.
-#[test]
-fn node_role_legacy_space_urn_is_not_chat_space() {
-    let role: NodeRole = serde_json::from_str("\"urn:jmap:chat:filenode:space\"").unwrap();
-    assert_eq!(
-        role,
-        NodeRole::Other("urn:jmap:chat:filenode:space".to_owned())
-    );
 }
 
 #[test]
 fn filenode_space_id_roundtrips_on_space_root() {
     let wire = serde_json::json!({
         "id": "n1", "parentId": null, "@type": "Directory", "name": "space",
-        "shareWith": null, "role": "chatspace", "spaceId": "S1"
+        "shareWith": null, "role": null, "spaceId": "S1"
     });
     let node: FileNode = serde_json::from_value(wire).unwrap();
     assert_eq!(node.space_id, Some(id("S1")));

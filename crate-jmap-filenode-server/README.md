@@ -207,8 +207,8 @@ those in its parent's myRights" (§5), so `FileNode/get` reports no
    null.
 
 2. **Update requires the right for each property changed:**
-   `mayRename` to change `name` or `parentId` (plus `mayAddChildren`
-   on a new parent); `mayModifyContent` to change `blobId`,
+   `mayRename` to change `name`, `parentId` (plus `mayAddChildren`
+   on a new parent) or `role`; `mayModifyContent` to change `blobId`,
    `mediaType`, `target`, `modified`, `accessed` or `executable`;
    `mayShare` to change `shareWith`.
 
@@ -229,10 +229,14 @@ those in its parent's myRights" (§5), so `FileNode/get` reports no
 ### Structural invariants are not ACLs
 
 Cycle prevention on `parentId` changes, name uniqueness under a
-parent, blob existence and the `nodeHasChildren` guard (§3.2.3) are
-pre-checked by the handler and MUST be re-verified atomically by the
-backend, as the `create_object`, `update_object` and `destroy_object`
-rustdoc lists. They apply to every caller, so a backend enforces them
+parent, blob existence, the `nodeHasChildren` guard (§3.2.3) and the
+rule that a Directory with a role cannot be destroyed, renamed or moved
+(`forbidden`, §5) are pre-checked by the handler and MUST be
+re-verified atomically by the backend, as the `create_object`,
+`update_object` and `destroy_object` rustdoc lists. The handler checks
+that each role is held by at most one Directory (§3.1.4) against the
+result of the whole `FileNode/set`, so a role can move between
+Directories in one call. They apply to every caller, so a backend enforces them
 even when `principal_id` returns `None`.
 
 ### Caller-identity-less backends
