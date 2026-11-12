@@ -43,6 +43,7 @@ use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHa
 mod backend;
 mod calendar;
 mod event;
+mod event_limits;
 mod event_notification;
 mod helpers;
 /// In-memory reference implementation of [`CalendarsBackend`].
@@ -299,7 +300,7 @@ pub(crate) mod test_support {
 
     use crate::{
         CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
-        PrivacyConflicts,
+        CalendarsLimits, PrivacyConflicts,
     };
 
     /// Minimal error type for the mock backend.
@@ -361,6 +362,8 @@ pub(crate) mod test_support {
         /// When set, `privacy_conflicts` and `may_copy_calendar_event`
         /// return `Err` (error-path tests).
         fail_privacy_hooks: Arc<std::sync::atomic::AtomicBool>,
+        /// What `limits` returns for every account.
+        limits: Arc<Mutex<CalendarsLimits>>,
     }
 
     impl MockBackend {
@@ -370,7 +373,14 @@ pub(crate) mod test_support {
                 last_get_args: Arc::new(Mutex::new(None)),
                 foreign_accounts: Arc::new(Mutex::new(HashSet::new())),
                 fail_privacy_hooks: Arc::default(),
+                limits: Arc::default(),
             }
+        }
+
+        /// Make `limits` return `limits` for every account.
+        #[allow(dead_code)]
+        pub fn set_limits(&self, limits: CalendarsLimits) {
+            *self.limits.lock().unwrap() = limits;
         }
 
         /// Make `privacy_conflicts` and `may_copy_calendar_event` fail.
@@ -709,6 +719,10 @@ pub(crate) mod test_support {
     }
 
     impl CalendarsBackend for MockBackend {
+        fn limits(&self, _caller: &(), _account_id: &Id) -> CalendarsLimits {
+            *self.limits.lock().unwrap()
+        }
+
         async fn create_object<O, F>(
             &self,
             _caller: &(),

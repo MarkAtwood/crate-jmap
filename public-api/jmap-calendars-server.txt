@@ -98,10 +98,18 @@ pub fn jmap_calendars_server::CalendarEventSetArgs::default() -> jmap_calendars_
 impl core::fmt::Debug for jmap_calendars_server::CalendarEventSetArgs
 pub fn jmap_calendars_server::CalendarEventSetArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct jmap_calendars_server::CalendarsLimits
+pub jmap_calendars_server::CalendarsLimits::max_calendars_per_event: core::option::Option<u64>
+pub jmap_calendars_server::CalendarsLimits::max_date_time_epoch_seconds: core::option::Option<i64>
 pub jmap_calendars_server::CalendarsLimits::max_expanded_query_duration_seconds: u64
+pub jmap_calendars_server::CalendarsLimits::max_participants_per_event: core::option::Option<u64>
+pub jmap_calendars_server::CalendarsLimits::min_date_time_epoch_seconds: core::option::Option<i64>
 impl jmap_calendars_server::CalendarsLimits
 pub fn jmap_calendars_server::CalendarsLimits::new(u64) -> Self
+pub fn jmap_calendars_server::CalendarsLimits::with_max_calendars_per_event(self, core::option::Option<u64>) -> Self
+pub fn jmap_calendars_server::CalendarsLimits::with_max_date_time_epoch_seconds(self, core::option::Option<i64>) -> Self
 pub fn jmap_calendars_server::CalendarsLimits::with_max_expanded_query_duration_seconds(self, u64) -> Self
+pub fn jmap_calendars_server::CalendarsLimits::with_max_participants_per_event(self, core::option::Option<u64>) -> Self
+pub fn jmap_calendars_server::CalendarsLimits::with_min_date_time_epoch_seconds(self, core::option::Option<i64>) -> Self
 impl core::clone::Clone for jmap_calendars_server::CalendarsLimits
 pub fn jmap_calendars_server::CalendarsLimits::clone(&self) -> jmap_calendars_server::CalendarsLimits
 impl core::cmp::Eq for jmap_calendars_server::CalendarsLimits

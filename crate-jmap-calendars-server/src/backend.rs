@@ -1139,6 +1139,14 @@ pub trait CalendarsBackend: JmapBackend {
     /// pre-checks against [`Self::limits`] are defense-in-depth and
     /// optional; see bd:JMAP-ic0j.71 for the
     /// `maxExpandedQueryDuration` defense-in-depth follow-up.
+    ///
+    /// `CalendarEvent/set` reads the per-event caps
+    /// ([`CalendarsLimits::max_calendars_per_event`],
+    /// [`CalendarsLimits::max_participants_per_event`] and the date range)
+    /// once per call and rejects a create or update that breaks one with an
+    /// `invalidProperties` SetError before calling the backend
+    /// (draft-ietf-jmap-calendars-34 §5.9). See [`CalendarsLimits`] for what
+    /// that check covers and what stays with the backend.
     fn limits(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> CalendarsLimits {
         CalendarsLimits::default()
     }
@@ -1158,12 +1166,10 @@ pub trait CalendarsBackend: JmapBackend {
 /// method on the extension's backend trait.
 ///
 /// The struct is `#[non_exhaustive]` so adding fields for additional
-/// caps (e.g. `max_calendars_per_event` and `max_participants_per_event`,
-/// both defined as capability fields in draft-ietf-jmap-calendars-33
-/// §1.5 but not yet enforced) is an additive non-breaking change.
-/// External callers (test backends, production backends overriding
-/// [`CalendarsBackend::limits`]) construct instances via
-/// [`CalendarsLimits::new`] rather than field-init syntax.
+/// caps is an additive non-breaking change. External callers (test
+/// backends, production backends overriding [`CalendarsBackend::limits`])
+/// construct instances via [`CalendarsLimits::new`] and the `with_*`
+/// setters rather than field-init syntax.
 ///
 /// # Spec contract
 ///
@@ -1177,6 +1183,57 @@ pub trait CalendarsBackend: JmapBackend {
 /// (`before - after` in seconds), and the workspace's sealed dep set
 /// excludes `chrono`.
 ///
+/// The per-event caps correspond to the `maxCalendarsPerEvent`,
+/// `maxParticipantsPerEvent`, `minDateTime` and `maxDateTime` capability
+/// fields (draft-ietf-jmap-calendars-34 §1.5.1). `None` means no limit. The
+/// date range is held as seconds since the Unix epoch for the same reason
+/// as the duration; convert with
+/// [`UTCDate::to_epoch_seconds`](jmap_types::UTCDate::to_epoch_seconds).
+///
+/// # Per-event cap enforcement
+///
+/// `CalendarEvent/set` rejects a create or update with an
+/// `invalidProperties` SetError naming the offending top-level properties
+/// when the event, as it would be stored, breaks a per-event cap
+/// (draft-ietf-jmap-calendars-34 §5.9). For an update it checks only the
+/// properties the patch changes, or every date property when the patch
+/// changes `timeZone` or `recurrenceIdTimeZone`. The check counts the
+/// entries of `calendarIds` and of `participants` (including a
+/// `participants` map that a `recurrenceOverrides` entry replaces), and
+/// compares these dates with the range: `start`, `recurrenceId`, the
+/// recurrence rules' `until`, the `recurrenceOverrides` keys and their
+/// `start`, `created`, `updated`, `utcStart`, `utcEnd`, alert
+/// `trigger/when` and `acknowledged`, and participant `scheduleUpdated`.
+///
+/// A floating `LocalDateTime` (the event has no time zone) is compared as
+/// though it were UTC, as §1.5.1 requires. The handler has no time zone
+/// database, so a `LocalDateTime` in a named time zone is rejected only
+/// when it is out of range whatever that zone's offset, that is, by more
+/// than one day; a value within a day of a bound is the backend's to
+/// reject.
+///
+/// The backend remains the canonical enforcement point. The handler check
+/// can miss a violation but never rejects a valid event; these cases stay
+/// with the backend:
+///
+/// - Dates the list above does not reach, for example inside an override
+///   patch's nested paths.
+/// - Participants that a `recurrenceOverrides` entry adds by path (such as
+///   `"participants/p9"`, the usual RFC 8984 patch form) rather than by
+///   replacing the whole `participants` map; they are not counted.
+/// - An update is checked against the stored event as `get_objects`
+///   returns it to the caller. For a caller who sees a reduced view (for
+///   example `hideAttendees`, or another user's private event) the counts
+///   can be too low.
+/// - `CalendarEvent/copy` does not run the check, although it creates an
+///   event in the target account.
+///
+/// When an update changes `timeZone` or `recurrenceIdTimeZone`, every date
+/// in the list is rechecked, including UTC-only values (`created`,
+/// `updated`, `utcStart`, `utcEnd`, alert `when` and `acknowledged`,
+/// `scheduleUpdated`) that a zone change cannot move. Such an update can
+/// therefore be rejected for an out-of-range `created` it did not touch.
+///
 /// # Default values
 ///
 /// The defaults are conservative reference-impl values not tied to any
@@ -1186,6 +1243,10 @@ pub trait CalendarsBackend: JmapBackend {
 /// | Field | Default | Rationale |
 /// |---|---|---|
 /// | `max_expanded_query_duration_seconds` | `31_536_000` (365 days) | One calendar year is the common "what most clients reasonably ask for" range; longer windows tend to fan out recurrence expansion into prohibitive enumeration costs. |
+/// | `max_calendars_per_event` | `None` | No limit, as the spec's `null`. |
+/// | `max_participants_per_event` | `None` | No limit, as the spec's `null`. |
+/// | `min_date_time_epoch_seconds` | `None` | No lower bound is enforced. |
+/// | `max_date_time_epoch_seconds` | `None` | No upper bound is enforced. |
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct CalendarsLimits {
@@ -1197,32 +1258,50 @@ pub struct CalendarsLimits {
     /// `expandDurationTooLarge` error per §10.8.3 as
     /// [`BackendQueryError::Method`](jmap_server::BackendQueryError::Method).
     pub max_expanded_query_duration_seconds: u64,
+    /// Most Calendars one CalendarEvent may be in (`maxCalendarsPerEvent`,
+    /// draft-ietf-jmap-calendars-34 §1.5.1), or `None` for no limit.
+    pub max_calendars_per_event: Option<u64>,
+    /// Most participants one CalendarEvent may have
+    /// (`maxParticipantsPerEvent`, draft-ietf-jmap-calendars-34 §1.5.1), or
+    /// `None` for no limit.
+    pub max_participants_per_event: Option<u64>,
+    /// Earliest date accepted in a CalendarEvent (`minDateTime`,
+    /// draft-ietf-jmap-calendars-34 §1.5.1), in seconds since the Unix
+    /// epoch, or `None` for no lower bound.
+    pub min_date_time_epoch_seconds: Option<i64>,
+    /// Latest date accepted in a CalendarEvent (`maxDateTime`,
+    /// draft-ietf-jmap-calendars-34 §1.5.1), in seconds since the Unix
+    /// epoch, or `None` for no upper bound.
+    pub max_date_time_epoch_seconds: Option<i64>,
 }
 
 impl Default for CalendarsLimits {
     fn default() -> Self {
         Self {
             max_expanded_query_duration_seconds: 31_536_000,
+            max_calendars_per_event: None,
+            max_participants_per_event: None,
+            min_date_time_epoch_seconds: None,
+            max_date_time_epoch_seconds: None,
         }
     }
 }
 
 impl CalendarsLimits {
-    /// Construct a [`CalendarsLimits`] with the single cap field
-    /// specified.
+    /// Construct a [`CalendarsLimits`] with the given expanded-query cap
+    /// and no per-event caps.
     ///
     /// The struct is `#[non_exhaustive]` so external callers (tests,
     /// production backends overriding [`CalendarsBackend::limits`])
     /// need a constructor to build one. Future cap-field additions to
     /// [`CalendarsLimits`] are an additive non-breaking change because
-    /// the constructor stays stable; callers wanting to override a new
-    /// field combine `CalendarsLimits::new(..)` with
-    /// [`Self::with_max_expanded_query_duration_seconds`] and a future
-    /// analogous setter.
+    /// the constructor stays stable; callers set the other caps with the
+    /// `with_*` setters.
     #[must_use]
     pub fn new(max_expanded_query_duration_seconds: u64) -> Self {
         Self {
             max_expanded_query_duration_seconds,
+            ..Self::default()
         }
     }
 
@@ -1231,6 +1310,46 @@ impl CalendarsLimits {
     pub fn with_max_expanded_query_duration_seconds(mut self, max: u64) -> Self {
         self.max_expanded_query_duration_seconds = max;
         self
+    }
+
+    /// Builder-style setter for [`Self::max_calendars_per_event`]; `None`
+    /// removes the limit.
+    #[must_use]
+    pub fn with_max_calendars_per_event(mut self, max: Option<u64>) -> Self {
+        self.max_calendars_per_event = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_participants_per_event`]; `None`
+    /// removes the limit.
+    #[must_use]
+    pub fn with_max_participants_per_event(mut self, max: Option<u64>) -> Self {
+        self.max_participants_per_event = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::min_date_time_epoch_seconds`];
+    /// `None` removes the bound.
+    #[must_use]
+    pub fn with_min_date_time_epoch_seconds(mut self, min: Option<i64>) -> Self {
+        self.min_date_time_epoch_seconds = min;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_date_time_epoch_seconds`];
+    /// `None` removes the bound.
+    #[must_use]
+    pub fn with_max_date_time_epoch_seconds(mut self, max: Option<i64>) -> Self {
+        self.max_date_time_epoch_seconds = max;
+        self
+    }
+
+    /// Whether any per-event cap that `CalendarEvent/set` checks is set.
+    pub(crate) fn has_event_limits(&self) -> bool {
+        self.max_calendars_per_event.is_some()
+            || self.max_participants_per_event.is_some()
+            || self.min_date_time_epoch_seconds.is_some()
+            || self.max_date_time_epoch_seconds.is_some()
     }
 }
 
