@@ -73,6 +73,10 @@ wire behaviour that a conforming peer can observe.
   `space_files_rights`, `resolve_filenode_attachment` and
   `destroy_space_file_tree` cover every Space root of the Space, and
   `create_space_file_tree` creates a root without a role.
+  `destroy_space_file_tree` clears the role of a role Directory in the
+  tree before destroying it, and `check_space_update` needs `mayRename`
+  to change `role` and `mayModifyContent` to change `created`
+  (draft-ietf-jmap-filenode-20 §3.1.2, §3.1.4).
 - **BREAKING** **jmap-filenode-server**: `FileNode/copy` follows
   draft-ietf-jmap-filenode-20 §3.2.4. Copying a Directory copies its
   whole subtree, all or nothing, with `maxFileNodeDepth` counted for the

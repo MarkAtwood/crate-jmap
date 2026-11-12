@@ -33,12 +33,14 @@
 //!   with `forbidden`. ... the server SHOULD reject a `FileNode/set` update
 //!   that changes a Space root's `parentId` with `forbidden`."
 //!
-//! draft-ietf-jmap-filenode §FileNode properties defines `mayRename` as
-//! "rename or move this node" and `mayModifyContent` as "update the
-//! content-related properties of this node (`blobId`, `mediaType`,
-//! `target`, `modified`, `accessed`, `executable`)"; draft-atwood-jmap-
-//! chat-00 §Space Permission Resolution step 1 includes "the implicit
-//! `@everyone` role" in the union.
+//! draft-ietf-jmap-filenode-20 §3.1.2 defines `mayRename` as "rename or
+//! move this node, or change its `role`" and `mayModifyContent` as
+//! "update the content-related properties of this node (`blobId`,
+//! `mediaType`, `target`, `created`, `modified`, `accessed`,
+//! `executable`)"; -20 §3.1.4 adds "Changing `role` on an existing node
+//! requires `mayRename` on that node". draft-atwood-jmap-chat-00 §Space
+//! Permission Resolution step 1 includes "the implicit `@everyone` role"
+//! in the union.
 //!
 //! Records and expected rights are hand-written JSON from those lines.
 
@@ -516,6 +518,64 @@ async fn content_change_needs_manage_channels() {
     );
     assert_eq!(
         Fixture::new(&["manage_channels"]).update("f1", patch).await,
+        None
+    );
+}
+
+/// draft-ietf-jmap-filenode-20 §3.1.2 adds `created` to the
+/// `mayModifyContent` properties ("`blobId`, `mediaType`, `target`,
+/// `created`, `modified`, `accessed`, `executable`"), so a `"send"`
+/// member, which holds `mayRead` but not `mayModifyContent`, cannot change
+/// it.
+#[tokio::test]
+async fn created_change_needs_manage_channels() {
+    let patch = json!({ "created": "2020-01-01T00:00:00Z" });
+    for id in ["docs", "f1"] {
+        assert_eq!(
+            Fixture::new(&["send"])
+                .update(id, patch.clone())
+                .await
+                .as_deref(),
+            Some("forbidden"),
+            "{id}"
+        );
+        assert_eq!(
+            Fixture::new(&["manage_channels"])
+                .update(id, patch.clone())
+                .await,
+            None,
+            "{id}"
+        );
+    }
+}
+
+/// draft-ietf-jmap-filenode-20 §3.1.4: "Changing `role` on an existing
+/// node requires `mayRename` on that node", which L167 grants only from
+/// `"manage_channels"` up. Restating the stored role (null here) changes
+/// nothing.
+#[tokio::test]
+async fn role_change_needs_manage_channels() {
+    for permission in ["view", "send"] {
+        assert_eq!(
+            Fixture::new(&[permission])
+                .update("docs", json!({ "role": "trash" }))
+                .await
+                .as_deref(),
+            Some("forbidden"),
+            "{permission}"
+        );
+        assert_eq!(
+            Fixture::new(&[permission])
+                .update("docs", json!({ "role": null }))
+                .await,
+            None,
+            "{permission}"
+        );
+    }
+    assert_eq!(
+        Fixture::new(&["manage_channels"])
+            .update("docs", json!({ "role": "trash" }))
+            .await,
         None
     );
 }

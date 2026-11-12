@@ -182,3 +182,28 @@ async fn destroys_every_space_root() {
     assert_eq!(destroyed, set(&all));
     assert!(not_found(&files, &["r2", "plain"]).await.is_empty());
 }
+
+/// draft-ietf-jmap-filenode-20 §5: "A Directory with a role cannot be
+/// destroyed ... A client that needs to destroy ... such a Directory first
+/// clears its role". A role Directory inside the tree does not stop the
+/// deletion part-way: every node of the tree goes, the role Directory and
+/// its contents included.
+#[tokio::test]
+async fn destroys_a_role_directory_in_the_tree() {
+    let files = fixture();
+    for v in [
+        json!({ "id": "rd", "@type": "Directory", "name": "rd", "parentId": "d1",
+                "role": "music" }),
+        json!({ "id": "f6", "@type": "File", "name": "f6", "parentId": "rd",
+                "blobId": "b-f6", "size": 1 }),
+    ] {
+        files.seed_node(&Id::from(ACCOUNT), node(v));
+    }
+    let destroyed = destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+        .await
+        .expect("destroy");
+    let all = ["r1", "f1", "d1", "f2", "rd", "f6"];
+    let destroyed: HashSet<String> = destroyed.iter().map(|id| id.as_ref().to_owned()).collect();
+    assert_eq!(destroyed, set(&all));
+    assert_eq!(not_found(&files, &all).await, set(&all));
+}
