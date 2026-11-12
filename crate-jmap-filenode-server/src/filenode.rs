@@ -164,9 +164,12 @@ fn max_depth_exceeded() -> Value {
 /// destroying a Directory that has one is `forbidden` (-20 §5); only an
 /// update that changes or clears it does.
 ///
-/// The result assumes every update that changes a role succeeds. If one
-/// that frees a role fails for another reason, a create or update in the
-/// same call can still claim that role, and two Directories hold it.
+/// A create whose `@type` names anything but a Directory claims nothing.
+/// Otherwise the result assumes every create and update that sets a role
+/// succeeds. If one that frees a role fails for another reason, a create
+/// or update in the same call can still claim that role, and two
+/// Directories hold it; if one that claims a role fails for another
+/// reason, another claim of that role is still refused.
 async fn conflicting_roles<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -183,7 +186,17 @@ async fn conflicting_roles<B: FileNodeBackend>(
         .filter_map(|(id, patch)| Some((Id::from(id.as_str()), role_of(patch)?)))
         .collect();
     let mut claims: BTreeMap<String, usize> = BTreeMap::new();
-    let created = create.and_then(Value::as_object).into_iter().flatten();
+    // A create naming another `@type` cannot hold a role, as only a
+    // Directory has one (-20 §3.1.4), so its claim is no claim.
+    let created = create
+        .and_then(Value::as_object)
+        .into_iter()
+        .flatten()
+        .filter(|(_, obj)| {
+            obj.get("@type")
+                .and_then(Value::as_str)
+                .is_none_or(|t| t == "Directory")
+        });
     for role in created
         .filter_map(|(_, obj)| role_of(obj).flatten())
         .chain(updated.values().flatten().cloned())
@@ -228,10 +241,10 @@ fn role_taken(role: &str) -> Value {
     })
 }
 
-/// The first of `ids` that is a Directory with a role, which
-/// draft-ietf-jmap-filenode-20 §5 forbids destroying: "A Directory with a
-/// role cannot be destroyed, renamed or moved; the server rejects any
-/// attempt with "forbidden"."
+/// The first of `ids`, in the order given, that is a Directory with a
+/// role, which draft-ietf-jmap-filenode-20 §5 forbids destroying: "A
+/// Directory with a role cannot be destroyed, renamed or moved; the server
+/// rejects any attempt with "forbidden"."
 async fn first_with_role<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -244,7 +257,12 @@ async fn first_with_role<B: FileNodeBackend>(
     let (nodes, _) = backend
         .get_objects::<FileNode>(caller, account_id, Some(ids), None)
         .await?;
-    Ok(nodes.into_iter().find(|n| n.role.is_some()).map(|n| n.id))
+    let with_role: std::collections::HashSet<Id> = nodes
+        .into_iter()
+        .filter(|n| n.role.is_some())
+        .map(|n| n.id)
+        .collect();
+    Ok(ids.iter().find(|id| with_role.contains(*id)).cloned())
 }
 
 /// The SetError for destroying, renaming or moving the Directory `id`,
@@ -636,7 +654,11 @@ const FILENODE_ID_PROPERTIES: &[&str] = &["parentId", "spaceId"];
 /// destroying a Directory whose stored role is set is `forbidden`, as is
 /// removing one in an `onDestroyRemoveChildren` cascade or an `onExists`
 /// replacement. Clearing the role in the same patch as a rename or move
-/// does not lift this; the client "first clears its role".
+/// does not lift this; the client "first clears its role". Without
+/// `onDestroyRemoveChildren`, a destroy that names a Directory together
+/// with a role Directory below it returns `nodeHasChildren` for the
+/// ancestor, since the role Directory survives and -20 §3.2.3 judges
+/// children against the outcome of the whole destroy.
 ///
 /// ## Rights in `created`
 ///
@@ -1581,18 +1603,27 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             }
 
             // draft-ietf-jmap-filenode-20 §5: no Directory with a role may
-            // go, whether named here or removed with its ancestor. Without
-            // the cascade, a covered descendant is checked by its own entry.
+            // go, whether named here or removed with its ancestor.
+            //
+            // Without the cascade every descendant is named in this destroy
+            // too (checked above), but a role Directory among them fails its
+            // own entry and survives. §3.2.3 judges nodeHasChildren on that
+            // final state, so the parent is refused with nodeHasChildren
+            // rather than destroyed first and its role child orphaned.
             let cascade: &[Id] = if on_destroy_remove_children {
                 &desc_ids
             } else {
                 &[]
             };
             let doomed: Vec<Id> = std::iter::once(id.clone())
-                .chain(cascade.iter().cloned())
+                .chain(desc_ids.iter().cloned())
                 .collect();
             match first_with_role(backend, caller, &account_id, &doomed).await {
                 Ok(None) => {}
+                Ok(Some(role_dir)) if role_dir != id && !on_destroy_remove_children => {
+                    not_destroyed.insert(id_str, json!({ "type": "nodeHasChildren" }));
+                    continue;
+                }
                 Ok(Some(role_dir)) => {
                     not_destroyed.insert(id_str, role_forbidden(&role_dir, "destroying"));
                     continue;
