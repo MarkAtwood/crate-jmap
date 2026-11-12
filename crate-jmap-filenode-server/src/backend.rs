@@ -93,8 +93,10 @@ impl CaseFolding {
 ///
 /// - Create: `mayAddChildren` on the parent, or the account's
 ///   `mayCreateTopLevelFileNode` when `parentId` is null.
-/// - Update: `mayRename` to change `name` or `parentId` (plus
-///   `mayAddChildren` on a new parent), `mayModifyContent` to change
+/// - Update: `mayRename` to change `name`, `parentId` (plus
+///   `mayAddChildren` on a new parent) or `role` (draft-ietf-jmap-filenode-20
+///   §3.1.4: "Changing role on an existing node requires mayRename on that
+///   node"), `mayModifyContent` to change
 ///   `blobId`, `mediaType`, `target`, `modified`, `accessed` or
 ///   `executable`, and `mayShare` to change `shareWith`.
 /// - Destroy: `mayDelete`, which an `onExists` replacement also needs on the
@@ -106,6 +108,26 @@ impl CaseFolding {
 /// write to a `File` or `SymLink` is checked against its parent's.
 /// - Copy: the source must be discoverable in `fromAccountId`, and the copy
 ///   is a create in `accountId`.
+///
+/// # Directory roles
+///
+/// draft-ietf-jmap-filenode-20 §5: "A Directory with a role cannot be
+/// destroyed, renamed or moved; the server rejects any attempt with
+/// "forbidden"". `handle_filenode_set` and `handle_filenode_copy` check the
+/// stored role before every rename, move, destroy, cascade and `onExists`
+/// replacement; [`update_object`](Self::update_object) and
+/// [`destroy_object`](Self::destroy_object) MUST re-check it atomically
+/// with the write, as for the other structural invariants. This holds for
+/// every caller, whatever its rights, and does not change the rights the
+/// Directory reports in `myRights`.
+///
+/// -20 §3.1.4: "At most one Directory in an account has a given role",
+/// checked "against the result of all the creates, updates and destroys in
+/// a FileNode/set together". The handler checks that before any write of
+/// the call, since a backend that sees one write at a time cannot tell a
+/// role that moves within the call from a duplicate. A backend that guards
+/// the rule itself, such as with a unique index, checks it when the whole
+/// call commits, not per write.
 ///
 /// Reads apply §Access Control discoverability: [`JmapBackend::get_objects`]
 /// and [`JmapBackend::query_objects`] leave out nodes the caller cannot

@@ -144,7 +144,7 @@ mod tests {
             is_subscribed: Some(true),
             my_rights: Some(rights()),
             share_with: Some(BTreeMap::from([(Id::from("p1"), rights())])),
-            role: Some(de(json!("chatspace"))),
+            role: Some(de(json!("documents"))),
             space_id: Some(Id::from("s1")),
             metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
             private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),

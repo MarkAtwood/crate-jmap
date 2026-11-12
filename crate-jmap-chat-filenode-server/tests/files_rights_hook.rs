@@ -68,7 +68,7 @@ impl Deployment {
         let files = FilesMemory::new().with_account(&Id::from(ACCOUNT));
         for node in [
             json!({ "id": "root", "@type": "Directory", "name": "S1", "parentId": null,
-                    "role": "chatspace", "spaceId": SPACE }),
+                    "spaceId": SPACE }),
             json!({ "id": "docs", "@type": "Directory", "name": "docs", "parentId": "root" }),
             json!({ "id": "f1", "@type": "File", "name": "f1.txt", "parentId": "docs",
                     "blobId": "b1", "size": 3, "mediaType": "text/plain" }),

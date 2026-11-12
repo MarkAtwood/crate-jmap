@@ -136,6 +136,115 @@ fn max_depth_exceeded() -> Value {
 }
 
 // ---------------------------------------------------------------------------
+// Directory roles
+// ---------------------------------------------------------------------------
+
+/// The roles that more than one Directory would hold once every create and
+/// update in `create` and `update` (the raw `FileNode/set` maps) is applied.
+///
+/// draft-ietf-jmap-filenode-20 §3.1.4: "At most one Directory in an account
+/// has a given role; setting a role that another Directory already has is
+/// an "invalidProperties" error. As for sibling names, the server checks
+/// this against the result of all the creates, updates and destroys in a
+/// FileNode/set together, so a client can move a role from one Directory to
+/// another in a single method." A destroy never frees a role, because
+/// destroying a Directory that has one is `forbidden` (-20 §5); only an
+/// update that changes or clears it does.
+///
+/// The result assumes every update that changes a role succeeds. If one
+/// that frees a role fails for another reason, a create or update in the
+/// same call can still claim that role, and two Directories hold it.
+async fn conflicting_roles<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    create: Option<&Value>,
+    update: Option<&Value>,
+) -> Result<std::collections::HashSet<String>, JmapError> {
+    let role_of = |v: &Value| v.get("role").map(|r| r.as_str().map(str::to_owned));
+    // Final role of each updated node whose patch sets `role`.
+    let updated: std::collections::HashMap<Id, Option<String>> = update
+        .and_then(Value::as_object)
+        .into_iter()
+        .flatten()
+        .filter_map(|(id, patch)| Some((Id::from(id.as_str()), role_of(patch)?)))
+        .collect();
+    let mut claims: BTreeMap<String, usize> = BTreeMap::new();
+    let created = create.and_then(Value::as_object).into_iter().flatten();
+    for role in created
+        .filter_map(|(_, obj)| role_of(obj).flatten())
+        .chain(updated.values().flatten().cloned())
+    {
+        *claims.entry(role).or_default() += 1;
+    }
+
+    let mut conflicting = std::collections::HashSet::new();
+    for (role, count) in claims {
+        let mut condition = jmap_filenode_types::FileNodeFilterCondition::default();
+        condition.role = Some(NodeRole::from(role.as_str()));
+        let filter = jmap_types::Filter::Condition(condition);
+        let holders = backend
+            .query_objects::<FileNode>(
+                caller,
+                account_id,
+                jmap_server::QueryParams::new().filter(Some(&filter)),
+            )
+            .await
+            .map_err(|e| match e {
+                jmap_server::BackendQueryError::Method(e) => e,
+                other => server_fail_from_backend(&other),
+            })?
+            .ids;
+        // A holder whose role an update changes is counted as a claim if it
+        // keeps this role, and not at all otherwise.
+        let kept = holders.iter().filter(|h| !updated.contains_key(*h)).count();
+        if count + kept > 1 {
+            conflicting.insert(role);
+        }
+    }
+    Ok(conflicting)
+}
+
+/// The SetError for a create or update that would give `role` to a second
+/// Directory (draft-ietf-jmap-filenode-20 §3.1.4).
+fn role_taken(role: &str) -> Value {
+    json!({
+        "type": "invalidProperties",
+        "properties": ["role"],
+        "description": format!("another Directory in the account has, or is given, role {role:?}"),
+    })
+}
+
+/// The first of `ids` that is a Directory with a role, which
+/// draft-ietf-jmap-filenode-20 §5 forbids destroying: "A Directory with a
+/// role cannot be destroyed, renamed or moved; the server rejects any
+/// attempt with "forbidden"."
+async fn first_with_role<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    ids: &[Id],
+) -> Result<Option<Id>, B::Error> {
+    if ids.is_empty() {
+        return Ok(None);
+    }
+    let (nodes, _) = backend
+        .get_objects::<FileNode>(caller, account_id, Some(ids), None)
+        .await?;
+    Ok(nodes.into_iter().find(|n| n.role.is_some()).map(|n| n.id))
+}
+
+/// The SetError for destroying, renaming or moving the Directory `id`,
+/// which has a role (draft-ietf-jmap-filenode-20 §5). A client "first
+/// clears its role".
+fn role_forbidden(id: &Id, action: &str) -> Value {
+    json!({
+        "type": "forbidden",
+        "description": format!("{action} Directory {} requires clearing its role first", id.as_ref()),
+    })
+}
+
+// ---------------------------------------------------------------------------
 // Capability gate
 // ---------------------------------------------------------------------------
 
@@ -499,6 +608,17 @@ const FILENODE_ID_PROPERTIES: &[&str] = &["parentId", "spaceId"];
 /// proposed new parent is in the descendant set, a cycle would result and the
 /// update is placed in `notUpdated` with `invalidProperties`.
 ///
+/// ## Directory roles
+///
+/// draft-ietf-jmap-filenode-20 §3.1.4: a create or update that would leave
+/// two Directories with one `role`, once every create and update of the
+/// call is applied, is `invalidProperties` naming `role`, so a role can
+/// move between Directories within one call. -20 §5: renaming, moving or
+/// destroying a Directory whose stored role is set is `forbidden`, as is
+/// removing one in an `onDestroyRemoveChildren` cascade or an `onExists`
+/// replacement. Clearing the role in the same patch as a rename or move
+/// does not lift this; the client "first clears its role".
+///
 /// ## Rights in `created`
 ///
 /// Each `created` Directory entry whose node has a `Some`
@@ -593,6 +713,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     // RFC 8620 §5.3: creates of this call join the request-wide map so
     // later creates and updates in this call can reference them.
     let mut created_ids = created_ids.clone();
+
+    let conflicting = conflicting_roles(
+        backend,
+        caller,
+        &account_id,
+        args.get("create"),
+        args.get("update"),
+    )
+    .await?;
 
     // -----------------------------------------------------------------------
     // create
@@ -706,6 +835,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 
             if let Some(err) = create_type_error(&node) {
                 not_created.insert(create_id, err);
+                continue;
+            }
+            if let Some(role) = node.role.as_ref().map(NodeRole::to_wire_str)
+                && conflicting.contains(role)
+            {
+                not_created.insert(create_id, role_taken(role));
                 continue;
             }
 
@@ -825,6 +960,24 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                         json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
                                     );
                                     continue;
+                                }
+                                let doomed: Vec<Id> = std::iter::once(existing_id.clone())
+                                    .chain(desc_ids.iter().cloned())
+                                    .collect();
+                                match first_with_role(backend, caller, &account_id, &doomed).await {
+                                    Ok(None) => {}
+                                    Ok(Some(role_dir)) => {
+                                        not_created.insert(
+                                            create_id,
+                                            role_forbidden(&role_dir, "replacing"),
+                                        );
+                                        continue;
+                                    }
+                                    Err(e) => {
+                                        not_created
+                                            .insert(create_id, server_fail_value_from_backend(&e));
+                                        continue;
+                                    }
                                 }
                                 // When descendants exist AND
                                 // onDestroyRemoveChildren=true, cascade the
@@ -1004,6 +1157,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
+            if let Some(role) = patch.as_map().get("role").and_then(Value::as_str)
+                && conflicting.contains(role)
+            {
+                not_updated.insert(id_str, role_taken(role));
+                continue;
+            }
 
             // draft-ietf-jmap-filenode-16 §3.1: setting a property not
             // defined for the node's @type to a non-null value is
@@ -1048,13 +1207,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     .chain(FileNode::IMMUTABLE)
                     .any(|p| Some(*p) == head)
             });
-            // draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
-            // Property: `spaceId` is present only on a Space file tree root,
-            // so a root's role may not change either.
-            let role_patch = patch.as_map().get("role");
+            // draft-ietf-jmap-filenode-20 §5: a Directory with a role
+            // "cannot be destroyed, renamed or moved", which needs its stored
+            // role, name and parentId.
+            let renames_or_moves = ["name", "parentId"]
+                .iter()
+                .any(|p| patch.as_map().contains_key(*p));
             if !typed.is_empty()
                 || read_only_patched
-                || role_patch.is_some()
+                || renames_or_moves
                 || nulled.iter().any(|p| property_owner(p).is_some())
             {
                 let stored = match backend
@@ -1095,22 +1256,23 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         not_updated.insert(id_str, serde_json::Value::from(&err));
                         continue;
                     }
-                    // draft-atwood-jmap-chat-filenode-00 §Creating the File
-                    // Tree Root: "A server MUST reject a `FileNode/set`
-                    // update that changes `role` to or from `\"chatspace\"`".
-                    let chat_space = Some(NodeRole::ChatSpace.to_wire_str());
-                    if role_patch.is_some_and(|r| {
-                        (r.as_str() == chat_space) != (node.role == Some(NodeRole::ChatSpace))
-                    }) {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["role"],
-                                "description": "role chatspace can be set only at create",
-                            }),
-                        );
-                        continue;
+                    // -20 §5 checks the stored role: a client that "needs
+                    // to destroy, rename or move such a Directory first
+                    // clears its role", so clearing it in the same patch
+                    // does not count.
+                    if node.role.is_some() {
+                        let map = patch.as_map();
+                        let moved = map
+                            .get("parentId")
+                            .is_some_and(|v| v.as_str() != node.parent_id.as_ref().map(Id::as_ref));
+                        let renamed = map
+                            .get("name")
+                            .is_some_and(|v| v.as_str() != Some(node.name.as_str()));
+                        if moved || renamed {
+                            let action = if moved { "moving" } else { "renaming" };
+                            not_updated.insert(id_str, role_forbidden(&node.id, action));
+                            continue;
+                        }
                     }
                     let bad: Vec<(&str, bool)> = typed
                         .iter()
@@ -1354,6 +1516,14 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             };
 
+            let desc_ids = match backend.get_descendant_ids(caller, &account_id, &id).await {
+                Ok(desc_ids) => desc_ids,
+                Err(e) => {
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
+                    continue;
+                }
+            };
+
             // If onDestroyRemoveChildren is false, check whether all
             // descendants are also in this destroy request.
             // RFC §3.2.3: MUST NOT return nodeHasChildren if all descendants
@@ -1372,53 +1542,56 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // the error closer to the actual uncovered descendant can
             // override this loop with their own ordering logic; the
             // reference handler is intentionally simple.
-            if !on_destroy_remove_children {
-                match backend.get_descendant_ids(caller, &account_id, &id).await {
-                    Ok(desc_ids) => {
-                        let all_covered = desc_ids.iter().all(|did| destroy_id_set.contains(did));
-                        if !desc_ids.is_empty() && !all_covered {
-                            not_destroyed.insert(id_str, json!({ "type": "nodeHasChildren" }));
-                            continue;
-                        }
-                    }
-                    Err(e) => {
-                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
+            if !on_destroy_remove_children
+                && !desc_ids.iter().all(|did| destroy_id_set.contains(did))
+            {
+                not_destroyed.insert(id_str, json!({ "type": "nodeHasChildren" }));
+                continue;
+            }
+
+            // draft-ietf-jmap-filenode-20 §5: no Directory with a role may
+            // go, whether named here or removed with its ancestor. Without
+            // the cascade, a covered descendant is checked by its own entry.
+            let cascade: &[Id] = if on_destroy_remove_children {
+                &desc_ids
+            } else {
+                &[]
+            };
+            let doomed: Vec<Id> = std::iter::once(id.clone())
+                .chain(cascade.iter().cloned())
+                .collect();
+            match first_with_role(backend, caller, &account_id, &doomed).await {
+                Ok(None) => {}
+                Ok(Some(role_dir)) => {
+                    not_destroyed.insert(id_str, role_forbidden(&role_dir, "destroying"));
+                    continue;
+                }
+                Err(e) => {
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
+                    continue;
                 }
             }
 
             // When onDestroyRemoveChildren=true, cascade to all descendants first.
-            if on_destroy_remove_children {
-                match backend.get_descendant_ids(caller, &account_id, &id).await {
-                    Ok(desc_ids) => {
-                        let mut cascade_failed = false;
-                        for desc_id in &desc_ids {
-                            match backend
-                                .destroy_object::<FileNode>(caller, &account_id, desc_id)
-                                .await
-                            {
-                                Ok(()) => {
-                                    mutated = true;
-                                    destroyed_list.push(Value::String(desc_id.as_ref().to_owned()));
-                                }
-                                Err(e) => {
-                                    not_destroyed
-                                        .insert(id_str.clone(), backend_set_error_value(e));
-                                    cascade_failed = true;
-                                    break;
-                                }
-                            }
-                        }
-                        if cascade_failed {
-                            continue;
-                        }
+            let mut cascade_failed = false;
+            for desc_id in cascade {
+                match backend
+                    .destroy_object::<FileNode>(caller, &account_id, desc_id)
+                    .await
+                {
+                    Ok(()) => {
+                        mutated = true;
+                        destroyed_list.push(Value::String(desc_id.as_ref().to_owned()));
                     }
                     Err(e) => {
-                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
+                        not_destroyed.insert(id_str.clone(), backend_set_error_value(e));
+                        cascade_failed = true;
+                        break;
                     }
                 }
+            }
+            if cascade_failed {
+                continue;
             }
 
             match backend
@@ -1912,6 +2085,22 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                 );
                                 continue;
                             }
+                            let doomed: Vec<Id> = std::iter::once(existing_id.clone())
+                                .chain(desc_ids.iter().cloned())
+                                .collect();
+                            match first_with_role(backend, caller, &account_id, &doomed).await {
+                                Ok(None) => {}
+                                Ok(Some(role_dir)) => {
+                                    not_copied
+                                        .insert(create_id, role_forbidden(&role_dir, "replacing"));
+                                    continue;
+                                }
+                                Err(e) => {
+                                    not_copied
+                                        .insert(create_id, server_fail_value_from_backend(&e));
+                                    continue;
+                                }
+                            }
                             let mut cascade_failed = false;
                             for desc_id in &desc_ids {
                                 match backend
@@ -2281,15 +2470,14 @@ fn create_type_error(node: &FileNode) -> Option<Value> {
                     "description": "property not defined for this node's @type",
                 }));
             }
-            // draft-atwood-jmap-chat-filenode-00 §The `spaceId` Extension
-            // Property: `spaceId` is "Absent on all FileNode objects that
-            // are not Space file tree roots" (role
-            // `chatspace`).
-            if node.space_id.is_some() && node.role != Some(NodeRole::ChatSpace) {
+            // draft-atwood-jmap-chat-filenode-00 §Creating a Space Root:
+            // "When a client creates a FileNode with `spaceId`, its `@type`
+            // ... MUST be `"Directory"`."
+            if node.space_id.is_some() && node_type != &NodeType::Directory {
                 return Some(json!({
                     "type": "invalidProperties",
                     "properties": ["spaceId"],
-                    "description": "spaceId is allowed only on a Space file tree root",
+                    "description": "spaceId is allowed only on a Directory",
                 }));
             }
             match node_type {

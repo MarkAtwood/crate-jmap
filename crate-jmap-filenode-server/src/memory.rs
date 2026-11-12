@@ -916,6 +916,15 @@ impl JmapBackend for MemoryBackend {
     }
 }
 
+/// The `forbidden` SetError for destroying, renaming or moving a Directory
+/// with a role (draft-ietf-jmap-filenode-20 §5).
+fn role_forbidden() -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::Forbidden)
+            .with_description("a Directory with a role cannot be destroyed, renamed or moved"),
+    ))
+}
+
 /// Rebuild `obj` with `id` as its `id` property, for a `/copy` that
 /// stores a record read from another account under a new id.
 fn with_id<O: SetObject>(obj: &O, id: &Id) -> Result<O, BackendSetError<MemoryError>> {
@@ -1137,6 +1146,14 @@ impl FileNodeBackend for MemoryBackend {
             ))
         })?;
 
+        // draft-ietf-jmap-filenode-20 §5: "A Directory with a role cannot
+        // be destroyed, renamed or moved", re-verified under the lock.
+        if node.role.is_some()
+            && (updated_node.name != node.name || updated_node.parent_id != node.parent_id)
+        {
+            return Err(role_forbidden());
+        }
+
         store.nodes.insert(id.clone(), updated_node.clone());
         store.bump_state(ChangeType::Updated, id.clone(), updated_props);
 
@@ -1167,11 +1184,17 @@ impl FileNodeBackend for MemoryBackend {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
         })?;
 
-        if store.nodes.remove(id).is_none() {
-            return Err(BackendSetError::SetError(Box::new(SetError::new(
-                SetErrorType::NotFound,
-            ))));
+        match store.nodes.get(id) {
+            None => {
+                return Err(BackendSetError::SetError(Box::new(SetError::new(
+                    SetErrorType::NotFound,
+                ))));
+            }
+            // draft-ietf-jmap-filenode-20 §5, as in update_object.
+            Some(node) if node.role.is_some() => return Err(role_forbidden()),
+            Some(_) => {}
         }
+        store.nodes.remove(id);
         store.bump_state(ChangeType::Destroyed, id.clone(), None);
         Ok(())
     }

@@ -32,7 +32,7 @@ use std::fmt;
 use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{Attachment, AttachmentCreate, Chat, ChatKind, ChatPermission, Space};
 use jmap_filenode_server::FileNodeBackend;
-use jmap_filenode_types::{FileNode, FileNodeFilterCondition, FilesRights, NodeRole, NodeType};
+use jmap_filenode_types::{FileNode, FileNodeFilterCondition, FilesRights, NodeType};
 use jmap_server::{BackendQueryError, BackendSetError, QueryParams, SetError, SetErrorType};
 use jmap_types::{Filter, Id, PatchObject};
 
@@ -69,108 +69,67 @@ where
     }
 }
 
-/// Check draft-atwood-jmap-chat-filenode-00 §Creating the File Tree Root
-/// for a `FileNode/set` create of `node`.
+/// Check draft-atwood-jmap-chat-filenode-00 §Creating a Space Root for a
+/// `FileNode/set` create of `node`.
 ///
-/// A node whose `role` is not `chatspace` passes
-/// unchecked, so this is safe to call before every FileNode insert. For a
-/// Space file tree root, in this order:
+/// A node without `spaceId` passes unchecked, so this is safe to call
+/// before every FileNode insert. A node with one is a Space root, "A
+/// Directory FileNode whose `spaceId` matches the Space's `id`" (the
+/// `@type: "Directory"` rule is already enforced by
+/// `jmap-filenode-server`). In this order:
 ///
-/// - `spaceId` must be present: the client "MUST supply ... `spaceId`".
-///   Without it the create fails with `invalidProperties` naming
-///   `spaceId`. (`@type: "Directory"` is already enforced by
-///   `jmap-filenode-server`, which allows `role` on directories only.)
 /// - "The Space identified by `spaceId` exists and the requesting user is
-///   a member. If not, the server MUST return `forbidden`." Both cases
-///   give the same error, as the draft recommends "to avoid revealing
-///   Space existence to non-members".
-/// - "No file tree root already exists for that Space ... If one exists,
-///   the server MUST return an `alreadyExists` SetError ... with
-///   `existingId` set to the id of the existing root." The root is found
-///   with the `role` and `spaceId` `FileNode/query` filter the draft
-///   requires servers to support.
-/// - Creating the root "requires `"manage_space"` permission"
+///   a member. If not, the server SHOULD return `forbidden` in both cases
+///   — Space not found and user not a member — to avoid revealing Space
+///   existence to non-members."
+/// - "Creating, renaming, or destroying a Space root requires
+///   `"manage_space"` permission, whatever the root's `myRights` report"
 ///   (§Permission Mapping); without it the create fails with `forbidden`.
 ///   The permissions are the union over the member's SpaceRoles plus the
 ///   implicit `@everyone` role's permissions from
 ///   [`ChatBackend::everyone_permissions`] (draft-atwood-jmap-chat-00
-///   §Space Permission Resolution step 1). ChannelPermission overrides "do not
-///   apply to file tree access".
+///   §Space Permission Resolution step 1). ChannelPermission overrides "do
+///   not restrict file-tree access".
+///
+/// "A Space has zero, one, or more Space roots ... a server MAY limit the
+/// number of Space roots per Space". This function sets no limit; a
+/// deployment that wants one counts the roots with a `spaceId`
+/// `FileNode/query` and returns `forbidden`, as the draft asks.
 ///
 /// The requesting user is the owner of `account_id`, named by
 /// `account_id` in Space member lists (draft-atwood-jmap-chat-00
 /// §Terminology). `account_id` is the account of both the Space and the
-/// FileNode.
+/// FileNode. `files` and `files_caller` are not read.
 ///
 /// Returns `Ok(Err(set_error))` when the create must be refused. Return
-/// that SetError from `create_object` without inserting: "On any of these
-/// failures, the server MUST NOT create the FileNode."
+/// that SetError from `create_object` without inserting.
 ///
 /// # Errors
 ///
 /// Returns [`RootCheckError::Chat`] if reading the Space or its `@everyone`
-/// permissions fails, and
-/// [`RootCheckError::Files`] if the root query fails.
+/// permissions fails.
 pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
     chat: &C,
     chat_caller: &C::CallerCtx,
-    files: &F,
-    files_caller: &F::CallerCtx,
+    _files: &F,
+    _files_caller: &F::CallerCtx,
     account_id: &Id,
     node: &FileNode,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
-    if node.role != Some(NodeRole::ChatSpace) {
-        return Ok(Ok(()));
-    }
     let Some(space_id) = &node.space_id else {
-        return Ok(Err(SetError::new(SetErrorType::InvalidProperties)
-            .with_properties(["spaceId"])
-            .with_description("a Space file tree root requires spaceId")));
+        return Ok(Ok(()));
     };
-
-    let (spaces, _) = chat
-        .get_objects::<Space>(
-            chat_caller,
-            account_id,
-            Some(std::slice::from_ref(space_id)),
-            None,
-        )
+    let manages = manages_space(chat, chat_caller, account_id, space_id)
         .await
         .map_err(RootCheckError::Chat)?;
-    let space = spaces.iter().find(|s| &s.id == space_id);
-    let Some(permissions) = member_permissions(chat, chat_caller, account_id, space)
-        .await
-        .map_err(RootCheckError::Chat)?
-    else {
-        return Ok(Err(forbidden(
+    Ok(match manages {
+        None => Err(forbidden(
             "spaceId does not name a Space the caller is a member of",
-        )));
-    };
-
-    let mut condition = FileNodeFilterCondition::default();
-    condition.role = Some(NodeRole::ChatSpace);
-    condition.space_id = Some(space_id.clone());
-    let filter = Filter::Condition(condition);
-    let existing = files
-        .query_objects::<FileNode>(
-            files_caller,
-            account_id,
-            QueryParams::new().filter(Some(&filter)).limit(Some(1)),
-        )
-        .await
-        .map_err(RootCheckError::Files)?;
-    if let Some(existing_id) = existing.ids.into_iter().next() {
-        return Ok(Err(SetError::new(SetErrorType::AlreadyExists)
-            .with_existing_id(existing_id)
-            .with_description("the Space already has a file tree root")));
-    }
-
-    Ok(if permissions.contains(&ChatPermission::ManageSpace) {
-        Ok(())
-    } else {
-        Err(forbidden(
-            "creating a Space file tree root requires the manage_space permission",
-        ))
+        )),
+        Some(false) => Err(forbidden(
+            "creating a Space root requires the manage_space permission",
+        )),
+        Some(true) => Ok(()),
     })
 }
 
@@ -180,12 +139,13 @@ pub async fn check_root_create<C: ChatBackend, F: FileNodeBackend>(
 /// an `overQuota` SetError".
 ///
 /// The limit covers the "total blob storage in bytes across all FileNodes
-/// in a single Space's file tree": the `size` of every node under the
-/// tree root plus `node.size`. Call it with `node` as the backend will
-/// store it, after setting the server-set `size` from the blob. A node
-/// whose top-level ancestor is not a Space file tree root (role
-/// `chatspace`) passes unchecked, as does a top-level
-/// node.
+/// in a single Space's file tree, counting all of its Space roots": the
+/// `size` of every Space root of the Space `node` is created in, and of
+/// every node below them, plus `node.size`. The Space is that of the
+/// nearest Space root among the new parent and its ancestors. Call it with
+/// `node` as the backend will store it, after setting the server-set
+/// `size` from the blob. A node with no Space root above it passes
+/// unchecked, as does a top-level node.
 ///
 /// Like the backend's other create pre-checks, this is not atomic with
 /// the insert: a backend with concurrent writers re-checks under the
@@ -208,35 +168,48 @@ pub async fn check_space_quota<F: FileNodeBackend>(
         return Ok(Ok(()));
     };
     let parent_ids = std::slice::from_ref(parent_id);
-    let (mut chain, _) = files
+    let (parents, _) = files
         .get_objects::<FileNode>(caller, account_id, Some(parent_ids), None)
         .await
         .map_err(BackendQueryError::Other)?;
-    chain.extend(
-        files
-            .get_ancestors(caller, account_id, parent_ids)
-            .await
-            .map_err(BackendQueryError::Other)?,
-    );
-    let Some(root) = chain
-        .into_iter()
-        .find(|n| n.parent_id.is_none() && n.role == Some(NodeRole::ChatSpace))
-    else {
+    let Some(parent) = parents.into_iter().find(|n| &n.id == parent_id) else {
+        return Ok(Ok(()));
+    };
+    let ancestors = files
+        .get_ancestors(caller, account_id, parent_ids)
+        .await
+        .map_err(BackendQueryError::Other)?;
+    let Some(space_id) = space_of(&parent, &ancestors) else {
         return Ok(Ok(()));
     };
 
-    // ponytail: reads the whole tree on every create, O(tree size). Upgrade
-    // path: a per-Space usage total the backend keeps with each write.
-    let ids = files
-        .query_subtree(caller, account_id, std::slice::from_ref(&root.id), u64::MAX)
+    let mut condition = FileNodeFilterCondition::default();
+    condition.space_id = Some(space_id);
+    let filter = Filter::Condition(condition);
+    let roots = files
+        .query_objects::<FileNode>(caller, account_id, QueryParams::new().filter(Some(&filter)))
+        .await?
+        .ids;
+    // ponytail: reads every tree of the Space on every create, O(tree
+    // size). Upgrade path: a per-Space usage total the backend keeps with
+    // each write.
+    let below = files
+        .query_subtree(caller, account_id, &roots, u64::MAX)
         .await?;
+    // A Space root inside another one's tree counts once.
+    let ids: Vec<Id> = roots
+        .into_iter()
+        .chain(below)
+        .collect::<HashSet<Id>>()
+        .into_iter()
+        .collect();
     let (tree, _) = files
         .get_objects::<FileNode>(caller, account_id, Some(&ids), None)
         .await
         .map_err(BackendQueryError::Other)?;
     let total = tree
         .iter()
-        .chain([&root, node])
+        .chain([node])
         .fold(0u64, |sum, n| sum.saturating_add(n.size.unwrap_or(0)));
     Ok(if total > max_space_storage_bytes {
         Err(SetError::new(SetErrorType::OverQuota)
@@ -246,16 +219,17 @@ pub async fn check_space_quota<F: FileNodeBackend>(
     })
 }
 
-/// Create the file tree root for a new Space, for a server advertising
+/// Create the Space root for a new Space, for a server advertising
 /// draft-atwood-jmap-chat-filenode-00 `autoCreateFileTree: true`: "the
-/// server automatically creates a Space file tree root for each new Space
-/// at Space creation time and includes the new FileNode in subsequent
+/// server automatically creates one Space root for each new Space at Space
+/// creation time and includes the new FileNode in subsequent
 /// `FileNode/changes` responses."
 ///
-/// The root is a top-level `Directory` with role
-/// `chatspace` and `spaceId` set to `space_id`, named
-/// `space_id` since the draft leaves the name open and at most one root
-/// exists per Space. It is inserted with [`FileNodeBackend::create_object`],
+/// The root is a top-level `Directory` with `spaceId` set to `space_id`,
+/// named `space_id` since the draft leaves the name open. It has no
+/// `role`: the draft identifies Space roots by `spaceId` alone, and
+/// draft-ietf-jmap-filenode-20 §3.1.4 allows each role on only one
+/// Directory per account. It is inserted with [`FileNodeBackend::create_object`],
 /// whose contract records the create for `FileNode/changes`. Call it from
 /// the Space insert with the Space's account; `caller` is a server context,
 /// as no client creates this node.
@@ -278,7 +252,6 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
             "@type": "Directory",
             "name": space_id,
             "parentId": null,
-            "role": NodeRole::ChatSpace.to_wire_str(),
             "spaceId": space_id,
         }))
         .expect("a Directory FileNode with every required field deserializes")
@@ -316,17 +289,17 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
     }
 }
 
-/// Destroy the file tree of a destroyed Space, per
+/// Destroy the file trees of a destroyed Space, per
 /// draft-atwood-jmap-chat-filenode-00 §Space Deletion: "When a Space is
-/// destroyed via `Space/set` destroy, the server SHOULD also destroy the
-/// associated file tree and all FileNodes within it." Call it from
+/// destroyed via `Space/set` destroy, the server SHOULD also destroy all
+/// of its Space roots and all FileNodes within them." Call it from
 /// `ChatBackend::on_space_destroyed`.
 ///
 /// No grace period is offered (the draft's "MAY instead retain"), so the
-/// tree goes with the Space and no former member can reach it afterwards.
-/// The root is found with the `role` and `spaceId` `FileNode/query`
-/// filter; each descendant is destroyed before the root, as `FileNode/set`
-/// does for `onDestroyRemoveChildren`. Every node goes through
+/// trees go with the Space and no former member can reach them afterwards.
+/// The Space roots are found with the `spaceId` `FileNode/query` filter;
+/// each descendant is destroyed before its root, as `FileNode/set` does
+/// for `onDestroyRemoveChildren`. Every node goes through
 /// [`FileNodeBackend::destroy_object`], whose contract advances the
 /// FileNode state, so `FileNode/changes` lists the destroyed ids and the
 /// push channel can emit the `FileNode` state change the draft asks for
@@ -353,7 +326,6 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
     space_id: &Id,
 ) -> Result<Vec<Id>, TreeDestroyError<F::Error>> {
     let mut condition = FileNodeFilterCondition::default();
-    condition.role = Some(NodeRole::ChatSpace);
     condition.space_id = Some(space_id.clone());
     let filter = Filter::Condition(condition);
     let roots = files
@@ -364,6 +336,10 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
 
     let mut destroyed = Vec::new();
     for root_id in roots {
+        // A Space root inside an earlier root's tree is already gone.
+        if destroyed.contains(&root_id) {
+            continue;
+        }
         let descendants = files
             .get_descendant_ids(caller, account_id, &root_id)
             .await
@@ -390,9 +366,8 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
 /// - "the server MUST verify that the referenced FileNode exists and
 ///   belongs to the same Space. If validation fails, the server MUST
 ///   return a SetError of type `invalidProperties` naming `filenodeId`."
-///   The node must have an ancestor that is the Space file tree root
-///   (role `chatspace`, `spaceId` the Chat's
-///   `spaceId`); §Attachment filenodeId Validation: "Servers SHOULD NOT
+///   The node's nearest Space root ancestor (a Directory with `spaceId`)
+///   must have the Chat's `spaceId`; §Attachment filenodeId Validation: "Servers SHOULD NOT
 ///   permit a `filenodeId` referencing a FileNode from a different Space
 ///   or from outside any Space file tree". A message to a Chat that is
 ///   not a channel has no Space, so it fails the same way. A node without
@@ -465,11 +440,8 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
         .get_ancestors(files_caller, account_id, node_ids)
         .await
         .map_err(files_err)?;
-    if !ancestors.iter().any(|n| {
-        n.parent_id.is_none()
-            && n.role == Some(NodeRole::ChatSpace)
-            && n.space_id.as_ref() == Some(space_id)
-    }) {
+    // The node is a File, so it is no Space root itself.
+    if space_of(&node, &ancestors).as_ref() != Some(space_id) {
         return not_in_space();
     }
 
@@ -554,8 +526,9 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// the tree, the root included, gets the same flags. "A File or SymLink
 /// takes its rights from its parent Directory", so a File or SymLink gets
 /// them too: these are the rights the `FileNode/set` gates check for it.
-/// The root's flags "do not let anyone destroy, rename, or move the root
-/// itself": [`check_space_update`] and [`check_space_destroy`] refuse that.
+/// A Space root's flags "do not decide who may destroy, rename, or move the
+/// Space root itself": [`check_space_update`] and [`check_space_destroy`]
+/// decide that.
 ///
 /// A node with no flag is not discoverable (draft-ietf-jmap-filenode
 /// §Access Control), so the read path leaves it out: `FileNode/get`
@@ -565,8 +538,8 @@ pub async fn resolve_filenode_attachment<C: ChatBackend, F: FileNodeBackend>(
 /// requesting user has access to".
 ///
 /// `node` is a stored node: its tree is found from its ancestors. A node
-/// is in a Space file tree if it, or an ancestor, is a top-level node with
-/// role `chatspace` and a `spaceId`.
+/// is in the Space file tree of the nearest Space root (a node with a
+/// `spaceId`) among itself and its ancestors.
 ///
 /// # Errors
 ///
@@ -581,20 +554,15 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
     account_id: &Id,
     node: &FileNode,
 ) -> Result<Option<FilesRights>, RootCheckError<C::Error, F::Error>> {
-    let space_id = if is_tree_root(node) {
-        node.space_id.clone()
-    } else if node.parent_id.is_some() {
+    let ancestors = if node.space_id.is_none() && node.parent_id.is_some() {
         files
             .get_ancestors(files_caller, account_id, std::slice::from_ref(&node.id))
             .await
             .map_err(|e| RootCheckError::Files(BackendQueryError::Other(e)))?
-            .into_iter()
-            .find(is_tree_root)
-            .and_then(|root| root.space_id)
     } else {
-        None
+        Vec::new()
     };
-    let Some(space_id) = space_id else {
+    let Some(space_id) = space_of(node, &ancestors) else {
         return Ok(None);
     };
 
@@ -629,9 +597,8 @@ pub async fn space_files_rights<C: ChatBackend, F: FileNodeBackend>(
 /// created in a Space file tree needs `mayAddChildren` on its parent
 /// ("upload new files and directories"), which `"send"` and above hold.
 ///
-/// A Space file tree root (role `chatspace`) is left to
-/// [`check_root_create`], as is a node whose parent is not stored or not
-/// in a Space file tree. Without the right the create fails with
+/// A Space root (a node with `spaceId`) is left to [`check_root_create`],
+/// as is a node whose parent is not stored or not in a Space file tree. Without the right the create fails with
 /// `forbidden`; return that SetError from `create_object` without
 /// inserting.
 ///
@@ -647,7 +614,7 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
     account_id: &Id,
     node: &FileNode,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
-    if node.role == Some(NodeRole::ChatSpace) {
+    if node.space_id.is_some() {
         return Ok(Ok(()));
     }
     let Some(parent_id) = &node.parent_id else {
@@ -684,9 +651,12 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
 ///   SetError". A patch setting the whole of `shareWith` to its stored
 ///   value changes nothing and passes.
 /// - `name` and `parentId`: `mayRename`, "rename or move this node". On
-///   the tree root a changed `name` or `parentId` is refused for every
-///   member: "No member can destroy, rename, or move the root through
-///   `FileNode/set`".
+///   a Space root a changed `name` instead needs the `"manage_space"`
+///   permission: "Creating, renaming, or destroying a Space root requires
+///   `"manage_space"` permission, whatever the root's `myRights` report".
+///   A changed `parentId` on a Space root is refused for every member:
+///   "the server SHOULD reject a `FileNode/set` update that changes a
+///   Space root's `parentId` with `forbidden`".
 /// - `blobId`, `mediaType`, `target`, `modified`, `accessed` and
 ///   `executable`: `mayModifyContent`, "the content-related properties of
 ///   this node".
@@ -715,14 +685,26 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
     if let Some(rights) = rights {
         let share_with =
             serde_json::to_value(&node.share_with).expect("shareWith serializes to JSON");
-        let is_root = is_tree_root(node);
+        let parent_id = node.parent_id.as_ref().map(Id::as_ref);
+        let renames_root = node.space_id.as_ref().filter(|_| {
+            patch
+                .as_map()
+                .get("name")
+                .is_some_and(|v| v.as_str() != Some(node.name.as_str()))
+        });
+        let manages_root = match renames_root {
+            Some(space_id) => manages_space(chat, chat_caller, account_id, space_id)
+                .await
+                .map_err(RootCheckError::Chat)?
+                .unwrap_or(false),
+            None => false,
+        };
+        let is_root = node.space_id.is_some();
         for (key, value) in patch.as_map() {
             let allowed = match key.split('/').next().unwrap_or(key) {
                 "shareWith" => key == "shareWith" && *value == share_with,
-                "name" if is_root => {
-                    rights.may_rename && value.as_str() == Some(node.name.as_str())
-                }
-                "parentId" if is_root => rights.may_rename && value.is_null(),
+                "name" if is_root => value.as_str() == Some(node.name.as_str()) || manages_root,
+                "parentId" if is_root => value.as_str() == parent_id,
                 "name" | "parentId" => rights.may_rename,
                 "blobId" | "mediaType" | "target" | "modified" | "accessed" | "executable" => {
                     rights.may_modify_content
@@ -764,11 +746,12 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
 /// Check a `FileNode/set` destroy of the stored `node` against the
 /// draft-atwood-jmap-chat-filenode-00 §Permission Mapping table: a node in
 /// a Space file tree needs `mayDelete` from [`space_files_rights`], which
-/// `"manage_channels"` and `"manage_space"` hold. The tree root is refused
-/// for every member: "No member can destroy, rename, or move the root
-/// through `FileNode/set`" and "The root is removed only when its Space is
-/// destroyed", through [`destroy_space_file_tree`], whose server-context
-/// destroys do not go through this check.
+/// `"manage_channels"` and `"manage_space"` hold. A Space root instead
+/// needs the `"manage_space"` permission, "whatever the root's `myRights`
+/// report"; "Destroying a Space root follows {{JMAP-FILENODE}} for its
+/// children; a Space may be left with no Space roots".
+/// [`destroy_space_file_tree`] destroys in a server context and does not
+/// go through this check.
 ///
 /// This covers the `onExists` replacements of draft-ietf-jmap-filenode,
 /// which "require `mayDelete` on the existing node, and fail with
@@ -788,12 +771,21 @@ pub async fn check_space_destroy<C: ChatBackend, F: FileNodeBackend>(
     account_id: &Id,
     node: &FileNode,
 ) -> Result<Result<(), SetError>, RootCheckError<C::Error, F::Error>> {
+    if let Some(space_id) = &node.space_id {
+        let manages = manages_space(chat, chat_caller, account_id, space_id)
+            .await
+            .map_err(RootCheckError::Chat)?;
+        return Ok(if manages == Some(true) {
+            Ok(())
+        } else {
+            Err(forbidden(
+                "destroying a Space root requires the manage_space permission",
+            ))
+        });
+    }
     let rights =
         space_files_rights(chat, chat_caller, files, files_caller, account_id, node).await?;
     Ok(match rights {
-        Some(_) if is_tree_root(node) => Err(forbidden(
-            "the Space file tree root is removed only with its Space",
-        )),
         Some(r) if !r.may_delete => Err(forbidden(
             "destroying this Space file tree node requires mayDelete",
         )),
@@ -832,10 +824,49 @@ async fn may_add_children<C: ChatBackend, F: FileNodeBackend>(
     Ok(rights.is_none_or(|r| r.may_add_children && is_directory))
 }
 
-/// Whether `node` is a Space file tree root: a top-level node with role
-/// `chatspace`.
-fn is_tree_root(node: &FileNode) -> bool {
-    node.parent_id.is_none() && node.role == Some(NodeRole::ChatSpace)
+/// The `spaceId` of the nearest Space root among `node` and its
+/// `ancestors` (the unordered [`FileNodeBackend::get_ancestors`] result for
+/// `node`), or `None` if neither `node` nor any ancestor is one.
+///
+/// draft-atwood-jmap-chat-filenode-00 §Terminology: a Space root is "A
+/// Directory FileNode whose `spaceId` matches the Space's `id`", and the
+/// Space file tree is "its Space roots and every FileNode below them".
+fn space_of(node: &FileNode, ancestors: &[FileNode]) -> Option<Id> {
+    let by_id: std::collections::HashMap<&Id, &FileNode> =
+        ancestors.iter().map(|n| (&n.id, n)).collect();
+    let mut current = Some(node);
+    // Each step moves up one ancestor, so a cycle ends after all of them.
+    for _ in 0..=ancestors.len() {
+        let n = current?;
+        if n.space_id.is_some() {
+            return n.space_id.clone();
+        }
+        current = n.parent_id.as_ref().and_then(|p| by_id.get(p).copied());
+    }
+    None
+}
+
+/// Whether the owner of `account_id` holds `"manage_space"` in the Space
+/// `space_id`, or `None` if the Space does not exist or they are not a
+/// member. The permissions are those of [`member_permissions`].
+async fn manages_space<C: ChatBackend>(
+    chat: &C,
+    chat_caller: &C::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+) -> Result<Option<bool>, C::Error> {
+    let (spaces, _) = chat
+        .get_objects::<Space>(
+            chat_caller,
+            account_id,
+            Some(std::slice::from_ref(space_id)),
+            None,
+        )
+        .await?;
+    let space = spaces.iter().find(|s| &s.id == space_id);
+    Ok(member_permissions(chat, chat_caller, account_id, space)
+        .await?
+        .map(|p| p.contains(&ChatPermission::ManageSpace)))
 }
 
 /// The rows of draft-atwood-jmap-chat-filenode-00 §Permission Mapping,

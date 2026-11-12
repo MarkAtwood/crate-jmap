@@ -10,13 +10,13 @@ draft-atwood-jmap-chat-filenode-00 that apply when one server offers
 
 | Item | Spec |
 |---|---|
-| `check_root_create` | chat-filenode §Creating the File Tree Root: `spaceId` required, Space exists and the caller is a member (`forbidden`), one root per Space (`alreadyExists` with `existingId`), `manage_space` required (`forbidden`, §Permission Mapping) |
+| `check_root_create` | chat-filenode §Creating a Space Root: for a create with `spaceId`, the Space exists and the caller is a member (`forbidden`), and holds `manage_space` (`forbidden`, §Permission Mapping); no limit on the number of Space roots |
 | `space_files_rights` | chat-filenode §Permission Mapping: the `FilesRights` a Space role grants on a node (`myRights`), `None` outside a Space file tree; a non-member gets no flag |
-| `check_space_create`, `check_space_update`, `check_space_destroy` | chat-filenode §Permission Mapping: refuse with `forbidden` a create without `mayAddChildren` on the parent, an update without the right for each patched property (any `shareWith` change, as no role has `mayShare`), and a destroy without `mayDelete`; nobody may destroy, rename or move the tree root |
+| `check_space_create`, `check_space_update`, `check_space_destroy` | chat-filenode §Permission Mapping: refuse with `forbidden` a create without `mayAddChildren` on the parent, an update without the right for each patched property (any `shareWith` change, as no role has `mayShare`), and a destroy without `mayDelete`; renaming or destroying a Space root needs `manage_space`, and nobody may move one |
 | `check_space_quota` | chat-filenode §Account-Level Capability Object `maxSpaceStorageBytes`: a create that would take the Space file tree over the limit is `overQuota` |
 | `create_space_file_tree` | chat-filenode §Account-Level Capability Object `autoCreateFileTree`: insert the root when a Space is created |
 | `resolve_filenode_attachment` | chat-filenode §filenodeId: an Attachment linked by `filenodeId` must name a file in the channel's Space file tree (`invalidProperties` naming `filenodeId`), the sender needs read access (`forbidden`), and absent `blobId`, `filename`, `contentType`, `size` and `sha256` are filled from the FileNode |
-| `destroy_space_file_tree` | chat-filenode §Space Deletion: destroy a destroyed Space's file tree root and every node within it, with no grace period |
+| `destroy_space_file_tree` | chat-filenode §Space Deletion: destroy every Space root of a destroyed Space and every node within them, with no grace period |
 | `RootCheckError` | A Chat or FileNode storage failure during a check |
 | `TreeDestroyError` | A FileNode storage failure while destroying a Space file tree |
 
@@ -48,24 +48,25 @@ check_root_create(&self.chat, &(), &self.files, &(), account_id, &node)
 self.files.create_object(caller, account_id, create_id, node).await
 ```
 
-Any node whose `role` is not `chatspace` passes
-unchecked, so the call can run before every FileNode insert.
+Any node without `spaceId` passes unchecked, so the call can run before
+every FileNode insert.
 
 ## How it works
 
-The Space is read from the Chat backend and the existing root is found
-with the `FileNode/query` `role` + `spaceId` filter the draft requires.
-The `manage_space` check unions the member's SpaceRole permissions with
+A Space root is a Directory with a `spaceId`; a node belongs to the
+Space of the nearest Space root among itself and its ancestors. A Space
+has zero or more roots, found with the `FileNode/query` `spaceId` filter
+the draft requires. The `manage_space` check unions the member's SpaceRole permissions with
 the Space's `@everyone` permissions from `ChatBackend::everyone_permissions`;
 ChannelPermission overrides
 do not apply to file tree access.
 
 ## Gotchas
 
-- The one-root-per-Space check is a read before the insert. Re-check it
-  in the same transaction as the insert (for example a unique index on
-  `spaceId` for root nodes), as `FileNodeBackend::create_object` already
-  requires for name uniqueness.
+- `check_root_create` places no limit on the number of Space roots. A
+  deployment that wants one ("a server MAY limit the number of Space
+  roots per Space") counts them with a `spaceId` query and returns
+  `forbidden`, re-checked in the insert's transaction.
 - The permission checks read the `@everyone` role's permissions per
   Space from `ChatBackend::everyone_permissions`: the draft says every
   member holds that role but puts its permissions on no wire object.
@@ -75,8 +76,10 @@ do not apply to file tree access.
   plus the new node's `size`: call it after setting the server-set `size`
   from the blob, and re-check under the insert's transaction. It reads the
   whole tree per create; a large deployment keeps a per-Space total.
-- `create_space_file_tree` names the root after the Space id. No member
-  may rename, move or destroy the root; it goes only with its Space.
+- `create_space_file_tree` names the root after the Space id and gives
+  it no `role`: draft-ietf-jmap-filenode-20 allows each role on one
+  Directory per account. A member with `manage_space` may rename or
+  destroy a Space root; nobody may move one.
 - `resolve_filenode_attachment` rejects a supplied `blobId`, `size` or
   `sha256` that differs from the FileNode's, and keeps a supplied
   `filename` or `contentType`.

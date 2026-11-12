@@ -43,7 +43,6 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "A1";
 const SPACE: &str = "S1";
-const ROLE: &str = "chatspace";
 /// SHA-256("abc"), FIPS 180-2 Appendix B.1 / RFC 6234 §8.5 TEST1.
 const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
 
@@ -80,11 +79,11 @@ impl Fixture {
         let files = FilesMemory::new().with_account(&Id::from(ACCOUNT));
         for node in [
             json!({ "id": "root-s1", "@type": "Directory", "name": "S1", "parentId": null,
-                    "role": ROLE, "spaceId": SPACE }),
+                    "spaceId": SPACE }),
             json!({ "id": "docs", "@type": "Directory", "name": "docs", "parentId": "root-s1" }),
             file("f1", "docs", "b1"),
             json!({ "id": "root-s2", "@type": "Directory", "name": "S2", "parentId": null,
-                    "role": ROLE, "spaceId": "S2" }),
+                    "spaceId": "S2" }),
             file("f2", "root-s2", "b2"),
             json!({ "id": "loose", "@type": "File", "name": "loose.txt", "parentId": null,
                     "blobId": "b3", "size": 3, "sha256": SHA256_ABC, "mediaType": "text/plain" }),

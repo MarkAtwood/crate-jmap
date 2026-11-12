@@ -72,10 +72,6 @@ pub enum NodeRole {
     Pictures,
     /// Video files.
     Videos,
-    /// `"chatspace"`: root of a JMAP Chat Space's file
-    /// tree, identified by [`FileNode::space_id`]
-    /// (draft-atwood-jmap-chat-filenode-00 §JMAP FileNode Roles Registry).
-    ChatSpace,
     /// Any role string not recognised by this implementation.
     Other(String),
 }
@@ -90,7 +86,6 @@ impl_string_enum!(NodeRole, "a JMAP FileNode role string",
     "music"     => Music,
     "pictures"  => Pictures,
     "videos"    => Videos,
-    "chatspace" => ChatSpace,
 );
 
 impl NodeRole {
@@ -106,7 +101,6 @@ impl NodeRole {
             Self::Music => "music",
             Self::Pictures => "pictures",
             Self::Videos => "videos",
-            Self::ChatSpace => "chatspace",
             Self::Other(s) => s.as_str(),
         }
     }
@@ -125,7 +119,8 @@ pub struct FilesRights {
     pub may_read: bool,
     /// User may create child nodes in this directory.
     pub may_add_children: bool,
-    /// User may rename or move this node.
+    /// User may rename or move this node, or change its `role`
+    /// (draft-ietf-jmap-filenode-20 §3.1.2).
     pub may_rename: bool,
     /// User may destroy this node.
     pub may_delete: bool,
@@ -305,13 +300,18 @@ pub struct FileNode {
     pub share_with: Option<BTreeMap<Id, FilesRights>>,
 
     /// Special role identifying this directory's purpose.  `Directory` only
-    /// (§3.1.3 type: `String|null`), where it serializes as `null` when unset.
+    /// (draft-ietf-jmap-filenode-20 §3.1.4, type `String|null`), where it
+    /// serializes as `null` when unset.
+    ///
+    /// -20 §3.1.4: "At most one Directory in an account has a given role",
+    /// and changing it "requires mayRename on that node". -20 §5: "A
+    /// Directory with a role cannot be destroyed, renamed or moved".
     pub role: Option<NodeRole>,
 
     /// Id of the JMAP Chat Space this node roots (draft-atwood-jmap-chat-filenode-00
-    /// §The `spaceId` Extension Property).  Immutable; present only when
-    /// [`role`](Self::role) is [`NodeRole::ChatSpace`].  Absent from wire when
-    /// `None`.
+    /// §The `spaceId` Extension Property).  A `Directory` with a `spaceId` is
+    /// a Space root; the property is "Absent on all FileNode objects that are
+    /// not Space roots" and immutable.  Absent from wire when `None`.
     pub space_id: Option<Id>,
 
     /// Shared metadata, keyed by namespace identifier
