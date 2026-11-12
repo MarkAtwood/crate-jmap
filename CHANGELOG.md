@@ -29,6 +29,10 @@ wire behaviour that a conforming peer can observe.
   Principal declined or delegated is not relevant, and `"confirmed"`
   covers a confirmed event the Principal is not a participant of, has
   accepted, or owns at `"needs-action"`.
+- **jmap-filenode-server**: `FileNodeBackend::copy_blob` (defaulted)
+  copies a File's blob into the destination account for `FileNode/copy`
+  and returns its id there. The default copies nothing and only reuses a
+  blob the destination already has.
 - **jmap-metadata-server**: `unicode_casemap_prepare` exposes the RFC 5051
   §2 `i;unicode-casemap` preparation that `metadataTextContains` already
   used, so FileNode backends can compare names with it.
@@ -67,6 +71,14 @@ wire behaviour that a conforming peer can observe.
   `space_files_rights`, `resolve_filenode_attachment` and
   `destroy_space_file_tree` cover every Space root of the Space, and
   `create_space_file_tree` creates a root without a role.
+- **BREAKING** **jmap-filenode-server**: `FileNode/copy` follows
+  draft-ietf-jmap-filenode-20 §3.2.4. Copying a Directory copies its
+  whole subtree, all or nothing, with `maxFileNodeDepth` counted for the
+  deepest copied node; copies keep `created`, `modified` and `accessed`
+  and drop `shareWith`, `role`, `isSubscribed` and `spaceId`; File blobs
+  go through `copy_blob`; and the implicit destroy of
+  `onSuccessDestroyOriginal` always removes the originals' subtrees and
+  lists every destroyed id.
 - **jmap-filenode-server**: `CaseFolding::Insensitive` is now the
   `i;unicode-casemap` collation that draft-ietf-jmap-filenode-20 §1.1
   names for every case-insensitive name comparison, not an

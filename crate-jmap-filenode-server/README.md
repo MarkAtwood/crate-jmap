@@ -215,8 +215,8 @@ those in its parent's myRights" (§5), so `FileNode/get` reports no
 3. **Destroy requires `mayDelete`**, including on the existing node
    that an `onExists: "replace"` create overwrites.
 
-4. **`FileNode/copy`** requires the source to be discoverable in
-   `fromAccountId`; the copy is a create in `accountId` and follows
+4. **`FileNode/copy`** requires `mayRead` on each copied node in
+   `fromAccountId` (§3.2.4); the copy is a create in `accountId` and follows
    check 1.
 
 ### Reads (§5)
@@ -335,11 +335,19 @@ results with `get_ancestors` to drop nodes deeper than `depth`, then applies
 `canCalculateChanges: false`, and `FileNode/queryChanges` with a non-null `depth` returns
 `cannotCalculateChanges`.
 
-### FileNode/copy — cross-account copy
+### FileNode/copy — deep copy, within or between accounts
 
-`FileNode/copy` copies nodes from `fromAccountId` into the authenticated account. Supports
-`onExists`, `compareCaseInsensitively`, and `onDestroyRemoveChildren` with the same
-semantics as `FileNode/set`.
+`FileNode/copy` copies nodes from `fromAccountId` into `accountId`, which may be the
+same account (draft-ietf-jmap-filenode-20 §3.2.4). Copying a Directory copies its whole
+subtree, parents first through `copy_object`, and only the root appears in `created`; the
+subtree is checked before anything is stored, and a later storage failure destroys the
+copies already made, so the entry succeeds or fails as a whole. Each copy keeps
+`created`, `modified` and `accessed` unless overridden, gets a new `changed`, and drops
+`shareWith`, `role`, `isSubscribed` and `spaceId`. A File's blob goes through
+`copy_blob`, whose default only reuses a blob the destination already has; a backend
+with per-account blob stores overrides it. `onExists`, `compareCaseInsensitively`, and
+`onDestroyRemoveChildren` apply to the copied root in the destination. The implicit
+`FileNode/set` of `onSuccessDestroyOriginal` always removes the originals' subtrees.
 
 ## CallerCtx
 

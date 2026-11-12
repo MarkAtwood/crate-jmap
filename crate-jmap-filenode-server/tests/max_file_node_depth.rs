@@ -1,16 +1,18 @@
 //! `maxFileNodeDepth` enforcement in `FileNode/set` and `FileNode/copy`,
 //! through the full dispatcher (bd:JMAP-t8ej.14).
 //!
-//! Oracle: draft-ietf-jmap-filenode-19 §Capability: "maxFileNodeDepth:
-//! "UnsignedInt|null" The maximum depth of the FileNode hierarchy (that is,
-//! one more than the maximum number of ancestors a FileNode may have), or
-//! null for no limit." With a limit of 3 a node may have at most 2
-//! ancestors: a top-level node has depth 1, its child depth 2, its
-//! grandchild depth 3.
+//! Oracle: draft-ietf-jmap-filenode-20 §2.1: "maxFileNodeDepth:
+//! "UnsignedInt|null" The maximum number of levels in the FileNode
+//! hierarchy, or null for no limit. A FileNode may have at most one fewer
+//! ancestors than this value, so 1 allows only top-level nodes." With a
+//! limit of 3 a node may have at most 2 ancestors: a top-level node is at
+//! level 1, its child at level 2, its grandchild at level 3.
 //!
-//! The draft names no error. The expected SetError is the hand-written
-//! `invalidProperties` naming `parentId` proposed in
-//! brong/draft-gondwana-jmap-filenode#16.
+//! -20 §3.2.3 names the error: "invalidProperties" for "a create or move
+//! that would give the node, or any of its descendants, more ancestors
+//! than maxFileNodeDepth allows"; this crate names `parentId`, as
+//! brong/draft-gondwana-jmap-filenode#16 proposed. -20 §3.2.4 copies a
+//! Directory with its whole subtree, so a copy counts the levels below it.
 
 mod common;
 
@@ -200,6 +202,36 @@ async fn copy_past_limit_is_rejected() {
         copy["created"]["ok"]["id"].is_string(),
         "copy at depth 3: {copy}"
     );
+}
+
+#[tokio::test]
+async fn copy_counts_the_copied_subtree() {
+    let d = limited(3);
+    let ids = create_all(
+        &d,
+        &[
+            ("a", dir("a", Value::Null)),
+            ("b", dir("b", json!("#a"))),
+            ("x", dir("x", Value::Null)),
+            ("y", dir("y", json!("#x"))),
+        ],
+    )
+    .await;
+    let (a, b, x) = (&ids[0], &ids[1], &ids[2]);
+
+    // x under b puts the copy of y at level 4; under a, at level 3.
+    let resp = run(
+        &d,
+        json!([["FileNode/copy", { "fromAccountId": ACCOUNT, "accountId": ACCOUNT,
+            "create": {
+                "deep": { "id": x, "parentId": b },
+                "ok": { "id": x, "parentId": a },
+            } }, "0"]]),
+    )
+    .await;
+    let copy = args(&resp, 0);
+    assert_eq!(copy["notCreated"]["deep"], depth_error(), "{copy}");
+    assert!(copy["created"]["ok"]["id"].is_string(), "{copy}");
 }
 
 #[tokio::test]

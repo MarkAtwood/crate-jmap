@@ -252,8 +252,25 @@ pub trait FileNodeBackend: JmapBackend {
     /// `metadata` and `privateMetadata` it supplies
     /// (draft-ietf-jmap-metadata-05 §3.4), and resolved `onExists`.
     /// `from_account_id` may equal `to_account_id`
-    /// (draft-ietf-jmap-filenode-16 §3.2.4). `create` is the request's
-    /// create object for this copy (RFC 8620 §5.4). -05 §3.4 says its
+    /// (draft-ietf-jmap-filenode-20 §3.2.4).
+    ///
+    /// The handler has already made `obj` the copy -20 §3.2.4 describes: no
+    /// `changed`, `shareWith`, `role`, `isSubscribed`, `myRights` or
+    /// `sha256` of the source ("Each copy is a new node, with a new id and a
+    /// new changed value"), the source's `created`, `modified` and
+    /// `accessed` unless overridden, and for a File the `blobId` that
+    /// [`copy_blob`](Self::copy_blob) returned in `to_account_id`, with its
+    /// `sha256`. "Copying a Directory copies its whole subtree": the handler
+    /// calls this once for the copied root and then once per descendant,
+    /// parents first, each with `parentId` set to the stored copy of its
+    /// parent and `create` an empty object. If one fails it destroys the
+    /// copies already stored for that entry with
+    /// [`destroy_object`](Self::destroy_object), so the subtree "succeeds or
+    /// fails as a whole"; a backend that must not show a partial subtree
+    /// even briefly needs its own transaction around the entry.
+    ///
+    /// `create` is the request's create object for this copy (RFC 8620
+    /// §5.4). -05 §3.4 says its
     /// `metadata` and `privateMetadata` follow "the same rules as a create
     /// in Foo/set", so the backend validates them as
     /// [`create_object`](Self::create_object) does (-05 §3.2 rules 1 to 4,
@@ -269,8 +286,13 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// # Authorisation contract
     ///
-    /// Implementors MUST verify caller read access to `obj` in
-    /// `from_account_id` and write access to `to_account_id` before storing the
+    /// draft-ietf-jmap-filenode-20 §3.2.4: "Copying a node requires mayRead
+    /// on it and mayAddChildren on the destination parent (or
+    /// mayCreateTopLevelFileNode)". `obj.id` is still the id of the source
+    /// node in `from_account_id`; the backend assigns the copy its own.
+    /// Implementors MUST verify `mayRead` on that source node and the
+    /// destination right on the
+    /// destination parent in `to_account_id` before storing the
     /// copy, and MUST return [`BackendSetError::SetError`] with
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
     /// the workspace-canonical rationale; the same rule applies here.
@@ -526,6 +548,48 @@ pub trait FileNodeBackend: JmapBackend {
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
+
+    /// Copy the content of blob `blob_id` of `from_account_id` into
+    /// `to_account_id` for `FileNode/copy`, and return the `blobId` it has
+    /// there, or `None` if it cannot be copied.
+    ///
+    /// draft-ietf-jmap-filenode-20 §3.2.4: "For a File, the server copies
+    /// the content of its blob into the destination account; the blob need
+    /// not already exist there, and the new blobId may differ."
+    /// `handle_filenode_copy` calls this for every File it copies, the
+    /// descendants of a copied Directory included, before storing any of
+    /// them, and stores the copy with the returned `blobId`. On `Ok(None)`
+    /// the copy fails with `invalidProperties` naming `blobId`, and on
+    /// `Err(e)` with `serverFail`; nothing is stored for that entry, though
+    /// blobs copied for it before the failure stay, unreferenced.
+    ///
+    /// The backend checks the caller may read the blob in
+    /// `from_account_id`, as for the node itself (see
+    /// [`copy_object`](Self::copy_object)).
+    ///
+    /// # Default implementation
+    ///
+    /// Copies nothing: returns `Some(blob_id)` when
+    /// [`blob_exists`](Self::blob_exists) finds the blob in
+    /// `to_account_id`, which holds within one account, and `None`
+    /// otherwise, so a copy between accounts that do not share the blob
+    /// fails. Backends that keep blobs per account override this to copy
+    /// the content.
+    fn copy_blob(
+        &self,
+        caller: &Self::CallerCtx,
+        from_account_id: &jmap_types::Id,
+        to_account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send {
+        let _ = from_account_id;
+        async move {
+            Ok(self
+                .blob_exists(caller, to_account_id, blob_id)
+                .await?
+                .then(|| blob_id.clone()))
+        }
+    }
 
     /// SHA-256 digest of a stored blob, for the `sha256` FileNode
     /// property of draft-atwood-jmap-cid-00 §FileNode Extension.
