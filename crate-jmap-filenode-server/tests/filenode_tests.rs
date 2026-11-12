@@ -4244,6 +4244,24 @@ async fn filenode_set_two_creates_with_one_role_are_both_rejected() {
     }
 }
 
+/// Only a Directory holds a role, so a File create that carries one (and
+/// fails on its own) does not take that role from a Directory create.
+#[tokio::test]
+async fn filenode_set_file_role_claim_does_not_block_directory() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let resp = set_acc1(
+        &backend,
+        json!({ "create": {
+            "f": { "@type": "File", "name": "f", "parentId": null, "blobId": "b1",
+                   "role": "trash" },
+            "d": { "@type": "Directory", "name": "d", "parentId": null, "role": "trash" }
+        } }),
+    )
+    .await;
+    assert!(resp["created"]["d"].is_object(), "{resp}");
+    assert!(resp["notCreated"]["f"].is_object(), "{resp}");
+}
+
 #[tokio::test]
 async fn filenode_set_moves_role_between_directories_in_one_call() {
     let backend = backend_with_role_dir();
@@ -4357,6 +4375,52 @@ async fn filenode_set_removing_role_directory_with_ancestor_forbidden() {
         roles_of(&backend, &["docs", "plain", "nested"]).await,
         [json!("documents"), Value::Null, json!("music")]
     );
+}
+
+/// Without `onDestroyRemoveChildren`, naming a parent and its role child
+/// in one destroy must not destroy the parent: the role child is refused
+/// (-20 §5) and survives, so in the final state the parent still has a
+/// child, and -20 §3.2.3 then requires `nodeHasChildren`. Destroying the
+/// parent first would leave the child with a dangling `parentId`. Both
+/// array orders are checked, as the handler walks the array in order.
+#[tokio::test]
+async fn filenode_set_destroy_with_role_child_named_keeps_parent() {
+    for destroy in [json!(["plain", "nested"]), json!(["nested", "plain"])] {
+        let backend = backend_with_role_dir();
+        let mut nested = make_dir("nested", "nested", Some("plain"));
+        nested.role = Some(jmap_filenode_types::NodeRole::from("music"));
+        backend.seed_node(&Id::from("acc1"), nested);
+
+        let resp = set_acc1(&backend, json!({ "destroy": destroy })).await;
+        assert!(
+            resp["destroyed"].as_array().is_none_or(Vec::is_empty),
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notDestroyed"]["plain"]["type"], "nodeHasChildren",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notDestroyed"]["nested"]["type"], "forbidden",
+            "{resp}"
+        );
+
+        let HandlerOutput { primary: got, .. } = handle_filenode_get(
+            &backend,
+            &(),
+            json!({ "accountId": "acc1", "ids": ["plain", "nested"],
+                    "properties": ["parentId"] }),
+            &[],
+        )
+        .await
+        .expect("FileNode/get must succeed");
+        assert_eq!(got["notFound"], json!([]), "{got}");
+        let nested_parent = got["list"]
+            .as_array()
+            .and_then(|l| l.iter().find(|n| n["id"] == "nested"))
+            .map(|n| n["parentId"].clone());
+        assert_eq!(nested_parent, Some(json!("plain")), "{got}");
+    }
 }
 
 // ---------------------------------------------------------------------------

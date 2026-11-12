@@ -61,8 +61,10 @@ wire behaviour that a conforming peer can observe.
   whole call, so a role can move) with `invalidProperties`, and renaming,
   moving or destroying a Directory with a role (also by cascade or
   `onExists` replacement) with `forbidden`; `MemoryBackend` re-checks the
-  latter. The `chatspace`-only role gate is gone, and `spaceId` is
-  allowed on any Directory.
+  latter. Without `onDestroyRemoveChildren`, a destroy naming a Directory
+  and a role Directory below it fails the ancestor with `nodeHasChildren`,
+  as the role Directory survives. The `chatspace`-only role gate is gone,
+  and `spaceId` is allowed on any Directory.
 - **BREAKING** **jmap-chat-filenode-server**: a Space root is any
   Directory with `spaceId`, and a Space may have several.
   `check_root_create` no longer requires a role or caps a Space at one
