@@ -2587,6 +2587,45 @@ mod tests {
         );
     }
 
+    /// `timeZone` reaches the backend when the request gives only a
+    /// recurrence-override bound and requests no UTC property, since -34 §5.7
+    /// also uses it to translate a floating event's recurrence ids for
+    /// `recurrenceOverridesBefore` / `recurrenceOverridesAfter`.
+    #[tokio::test]
+    async fn calendar_event_get_forwards_time_zone_with_only_override_bound() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/get",
+            json!({
+                "accountId": "acc1",
+                "ids": null,
+                "properties": ["id", "recurrenceOverrides"],
+                "recurrenceOverridesAfter": "2025-01-01T00:00:00Z",
+                "timeZone": "Asia/Tokyo"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let Invocation {
+            arguments: args, ..
+        } = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        let recorded = backend
+            .take_last_get_args()
+            .expect("backend must have received get_args");
+        assert_eq!(
+            recorded.time_zone.as_deref(),
+            Some("Asia/Tokyo"),
+            "timeZone must be forwarded without utcStart/utcEnd: {recorded:?}"
+        );
+    }
+
     /// Oracle: §5.7 — `timeZone` MUST be passed to `compute_utc_times` (the
     /// prior implementation hardcoded `None` for `tz_hint`, ignoring the
     /// client-supplied value). When `properties` requests `utcStart`, the
