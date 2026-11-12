@@ -109,4 +109,5 @@ pub fn jmap_metadata_server::is_well_formed_metadata_path(&str) -> bool
 pub fn jmap_metadata_server::metadata_path_exists(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &str) -> bool
 pub fn jmap_metadata_server::metadata_text_contains(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_metadata_types::filter::MetadataTextMatch) -> bool
 pub fn jmap_metadata_server::metadata_text_equals(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_metadata_types::filter::MetadataTextMatch) -> bool
+pub fn jmap_metadata_server::unicode_casemap_prepare(&str) -> alloc::string::String
 pub fn jmap_metadata_server::value_depth(&serde_json::value::Value) -> u64

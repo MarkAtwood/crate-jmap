@@ -70,7 +70,7 @@ use jmap_filenode_types::{
 use jmap_metadata_server::{
     ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
     changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
-    metadata_path_exists, metadata_text_contains, metadata_text_equals,
+    metadata_path_exists, metadata_text_contains, metadata_text_equals, unicode_casemap_prepare,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_server::{
@@ -1325,14 +1325,9 @@ impl FileNodeBackend for MemoryBackend {
         self.inner.lock().unwrap().max_file_node_depth
     }
 
-    /// Case-folding algorithm: `str::to_lowercase` (Unicode simple lowercase,
-    /// locale-independent). This is the reference test-and-demo behaviour; per
-    /// the [`FileNodeBackend::find_sibling_by_name`] trait doc, the algorithm
-    /// is implementation-defined and the workspace does not standardise it.
-    /// Production backends will typically need to match the underlying
-    /// storage layer's folding rules.
-    ///
-    /// [`FileNodeBackend::find_sibling_by_name`]: crate::FileNodeBackend::find_sibling_by_name
+    /// [`crate::CaseFolding::Insensitive`] compares under
+    /// `i;unicode-casemap` (draft-ietf-jmap-filenode-20 §1.1) with
+    /// [`unicode_casemap_prepare`].
     async fn find_sibling_by_name(
         &self,
         _caller: &(),
@@ -1346,36 +1341,15 @@ impl FileNodeBackend for MemoryBackend {
             Some(s) => s,
             None => return Ok(None),
         };
-
-        let case_insensitive = matches!(folding, crate::CaseFolding::Insensitive);
-        let search_name = if case_insensitive {
-            name.to_lowercase()
-        } else {
-            name.to_owned()
-        };
-
-        for node in store.nodes.values() {
-            // Check parent_id matches.
-            let parent_matches = match (parent_id, &node.parent_id) {
-                (None, None) => true,
-                (Some(pid), Some(nid)) => pid == nid,
-                _ => false,
-            };
-            if !parent_matches {
-                continue;
-            }
-            // Check name matches.
-            let node_name = if case_insensitive {
-                node.name.to_lowercase()
-            } else {
-                node.name.clone()
-            };
-            if node_name == search_name {
-                return Ok(Some(node.id.clone()));
-            }
-        }
-
-        Ok(None)
+        let search_name = fold_name(name, folding);
+        Ok(store
+            .nodes
+            .values()
+            .find(|node| {
+                node.parent_id.as_ref() == parent_id
+                    && fold_name(&node.name, folding) == search_name
+            })
+            .map(|node| node.id.clone()))
     }
 
     /// One pass over the parent's children, then the smallest free suffix.
@@ -1390,10 +1364,7 @@ impl FileNodeBackend for MemoryBackend {
         base_name: &str,
         folding: crate::CaseFolding,
     ) -> Result<Option<String>, Self::Error> {
-        let fold = |s: &str| match folding {
-            crate::CaseFolding::Insensitive => s.to_lowercase(),
-            crate::CaseFolding::Sensitive => s.to_owned(),
-        };
+        let fold = |s: &str| fold_name(s, folding).into_owned();
         let guard = self.inner.lock().unwrap();
         let taken: std::collections::HashSet<String> = guard
             .get_or_err(account_id)
@@ -1409,6 +1380,16 @@ impl FileNodeBackend for MemoryBackend {
         Ok((1_u64..)
             .map(|n| format!("{base_name}-{n}"))
             .find(|candidate| !taken.contains(&fold(candidate))))
+    }
+}
+
+/// `name` as compared under `folding`: unchanged for
+/// [`crate::CaseFolding::Sensitive`], and for every other mode its RFC 5051
+/// §2 `i;unicode-casemap` form (draft-ietf-jmap-filenode-20 §1.1).
+fn fold_name(name: &str, folding: crate::CaseFolding) -> std::borrow::Cow<'_, str> {
+    match folding {
+        crate::CaseFolding::Sensitive => std::borrow::Cow::Borrowed(name),
+        _ => std::borrow::Cow::Owned(unicode_casemap_prepare(name)),
     }
 }
 
