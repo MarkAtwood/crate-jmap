@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-3kbu.3",
+  "title": "Use i;unicode-casemap for FileNode case-insensitive names",
+  "description": "#11 (fd99a85), draft line 73: names compare with i;unicode-casemap (RFC 5051). backend.rs:21-40,684-716 says 'implementation-defined'; memory.rs:1352,1369,1394 uses to_lowercase. Move casemap_prepare from crate-jmap-metadata-server filter.rs:197 into a shared crate and use it for CaseFolding::Insensitive.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:57.932428296Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:57.932428296Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-3kbu.3",
+      "depends_on_id": "JMAP-3kbu",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:17:58.05402748Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
