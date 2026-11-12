@@ -1,6 +1,6 @@
 //! Integration tests for `jmap-filenode-server` using MemoryBackend.
 //!
-//! All expected values are derived from the spec (draft-ietf-jmap-filenode-14),
+//! All expected values are derived from the spec (draft-ietf-jmap-filenode-20),
 //! not from the code under test.
 
 mod common;
@@ -38,7 +38,7 @@ fn make_dir(id: &str, name: &str, parent_id: Option<&str>) -> FileNode {
 
 // ---------------------------------------------------------------------------
 // Test 1: create without @type → invalidProperties
-// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 ("This MUST be provided on
+// Oracle: draft-ietf-jmap-filenode-20 §3.1.1 ("This MUST be provided on
 // creation"); -16 removed the -14 nodeType inference rule.
 // ---------------------------------------------------------------------------
 
@@ -79,7 +79,7 @@ async fn filenode_set_create_without_type_is_rejected() {
 
 // ---------------------------------------------------------------------------
 // Test 2: create with @type File but no blobId → invalidProperties
-// Oracle: draft-ietf-jmap-filenode-16 §3.1.2 (blobId MUST be provided on creation).
+// Oracle: draft-ietf-jmap-filenode-20 §3.1.3 (blobId MUST be provided on creation).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -126,7 +126,7 @@ async fn filenode_set_create_file_requires_blobid() {
 
 // ---------------------------------------------------------------------------
 // Test 3: destroy a leaf node succeeds
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 (basic destroy).
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.3 (basic destroy).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -164,7 +164,7 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
 
 // ---------------------------------------------------------------------------
 // Test 4: destroy parent with onDestroyRemoveChildren=false (default) → nodeHasChildren
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.3.
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.3.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -207,7 +207,7 @@ async fn filenode_set_destroy_parent_node_has_children() {
 
 // ---------------------------------------------------------------------------
 // Test 5: destroy with onDestroyRemoveChildren=true cascades to children
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.3.
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.3.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -259,7 +259,7 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
 // Regression for bd:JMAP-510h.12 — documents the current partial-tree
 // behaviour so a future refactor that reorders destroys cannot silently
 // regress it.
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 nodeHasChildren — MUST when
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.3 nodeHasChildren — MUST when
 // any descendant is not in the destroy set.
 // ---------------------------------------------------------------------------
 
@@ -374,7 +374,7 @@ async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
 
 // ---------------------------------------------------------------------------
 // Test 6: FileNode/get returns a created node by id
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.1.
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.1.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -439,7 +439,7 @@ async fn filenode_get_returns_created_node() {
 
 // ---------------------------------------------------------------------------
 // Test 7: fetchParents=true returns parent in the list
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.1 fetchParents.
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.1 fetchParents.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -606,7 +606,7 @@ async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
 
 // ---------------------------------------------------------------------------
 // Test 8: query with depth=1 returns directory and its direct children
-// Oracle: draft-ietf-jmap-filenode-19 §3.2.5 (depth parameter).
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.5 (depth parameter).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -653,7 +653,7 @@ async fn filenode_query_depth_one_returns_children() {
     .await
     .expect("create children must succeed");
 
-    // Query with depth=1 and no filter. -19 §3.2.5: depth is "The maximum
+    // Query with depth=1 and no filter. -20 §3.2.5: depth is "The maximum
     // depth in the tree, counted from the top level, at which a node can
     // match: nodes with a null parentId are at depth 0, their children at
     // depth 1".
@@ -689,7 +689,7 @@ async fn filenode_query_depth_one_returns_children() {
 
 // ---------------------------------------------------------------------------
 // Test 9: FileNode/changes after create shows the new id in the created list
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.2 (changes after mutation).
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.2 (changes after mutation).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -1038,10 +1038,10 @@ async fn filenode_changes_move_reports_only_the_moved_node() {
 
 // ---------------------------------------------------------------------------
 // FileNode/set create — onExists='replace' + onDestroyRemoveChildren cascade
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.3 lines 565-570 — "if the
-// replaced item is a directory which has children, then the server MUST
-// respond with a nodeHasChildren error to this action UNLESS
-// onDestroyRemoveChildren is true". Regression for bd JMAP-510h.2.
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.3 — for "replace", "If the
+// existing node has children, the operation fails with "nodeHasChildren"
+// if onDestroyRemoveChildren is false"; with it true, "destroying a node
+// also destroys all its descendants". Regression for bd JMAP-510h.2.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -1209,10 +1209,11 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
 
 // ---------------------------------------------------------------------------
 // FileNode/copy — onExists / compareCaseInsensitively / onDestroyRemoveChildren
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.4 — "This is a standard
-// Foo/copy function with the same additional top-level arguments as
-// FileNode/set, onDestroyRemoveChildren and onExists, with the same
-// behaviour." Regression for bd JMAP-510h.1.
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.4 — "This is a standard
+// Foo/copy method with the same additional top-level arguments as
+// FileNode/set (onDestroyRemoveChildren, onExists, and
+// compareCaseInsensitively), with the same behavior." Regression for bd
+// JMAP-510h.1.
 // ---------------------------------------------------------------------------
 
 use jmap_filenode_server::handle_filenode_copy;
@@ -1327,7 +1328,7 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
 
 /// MemoryBackend overrides `find_unique_name` with a single scan and no
 /// attempt cap (bd JMAP-510h.16). With "doc" and "doc-1".."doc-100" taken,
-/// the first name that does not clash (draft-ietf-jmap-filenode-16 §3.2.3)
+/// the first name that does not clash (draft-ietf-jmap-filenode-20 §3.2.3)
 /// in the `{name}-{n}` scheme is "doc-101". The trait's default loop stops
 /// at "doc-100", so this fails if the handler bypasses the override.
 #[tokio::test]
@@ -1364,7 +1365,7 @@ async fn filenode_set_rename_memory_backend_has_no_attempt_cap() {
 }
 
 /// With `compareCaseInsensitively: true`, "DOC-1" clashes with candidate
-/// "doc-1" (draft-ietf-jmap-filenode-16 §3.2.3), so the copy is named
+/// "doc-1" (draft-ietf-jmap-filenode-20 §3.2.3), so the copy is named
 /// "doc-2". Siblings under another parent do not count.
 #[tokio::test]
 async fn filenode_copy_rename_memory_backend_folds_case() {
@@ -1542,13 +1543,13 @@ async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
 
 // ---------------------------------------------------------------------------
 // FileNode/copy — `destroyed` lists the nodes onExists replacement destroyed.
-// Oracle: draft-ietf-jmap-filenode-16 L677-679: "If "replace", the existing
-// item will be destroyed.  In this case, the server MUST include the id of
-// the replaced item in the destroyed response list."; L655-657 (cascade):
-// "the server MUST include the ids of all deleted nodes in the method
-// response."; L773-775: FileNode/copy takes onExists "with the same
-// behaviour". Workspace decision (bd JMAP-510h.55): `destroyed` is omitted
-// when nothing was destroyed. Expected ids are the seeded node ids.
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.4 — copy's `destroyed` holds
+// "The ids of the FileNodes in the destination account that were
+// destroyed because onExists replaced them, including any descendants
+// removed with onDestroyRemoveChildren". Workspace decision (bd
+// JMAP-510h.55): `destroyed` is omitted when nothing was destroyed,
+// though -20 says it "is null if no FileNodes were destroyed". Expected
+// ids are the seeded node ids.
 // ---------------------------------------------------------------------------
 
 /// Sorted string ids from a response's `destroyed` array.
@@ -1637,9 +1638,8 @@ async fn filenode_copy_without_collision_omits_destroyed() {
 
 #[tokio::test]
 async fn filenode_copy_replace_with_children_without_flag_omits_destroyed() {
-    // L677-682: "if the replaced item is a Directory which has children,
-    // then the server MUST respond with a nodeHasChildren error to this
-    // action unless onDestroyRemoveChildren is true."
+    // -20 §3.2.3: "If the existing node has children, the operation
+    // fails with "nodeHasChildren" if onDestroyRemoveChildren is false".
     let backend = MemoryBackend::new()
         .with_account(&Id::from("src"))
         .with_account(&Id::from("dst"));
@@ -1721,7 +1721,7 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
 // to the copied node (not just parentId and name).
 // Oracle: RFC 8620 §5.4 — "A map of creation id to a Foo object. [...]
 // a copy of the source object with the given properties overridden."
-// draft-ietf-jmap-filenode-14 §3.2.4 incorporates by reference. Regression
+// draft-ietf-jmap-filenode-20 §3.2.4 incorporates by reference. Regression
 // for bd JMAP-510h.11.
 // ---------------------------------------------------------------------------
 
@@ -2837,7 +2837,7 @@ async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
 
 // ---------------------------------------------------------------------------
 // FileNode/set and FileNode/copy — onExists "newest" and "unchanged" removed.
-// Oracle: draft-ietf-jmap-filenode-19 §3.2.3 defines onExists null,
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.3 defines onExists null,
 // "replace" and "rename", then: "Any other value is rejected with an
 // "invalidArguments" error."  §12 (-19): "Removed the "newest" and
 // "unchanged" values of onExists."  RFC 8620 §3.6.2: a method-level error
@@ -2933,11 +2933,11 @@ async fn filenode_copy_on_exists_unchanged_is_invalid_arguments() {
 
 // ---------------------------------------------------------------------------
 // FileNode/copy — the -16 create-time @type checks apply to copies.
-// Oracle: draft-ietf-jmap-filenode-16 §3.2.4 — copy has "the same
+// Oracle: draft-ietf-jmap-filenode-20 §3.2.4 — copy has "the same
 // behaviour" and "the same additional errors as FileNode/set apply";
 // §3.1.1 (@type "MUST be provided on creation"; an @type outside
-// supportedNodeTypes is rejected with invalidProperties), §3.1.2 (blobId
-// "MUST be provided on creation"), §3.1.4 (target "MUST be provided on
+// supportedNodeTypes is rejected with invalidProperties), §3.1.3 (blobId
+// "MUST be provided on creation"), §3.1.5 (target "MUST be provided on
 // creation"). Regression for bd JMAP-4vf8.10.
 // ---------------------------------------------------------------------------
 
@@ -2983,7 +2983,7 @@ async fn filenode_copy_rejects_invalid_type_overrides() {
 // ---------------------------------------------------------------------------
 // FileNode/set — the unsupported-@type SetError names the rejected value and
 // the accepted ones. Oracle: bd JMAP-4vf8.2 (accepted values are the three
-// types draft-ietf-jmap-filenode-16 §3.1 defines).
+// types draft-ietf-jmap-filenode-20 §3.1 defines).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -3015,7 +3015,7 @@ async fn filenode_set_unsupported_type_description_names_values() {
 
 // ---------------------------------------------------------------------------
 // FileNode/set update — properties defined for another @type.
-// Oracle: draft-ietf-jmap-filenode-16 §3.1 — "An attempt to create or update
+// Oracle: draft-ietf-jmap-filenode-20 §3.1 — "An attempt to create or update
 // a FileNode that sets a property not defined for its @type to a non-null
 // value is an "invalidProperties" error.  The server MUST ignore a null
 // value for such a property, both on create and on update." Regression for
@@ -3115,7 +3115,7 @@ async fn filenode_set_update_ignores_null_other_type_properties() {
     );
 }
 
-// Oracle: draft-ietf-jmap-filenode-16 §3.1 as above; RFC 8620 §5.3 — a
+// Oracle: draft-ietf-jmap-filenode-20 §3.1 as above; RFC 8620 §5.3 — a
 // JSON-pointer patch key patches the property named by its first segment.
 // Regression for bd JMAP-4vf8.15: the pointer key bypassed the other-type
 // check and ended as serverFail.
@@ -3146,7 +3146,7 @@ async fn filenode_set_update_rejects_other_type_pointer_key() {
 // Oracle: RFC 8620 §5.3 — "All parts prior to the last ... MUST already
 // exist on the object being patched", else the update "MUST be rejected
 // with an "invalidPatch" error". A Directory has no mediaType, so a null
-// pointer patch into it is invalidPatch; the draft-ietf-jmap-filenode-16
+// pointer patch into it is invalidPatch; the draft-ietf-jmap-filenode-20
 // §3.1 ignore rule covers only a null value for the property itself (the
 // control). Regression for bd JMAP-4vf8.18.
 #[tokio::test]
@@ -3183,7 +3183,7 @@ async fn filenode_set_update_null_other_type_pointer_key_is_invalid_patch() {
     );
 }
 
-// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — "@type: "String"
+// Oracle: draft-ietf-jmap-filenode-20 §3.1.1 — "@type: "String"
 // (immutable) ... Attempting to change @type after creation is an
 // "invalidProperties" error." Regression for bd JMAP-4vf8.16.
 #[tokio::test]
@@ -3225,7 +3225,7 @@ async fn filenode_set_update_rejects_type_change() {
 // ---------------------------------------------------------------------------
 // Invalid create with onExists must not destroy the colliding node.
 // Oracle: RFC 8620 §5.3 "Each creation, modification, or destruction of an
-// object is considered an atomic unit"; draft-ietf-jmap-filenode-16 §3.1:
+// object is considered an atomic unit"; draft-ietf-jmap-filenode-20 §3.1:
 // "An attempt to create [...] a FileNode that sets a property not defined
 // for its @type to a non-null value is an "invalidProperties" error."
 // ---------------------------------------------------------------------------
@@ -3281,12 +3281,12 @@ async fn filenode_set_create_invalid_replace_keeps_existing() {
 
 // ---------------------------------------------------------------------------
 // Create rejects non-null properties of another @type; null is ignored.
-// Oracle: draft-ietf-jmap-filenode-16 §3.1: "An attempt to create or update
+// Oracle: draft-ietf-jmap-filenode-20 §3.1: "An attempt to create or update
 // a FileNode that sets a property not defined for its @type to a non-null
 // value is an "invalidProperties" error.  The server MUST ignore a null
 // value for such a property, both on create and on update."
-// mediaType/executable are File properties (§3.1.2), role is a Directory
-// property (§3.1.3).
+// mediaType/executable are File properties (§3.1.3), role is a Directory
+// property (§3.1.4).
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -3371,7 +3371,7 @@ async fn filenode_copy_rejects_other_type_property() {
     assert_eq!(err["properties"], json!(["executable"]), "{resp}");
 }
 
-// Oracle: draft-ietf-jmap-filenode-19 §3.1 — "Properties that this document
+// Oracle: draft-ietf-jmap-filenode-20 §3.1 — "Properties that this document
 // defines for one type MUST NOT appear on a FileNode of another type; they
 // are omitted rather than set to null." Only a property the client sets is
 // an error: one the source carries but the overriding @type does not
@@ -3437,7 +3437,7 @@ async fn filenode_copy_type_override_drops_source_type_properties() {
 
 // ---------------------------------------------------------------------------
 // Container properties on a File or SymLink.
-// Oracle: draft-ietf-jmap-filenode-19 §3.1.2 — isSubscribed and shareWith
+// Oracle: draft-ietf-jmap-filenode-20 §3.1.2 — isSubscribed and shareWith
 // "are defined for every FileNode whose @type permits children; of the types
 // defined in this document, only "Directory" does.  They do not appear on
 // other nodes". §3.1 — "An attempt to create or update a FileNode that sets
@@ -3608,10 +3608,10 @@ async fn create_nodes(backend: &MemoryBackend, create: serde_json::Value) -> Vec
         .collect()
 }
 
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — modified: "If the client
-/// sets modified to null, the server MUST set it to the current server
-/// time." accessed: "If set to null, the server MUST set it to the current
-/// server time."
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.1 — modified and accessed are
+/// "UTCDate" "(default: current server time)", and §3.1: "setting a
+/// property that has a default value to null, on create or update, sets it
+/// to that default".
 #[tokio::test]
 async fn filenode_set_update_null_modified_accessed_sets_server_time() {
     let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
@@ -3655,8 +3655,8 @@ async fn filenode_set_update_null_modified_accessed_sets_server_time() {
     }
 }
 
-/// Oracle: draft-ietf-jmap-filenode-19 §3.1.2 — "Setting blobId to null is
-/// an "invalidProperties" error."; §3.1.4 — "Setting target to null is an
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.3 — "Setting blobId to null is
+/// an "invalidProperties" error."; §3.1.5 — "Setting target to null is an
 /// "invalidProperties" error." (mediaType left this list in filenode-17; see
 /// `filenode_set_null_media_type_resets_to_default`.)
 #[tokio::test]
@@ -3709,7 +3709,7 @@ async fn filenode_set_update_null_type_property_is_invalid_properties() {
     }
 }
 
-/// Oracle: draft-ietf-jmap-filenode-19 §3.1.2 — mediaType: "If not provided
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.3 — mediaType: "If not provided
 /// on creation, or if set to null, the server sets it to
 /// "application/octet-stream"."; Changes, -17: "Setting mediaType to null
 /// now resets it to "application/octet-stream" rather than being an error."
@@ -3766,7 +3766,7 @@ async fn filenode_set_null_media_type_resets_to_default() {
     }
 }
 
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — name: "String" ... "This
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.1 — name: "String" ... "This
 /// MUST be a Net-Unicode string [UNICODE] of at least 1 character in
 /// length"; RFC 8620 §5.3 — "invalidProperties": "The record given is
 /// invalid in some way."
@@ -3806,7 +3806,7 @@ async fn filenode_set_update_null_name_is_invalid_properties() {
 /// Oracle: RFC 8620 §5.3 — "invalidProperties": "The record given is
 /// invalid in some way. For example: It contains properties that are
 /// invalid according to the type specification of this record type."
-/// draft-ietf-jmap-filenode-16 §3.1.1 types name as "String" and §3.1.2
+/// draft-ietf-jmap-filenode-20 §3.1.1 types name as "String" and §3.1.3
 /// types executable as "Boolean".
 #[tokio::test]
 async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
@@ -3858,7 +3858,7 @@ async fn filenode_set_update_wrong_typed_value_is_invalid_properties() {
     }
 }
 
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 — created: "UTCDate"
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.1 — created: "UTCDate"
 /// "(default: current server time)"; modified: "If the client sets modified
 /// to null, the server MUST set it to the current server time." accessed:
 /// "If set to null, the server MUST set it to the current server time."
@@ -3897,9 +3897,9 @@ async fn filenode_set_create_null_modified_accessed_sets_server_time() {
     }
 }
 
-/// Oracle: draft-ietf-jmap-filenode-16 §3.1.1 "created: \"UTCDate\"
-/// (default: current server time)", "isSubscribed: \"Boolean\" (default:
-/// true)", §3.1.2 "executable: \"Boolean\" (default: false)"; RFC 8620
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1.1 "created: \"UTCDate\"
+/// (default: current server time)", §3.1.2 "isSubscribed: \"Boolean\"
+/// (default: true)", §3.1.3 "executable: \"Boolean\" (default: false)"; RFC 8620
 /// §5.3 PatchObject: "If null, set to the default value if specified for
 /// this property".
 #[tokio::test]

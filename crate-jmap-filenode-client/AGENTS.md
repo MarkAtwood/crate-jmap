@@ -7,7 +7,7 @@ extension-client template**. Module layout, `Jmap*Ext` extension-trait
 shape, `SessionClient` shape, `with_*_session` accessor, `/get` and
 `/set` builder patterns, Id-validation helpers, doc-comment style,
 and test layout must mirror `jmap-mail-client`. Differences are
-*only* the spec content (draft-ietf-jmap-filenode-13 here; RFC 8621
+*only* the spec content (draft-ietf-jmap-filenode-20 here; RFC 8621
 in mail-client).
 
 **The propagation rule** (workspace AGENTS.md "Canonical Templates"):
@@ -24,7 +24,7 @@ in mail-client).
 
 ## What This Is
 
-JMAP FileNode extension client methods (draft-ietf-jmap-filenode-13)
+JMAP FileNode extension client methods (draft-ietf-jmap-filenode-20)
 on top of `jmap-base-client`. Implements `FileNode/*` including
 `/get`, `/changes`, `/set`, `/query`, `/queryChanges`, `/copy`,
 and the FileNode-specific subtree traversal methods.
@@ -52,7 +52,7 @@ Run all four before considering any work done.
 
 ## Source Material
 
-- `~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-13.txt`
+- `~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-20.txt`
   — normative for all method signatures, arguments, and response
   fields
 - `~/PROJECT/IETF/specs/rfc8620.txt` — base

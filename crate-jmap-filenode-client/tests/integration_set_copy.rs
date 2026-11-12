@@ -1,8 +1,8 @@
 //! Wiremock integration tests for FileNode/set and FileNode/copy.
 //!
 //! Oracle for all response shapes:
-//!   - draft-ietf-jmap-filenode-16 §3.2.3 (set), §3.2.4 (copy).
-//!   - draft-ietf-jmap-filenode-16 §3.1.5 FileNode examples for the
+//!   - draft-ietf-jmap-filenode-20 §3.2.3 (set), §3.2.4 (copy).
+//!   - draft-ietf-jmap-filenode-20 §3.1.6 FileNode examples for the
 //!     created node objects.
 //!   - RFC 8620 §5.3 SetResponse envelope.
 
@@ -24,10 +24,10 @@ use jmap_filenode_client::{FileNodeCopyParams, FileNodeOnExists, FileNodeSetPara
 /// FileNode/set with FileNodeSetParams sends onDestroyRemoveChildren and onExists
 /// as top-level arguments in the request.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.2.3 — onDestroyRemoveChildren (Boolean),
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.3 — onDestroyRemoveChildren (Boolean),
 /// onExists (String|null), compareCaseInsensitively (Boolean) are top-level
 /// arguments on the FileNode/set method call, not nested inside a create object.
-/// The created node follows the §3.1.5 directory example "n1": `@type` is
+/// The created node follows the §3.1.6 directory example "n1": `@type` is
 /// `"Directory"` and file/symlink properties are omitted.
 #[tokio::test]
 async fn filenode_set_create_with_params() {
@@ -137,7 +137,7 @@ async fn filenode_set_create_with_params() {
 /// FileNode/set with destroy returns notDestroyed when the server rejects the
 /// destroy because the node still has children.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 §3.2.3 — "nodeHasChildren" is returned
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.3 — "nodeHasChildren" is returned
 /// when a destroy was attempted on a FileNode that has children and
 /// onDestroyRemoveChildren is false. RFC 8620 §5.3 SetError shape.
 #[tokio::test]
@@ -204,9 +204,9 @@ async fn filenode_set_destroy_node_has_children_error() {
 /// FileNode/copy with onExists=Some(FileNodeOnExists::Rename) sends fromAccountId
 /// and onExists="rename" in the request.
 ///
-/// Oracle: RFC 8620 §5.4 — fromAccountId is required; draft-ietf-jmap-filenode-16
+/// Oracle: RFC 8620 §5.4 — fromAccountId is required; draft-ietf-jmap-filenode-20
 /// §3.2.4 — onExists controls collision handling for copied nodes, as on
-/// FileNode/set. The created node follows the §3.1.5 file example "n3":
+/// FileNode/set. The created node follows the §3.1.6 file example "n3":
 /// `@type` is `"File"` and directory/symlink properties are omitted.
 #[tokio::test]
 async fn filenode_copy_with_on_exists_rename() {
@@ -331,9 +331,9 @@ async fn filenode_copy_with_on_exists_rename() {
 /// A FileNode/copy response carrying `destroyed` decodes into
 /// `SetResponse::destroyed`, and one without it decodes as empty.
 ///
-/// Oracle: draft-ietf-jmap-filenode-16 L677-679 ("the server MUST include
-/// the id of the replaced item in the destroyed response list"), applied to
-/// FileNode/copy by L773-775; workspace decision bd JMAP-510h.55 omits the
+/// Oracle: draft-ietf-jmap-filenode-20 §3.2.4, `destroyed`: "The ids of
+/// the FileNodes in the destination account that were destroyed because
+/// onExists replaced them"; workspace decision bd JMAP-510h.55 omits the
 /// field when empty. Response bodies are hand-written.
 #[tokio::test]
 async fn filenode_copy_decodes_destroyed() {

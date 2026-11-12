@@ -1,4 +1,4 @@
-//! JMAP FileNode extension method handlers (draft-ietf-jmap-filenode-19).
+//! JMAP FileNode extension method handlers (draft-ietf-jmap-filenode-20).
 //!
 //! # Usage
 //!
@@ -80,7 +80,7 @@ pub use jmap_filenode_types::JMAP_FILENODE_URI;
 /// # Re-registration semantics
 ///
 /// This function calls [`Dispatcher::register`] once per
-/// draft-ietf-jmap-filenode-16 method name. `Dispatcher::register`
+/// draft-ietf-jmap-filenode-20 method name. `Dispatcher::register`
 /// **silently overwrites** any pre-existing handler under the same
 /// method name (the underlying primitive is `HashMap::insert`). Three
 /// consequences callers MUST be aware of:

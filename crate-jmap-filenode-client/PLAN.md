@@ -1,6 +1,6 @@
 # jmap-filenode-client — Implementation Plan
 
-JMAP FileNode extension (draft-ietf-jmap-filenode-13) method implementations on top
+JMAP FileNode extension (draft-ietf-jmap-filenode-20) method implementations on top
 of `jmap-base-client`.
 
 ## Crate Family Position
@@ -39,7 +39,7 @@ Design pattern to follow:
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs/outputs are
   structured and how `JmapRequestBuilder` is used
 
-Normative spec: `~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-13.txt`
+Normative spec: `~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-20.txt`
 
 ## Extension Trait Pattern
 
@@ -305,7 +305,7 @@ and propagate across all extension-client siblings in lock-step.
 
 - All tests use `wiremock` via `jmap-base-client`'s HTTP layer — no live network
 - Request serialization tests: construct a typed request, verify JSON matches
-  draft-ietf-jmap-filenode-13 examples and field names
+  draft-ietf-jmap-filenode-20 examples and field names
 - Response deserialization tests: feed spec-grounded JSON, verify typed structs
 - The capability example JSON from §2.1.1 is the primary oracle for `FileNodeCapability`
   deserialization

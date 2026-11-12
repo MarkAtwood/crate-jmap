@@ -28,7 +28,7 @@ fn assert_strict<T: DeserializeOwned>(known: Value, typo: Value) {
     }
 }
 
-/// draft-ietf-jmap-filenode-16 §3.2.5 FileNode/query FilterCondition:
+/// draft-ietf-jmap-filenode-20 §3.2.5 FileNode/query FilterCondition:
 /// `isTopLevel`, `ancestorId`.
 #[test]
 fn file_node_filter_condition_is_strict() {

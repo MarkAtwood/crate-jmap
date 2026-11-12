@@ -398,7 +398,7 @@ impl MemoryBackend {
     /// -05 §4.1 names FileNode among the types with `myRights`, so an
     /// update that writes `metadata` needs `myRights.maySetMetadata`: on
     /// the node itself, or for a `File` or `SymLink`, which has no
-    /// `myRights`, on its parent (draft-ietf-jmap-filenode-19 §5). An
+    /// `myRights`, on its parent (draft-ietf-jmap-filenode-20 §5). An
     /// absent `maySetMetadata` allows the write (fail-open, JMAP-bghk).
     /// A metadata-only change leaves `changed` alone, as -05 §2.2 requires.
     ///
@@ -422,7 +422,7 @@ impl MemoryBackend {
         self
     }
 
-    /// Give every account the draft-ietf-jmap-filenode-19 `maxFileNodeDepth`
+    /// Give every account the draft-ietf-jmap-filenode-20 `maxFileNodeDepth`
     /// `max`, which [`FileNodeBackend::max_file_node_depth`] reports and the
     /// handlers enforce. Without this call there is no limit (`null`).
     #[must_use]
@@ -1133,7 +1133,7 @@ impl FileNodeBackend for MemoryBackend {
             ))
         })?;
 
-        // draft-ietf-jmap-filenode-19 §5: "A node whose @type does not
+        // draft-ietf-jmap-filenode-20 §5: "A node whose @type does not
         // permit children has no myRights. The user's rights on it are
         // those in its parent's myRights".
         let rights_node = match node.node_type {
@@ -1956,7 +1956,7 @@ fn glob_match_inner(p: &[char], pi: usize, t: &[char], ti: usize) -> bool {
 /// RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically valid, but
 /// includes a property the server does not support sorting on, or a
 /// collation method it does not recognise." `tree` is rejected because
-/// draft-ietf-jmap-filenode-16 §3.2.5 defines no descending tree order;
+/// draft-ietf-jmap-filenode-20 §3.2.5 defines no descending tree order;
 /// strings compare byte-wise, so `i;octet` (RFC 4790 §9.3) is the only
 /// collation accepted.
 fn check_sort(sort: &[FileNodeComparator]) -> Result<(), JmapError> {
@@ -1980,7 +1980,7 @@ fn check_sort(sort: &[FileNodeComparator]) -> Result<(), JmapError> {
 
 /// Order two nodes by `sort` (already passed through [`check_sort`]).
 ///
-/// draft-ietf-jmap-filenode-16 §3.2.5: a node lacking the property sorts
+/// draft-ietf-jmap-filenode-20 §3.2.5: a node lacking the property sorts
 /// before one that has it when ascending, and two lacking it fall through
 /// to the next Comparator — exactly `Option`'s `None < Some` ordering.
 /// `nodeType` puts Directories first, then symlinks, then files, then
@@ -2061,7 +2061,7 @@ mod tests {
     }
 
     /// Oracle: the wire strings `"home"` / `"File"` in hand-written JSON
-    /// (draft-ietf-jmap-filenode-16 §3.2.5: `nodeType` and `role` are exact
+    /// (draft-ietf-jmap-filenode-20 §3.2.5: `nodeType` and `role` are exact
     /// matches). A hand-built `NodeRole::Other("home")` carries the same
     /// wire string as `NodeRole::Home`, so it must match a Home node too.
     #[test]
@@ -2303,7 +2303,7 @@ mod tests {
         let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
 
         // Seed a Directory with shareWith already populated (one entry,
-        // "existing"); draft-ietf-jmap-filenode-19 §3.1.2 defines shareWith
+        // "existing"); draft-ietf-jmap-filenode-20 §3.1.2 defines shareWith
         // only on nodes whose @type permits children.
         // This makes the path-style mutations exercise both add (new userId)
         // and remove (existing userId → null) branches without first having
@@ -2560,7 +2560,7 @@ mod sort_tests {
     use super::*;
     use serde_json::json;
 
-    /// Oracle: draft-ietf-jmap-filenode-16 §3.2.5 — "Directories sort
+    /// Oracle: draft-ietf-jmap-filenode-20 §3.2.5 — "Directories sort
     /// first, then symlinks, then files, then nodes of any other @type
     /// ordered by the @type value", and "nodes without the property sort
     /// before nodes that have it when isAscending is true. Nodes that lack

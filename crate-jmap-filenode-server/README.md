@@ -2,7 +2,7 @@
 
 ## What it is
 
-JMAP FileNode ([draft-ietf-jmap-filenode-19]) method handlers and the
+JMAP FileNode ([draft-ietf-jmap-filenode-20]) method handlers and the
 `FileNodeBackend` trait. Plugs into [`jmap-server`]'s `Dispatcher`. Implements
 all 6 FileNode method names. Storage-agnostic — consumers implement the
 `FileNodeBackend` trait for their own data layer.
@@ -57,7 +57,7 @@ be shared with other parts of your application.
 
 ## Registered methods
 
-All 6 method names from draft-ietf-jmap-filenode-19 §3.2 are registered:
+All 6 method names from draft-ietf-jmap-filenode-20 §3.2 are registered:
 
 | Object | Methods |
 |---|---|
@@ -190,7 +190,7 @@ The reference `memory::MemoryBackend` does **not** implement any of
 the checks below — it returns `None` from `principal_id` and stores
 whatever the handler hands it. Production backends MUST implement each
 of the following or they will silently accept JMAP requests that
-draft-ietf-jmap-filenode-19 mandates the server to reject. ACL denials
+draft-ietf-jmap-filenode-20 mandates the server to reject. ACL denials
 are `forbidden` SetErrors.
 
 Rights are the `FilesRights` in `myRights` (§3.1.2): "the union of the
@@ -274,10 +274,10 @@ reference impl.
 ### FileNode/set create — @type validation
 
 Every creation object MUST include `@type` (`"File"`, `"Directory"`, or `"SymLink"`); the
-handler does not infer it (draft-ietf-jmap-filenode-16 §3.1.1). A create with `@type`
+handler does not infer it (draft-ietf-jmap-filenode-20 §3.1.1). A create with `@type`
 absent or null fails with `invalidProperties` and `properties: ["@type"]`, as does a create
 whose `@type` is not one of those three values. The handler then validates the
-type-specific properties (§3.1.2–§3.1.4): a `"File"` requires `blobId` and must not set
+type-specific properties (§3.1.3–§3.1.5): a `"File"` requires `blobId` and must not set
 `target`; a `"Directory"` must not set `blobId` or `target`; a `"SymLink"` requires a
 non-empty `target` and must not set `blobId`. A violation is `invalidProperties` naming the
 offending property. For `"File"` nodes, `blob_exists` is called to confirm the referenced
@@ -311,7 +311,7 @@ When a new node's name collides with an existing sibling (detected via `find_sib
 - `onExists: "rename"` — the handler iterates through suffixed names (`name-1`, `name-2`, …)
   up to 100 attempts until a unique name is found. Beyond 100 attempts, `serverFail` is returned.
 - Any other value, including `"newest"` and `"unchanged"` (removed in
-  draft-ietf-jmap-filenode-19), is rejected with `invalidArguments`.
+  draft-ietf-jmap-filenode-20), is rejected with `invalidArguments`.
 
 ### FileNode/set destroy — nodeHasChildren guard and cascade
 
@@ -335,7 +335,7 @@ requested node ID and appends the results (deduplicated by ID) to the response `
 
 ### FileNode/query — depth parameter
 
-`depth` (draft-ietf-jmap-filenode-19 §3.2.5) is the maximum depth, counted from the top
+`depth` (draft-ietf-jmap-filenode-20 §3.2.5) is the maximum depth, counted from the top
 level, at which a node can match: top-level nodes are at depth 0. It limits the results
 whatever the filter; `parentId` and `ancestorId` never change where it is counted from.
 Absent or `null` means no limit and delegates to the generic `/query` handler. With a
@@ -422,9 +422,9 @@ until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-filenode-19]** — JMAP FileNode (normative for all method semantics)
+- **[draft-ietf-jmap-filenode-20]** — JMAP FileNode (normative for all method semantics)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference, `/set` response shape)
 
-[draft-ietf-jmap-filenode-19]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/19/
+[draft-ietf-jmap-filenode-20]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/20/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server

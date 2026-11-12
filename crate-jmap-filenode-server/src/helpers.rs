@@ -43,7 +43,7 @@ pub(crate) struct SetAccumulators {
 /// to omitted), every server crate updates at once.
 ///
 /// `FileNode/copy` deliberately does NOT use this helper: it is a `/copy`
-/// method (draft-ietf-jmap-filenode-13 §3.2.4) with a different envelope
+/// method (draft-ietf-jmap-filenode-20 §3.2.4) with a different envelope
 /// shape — it carries `fromAccountId` and only `created`/`notCreated`,
 /// not the full six-bucket `/set` envelope.
 ///

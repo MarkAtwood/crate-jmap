@@ -354,7 +354,7 @@ async fn create_needs_may_add_children_on_the_parent() {
 }
 
 /// L161: only a Directory has `myRights`; a File takes its parent's.
-/// draft-ietf-jmap-filenode-19 §3.2.3 makes "a node the child of a node
+/// draft-ietf-jmap-filenode-20 §3.2.3 makes "a node the child of a node
 /// whose @type does not permit children" an error, so no role adds a
 /// child to a File.
 #[tokio::test]

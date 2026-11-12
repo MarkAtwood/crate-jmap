@@ -1,6 +1,6 @@
 # jmap-filenode-server — Implementation Plan
 
-JMAP FileNode extension (draft-ietf-jmap-filenode-16) method handlers. Plugs into
+JMAP FileNode extension (draft-ietf-jmap-filenode-20) method handlers. Plugs into
 `jmap-server`'s `Dispatcher`. Backend-agnostic: defines a `FileNodeBackend` trait;
 consumers provide the implementation.
 
@@ -16,7 +16,7 @@ jmap-types
 ## What This Crate Is
 
 Method handler implementations for every JMAP FileNode method defined in
-draft-ietf-jmap-filenode-16: `FileNode/get`, `FileNode/changes`, `FileNode/set`,
+draft-ietf-jmap-filenode-20: `FileNode/get`, `FileNode/changes`, `FileNode/set`,
 `FileNode/copy`, `FileNode/query`, `FileNode/queryChanges`.
 
 Defines a `FileNodeBackend` trait that the application implements. The crate handles
@@ -38,7 +38,7 @@ handling, fetchParents expansion). The backend handles storage.
 
 ### Normative
 
-`~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-16.txt` — read the
+`~/PROJECT/IETF/specs/draft-ietf-jmap-filenode-20.txt` — read the
 relevant section before implementing each handler. Wire field names, error codes,
 and behavioral requirements come from the spec, not from memory.
 

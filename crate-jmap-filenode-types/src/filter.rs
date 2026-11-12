@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-filenode-16 §3.2.5 — FileNode/query filter condition.
+//! draft-ietf-jmap-filenode-20 §3.2.5 — FileNode/query filter condition.
 //!
 //! Provides [`FileNodeFilterCondition`] and [`FileNodeComparator`].
 
@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::filenode::{NodeRole, NodeType};
 
-/// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-16 §3.2.5).
+/// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-20 §3.2.5).
 ///
 /// All fields are optional; a condition with no fields set matches every FileNode.
 /// A node matches only when every provided field matches.
@@ -143,7 +143,7 @@ pub struct FileNodeFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body: Option<String>,
 
-    /// draft-ietf-jmap-filenode-19 §3.2.5: "Matches a node if the _body_
+    /// draft-ietf-jmap-filenode-20 §3.2.5: "Matches a node if the _body_
     /// condition with this value matches, or if its name or mediaType
     /// contains this value, compared case-insensitively."  A substring
     /// match, not the `nameMatch` / `mediaTypeMatch` glob that -16 used.
@@ -196,7 +196,7 @@ impl FileNodeFilterCondition {
     }
 }
 
-/// Concrete filter type for FileNode/query (draft-ietf-jmap-filenode-16 §3.2.5).
+/// Concrete filter type for FileNode/query (draft-ietf-jmap-filenode-20 §3.2.5).
 ///
 /// Alias for `jmap_types::Filter<FileNodeFilterCondition>` provided
 /// so callers do not have to reach into `jmap-types` directly. Mirrors the
@@ -208,7 +208,7 @@ pub type FileNodeFilter = jmap_types::Filter<FileNodeFilterCondition>;
 
 /// The property to sort by in a [`FileNodeComparator`].
 ///
-/// draft-ietf-jmap-filenode-16 §3.2.5 adds the `tree` and `nodeType` sort
+/// draft-ietf-jmap-filenode-20 §3.2.5 adds the `tree` and `nodeType` sort
 /// properties; the §1 capability example lists `name`, `mediaType`,
 /// `size`, `created` and `modified` as well. A server advertises what it
 /// supports in `fileNodeQuerySortOptions`. Unknown names are kept in
@@ -249,7 +249,7 @@ impl_string_enum!(FileNodeComparatorProperty, "a FileNode sort property string",
     "tree"      => Tree,
 );
 
-/// Comparator for `FileNode/query` (draft-ietf-jmap-filenode-16 §3.2.5).
+/// Comparator for `FileNode/query` (draft-ietf-jmap-filenode-20 §3.2.5).
 ///
 /// Build one with [`FileNodeComparator::new`]; the struct is
 /// `#[non_exhaustive]`. It carries no flatten-extras field: backends
@@ -295,7 +295,7 @@ mod comparator_tests {
     use super::*;
 
     /// Oracle: the `fileNodeQuerySortOptions` example in
-    /// draft-ietf-jmap-filenode-16 §1 ("name", "mediaType", "size",
+    /// draft-ietf-jmap-filenode-20 §2.1.1 ("name", "mediaType", "size",
     /// "created", "modified", "nodeType", "tree"); every listed name is a
     /// known variant and re-serializes unchanged.
     #[test]

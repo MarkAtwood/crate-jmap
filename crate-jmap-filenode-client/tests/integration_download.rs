@@ -40,7 +40,7 @@ fn node(value: serde_json::Value) -> FileNode {
     serde_json::from_value(value).expect("fixture must deserialize as a FileNode")
 }
 
-/// A `File` node (draft-ietf-jmap-filenode-16 §3.1 file properties) carrying
+/// A `File` node (draft-ietf-jmap-filenode-20 §3.1 file properties) carrying
 /// the given `sha256`.
 fn file_node(sha256: serde_json::Value) -> FileNode {
     node(json!({

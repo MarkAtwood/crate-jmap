@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-filenode-16 §3.1 — FileNode object and component types.
+//! draft-ietf-jmap-filenode-20 §3.1 — FileNode object and component types.
 //!
 //! Provides [`FileNode`], [`NodeType`], [`NodeRole`], and [`FilesRights`].
 
@@ -8,7 +8,7 @@ use jmap_cid_types::Sha256;
 use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize, Serializer};
 
-/// The `@type` of a FileNode (draft-ietf-jmap-filenode-16 §3.1.1, IANA "JMAP FileNode
+/// The `@type` of a FileNode (draft-ietf-jmap-filenode-20 §3.1.1, IANA "JMAP FileNode
 /// Types" registry §11.5).
 ///
 /// Values are registered strings.  Any unrecognised value is preserved as
@@ -16,11 +16,11 @@ use serde::{Deserialize, Serialize, Serializer};
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NodeType {
-    /// `"File"`: regular file with blob content (§3.1.2).
+    /// `"File"`: regular file with blob content (§3.1.3).
     File,
-    /// `"Directory"`: collection that may contain child nodes (§3.1.3).
+    /// `"Directory"`: collection that may contain child nodes (§3.1.4).
     Directory,
-    /// `"SymLink"`: symbolic link to another path in the tree (§3.1.4).
+    /// `"SymLink"`: symbolic link to another path in the tree (§3.1.5).
     Symlink,
     /// Any node type string not recognised by this implementation.
     ///
@@ -47,9 +47,9 @@ impl NodeType {
 }
 
 /// Special role identifying a directory's common purpose
-/// (draft-ietf-jmap-filenode-16 §3.1.3, IANA "JMAP FileNode Roles" registry §11.6).
+/// (draft-ietf-jmap-filenode-20 §3.1.4, IANA "JMAP FileNode Roles" registry §11.6).
 ///
-/// Clients MUST ignore unrecognised role values (§3.1.3).  Unknown values are preserved
+/// Clients MUST ignore unrecognised role values (§3.1.4).  Unknown values are preserved
 /// as [`NodeRole::Other`] so they round-trip correctly.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -107,7 +107,7 @@ impl NodeRole {
 }
 
 /// ACL rights the authenticated user (or a shared user) holds for a FileNode
-/// (draft-ietf-jmap-filenode-16 §3.1.1, `myRights` description).
+/// (draft-ietf-jmap-filenode-20 §3.1.2, `myRights` description).
 ///
 /// `Default` produces all-false (no access), which is the most restrictive valid
 /// value and a safe starting point when constructing rights in tests or server code.
@@ -145,7 +145,7 @@ pub struct FilesRights {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A JMAP FileNode object (draft-ietf-jmap-filenode-16 §3.1).
+/// A JMAP FileNode object (draft-ietf-jmap-filenode-20 §3.1).
 ///
 /// ## Type-specific properties
 ///
@@ -171,7 +171,7 @@ pub struct FilesRights {
 ///
 /// ## Container properties
 ///
-/// draft-ietf-jmap-filenode-19 §3.1.2 defines `isSubscribed`, `myRights` and
+/// draft-ietf-jmap-filenode-20 §3.1.2 defines `isSubscribed`, `myRights` and
 /// `shareWith` "for every FileNode whose @type permits children; of the types
 /// defined in this document, only "Directory" does.  They do not appear on
 /// other nodes, whose rights come from their parent".  A `File` or `SymLink`
@@ -194,8 +194,8 @@ pub struct FilesRights {
 ///
 /// ## `blob_id` lifetime guarantee
 ///
-/// A blob referenced by a FileNode MUST NOT be garbage-collected by the server while
-/// the FileNode exists (§3.1.2).  The server backend must enforce this invariant.
+/// "A blob referenced by a FileNode MUST NOT be expired or garbage collected by the
+/// server while the FileNode exists" (§3.1.3).  The server backend must enforce this invariant.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -294,7 +294,7 @@ pub struct FileNode {
     /// Whether the current user is subscribed to this node.  Default: true.
     ///
     /// Per-user property.  `None` serializes as `true`.  Only on nodes whose
-    /// `@type` permits children (-19 §3.1.2); never emitted on a `File` or
+    /// `@type` permits children (-20 §3.1.2); never emitted on a `File` or
     /// `SymLink`.
     pub is_subscribed: Option<bool>,
 
@@ -302,7 +302,7 @@ pub struct FileNode {
     ///
     /// Absent from wire when `None`.  Only on nodes whose `@type` permits
     /// children: a `File` or `SymLink` has none, and the user's rights on it
-    /// "are those in its parent's myRights" (-19 §5).
+    /// "are those in its parent's myRights" (-20 §5).
     pub my_rights: Option<FilesRights>,
 
     /// Map of userId → rights for users this node is shared with.
@@ -310,7 +310,7 @@ pub struct FileNode {
     /// Required-and-nullable on nodes whose `@type` permits children: always
     /// present in their wire JSON, `null` when the requesting user lacks
     /// `myRights.mayShare` or the node is not shared.  Never emitted on a
-    /// `File` or `SymLink` (-19 §3.1.2).
+    /// `File` or `SymLink` (-20 §3.1.2).
     pub share_with: Option<BTreeMap<Id, FilesRights>>,
 
     /// Special role identifying this directory's purpose.  `Directory` only
@@ -429,7 +429,7 @@ impl Serialize for FileNode {
         };
         let defines = |owner: &NodeType| known.is_none_or(|t| t == owner);
         let file = defines(&NodeType::File);
-        // -19 §3.1.2: isSubscribed, myRights and shareWith "do not appear
+        // -20 §3.1.2: isSubscribed, myRights and shareWith "do not appear
         // on other nodes" than those whose @type permits children.
         let container = defines(&NodeType::Directory);
         let wire_role = match known {

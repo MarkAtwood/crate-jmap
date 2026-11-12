@@ -57,7 +57,7 @@ impl CaseFolding {
 // ---------------------------------------------------------------------------
 
 /// Storage backend for JMAP FileNode method handlers
-/// (draft-ietf-jmap-filenode-13).
+/// (draft-ietf-jmap-filenode-20).
 ///
 /// Implementors provide the actual data access; the handler module
 /// translates between the JMAP wire protocol and these backend calls.
@@ -84,11 +84,12 @@ impl CaseFolding {
 /// every write (fail-open, bd:JMAP-bghk); that suits test fixtures and
 /// single-user servers, not multi-user deployments.
 ///
-/// draft-ietf-jmap-filenode-16 §FileNode properties names the rights in
-/// `myRights`, and §Access Control derives them from the `shareWith` ACLs on
-/// a node and its ancestors: "if mayRead is set on a node, all its child
-/// nodes are also readable". A write that "would violate an ACL or other
-/// permissions policy" fails with `forbidden` (RFC 8620 §5.3), returned as
+/// draft-ietf-jmap-filenode-20 §3.1.2 names the rights in `myRights`, and
+/// §5 derives them from the `shareWith` entries on a node and its
+/// ancestors: a node's `myRights` is "the union of the rights granted to
+/// the user by the shareWith entries on the node and on all its
+/// ancestors". A write that "would violate an ACL or other permissions
+/// policy" fails with `forbidden` (RFC 8620 §5.3), returned as
 /// [`BackendSetError::SetError`]:
 ///
 /// - Create: `mayAddChildren` on the parent, or the account's
@@ -109,9 +110,9 @@ impl CaseFolding {
 ///   handler sees only the descendants [`get_descendant_ids`](Self::get_descendant_ids)
 ///   returns, so the backend refuses the destroy of their parent.
 ///
-/// draft-ietf-jmap-filenode-19 §5: these rights are checked "in the rights
+/// draft-ietf-jmap-filenode-20 §5: these rights are checked "in the rights
 /// of the node itself; for a node with no myRights, these are its parent's
-/// rights". Only a `Directory` has `myRights` of its own (-19 §3.1.2), so a
+/// rights". Only a `Directory` has `myRights` of its own (-20 §3.1.2), so a
 /// write to a `File` or `SymLink` is checked against its parent's.
 /// - Copy: the source must be discoverable in `fromAccountId`, and the copy
 ///   is a create in `accountId`.
@@ -156,7 +157,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
-    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) holds the draft-ietf-jmap-filenode-16 `myRights` the write needs, as listed under
+    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) holds the draft-ietf-jmap-filenode-20 `myRights` the write needs, as listed under
     /// "Permission enforcement (backend canonical)" on [`FileNodeBackend`],
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
@@ -178,7 +179,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// transaction with appropriate row locks, or under the same in-
     /// memory lock for non-SQL backends):
     ///
-    /// - **Name uniqueness under `parentId`** (draft-ietf-jmap-filenode-13
+    /// - **Name uniqueness under `parentId`** (draft-ietf-jmap-filenode-20
     ///   §3.2.3): no two siblings may share the same `name` under the
     ///   same `parentId`. The backend MUST return
     ///   [`BackendSetError::SetError`] carrying `SetErrorType::AlreadyExists`
@@ -368,9 +369,10 @@ pub trait FileNodeBackend: JmapBackend {
     /// re-verify the following invariants inside the same atomic
     /// boundary as the write:
     ///
-    /// - **Cycle prevention when `parentId` changes** (draft-ietf-jmap-
-    ///   filenode-13 §3.2.3): the new `parentId` MUST NOT be the node
-    ///   itself nor any of its descendants. A pre-check via
+    /// - **Cycle prevention when `parentId` changes**
+    ///   (draft-ietf-jmap-filenode-20 §3.2.3: "An attempt to move a node
+    ///   beneath itself is rejected"): the new `parentId` MUST NOT be the
+    ///   node itself nor any of its descendants. A pre-check via
     ///   [`Self::get_descendant_ids`] is not transactional with the
     ///   update — a concurrent move could change the tree shape between
     ///   the pre-check and the patch.
@@ -709,17 +711,19 @@ pub trait FileNodeBackend: JmapBackend {
 
     /// The `maxFileNodeDepth` this account advertises, or `None` for `null`.
     ///
-    /// draft-ietf-jmap-filenode-19 §Capability: "The maximum depth of the
-    /// FileNode hierarchy (that is, one more than the maximum number of
-    /// ancestors a FileNode may have), or null for no limit."
-    /// Return the value the session advertises for `account_id`.
+    /// draft-ietf-jmap-filenode-20 §2.1: "The maximum number of levels in
+    /// the FileNode hierarchy, or null for no limit. A FileNode may have at
+    /// most one fewer ancestors than this value, so 1 allows only top-level
+    /// nodes." Return the value the session advertises for `account_id`.
     ///
-    /// With `Some(max)`, `FileNode/set` create and `FileNode/copy` reject a
-    /// node whose depth would exceed `max`, and a `FileNode/set` update of
-    /// `parentId` rejects a move that would put any node of the moved
-    /// subtree deeper than `max`, each with `invalidProperties` naming
-    /// `parentId`. The draft names no error for this case; the choice
-    /// follows brong/draft-gondwana-jmap-filenode#16.
+    /// With `Some(max)`, `FileNode/set` create rejects a node that would be
+    /// deeper than `max`, and a `FileNode/set` update of `parentId` and a
+    /// `FileNode/copy` reject one that would put any node of the moved or
+    /// copied subtree deeper than `max`. -20 §3.2.3 makes this
+    /// "invalidProperties" ("a create or move that would give the node, or
+    /// any of its descendants, more ancestors than maxFileNodeDepth
+    /// allows"); the error names `parentId`, as
+    /// brong/draft-gondwana-jmap-filenode#16 proposed.
     ///
     /// The handlers count depth with [`Self::get_ancestors`] and
     /// [`Self::get_descendant_ids`], so a backend that leaves nodes the
@@ -741,12 +745,12 @@ pub trait FileNodeBackend: JmapBackend {
     /// The `myRights` the caller holds on the stored `node`, when this
     /// backend derives them from a policy outside the stored node.
     ///
-    /// draft-ietf-jmap-filenode-19 §3.1.2 makes `myRights` "server-set":
+    /// draft-ietf-jmap-filenode-20 §3.1.2 makes `myRights` "server-set":
     /// "The set of rights (ACLs) the user has in relation to this node". It
     /// is defined only on nodes whose `@type` permits children, so the
-    /// handlers ask this method only about `Directory` nodes: -19 §5 "A
+    /// handlers ask this method only about `Directory` nodes: -20 §5 "A
     /// node whose @type does not permit children has no myRights. The
-    /// user's rights on it are those in its parent's myRights". -19 §5 also
+    /// user's rights on it are those in its parent's myRights". -20 §5 also
     /// makes a node's `myRights` "the union of the rights granted to the
     /// user by the shareWith entries on the node and on all its ancestors";
     /// an override that derives rights from `shareWith` computes that union
@@ -764,7 +768,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// The handler only reports these rights. Backends enforce them in
     /// [`Self::create_object`], [`Self::update_object`] and
     /// [`Self::destroy_object`], atomically with the write, and leave
-    /// undiscoverable nodes out of their reads (draft-ietf-jmap-filenode-16
+    /// undiscoverable nodes out of their reads (draft-ietf-jmap-filenode-20
     /// §Access Control), since discoverability depends on a node's
     /// ancestors and descendants and not on its own rights alone.
     ///
@@ -833,7 +837,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// backend gives up.
     ///
     /// `FileNode/set` and `FileNode/copy` call this for `onExists`
-    /// `"rename"`. `draft-ietf-jmap-filenode-16` §3.2.3 leaves the algorithm
+    /// `"rename"`. `draft-ietf-jmap-filenode-20` §3.2.3 leaves the algorithm
     /// to the server ("using an algorithm of its choice"); on `None` the
     /// handler reports the create as failed.
     ///
@@ -872,7 +876,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// # `max_depth` semantics
     ///
     /// `max_depth` is the **number of levels below each root to include**.
-    /// This is not the draft-ietf-jmap-filenode-19 §3.2.5 `FileNode/query`
+    /// This is not the draft-ietf-jmap-filenode-20 §3.2.5 `FileNode/query`
     /// `depth` argument, which counts from the top level of the account and
     /// which `handle_filenode_query` applies itself.
     ///
