@@ -79,6 +79,13 @@ wire behaviour that a conforming peer can observe.
   go through `copy_blob`; and the implicit destroy of
   `onSuccessDestroyOriginal` always removes the originals' subtrees and
   lists every destroyed id.
+- **jmap-filenode-server**: the reference `MemoryBackend` sets the
+  server-set `changed` (draft-ietf-jmap-filenode-20 §3.1.1) on create
+  and copy, and on an update that changes a property other than
+  `isSubscribed` or the metadata properties; it never set it before. A
+  `shareWith` change also records every descendant as updated (§5). The
+  `FileNodeBackend` docs now state the -20 change-reporting and rights
+  rules (`created` needs `mayModifyContent`, `role` needs `mayRename`).
 - **jmap-filenode-server**: `CaseFolding::Insensitive` is now the
   `i;unicode-casemap` collation that draft-ietf-jmap-filenode-20 §1.1
   names for every case-insensitive name comparison, not an

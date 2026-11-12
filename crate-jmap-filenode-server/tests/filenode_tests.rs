@@ -906,6 +906,137 @@ async fn filenode_changes_truncated_new_state_is_intermediate() {
 }
 
 // ---------------------------------------------------------------------------
+// `changed` and change reporting.
+// Oracle: draft-ietf-jmap-filenode-20
+//   §3.1.1 changed: "The date the server last recorded a change to a
+//          property of this node that has the same value for every user.
+//          The server MUST automatically update this value whenever such a
+//          property is modified, including blobId, name, parentId,
+//          shareWith, executable, metadata, and the other mutable
+//          properties that are not per-user. ... A change to a per-user
+//          property (isSubscribed, or privateMetadata ...), or to the
+//          node's rights because of a change to an ancestor's shareWith or
+//          a move ..., need not update changed."
+//   §5: "A node's rights can change without any change to the node itself:
+//          through a change to shareWith on an ancestor ... The server MUST
+//          report every node whose rights for a user changed as changed in
+//          FileNode/changes for that user, including nodes that have no
+//          myRights of their own".
+// The metadata exception (draft-ietf-jmap-metadata-05 §2.2) is covered in
+// tests/metadata.rs.
+// ---------------------------------------------------------------------------
+
+const OLD_CHANGED: &str = "2020-01-01T00:00:00Z";
+
+/// acc1 with Directory `top` > Directory `sub` > Directory `leaf`, each with
+/// `changed` set to [`OLD_CHANGED`].
+fn backend_with_dated_tree() -> MemoryBackend {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    for (id, parent) in [("top", None), ("sub", Some("top")), ("leaf", Some("sub"))] {
+        let mut node = make_dir(id, id, parent);
+        node.changed = Some(jmap_types::UTCDate::from(OLD_CHANGED));
+        backend.seed_node(&Id::from("acc1"), node);
+    }
+    backend
+}
+
+async fn changed_of(backend: &MemoryBackend, id: &str) -> Value {
+    let HandlerOutput { primary, .. } = handle_filenode_get(
+        backend,
+        &(),
+        json!({ "accountId": "acc1", "ids": [id], "properties": ["changed"] }),
+        &[],
+    )
+    .await
+    .expect("get must succeed");
+    primary["list"][0]["changed"].clone()
+}
+
+#[tokio::test]
+async fn filenode_set_create_reports_server_set_changed() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let resp = changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "create": {
+            "d": { "@type": "Directory", "name": "d", "parentId": null }
+        } }),
+    )
+    .await;
+    let changed = resp["created"]["d"]["changed"]
+        .as_str()
+        .unwrap_or_else(|| panic!("server-set changed in created: {resp}"));
+    jmap_types::UTCDate::new_validated(changed).expect("a UTCDate");
+}
+
+#[tokio::test]
+async fn filenode_set_update_bumps_changed_except_per_user() {
+    let backend = backend_with_dated_tree();
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "sub": { "isSubscribed": false } } }),
+    )
+    .await;
+    assert_eq!(
+        changed_of(&backend, "sub").await,
+        OLD_CHANGED,
+        "isSubscribed is per-user"
+    );
+
+    let resp = changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "sub": { "name": "renamed" } } }),
+    )
+    .await;
+    let reported = &resp["updated"]["sub"]["changed"];
+    assert!(reported.is_string(), "{resp}");
+    assert_ne!(reported, OLD_CHANGED, "{resp}");
+    assert_eq!(&changed_of(&backend, "sub").await, reported);
+    // "Otherwise, moving or renaming a node changes only that node."
+    assert_eq!(changed_of(&backend, "leaf").await, OLD_CHANGED);
+}
+
+#[tokio::test]
+async fn filenode_changes_share_with_change_reports_subtree() {
+    let backend = backend_with_dated_tree();
+    let since = changes_state(&backend).await;
+    let rights = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
+                         "mayDelete": false, "mayModifyContent": false, "mayShare": false });
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "sub": { "shareWith": { "U2": rights } } } }),
+    )
+    .await;
+    let changes = changes_since(
+        &backend,
+        json!({ "accountId": "acc1", "sinceState": since }),
+    )
+    .await;
+    let mut updated: Vec<String> =
+        serde_json::from_value(changes["updated"].clone()).expect("updated ids");
+    updated.sort();
+    assert_eq!(updated, ["leaf", "sub"], "{changes}");
+    // The descendant's rights changed, not a property of its own.
+    assert_eq!(changed_of(&backend, "leaf").await, OLD_CHANGED);
+}
+
+#[tokio::test]
+async fn filenode_changes_move_reports_only_the_moved_node() {
+    let backend = backend_with_dated_tree();
+    let since = changes_state(&backend).await;
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "sub": { "parentId": null } } }),
+    )
+    .await;
+    let changes = changes_since(
+        &backend,
+        json!({ "accountId": "acc1", "sinceState": since }),
+    )
+    .await;
+    assert_eq!(changes["updated"], json!(["sub"]), "{changes}");
+}
+
+// ---------------------------------------------------------------------------
 // FileNode/set create — onExists='replace' + onDestroyRemoveChildren cascade
 // Oracle: draft-ietf-jmap-filenode-14 §3.2.3 lines 565-570 — "if the
 // replaced item is a directory which has children, then the server MUST
@@ -2148,6 +2279,9 @@ async fn filenode_copy_keeps_timestamps_and_drops_sharing_role_subscription() {
     assert_eq!(copy["role"], Value::Null, "{resp}");
     assert_eq!(copy["shareWith"], Value::Null, "{resp}");
     assert_eq!(copy["isSubscribed"], true, "{resp}");
+    // "a new changed value"
+    assert!(copy["changed"].is_string(), "{resp}");
+    assert_ne!(copy["changed"], "2020-01-04T00:00:00Z", "{resp}");
     // "unless the client gives others"
     assert_eq!(resp["created"]["dated"]["created"], "2024-05-05T00:00:00Z");
 }

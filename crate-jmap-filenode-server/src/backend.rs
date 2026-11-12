@@ -92,15 +92,22 @@ impl CaseFolding {
 /// [`BackendSetError::SetError`]:
 ///
 /// - Create: `mayAddChildren` on the parent, or the account's
-///   `mayCreateTopLevelFileNode` when `parentId` is null.
+///   `mayCreateTopLevelFileNode` when `parentId` is null
+///   (draft-ietf-jmap-filenode-20 §5).
 /// - Update: `mayRename` to change `name`, `parentId` (plus
 ///   `mayAddChildren` on a new parent) or `role` (draft-ietf-jmap-filenode-20
 ///   §3.1.4: "Changing role on an existing node requires mayRename on that
 ///   node"), `mayModifyContent` to change
-///   `blobId`, `mediaType`, `target`, `modified`, `accessed` or
-///   `executable`, and `mayShare` to change `shareWith`.
+///   `blobId`, `mediaType`, `target`, `created`, `modified`, `accessed` or
+///   `executable` (-20 §3.1.2), and `mayShare` to change `shareWith`. A
+///   move to the top level needs the account's `mayCreateTopLevelFileNode`
+///   in place of `mayAddChildren` (-20 §5).
 /// - Destroy: `mayDelete`, which an `onExists` replacement also needs on the
-///   existing node.
+///   existing node. -20 §3.2.3 also makes `forbidden` "a destroy that would
+///   remove nodes the user cannot discover", such as an
+///   `onDestroyRemoveChildren` cascade over a hidden descendant; the
+///   handler sees only the descendants [`get_descendant_ids`](Self::get_descendant_ids)
+///   returns, so the backend refuses the destroy of their parent.
 ///
 /// draft-ietf-jmap-filenode-19 §5: these rights are checked "in the rights
 /// of the node itself; for a node with no myRights, these are its parent's
@@ -232,6 +239,35 @@ pub trait FileNodeBackend: JmapBackend {
     /// all three under one mutex acquisition, and a database backend uses
     /// one transaction. A call that returns `Err` MUST leave the stored
     /// data, the state and the change log unchanged.
+    ///
+    /// draft-ietf-jmap-filenode-20 adds FileNode rules to that log:
+    ///
+    /// - `changed` is server-set (§3.1.1): the backend sets it on every
+    ///   create and copy ("a new changed value", §3.2.4), and on an update
+    ///   that changes a property "that has the same value for every user".
+    ///   A change to a per-user property (`isSubscribed`,
+    ///   `privateMetadata`) "need not update changed", and the server
+    ///   "SHOULD report a per-user change in FileNode/changes only to the
+    ///   users whose value changed". A metadata-only change does not update
+    ///   it either (draft-ietf-jmap-metadata-05 §2.2, which overrides -20's
+    ///   listing of `metadata`).
+    /// - "A node's rights can change without any change to the node
+    ///   itself: through a change to shareWith on an ancestor, or when the
+    ///   node or an ancestor moves to a parent whose inherited rights
+    ///   differ. The server MUST report every node whose rights for a user
+    ///   changed as changed in FileNode/changes for that user" (§5), so an
+    ///   update of `shareWith` or `parentId` records such descendants as
+    ///   updated, without touching their `changed`.
+    /// - "Otherwise, moving or renaming a node changes only that node": a
+    ///   descendant whose rights stay the same is not reported.
+    /// - "When a node stops being discoverable by the user, for example
+    ///   because a shareWith entry was removed or the node was moved out of
+    ///   a shared Directory, the server reports it as destroyed in
+    ///   FileNode/changes" for that user.
+    ///
+    /// The reference `MemoryBackend` has no users: it sets `changed` as
+    /// above, reports the whole subtree of a node whose `shareWith`
+    /// changed, and has no inherited rights that a move could change.
     fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
