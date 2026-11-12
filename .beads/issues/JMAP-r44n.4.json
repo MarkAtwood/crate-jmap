@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.4",
+  "title": "EmailPush: support AND/OR/NOT and the required FilterConditions",
+  "description": "b3e96a0 (#479): MUST support AND/OR/NOT; with urn:ietf:params:jmap:mail every Email/query FilterCondition, else at least hasKeyword, notKeyword, from, to, cc, bcc, subject, header, minSize, maxSize. Reuse the Email/query evaluator; test each condition.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:25.302923343Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:25.302923343Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.4",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:17:25.421091953Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

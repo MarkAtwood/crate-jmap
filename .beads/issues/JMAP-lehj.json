@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-lehj",
+  "title": "Sync calendars crates to draft-ietf-jmap-calendars-34 (Nov 2026 editor fixes)",
+  "description": "Neil Jenkins resolved Mark's calendars issues #446-#455 in jmapio/jmap on 2026-11-04 and bumped the editor's copy to -34 (8b1218b; not yet posted to the datatracker). Children track each change. ab49195 (isOrigin same for all users of an account) already matches: backend.rs:684-686, tests/event_origin_calendar_ids.rs:115-120. Spec source: /data/GIT/jmapio-jmap rfc/src/calendars.xml on upstream/master.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:21.560788081Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:21.560788081Z",
+  "labels": [
+    "spec-sync"
+  ]
+}

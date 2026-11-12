@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-lehj.3",
+  "title": "Reject CalendarEvent/get with utcStart/utcEnd plus recurrenceOverrides",
+  "description": "4d7d50e (#450): MUST return invalidArguments when properties requests utcStart/utcEnd together with recurrenceOverrides. Not checked: event.rs:170-173 only computes want_utc. Add the check and a test. The expandRecurrences half of the commit is already enforced (event.rs:1262-1269, test lib.rs:2189-2194).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:22.325977243Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:22.325977243Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lehj.3",
+      "depends_on_id": "JMAP-lehj",
+      "type": "parent-child",
+      "created_at": "2026-11-12T21:17:22.445184161Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

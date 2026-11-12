@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-jqgi",
+  "title": "Test PushVerification rejects non-Id pushSubscriptionId (RFC 8620 erratum 9268)",
+  "description": "RFC 8620 erratum 9268 (Matt Diephouse, 2026-11-05, Neil: should be verified) changes section 7.2.2 pushSubscriptionId from String to Id. crate-jmap-types already types it as Id (push.rs:274, validated on deserialize, id.rs:33-43) and the RFC example round-trips (tests/push_types.rs:55-69). Add a negative test (e.g. 'has space' fails) and cite eid9268 in the field doc comment.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-12T21:17:25.765236286Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-12T21:17:25.765236286Z",
+  "labels": [
+    "spec-sync"
+  ]
+}
