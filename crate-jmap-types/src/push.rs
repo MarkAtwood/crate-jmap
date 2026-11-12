@@ -271,6 +271,12 @@ impl fmt::Debug for PushKeys {
 #[derive(Clone, PartialEq, Eq)]
 pub struct PushVerification {
     /// The `pushSubscriptionId` property: the id of the new subscription.
+    ///
+    /// RFC 8620 §7.2.2 types this property as `String`; RFC 8620 erratum
+    /// 9268 (<https://www.rfc-editor.org/errata/eid9268>, reported, not yet
+    /// verified) corrects it to `Id`, matching the PushSubscription `id` it
+    /// names. It is an [`Id`], so deserializing a value outside the RFC 8620
+    /// §1.2 `Id` syntax fails.
     pub push_subscription_id: Id,
     /// The `verificationCode` property: the code the client must set on the
     /// subscription before the server sends it anything else.

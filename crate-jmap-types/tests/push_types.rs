@@ -81,6 +81,25 @@ fn push_verification_rejects_other_type() {
     assert!(serde_json::from_value::<PushVerification>(raw).is_err());
 }
 
+// RFC 8620 erratum 9268 (https://www.rfc-editor.org/errata/eid9268) changes
+// the §7.2.2 pushSubscriptionId type from "String" to "Id"; RFC 8620 §1.2
+// (rfc8620.txt:291-296) limits an Id to 1-255 octets of "A-Za-z0-9", "-"
+// and "_". A space and an empty string are each outside that syntax.
+#[test]
+fn push_verification_rejects_non_id_push_subscription_id() {
+    for bad in ["has space", ""] {
+        let raw = json!({
+            "@type": "PushVerification",
+            "pushSubscriptionId": bad,
+            "verificationCode": "da1f097b11ca17f06424e30bf02bfa67"
+        });
+        assert!(
+            serde_json::from_value::<PushVerification>(raw).is_err(),
+            "pushSubscriptionId {bad:?} is not an RFC 8620 §1.2 Id"
+        );
+    }
+}
+
 // RFC 8620 §7.2.3 (rfc8620.txt:3827-3840): the two PushSubscription objects
 // returned by the example PushSubscription/get round-trip unchanged.
 #[test]
