@@ -265,9 +265,9 @@ pub async fn create_space_file_tree<F: FileNodeBackend>(
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum TreeDestroyError<E> {
-    /// Finding the root or its descendants failed.
+    /// Finding or reading the Space file tree's nodes failed.
     Query(BackendQueryError<E>),
-    /// Destroying a FileNode failed.
+    /// Clearing the role of, or destroying, a FileNode failed.
     Destroy(BackendSetError<E>),
 }
 
@@ -299,7 +299,11 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 /// trees go with the Space and no former member can reach them afterwards.
 /// The Space roots are found with the `spaceId` `FileNode/query` filter;
 /// each descendant is destroyed before its root, as `FileNode/set` does
-/// for `onDestroyRemoveChildren`. Every node goes through
+/// for `onDestroyRemoveChildren`. A Directory in the tree that has a
+/// `role` cannot be destroyed (draft-ietf-jmap-filenode-20 §5), so its
+/// role is first cleared through [`FileNodeBackend::update_object`], as
+/// -20 §5 asks of a client; a backend that refuses to clear a role it
+/// manages fails the call. Every node goes through
 /// [`FileNodeBackend::destroy_object`], whose contract advances the
 /// FileNode state, so `FileNode/changes` lists the destroyed ids and the
 /// push channel can emit the `FileNode` state change the draft asks for
@@ -315,8 +319,9 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 ///
 /// # Errors
 ///
-/// Returns [`TreeDestroyError::Query`] if finding the nodes fails, and
-/// [`TreeDestroyError::Destroy`] for the first destroy that fails.
+/// Returns [`TreeDestroyError::Query`] if finding or reading the nodes
+/// fails, and [`TreeDestroyError::Destroy`] for the first role clear or
+/// destroy that fails.
 // Carries `FileNodeBackend::destroy_object`'s error, as for
 // `create_space_file_tree`.
 pub async fn destroy_space_file_tree<F: FileNodeBackend>(
@@ -344,7 +349,9 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
             .get_descendant_ids(caller, account_id, &root_id)
             .await
             .map_err(|e| TreeDestroyError::Query(BackendQueryError::Other(e)))?;
-        for id in descendants.into_iter().chain([root_id]) {
+        let tree: Vec<Id> = descendants.into_iter().chain([root_id]).collect();
+        clear_roles(files, caller, account_id, &tree).await?;
+        for id in tree {
             files
                 .destroy_object::<FileNode>(caller, account_id, &id)
                 .await
@@ -353,6 +360,31 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
         }
     }
     Ok(destroyed)
+}
+
+/// Clear the `role` of every Directory among `ids` that has one, so
+/// [`destroy_space_file_tree`] can destroy it: draft-ietf-jmap-filenode-20
+/// §5 forbids destroying a Directory with a role, and one that must go
+/// "first clears its role".
+async fn clear_roles<F: FileNodeBackend>(
+    files: &F,
+    caller: &F::CallerCtx,
+    account_id: &Id,
+    ids: &[Id],
+) -> Result<(), TreeDestroyError<F::Error>> {
+    let (nodes, _) = files
+        .get_objects::<FileNode>(caller, account_id, Some(ids), None)
+        .await
+        .map_err(|e| TreeDestroyError::Query(BackendQueryError::Other(e)))?;
+    for node in nodes.into_iter().filter(|n| n.role.is_some()) {
+        let mut patch = serde_json::Map::new();
+        patch.insert("role".to_owned(), serde_json::Value::Null);
+        files
+            .update_object::<FileNode>(caller, account_id, &node.id, PatchObject::from_map(patch))
+            .await
+            .map_err(TreeDestroyError::Destroy)?;
+    }
+    Ok(())
 }
 
 /// Resolve draft-atwood-jmap-chat-filenode-00 §filenodeId for an
@@ -657,9 +689,13 @@ pub async fn check_space_create<C: ChatBackend, F: FileNodeBackend>(
 ///   A changed `parentId` on a Space root is refused for every member:
 ///   "the server SHOULD reject a `FileNode/set` update that changes a
 ///   Space root's `parentId` with `forbidden`".
-/// - `blobId`, `mediaType`, `target`, `modified`, `accessed` and
-///   `executable`: `mayModifyContent`, "the content-related properties of
-///   this node".
+/// - `role`: `mayRename`, as draft-ietf-jmap-filenode-20 §3.1.4 says
+///   "Changing `role` on an existing node requires `mayRename` on that
+///   node". A patch setting `role` to its stored value changes nothing and
+///   passes.
+/// - `blobId`, `mediaType`, `target`, `created`, `modified`, `accessed`
+///   and `executable`: `mayModifyContent`, "the content-related properties
+///   of this node" (-20 §3.1.2).
 /// - any other property: `mayRead`, so a non-member changes nothing.
 ///
 /// A `parentId` naming a new parent in a Space file tree also needs
@@ -686,6 +722,10 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
         let share_with =
             serde_json::to_value(&node.share_with).expect("shareWith serializes to JSON");
         let parent_id = node.parent_id.as_ref().map(Id::as_ref);
+        let role = node
+            .role
+            .as_ref()
+            .map_or(serde_json::Value::Null, |r| r.to_wire_str().into());
         let renames_root = node.space_id.as_ref().filter(|_| {
             patch
                 .as_map()
@@ -706,9 +746,9 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
                 "name" if is_root => value.as_str() == Some(node.name.as_str()) || manages_root,
                 "parentId" if is_root => value.as_str() == parent_id,
                 "name" | "parentId" => rights.may_rename,
-                "blobId" | "mediaType" | "target" | "modified" | "accessed" | "executable" => {
-                    rights.may_modify_content
-                }
+                "role" => *value == role || rights.may_rename,
+                "blobId" | "mediaType" | "target" | "created" | "modified" | "accessed"
+                | "executable" => rights.may_modify_content,
                 _ => rights.may_read,
             };
             if !allowed {

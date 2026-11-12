@@ -84,7 +84,11 @@ do not apply to file tree access.
   `sha256` that differs from the FileNode's, and keeps a supplied
   `filename` or `contentType`.
 - `destroy_space_file_tree` offers no grace period (the draft's MAY):
-  the tree goes with the Space. Each node is destroyed through
+  the tree goes with the Space. A Directory in the tree with a `role`
+  first has its role cleared through `FileNodeBackend::update_object`, as
+  draft-ietf-jmap-filenode-20 §5 forbids destroying it otherwise; a
+  backend that refuses to clear a role it manages stops the deletion.
+  Each node is destroyed through
   `FileNodeBackend::destroy_object`, descendants first, so
   `FileNode/changes` and push see the change. It is not atomic; on an
   error, call it again to destroy the rest.

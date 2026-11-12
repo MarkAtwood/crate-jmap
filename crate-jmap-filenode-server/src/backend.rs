@@ -127,7 +127,11 @@ impl CaseFolding {
 /// [`destroy_object`](Self::destroy_object) MUST re-check it atomically
 /// with the write, as for the other structural invariants. This holds for
 /// every caller, whatever its rights, and does not change the rights the
-/// Directory reports in `myRights`.
+/// Directory reports in `myRights`. Server code that removes such a
+/// Directory, such as a Space deletion in `jmap-chat-filenode-server`,
+/// clears its role first through [`update_object`](Self::update_object),
+/// as a client does, so a backend that refuses to clear a role it manages
+/// itself also blocks that removal.
 ///
 /// -20 §3.1.4: "At most one Directory in an account has a given role",
 /// checked "against the result of all the creates, updates and destroys in
