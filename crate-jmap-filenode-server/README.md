@@ -311,7 +311,7 @@ When a new node's name collides with an existing sibling (detected via `find_sib
 - `onExists: "rename"` — the handler iterates through suffixed names (`name-1`, `name-2`, …)
   up to 100 attempts until a unique name is found. Beyond 100 attempts, `serverFail` is returned.
 - Any other value, including `"newest"` and `"unchanged"` (removed in
-  draft-ietf-jmap-filenode-20), is rejected with `invalidArguments`.
+  draft-ietf-jmap-filenode-19), is rejected with `invalidArguments`.
 
 ### FileNode/set destroy — nodeHasChildren guard and cascade
 
