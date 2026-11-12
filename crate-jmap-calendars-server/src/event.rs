@@ -46,11 +46,15 @@ use jmap_calendars_types::{
 use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{Value, json};
 
+use crate::event_limits::{limits_set_error, patched_properties, touches_limited_property};
 use crate::helpers::{
     SetAccumulators, check_metadata_entry, enforce_max_objects_in_get, enforce_max_objects_in_set,
     extract_account_id, finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
 };
-use crate::{CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend};
+use crate::{
+    CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
+    CalendarsLimits,
+};
 use jmap_server::{
     HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg,
     check_read_only_patch, filter_arg, query_anchor_args, reject_server_set,
@@ -403,6 +407,48 @@ async fn prepare_event_patch<B: CalendarsBackend>(
     Ok(())
 }
 
+/// Checks an update patch against the per-event caps in `limits`
+/// (draft-ietf-jmap-calendars-34 §5.9) by applying it to the stored event.
+///
+/// Returns `Ok(())` without reading the store when the patch touches no
+/// property a cap reads. A missing event or a patch that does not apply is
+/// also `Ok(())`, left for the backend to report as `notFound` or
+/// `invalidPatch`. `Err` carries the `invalidProperties` SetError, or the
+/// serverFail SetError if the store read fails.
+async fn check_patch_limits<B: CalendarsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    patch: &serde_json::Map<String, Value>,
+    limits: &CalendarsLimits,
+) -> Result<(), Value> {
+    let touched = patched_properties(patch);
+    if !touches_limited_property(&touched) {
+        return Ok(());
+    }
+    // ponytail: read-then-patch is not atomic with the backend's write, so
+    // a concurrent update can slip past this check; the backend stays the
+    // canonical enforcement point.
+    let (events, _) = backend
+        .get_objects::<CalendarEvent>(caller, account_id, Some(std::slice::from_ref(id)), None)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    let Some(stored) = events.first() else {
+        return Ok(());
+    };
+    let Ok(Value::Object(mut event)) = serde_json::to_value(stored) else {
+        return Ok(());
+    };
+    if jmap_server::apply_patch_object(&mut event, patch).is_err() {
+        return Ok(());
+    }
+    match limits_set_error(&event, limits, Some(&touched)) {
+        Some(err) => Err(err),
+        None => Ok(()),
+    }
+}
+
 /// Handle a `CalendarEvent/set` method call (draft-ietf-jmap-calendars-33 §5.6).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
@@ -424,6 +470,14 @@ async fn prepare_event_patch<B: CalendarsBackend>(
 /// `privateMetadata` without `urn:ietf:params:jmap:metadata` is
 /// `invalidProperties` (draft-ietf-jmap-metadata-05 §3), as is `null` for
 /// either in a create (-05 §3.2). The backend validates the rest.
+///
+/// A create or update that would leave the event over a per-event cap from
+/// [`CalendarsBackend::limits`] (`maxCalendarsPerEvent`,
+/// `maxParticipantsPerEvent`, `minDateTime`, `maxDateTime`) is
+/// `invalidProperties` naming the offending properties, and the backend is
+/// not called for it (draft-ietf-jmap-calendars-34 §5.9). An update is
+/// checked against the stored event with the patch applied.
+/// [`CalendarsLimits`] says which dates are compared and how.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_set<B: CalendarsBackend>(
@@ -471,6 +525,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     let set_args = CalendarEventSetArgs {
         send_scheduling_messages: bool_arg(&args, "sendSchedulingMessages", false),
     };
+    let limits = backend.limits(caller, &account_id);
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -577,6 +632,13 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 not_created.insert(create_id, err);
                 continue;
             }
+            if limits.has_event_limits()
+                && let Value::Object(map) = jmap_server::serialize_value(&event)?
+                && let Some(err) = limits_set_error(&map, &limits, None)
+            {
+                not_created.insert(create_id, err);
+                continue;
+            }
             creates.push((create_id, event));
         }
     }
@@ -652,6 +714,14 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
             if let Some(map) = patch_val.as_object_mut()
                 && let Err(err) = prepare_event_patch(backend, caller, &account_id, &id, map).await
+            {
+                not_updated.insert(id_str, err);
+                continue;
+            }
+            if limits.has_event_limits()
+                && let Some(map) = patch_val.as_object()
+                && let Err(err) =
+                    check_patch_limits(backend, caller, &account_id, &id, map, &limits).await
             {
                 not_updated.insert(id_str, err);
                 continue;
@@ -2281,6 +2351,153 @@ mod tests {
             prop_strs.contains(&"utcStart") && prop_strs.contains(&"start"),
             "must cite utcStart and start: {resp}"
         );
+    }
+
+    /// Runs `CalendarEvent/set` on account `acc` with `limits` in force.
+    async fn set_with_limits(
+        backend: &MockBackend,
+        limits: crate::CalendarsLimits,
+        args: Value,
+    ) -> Value {
+        backend.set_limits(limits);
+        let HandlerOutput { primary, .. } =
+            handle_calendar_event_set(backend, &(), &BTreeMap::new(), args, &[])
+                .await
+                .expect("must not return a method-level error");
+        primary
+    }
+
+    /// A create over `maxCalendarsPerEvent` or `maxParticipantsPerEvent` is
+    /// `invalidProperties` naming the property and is not stored, while a
+    /// create at the limits in the same call succeeds
+    /// (draft-ietf-jmap-calendars-34 §5.9).
+    #[tokio::test]
+    async fn set_create_over_count_limits_is_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc");
+        let limits = crate::CalendarsLimits::default()
+            .with_max_calendars_per_event(Some(1))
+            .with_max_participants_per_event(Some(1));
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({
+                "accountId": "acc",
+                "create": {
+                    "cals": { "calendarIds": { "a": true, "b": true } },
+                    "people": {
+                        "calendarIds": { "a": true },
+                        "participants": {
+                            "p1": { "roles": { "owner": true } },
+                            "p2": { "roles": { "attendee": true } }
+                        }
+                    },
+                    "ok": {
+                        "calendarIds": { "a": true },
+                        "participants": { "p1": { "roles": { "owner": true } } }
+                    }
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            resp["notCreated"]["cals"]["type"], "invalidProperties",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notCreated"]["cals"]["properties"],
+            json!(["calendarIds"]),
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notCreated"]["people"]["type"], "invalidProperties",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notCreated"]["people"]["properties"],
+            json!(["participants"]),
+            "{resp}"
+        );
+        assert!(resp["created"]["ok"].is_object(), "{resp}");
+        assert_eq!(event_ids(&backend).await.as_array().map(Vec::len), Some(1));
+    }
+
+    /// A create with a floating `start` before `minDateTime` is
+    /// `invalidProperties` naming `start` (draft-ietf-jmap-calendars-34
+    /// §1.5.1, §5.9: floating values compare as though in UTC).
+    #[tokio::test]
+    async fn set_create_before_min_date_time_is_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc");
+        // 2000-01-01T00:00:00Z
+        let limits =
+            crate::CalendarsLimits::default().with_min_date_time_epoch_seconds(Some(946_684_800));
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({
+                "accountId": "acc",
+                "create": {
+                    "c1": { "calendarIds": { "a": true }, "start": "1999-12-31T23:59:59" }
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notCreated"]["c1"]["properties"],
+            json!(["start"]),
+            "{resp}"
+        );
+    }
+
+    /// An update is judged on the stored event with the patch applied: adding
+    /// one participant to an event already at `maxParticipantsPerEvent` is
+    /// `invalidProperties` and leaves the event unchanged, while a patch to
+    /// a property no limit reads succeeds (draft-ietf-jmap-calendars-34 §5.9).
+    #[tokio::test]
+    async fn set_update_over_participant_limit_is_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc");
+        backend.seed_object(
+            "acc",
+            "CalendarEvent",
+            "ev1",
+            json!({
+                "id": "ev1",
+                "calendarIds": { "a": true },
+                "participants": { "p1": { "roles": { "owner": true } } }
+            }),
+        );
+        let limits = crate::CalendarsLimits::default().with_max_participants_per_event(Some(1));
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({
+                "accountId": "acc",
+                "update": {
+                    "ev1": { "participants/p2": { "roles": { "attendee": true } } }
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            resp["notUpdated"]["ev1"]["type"], "invalidProperties",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notUpdated"]["ev1"]["properties"],
+            json!(["participants"]),
+            "{resp}"
+        );
+
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({ "accountId": "acc", "update": { "ev1": { "title": "Renamed" } } }),
+        )
+        .await;
+        assert!(resp["updated"].get("ev1").is_some(), "{resp}");
     }
 
     /// Oracle: §5.9 — creating with both `utcEnd` and `duration` set must
