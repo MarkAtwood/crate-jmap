@@ -1,4 +1,4 @@
-//! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-33 §5).
+//! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-34 §5).
 //!
 //! # Wire-shape contract
 //!
@@ -7,7 +7,7 @@
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3, `/copy` → §5.4,
 //! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
-//! arguments defined by draft-ietf-jmap-calendars-33 §5. The returned
+//! arguments defined by draft-ietf-jmap-calendars-34 §5. The returned
 //! `Value` is the corresponding method-response object per the same
 //! section refs. `CalendarEvent/parse` (draft §5.13) is a Calendars-
 //! specific method with its own request/response shape (`accountId`,
@@ -65,7 +65,7 @@ use jmap_server::{
 // CalendarEvent/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/get` method call (draft-ietf-jmap-calendars-33 §5.7).
+/// Handle a `CalendarEvent/get` method call (draft-ietf-jmap-calendars-34 §5.7).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`), augmented with the draft §5.7
@@ -257,7 +257,7 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 // CalendarEvent/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/changes` method call (draft-ietf-jmap-calendars-33 §5.5).
+/// Handle a `CalendarEvent/changes` method call (draft-ietf-jmap-calendars-34 §5.5).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -284,7 +284,7 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 // CalendarEvent/set
 // ---------------------------------------------------------------------------
 
-/// draft-ietf-jmap-calendars-33 §5 `calendarIds`: "An event MUST belong to
+/// draft-ietf-jmap-calendars-34 §5 `calendarIds`: "An event MUST belong to
 /// one or more Calendars at all times" and each value "MUST be true".
 /// Each key is a Calendar id; deserializing an [`Id`] already checks
 /// RFC 8620 §1.2.
@@ -292,7 +292,7 @@ fn valid_calendar_ids(ids: Option<&BTreeMap<Id, bool>>) -> bool {
     ids.is_some_and(|m| !m.is_empty() && m.values().all(|v| *v))
 }
 
-/// draft-ietf-jmap-calendars-33 §5 `isOrigin`: true if, and only if, the
+/// draft-ietf-jmap-calendars-34 §5 `isOrigin`: true if, and only if, the
 /// event's `organizerCalendarAddress` is null or the account receives
 /// messages sent to it, as answered by the account-level
 /// [`CalendarsBackend::account_receives_at`]. On failure returns the
@@ -327,7 +327,7 @@ async fn prepare_new_event<B: CalendarsBackend>(
     if !valid_calendar_ids(event.calendar_ids.as_ref()) {
         return Err(json!({ "type": "invalidProperties", "properties": ["calendarIds"] }));
     }
-    // draft-ietf-jmap-calendars-33 §5.9: "If omitted on create, the server
+    // draft-ietf-jmap-calendars-34 §5.9: "If omitted on create, the server
     // MUST set ... @type MUST be set to "Event" * version MUST be set to the
     // JSCalendar version the event conforms to, e.g., "2.0"".
     event.at_type.get_or_insert_with(|| "Event".to_owned());
@@ -449,7 +449,7 @@ async fn check_patch_limits<B: CalendarsBackend>(
     }
 }
 
-/// Handle a `CalendarEvent/set` method call (draft-ietf-jmap-calendars-33 §5.6).
+/// Handle a `CalendarEvent/set` method call (draft-ietf-jmap-calendars-34 §5.6).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
@@ -563,7 +563,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         }
     }
 
-    // Validate every create and update first: draft-ietf-jmap-calendars-33
+    // Validate every create and update first: draft-ietf-jmap-calendars-34
     // §5.9's uid/privacy rule is judged on the account "after applying all
     // the creates, updates, and destroys", so it needs the whole request.
     let mut creates: Vec<(String, CalendarEvent)> = Vec::new();
@@ -880,7 +880,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 // CalendarEvent/copy
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/copy` method call (draft-ietf-jmap-calendars-33 §5.7).
+/// Handle a `CalendarEvent/copy` method call (draft-ietf-jmap-calendars-34 §5.7).
 ///
 /// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
 /// optional `ifFromInState`, `accountId`, optional `ifInState`, `create`
@@ -1244,7 +1244,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 // CalendarEvent/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/query` method call (draft-ietf-jmap-calendars-33 §5.11).
+/// Handle a `CalendarEvent/query` method call (draft-ietf-jmap-calendars-34 §5.11).
 ///
 /// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
 /// `filter`, optional `sort`, optional `position` / `anchor` /
@@ -1466,7 +1466,7 @@ fn expand_duration_seconds(f: &CalendarEventFilterCondition) -> Option<i64> {
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEvent/queryChanges` method call
-/// (draft-ietf-jmap-calendars-33 §5.12).
+/// (draft-ietf-jmap-calendars-34 §5.12).
 ///
 /// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
 /// optional `filter`, optional `sort`, `sinceQueryState`, optional
@@ -1500,7 +1500,7 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
 // CalendarEvent/parse
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/parse` method call (draft-ietf-jmap-calendars-33 §5.13).
+/// Handle a `CalendarEvent/parse` method call (draft-ietf-jmap-calendars-34 §5.13).
 ///
 /// `args` is the draft §5.13 `CalendarEvent/parse` request shape
 /// (`accountId`, `blobIds`); the returned `Value` is the §5.13 response
@@ -1527,7 +1527,7 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // blobIds is spec-typed `Id[]` (draft-ietf-jmap-calendars-33 §5.13);
+    // blobIds is spec-typed `Id[]` (draft-ietf-jmap-calendars-34 §5.13);
     // treat missing/null as empty to produce a valid response, but reject
     // any non-string entry with invalidArguments. Mirrors the canonical
     // mail-server pattern at crate-jmap-mail-server/src/email.rs:2193
@@ -1596,7 +1596,7 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.5 `unsupportedSort`: "The sort is syntactically
     /// valid, but includes a property the server does not support sorting
-    /// on". draft-ietf-jmap-calendars-33 §5.11.2 lists the sort properties "id,
+    /// on". draft-ietf-jmap-calendars-34 §5.11.2 lists the sort properties "id,
     /// uid, start" (MUST) and "created, updated" (SHOULD); `title` is not among them.
     #[tokio::test]
     async fn query_unlisted_sort_property_returns_unsupported_sort() {
@@ -1624,7 +1624,7 @@ mod tests {
         assert_eq!(err.error_type.to_string(), "unsupportedSort");
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.11.2 lists the sort properties "id,
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.11.2 lists the sort properties "id,
     /// uid, start" (MUST) and "created, updated" (SHOULD), so a `start` sort is accepted.
     #[tokio::test]
     async fn query_listed_sort_property_is_accepted() {
@@ -1857,7 +1857,7 @@ mod tests {
 
     /// Oracle: RFC 8620 §1.2, an Id "MUST only contain characters from
     /// the 'URL and Filename Safe' base64 alphabet", and calendarIds is
-    /// `Id[Boolean]` (draft-ietf-jmap-calendars-33 §5). A /copy override
+    /// `Id[Boolean]` (draft-ietf-jmap-calendars-34 §5). A /copy override
     /// `calendarIds: {"bad id": true}` fails that entry with
     /// invalidProperties naming calendarIds (bd:JMAP-9bio).
     #[tokio::test]
@@ -2012,7 +2012,7 @@ mod tests {
         json!({ "type": "invalidProperties", "properties": ["privacy"] })
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.9 — "if the Account would
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.9 — "if the Account would
     /// contain two or more CalendarEvent objects with the same uid but
     /// different values for their "privacy" property, the server MUST
     /// reject each create or update in the request that affects a
@@ -2095,7 +2095,7 @@ mod tests {
         assert_eq!(resp["destroyed"], json!(["e3"]), "{resp}");
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.10 — "If the account being
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.10 — "If the account being
     /// copied from does not belong to the user and the "privacy" property
     /// of the event being copied is "private", the server MUST reject the
     /// copy with a forbidden SetError." A public event in that account and
@@ -2237,7 +2237,7 @@ mod tests {
         assert_eq!(resp["created"], Value::Null, "{resp}");
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.10 — "If the account being
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.10 — "If the account being
     /// copied into does not belong to the user and the "privacy" property
     /// of the event to be created would be anything other than "public"
     /// (whether inherited from the event being copied or set explicitly in
@@ -3041,7 +3041,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — a patch containing only
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.4 — a patch containing only
     /// per-user properties (`keywords`) must be routed to
     /// `update_per_user_properties`, NOT `update_object`.
     #[tokio::test]
@@ -3067,7 +3067,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — a patch containing a
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.4 — a patch containing a
     /// shared property (`title`) must be routed to `update_object`, NOT
     /// `update_per_user_properties`.
     #[tokio::test]
@@ -3093,7 +3093,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — a mixed patch containing
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.4 — a mixed patch containing
     /// both per-user (`keywords`) and shared (`title`) properties must be
     /// routed to `update_object` (the shared-property path), NOT
     /// `update_per_user_properties`.
@@ -3127,7 +3127,7 @@ mod tests {
     /// would have mis-routed `{"title": null, "description": null}` to the
     /// per-user code path even though both keys are shared properties.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — the per-user property set
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.4 — the per-user property set
     /// is fixed (`keywords`, `color`, `freeBusyStatus`, `useDefaultAlerts`,
     /// `alerts`); routing is by property identity, not by value.
     #[tokio::test]
@@ -3165,7 +3165,7 @@ mod tests {
     /// timestamp (draft §5.4) and potentially triggering iTIP REQUEST
     /// (§5.9.2.1) for what should be a per-user-only mutation.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.4 — routing is by
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.4 — routing is by
     /// property identity, which for a JSON Pointer key is the first
     /// path segment (RFC 6901 §3) before the first unescaped `/`.
     #[tokio::test]
@@ -3351,7 +3351,7 @@ mod tests {
     /// must be rejected at the handler boundary with `invalidArguments`,
     /// not silently dropped via `filter_map`.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.13 types `blobIds` as `Id[]`.
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.13 types `blobIds` as `Id[]`.
     /// RFC 8620 §3.6.1 mandates `invalidArguments` for type-incorrect args.
     /// The canonical sibling `jmap-mail-server::handle_email_parse`
     /// (crate-jmap-mail-server/src/email.rs:2193) rejects with
@@ -3377,7 +3377,7 @@ mod tests {
     /// must be rejected at the handler boundary with `invalidArguments`,
     /// not silently dropped via `filter_map`.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.13 types `properties` as
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.13 types `properties` as
     /// `String[]`. RFC 8620 §3.6.1 mandates `invalidArguments` for
     /// type-incorrect args.
     #[tokio::test]

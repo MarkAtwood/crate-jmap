@@ -320,7 +320,7 @@ fn task_filter_condition_empty_defaults() {
 /// Task/query "is the "CalendarEvent/query" method"
 /// (draft-ietf-jmap-tasks-06 §4.13), whose FilterCondition defines
 /// "*after*: LocalDateTime" and "*before*: LocalDateTime"
-/// (draft-ietf-jmap-calendars-33 §5.11.1).
+/// (draft-ietf-jmap-calendars-34 §5.11.1).
 #[test]
 fn task_filter_condition_populated() {
     let json = &common::fixture("task_filter_condition_populated.json");

@@ -6,12 +6,13 @@
 //! holds "any properties that were omitted by the client and thus set to a
 //! default by the server."
 //!
-//! draft-ietf-jmap-calendars-33 §4 (draft-ietf-jmap-calendars-33.xml:324):
-//! `isSubscribed` "SHOULD default to false for Calendars in shared accounts
-//! the user has access to and true for any new Calendars created by the user
-//! themself." and (xml:344-345) `includeInAvailability` "should default to
-//! "all" for the calendars in the user's own account, and "none" for
-//! calendars shared with the user."
+//! draft-ietf-jmap-calendars-34 §4 (draft-ietf-jmap-calendars-34.xml:326):
+//! `isSubscribed` "SHOULD default to true for Calendars in the user's own
+//! account (however they were created) and for any new Calendars created by
+//! the user themself, and false for other Calendars in shared accounts the
+//! user has access to." and (xml:346-347) `includeInAvailability` "should
+//! default to "all" for the calendars in the user's own account, and "none"
+//! for calendars shared with the user."
 
 mod common;
 

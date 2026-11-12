@@ -1,11 +1,11 @@
-//! Principal/* method handlers (draft-ietf-jmap-calendars-33 §2).
+//! Principal/* method handlers (draft-ietf-jmap-calendars-34 §2).
 //!
 //! # Wire-shape contract
 //!
 //! Every `handle_*` function in this module conforms to the canonical JMAP
 //! method shape. The `args: serde_json::Value` parameter MUST be a JSON
 //! Object whose fields match the corresponding method shape defined by
-//! draft-ietf-jmap-calendars-33 §2 (which extends the RFC 8620 §5
+//! draft-ietf-jmap-calendars-34 §2 (which extends the RFC 8620 §5
 //! patterns). The returned `Value` is the corresponding method-response
 //! object per the same section refs. `Principal/getAvailability` (§2.2)
 //! is a Calendars-specific method with its own request/response shape
@@ -35,7 +35,7 @@ use jmap_server::{HandlerOutput, bool_arg, server_fail_from_backend};
 // ---------------------------------------------------------------------------
 
 /// Handle a `Principal/getAvailability` method call
-/// (draft-ietf-jmap-calendars-33 §2.2).
+/// (draft-ietf-jmap-calendars-34 §2.2).
 ///
 /// `args` is the draft §2.2 `Principal/getAvailability` request shape
 /// (`accountId`, `id` of the principal, `utcStart`, `utcEnd`, optional
@@ -121,7 +121,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
                 .collect()
         });
 
-    // draft-ietf-jmap-calendars-33 §2.2 errors (notFound, forbidden,
+    // draft-ietf-jmap-calendars-34 §2.2 errors (notFound, forbidden,
     // tooLarge, rateLimit) arrive as `BackendQueryError::Method` and reach
     // the client unchanged. `Other` becomes the constant-description
     // `serverFail` (bd:JMAP-ic0j.53): backend error text never reaches the
@@ -225,7 +225,7 @@ mod tests {
     /// strictly earlier than utcStart) must be rejected with
     /// `invalidArguments` before the backend sees the call.
     ///
-    /// Oracle: draft-ietf-jmap-calendars-33 §2.2 defines the window
+    /// Oracle: draft-ietf-jmap-calendars-34 §2.2 defines the window
     /// `[utcStart, utcEnd)` (inclusive/exclusive); the relevance
     /// predicate at §2.2 ('event finishes after utcStart AND starts
     /// before utcEnd') is only satisfiable when utcStart < utcEnd.

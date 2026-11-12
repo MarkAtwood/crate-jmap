@@ -127,7 +127,7 @@ fn metadata_condition_names_decode_and_typos_reject() {
 
 /// -05 §3.6 conditions "compose with the data type's existing filter
 /// conditions through the usual AND/OR/NOT operators": a hand-written
-/// `AND` of a draft-ietf-jmap-calendars-33 §5.11.1 `inCalendar` leaf and a
+/// `AND` of a draft-ietf-jmap-calendars-34 §5.11.1 `inCalendar` leaf and a
 /// `metadataTextEquals` leaf survives decoding and re-encodes unchanged.
 #[test]
 fn metadata_condition_survives_operator_tree() {

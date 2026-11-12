@@ -1,4 +1,4 @@
-//! ParticipantIdentity/* method handlers (draft-ietf-jmap-calendars-33 §3).
+//! ParticipantIdentity/* method handlers (draft-ietf-jmap-calendars-34 §3).
 //!
 //! The set of identities, and which is the default, depends on the
 //! authenticated user as well as the account, so the backend's
@@ -12,7 +12,7 @@
 //! method shape. The `args: serde_json::Value` parameter MUST be a JSON
 //! Object whose fields match the corresponding RFC 8620 §5 method shape
 //! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
-//! type-specific arguments defined by draft-ietf-jmap-calendars-33 §3.
+//! type-specific arguments defined by draft-ietf-jmap-calendars-34 §3.
 //! The returned `Value` is the corresponding method-response object per
 //! the same section refs.
 //!
@@ -51,7 +51,7 @@ use jmap_server::{
 // ---------------------------------------------------------------------------
 
 /// Handle a `ParticipantIdentity/get` method call
-/// (draft-ietf-jmap-calendars-33 §3.1).
+/// (draft-ietf-jmap-calendars-34 §3.1).
 ///
 /// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
@@ -71,7 +71,7 @@ pub async fn handle_participant_identity_get<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ParticipantIdentity/changes` method call
-/// (draft-ietf-jmap-calendars-33 §3.2).
+/// (draft-ietf-jmap-calendars-34 §3.2).
 ///
 /// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
 /// `sinceState`, optional `maxChanges`); the returned `Value` is the
@@ -92,7 +92,7 @@ pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ParticipantIdentity/set` method call
-/// (draft-ietf-jmap-calendars-33 §3.3).
+/// (draft-ietf-jmap-calendars-34 §3.3).
 ///
 /// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
 /// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
@@ -155,7 +155,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
-            // `isDefault` is server-set (draft-ietf-jmap-calendars-33 §3) and
+            // `isDefault` is server-set (draft-ietf-jmap-calendars-34 §3) and
             // `ParticipantIdentity` requires it, so the server supplies it: a
             // new identity is not the default until `onSuccessSetIsDefault`
             // makes it one.
@@ -177,7 +177,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                 continue;
             }
 
-            // draft-ietf-jmap-calendars-33 §3: `calendarAddress` is required. serde reports a missing
+            // draft-ietf-jmap-calendars-34 §3: `calendarAddress` is required. serde reports a missing
             // field at the root, not on a property path, so name it here
             // (RFC 8620 §5.3 invalidProperties).
             if obj_val.get("calendarAddress").is_none() {
@@ -443,7 +443,7 @@ mod tests {
     /// Oracle: RFC 8620 §5.3: for `invalidProperties` "the SetError object
     /// SHOULD also have a property called `properties` of type `String[]`
     /// that lists *all* the properties that were invalid". Each create below
-    /// has exactly one hand-picked bad property (`calendarAddress` is a required String, draft-ietf-jmap-calendars-33
+    /// has exactly one hand-picked bad property (`calendarAddress` is a required String, draft-ietf-jmap-calendars-34
     /// §3).
     #[tokio::test]
     async fn set_create_typed_parse_failure_names_property() {

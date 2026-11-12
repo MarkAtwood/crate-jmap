@@ -392,7 +392,7 @@ cargo test --workspace
 | `~/PROJECT/IETF/specs/` | Posted RFC and draft text (`draft-ietf-jmap-*.txt` etc.); some copies lag the current posted revision, so check datatracker for the latest |
 | `~/GIT/` editor's repos | Unposted upstream work; see "Upstream draft sources" in `~/PROJECT/jmap-chat-spec/AGENTS.md` for the clone-to-origin table |
 
-Implement against the revision the JMAP Chat drafts cite (e.g. FileNode -16, calendars -33). When implementing anything, read the relevant RFC section first. Do not guess at wire field names.
+Implement against the revision the JMAP Chat drafts cite (e.g. FileNode -16, calendars -34). When implementing anything, read the relevant RFC section first. Do not guess at wire field names.
 
 ### Reference Implementations (local — read, do not modify)
 

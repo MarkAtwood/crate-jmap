@@ -1,6 +1,6 @@
 //! JMAP Calendars — CalendarEventNotification/* method implementations.
 //!
-//! CalendarEventNotification/set is destroy-only per draft-ietf-jmap-calendars-33 §7.3.
+//! CalendarEventNotification/set is destroy-only per draft-ietf-jmap-calendars-34 §7.3.
 //! The server must reject create and update operations with `forbidden`.
 //! This method accepts only `destroy` to prevent constructing invalid requests.
 
@@ -14,7 +14,7 @@ use super::{
 
 impl super::SessionClient {
     /// Fetch `CalendarEventNotification` objects by IDs
-    /// (draft-ietf-jmap-calendars-33 §7.1).
+    /// (draft-ietf-jmap-calendars-34 §7.1).
     ///
     /// # Errors
     ///
@@ -63,7 +63,7 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to `CalendarEventNotification` objects since `since_state`
-    /// (draft-ietf-jmap-calendars-33 §7.2).
+    /// (draft-ietf-jmap-calendars-34 §7.2).
     ///
     /// # Errors
     ///
@@ -107,7 +107,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy `CalendarEventNotification` objects (draft-ietf-jmap-calendars-33 §7.3).
+    /// Destroy `CalendarEventNotification` objects (draft-ietf-jmap-calendars-34 §7.3).
     ///
     /// CalendarEventNotification/set is destroy-only: the server rejects create
     /// and update operations with `forbidden` `SetErrors`. This method only sends
@@ -183,7 +183,7 @@ impl super::SessionClient {
     }
 
     /// Query `CalendarEventNotification` IDs with optional filter and sort
-    /// (draft-ietf-jmap-calendars-33 §7.4).
+    /// (draft-ietf-jmap-calendars-34 §7.4).
     ///
     /// - `filter`: an RFC 8620 §5.5 `Filter` — a bare condition
     ///   (`Filter::Condition`) or a `FilterOperator` combining sub-filters
@@ -191,7 +191,7 @@ impl super::SessionClient {
     ///   [`NotificationFilterCondition`](jmap_calendars_types::NotificationFilterCondition).
     ///   Pass `None` to omit it; name the type when you do
     ///   (`None::<&NotificationFilter>`).
-    /// - `sort`: comparator slice; draft-ietf-jmap-calendars-33 §7.4.2
+    /// - `sort`: comparator slice; draft-ietf-jmap-calendars-34 §7.4.2
     ///   names `created` as the one required sort property.
     ///
     /// # Errors
@@ -233,7 +233,7 @@ impl super::SessionClient {
     }
 
     /// Fetch query-result changes for `CalendarEventNotification` since
-    /// `since_query_state` (draft-ietf-jmap-calendars-33 §7.5).
+    /// `since_query_state` (draft-ietf-jmap-calendars-34 §7.5).
     ///
     /// `filter` and `sort` MUST match the `filter` / `sort` passed to the
     /// original `CalendarEventNotification/query` call that returned

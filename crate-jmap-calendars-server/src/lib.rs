@@ -1,4 +1,4 @@
-//! JMAP Calendars extension method handlers (draft-ietf-jmap-calendars-33).
+//! JMAP Calendars extension method handlers (draft-ietf-jmap-calendars-34).
 //!
 //! # Usage
 //!
@@ -400,7 +400,7 @@ pub(crate) mod test_support {
         }
 
         /// Mark `account_id` as an account that does not belong to the
-        /// caller (draft-ietf-jmap-calendars-33 §5.10).
+        /// caller (draft-ietf-jmap-calendars-34 §5.10).
         #[allow(dead_code)]
         pub fn mark_foreign(&self, account_id: &str) {
             self.foreign_accounts
@@ -905,7 +905,7 @@ pub(crate) mod test_support {
 
         // Scheduling-aware overrides: the mock has no iTIP delivery support,
         // so any request to send scheduling messages produces the
-        // noSupportedScheduleMethods SetError per draft-ietf-jmap-calendars-33
+        // noSupportedScheduleMethods SetError per draft-ietf-jmap-calendars-34
         // §5.9, §10.8.2. When sendSchedulingMessages is false the mock falls
         // through to the generic create/update/destroy_object path used by
         // every other test in this file; creates first reject a non-public
@@ -1625,7 +1625,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §2.2 — "The following
+    /// Oracle: draft-ietf-jmap-calendars-34 §2.2 — "The following
     /// additional errors may be returned instead of the
     /// "Principal/getAvailability" response: *notFound* No Principal with
     /// this id exists". A backend `BackendQueryError::Method` carrying
@@ -1896,7 +1896,7 @@ mod tests {
         );
     }
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §5.9 "If omitted on create, the
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.9 "If omitted on create, the
     /// server MUST set the following properties: * @type MUST be set to
     /// "Event" * version MUST be set to the JSCalendar version the event
     /// conforms to, e.g., "2.0"", and Figure 10, whose `created` entry
@@ -2305,7 +2305,7 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.5 — "unsupportedFilter: The "filter" is
     /// syntactically valid, but the server cannot process it."
-    /// draft-ietf-jmap-calendars-33 §5.11 and §7.4 define the
+    /// draft-ietf-jmap-calendars-34 §5.11 and §7.4 define the
     /// CalendarEvent and CalendarEventNotification FilterCondition
     /// properties (`inCalendar`, ...; `type`, `calendarEventIds`, ...). An
     /// unknown key, at the top level or inside an operator tree, is refused
@@ -2363,7 +2363,7 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.5 types the /query and /queryChanges `filter` as
     /// "FilterOperator|FilterCondition|null", so an operator tree is
-    /// accepted on all three paths. draft-ietf-jmap-calendars-33 §5.11:
+    /// accepted on all three paths. draft-ietf-jmap-calendars-34 §5.11:
     /// with expandRecurrences true, "the filter MUST be just a
     /// FilterCondition (not a FilterOperator) and MUST include both a
     /// "before" and "after" property", so the same tree is then refused.

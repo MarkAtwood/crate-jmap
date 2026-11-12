@@ -1,6 +1,6 @@
 //! Calendar object, CalendarRights, and IncludeInAvailability.
 //!
-//! Normative reference: draft-ietf-jmap-calendars-33 §4.
+//! Normative reference: draft-ietf-jmap-calendars-34 §4.
 
 use std::collections::BTreeMap;
 
@@ -8,7 +8,7 @@ use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
 /// Controls which events in a Calendar contribute to availability calculations
-/// (draft-ietf-jmap-calendars-33 §4).
+/// (draft-ietf-jmap-calendars-34 §4).
 ///
 /// The spec defines exactly three values with no extension mechanism; modelled
 /// as a closed enum (no `Other` variant).  Wire values are lowercase.
@@ -30,7 +30,7 @@ pub enum IncludeInAvailability {
 }
 
 /// Access control rights the authenticated user holds for a Calendar
-/// (draft-ietf-jmap-calendars-33 §4, after the `myRights` field definition).
+/// (draft-ietf-jmap-calendars-34 §4, after the `myRights` field definition).
 ///
 /// `Default` produces all-false (no access), which is the most restrictive
 /// valid value and a safe starting point when constructing rights in tests
@@ -91,7 +91,7 @@ pub struct CalendarRights {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
-/// A JMAP Calendar object (draft-ietf-jmap-calendars-33 §4).
+/// A JMAP Calendar object (draft-ietf-jmap-calendars-34 §4).
 ///
 /// A Calendar is a named collection of CalendarEvents.  All events are
 /// associated with at least one calendar.  The `id` is immutable and
@@ -153,13 +153,13 @@ pub struct Calendar {
     pub include_in_availability: IncludeInAvailability,
 
     /// Default alerts for timed events when `useDefaultAlerts` is true.
-    /// `Id[Alert]` (draft-ietf-jmap-calendars-33 §4): keys are alert ids;
+    /// `Id[Alert]` (draft-ietf-jmap-calendars-34 §4): keys are alert ids;
     /// values are Alert objects (RFC 8984 §4.5.2).
     /// Complex sub-objects passed through as opaque JSON.
     pub default_alerts_with_time: Option<BTreeMap<Id, serde_json::Value>>,
 
     /// Default alerts for all-day events when `useDefaultAlerts` is true.
-    /// `Id[Alert]` (draft-ietf-jmap-calendars-33 §4): keys are alert ids;
+    /// `Id[Alert]` (draft-ietf-jmap-calendars-34 §4): keys are alert ids;
     /// values are Alert objects (RFC 8984 §4.5.2).
     pub default_alerts_without_time: Option<BTreeMap<Id, serde_json::Value>>,
 

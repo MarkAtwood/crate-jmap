@@ -8,7 +8,7 @@
 //! creation id prefixed with a "#". [...] the server MUST keep a simple map
 //! for the duration of the request of creation id to record id for each
 //! newly created record, so it can substitute in the correct value if
-//! necessary in later method calls." draft-ietf-jmap-calendars-33 §5:
+//! necessary in later method calls." draft-ietf-jmap-calendars-34 §5:
 //! `calendarIds` is an `Id[Boolean]` set of Calendar ids.
 //!
 //! Each assertion compares the `calendarIds` keys with the id the server

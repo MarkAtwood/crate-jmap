@@ -1,12 +1,12 @@
 //! CalendarEventNotification, Person, and NotificationType.
 //!
-//! Normative reference: draft-ietf-jmap-calendars-33 §7.
+//! Normative reference: draft-ietf-jmap-calendars-34 §7.
 
 use jmap_types::{Id, PatchObject, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 /// Who made the change that triggered a [`CalendarEventNotification`]
-/// (draft-ietf-jmap-calendars-33 §7).
+/// (draft-ietf-jmap-calendars-34 §7).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +33,7 @@ pub struct Person {
 }
 
 /// Type of change recorded by a [`CalendarEventNotification`]
-/// (draft-ietf-jmap-calendars-33 §7).
+/// (draft-ietf-jmap-calendars-34 §7).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NotificationType {
@@ -54,7 +54,7 @@ impl_string_enum!(NotificationType, "a JMAP CalendarEventNotification type strin
 );
 
 /// A JMAP CalendarEventNotification object
-/// (draft-ietf-jmap-calendars-33 §7).
+/// (draft-ietf-jmap-calendars-34 §7).
 ///
 /// Records a change made to a calendar event by an external entity or
 /// another client.  Apart from `hideAttendees` filtering, a notification
@@ -123,7 +123,7 @@ pub struct CalendarEventNotification {
 }
 
 // Serde-default function for the `@type` discriminator on
-// CalendarAlert. draft-ietf-jmap-calendars-33 §6.4 marks the field as
+// CalendarAlert. draft-ietf-jmap-calendars-34 §6.4 marks the field as
 // mandatory on the wire; we supply the literal as a default so
 // deserialize is liberal in what it accepts (spec-violating vendor
 // input missing `@type` does not fail). Mirrors the same pattern in
@@ -135,7 +135,7 @@ fn calendar_alert_at_type_default() -> String {
 }
 
 /// Push-notification payload emitted when a calendar alert fires
-/// (draft-ietf-jmap-calendars-33 §6.4).
+/// (draft-ietf-jmap-calendars-34 §6.4).
 ///
 /// Sent over the JMAP push channel when the server determines that an alert
 /// for a CalendarEvent should fire.  Clients receiving this payload should
@@ -187,7 +187,7 @@ pub struct CalendarAlert {
     ///
     /// **Maintainer note: do NOT add `#[serde(skip_serializing_if = "Option::is_none")]`
     /// to this field.** Adding it would silently break the spec contract:
-    /// per draft-ietf-jmap-calendars-33 §6.4, the receiver uses the
+    /// per draft-ietf-jmap-calendars-34 §6.4, the receiver uses the
     /// **presence** of `recurrenceId` to determine whether the alert
     /// fired for a recurring or non-recurring event. An omitted field
     /// is indistinguishable from a sender that forgot to include it; an
@@ -216,7 +216,7 @@ pub struct CalendarAlert {
 }
 
 /// Filter condition for `CalendarEventNotification/query`
-/// (draft-ietf-jmap-calendars-33 §7.4.1).
+/// (draft-ietf-jmap-calendars-34 §7.4.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
 /// CalendarEventNotification.
@@ -269,7 +269,7 @@ pub struct NotificationFilterCondition {
 }
 
 /// Concrete filter type for CalendarEventNotification/query
-/// (draft-ietf-jmap-calendars-33 §6).
+/// (draft-ietf-jmap-calendars-34 §6).
 ///
 /// Alias for `jmap_types::Filter<NotificationFilterCondition>`
 /// provided so callers do not have to reach into `jmap-types` directly.
@@ -280,7 +280,7 @@ pub struct NotificationFilterCondition {
 pub type NotificationFilter = jmap_types::Filter<NotificationFilterCondition>;
 
 /// The property to sort by in a [`CalendarEventNotificationComparator`]
-/// (draft-ietf-jmap-calendars-33 §7.4.2: "The "created" property MUST be
+/// (draft-ietf-jmap-calendars-34 §7.4.2: "The "created" property MUST be
 /// supported for sorting.").
 ///
 /// Unknown property names are preserved in
@@ -303,7 +303,7 @@ impl_string_enum!(CalendarEventNotificationComparatorProperty,
 );
 
 /// Comparator for `CalendarEventNotification/query`
-/// (draft-ietf-jmap-calendars-33 §7.4.2).
+/// (draft-ietf-jmap-calendars-34 §7.4.2).
 ///
 /// Build one with [`CalendarEventNotificationComparator::new`]; the struct
 /// is `#[non_exhaustive]`. Out of scope for extras preservation for the
@@ -349,7 +349,7 @@ fn is_true(b: &bool) -> bool {
 mod comparator_tests {
     use super::*;
 
-    /// Oracle: draft-ietf-jmap-calendars-33 §7.4.2 names "created" as the
+    /// Oracle: draft-ietf-jmap-calendars-34 §7.4.2 names "created" as the
     /// sort property; RFC 8620 §5.5 makes `isAscending` default to true.
     #[test]
     fn created_comparator_decodes_from_spec_name() {

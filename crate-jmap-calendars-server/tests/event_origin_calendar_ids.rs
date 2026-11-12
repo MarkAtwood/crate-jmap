@@ -1,7 +1,7 @@
 //! CalendarEvent `isOrigin` is set by the server and `calendarIds` always
 //! names at least one calendar.
 //!
-//! Oracle: draft-ietf-jmap-calendars-33 §5:
+//! Oracle: draft-ietf-jmap-calendars-34 §5:
 //! - "isOrigin: Boolean (server-set) [...] This is true if, and only if:
 //!   the event's \"organizerCalendarAddress\" property is null; or the
 //!   account will receive messages sent to the \"organizerCalendarAddress\"
@@ -141,7 +141,7 @@ async fn create_is_origin_uses_account_level_addresses() {
     assert_eq!(got["list"][0]["isOrigin"], true, "{got}");
 }
 
-/// draft-ietf-jmap-calendars-33 §5: `isOrigin` is "(server-set)"; RFC 8620
+/// draft-ietf-jmap-calendars-34 §5: `isOrigin` is "(server-set)"; RFC 8620
 /// §1.1: "The client MUST NOT send this property when creating", and RFC
 /// 8620 §5.3 lists that under `invalidProperties`.
 #[tokio::test]
@@ -255,7 +255,7 @@ async fn copy_recomputes_is_origin_in_target_account() {
     assert_eq!(get(&backend, "acc2", new_id).await["isOrigin"], false);
 }
 
-/// draft-ietf-jmap-calendars-33 §5.9: "If omitted on create, the server
+/// draft-ietf-jmap-calendars-34 §5.9: "If omitted on create, the server
 /// MUST set the following properties: * @type MUST be set to "Event" *
 /// version MUST be set to the JSCalendar version the event conforms to,
 /// e.g., "2.0"". A `/copy` creates the event in the target account

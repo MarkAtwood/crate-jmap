@@ -1,11 +1,11 @@
 //! ParticipantIdentity object.
 //!
-//! Normative reference: draft-ietf-jmap-calendars-33 §3.
+//! Normative reference: draft-ietf-jmap-calendars-34 §3.
 
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
-/// A JMAP ParticipantIdentity object (draft-ietf-jmap-calendars-33 §3).
+/// A JMAP ParticipantIdentity object (draft-ietf-jmap-calendars-34 §3).
 ///
 /// Represents a URI (typically a `mailto:` address) that identifies the
 /// authenticated user for iTIP scheduling purposes within a calendar account.

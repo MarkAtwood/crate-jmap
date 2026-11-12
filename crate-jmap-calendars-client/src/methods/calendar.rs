@@ -15,7 +15,7 @@ use jmap_types::{Id, PatchObject, State};
 use super::{ChangesResponse, GetResponse, PartialObject, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch Calendar objects by IDs (draft-ietf-jmap-calendars-33 §4.1).
+    /// Fetch Calendar objects by IDs (draft-ietf-jmap-calendars-34 §4.1).
     ///
     /// Pass `ids: None` to fetch all calendars. Pass `properties: None` to
     /// return all fields.
@@ -64,7 +64,7 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to Calendar objects since `since_state`
-    /// (draft-ietf-jmap-calendars-33 §4.2).
+    /// (draft-ietf-jmap-calendars-34 §4.2).
     ///
     /// # Errors
     ///
@@ -104,7 +104,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create, update, or destroy Calendar objects (draft-ietf-jmap-calendars-33 §4.4).
+    /// Create, update, or destroy Calendar objects (draft-ietf-jmap-calendars-34 §4.4).
     ///
     /// - `create`: JSON object mapping each creation id to the Calendar
     ///   properties to set (RFC 8620 §5.3). Pass `None` to omit the
