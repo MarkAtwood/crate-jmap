@@ -1062,6 +1062,15 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// `utc_start` and `utc_end` are [`UTCDate`](jmap_types::UTCDate) values
     /// (RFC 8620 §1.4 wire form) bounding the half-open interval queried.
+    ///
+    /// Only calendars the Principal is subscribed to and whose
+    /// `includeInAvailability` is `"all"` or `"attending"` count. Both are
+    /// the per-user values of the Principal identified by `principal_id`,
+    /// not of `caller` (draft-ietf-jmap-calendars-34 §2.2). If the Principal
+    /// never set a value, as with a Principal that does not represent a user
+    /// (such as a meeting room), the §4 default applies: `isSubscribed` true
+    /// for Calendars in the Principal's own account, `includeInAvailability`
+    /// `"all"` there.
     /// `busyStatus` is `"confirmed"` only when the event is confirmed and
     /// the Principal's `participationStatus` is `"accepted"`, and each
     /// BusyPeriod `event` MUST be the caller's `hideAttendees`-filtered

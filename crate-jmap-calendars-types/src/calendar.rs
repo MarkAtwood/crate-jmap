@@ -133,6 +133,13 @@ pub struct Calendar {
     pub sort_order: u32,
 
     /// Whether the user has subscribed to this calendar.
+    ///
+    /// Per user. draft-ietf-jmap-calendars-34 §4: SHOULD default to true for
+    /// Calendars in the user's own account, however they were created, and
+    /// for new Calendars the user creates, and to false for other Calendars
+    /// in shared accounts. `Principal/getAvailability` reads the Principal's
+    /// own value, which is that default if the Principal never set one
+    /// (§2.2).
     pub is_subscribed: bool,
 
     /// Whether to display this calendar's events (ignored if not subscribed).

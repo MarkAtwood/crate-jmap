@@ -215,10 +215,11 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             // replace `myRights` in `create_object`.
             //
             // RFC 8620 §5.3: the server fills omitted properties that have a
-            // default. draft-ietf-jmap-calendars-33 §4: `isSubscribed` SHOULD
-            // default to true for new Calendars created by the user
-            // themself, and `includeInAvailability` should default to "all"
-            // for calendars in the user's own account.
+            // default. draft-ietf-jmap-calendars-34 §4: `isSubscribed` SHOULD
+            // default to true "for Calendars in the user's own account
+            // (however they were created) and for any new Calendars created
+            // by the user themself", and `includeInAvailability` should
+            // default to "all" for calendars in the user's own account.
             //
             // ponytail: "all" assumes the creator owns the account, as the
             // `myRights` default does; a backend that knows the account is
