@@ -89,8 +89,12 @@ pub struct CalendarEventNotification {
     #[serde(rename = "type")]
     pub notification_type: NotificationType,
 
-    /// Id of the CalendarEvent this notification is about (always the base
-    /// event id, even for single-instance changes).
+    /// Id of the stored CalendarEvent this notification is about, never a
+    /// synthetic id for one instance (draft-ietf-jmap-calendars-34 §7).
+    ///
+    /// This is the base event's id, even when the change affects a single
+    /// instance, unless only specific instances of the event are stored
+    /// (§5.5); then it is the id of the stored instance.
     pub calendar_event_id: Id,
 
     /// Whether the event is a draft.  Present for `created` and `updated`
@@ -137,9 +141,10 @@ fn calendar_alert_at_type_default() -> String {
 /// for a CalendarEvent should fire.  Clients receiving this payload should
 /// trigger the appropriate local notification (e.g. an OS alert).
 ///
-/// `recurrenceId` is `null` for non-recurring events and MUST serialize as
-/// `null` (not be omitted) — the receiver uses its presence to distinguish
-/// recurring from non-recurring.
+/// `recurrenceId` is `null` only when the stored event is neither recurring
+/// nor a single instance of a recurring event, and MUST serialize as `null`
+/// (not be omitted): the receiver uses its presence to distinguish the two
+/// cases.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -156,14 +161,25 @@ pub struct CalendarAlert {
     /// The account that owns the calendar event.
     pub account_id: Id,
 
-    /// Id of the CalendarEvent for which this alert is firing.
+    /// Id of the stored CalendarEvent for which this alert is firing, never
+    /// a synthetic id for one instance (draft-ietf-jmap-calendars-34 §6.4).
+    ///
+    /// For a recurring event this is the base event's id. If only specific
+    /// instances of the event are stored (§5.5), it is the id of the stored
+    /// instance.
     pub calendar_event_id: Id,
 
     /// The UID property of the iCalendar object underlying the calendar event.
     pub uid: String,
 
-    /// The recurrenceId of the specific occurrence, or `null` for non-recurring
-    /// events (draft-ietf-jmap-calendars-33 §6.4).
+    /// The recurrence id of the instance for which the alert is firing
+    /// (draft-ietf-jmap-calendars-34 §6.4).
+    ///
+    /// `None` (wire `null`) only if the stored CalendarEvent has a null
+    /// `recurrenceId` and no `recurrenceRule` or `recurrenceOverrides`, that
+    /// is, it is not recurring and is not a single instance of a recurring
+    /// event. An alert on a stored instance carries that instance's
+    /// recurrence id.
     ///
     /// Serializes as `null` when `None` — intentionally NOT marked
     /// `skip_serializing_if` so the receiver can distinguish recurring from

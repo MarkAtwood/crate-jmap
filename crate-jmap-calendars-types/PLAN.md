@@ -280,7 +280,7 @@ responses) except where mandated by the spec.
 | `changedBy` | `Person` | who made the change |
 | `comment` | `String\|null` | comment from changer |
 | `type` | `NotificationType` | "created"\|"updated"\|"destroyed" |
-| `calendarEventId` | `Id` | base event id |
+| `calendarEventId` | `Id` | id of the stored CalendarEvent: the base event, unless only specific instances are stored (-34 §7) |
 | `isDraft` | `bool\|null` | present for created/updated |
 | `event` | `CalendarEvent` | data before change (updated/destroyed) or after (created) |
 | `eventPatch` | `jmap_types::PatchObject\|null` | typed PatchObject (RFC 8620 §5.3); present for updated only |
