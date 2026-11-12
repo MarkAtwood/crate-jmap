@@ -441,7 +441,8 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     // §5.9: sendSchedulingMessages — Boolean (default false). When true, the
     // backend MUST send iTIP scheduling messages on success of each
     // create/update/destroy, or return a noSupportedScheduleMethods SetError
-    // (§10.8.2) when at least one recipient has no usable calendarAddress.
+    // (§10.8.2) when it "cannot send to the calendar address of at least one
+    // of the recipients" (draft-ietf-jmap-calendars-34).
     // Non-boolean values are treated as the default (false) per RFC 8620
     // permissive parsing — strict rejection would be invalidArguments, but
     // the spec defines no such requirement and we match Calendar/set's
