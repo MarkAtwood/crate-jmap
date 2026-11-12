@@ -2006,25 +2006,231 @@ async fn filenode_copy_destroy_from_if_in_state_match_destroys_original() {
 }
 
 // ---------------------------------------------------------------------------
-// FileNode/copy — onSuccessDestroyOriginal without onDestroyRemoveChildren
-// MUST report `nodeHasChildren` for a source directory that has children,
-// honoring the FileNode-specific top-level flag on the implicit destroy.
-// Oracle: draft-ietf-jmap-filenode-14 §3.2.4 ("with the same behaviour" as
-// FileNode/set) + §3.2.3 nodeHasChildren semantics. Regression for bd
-// JMAP-510h.56.
+// FileNode/copy of a Directory — draft-ietf-jmap-filenode-20 §3.2.4:
+//   "Copying a Directory copies its whole subtree: each descendant is
+//   copied, by the rules above and with the same name, beneath the copy of
+//   its parent. The copy of a Directory and all its descendants succeeds or
+//   fails as a whole ... The response gives only the id of the new
+//   Directory; FileNode/query with an ancestorId condition finds the copied
+//   descendants."
+//   "If onSuccessDestroyOriginal is true, the implicit FileNode/set call
+//   that destroys the originals ... has onDestroyRemoveChildren true."
+//   "Each copy is a new node, with a new id and a new changed value. It has
+//   the same created, modified and accessed values as its original, unless
+//   the client gives others. ... shareWith and role are not copied, even
+//   within one account: the copy takes its rights from its new parent, and
+//   isSubscribed takes its default value."
 // ---------------------------------------------------------------------------
 
+/// Seeds in account `src`: Directory `top` > File `f1`, Directory `sub` >
+/// SymLink `l1`, File `f2`. `top` has a role, a `shareWith` entry,
+/// `isSubscribed` false and fixed timestamps.
+fn backend_with_src_tree() -> MemoryBackend {
+    let backend = MemoryBackend::new()
+        .with_account(&Id::from("src"))
+        .with_account(&Id::from("dst"));
+    let rights = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
+                         "mayDelete": false, "mayModifyContent": false, "mayShare": false });
+    for v in [
+        json!({ "id": "top", "@type": "Directory", "name": "top", "parentId": null,
+                "role": "documents", "shareWith": { "U2": rights }, "isSubscribed": false,
+                "created": "2020-01-01T00:00:00Z", "modified": "2020-01-02T00:00:00Z",
+                "accessed": "2020-01-03T00:00:00Z", "changed": "2020-01-04T00:00:00Z" }),
+        json!({ "id": "f1", "@type": "File", "name": "f1.txt", "parentId": "top",
+                "blobId": "b1", "size": 3, "created": "2021-01-01T00:00:00Z" }),
+        json!({ "id": "sub", "@type": "Directory", "name": "sub", "parentId": "top" }),
+        json!({ "id": "l1", "@type": "SymLink", "name": "l1", "parentId": "sub",
+                "target": ["..", "f1.txt"] }),
+        json!({ "id": "f2", "@type": "File", "name": "f2.txt", "parentId": "sub",
+                "blobId": "b2", "size": 4 }),
+    ] {
+        backend.seed_node(
+            &Id::from("src"),
+            serde_json::from_value(v).expect("fixture FileNode"),
+        );
+    }
+    backend
+}
+
+/// Every node of account `account` below `ancestor`, keyed by name.
+async fn tree_below(
+    backend: &MemoryBackend,
+    account: &str,
+    ancestor: &str,
+) -> std::collections::BTreeMap<String, Value> {
+    let HandlerOutput { primary: q, .. } = handle_filenode_query(
+        backend,
+        &(),
+        json!({ "accountId": account, "filter": { "ancestorId": ancestor } }),
+        &[],
+    )
+    .await
+    .expect("FileNode/query must succeed");
+    let HandlerOutput { primary: got, .. } = handle_filenode_get(
+        backend,
+        &(),
+        json!({ "accountId": account, "ids": q["ids"] }),
+        &[],
+    )
+    .await
+    .expect("FileNode/get must succeed");
+    got["list"]
+        .as_array()
+        .expect("list")
+        .iter()
+        .map(|n| (n["name"].as_str().expect("name").to_owned(), n.clone()))
+        .collect()
+}
+
 #[tokio::test]
-async fn filenode_copy_on_success_destroy_original_node_has_children() {
+async fn filenode_copy_directory_copies_whole_subtree() {
+    let backend = backend_with_src_tree();
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({ "fromAccountId": "src", "accountId": "dst",
+                "create": { "c": { "id": "top" } } }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    let root = &resp["created"]["c"];
+    let root_id = root["id"].as_str().unwrap_or_else(|| panic!("{resp}"));
+    assert_ne!(root_id, "top", "a copy has a new id: {resp}");
+
+    let below = tree_below(&backend, "dst", root_id).await;
+    assert_eq!(
+        below.keys().map(String::as_str).collect::<Vec<_>>(),
+        ["f1.txt", "f2.txt", "l1", "sub"],
+        "every descendant, with the same name: {below:?}"
+    );
+    let sub_id = &below["sub"]["id"];
+    assert_eq!(below["f1.txt"]["parentId"], root_id);
+    assert_eq!(below["sub"]["parentId"], root_id);
+    assert_eq!(&below["l1"]["parentId"], sub_id);
+    assert_eq!(&below["f2.txt"]["parentId"], sub_id);
+    assert_eq!(below["l1"]["target"], json!(["..", "f1.txt"]));
+    assert_eq!(below["f2.txt"]["size"], 4);
+    assert_eq!(below["f1.txt"]["created"], "2021-01-01T00:00:00Z");
+    for (name, node) in &below {
+        assert!(
+            !["top", "f1", "sub", "l1", "f2"].contains(&node["id"].as_str().unwrap_or("")),
+            "{name} has a new id"
+        );
+    }
+
+    // The originals are untouched.
+    assert_eq!(tree_below(&backend, "src", "top").await.len(), 4);
+}
+
+#[tokio::test]
+async fn filenode_copy_keeps_timestamps_and_drops_sharing_role_subscription() {
+    let backend = backend_with_src_tree();
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({ "fromAccountId": "src", "accountId": "src",
+                "create": {
+                    "same": { "id": "top", "name": "top-copy" },
+                    "dated": { "id": "f1", "parentId": null,
+                               "created": "2024-05-05T00:00:00Z" }
+                } }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    let copy = &resp["created"]["same"];
+    assert_eq!(copy["created"], "2020-01-01T00:00:00Z", "{resp}");
+    assert_eq!(copy["modified"], "2020-01-02T00:00:00Z", "{resp}");
+    assert_eq!(copy["accessed"], "2020-01-03T00:00:00Z", "{resp}");
+    assert_eq!(copy["role"], Value::Null, "{resp}");
+    assert_eq!(copy["shareWith"], Value::Null, "{resp}");
+    assert_eq!(copy["isSubscribed"], true, "{resp}");
+    // "unless the client gives others"
+    assert_eq!(resp["created"]["dated"]["created"], "2024-05-05T00:00:00Z");
+}
+
+#[tokio::test]
+async fn filenode_copy_subtree_fails_as_a_whole() {
+    let backend = backend_with_src_tree();
+    // A descendant the destination cannot hold: an unsupported @type.
+    backend.seed_node(
+        &Id::from("src"),
+        serde_json::from_value(json!({ "id": "odd", "@type": "Socket", "name": "odd",
+                                       "parentId": "sub" }))
+        .expect("fixture FileNode"),
+    );
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({ "fromAccountId": "src", "accountId": "dst",
+                "create": { "c": { "id": "top" } } }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    assert_eq!(
+        resp["notCreated"]["c"]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c"]["properties"],
+        json!(["@type"]),
+        "{resp}"
+    );
+    let HandlerOutput { primary: q, .. } =
+        handle_filenode_query(&backend, &(), json!({ "accountId": "dst" }), &[])
+            .await
+            .expect("FileNode/query must succeed");
+    assert_eq!(q["ids"], json!([]), "nothing copied: {q}");
+}
+
+#[tokio::test]
+async fn filenode_copy_directory_into_own_subtree_rejected() {
+    let backend = backend_with_src_tree();
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({ "fromAccountId": "src", "accountId": "src",
+                "create": {
+                    "self": { "id": "top", "parentId": "top" },
+                    "deep": { "id": "top", "parentId": "sub" }
+                } }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    for cid in ["self", "deep"] {
+        assert_eq!(
+            resp["notCreated"][cid]["type"], "invalidProperties",
+            "{cid}: {resp}"
+        );
+        assert_eq!(
+            resp["notCreated"][cid]["properties"],
+            json!(["parentId"]),
+            "{cid}: {resp}"
+        );
+    }
+}
+
+// The implicit FileNode/set "has onDestroyRemoveChildren true", so a
+// copied Directory's original goes with its children, which the response
+// lists as FileNode/set lists a cascade.
+#[tokio::test]
+async fn filenode_copy_on_success_destroy_original_removes_children() {
     let backend = MemoryBackend::new()
         .with_account(&Id::from("src"))
         .with_account(&Id::from("dst"));
 
-    // src has a parent directory with a child; we copy the parent only.
     let src_parent = create_node(&backend, "src", "parent", None, "p").await;
-    let _src_child = create_node(&backend, "src", "child", Some(&src_parent), "c1").await;
+    let src_child = create_node(&backend, "src", "child", Some(&src_parent), "c1").await;
 
     let HandlerOutput {
+        primary: resp,
         extra_invocations: extra,
         ..
     } = handle_filenode_copy(
@@ -2034,9 +2240,9 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
             "fromAccountId": "src",
             "accountId": "dst",
             "onSuccessDestroyOriginal": true,
-            // onDestroyRemoveChildren absent → defaults to false.
+            "onDestroyRemoveChildren": false,
             "create": {
-                "c": { "id": &src_parent, "role": null }
+                "c": { "id": &src_parent }
             }
         }),
         "c0",
@@ -2044,41 +2250,58 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
     )
     .await
     .expect("copy itself must succeed");
+    assert!(resp["created"]["c"].is_object(), "{resp}");
 
     assert_eq!(extra.len(), 1, "implicit FileNode/set must be emitted");
     let Invocation {
         arguments: set_resp,
         ..
     } = &extra[0];
-    let not_destroyed = &set_resp["notDestroyed"];
-    assert!(
-        not_destroyed.is_object() && not_destroyed[&src_parent].is_object(),
-        "src parent must be in notDestroyed: {set_resp}"
-    );
-    assert_eq!(
-        not_destroyed[&src_parent]["type"], "nodeHasChildren",
-        "without onDestroyRemoveChildren, the implicit destroy must report nodeHasChildren: {set_resp}"
-    );
+    assert!(set_resp["notDestroyed"].is_null(), "{set_resp}");
+    let mut destroyed: Vec<String> =
+        serde_json::from_value(set_resp["destroyed"].clone()).expect("destroyed ids");
+    destroyed.sort();
+    let mut expected = vec![src_parent.clone(), src_child.clone()];
+    expected.sort();
+    assert_eq!(destroyed, expected, "{set_resp}");
 
-    // And the source parent must still exist.
     let HandlerOutput {
         primary: get_resp, ..
     } = handle_filenode_get(
         &backend,
         &(),
-        json!({
-            "accountId": "src",
-            "ids": [&src_parent]
-        }),
+        json!({ "accountId": "src", "ids": [&src_parent, &src_child] }),
         &[],
     )
     .await
     .expect("get must succeed");
-    let list = get_resp["list"].as_array().expect("list must be array");
-    assert!(
-        !list.is_empty(),
-        "src parent must survive a failed implicit destroy: {get_resp}"
+    assert_eq!(get_resp["list"], json!([]), "{get_resp}");
+}
+
+// The implicit destroy cannot remove a Directory with a role (-20 §5).
+#[tokio::test]
+async fn filenode_copy_on_success_destroy_original_keeps_role_directory() {
+    let backend = backend_with_src_tree();
+    let HandlerOutput {
+        extra_invocations: extra,
+        ..
+    } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({ "fromAccountId": "src", "accountId": "dst",
+                "onSuccessDestroyOriginal": true,
+                "create": { "c": { "id": "top" } } }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("copy itself must succeed");
+    let set_resp = &extra[0].arguments;
+    assert_eq!(
+        set_resp["notDestroyed"]["top"]["type"], "forbidden",
+        "{set_resp}"
     );
+    assert_eq!(tree_below(&backend, "src", "top").await.len(), 4);
 }
 
 // ---------------------------------------------------------------------------
