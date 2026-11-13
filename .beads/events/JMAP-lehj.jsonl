@@ -1,2 +1,3 @@
 {"id":"01a1d19f-511d-74f3-b905-4590e7b19815","issue_id":"JMAP-lehj","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-12T21:17:21.565324938Z"}
 {"id":"01a1d19f-5121-7057-99d2-7cf8b9ea495c","issue_id":"JMAP-lehj","event_type":"label_added","actor":"Mark Atwood","comment":"Added label: spec-sync","created_at":"2026-11-12T21:17:21.569022542Z"}
+{"id":"01a1d23b-3baa-7c25-912a-71feef63c49a","issue_id":"JMAP-lehj","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"All -34 sync children closed; calendars crates on draft-ietf-jmap-calendars-34. main: aecfd7d9..aea31c7b","created_at":"2026-11-13T00:07:39.690796635Z"}

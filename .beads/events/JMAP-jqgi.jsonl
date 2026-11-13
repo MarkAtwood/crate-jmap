@@ -1,2 +1,3 @@
 {"id":"01a1d19f-6188-7cf0-af3d-5cfc1bae4d1a","issue_id":"JMAP-jqgi","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-12T21:17:25.768848679Z"}
 {"id":"01a1d19f-618c-7169-8576-ffbdd62e5980","issue_id":"JMAP-jqgi","event_type":"label_added","actor":"Mark Atwood","comment":"Added label: spec-sync","created_at":"2026-11-12T21:17:25.772092791Z"}
+{"id":"01a1d23b-388f-723a-9449-35b9beaba7c1","issue_id":"JMAP-jqgi","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Added push_verification_rejects_non_id_push_subscription_id test; rustdoc cites erratum 9268 (code already correct). main: bd1b6c75","created_at":"2026-11-13T00:07:38.895146901Z"}
