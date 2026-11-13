@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-fg1r",
+  "title": "filenode-server: remove .expect() from merge_filenode_overrides",
+  "description": "Found in spec-sync batch 2: merge_filenode_overrides in crate-jmap-filenode-server has .expect(\"FileNode serializes to a JSON object\") in library code, against AGENTS.md's no-unwrap/expect rule. Propagate an error (serverFail) instead.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T01:06:55.62516719Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T01:06:55.62516719Z"
+}

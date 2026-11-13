@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-6xas",
+  "title": "FileNode/set: onExists and sibling-name uniqueness on update and across one /set",
+  "description": "Found in spec-sync batch 2 (filenode-20), predates it. -20 §3.2.3 applies onExists to a 'create or update' and says the server MUST check sibling-name uniqueness against the result of all creates, updates and destroys of one FileNode/set together; §3.1.1 says siblings MUST NOT share a name. crate-jmap-filenode-server checks collisions and applies onExists only on create: an update that renames or moves a node onto an existing sibling's name succeeds and leaves duplicate names, and destroy-plus-create of the same name in one /set fails. Needs update-path collision detection (alreadyExists for a discoverable sibling, forbidden for an undiscoverable one, replace/rename handling) and whole-/set evaluation.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T01:06:55.445029218Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T01:06:55.445029218Z",
+  "labels": [
+    "spec-sync"
+  ]
+}

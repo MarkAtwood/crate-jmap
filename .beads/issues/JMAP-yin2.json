@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-yin2",
+  "title": "FileNode/copy: undo an onExists replace when the copy then fails",
+  "description": "Found in spec-sync batch 2. In FileNode/copy an onExists 'replace' destroys the existing node before copy_object/copy_subtree; if the copy then fails the replaced node and its subtree stay destroyed, against -20 §3.2.4 'succeeds or fails as a whole'. Documented in the README and copy_subtree docs as a known gap. Needs the replace deferred until the copy succeeds, or a backend-level atomic replace hook (callers implement atomicity, per the reference-impl rule).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T01:06:55.50593189Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T01:06:55.50593189Z",
+  "labels": [
+    "spec-sync"
+  ]
+}
