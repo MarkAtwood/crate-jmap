@@ -1059,6 +1059,38 @@ async fn filenode_changes_move_reports_only_the_moved_node() {
     assert_eq!(changes["updated"], json!(["sub"]), "{changes}");
 }
 
+/// -20 §5: rights change "when the node or an ancestor moves to a parent
+/// whose inherited rights differ", and the server "MUST report every node
+/// whose rights for a user changed". Moving `sub` out of a shared `top`
+/// changes the rights of `leaf` below it too.
+#[tokio::test]
+async fn filenode_changes_move_out_of_shared_directory_reports_subtree() {
+    let backend = backend_with_dated_tree();
+    let rights = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
+                         "mayDelete": false, "mayModifyContent": false, "mayShare": false });
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "top": { "shareWith": { "U2": rights } } } }),
+    )
+    .await;
+    let since = changes_state(&backend).await;
+    changes_set(
+        &backend,
+        json!({ "accountId": "acc1", "update": { "sub": { "parentId": null } } }),
+    )
+    .await;
+    let changes = changes_since(
+        &backend,
+        json!({ "accountId": "acc1", "sinceState": since }),
+    )
+    .await;
+    let mut updated: Vec<String> =
+        serde_json::from_value(changes["updated"].clone()).expect("updated ids");
+    updated.sort();
+    assert_eq!(updated, ["leaf", "sub"], "{changes}");
+    assert_eq!(changed_of(&backend, "leaf").await, OLD_CHANGED);
+}
+
 // ---------------------------------------------------------------------------
 // FileNode/set create — onExists='replace' + onDestroyRemoveChildren cascade
 // Oracle: draft-ietf-jmap-filenode-20 §3.2.3 — for "replace", "If the

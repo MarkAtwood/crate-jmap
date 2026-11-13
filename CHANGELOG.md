@@ -104,7 +104,8 @@ wire behaviour that a conforming peer can observe.
   server-set `changed` (draft-ietf-jmap-filenode-20 §3.1.1) on create
   and copy, and on an update that changes a property other than
   `isSubscribed` or the metadata properties; it never set it before. A
-  `shareWith` change also records every descendant as updated (§5). The
+  `shareWith` change, or a move to a parent with different sharing
+  ancestors, also records every descendant as updated (§5). The
   `FileNodeBackend` docs now state the -20 change-reporting and rights
   rules (`created` needs `mayModifyContent`, `role` needs `mayRename`).
 - **jmap-filenode-server**: `CaseFolding::Insensitive` is now the
