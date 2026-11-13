@@ -122,6 +122,13 @@ wire behaviour that a conforming peer can observe.
   no longer treats more than one root as an error. The old `chatspace`
   role filter matched nothing against servers that follow the current
   draft, including jmap-chat-filenode-server.
+- **jmap-filenode-server**: `FileNodeBackend::get_descendant_ids` now
+  documents its order: each id comes after its parent's, as the
+  reference `MemoryBackend` already returned them. Every handler cascade
+  (`FileNode/set` with `onDestroyRemoveChildren`, an onExists
+  `"replace"`, and the destroy of `onSuccessDestroyOriginal`) now
+  destroys deepest first, so a backend that refuses to destroy a
+  non-empty Directory sees each Directory emptied before it goes.
 
 ### Removed
 

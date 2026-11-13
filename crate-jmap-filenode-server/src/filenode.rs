@@ -429,8 +429,9 @@ async fn replace_existing<B: FileNodeBackend>(
         }
     }
 
-    // Descendants first, then the node itself, as the destroy path does.
-    for id in desc_ids.iter().chain(std::iter::once(existing_id)) {
+    // Deepest first, then the node itself, as the destroy path does
+    // (`get_descendant_ids` lists each id after its parent).
+    for id in desc_ids.iter().rev().chain(std::iter::once(existing_id)) {
         backend
             .destroy_object::<FileNode>(caller, account_id, id)
             .await
@@ -1764,9 +1765,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
-            // When onDestroyRemoveChildren=true, cascade to all descendants first.
+            // When onDestroyRemoveChildren=true, cascade to all descendants
+            // first, deepest first (`get_descendant_ids` lists each id after
+            // its parent).
             let mut cascade_failed = false;
-            for desc_id in cascade {
+            for desc_id in cascade.iter().rev() {
                 match backend
                     .destroy_object::<FileNode>(caller, &account_id, desc_id)
                     .await
