@@ -454,12 +454,12 @@ pub async fn jmap_chat_client::SessionClient::space_query<C: serde_core::ser::Se
 pub async fn jmap_chat_client::SessionClient::space_query_changes<C: serde_core::ser::Serialize>(&self, &jmap_types::id::State, core::option::Option<u64>, core::option::Option<&jmap_types::query::Filter<C>>, core::option::Option<&[jmap_chat_types::query::SpaceComparator]>, core::option::Option<&jmap_types::id::Id>, core::option::Option<bool>) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::space_update(&self, &jmap_types::id::Id, &jmap_chat_client::SpacePatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
 impl jmap_chat_client::SessionClient
-pub async fn jmap_chat_client::SessionClient::space_file_tree_root(&self, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_base_client::error::ClientError>
-impl jmap_chat_client::SessionClient
 pub async fn jmap_chat_client::SessionClient::space_invite_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::space_invite_create(&self, &jmap_chat_client::SpaceInviteCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::space_invite_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::space_invite_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::space::SpaceInvite>, jmap_base_client::error::ClientError>
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::space_roots(&self, &jmap_types::id::Id) -> core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_base_client::error::ClientError>
 impl core::clone::Clone for jmap_chat_client::SessionClient
 pub fn jmap_chat_client::SessionClient::clone(&self) -> jmap_chat_client::SessionClient
 impl core::fmt::Debug for jmap_chat_client::SessionClient

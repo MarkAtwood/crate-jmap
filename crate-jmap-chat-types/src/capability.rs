@@ -103,10 +103,6 @@ pub fn may_advertise_chat_did<S: AsRef<str>>(did_supported_methods: Option<&[S]>
     })
 }
 
-/// FileNode `role` value marking the root of a Space file tree
-/// (draft-atwood-jmap-chat-filenode-00 §Space File Tree).
-pub const CHAT_FILENODE_SPACE_ROLE: &str = "chatspace";
-
 /// The `role` of an account in its `urn:ietf:params:jmap:chat` capability
 /// (draft-atwood-jmap-chat-federation-00 §Account-Level Capability).
 ///
@@ -284,12 +280,12 @@ pub struct ChatPushCapability {
 #[serde(rename_all = "camelCase")]
 pub struct ChatFilenodeCapability {
     /// Maximum total blob storage in bytes across all FileNodes in a
-    /// single Space's file tree. `None` means the server does not
-    /// advertise a per-Space limit.
+    /// single Space's file tree, counting all of its Space roots. `None`
+    /// means the server does not advertise a per-Space limit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub max_space_storage_bytes: Option<u64>,
-    /// Whether the server creates a Space file tree root automatically
-    /// for each new Space.
+    /// Whether the server creates one Space root automatically for each
+    /// new Space.
     pub auto_create_file_tree: bool,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -553,12 +549,10 @@ mod tests {
     }
 
     /// Oracle: draft-atwood-jmap-chat-filenode-00 §IANA Considerations
-    /// registers capability `urn:ietf:params:jmap:chat:filenode` and
-    /// FileNode role `chatspace`.
+    /// registers capability `urn:ietf:params:jmap:chat:filenode`.
     #[test]
-    fn filenode_uri_constants_match_draft() {
+    fn filenode_uri_constant_matches_draft() {
         assert_eq!(JMAP_CHAT_FILENODE_URI, "urn:ietf:params:jmap:chat:filenode");
-        assert_eq!(CHAT_FILENODE_SPACE_ROLE, "chatspace");
     }
 
     /// Oracle: hand-built JSON from draft-atwood-jmap-chat-filenode-00

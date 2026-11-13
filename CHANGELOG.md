@@ -98,6 +98,20 @@ wire behaviour that a conforming peer can observe.
   implementation-defined fold. The reference `MemoryBackend` compares
   prepared names instead of `str::to_lowercase`, so fullwidth and other
   compatibility forms now collide with their plain forms.
+- **BREAKING** **jmap-chat-client**: `SessionClient::space_file_tree_root`
+  is now `space_roots` and returns every Space root as a `Vec<Id>`. It
+  queries `FileNode/query` on `spaceId` alone, as
+  draft-atwood-jmap-chat-filenode-00 §Discovering Space Roots says, and
+  no longer treats more than one root as an error. The old `chatspace`
+  role filter matched nothing against servers that follow the current
+  draft, including jmap-chat-filenode-server.
+
+### Removed
+
+- **BREAKING** **jmap-chat-types**: `CHAT_FILENODE_SPACE_ROLE`. The
+  `chatspace` FileNode role is no longer defined or registered by
+  draft-atwood-jmap-chat-filenode-00; a Space root is any Directory with
+  `spaceId`.
 
 ## [0.5.0] - 2026-11-02
 
