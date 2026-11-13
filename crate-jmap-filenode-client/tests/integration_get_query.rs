@@ -19,7 +19,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 // FileNode fixture helpers
 // ---------------------------------------------------------------------------
 
-/// FileNode JSON for a `File` node in the draft-16 wire shape.
+/// FileNode JSON for a `File` node in the draft-ietf-jmap-filenode-20 wire shape.
 ///
 /// Oracle: draft-ietf-jmap-filenode-20 §3.1.6 example node "n3" — `@type`
 /// is `"File"`, the file-only properties are blobId, size, mediaType and
@@ -37,7 +37,7 @@ fn file_node_fixture(id: &str, name: &str, parent_id: Option<&str>) -> serde_jso
     })
 }
 
-/// FileNode JSON for a `Directory` node in the draft-16 wire shape.
+/// FileNode JSON for a `Directory` node in the draft-ietf-jmap-filenode-20 wire shape.
 ///
 /// Oracle: draft-ietf-jmap-filenode-20 §3.1.6 example node "n1" — `@type`
 /// is `"Directory"`, role is the only directory-specific property, and
