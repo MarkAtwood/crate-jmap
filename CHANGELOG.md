@@ -129,6 +129,13 @@ wire behaviour that a conforming peer can observe.
   `"replace"`, and the destroy of `onSuccessDestroyOriginal`) now
   destroys deepest first, so a backend that refuses to destroy a
   non-empty Directory sees each Directory emptied before it goes.
+- **jmap-filenode-server**: the reference `MemoryBackend`'s
+  `FileNode/query` matches the `blobId`, `isExecutable`, `minSize`,
+  `maxSize`, `mediaType` and `mediaTypeMatch` conditions only on Files,
+  and `role` and `hasAnyRole` only on Directories, for true and false
+  values alike (draft-ietf-jmap-filenode-20 §3.2.5). Before,
+  `mediaTypeMatch: "*"` matched a Directory and `hasAnyRole: false`
+  matched every File.
 
 ### Removed
 

@@ -1552,6 +1552,12 @@ fn node_matches_tree(
 /// - `modifiedBefore` / `modifiedAfter`
 /// - `accessedBefore` / `accessedAfter`
 ///
+/// draft-ietf-jmap-filenode-20 §3.2.5: "The blobId, isExecutable, minSize,
+/// maxSize, mediaType, mediaTypeMatch, and body conditions match only nodes
+/// whose @type is "File". The role and hasAnyRole conditions match only
+/// nodes whose @type is "Directory". This applies to both true and false
+/// values."
+///
 /// Explicitly NOT supported (answered with `unsupportedFilter`, RFC 8620
 /// §5.5, rather than a silent match-all that would look like a passing
 /// query):
@@ -1572,6 +1578,22 @@ fn node_matches_filter(
         Some(f) => f,
         None => return Ok(true), // No filter — all nodes match.
     };
+
+    // -20 §3.2.5: conditions on a type-specific property match only nodes
+    // of that @type. `body` is left to the unsupportedFilter check below.
+    let file_only = fc.blob_id.is_some()
+        || fc.is_executable.is_some()
+        || fc.min_size.is_some()
+        || fc.max_size.is_some()
+        || fc.media_type.is_some()
+        || fc.media_type_match.is_some();
+    if file_only && node.node_type != Some(NodeType::File) {
+        return Ok(false);
+    }
+    let directory_only = fc.role.is_some() || fc.has_any_role.is_some();
+    if directory_only && node.node_type != Some(NodeType::Directory) {
+        return Ok(false);
+    }
 
     if let Some(ref pid) = fc.parent_id
         && node.parent_id.as_ref() != Some(pid)
@@ -2066,6 +2088,48 @@ mod tests {
         let mut other_file = fc(json!({}));
         other_file.node_type = Some(NodeType::Other("File".into()));
         assert!(matches(&file, &other_file));
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-20 §3.2.5, "The blobId,
+    /// isExecutable, minSize, maxSize, mediaType, mediaTypeMatch, and body
+    /// conditions match only nodes whose @type is "File". The role and
+    /// hasAnyRole conditions match only nodes whose @type is "Directory".
+    /// This applies to both true and false values."
+    #[test]
+    fn node_matches_filter_type_specific_conditions() {
+        let dir = make_filenode("d", "dir");
+        let file: FileNode = serde_json::from_value(json!({
+            "id": "f", "name": "a.txt", "parentId": null, "@type": "File",
+            "blobId": "b1", "size": 3, "type": "text/plain",
+            "created": "1970-01-01T00:00:00Z", "modified": "1970-01-01T00:00:00Z"
+        }))
+        .expect("fixture File node must deserialize");
+        let link: FileNode = serde_json::from_value(json!({
+            "id": "l", "name": "l", "parentId": null, "@type": "SymLink",
+            "target": ["a.txt"],
+            "created": "1970-01-01T00:00:00Z", "modified": "1970-01-01T00:00:00Z"
+        }))
+        .expect("fixture SymLink node must deserialize");
+        let nodes = HashMap::new();
+        let matching = |c: serde_json::Value| -> Vec<&str> {
+            let c: jmap_filenode_types::FileNodeFilterCondition =
+                serde_json::from_value(c).expect("filter condition");
+            [&dir, &file, &link]
+                .into_iter()
+                .filter(|n| node_matches_filter(n, Some(&c), &nodes).expect("no cycle"))
+                .map(|n| n.id.as_ref())
+                .collect()
+        };
+
+        for file_only in [
+            json!({ "mediaTypeMatch": "*" }),
+            json!({ "isExecutable": false }),
+            json!({ "minSize": 0 }),
+            json!({ "maxSize": 100 }),
+        ] {
+            assert_eq!(matching(file_only.clone()), ["f"], "{file_only}");
+        }
+        assert_eq!(matching(json!({ "hasAnyRole": false })), ["d"]);
     }
 
     /// Oracle: with_account on an existing account is a no-op — pre-existing
