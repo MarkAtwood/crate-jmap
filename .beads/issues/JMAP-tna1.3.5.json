@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.3.5",
+  "title": "mail-server Email history: get per version, onlyDestroyed query, restore, blob retention",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H5. Crates: jmap-mail-types, jmap-mail-server. Size: L.\n\nSpec: object-history-03 §3, §3.1 (blob downloadable; non-current versions are not blob references), §3.2.2 and §4.1 examples, §5.1, §5.2 (Email keeps blobId), §5.3 example. Design: docs/design/object-history.md §5 ('Foo/get' step 8, 'Foo/query', 'Foo/queryChanges'), §7 Email bullet, §9 blobext and emailpush, §10.\n\nWork:\n- impl HistoryObject for Email.\n- Factor the body-value processing out of handle_email_get into a helper and apply it per entry.\n- Email history get, using the pub pieces.\n- onlyDestroyed Email/query: collapseThreads ignored, default sort by destruction time descending. queryChanges routed by state kind (decision 6(c)).\n- Restore keeps blobId and threadId; a vanished Thread gives a new threadId, reported in `restored`.\n- Memory:\n  - the blob store keeps blobs of retained versions alive\n  - destroying a blob drops every version that references it, so the Email is gone (decision 6(d))\n  - Blob/lookup and blobHasReference see current Emails only (decision 11 covers the legacy lookup too)\n  - record onDestroyRemoveEmails and auto-expunge cascades\n\nAcceptance: spec examples byte-for-byte except state:\n- §3.2.2 Email/changes → #ids /destroyed → Email/get includeDestroyed\n- §4.1 onlyDestroyed destroyedAfter limit 50 ⇒ [\"email57\",\"email42\"] with canCalculateChanges:true, then queryChanges with only sinceQueryState after a restore ⇒ removed:[\"email42\"]\n- §5.3 restored {\"email42\": null}\nAlso: cascade destroys appear in includeDestroyed. CHANGELOG bullet, public-api.\n\nNote for emailpush: its memory email_history flag follows this capability once this lands (docs/design/emailpush.md §9).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:40.965510465Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:40.965510465Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.5",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:41.09006956Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.5",
+      "depends_on_id": "JMAP-tna1.3.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:35.690775462Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

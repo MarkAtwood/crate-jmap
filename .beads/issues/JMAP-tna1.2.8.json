@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.8",
+  "title": "blob-server: Blob/set handler",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B8. Crates: jmap-blob-server. Size: M.\n\nImplement handle_blob_set in set.rs per docs/design/blobext.md §5 'Blob/set' (blobext-03 §3, §4, §7; RFC 8620 §5.3): non-null ifInState -\u003e invalidArguments, oldState/newState null; create steps 1-9 factored as set::create_one (Blob/upload reuses it in B11): unknown property, maxDataSources tooLarge, topo_order with cycle -\u003e invalidProperties [data] (gap d), unresolved #ref -\u003e notFound (gap e), per-source validation -\u003e invalidProperties [data] (gap f), maxSizeBlobSet tooLarge, whole size/digest mismatch -\u003e invalidProperties [size]/[digest:\u003calg\u003e] with no blob created, create_blob, expires always written, omit_from_response; update = touch expires only (other keys only at current value); destroy with blobHasReference; #refs in update keys and destroy ids. Common start incl. BlobMode Conflict -\u003e invalidArguments. No conditional code here (decision 1). Acceptance: tests/set.rs covering every case in blobext.md §10 'server, Blob/set', with -03 §9.1 verbatim.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:44.257473538Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:44.257473538Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.8",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:44.488779375Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.8",
+      "depends_on_id": "JMAP-tna1.2.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.710415083Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

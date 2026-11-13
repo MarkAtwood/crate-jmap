@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.6",
+  "title": "jmap-server: PushSubscription extension seam (using gate, required check_push_subscription_change hook, normalized echo)",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E1. Crates: jmap-server, jmap-chat-server. Size: M.\n\nSpec: draft-ietf-jmap-emailpush-05 §4 (\"To get or set the emailPush property, the client MUST include\" the capability in using; default null), RFC 8620 §5.1 (invalid property =\u003e invalidArguments), §5.3 (echo server-changed values). Design: docs/design/emailpush.md §5.1, §6 (hook table), §9 item 0; decisions 1 and 9 in docs/design/DECISIONS.md.\n\nWork in crate-jmap-server/src/push.rs (+ parse.rs, lib.rs, tests/push_subscription_{get,set}.rs):\n1. register_push_subscription_handlers closures pass cx.using to both handlers. Signature unchanged (decision 1).\n2. New defaulted const PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES: \u0026[(property, capability URI)] = \u0026[]. For a gated property P whose capability is not in using: /get strips P from every object, and P in `properties` =\u003e invalidArguments; /set create sending P, or a patch whose first segment is P =\u003e SetError invalidProperties [P], checked before the other validation. With the capability, an absent P is shown as null in /get and in `created`. chatPush stays ungated.\n3. New REQUIRED (no default) hook check_push_subscription_change(caller, PushSubscriptionChange { old, new: \u0026mut PushSubscription, changed: \u0026BTreeSet\u003cString\u003e (create keys / patch first segments), using }) -\u003e Result\u003c(), BackendSetError\u003cE\u003e\u003e. Called after the RFC 8620 checks and before create_/update_push_subscription. The call must live INSIDE handle_push_subscription_set (not a registration closure), so the conditional epic's opt-in re-registration of PushSubscription/set (decision 1) reuses it. Rustdoc: no side effects, same answer on every registration path.\n4. created/updated echo every extra key whose value the hook changed, and do not echo unchanged keys.\n5. parse::nests_deeper_than becomes pub filter_nests_deeper_than(\u0026Value, usize); MAX_FILTER_DEPTH becomes pub.\n6. jmap-chat-server memory: move validate_chat_push from create/update into the hook (behaviour unchanged). The 2 test mocks implement the hook.\nBREAKING for PushSubscriptionBackend implementors: CHANGELOG entry and public-api snapshot refresh for jmap-server and jmap-chat-server.\nAcceptance: jmap-server tests with a mock gating emailPush — without the capability /get strips it, properties:[\"emailPush\"] =\u003e invalidArguments, a create or an emailPush/A patch =\u003e invalidProperties [\"emailPush\"]; with it, an absent emailPush is null in /get and created; the hook sees `changed` exactly; the hook's SetError reaches notCreated/notUpdated; a normalized key is echoed in created/updated and an unchanged one is not; chat-server tests pass unchanged. Must land before the conditional epic's PushSubscription bead (docs/design/conditional.md §11).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:31.032525248Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:31.032525248Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.6",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:31.157794227Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

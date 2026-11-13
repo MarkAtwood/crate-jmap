@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.7",
+  "title": "blob-server: Blob/get handler",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B7. Crates: jmap-blob-server. Size: M.\n\nImplement handle_blob_get in get.rs per docs/design/blobext.md §5 'Blob/get' steps 1-6 and the common start (BlobMode Conflict -\u003e invalidArguments, decision 11; accountNotFound; accountNotSupportedByMethod). blobext-03 §5: ids null -\u003e invalidArguments (gap c); default {data,size} only when offset and length are null, else invalidArguments (gap g); `id` accepted in properties (decision 1); unknown names and unadvertised digest:* -\u003e invalidArguments (also in dataSourceProperties, checked even without chunks); isTruncated/isEncodingProblem; digests over the returned octets via stored_digest then digester, serverFail when an advertised algorithm has neither; imageData; chunks with computed position and per-chunk digests. RFC 9404 mode behaviour is B11. Acceptance: tests/get.rs covering every case in blobext.md §10 'server, Blob/get', with -03 §9.2 verbatim and RFC 9404 §4.2.1 digest vectors.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:43.792845192Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:43.792845192Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.7",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:43.923773288Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.7",
+      "depends_on_id": "JMAP-tna1.2.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.589698582Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

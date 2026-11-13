@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-r44n.15",
+  "title": "Email/get: reject unknown property names with invalidArguments",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E15. Crates: jmap-mail-server. Size: S.\n\nFollow-up bug found while designing EmailPush. Spec: RFC 8620 §5.1 \"If an invalid property is requested, the call MUST be rejected with an invalidArguments error.\" Design: docs/design/emailpush.md §11, §5.2.\n\nToday mail-server Email/get's filter_properties silently drops unknown property names. After the project.rs refactor, make Email/get reject any name that project::check_email_property does not accept, with method-level invalidArguments. Keep header:* forms and metadata names (when the metadata URI is in using) valid. objectHistory: the plain handler rejects it, while object-history's history-aware Email/get strips it before this check (docs/design/object-history.md §5), which matches EmailPush's email_history gating (decision 10).\nAcceptance: Email/get with properties [\"nope\"] =\u003e invalidArguments; existing valid-property tests pass; CHANGELOG notes the wire behaviour change.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:39.111231407Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:39.111231407Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.15",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:39.236007589Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.15",
+      "depends_on_id": "JMAP-r44n.8",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.389773396Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

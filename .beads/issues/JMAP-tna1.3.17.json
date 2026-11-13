@@ -1,0 +1,49 @@
+{
+  "id": "JMAP-tna1.3.17",
+  "title": "jmap-types data-type registry: Supports History values for Mark's drafts' rows",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H15. Crates: jmap-types (registry module created by blobext:B1). Size: S.\n\nDecisions 5 and 14. Design: docs/design/object-history.md §2 (7.2 row), §3 (jmap-types row), §4 (is_history_type).\n\nIn the shared data-type registry table that blobext:B1 creates in jmap-types (columns: type name, capability, can reference blobs, can use for state change, supports history), set or verify the supports-history value of every row from Mark's drafts. Each row must cite its draft, matching the text H14 added and the list D1 confirmed:\n- chat-00: 7 Yes, ReadPosition and PresenceStatus No\n- chat-mimi-00: KeyPackage per D1\n- graph-00: 3 Yes\n- graph-edit-00: GraphNodeOp No\n- scene-00: 3 Yes, SceneAvatar No\n- vtc-00: 3 Yes, VTCParticipant No\n\nIETF rows keep §7.2 Table 1. Task/TaskList have no registry value (Tasks registers no data types), so they stay off the table or default to No. They are covered by OHT's PENDING_HISTORY_REGISTRATION (H1), not by a Yes here.\n\nAcceptance:\n- A jmap-types unit test lists, by hand from the drafts, the expected Yes set for Mark's rows and compares it with the table.\n- OHT is_history_type returns true for the decision-5 private types and false for the exclusions.\n- public-api snapshot and CHANGELOG bullet updated.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:53.305586675Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:53.305586675Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.17",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:53.430790197Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.17",
+      "depends_on_id": "JMAP-tna1.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:37.982173126Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.17",
+      "depends_on_id": "JMAP-tna1.3.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:38.102816938Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.17",
+      "depends_on_id": "JMAP-tna1.3.16",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:38.224693932Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

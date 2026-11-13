@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-tna1.12",
+  "title": "chat-client: deprecate blob methods as thin wrappers over jmap-blob-client",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B15. Crates: jmap-chat-client. Size: S.\n\nPer docs/design/DECISIONS.md decision 12 and docs/design/blobext.md §9 step 2: once jmap-blob-client exists, make the chat-client blob methods and their types #[deprecated(note = \"use jmap-blob-client\")] thin wrappers that delegate to jmap-blob-client, keeping the signatures fixed in tna1.1 (non-breaking: repo stability policy deprecates before removing). Add the chat-client -\u003e blob-client dependency; update RELEASING.md (jmap-chat-client moves from layer 4 to 5) and AGENTS.md dependency tree; docs point at jmap-blob-client. Acceptance: wiremock tests show each wrapper sends the same request body as before; deprecation attributes visible in the public-api snapshot; CHANGELOG 'Deprecated' entry; workspace builds without new warnings outside allowed deprecated uses in tests.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:52:38.70651525Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:52:38.70651525Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.12",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:52:38.832320342Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.12",
+      "depends_on_id": "JMAP-tna1.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:32.915054443Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.12",
+      "depends_on_id": "JMAP-tna1.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:33.035969902Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

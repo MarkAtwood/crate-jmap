@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.3.2",
+  "title": "object-history-server: select_versions, VersionLog, retention, rights cut, fold_restore",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H2. Crates: jmap-object-history-server. Size: M.\n\nSpec: object-history-03 §2.1 (retention), §3 (selection rules), §3.1 (version numbering, ms precision, expires), §5.1 (history continues after restore; /changes classification), §8.2. Design: docs/design/object-history.md §3, §7, §10 (OHS bullet).\n\nThe crate holds pure helpers only: no handlers, no backend trait, no async.\n\n- HistorySelector + select_versions implement §3 exactly:\n  - flags first\n  - historyAfter/historyBefore are strict; the live version is kept by after and dropped by before\n  - historySkip counts from the newest, and the live version counts as one\n  - historyLimit keeps the newest\n  - notFound only when nothing remains after skip\n- VersionLog\u003cV = serde_json::Value\u003e derives Clone and is keyed by (type, account, id). Each entry is Vec\u003cVersion{version, snapshot, replaced_ms}\u003e plus destroyed_at.\n  - Methods: record_replace, record_destroy, restore(id)-\u003efinal, prune(now), select.\n  - Equal-ms versions collapse; version numbering is stable; expires = replaced + max_duration; the clock (now ms) is injected.\n  - prune discards oldest first. When the final version of a destroyed object goes, the whole object goes (decision 6(d)).\n- HistoryRetention { max_duration, max_versions_per_object }.\n- rights_changed_at cut: versions replaced before it are hidden; destroyed objects whose container rights changed after destruction are hidden.\n- fold_restore: destroyed then restored in the window ⇒ updated; created in the window or destroyed before it ⇒ created; never destroyed.\n\nAcceptance: table-driven tests written from the §3 prose:\n- live/destroyed × the 4 flag combinations\n- equal historyAfter excluded, live kept; historyBefore drops live\n- the 'historySkip: 20 … 20 or fewer … notFound' case; live counts as one skipped entry\n- historyLimit newest; historyLimit:0 puts the id in neither list\n- hasOlder true for an unreturned older version\n- equal-ms collapse\n- fold_restore cases\n- prune oldest-first, and a destroyed object vanishes with its final version (decision 6(d))\nREADME/PLAN/public-api snapshot updated; one CHANGELOG bullet.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:40.042452379Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:40.042452379Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.2",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:40.167357304Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.2",
+      "depends_on_id": "JMAP-tna1.3.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:35.209368991Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

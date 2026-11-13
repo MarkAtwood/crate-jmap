@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.5",
+  "title": "blob-server memory backend core",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B5. Crates: jmap-blob-server. Size: M.\n\nImplement the memory reference backend core per docs/design/blobext.md §7 (feature memory, knobs under test-helpers): store HashMap\u003c(account, Id), StoredBlob{Bytes | Chunks | Deferred}\u003e, ids B+counter; create_blob storing blobId sources as chunk lists and inline as bytes; clock-injected expires (1 h, 5 min noPersist) and touch_blob (Honoured up to 7 days, Applied beyond); reference index with add_reference_for_test / hide_object_for_test driving destroy_blob (blobHasReference) and blob_references; stored_digest fast path for whole-blob sha-256; advertise_for_test and the default capability (maxDataSources 64, digests [sha-256, sha], supportedTypeNames [], archive/extract [application/x-tar], other lists null, decision 13). Convert and deferred handling come in B6. Acceptance: unit tests for each hook contract in §6; memory module compiles only with the feature.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:43.137781533Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:43.137781533Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.5",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:43.263329373Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.5",
+      "depends_on_id": "JMAP-tna1.2.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.351825792Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-tna1.4",
+  "title": "jmap-types: shared JMAP Data Types registry (blobext + object-history)",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B1. Crates: jmap-types. Size: M.\n\nAdd crate-jmap-types/src/data_types.rs per docs/design/blobext.md §4 (registry block) and §9 (object-history), docs/design/DECISIONS.md decision 14 (one shared table in jmap-types read by blobext and object-history; prerequisite for both JMAP-tna1.2 and JMAP-tna1.3). API: #[non_exhaustive] pub struct DataTypeEntry { type_name, capability, can_reference_blobs, can_use_for_state_change, supports_history, reference: \u0026'static str }; pub const DATA_TYPES: \u0026[DataTypeEntry] sorted by type_name; pub fn data_type(\u0026str) -\u003e Option\u003c\u0026'static DataTypeEntry\u003e; one lib.rs export line. Fields follow blobext-03 §11.5 plus object-history-03 §7.2 'Supports History' (default No). Rows, each with `reference` citing its document: RFC 9404 Table 1 (/data/PROJECT/IETF/specs/rfc9404.txt §6.3), RFC 9425 Quota, RFC 9661 SieveScript, RFC 9670 Principal/ShareNotification, RFC 9610 AddressBook/ContactCard, draft-ietf-jmap-calendars-33, draft-ietf-jmap-filenode-20 (read each document's IANA data-type registration); Supports History from draft-ietf-jmap-object-history-03 §7.2 Table 1; Mark's drafts in ~/PROJECT/jmap-chat-spec (chat, chat-mimi, scene, vtc, graph, graph-edit) with 'Can Reference Blobs: Yes' for exactly Chat, Message, Space, CustomEmoji, SceneAsset, SceneObject, SceneAvatar, VTCRecording, GraphNode. Task/TaskList (draft-ietf-jmap-tasks-06 registers none) and atwood types: Supports History per decision 5's proposal (Yes except GraphNodeOp, PresenceStatus, ReadPosition, SceneAvatar, VTCParticipant, TaskNotification), citing decision 5 (blobext note §12 Q4). Acceptance: tests with a hand-copied oracle table check every RFC 9404 Table 1 row and every object-history §7.2 value; order/uniqueness test; the nine atwood blob rows; data_type(\"Identity\").can_reference_blobs == false; public-api snapshot and CHANGELOG (additive).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:39.420364005Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:39.420364005Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.4",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:39.544567997Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

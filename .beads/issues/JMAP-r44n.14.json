@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-r44n.14",
+  "title": "chat-client: use base-client PushSubscription bindings instead of private chat-flavoured ones",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E14. Crates: jmap-chat-client. Size: S.\n\nFollow-up. Design: docs/design/emailpush.md §8.\n\njmap-chat-client has private chat-flavoured PushSubscription/get and /set code. Once jmap-base-client has the generic push_subscription_get/push_subscription_set (with extra_using), reimplement the chat-client helpers as thin wrappers over them, keeping the public chat-client API unchanged (or #[deprecated] wrappers per the repo stability policy if a signature must change).\nAcceptance: existing chat-client tests pass; no duplicate request-building code remains; public-api snapshot shows no unintended change.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:38.787991144Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:38.787991144Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.14",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:38.913937837Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.14",
+      "depends_on_id": "JMAP-r44n.9",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.269563683Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

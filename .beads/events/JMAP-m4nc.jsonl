@@ -1,1 +1,2 @@
 {"id":"01a18e7f-9e5e-75e1-a996-8811d0b05ce1","issue_id":"JMAP-m4nc","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-30T20:28:10.718386035Z"}
+{"id":"01a1d2d0-327d-716f-a660-1e06d426d125","issue_id":"JMAP-m4nc","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"folded into JMAP-tna1: blobext-03 obsoletes RFC 9404; RFC 9404 served per docs/design/DECISIONS.md #11; jmap-blob placeholder becomes the umbrella crate","created_at":"2026-11-13T02:50:22.20509507Z"}

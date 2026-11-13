@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-r44n.13",
+  "title": "Docs: emailpush in AGENTS.md crate map, mail crate README/PLAN.md, web-push docs, CHANGELOG",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E13. Crates: workspace docs, jmap-mail-types, jmap-mail-server, jmap-mail-client, jmap-web-push, jmap-server, jmap-base-client. Size: S.\n\nDesign: docs/design/emailpush.md §3, §9 (breaking-changes table), §11.\n\nUpdate the AGENTS.md crate-map rows for jmap-mail-types, jmap-mail-server, jmap-mail-client, jmap-server (PushSubscription extension seam, required check_push_subscription_change), jmap-base-client (PushSubscription bindings) and jmap-web-push (Sender::send takes \u0026EmailPush; MAX_PLAINTEXT for max_bytes). Update the mail crates' README and PLAN.md feature lists (emailpush, test-helpers), and add the emailpush feature to the README spec-coverage tables. Make sure the root CHANGELOG [Unreleased] has the BREAKING entry for PushSubscriptionBackend::check_push_subscription_change and the memory Email/query behaviour change. No code changes.\nAcceptance: docs mention every public item added by the epic; cargo doc builds without broken intra-doc links; the typos check passes.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:38.474665795Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:38.474665795Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.13",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:38.598832029Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.13",
+      "depends_on_id": "JMAP-r44n.12",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.03024403Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.13",
+      "depends_on_id": "JMAP-r44n.11",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.14959649Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

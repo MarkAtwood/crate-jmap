@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-y1yu.10",
+  "title": "calendars-server: opt-in conditional",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C9b. Crates: jmap-calendars-server. Size: M.\n\nApply the C7 pattern (docs/design/conditional.md §5.1, §7; decision 1 in docs/design/DECISIONS.md). register_calendars_conditional attaching SetSupport to every registered calendars /set; register_calendars_handlers unchanged; memory on ScopedState + ConditionalBackend; Atomic final-state checks: single default Calendar where specified, overQuota/caps, cascades. Acceptance: precondition, atomic rollback, final-state quota/cap tests; conditional_ready() after opt-in; public-api additions only.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:32.882656396Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:32.882656396Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.10",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:33.01688193Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.10",
+      "depends_on_id": "JMAP-y1yu.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:23.419840889Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.6",
+  "title": "blob-server memory conversions: ustar archive/extract, deferred results, stub converter",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B6. Crates: jmap-blob-server. Size: M.\n\nPer docs/design/blobext.md §7 and docs/design/DECISIONS.md decision 13: memory/convert.rs with a hand-rolled ustar application/x-tar archive and extract (no new dependencies), archive results stored Deferred until first read (blob_info/read_blob_range materialize), every other recipe advertised null; test-helpers knobs stub_converter_for_test(Fn(\u0026Recipe)-\u003eResult\u003cVec\u003cu8\u003e,SetError\u003e) for image/compress/delta/patch, fail_deferred_for_test(id) (failed generation = not found everywhere, blobext-03 §8), omit_no_persist_for_test(true). Specs: blobext-03 §8, §8.2-§8.4. Acceptance: a tar built from known entries matches a hand-computed ustar header oracle (name, mode, size, checksum fields); extract lists the same entries; deferred size is null until read; fail_deferred makes blob_info return None.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:43.446644901Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:43.446644901Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.6",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:43.57263586Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.6",
+      "depends_on_id": "JMAP-tna1.2.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.471711991Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

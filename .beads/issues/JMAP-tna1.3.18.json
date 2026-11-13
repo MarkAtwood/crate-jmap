@@ -1,0 +1,49 @@
+{
+  "id": "JMAP-tna1.3.18",
+  "title": "chat-server history: Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H16. Crates: jmap-chat-types, jmap-chat-server, jmap-chat-filenode-server + jmap-chat-vtc-server (README notes). Size: L.\n\nScope per decision 5, as confirmed in D1. Spec: object-history-03 §3, §4, §5.1, §8.2; draft-atwood-jmap-chat-00 §Message (editHistory note about l.782: once a Message is deleted (deletedAt set) or hard-deleted, prior and destroyed versions SHOULD NOT be returned and SHOULD be permanently removed), §Space/set (structural patch ops; destroy cascades and hard-deletes). Design: docs/design/object-history.md §2 (type-specific rules), §5 (RestoreHooks), §7, §9 chat bullet, §12 Q3 (resolved in D1).\n\nWork:\n- impl HistoryObject for the seven types.\n- _set_impl split; history handlers. /query and /queryChanges exist for Chat, Message, Space, ChatContact, CustomEmoji; SpaceBan and SpaceInvite have none.\n- register_chat_handlers_with_history.\n- The Space restore patch goes through the Space update parser (SpacePatchOp) via RestoreHooks.\n- Memory ObjectHistoryBackend:\n  - Message versions are purged when deletedAt is set or the row is hard-deleted (senderExpiresAt, burnOnRead, expiresAfterReadSeconds), so Messages never appear in includeDestroyed, onlyDestroyed or restore.\n  - Space destroy cascade recorded, with retention per D1's answer.\n  - rights_changed_at per Space.\n  - Blob-referencing types (Chat, Message, Space, CustomEmoji): a version whose blob is gone is not returned (decision 6(d)).\n  - SpaceInvite restore keeps code and uses.\n  - Every id-minting path is audited for reuse.\n- PresenceStatus and ReadPosition are not history types.\n- Bridge READMEs: chat-filenode check_root_create and chat-vtc check_call_create apply to restores too.\n- Registry cross-check test.\n\nAcceptance:\n- An edited Message returns its earlier versions; after deletedAt is set (and after a hard delete) it returns none, and restore ⇒ notFound.\n- A Space restore with a structural patch works.\n- SpaceBan/SpaceInvite history get and restore work without /query.\n- History flags on ReadPosition ⇒ invalidArguments.\n- /changes classification is correct.\n- Plain register_chat_handlers bytes are unchanged.\n- CHANGELOG, public-api.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:53.605151457Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:53.605151457Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.18",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:53.737382943Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.18",
+      "depends_on_id": "JMAP-tna1.3.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:38.345273719Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.18",
+      "depends_on_id": "JMAP-tna1.3.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:38.465864195Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.18",
+      "depends_on_id": "JMAP-tna1.3.17",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:38.586880524Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

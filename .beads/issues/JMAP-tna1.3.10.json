@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.3.10",
+  "title": "calendars-server history: Calendar, CalendarEvent, ParticipantIdentity",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H8. Crates: jmap-calendars-types, jmap-calendars-server. Size: M.\n\nSpec: object-history-03 §3, §4 (arguments for current objects only are ignored), §5.1, §7.4 (objectHistory reserved for JSCalendar Event/Group). Design: docs/design/object-history.md §5, §6, §7, §9 'Existing crates'; follow H4's shape.\n\nWork:\n- impl HistoryObject for Calendar, CalendarEvent, ParticipantIdentity.\n- _set_impl split; history handlers. Only CalendarEvent has /query. CalendarEvent/query ignores expandRecurrences when onlyDestroyed is set.\n- register_calendars_handlers_with_history.\n- Memory: record Calendar destroy cascades; rights_changed_at per Calendar.\n- Registry cross-check test.\n\nAcceptance:\n- Restored ids in /changes are updated or created.\n- onlyDestroyed with expandRecurrences:true returns un-expanded destroyed events.\n- Cascades appear in includeDestroyed.\n- objectHistory in an event create ⇒ invalidProperties.\n- CHANGELOG, public-api.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:51.114726558Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:51.114726558Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.10",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:51.240166322Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.10",
+      "depends_on_id": "JMAP-tna1.3.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:36.053211302Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

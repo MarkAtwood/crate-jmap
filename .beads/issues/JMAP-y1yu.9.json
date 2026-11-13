@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-y1yu.9",
+  "title": "chat-server: opt-in conditional",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C9a. Crates: jmap-chat-server. Size: L.\n\nApply the C7 pattern to jmap-chat-server (docs/design/conditional.md §5.1, §6, §7; decision 1 in docs/design/DECISIONS.md). Add register_chat_conditional attaching SetSupport to every registered chat /set; register_chat_handlers unchanged. Memory backend on ScopedState (outbound/side-effect queues in Inner so rollback drops them), ConditionalBackend impl; Atomic final-state checks: CustomEmoji/SpaceBan uniqueness, overQuota and per-account caps; defer outbound federation to commit. Also test PushSubscription/set conditional on chat memory via register_push_subscription_conditional (C5). Acceptance: one precondition test, one atomic rollback test on the main type, one final-state quota/cap test, push precondition on keys -\u003e forbidden; conditional_ready() after opt-in; existing tests unchanged; public-api additions only.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:32.569553559Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:32.569553559Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.9",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:32.692800752Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.9",
+      "depends_on_id": "JMAP-y1yu.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:23.17873129Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.9",
+      "depends_on_id": "JMAP-y1yu.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:23.29915754Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
