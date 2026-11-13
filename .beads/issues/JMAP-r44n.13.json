@@ -1,14 +1,15 @@
 {
   "id": "JMAP-r44n.13",
   "title": "Docs: emailpush in AGENTS.md crate map, mail crate README/PLAN.md, web-push docs, CHANGELOG",
-  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E13. Crates: workspace docs, jmap-mail-types, jmap-mail-server, jmap-mail-client, jmap-web-push, jmap-server, jmap-base-client. Size: S.\n\nDesign: docs/design/emailpush.md §3, §9 (breaking-changes table), §11.\n\nUpdate the AGENTS.md crate-map rows for jmap-mail-types, jmap-mail-server, jmap-mail-client, jmap-server (PushSubscription extension seam, required check_push_subscription_change), jmap-base-client (PushSubscription bindings) and jmap-web-push (Sender::send takes \u0026EmailPush; MAX_PLAINTEXT for max_bytes). Update the mail crates' README and PLAN.md feature lists (emailpush, test-helpers), and add the emailpush feature to the README spec-coverage tables. Make sure the root CHANGELOG [Unreleased] has the BREAKING entry for PushSubscriptionBackend::check_push_subscription_change and the memory Email/query behaviour change. No code changes.\nAcceptance: docs mention every public item added by the epic; cargo doc builds without broken intra-doc links; the typos check passes.",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E13. Crates: workspace docs, jmap-mail-types, jmap-mail-server, jmap-mail-client, jmap-web-push, jmap-server, jmap-base-client. Size: S.\n\nDesign: docs/design/emailpush.md §3, §9 (breaking-changes table), §11.\n\nUpdate the AGENTS.md crate-map rows for jmap-mail-types, jmap-mail-server, jmap-mail-client, jmap-server (PushSubscription extension seam: using gate and echo of changed extension keys; no required hook, decision 16), jmap-base-client (PushSubscription bindings) and jmap-web-push (Sender::send takes \u0026EmailPush; MAX_PLAINTEXT for max_bytes). Update the mail crates' README and PLAN.md feature lists (emailpush, test-helpers), and add the emailpush feature to the README spec-coverage tables. Make sure the root CHANGELOG [Unreleased] has the additive entries, a \"Changed\" entry for the PushSubscription/set echo of extension keys stored differently from what was sent, and the memory Email/query behaviour change. There is no BREAKING entry: PushSubscriptionBackend gains no required method (decision 16). Document in AGENTS.md / jmap-server rustdoc that a backend's create_/update_push_subscription validates extension properties (EmailPush: MUST call check_email_push_change). No code changes.\nAcceptance: docs mention every public item added by the epic; cargo doc builds without broken intra-doc links; the typos check passes.",
+  "notes": "2026-11-13: updated for decision 16",
   "status": "open",
   "priority": 2,
   "issue_type": "chore",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:38.474665795Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T02:50:38.474665795Z",
+  "updated_at": "2026-11-13T04:01:42.487282101Z",
   "labels": [
     "spec-sync"
   ],

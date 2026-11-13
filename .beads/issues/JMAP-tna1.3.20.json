@@ -1,14 +1,15 @@
 {
   "id": "JMAP-tna1.3.20",
   "title": "scene-server history: SceneAsset, SceneRegion, SceneObject",
-  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H18. Crates: jmap-scene-types, jmap-scene-server. Size: M.\n\nScope per decision 5, as confirmed in D1. Spec: object-history-03 §3, §4, §5.1, §8.2; draft-atwood-jmap-scene-00 (SceneRegion invitedUserIds visibility; SceneAsset/SceneObject reference blobs). Design: docs/design/object-history.md §5 'Foo/get' step 8, §7, §9 scene bullet.\n\nWork:\n- impl HistoryObject for SceneAsset, SceneRegion, SceneObject (not SceneAvatar).\n- _set_impl split; history handlers for all three, which all have /query.\n- register_scene_handlers_with_history.\n- The SceneRegion invitedUserIds per-caller blanking is applied to every history entry.\n- Memory: rights_changed_at per SceneRegion; blob rule (decision 6(d)); id minting audited.\n- SceneObject/interact is untouched.\n- Registry cross-check test.\n\nAcceptance:\n- A caller who cannot see invitedUserIds now does not see it in any version.\n- A SceneAsset version whose blob is destroyed is not returned.\n- SceneAvatar history flag ⇒ invalidArguments.\n- /changes classification is correct.\n- CHANGELOG, public-api.",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H18. Crates: jmap-scene-types, jmap-scene-server. Size: M.\n\nScope per decision 5, confirmed by decision 22 (resolves D1). Spec: object-history-03 §3, §4, §5.1, §8.2; draft-atwood-jmap-scene-00 (SceneRegion invitedUserIds visibility; SceneAsset/SceneObject reference blobs). Design: docs/design/object-history.md §5 'Foo/get' step 8, §7, §9 scene bullet.\n\nWork:\n- impl HistoryObject for SceneAsset, SceneRegion, SceneObject (not SceneAvatar, excluded by decision 22).\n- _set_impl split; history handlers for all three, which all have /query.\n- register_scene_handlers_with_history.\n- The SceneRegion invitedUserIds per-caller blanking is applied to every history entry.\n- Memory: rights_changed_at per SceneRegion; blob rule (decision 6(d)); id minting audited.\n- SceneObject/interact is untouched.\n- Registry cross-check test.\n\nAcceptance:\n- A caller who cannot see invitedUserIds now does not see it in any version.\n- A SceneAsset version whose blob is destroyed is not returned.\n- SceneAvatar history flag ⇒ invalidArguments.\n- /changes classification is correct.\n- CHANGELOG, public-api.",
+  "notes": "2026-11-13: updated for decision 22",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:54.228706225Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T02:50:54.228706225Z",
+  "updated_at": "2026-11-13T04:03:49.329548524Z",
   "labels": [
     "spec-sync"
   ],

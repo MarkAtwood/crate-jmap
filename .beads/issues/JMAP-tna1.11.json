@@ -1,14 +1,15 @@
 {
   "id": "JMAP-tna1.11",
   "title": "blob-client: RFC 9404 bindings (Blob/upload, 9404 Blob/get and Blob/lookup)",
-  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B24. Crates: jmap-blob-client. Size: S.\n\nCarried from folded epic JMAP-m4nc (client helpers); see docs/design/blobext.md §8 and §12 Q5 (keep or close). For servers that only advertise urn:ietf:params:jmap:blob (RFC 9404, /data/PROJECT/IETF/specs/rfc9404.txt §4): a separate entry point (e.g. with_blob_legacy_session) reading primaryAccounts[blob], using = core + blob (+ type capabilities), never blob2 in the same request (blobext-03 §2.1); blob_upload over BlobUploadArgs, 9404 Blob/get (properties data/data:asText/data:asBase64/digest:*/size) and Blob/lookup. Acceptance: wiremock tests whose request bodies equal RFC 9404 §4.1.1, §4.2.1 and §4.3.1 requests and whose responses parse those examples; using never contains both URIs; public-api snapshot.",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B24. Crates: jmap-blob-client. Size: S.\n\nCarried from folded epic JMAP-m4nc (client helpers); see docs/design/blobext.md §8. Decision 21(v): keep at P3 (not closed), for clients that talk to blob-only servers. For servers that only advertise urn:ietf:params:jmap:blob (RFC 9404, /data/PROJECT/IETF/specs/rfc9404.txt §4): a separate entry point (e.g. with_blob_legacy_session) reading primaryAccounts[blob], using = core + blob (+ type capabilities), never blob2 in the same request (blobext-03 §2.1); blob_upload over BlobUploadArgs, 9404 Blob/get (properties data/data:asText/data:asBase64/digest:*/size) and Blob/lookup. Acceptance: wiremock tests whose request bodies equal RFC 9404 §4.1.1, §4.2.1 and §4.3.1 requests and whose responses parse those examples; using never contains both URIs; public-api snapshot.",
+  "notes": "2026-11-13: updated for decision 21",
   "status": "open",
   "priority": 3,
   "issue_type": "feature",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:49.563676676Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T02:50:49.563676676Z",
+  "updated_at": "2026-11-13T04:02:39.842699654Z",
   "labels": [
     "spec-sync"
   ],

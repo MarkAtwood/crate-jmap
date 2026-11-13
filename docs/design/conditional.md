@@ -6,8 +6,10 @@ names below are quoted from it. Design only; no code in the repo was changed.
 Status: final. Mark's decisions of 2026-11-13 are recorded in `docs/design/DECISIONS.md`. This
 note applies decisions 1 (opt-in `ConditionalBackend` registration), 2 (conditional arguments
 without the URI), 6(b) (`atomic` covers object-history restores), 7 (error codes as `&str`
-consts) and 8 (generic `SetCall` with restore options), and checks decision 14 (shared data-type
-registry) where it touches this capability. Every place a decision changed the draft is marked
+consts), 8 (generic `SetCall` with restore options) and 17 (the separate attach call), checks
+decision 14 (shared data-type registry) where it touches this capability, and follows decisions 16
+(PushSubscription validation without a hook) and 19 (Blob details) where other notes meet it.
+Every place a decision changed the draft is marked
 "(decision N)". Companion notes: `docs/design/object-history.md`, `docs/design/blobext.md`,
 `docs/design/emailpush.md`.
 
@@ -258,11 +260,12 @@ and skips those that are not (feature-gated or separately registered sets: mail'
 ConditionalBackend>`. A consumer that never calls these fns sees no API or bound change.
 
 This follows decision 1's pattern (an opt-in registration path with the extra trait bound; the
-existing fn unchanged), but as a separate attach call rather than a `register_<x>_handlers_with_conditional`
-variant: object-history already adds `register_<x>_handlers_with_history`, and a second `_with_`
-axis would need `_with_history_and_conditional` too. Because the dispatcher wraps the handler
-rather than the handler calling the evaluator, the attach call works unchanged over the plain and
-the history-aware `/set` handlers (decision 1).
+existing fn unchanged) as a separate additive attach call, confirmed by decision 17 after the
+MDN/Sieve/graph-edit precedent; there are no `register_<x>_handlers_with_conditional` variants.
+Object-history already adds `register_<x>_handlers_with_history`, and a second `_with_` axis would
+need `_with_history_and_conditional` too. Because the dispatcher wraps the handler rather than the
+handler calling the evaluator, the attach call works unchanged over whichever `/set` is registered,
+plain or history-aware, and `conditional_ready()` gates advertisement (decisions 1, 17).
 
 `properties` is needed because the generic `handle_get` does not reject unknown property names
 (`handlers.rs` "ponytail" at the `properties` parse), so `/get` alone cannot enforce rule 4.
@@ -490,14 +493,17 @@ destroys; chat CustomEmoji/SpaceBan uniqueness; chat-mimi KeyPackageRef reuse an
 
 **blobext (JMAP-tna1.2).** `Blob/set` lives in the new `jmap-blob-server`; it gets
 `register_blob_conditional`, attaching `SetSupport::new::<BlobObject, B>` (BlobObject needs a
-`SetObject` impl), or `conditional_gaps` flags it (decision 1). blobext bead B14 must therefore be
-only that opt-in fn plus the memory scope: it must not re-implement evaluation in `set.rs`, and the
-dispatcher's `begin_set(Atomic)` replaces the `blob_set_atomic` hook the blobext note proposes
-(§12 Q1). Preconditions read via `Blob/get` (`digest:<alg>` names pass step 7 because `/get`
-returns them; `size`). Blob/set's own `ifInState` rule stays in its handler (step 6). Atomic
-Blob/set: rollback discards created blobs, including `noPersist` ones. `Blob/convert`,
-`Blob/lookup`, upload: not `/set`, untouched by the dispatcher (blobext decides Blob/convert's
-own handling).
+`SetObject` impl), or `conditional_gaps` flags it (decisions 1, 17). blobext bead B18 is only that
+attach fn plus the memory scope: it does not re-implement evaluation in `set.rs`, and the
+dispatcher's `begin_set(Atomic)` is the atomic hook, so there is no `blob_set_atomic` hook and no
+`ClosureHandler::new_set` (decision 17). Preconditions read via `Blob/get` (`digest:<alg>` names
+pass step 7 because `/get` returns them; `size`; `{}` and `null`). A pointer to `type` or
+`expires`, which `Blob/get` never returns, gets `invalidArguments` under §3.1 rule 4: the internal
+`Blob/get` rejects the unknown property name and step 5 returns that error as is (decision 19).
+Blob/set's own `ifInState` rule stays in its handler (step 6). Atomic Blob/set: rollback discards
+created blobs, including `noPersist` ones. `Blob/lookup` and upload: not `/set`, untouched by the
+dispatcher. `Blob/convert` is not `/set` either; its own handler answers `invalidArguments` to
+`atomic: true` or a non-empty `ifUnchangedBy` (decision 19).
 
 **object-history (JMAP-tna1.3).** `restore` runs "before any create, update, or destroy";
 preconditions still come first (§3.1 r1), so `{"x": null}` holds for a destroyed `x` being
@@ -527,12 +533,18 @@ in `jmap-server::push` (no `accountId`: `SetScopeRequest.account_id = None`, sco
 credentials); `register_push_subscription_handlers` keeps its signature (decision 1).
 `PushSubscription/get` already answers `forbidden` for `url`/`keys`, which gives §9.1, as the final
 emailpush note (§9) records. `emailPush` pointers without emailpush in `using` are
-`invalidArguments` (the gated `/get` rejects the name). emailpush's push.rs seam (emailpush bead
-1) lands first; this epic's push bead follows it.
+`invalidArguments` (the gated `/get` rejects the name). PushSubscriptionBackend gains no
+validation hook (decision 16): EmailPush validation runs in the backend's
+`create_`/`update_push_subscription`, so it runs inside the `begin_set` scope and a rejected config
+under `atomic` fails the method and rolls back. There is one `PushSubscription/set` registration
+and the attach call wraps it, so nothing can drop the validation last-wins (decisions 16, 17).
+emailpush's push.rs seam (emailpush:E1) lands first; this epic's push bead follows it.
 
 **/copy and other non-/set methods.** The spec extends only `Foo/set`. `Foo/copy`, `Email/import`,
 `Blob/convert`, `Peer/*`, `Room/*`, `KeyMaterial/fetch`, `SceneObject/interact`,
-`GraphNode/cursor`: args untouched, and the decision-2 check does not apply to them. Implicit
+`GraphNode/cursor`: args untouched by the dispatcher, and the decision-2 check does not apply to
+them. Blob/convert's own handler rejects `atomic: true` or a non-empty `ifUnchangedBy` with
+`invalidArguments` (decision 19). Implicit
 `/set` responses built inside a handler (`onSuccessDestroyOriginal`, `onSuccessUpdateEmail`) carry
 no conditional args. For an atomic `EmailSubmission/set` the implicit Email/set runs inside the
 scope and rolls back with it, but its own `notUpdated` does not fail the submission (RFC 8621 §7.5
@@ -606,7 +618,9 @@ false with a gap, true when every `/set` is covered; `attach_set_support` on an 
 errors; a later `register` of the same method drops the support; URI in `using` and no support ⇒
 `invalidArguments`; `register_<x>_handlers` called alone behaves exactly as before for requests
 without conditional args. `PushSubscription/set` via `register_push_subscription_conditional`:
-precondition on `keys` ⇒ `forbidden`; `ifInState` still ignored.
+precondition on `keys` ⇒ `forbidden`; `ifInState` still ignored; under `atomic`, a SetError from
+the mock's `create_push_subscription` (where extension validation runs, decision 16) ⇒
+`atomicFailure` and nothing stored.
 
 `ScopedState`: unscoped `lock()` (read and write) blocks while another task holds a scope; owner
 re-entry does not deadlock; two backends on one shared gate do not deadlock across calls; rollback
@@ -645,7 +659,7 @@ Children of JMAP-y1yu, in order. Per-crate beads touch only their own directory 
 | C2 | `ConditionalBackend`/`SetScope`/`serialized_writes_scope`, `current_set_scope`, `SetSupport`, `Dispatcher::attach_set_support` (decision 1), `CallContext.atomic`, `HandlerOutput.unreadable` | jmap-server | M | C1 |
 | C3 | dispatcher evaluator, decision-2 check, `/get` guard, atomic outcome mapping incl. `notRestored` (decision 6(b)), `conditional_gaps`/`conditional_ready`, probe tests | jmap-server (`conditional.rs`, `lib.rs`, one line in `helpers.rs`) | L | C2 |
 | C4 | `ScopedState<T>` + `ScopeGate` (feature `scoped-state`) | jmap-server (`scoped_state.rs`, `Cargo.toml`) | M | C2; parallel with C3 (shared: `lib.rs` mod/re-export lines and the snapshot, regenerated at merge) |
-| C5 | `register_push_subscription_conditional` (decision 1), mocks | jmap-server (`push.rs`, tests) | S | C3; emailpush:1 |
+| C5 | `register_push_subscription_conditional` attach call (decisions 1, 17) over the one registered `PushSubscription/set`; validation stays in the backend's create/update, no hook (decision 16); mocks | jmap-server (`push.rs`, tests) | S | C3; emailpush:E1 |
 | C6 | base-client `SetCall` with conditional + restore options (decision 8), `set_call`, `supports_conditional`, `ConditionalError` | jmap-base-client | M | C1 (parallel with C2–C5) |
 | C7 | mail-server (canonical): `register_mail_conditional` (decision 1), memory `ConditionalBackend` + ScopedState, Mailbox/SieveScript/quota final-state checks, pre-check skip under `cx.atomic`, example 5.2 | jmap-mail-server | L | C3, C4 |
 | C8 | filenode-server: `register_filenode_conditional`, ScopedState, atomic rollback, examples 5.1, 5.3–5.9 | jmap-filenode-server | M | C7, JMAP-6xas |
@@ -659,26 +673,16 @@ JMAP-6xas (final-state sibling names for every FileNode/set) has no conditional 
 land any time before C8. C5 no longer touches chat memory (the push opt-in is a new fn, decision 1),
 so it does not conflict with C9a; C9a tests PushSubscription/set on chat memory after C5.
 
-Cross-epic: blobext B14 (`Blob/set` opt-in) and object-history's `_with_history` integration tests
-depend on C2–C4; object-history H10 (client restore) builds on C6 (decision 8); emailpush bead 1
+Cross-epic: blobext B18 (`Blob/set` attach call) and object-history's `_with_history` integration
+tests depend on C2–C4; object-history H10 (client restore) builds on C6 (decision 8); emailpush E1
 (push.rs seam) precedes C5. No conditional bead depends on the data-type registry (decision 14).
 
 ## 12. Open questions for Mark
 
 Decided and removed: OQ1 hook placement (decision 1), OQ2 client surface (decision 8), OQ3
 arguments without the URI (decision 2), OQ4 error codes (decision 7), OQ5 `notRestored` in
-`atomicFailure` (decision 6(b)); see `docs/design/DECISIONS.md`.
+`atomicFailure` (decision 6(b)), blobext B18 versus this note (decision 17: no `blob_set_atomic`
+hook, B18 is the attach call plus the memory scope), shape of the opt-in fn (decision 17: the
+separate attach call `register_<x>_conditional`); see `docs/design/DECISIONS.md`.
 
-Remaining:
-
-1. **blobext B14 versus this note.** The blobext note (§9, B14) has `Blob/set` call a precondition
-   helper itself and adds a `BlobBackend::blob_set_atomic` hook returning `Ok(None)` for
-   `cannotApplyAtomically`. Under this design the dispatcher evaluates and `begin_set(Atomic)` on
-   `ConditionalBackend` is the atomic hook for every type, so B14 should shrink to
-   `register_blob_conditional` plus the memory scope, and `blob_set_atomic` should not exist.
-   *Recommend* amending blobext B14 to match.
-2. **Shape of the opt-in fn.** Decision 1 names the `_with_history` pattern. This note uses a
-   separate `register_<x>_conditional` attach call after `register_<x>_handlers` (or
-   `_with_history`) so the two opt-ins compose without a `_with_history_and_conditional` variant.
-   *Recommend* the attach call; the alternative is a full `register_<x>_handlers_with_conditional`
-   per crate plus the combined variant wherever history applies.
+Remaining: none.

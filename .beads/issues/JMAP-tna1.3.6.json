@@ -2,13 +2,16 @@
   "id": "JMAP-tna1.3.6",
   "title": "Decision: confirm private-type object-history list and per-type semantics",
   "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: D1. Crates: none. Size: S.\n\nMark to confirm before any private-type history work starts. This bead blocks H14, H15 and H16-H19. Context: docs/design/object-history.md §1, §9 'Decision-5 crates', §12 Q2-Q4; docs/design/DECISIONS.md decision 5.\n\n1. Confirm the exclusions proposed in decision 5. These are log, ephemeral, presence or notification types, by analogy with CalendarEventNotification and EmailDelivery 'No':\n   - GraphNodeOp: append-only op log; ops die with their node (graph-edit §Compaction).\n   - PresenceStatus and ReadPosition: ephemeral per-user state.\n   - SceneAvatar: presence-like.\n   - VTCParticipant: per-call membership.\n   - TaskNotification: a notification type.\n   Confirm the included list as well. Chat: Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite. Graph: Graph, GraphNode, GraphEdge. Scene: SceneAsset, SceneRegion, SceneObject. VTC: VTCCall, VTCRecording, VTCLivestream.\n2. KeyPackage (draft-atwood-jmap-chat-mimi-00) is in neither list. Recommended: 'No'. A KeyPackage is single-use MLS key material, and restoring a consumed one invites reuse (note §12 Q2).\n3. History after a Space destroy. chat-00 §Space/set says a destroy 'Hard-deletes all records; no tombstones are retained'. Recommended: retain the Space, Chat, SpaceBan, SpaceInvite and CustomEmoji versions, so the Space configuration can be restored without its messages. Messages are purged anyway by the chat-00 Message rule. The alternative is to purge every chat version along with the Space (§12 Q3).\n4. Restoring an edited GraphNode. Its ops are destroyed with the node. Recommended: the log restarts empty with its head at the final snapshotSeq, and edits after the final snapshot are lost and documented as such. The alternative is forbidden when the log head was above snapshotSeq (§12 Q4).\n\nAcceptance: Mark's answers are appended to docs/design/DECISIONS.md. Note §1, §9 and §12 are updated to match. H14's per-type Yes/No values are fixed.",
-  "status": "open",
+  "notes": "2026-11-13: resolved by decision 22 (docs/design/DECISIONS.md): exclusions and included list confirmed; KeyPackage No; Message follows chat-00 l.782; Space destroy purges the history of the Space and everything in it; GraphNode restore at its final snapshot with an empty op log. Note §1, §2, §9, §12 updated.",
+  "status": "closed",
   "priority": 2,
   "issue_type": "decision",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:49.87090045Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T02:50:49.87090045Z",
+  "updated_at": "2026-11-13T04:04:36.372545475Z",
+  "closed_at": "2026-11-13T04:04:36.372545475Z",
+  "close_reason": "Resolved by decision 22 (docs/design/DECISIONS.md): private-type list confirmed, KeyPackage No, Message per chat-00 l.782, Space destroy purges its history, GraphNode restore at final snapshot with empty op log.",
   "labels": [
     "spec-sync"
   ],

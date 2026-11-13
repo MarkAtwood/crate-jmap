@@ -3,10 +3,12 @@
 Spec: `~/PROJECT/IETF/specs/draft-ietf-jmap-object-history-03.xml` (posted 2026-11-02).
 
 Status: final. Mark's decisions of 2026-11-13 are recorded in `docs/design/DECISIONS.md`.
-This note applies decisions 5 (type scope), 6 (spec-gap stopgaps) and 14 (shared data-type
-registry). Where they touch this extension it also follows decisions 1 (opt-in registration), 4
-(blob crate names), 7 (conditional error codes), 8 (generic `SetCall`), 10 (`objectHistory` in
-EmailPush `properties`) and 11 (legacy RFC 9404 Blob/lookup). Every place a decision changed the
+This note applies decisions 5 (type scope), 6 (spec-gap stopgaps), 14 (shared data-type
+registry), 18 (history arguments without the URI), 22 (private-type history) and 23 (Tasks
+registrations from Mark's own draft). Where they touch this extension it also follows decisions 1
+(opt-in registration), 4 (blob crate names), 7 (conditional error codes), 8 (generic `SetCall`),
+10 (`objectHistory` in EmailPush `properties`), 11 (legacy RFC 9404 Blob/lookup) and 17 (the
+conditional attach call). Every place a decision changed the
 draft is marked "(decision N)". Companion notes: `docs/design/conditional.md`,
 `docs/design/emailpush.md`, `docs/design/blobext.md`.
 
@@ -24,10 +26,11 @@ Conditional-02 adopts the same opt-in pattern (decision 1) and composes with it 
 First-round scope (decision 5): the 11 Table 1 "Yes" types; Task and TaskList; and Mark's private
 types Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite (chat), Graph, GraphNode,
 GraphEdge (graph), SceneAsset, SceneRegion, SceneObject (scene), VTCCall, VTCRecording, VTCLivestream
-(vtc). Proposed exclusions, pending Mark's confirmation (bead D1): GraphNodeOp, PresenceStatus,
-ReadPosition, SceneAvatar, VTCParticipant and TaskNotification, which are log, ephemeral, presence or
-notification types, by analogy with CalendarEventNotification and EmailDelivery "No". KeyPackage
-(chat-mimi) is in neither list; D1 proposes "No" for it (§12 Q2).
+(vtc); the private-type list is confirmed by decision 22. Excluded (decision 22): GraphNodeOp,
+PresenceStatus, ReadPosition, SceneAvatar, VTCParticipant and TaskNotification, which are log,
+ephemeral, presence or notification types, by analogy with CalendarEventNotification and
+EmailDelivery "No", and KeyPackage (chat-mimi), "No" (decision 22). Task and TaskList history
+registrations come from Mark's own updated Tasks draft (decision 23, JMAP-jkl8.9).
 
 ## 2. Spec coverage
 
@@ -69,7 +72,7 @@ backends for reference).
 | 5.1 | `restored: "Id[Foo\|null]\|null"` (diff against the final version with the patch applied, or null); `notRestored: "Id[SetError]\|null"` | srv `restored_diff` + `append_restore_results` |
 | 5.1 | Non-null `restore` on an unsupported type ⇒ "MUST reject the call with an "invalidArguments" error" | srv |
 | 5.1 | Restores run "before any create, update, or destroy in the same call" | srv `run_restore_phase`, first stage of every history-aware `/set` |
-| 5.1 | Final values + patch; patch follows update rules; server-set values kept unless impossible, new values returned in `restored` | Bk `restore_object`; srv `apply_restore_patch`, or the type's own update-patch parser through `RestoreHooks` (Space) |
+| 5.1 | Final values + patch; patch follows update rules; server-set values kept unless impossible, new values returned in `restored` | Bk `restore_object`; srv `apply_restore_patch`, or the type's own update-patch parser through `RestoreHooks` (no current user: Space needed it, but a destroyed Space is purged and never restored, decision 22) |
 | 5.1 | History continues; destroyed versions become previous versions | Bk; OHS `VersionLog::restore` |
 | 5.1 | SetErrors `notFound` (incl. a current id), `invalidPatch`, `invalidProperties`, `forbidden`, `overQuota`, or any update/create error | srv (shape errors); Bk (the rest) |
 | 5.1 | RFC 8620 `maxObjectsInSet` names only create, update and destroy (spec gap) | Stopgap: restore entries count toward it (decision 6(a)); srv `enforce_max_objects_in_set_with_restore` |
@@ -78,7 +81,7 @@ backends for reference).
 | 5.2 | Email keeps `blobId`; SieveScript comes back inactive (activate with `onSuccessActivateScript`); missing container fails as an update would; conflicts use the normal error (`alreadyExists`) | mail-server Email/SieveScript beads; filenode `parentId`/name; parent-first restore order (§5) |
 | 6 | Non-normative | N/A |
 | 7.1 | Capability URI | OHT `JMAP_OBJECT_HISTORY_URI` |
-| 7.2 | "Supports History" column; default "No" for registrations without a value | The shared data-type registry in `jmap-types` carries the column (decision 14). `impl HistoryObject` exactly for the decision-5 types: the registry's "Yes" rows (Table 1, plus Mark's drafts once H14 adds their lines), and Task/TaskList on OHT's documented pending list until the Tasks draft registers them (decision 5). Never for a "No" or excluded type. A test in each type crate checks the impls against the registry |
+| 7.2 | "Supports History" column; default "No" for registrations without a value | The shared data-type registry in `jmap-types` carries the column (decision 14). `impl HistoryObject` exactly for the decision-5 types: the registry's "Yes" rows (Table 1, plus Mark's drafts once H14 adds their lines), and Task/TaskList on OHT's documented pending list until Mark's updated Tasks draft registers them with "Supports History: Yes" (decisions 5, 23; JMAP-jkl8.9, then bead H24). Never for a "No" or excluded type. A test in each type crate checks the impls against the registry |
 | 7.3/7.4 | `objectHistory` reserved in JSContact (Card) and JSCalendar (Event, Task, Group) | history-aware `/set` rejects an `objectHistory` key in create, update and restore patch with `invalidProperties`, on every history type (also needed for the §3.1 "if and only if"). Task is in scope (decision 5) |
 | 7.4 | Other specs SHOULD reserve the name | N/A (spec authors). Mark's drafts define no separate property registry |
 | 8.1 | Retention limits SHOULD; history in quota NOT RECOMMENDED; a restored object counts | Bk doc; memory never counts history; `overQuota` from `restore_object` |
@@ -87,13 +90,21 @@ backends for reference).
 | 8.4 | Make retention visible (SHOULD); clients SHOULD NOT call destroy permanent | `maxHistoryDuration`, `expires`; client crate docs |
 | 8.5 | MAY decline history, MAY refuse restore with `forbidden` | Bk `restore_object` contract |
 
-Type-specific rules from Mark's drafts (decision 5):
-- draft-atwood-jmap-chat-00 §Message (`editHistory` note): a server listing Message "SHOULD NOT
+Type-specific rules from Mark's drafts (decisions 5, 22):
+- draft-atwood-jmap-chat-00 §Message (`editHistory` note, l.782): a server listing Message "SHOULD NOT
   return any prior or destroyed version of a Message once that Message is deleted (`deletedAt` set)
   or hard-deleted, and SHOULD permanently remove those versions at the same time". Bk contract for
-  Message; the chat memory backend purges them. A Message therefore never appears in
+  Message; the chat memory backend purges them (decision 22). A Message therefore never appears in
   `includeDestroyed`, `onlyDestroyed` or `restore` (`notFound`); only edits of live, undeleted
   Messages have history.
+- draft-atwood-jmap-chat-00 §Space/set (l.1395): a Space destroy "Hard-deletes all records; no
+  tombstones are retained". The server purges the history of the Space and of everything in it
+  (its Chats and their Messages, its SpaceBans, SpaceInvites and Space-scoped CustomEmojis) at the destroy, so none of them
+  appears in `includeDestroyed`, `onlyDestroyed` or `restore` (`notFound`) afterwards (decision 22).
+- graph-edit §Compaction ("When a node is destroyed, its ops are destroyed with it"): a destroyed
+  GraphNode may be restored. It comes back at its final snapshot (`blobId`/`snapshotSeq`), and its
+  op log restarts empty with its head at `snapshotSeq`; edits after the final snapshot are not
+  recoverable, and the graph crate documents that (decision 22).
 - draft-atwood-jmap-graph-provenance-00 §Retraction: the same rule for a retracted provenance
   record (a GraphNode). There is no provenance crate yet; the graph bead documents the rule on the
   Bk contract so a provenance implementation inherits it.
@@ -134,8 +145,9 @@ pub const JMAP_OBJECT_HISTORY_URI: &str = "urn:ietf:params:jmap:object-history";
 /// types on PENDING_HISTORY_REGISTRATION.
 pub trait HistoryObject: jmap_types::GetObject {}
 
-/// Types implemented ahead of their registration (decision 5): the Tasks draft registers no
-/// "Supports History" value, so the registry default is "No". Removed when it does (bead H21).
+/// Types implemented ahead of their registration (decision 5): draft-ietf-jmap-tasks-06 registers
+/// no "Supports History" value, so the registry default is "No". Mark's updated Tasks draft
+/// registers them (decision 23, JMAP-jkl8.9); bead H24 then moves them to the registry.
 pub const PENDING_HISTORY_REGISTRATION: &[&str] = &["Task", "TaskList"];
 
 /// True for a registry "Yes" row or a pending type. For consumers building `supportedTypes`
@@ -228,7 +240,7 @@ Plain handler signatures and bytes are unchanged.
 
 **Foo/get.** (1) `accountId` and `account_exists` as today. (2) Read only `includeReplaced` and `includeDestroyed`.
 They must be booleans or absent, otherwise `invalidArguments`. Without the URI in `using`, a `true` flag is
-`invalidArguments` (§12 Q1). (3) Both false ⇒ remove the six history keys and `objectHistory` from `properties`, then call the plain
+`invalidArguments`, from the dispatcher check before the handler runs (decision 18). (3) Both false ⇒ remove the six history keys and `objectHistory` from `properties`, then call the plain
 path (`handle_get` / `handle_get_with_metadata` / the per-type getter). The four others are ignored, not validated (§3).
 (4) `!cap.supports::<O>()` (`None` capability included) ⇒ `invalidArguments`. (5) Parse the four: `UTCDate`
 through `new_validated`, skip and limit as UnsignedInt, `invalidArguments` naming the argument. (6)
@@ -241,8 +253,9 @@ then `attach_object_history`. The `properties` filter keeps `id` and `objectHist
 caller, args, using)`. Custom getters (Email, Mailbox, and private-type getters with projections) use the pub pieces
 `HistoryGetRequest::parse`, `strip_object_history_property` and `attach_object_history`.
 
-**Foo/query.** `DestroyedQueryRequest::parse` takes the three arguments out of `args`. If `onlyDestroyed` is false, absent
-or (without the URI, §12 Q1) ignored, a non-null `destroyedAfter`/`destroyedBefore` ⇒ `invalidArguments`. An explicit `null`
+**Foo/query.** `DestroyedQueryRequest::parse` takes the three arguments out of `args`. Without the URI in `using` the
+dispatcher check has already rejected `onlyDestroyed: true` and a non-null `destroyedAfter`/`destroyedBefore`
+(decision 18). If `onlyDestroyed` is false or absent, a non-null `destroyedAfter`/`destroyedBefore` ⇒ `invalidArguments`. An explicit `null`
 is not "supplied", since the default is null. Otherwise it delegates to the plain handler. `onlyDestroyed: true` on an unsupported type ⇒
 `invalidArguments`. Otherwise `query_destroyed` gets `DestroyedQueryParams { query: QueryParams<O>, destroyed_after,
 destroyed_before }` (`#[non_exhaustive]`, builder, like `QueryParams`). The response has the `handle_query` shape. Per-type
@@ -268,7 +281,7 @@ that is not a valid `Id` ⇒ `notFound` (§5.1: "not the id of a destroyed objec
 `invalidPatch` (as the update loop does), and `{}` becomes `None`. A `check_patch_paths` failure ⇒ `invalidPatch`. An
 `objectHistory` key ⇒ `invalidProperties`. The per-type update pre-checks (`#creation` key refs, `check_metadata_entry(..,
 false, using)`) run through `hooks: &dyn RestoreHooks`, which also lets a type supply its own update-patch parser
-(Space's structural `SpacePatchOp` parsing) instead of `apply_restore_patch`. **Order:** for tree types (Mailbox, FileNode) the phase fetches the final versions of the
+instead of `apply_restore_patch`, for a type whose updates are not plain PatchObjects (Space's structural `SpacePatchOp` was the case, but a destroyed Space is purged and never restored, decision 22). **Order:** for tree types (Mailbox, FileNode) the phase fetches the final versions of the
 restore keys (`get_object_history`, `include_destroyed`) and processes a parent before a child whose final `parentId` is
 another restore key. Without that, §5.2 "restore that object first, in the same call" fails for a subtree. Then
 `restore_object`. On `Ok(Restored{stored, baseline})`, `restored[id] = restored_diff(baseline, stored)` (top-level
@@ -283,8 +296,16 @@ restored object"). Count: `enforce_max_objects_in_set_with_restore` = create + u
 SetError>` applies all or nothing. A changed `SERVER_SET` or `IMMUTABLE` value ⇒ `invalidProperties`, and an identical
 value is allowed (as `check_read_only_patch` does for update). Also `restored_diff`.
 
+**Dispatcher check (decision 18).** Like conditional's decision 2, one dispatcher check runs on `*/get`, `*/query`
+and `*/set` for every deployment, whatever the registration: without the object-history URI in `using`,
+`includeReplaced: true`, `includeDestroyed: true`, `onlyDestroyed: true`, a non-null `destroyedAfter` or
+`destroyedBefore`, or a non-empty `restore` ⇒ method `invalidArguments`, and the handler is not called. `false`,
+`null` and empty values are accepted and removed. A deployment without history therefore no longer returns live data
+for `includeDestroyed: true` or drops a `restore` silently. No crate or draft uses these names for anything else
+(decision 18). Bead H23, after H3. The `_with_history` handlers keep their own check as defence in depth.
+
 **Error mapping.** Argument shape, unsupported type, a supplied `destroyed*` without `onlyDestroyed`, a non-object `restore`,
-and (§12 Q1) a history mode requested without the URI ⇒ method `invalidArguments`. Too many ids ⇒ `requestTooLarge`
+and a history argument sent without the URI (decision 18) ⇒ method `invalidArguments`. Too many ids ⇒ `requestTooLarge`
 (existing). Too many set entries including restores ⇒ `requestTooLarge` with description `maxObjectsInSet` (decision 6(a)).
 `BackendQueryError::Method` passes through (`unsupportedFilter`, `unsupportedSort`, `anchorNotFound`).
 `BackendChangesError::CannotCalculate` ⇒ `cannotCalculateChanges`. A backend `Other` ⇒ redacted `serverFail`
@@ -303,7 +324,7 @@ SieveScript handlers are registered without `using` today, so their history vari
 Each history-aware registration goes through `Dispatcher::register_history_aware(name, handler)`, which marks the
 method; a later plain `register` of the same name clears the mark. Conditional-02 opts in with a separate attach call,
 `register_<x>_conditional`, made after `register_<x>_handlers_with_history`; it wraps whichever `/set` is registered, so the
-two opt-ins compose without a combined variant (decision 1; conditional note §5.1).
+two opt-ins compose without a combined variant (decisions 1, 17; conditional note §5.1).
 
 **Capability advertisement.** The kit has no Session builder. The consumer calls `object_history_capability(caller,
 account_id)` per account and puts `Some(c)` under `accountCapabilities[URI]`. If any account has one, it sets
@@ -335,7 +356,10 @@ Contracts added to **existing** methods (doc only, in each crate that opts in):
 - `get_changes`: the restore classification above. A restored id is never metadata-only (`updatedProperties` is null for it).
 - The blobext hooks (tna1.2: `destroy_blob` / `blobHasReference`, `Blob/lookup` for both blob2 and the legacy RFC 9404
   capability, GC) consider current objects only (decision 11).
-- Message (chat): deleting (`deletedAt` set) or hard-deleting a Message purges its versions (§2).
+- Message (chat): deleting (`deletedAt` set) or hard-deleting a Message purges its versions (§2, decision 22).
+- Space (chat): destroying a Space purges the history of the Space and everything in it (§2, decision 22).
+- GraphNode (graph): `restore_object` restores a destroyed node at its final snapshot with an empty op log (§2,
+  decision 22).
 
 No permission or policy hooks are added. Access is decided inside the methods above (backend-canonical rule), and §8.5 policy
 is part of `restore_object`. Support types: `HistoryGetParams<'a>`, `DestroyedQueryParams<'a,O>`,
@@ -370,8 +394,9 @@ OHS provides the reusable parts, and each opted-in crate's `MemoryBackend` wires
   Blob-referencing private types (Chat, Message, Space, CustomEmoji, GraphNode, SceneAsset, SceneObject, VTCRecording;
   registry "Can Reference Blobs: Yes", decision 14) follow the same rule: a version whose blob is gone is not returned, and
   if that was the final version of a destroyed object, the object is gone (decision 6(d)).
-- Chat memory purges Message versions on delete or hard delete (§2). Graph memory restores an edited GraphNode per D1's
-  ruling on its edit log (§12 Q4).
+- Chat memory purges Message versions on delete or hard delete, and every version of a Space and its contents on Space
+  destroy (§2, decision 22). Graph memory restores a destroyed GraphNode at its final `blobId`/`snapshotSeq` with an
+  empty op log whose head is `snapshotSeq` (§2, decision 22).
 - `test-helpers` knobs: `set_history_clock_for_test`, `discard_version_for_test`, `purge_object_history` (the §8.3 stand-in),
   and `set_rights_changed_at_for_test`.
 
@@ -416,8 +441,8 @@ OHS provides the reusable parts, and each opted-in crate's `MemoryBackend` wires
 - Conditional adds no shared `/set` pipeline, so `run_restore_phase` works with the per-crate `SetAccumulators`/
   `finalize_set_response` copies. H3 adds a new `history.rs` and leaves `helpers.rs` alone, so the only file shared with
   conditional's foundation beads is the `jmap-server` `lib.rs` re-export list (a trivial rebase).
-- Without the URI in `using`, conditional's arguments are rejected by one dispatcher check on every deployment (decision 2).
-  Whether history arguments get the same treatment is §12 Q1.
+- Without the URI in `using`, conditional's arguments are rejected by one dispatcher check on every deployment (decision 2),
+  and history arguments by a second check of the same shape (decision 18, §5).
 
 **blobext-03** (tna1.2; crates `jmap-blob-types` / `jmap-blob-server` / `jmap-blob-client`, decision 4): `Blob/lookup`
 `matchedIds` and `blobHasReference` count current objects only (§3.1), for blob2 and for the legacy RFC 9404
@@ -448,35 +473,42 @@ clash ⇒ `alreadyExists`, parent-first restore order; the inherited-rights move
 
 **Decision-5 crates (decision 5).**
 - tasks: Task and TaskList. TaskList has no `/query`. `onDestroyRemoveTasks` cascades are recorded; a TaskList destroy
-  refused for remaining tasks records nothing. Task/copy is an id-minting path. TaskNotification is a proposed exclusion
-  (D1). The chat-tasks hidden Task properties are blanked per entry (§5). Task/TaskList are implemented ahead of any
-  registration: the Tasks draft (draft-ietf-jmap-tasks-06) has no "JMAP Data Types" entries at all, so they sit on OHT's
-  pending list until the authors register them (bead H21).
+  refused for remaining tasks records nothing. Task/copy is an id-minting path. TaskNotification is excluded
+  (decision 22). The chat-tasks hidden Task properties are blanked per entry (§5). Task/TaskList are implemented ahead
+  of their registration: draft-ietf-jmap-tasks-06 has no "JMAP Data Types" entries at all. The registrations come
+  from Mark's own updated Tasks draft (decision 23, JMAP-jkl8.9: TaskList, Task, TaskNotification with Supports
+  History Yes, Yes, No), not from an upstream ask; until it exists Task/TaskList sit on OHT's pending list, and bead
+  H24 moves them to the registry.
 - chat: Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite. SpaceBan and SpaceInvite have no `/query`.
-  Message history follows the chat-00 purge rule (§2). Space/set updates use structural patch ops, so a Space restore
-  patch goes through the same parser (`RestoreHooks`). A Space destroy cascades to its channel Chats and their Messages,
-  and chat-00 says it "Hard-deletes all records; no tombstones are retained"; whether Space-level versions are retained
-  after that is §12 Q3. Restore of a SpaceInvite keeps its server-set `code` and `uses`. ReadPosition and PresenceStatus
-  are proposed exclusions (D1). Bridge checks a consumer runs on create (chat-filenode `check_root_create`, chat-vtc
+  Message history follows the chat-00 purge rule (§2, decision 22). A Space destroy cascades to its channel Chats and
+  their Messages, and chat-00 says it "Hard-deletes all records; no tombstones are retained", so the destroy also purges
+  the history of the Space and everything in it, and none of it can be restored (decision 22; §2). A Space restore is
+  therefore always `notFound`, and Space/set's structural patch ops need no restore parser; `includeReplaced` on a live
+  Space still returns its earlier versions. Restore of a SpaceInvite keeps its
+  server-set `code` and `uses`. ReadPosition and PresenceStatus are excluded (decision 22). Bridge checks a consumer runs on create (chat-filenode `check_root_create`, chat-vtc
   `check_call_create`) also apply to a restore of the same object, since §5.1 allows "any of the errors that can be
   returned by an update or create"; each bridge crate's README says so.
 - graph: Graph, GraphNode, GraphEdge. Graph destroy cascades to nodes and edges, node destroy to edges; all recorded.
   An edge restore whose `fromId`/`toId` node is still destroyed ⇒ `invalidProperties` (graph's one integrity rule). It
   succeeds when a `GraphNode/set` that restores the node runs earlier in the same request; restores are per method, so
-  nodes and edges go in two calls, nodes first. GraphNodeOp is a proposed exclusion
-  (D1); its ops die with their node (graph-edit §Compaction), so restoring an edited GraphNode needs the §12 Q4 ruling.
+  nodes and edges go in two calls, nodes first. GraphNodeOp is excluded (decision 22); its ops die with their node
+  (graph-edit §Compaction), so a restored GraphNode comes back at its final `blobId`/`snapshotSeq` with an empty op log
+  whose head is `snapshotSeq`; edits after the final snapshot are not recoverable and the graph crate documents that
+  (decision 22).
   Nodes of a projected Graph (graph-projection) are derived views: the backend retains no history for them and answers
   with the live version only (§2.1 "MAY retain history for only some objects"). Retracted provenance records follow §2.
-- scene: SceneAsset, SceneRegion, SceneObject. SceneRegion `invitedUserIds` is blanked per entry. SceneAvatar is a
-  proposed exclusion (D1). `SceneObject/interact` is not a `/set` and is untouched.
+- scene: SceneAsset, SceneRegion, SceneObject. SceneRegion `invitedUserIds` is blanked per entry. SceneAvatar is
+  excluded (decision 22). `SceneObject/interact` is not a `/set` and is untouched.
 - vtc: VTCCall, VTCRecording, VTCLivestream. VTCLivestream `streamKey`/`streamUri` are blanked per entry. VTCRecording
-  versions follow the blob rule (§7). VTCParticipant is a proposed exclusion (D1). VTC side-effect events are not emitted
+  versions follow the blob rule (§7). VTCParticipant is excluded (decision 22). VTC side-effect events are not emitted
   for history reads; a restore emits what an update would.
-- chat-mimi: KeyPackage is not in decision 5's lists; D1 proposes "No" (§12 Q2).
+- chat-mimi: KeyPackage is "No" (decision 22): an MLS KeyPackage is single-use key material, and restoring a consumed
+  one would invite reuse. H14 writes "No" in chat-mimi-00, and KeyPackage gets no `HistoryObject` impl.
 
 **Spec repository.** Mark's drafts in `~/PROJECT/jmap-chat-spec` that register data types (chat-00, chat-mimi-00,
-graph-00, graph-edit-00, scene-00, vtc-00) get a "Supports History" line in every registration (decision 5; bead H14),
-so the registry rows (decision 14) cite text that exists.
+graph-00, graph-edit-00, scene-00, vtc-00) get a "Supports History" line in every registration, with the values decision
+22 confirmed (decisions 5, 22; bead H14), so the registry rows (decision 14) cite text that exists. The Tasks
+registrations go in Mark's own updated Tasks draft (decision 23, JMAP-jkl8.9), not in this set.
 
 **Breaking changes.**
 - Public API: additive. New crates. `jmap-server` gets a new module, dependency and the additive
@@ -484,9 +516,12 @@ so the registry rows (decision 14) cite text that exists.
   The nine type crates get new impls and a dependency. The server crates get new pub `*_with_history` functions and register
   functions, and their `/set` bodies move into private `*_set_impl`, so existing signatures stay the same. The `memory` API
   gains `with_object_history`. Snapshots only add lines.
-- Wire: none for deployments using the plain register functions. With `_with_history`: `/set` responses carry `restored`
-  and `notRestored` whenever the URI is in `using`; `objectHistory` in create/update ⇒ `invalidProperties`; history modes
-  without the URI ⇒ `invalidArguments` (§12 Q1); restores count toward `maxObjectsInSet` (decision 6(a)).
+- Wire, every deployment (CHANGELOG "Changed", as for conditional's decision 2): a history argument sent without the URI
+  (`includeReplaced: true`, `includeDestroyed: true`, `onlyDestroyed: true`, non-null `destroyedAfter`/`destroyedBefore`,
+  non-empty `restore`) now fails with `invalidArguments` instead of being ignored (decision 18). Otherwise none for
+  deployments using the plain register functions. With `_with_history`: `/set` responses carry `restored` and
+  `notRestored` whenever the URI is in `using`; `objectHistory` in create/update ⇒ `invalidProperties`; restores count
+  toward `maxObjectsInSet` (decision 6(a)).
 
 ## 10. Test plan
 
@@ -518,6 +553,10 @@ an injected clock and go through the dispatcher.
   `restored`/`notRestored` present (null) whenever the URI is in `using`, absent from plain handlers; `objectHistory` in a create ⇒
   `invalidProperties`; create + update + destroy + restore one over `maxObjectsInSet` ⇒ `requestTooLarge` (decision 6(a));
   backend `Other` redacted; `object_history_gaps` lists a method re-registered plain after `_with_history`.
+- **Dispatcher check (decision 18, H23):** without the URI, `includeDestroyed: true`, `includeReplaced: true`,
+  `onlyDestroyed: true`, `destroyedBefore: "…"` and `restore: {"x": null}` ⇒ `invalidArguments` with the handler not
+  called, under plain and `_with_history` registration alike; `includeDestroyed: false`, `destroyedAfter: null` and
+  `restore: {}` reach the handler without the key; with the URI the check does nothing.
 - **Per-crate (memory):** restored id in `/changes` is `updated` (existed at `sinceState`) or `created`, never `destroyed`;
   the id is never reused; restoring a current id ⇒ `notFound`; a destroyed object whose final version was discarded ⇒
   `notFound` for get, absent from `onlyDestroyed`, `notFound` for restore, even with older versions left (decision 6(d));
@@ -529,10 +568,13 @@ an injected clock and go through the dispatcher.
   `includeDestroyed`; the §8.2 cut hides versions from before a rights change.
 - **Decision-5 crates (memory):** Task/copy never mints a logged id; `onDestroyRemoveTasks` cascade appears in
   `includeDestroyed`; an edited Message returns its earlier versions, and after `deletedAt` is set (or a hard delete)
-  returns none and restore ⇒ `notFound`; a Space restore patch goes through the Space patch parser; GraphEdge restore with a
+  returns none and restore ⇒ `notFound`; a live Space returns its earlier versions with `includeReplaced`; GraphEdge restore with a
   destroyed endpoint ⇒ `invalidProperties`, then succeeds after the node's restore; a projected GraphNode returns its live
   version only; VTCLivestream history entries blank `streamKey`/`streamUri` for a caller who cannot see them now, and
-  SceneRegion entries blank `invitedUserIds`; the excluded types (D1) answer a history flag with `invalidArguments`.
+  SceneRegion entries blank `invitedUserIds`; the excluded types and KeyPackage (decision 22) answer a history flag with
+  `invalidArguments`; after a Space destroy, the Space and its Chats, Messages, SpaceBans, SpaceInvites and CustomEmojis
+  are `notFound` for `includeDestroyed`, absent from `onlyDestroyed` and `notFound` for restore (decision 22); a destroyed
+  GraphNode edited past its last snapshot restores at its final `blobId`/`snapshotSeq` with an empty op log (decision 22).
 - **Cross-extension (testjig, after tna1.2 and conditional):** a blob referenced only by a destroyed Email ⇒ `Blob/lookup`
   empty (blob2 and legacy RFC 9404, decision 11), `Blob/set destroy` succeeds, then the Email is gone and restore ⇒
   `notFound`; `ifUnchangedBy {"x": null}` with `restore x` succeeds; `atomic` with one failing restore ⇒ `atomicFailure`
@@ -544,8 +586,8 @@ an injected clock and go through the dispatcher.
 
 | # | Title | Crates / files | Size | Depends |
 |---|---|---|---|---|
-| D1 | Decision: confirm the private-type history list (exclusions GraphNodeOp, PresenceStatus, ReadPosition, SceneAvatar, VTCParticipant, TaskNotification; KeyPackage; §12 Q2–Q4) | none | S | none |
-| D2 | Decision: history arguments without the URI, handler-only or dispatcher-wide (§12 Q1) | none | S | none |
+| D1 | Decision: confirm the private-type history list. Closed: resolved by decision 22 | none | S | none |
+| D2 | Decision: history arguments without the URI, handler-only or dispatcher-wide. Closed: resolved by decision 18 (dispatcher-wide, bead H23) | none | S | none |
 | H1 | object-history-types + scaffold: wire types, `HistoryObject`, `PENDING_HISTORY_REGISTRATION`, `is_history_type` over the jmap-types registry (decision 14), `UTCDate::cmp_instant`; empty OHS and client crates; workspace `members` + `[workspace.dependencies]` for all three; root AGENTS crate-map and dependency-tree rows for all three | new OHT; OHS/client stubs; jmap-types `id.rs`; root Cargo.toml, AGENTS.md | M | blobext:B1 |
 | H2 | object-history-server: `select_versions`, `VersionLog` (Clone, oldest-first prune, decision 6(d)), retention, rights cut, `fold_restore` | OHS only | M | H1 |
 | H3 | jmap-server `history.rs`: trait, params, parsing, generic get/query/queryChanges wrappers (state-kind routing, decision 6(c)), restore phase + `RestoreHooks`, envelope, `apply_restore_patch`, `enforce_max_objects_in_set_with_restore` (decision 6(a)), `register_history_aware` + `object_history_gaps` | jmap-server (`history.rs`, dispatcher mark, one `lib.rs` export line) | L | H1 |
@@ -559,21 +601,23 @@ an injected clock and go through the dispatcher.
 | H11 | testjig: Session capability, `_with_history` registration for mail, contacts, calendars, filenode, tasks (before any `register_<x>_conditional`), gap assertion, spec examples end to end | jmap-testjig | M | H5–H9, H13 |
 | H12 | cross-extension tests (blobext incl. legacy 9404 lookup, conditional atomic + restore, emailpush) | jmap-testjig `tests/` | S | H11; JMAP-tna1.2; conditional:C11; emailpush:8 |
 | H13 | tasks-server: Task, TaskList (decision 5) | tasks-types, tasks-server, chat-tasks-server README | M | H4 |
-| H14 | jmap-chat-spec: "Supports History" lines in the six registering drafts, cite object-history-03, render-check (decision 5) | `~/PROJECT/jmap-chat-spec` drafts | S | D1 |
-| H15 | jmap-types registry: "Supports History" values for Mark's drafts' rows (decisions 5, 14) | jmap-types registry module | S | blobext:B1, D1, H14 |
-| H16 | chat-server: Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite | chat-types, chat-server, bridge READMEs | L | H4, D1, H15 |
-| H17 | graph-server: Graph, GraphNode, GraphEdge | graph-types, graph-server | M | H4, D1, H15 |
+| H14 | jmap-chat-spec: "Supports History" lines in the six registering drafts, cite object-history-03, render-check; values per decision 22 (KeyPackage No) | `~/PROJECT/jmap-chat-spec` drafts | S | D1 |
+| H15 | jmap-types registry: "Supports History" values for Mark's drafts' rows (decisions 5, 14, 22) | jmap-types registry module | S | blobext:B1, D1, H14 |
+| H16 | chat-server: Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite; Message purge per chat-00 l.782, Space destroy purges its history (decision 22) | chat-types, chat-server, bridge READMEs | L | H4, D1, H15 |
+| H17 | graph-server: Graph, GraphNode, GraphEdge; GraphNode restore at its final snapshot with an empty op log (decision 22) | graph-types, graph-server | M | H4, D1, H15 |
 | H18 | scene-server: SceneAsset, SceneRegion, SceneObject | scene-types, scene-server | M | H4, D1, H15 |
 | H19 | vtc-server: VTCCall, VTCRecording, VTCLivestream | vtc-types, vtc-server | M | H4, D1, H15 |
 | H20 | testjig: chat `_with_history` registration and Message history end to end | jmap-testjig | S | H11, H16 |
-| H21 (follow-up) | upstream: ask the Tasks authors to register Task/TaskList "Supports History: Yes" | none (drafted issue/PR text) | S | none |
+| H21 (follow-up) | upstream: ask the Tasks authors to register Task/TaskList "Supports History: Yes". Closed: superseded by decision 23 (Mark's own Tasks draft, JMAP-jkl8.9) | none | S | none |
 | H22 (follow-up) | upstream: draft the decision-6 stopgap messages/issues for the object-history and conditional authors | none (drafted text) | S | none |
+| H23 | jmap-server: dispatcher check for history arguments without the URI on `*/get`, `*/query`, `*/set` (decision 18) | jmap-server (dispatcher, tests) | S | H3 |
+| H24 (follow-up, P3) | Task/TaskList history from Mark's Tasks draft registrations: registry rows, drop `PENDING_HISTORY_REGISTRATION` (decision 23) | OHT, jmap-types registry | S | H1, blobext:B1, JMAP-jkl8.9 |
 
 Parallelism: H2 ∥ H3 ∥ H10 after H1. H1 owns every shared manifest edit, so they touch disjoint crates. H7–H9, H13 and
 H16–H19 run in parallel after H4 (separate crates). H4 → H5 → H6 run in series because they share
 `mail-server/src/lib.rs` and `memory/mod.rs`. H4 goes first because mail-server is the canonical extension server: its
-`*_set_impl` and `register_*_with_history` shape is the one the siblings copy. D1 gates only the private-type work
-(H14 → H15 → H16–H19); Table 1 and Tasks proceed without it. Each bead updates its own crate's README/AGENTS/PLAN and
+`*_set_impl` and `register_*_with_history` shape is the one the siblings copy. D1 is closed (decision 22), so the
+private-type work (H14 → H15 → H16–H19) is unblocked by it. H23 follows H3 and runs in parallel with H4 onwards. Each bead updates its own crate's README/AGENTS/PLAN and
 `public-api/<crate>.txt`. The root `CHANGELOG.md` is the one shared file: each bead adds one bullet under `[Unreleased]`,
 and rebase conflicts there are expected and trivial. testjig: H11 and conditional C11 both edit `http.rs`; whichever lands
 second keeps the order `register_<x>_handlers_with_history` then `register_<x>_conditional`.
@@ -582,28 +626,9 @@ second keeps the order `register_<x>_handlers_with_history` then `register_<x>_c
 
 Decided and removed (see `docs/design/DECISIONS.md`): old Q1 trait shape (separate trait and `_with_history`
 registration, adopted as the model in decision 1); old Q2 type scope (decision 5); old Q4 spec gaps (decision 6(a)–(c));
-old Q5 discarded final version (decision 6(d)); old Q6 `objectHistory` in `EmailPushConfig.properties` (decision 10).
+old Q5 discarded final version (decision 6(d)); old Q6 `objectHistory` in `EmailPushConfig.properties` (decision 10);
+history arguments without the URI (decision 18: one dispatcher check, bead H23); KeyPackage (decision 22: No); history
+after a Space destroy (decision 22: purged with the Space); restoring an edited GraphNode (decision 22: final snapshot,
+empty op log); the conditional registration shape (decision 17: the `register_<x>_conditional` attach call).
 
-Remaining:
-
-1. **History arguments without the URI in `using`** (old Q3; bead D2). The `_with_history` handlers reject a `true`
-   `includeReplaced`/`includeDestroyed`, `onlyDestroyed: true` or a non-null `restore` with `invalidArguments` and ignore
-   the rest; H3 implements that. Plain handlers keep ignoring them, so a deployment without history silently returns
-   live data for `includeDestroyed: true` and drops a `restore`. Decision 2 settled the same question for conditional
-   with one dispatcher check on every deployment. *Recommend the same here:* a dispatcher check on `*/get`, `*/query`
-   and `*/set` whatever the registration (a small follow-up bead after H3 if chosen).
-2. **KeyPackage** (chat-mimi; part of D1). Not in decision 5's include or exclude list. *Recommend "No"*: an MLS
-   KeyPackage is single-use key material, and restoring a consumed one would invite reuse. H14 then writes "No" in
-   chat-mimi-00.
-3. **History after a Space destroy** (part of D1). chat-00 §Space/set: a Space destroy "Hard-deletes all records; no
-   tombstones are retained". Messages are purged anyway (§2). *Recommend* retaining the Space, Chat, SpaceBan, SpaceInvite
-   and CustomEmoji versions so the Space configuration can be restored (empty of messages), since history is separate
-   from tombstones and a server MAY retain less; the alternative is purging every chat version with the Space.
-4. **Restoring an edited GraphNode** (part of D1). graph-edit §Compaction: "When a node is destroyed, its ops are
-   destroyed with it", and GraphNodeOp is a proposed exclusion. A restored node keeps its final `blobId`/`snapshotSeq`,
-   but ops after `snapshotSeq` are gone. *Recommend:* the restored node's log restarts empty with its head at
-   `snapshotSeq`, so clients load the snapshot and new ops follow it; edits after the final snapshot are not recoverable,
-   and the graph crate documents that. The alternative is `forbidden` for a node whose log head was above `snapshotSeq`.
-5. **Cross-note.** This note follows conditional's attach-call registration (`register_<x>_conditional` after
-   `_with_history`; conditional note §12 Q2). If Mark picks a `register_<x>_handlers_with_conditional` variant there
-   instead, each history crate needs a combined `_with_history_and_conditional` function.
+Remaining: none.
