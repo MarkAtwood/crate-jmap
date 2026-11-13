@@ -43,7 +43,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_filenode_types::{FileNode, NodeRole, NodeType};
+use jmap_filenode_types::{FileNode, FilesRights, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject};
 use serde_json::{Value, json};
 
@@ -273,6 +273,171 @@ fn role_forbidden(id: &Id, action: &str) -> Value {
         "type": "forbidden",
         "description": format!("{action} Directory {} requires clearing its role first", id.as_ref()),
     })
+}
+
+/// The existing sibling a create collides with, if the caller can
+/// discover it (draft-ietf-jmap-filenode-20 §5 "Access Control").
+///
+/// The backend leaves undiscoverable nodes out of its reads (see
+/// [`FileNodeBackend::files_rights`]), so a sibling that
+/// [`FileNodeBackend::find_sibling_by_name`] reports but
+/// [`JmapBackend::get_objects`](jmap_server::JmapBackend::get_objects)
+/// does not return is one the caller cannot discover.
+async fn discoverable_sibling<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    existing_id: &Id,
+) -> Result<Option<FileNode>, B::Error> {
+    let (nodes, _) = backend
+        .get_objects::<FileNode>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(existing_id)),
+            None,
+        )
+        .await?;
+    Ok(nodes.into_iter().find(|n| &n.id == existing_id))
+}
+
+/// The SetError for a name collision with a sibling the caller cannot
+/// discover. draft-ietf-jmap-filenode-20 §3.2.3 makes this "forbidden",
+/// and for `onExists` "replace" the server "MUST NOT destroy that node or
+/// reveal its id", so the error carries no `existingId`.
+fn undiscoverable_collision() -> Value {
+    json!({
+        "type": "forbidden",
+        "description": "the name is not available in this Directory",
+    })
+}
+
+/// The rights the caller holds on `node`, as the handlers report them, or
+/// `None` when neither the backend nor the stored node states any.
+///
+/// draft-ietf-jmap-filenode-20 §5: "A node whose @type does not permit
+/// children has no myRights. The user's rights on it are those in its
+/// parent's myRights", and "Such a node with a null parentId is
+/// discoverable only by the account owner, who has all rights on it". A
+/// Directory's rights are [`FileNodeBackend::files_rights`] where that is
+/// `Some`, else its stored `myRights`, the value `FileNode/get` reports.
+async fn effective_rights<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    node: &FileNode,
+) -> Result<Option<FilesRights>, B::Error> {
+    let holder = if has_my_rights(node) {
+        node.clone()
+    } else {
+        let Some(parent_id) = node.parent_id.as_ref() else {
+            return Ok(None);
+        };
+        let (parents, _) = backend
+            .get_objects::<FileNode>(
+                caller,
+                account_id,
+                Some(std::slice::from_ref(parent_id)),
+                None,
+            )
+            .await?;
+        match parents.into_iter().find(|p| &p.id == parent_id) {
+            Some(parent) => parent,
+            None => return Ok(None),
+        }
+    };
+    Ok(backend
+        .files_rights(caller, account_id, &holder)
+        .await?
+        .or(holder.my_rights))
+}
+
+/// Destroy `existing`, the discoverable node an `onExists` "replace"
+/// displaces, with its descendants when `on_destroy_remove_children`
+/// allows, appending each destroyed id to `destroyed`.
+///
+/// draft-ietf-jmap-filenode-20 §3.2.3 has the server make these checks
+/// "in order, and stops at the first that fails"; the caller has already
+/// made the first (discoverability, [`discoverable_sibling`]):
+///
+/// 2. "If the user does not have mayDelete on the existing node, the
+///    operation fails with "forbidden"." The rights are
+///    [`effective_rights`]; when none are stated the handler proceeds and
+///    leaves enforcement to [`FileNodeBackend::destroy_object`].
+/// 3. "If the existing node has children, the operation fails with
+///    "nodeHasChildren" if onDestroyRemoveChildren is false, or with
+///    "forbidden" if replacing it would remove nodes the user cannot
+///    discover". A descendant that
+///    [`FileNodeBackend::get_descendant_ids`] lists but `get_objects`
+///    does not return is one the user cannot discover.
+///
+/// A Directory with a role cannot be destroyed (-20 §5): the existing
+/// node's own role is refused right after step 2, a descendant's after
+/// step 3. Nothing is destroyed unless every check passes.
+///
+/// # Errors
+///
+/// The SetError to report for the create. A destroy that fails part-way
+/// leaves the ids destroyed so far in `destroyed`.
+async fn replace_existing<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    existing: &FileNode,
+    on_destroy_remove_children: bool,
+    destroyed: &mut Vec<Id>,
+) -> Result<(), Value> {
+    let existing_id = &existing.id;
+    let rights = effective_rights(backend, caller, account_id, existing)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    if rights.is_some_and(|r| !r.may_delete) {
+        return Err(json!({
+            "type": "forbidden",
+            "description": format!("replacing {} requires mayDelete on it", existing_id.as_ref()),
+        }));
+    }
+    if existing.role.is_some() {
+        return Err(role_forbidden(existing_id, "replacing"));
+    }
+
+    let desc_ids = backend
+        .get_descendant_ids(caller, account_id, existing_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    if !desc_ids.is_empty() {
+        if !on_destroy_remove_children {
+            return Err(json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }));
+        }
+        let (descendants, _) = backend
+            .get_objects::<FileNode>(caller, account_id, Some(&desc_ids), None)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        let visible: std::collections::HashSet<&Id> = descendants.iter().map(|n| &n.id).collect();
+        if desc_ids.iter().any(|id| !visible.contains(id)) {
+            return Err(json!({
+                "type": "forbidden",
+                "description": "replacing the existing node would remove nodes you cannot discover",
+            }));
+        }
+        let with_role: std::collections::HashSet<&Id> = descendants
+            .iter()
+            .filter(|n| n.role.is_some())
+            .map(|n| &n.id)
+            .collect();
+        if let Some(role_dir) = desc_ids.iter().find(|id| with_role.contains(id)) {
+            return Err(role_forbidden(role_dir, "replacing"));
+        }
+    }
+
+    // Descendants first, then the node itself, as the destroy path does.
+    for id in desc_ids.iter().chain(std::iter::once(existing_id)) {
+        backend
+            .destroy_object::<FileNode>(caller, account_id, id)
+            .await
+            .map_err(backend_set_error_value)?;
+        destroyed.push(id.clone());
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -970,99 +1135,69 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     Ok(Some(existing_id)) => {
                         match on_exists {
                             OnExists::Reject => {
-                                not_created.insert(
-                                    create_id,
-                                    json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() }),
-                                );
+                                // -20 §3.2.3: "alreadyExists" is for a collision "with a
+                                // discoverable sibling"; one the user cannot discover is
+                                // "forbidden", without its id.
+                                let err = match discoverable_sibling(
+                                    backend,
+                                    caller,
+                                    &account_id,
+                                    &existing_id,
+                                )
+                                .await
+                                {
+                                    Ok(Some(_)) => {
+                                        json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
+                                    }
+                                    Ok(None) => undiscoverable_collision(),
+                                    Err(e) => server_fail_value_from_backend(&e),
+                                };
+                                not_created.insert(create_id, err);
                                 continue;
                             }
                             OnExists::Replace => {
-                                // draft-ietf-jmap-filenode-20 §3.2.3: "If
-                                // "replace", the server destroys the
-                                // existing node", and "If the existing node
-                                // has children, the operation fails with
-                                // "nodeHasChildren" if
-                                // onDestroyRemoveChildren is false".
-                                let desc_ids = match backend
-                                    .get_descendant_ids(caller, &account_id, &existing_id)
-                                    .await
+                                // -20 §3.2.3 step 1: "If the existing node is not
+                                // discoverable by the user ..., the operation fails with
+                                // "forbidden", and the server MUST NOT destroy that node or
+                                // reveal its id." replace_existing makes steps 2 and 3.
+                                let existing = match discoverable_sibling(
+                                    backend,
+                                    caller,
+                                    &account_id,
+                                    &existing_id,
+                                )
+                                .await
                                 {
-                                    Ok(ids) => ids,
+                                    Ok(Some(node)) => node,
+                                    Ok(None) => {
+                                        not_created.insert(create_id, undiscoverable_collision());
+                                        continue;
+                                    }
                                     Err(e) => {
                                         not_created
                                             .insert(create_id, server_fail_value_from_backend(&e));
                                         continue;
                                     }
                                 };
-                                if !desc_ids.is_empty() && !on_destroy_remove_children {
-                                    not_created.insert(
-                                        create_id,
-                                        json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
-                                    );
+                                let mut replaced = Vec::new();
+                                let outcome = replace_existing(
+                                    backend,
+                                    caller,
+                                    &account_id,
+                                    &existing,
+                                    on_destroy_remove_children,
+                                    &mut replaced,
+                                )
+                                .await;
+                                mutated |= !replaced.is_empty();
+                                destroyed_list.extend(
+                                    replaced
+                                        .into_iter()
+                                        .map(|id| Value::String(id.as_ref().to_owned())),
+                                );
+                                if let Err(err) = outcome {
+                                    not_created.insert(create_id, err);
                                     continue;
-                                }
-                                let doomed: Vec<Id> = std::iter::once(existing_id.clone())
-                                    .chain(desc_ids.iter().cloned())
-                                    .collect();
-                                match first_with_role(backend, caller, &account_id, &doomed).await {
-                                    Ok(None) => {}
-                                    Ok(Some(role_dir)) => {
-                                        not_created.insert(
-                                            create_id,
-                                            role_forbidden(&role_dir, "replacing"),
-                                        );
-                                        continue;
-                                    }
-                                    Err(e) => {
-                                        not_created
-                                            .insert(create_id, server_fail_value_from_backend(&e));
-                                        continue;
-                                    }
-                                }
-                                // When descendants exist AND
-                                // onDestroyRemoveChildren=true, cascade the
-                                // destroy of descendants first. Same
-                                // ordering as the regular destroy path
-                                // (filenode.rs around §destroy: descendants
-                                // first, then the targeted node).
-                                let mut cascade_failed = false;
-                                for desc_id in &desc_ids {
-                                    match backend
-                                        .destroy_object::<FileNode>(caller, &account_id, desc_id)
-                                        .await
-                                    {
-                                        Ok(()) => {
-                                            mutated = true;
-                                            destroyed_list
-                                                .push(Value::String(desc_id.as_ref().to_owned()));
-                                        }
-                                        Err(e) => {
-                                            not_created.insert(
-                                                create_id.clone(),
-                                                backend_set_error_value(e),
-                                            );
-                                            cascade_failed = true;
-                                            break;
-                                        }
-                                    }
-                                }
-                                if cascade_failed {
-                                    continue;
-                                }
-                                // Now destroy the existing colliding node.
-                                match backend
-                                    .destroy_object::<FileNode>(caller, &account_id, &existing_id)
-                                    .await
-                                {
-                                    Ok(()) => {
-                                        mutated = true;
-                                        destroyed_list
-                                            .push(Value::String(existing_id.as_ref().to_owned()));
-                                    }
-                                    Err(e) => {
-                                        not_created.insert(create_id, backend_set_error_value(e));
-                                        continue;
-                                    }
                                 }
                                 // Fall through to create the new node.
                             }
@@ -2166,84 +2301,65 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 if let Some(existing_id) = collision {
                     match on_exists {
                         OnExists::Reject => {
-                            not_copied.insert(
-                                create_id,
-                                json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() }),
-                            );
+                            // -20 §3.2.3: "alreadyExists" is for a collision "with a
+                            // discoverable sibling"; one the user cannot discover is
+                            // "forbidden", without its id.
+                            let err = match discoverable_sibling(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing_id,
+                            )
+                            .await
+                            {
+                                Ok(Some(_)) => {
+                                    json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
+                                }
+                                Ok(None) => undiscoverable_collision(),
+                                Err(e) => server_fail_value_from_backend(&e),
+                            };
+                            not_copied.insert(create_id, err);
                             continue;
                         }
                         OnExists::Replace => {
-                            // §3.2.3: nodeHasChildren UNLESS
-                            // onDestroyRemoveChildren=true; in which case
-                            // cascade-destroy descendants first.
-                            let desc_ids = match backend
-                                .get_descendant_ids(caller, &account_id, &existing_id)
-                                .await
+                            // -20 §3.2.3 step 1: "If the existing node is not
+                            // discoverable by the user ..., the operation fails with
+                            // "forbidden", and the server MUST NOT destroy that node or
+                            // reveal its id." replace_existing makes steps 2 and 3.
+                            let existing = match discoverable_sibling(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing_id,
+                            )
+                            .await
                             {
-                                Ok(ids) => ids,
+                                Ok(Some(node)) => node,
+                                Ok(None) => {
+                                    not_copied.insert(create_id, undiscoverable_collision());
+                                    continue;
+                                }
                                 Err(e) => {
                                     not_copied
                                         .insert(create_id, server_fail_value_from_backend(&e));
                                     continue;
                                 }
                             };
-                            if !desc_ids.is_empty() && !on_destroy_remove_children {
-                                not_copied.insert(
-                                    create_id,
-                                    json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
-                                );
+                            let mut replaced = Vec::new();
+                            let outcome = replace_existing(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing,
+                                on_destroy_remove_children,
+                                &mut replaced,
+                            )
+                            .await;
+                            mutated |= !replaced.is_empty();
+                            destroyed.extend(replaced);
+                            if let Err(err) = outcome {
+                                not_copied.insert(create_id, err);
                                 continue;
-                            }
-                            let doomed: Vec<Id> = std::iter::once(existing_id.clone())
-                                .chain(desc_ids.iter().cloned())
-                                .collect();
-                            match first_with_role(backend, caller, &account_id, &doomed).await {
-                                Ok(None) => {}
-                                Ok(Some(role_dir)) => {
-                                    not_copied
-                                        .insert(create_id, role_forbidden(&role_dir, "replacing"));
-                                    continue;
-                                }
-                                Err(e) => {
-                                    not_copied
-                                        .insert(create_id, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                            }
-                            let mut cascade_failed = false;
-                            for desc_id in &desc_ids {
-                                match backend
-                                    .destroy_object::<FileNode>(caller, &account_id, desc_id)
-                                    .await
-                                {
-                                    Ok(()) => {
-                                        mutated = true;
-                                        destroyed.push(desc_id.clone());
-                                    }
-                                    Err(e) => {
-                                        not_copied
-                                            .insert(create_id.clone(), backend_set_error_value(e));
-                                        cascade_failed = true;
-                                        break;
-                                    }
-                                }
-                            }
-                            if cascade_failed {
-                                continue;
-                            }
-                            // Now destroy the colliding node itself.
-                            match backend
-                                .destroy_object::<FileNode>(caller, &account_id, &existing_id)
-                                .await
-                            {
-                                Ok(()) => {
-                                    mutated = true;
-                                    destroyed.push(existing_id.clone());
-                                }
-                                Err(e) => {
-                                    not_copied.insert(create_id, backend_set_error_value(e));
-                                    continue;
-                                }
                             }
                             // Fall through to create the new node.
                         }
@@ -3106,6 +3222,8 @@ mod tests {
     ///   echoing the supplied value. Used to exercise the handler's
     ///   enforcement of the rename MUST
     ///   (draft-ietf-jmap-filenode-20 §3.2.3).
+    /// - [`hide_node`][Self::hide_node]: persistent; `get_objects` treats
+    ///   the node as undiscoverable when asked for it by id.
     ///
     /// Test-only — kept inside `mod tests` rather than the public
     /// reference implementation to avoid promoting "fault-injection"
@@ -3160,6 +3278,9 @@ mod tests {
         /// Lets tests assert a handler-side guard rejected an update
         /// before it reached the backend.
         update_object_calls: u64,
+        /// Node ids `get_objects` leaves out of a by-id read, as a backend
+        /// does for a node the caller cannot discover. Persistent.
+        hidden: std::collections::HashSet<String>,
     }
 
     struct QueryObjectsErrConfig {
@@ -3298,6 +3419,12 @@ mod tests {
         fn update_object_call_count(&self) -> u64 {
             self.faults.lock().unwrap().update_object_calls
         }
+
+        /// Make node `id` undiscoverable: `get_objects` reports it in
+        /// `notFound` when asked for it by id. Persistent.
+        fn hide_node(&self, id: &str) {
+            self.faults.lock().unwrap().hidden.insert(id.to_owned());
+        }
     }
 
     impl JmapBackend for FaultyBackend {
@@ -3315,9 +3442,24 @@ mod tests {
             ids: Option<&[Id]>,
             properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-            self.inner
-                .get_objects::<O>(&(), account_id, ids, properties)
-                .await
+            let Some(ids) = ids else {
+                return self
+                    .inner
+                    .get_objects::<O>(&(), account_id, None, properties)
+                    .await;
+            };
+            let (shown, hidden): (Vec<Id>, Vec<Id>) = {
+                let guard = self.faults.lock().unwrap();
+                ids.iter()
+                    .cloned()
+                    .partition(|id| !guard.hidden.contains(id.as_ref()))
+            };
+            let (list, mut not_found) = self
+                .inner
+                .get_objects::<O>(&(), account_id, Some(&shown), properties)
+                .await?;
+            not_found.extend(hidden);
+            Ok((list, not_found))
         }
 
         async fn get_state<O: JmapObject + Send + Sync>(
@@ -5917,5 +6059,222 @@ mod tests {
         let desc = err.description.as_deref().unwrap_or_default();
         assert!(desc.contains("got object"), "{desc}");
         assert!(!desc.contains("CANARY"), "{desc}");
+    }
+
+    // -----------------------------------------------------------------------
+    // onExists "replace": the -20 §3.2.3 check order
+    // -----------------------------------------------------------------------
+
+    /// Rights with every right but `mayDelete`, as hand-written wire JSON.
+    fn rights_without_delete() -> Value {
+        json!({ "mayRead": true, "mayAddChildren": true, "mayRename": true,
+                "mayDelete": false, "mayModifyContent": true, "mayShare": true })
+    }
+
+    /// Account `acc1` with Directory `p`, the Directory `doc` in it that a
+    /// create named "doc" collides with, and `kid` inside `doc`. A same-
+    /// account copy source `src` (also named "doc") sits at the top level.
+    fn replace_fixture() -> FaultyBackend {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("p", None, "p"));
+        backend.seed_node("acc1", make_filenode("doc", Some("p"), "doc"));
+        backend.seed_node("acc1", make_filenode("kid", Some("doc"), "kid"));
+        backend.seed_node("acc1", make_filenode("src", None, "doc"));
+        backend
+    }
+
+    /// The SetError a replacing create of "doc" in `p` gets, through
+    /// FileNode/set and through a same-account FileNode/copy of `src`,
+    /// each run against a fresh fixture prepared by `prepare`, together
+    /// with the number of `destroy_object` calls each made.
+    async fn replace_errors(
+        remove_children: bool,
+        prepare: impl Fn(&FaultyBackend),
+    ) -> [(Value, u64); 2] {
+        let set_backend = replace_fixture();
+        prepare(&set_backend);
+        let HandlerOutput { primary: set, .. } = handle_filenode_set(
+            &set_backend,
+            &(),
+            &std::collections::BTreeMap::new(),
+            json!({
+                "accountId": "acc1",
+                "onExists": "replace",
+                "onDestroyRemoveChildren": remove_children,
+                "create": { "c": { "@type": "Directory", "name": "doc", "parentId": "p" } }
+            }),
+            &[],
+        )
+        .await
+        .expect("FileNode/set must not fail as a whole");
+
+        let copy_backend = replace_fixture();
+        prepare(&copy_backend);
+        let HandlerOutput { primary: copy, .. } = handle_filenode_copy(
+            &copy_backend,
+            &(),
+            json!({
+                "fromAccountId": "acc1",
+                "accountId": "acc1",
+                "onExists": "replace",
+                "onDestroyRemoveChildren": remove_children,
+                "create": { "c": { "id": "src", "parentId": "p" } }
+            }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect("FileNode/copy must not fail as a whole");
+
+        for resp in [&set, &copy] {
+            assert!(resp["destroyed"].is_null(), "nothing destroyed: {resp}");
+        }
+        [
+            (
+                set["notCreated"]["c"].clone(),
+                set_backend.destroy_object_call_count(),
+            ),
+            (
+                copy["notCreated"]["c"].clone(),
+                copy_backend.destroy_object_call_count(),
+            ),
+        ]
+    }
+
+    /// -20 §3.2.3 step 1: "If the existing node is not discoverable by the
+    /// user ..., the operation fails with "forbidden", and the server MUST
+    /// NOT destroy that node or reveal its id." It comes before step 3, so
+    /// the existing node's child does not turn this into nodeHasChildren,
+    /// and onDestroyRemoveChildren destroys nothing.
+    #[tokio::test]
+    async fn replace_of_undiscoverable_node_is_forbidden_without_its_id() {
+        for remove_children in [false, true] {
+            let results = replace_errors(remove_children, |b| b.hide_node("doc")).await;
+            for (err, destroys) in results {
+                assert_eq!(err["type"], "forbidden", "{err}");
+                assert!(err.get("existingId").is_none(), "id revealed: {err}");
+                assert!(
+                    !err.to_string().contains("\"doc\""),
+                    "id revealed in the description: {err}"
+                );
+                assert_eq!(destroys, 0, "nothing reaches destroy_object: {err}");
+            }
+        }
+    }
+
+    /// -20 §3.2.3 step 2: "If the user does not have mayDelete on the
+    /// existing node, the operation fails with "forbidden"." It comes
+    /// before step 3, so a child does not make it nodeHasChildren, and
+    /// onDestroyRemoveChildren must not cascade into the child first.
+    #[tokio::test]
+    async fn replace_without_may_delete_is_forbidden_before_node_has_children() {
+        for remove_children in [false, true] {
+            let results = replace_errors(remove_children, |b| {
+                b.set_files_rights("doc", rights_without_delete());
+            })
+            .await;
+            for (err, destroys) in results {
+                assert_eq!(err["type"], "forbidden", "{err}");
+                assert_eq!(destroys, 0, "the child survives: {err}");
+            }
+        }
+    }
+
+    /// -20 §5: a File has no myRights of its own; "The user's rights on it
+    /// are those in its parent's myRights". So replacing a File in a
+    /// Directory without mayDelete is forbidden.
+    #[tokio::test]
+    async fn replace_of_file_uses_its_parents_may_delete() {
+        let results = replace_errors(false, |b| {
+            let file: FileNode = serde_json::from_value(json!({
+                "id": "doc", "@type": "File", "name": "doc", "parentId": "p",
+                "blobId": "b1", "size": 1
+            }))
+            .expect("File fixture");
+            b.seed_node("acc1", file);
+            b.seed_node("acc1", make_filenode("kid", Some("elsewhere"), "kid"));
+            b.set_files_rights("p", rights_without_delete());
+        })
+        .await;
+        for (err, destroys) in results {
+            assert_eq!(err["type"], "forbidden", "{err}");
+            assert_eq!(destroys, 0, "{err}");
+        }
+    }
+
+    /// -20 §3.2.3 step 3: with mayDelete, "If the existing node has
+    /// children, the operation fails with "nodeHasChildren" if
+    /// onDestroyRemoveChildren is false". The node is discoverable, so
+    /// the error names it.
+    #[tokio::test]
+    async fn replace_with_may_delete_and_children_is_node_has_children() {
+        let results = replace_errors(false, |_| {}).await;
+        for (err, destroys) in results {
+            assert_eq!(
+                err,
+                json!({ "type": "nodeHasChildren", "existingId": "doc" })
+            );
+            assert_eq!(destroys, 0);
+        }
+    }
+
+    /// -20 §3.2.3 step 3, second half: with onDestroyRemoveChildren, the
+    /// replacement fails with "forbidden" "if replacing it would remove
+    /// nodes the user cannot discover", and (§5) "the server MUST NOT
+    /// destroy any node in that subtree".
+    #[tokio::test]
+    async fn replace_over_undiscoverable_descendant_is_forbidden() {
+        let results = replace_errors(true, |b| b.hide_node("kid")).await;
+        for (err, destroys) in results {
+            assert_eq!(err["type"], "forbidden", "{err}");
+            assert_eq!(destroys, 0, "{err}");
+        }
+    }
+
+    /// With every check passed, the replacement destroys the child and
+    /// then the existing node, and lists both.
+    #[tokio::test]
+    async fn replace_with_may_delete_cascades_when_asked() {
+        let backend = replace_fixture();
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &(),
+            &std::collections::BTreeMap::new(),
+            json!({
+                "accountId": "acc1",
+                "onExists": "replace",
+                "onDestroyRemoveChildren": true,
+                "create": { "c": { "@type": "Directory", "name": "doc", "parentId": "p" } }
+            }),
+            &[],
+        )
+        .await
+        .expect("FileNode/set must not fail as a whole");
+        assert_eq!(resp["destroyed"], json!(["kid", "doc"]), "{resp}");
+        assert!(resp["created"]["c"]["id"].is_string(), "{resp}");
+    }
+
+    /// -20 §3.2.3: "alreadyExists" is for a collision "with a discoverable
+    /// sibling"; a collision with one the user cannot discover is
+    /// "forbidden", and existingId would reveal it.
+    #[tokio::test]
+    async fn default_on_exists_with_undiscoverable_sibling_is_forbidden() {
+        let backend = replace_fixture();
+        backend.hide_node("doc");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &(),
+            &std::collections::BTreeMap::new(),
+            json!({
+                "accountId": "acc1",
+                "create": { "c": { "@type": "Directory", "name": "doc", "parentId": "p" } }
+            }),
+            &[],
+        )
+        .await
+        .expect("FileNode/set must not fail as a whole");
+        let err = &resp["notCreated"]["c"];
+        assert_eq!(err["type"], "forbidden", "{resp}");
+        assert!(err.get("existingId").is_none(), "{resp}");
     }
 }

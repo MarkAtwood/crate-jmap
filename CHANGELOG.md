@@ -64,7 +64,21 @@ wire behaviour that a conforming peer can observe.
   latter. Without `onDestroyRemoveChildren`, a destroy naming a Directory
   and a role Directory below it fails the ancestor with `nodeHasChildren`,
   as the role Directory survives. The `chatspace`-only role gate is gone,
-  and `spaceId` is allowed on any Directory.
+  and `spaceId` is allowed on any Directory. The rule reads the stored
+  role, so a patch that clears `role` and renames or moves the Directory
+  is still `forbidden`: clear the role in one `FileNode/set`, then rename
+  or move in a later one.
+- **BREAKING** **jmap-filenode-server**: `onExists` collisions in
+  `FileNode/set` and `FileNode/copy` follow the draft-ietf-jmap-filenode-20
+  §3.2.3 check order. A sibling the user cannot discover (one
+  `get_objects` leaves out) gives `forbidden` without `existingId`, for
+  the default and for `"replace"`; `"replace"` then needs `mayDelete`
+  on the existing node (from `files_rights` or the stored `myRights`, a
+  File's or SymLink's from its parent) before its children are looked
+  at, so a refused replacement no longer returns `nodeHasChildren` or
+  cascades into the children first. A cascade over a descendant the user
+  cannot discover is `forbidden`, and nothing is destroyed until every
+  check passes.
 - **BREAKING** **jmap-chat-filenode-server**: a Space root is any
   Directory with `spaceId`, and a Space may have several.
   `check_root_create` no longer requires a role or caps a Space at one

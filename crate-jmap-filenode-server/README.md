@@ -214,7 +214,11 @@ those in its parent's myRights" (§5), so `FileNode/get` reports no
 
 3. **Destroy requires `mayDelete`**, including on the existing node
    that an `onExists: "replace"` create overwrites. A destroy that would
-   remove nodes the user cannot discover is `forbidden` (§3.2.3).
+   remove nodes the user cannot discover is `forbidden` (§3.2.3). For
+   `onExists: "replace"` the handler also checks this itself first (see
+   "onExists collision handling" below), from `files_rights` or the
+   stored `myRights`; the backend's check in `destroy_object` remains
+   the atomic one.
 
 4. **`FileNode/copy`** requires `mayRead` on each copied node in
    `fromAccountId` (§3.2.4); the copy is a create in `accountId` and follows
@@ -248,6 +252,14 @@ that each role is held by at most one Directory (§3.1.4) against the
 result of the whole `FileNode/set`, so a role can move between
 Directories in one call. They apply to every caller, so a backend enforces them
 even when `principal_id` returns `None`.
+
+The role rule looks at the **stored** role: a client that "needs to
+destroy, rename or move such a Directory first clears its role" (§5), so
+a patch that sets `role` to `null` and also changes `name` or
+`parentId` is still `forbidden`. Clear the role in one `FileNode/set`
+call, then rename or move the Directory in a later one. The draft does
+not say whether a single patch may do both; this crate takes the stricter
+reading, and `MemoryBackend` re-checks it the same way.
 
 ### Caller-identity-less backends
 
@@ -305,9 +317,17 @@ computed; that create or update fails with `serverFail`.
 When a new node's name collides with an existing sibling (detected via `find_sibling_by_name`):
 
 - `onExists` absent or `null` — the create fails with `alreadyExists`, and the response
-  includes `existingId` pointing to the conflicting node.
-- `onExists: "replace"` — the existing node is destroyed (subject to children guard), then
-  the new node is created.
+  includes `existingId` pointing to the conflicting node. If the user cannot discover
+  that node (`get_objects` leaves it out), the create fails with `forbidden` and no id.
+- `onExists: "replace"` — the handler makes the draft-ietf-jmap-filenode-20 §3.2.3
+  checks in order, stopping at the first that fails: (1) an existing node the user
+  cannot discover gives `forbidden` without its id; (2) no `mayDelete` on it (a
+  File's or SymLink's from its parent) gives `forbidden`; (3) children give
+  `nodeHasChildren` without `onDestroyRemoveChildren`, or `forbidden` with it when a
+  descendant is undiscoverable. A Directory with a role, the existing node or a
+  descendant, gives `forbidden` (§5). Nothing is destroyed until every check passes;
+  then descendants and the node are destroyed and listed in `destroyed`, and the new
+  node is created. The same applies to `FileNode/copy` in the destination account.
 - `onExists: "rename"` — the handler iterates through suffixed names (`name-1`, `name-2`, …)
   up to 100 attempts until a unique name is found. Beyond 100 attempts, `serverFail` is returned.
 - Any other value, including `"newest"` and `"unchanged"` (removed in
