@@ -1,1 +1,2 @@
 {"id":"01a15b8b-3bbd-7cf9-b130-cb194ffa48d8","issue_id":"JMAP-ef3q","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T23:00:13.885850815Z"}
+{"id":"01a1d34a-df1e-7df8-92ad-74f8bd528ef1","issue_id":"JMAP-ef3q","event_type":"closed","actor":"system","old_value":"","new_value":"All children completed","created_at":"2026-11-13T05:04:21.790915866Z"}
