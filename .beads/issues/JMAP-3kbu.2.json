@@ -2,13 +2,14 @@
   "id": "JMAP-3kbu.2",
   "title": "Enforce Directory role rules; replace chatspace role with spaceId",
   "description": "566c2b6/020da7f, draft lines 404-416, 1055-1068: a role is unique per account (invalidProperties), changing role needs mayRename, a Directory with a role cannot be destroyed/renamed/moved (forbidden) until cleared. Crate gates only chatspace (filenode.rs:1053-1113). crate-jmap-chat-filenode-server lib.rs:122,151,223,356,470 sets role 'chatspace' on every Space root and caps one root per Space (:150-160); tests/filenode_tests.rs:3585-3587 creates two chatspace roots in one account, which -20 forbids. draft-atwood-jmap-chat-filenode-00.md:133 already identifies Space roots by spaceId alone (zero or more roots). Drop ChatSpace (crate-jmap-filenode-types filenode.rs:77) and key on space_id.",
+  "notes": "2026-11-13 spec-sync batch 1: filenode-20 group NOT integrated (verify failed at b9e88191, branch worktree-wf_d9b28b7b-50b-9 kept unmerged). Work in 2313df88, 9bfe44dc, 319607ee. Remaining (blocking): jmap-chat-client space_file_tree_root still queries role \"chatspace\" (CHAT_FILENODE_SPACE_ROLE) and rejects \u003e1 root; must query spaceId only, return every root, deprecate the const, update filenode_smoke_tests.rs. Also: regenerate public-api snapshots (NodeRole::ChatSpace removed, copy_blob, unicode_casemap_prepare); document that clearing role + rename/move in one update is refused.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-12T21:17:57.647193242Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-12T21:17:57.647193242Z",
+  "updated_at": "2026-11-13T00:07:49.365995915Z",
   "labels": [
     "spec-sync"
   ],

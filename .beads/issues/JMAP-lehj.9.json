@@ -2,13 +2,15 @@
   "id": "JMAP-lehj.9",
   "title": "Bump calendars crates' spec references to draft-ietf-jmap-calendars-34",
   "description": "8b1218b releases -34 (editor's copy dated 2026-11-04; datatracker still shows -33 until the post-meeting window). Update draft-ietf-jmap-calendars-33 citations across calendars-*, jscalendar-types, chat-calendars-server and CHANGELOG once -34 is posted and the sibling beads land.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-12T21:17:24.074216084Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-12T21:17:24.074216084Z",
+  "updated_at": "2026-11-13T00:07:38.499197224Z",
+  "closed_at": "2026-11-13T00:07:38.499197224Z",
+  "close_reason": "Calendars citations moved to -34 with line numbers remapped; CHANGELOG entry 2f9c203c. main: aea31c7b (CalendarEventGetParams §5.4 label still needs a follow-up)",
   "labels": [
     "spec-sync"
   ],

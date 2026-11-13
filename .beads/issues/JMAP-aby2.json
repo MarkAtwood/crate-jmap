@@ -2,13 +2,15 @@
   "id": "JMAP-aby2",
   "title": "Bump mail-sharing citations from -01 to -02 (editorial only)",
   "description": "draft-ietf-jmap-mail-sharing-02 (posted 2026-07-29) is editorial only vs -01: it drops the duplicated IMAP ACL \"a\" right mapping from the paragraph introducing mayShare and keeps one description in the property definition, moving the RFC3501 reference there. No wire or behaviour change. Update the -01 citations: crate-jmap-sharing-types/PLAN.md:262, crate-jmap-sharing-client/PLAN.md:40; also check rustdoc that quotes the mayShare / IMAP 'a' wording. Source: /data/PROJECT/IETF/specs/draft-ietf-jmap-mail-sharing-02.txt.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-12T22:31:53.457627746Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-12T22:31:53.457627746Z",
+  "updated_at": "2026-11-13T00:07:39.280504296Z",
+  "closed_at": "2026-11-13T00:07:39.280504296Z",
+  "close_reason": "mail-sharing citations bumped -01 to -02 in sharing-types and sharing-client PLAN.md (editorial). main: 50bcbbe7",
   "labels": [
     "spec-sync"
   ]

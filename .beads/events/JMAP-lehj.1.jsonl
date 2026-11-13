@@ -1,2 +1,3 @@
 {"id":"01a1d19f-51d3-7682-be4c-73d405720b3a","issue_id":"JMAP-lehj.1","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-12T21:17:21.747427374Z"}
 {"id":"01a1d19f-51d6-7d88-83f2-fcb1a1b86034","issue_id":"JMAP-lehj.1","event_type":"label_added","actor":"Mark Atwood","comment":"Added label: spec-sync","created_at":"2026-11-12T21:17:21.750887301Z"}
+{"id":"01a1d23b-2aa3-72f1-befc-6329a5de6321","issue_id":"JMAP-lehj.1","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"CalendarEvent/set enforces maxCalendarsPerEvent, maxParticipantsPerEvent, minDateTime/maxDateTime (-34); CalendarsLimits docs list backend-left cases; snapshot blessed. main: a3d0c269","created_at":"2026-11-13T00:07:35.33119374Z"}
