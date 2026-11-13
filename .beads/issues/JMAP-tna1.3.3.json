@@ -2,14 +2,14 @@
   "id": "JMAP-tna1.3.3",
   "title": "jmap-server history.rs: ObjectHistoryBackend, history get/query/queryChanges/set machinery",
   "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H3. Crates: jmap-server. Size: L.\n\nSpec: object-history-03 §3, §3.1, §4, §5.1, §7.3/7.4, §8.2, §8.5. Design: docs/design/object-history.md §5 (whole section), §6, §10 (srv contract tests).\n\nNew module crate-jmap-server/src/history.rs plus one lib.rs export line. Leave helpers.rs functions unchanged.\n\nContents:\n- ObjectHistoryBackend: JmapBackend with REQUIRED methods (no defaults; spec-method-defaults rule):\n  - object_history_capability (sync)\n  - get_object_history\u003cO: HistoryObject\u003e\n  - query_destroyed: the minted query_state MUST encode the destroyed-query kind (decision 6(c))\n  - query_destroyed_changes: Ok(None) iff the state is not a destroyed-query state\n  - restore_object\n  Rustdoc carries the full contracts of note §6, including:\n  - decision 6(d): a destroyed object whose final version was discarded is notFound\n  - the id-reuse ban\n  - the /changes restore classification\n  - blob rules for blobext and legacy RFC 9404 lookup (decision 11)\n  - §8.2 access rules\n- Support types: HistoryGetParams, DestroyedQueryParams\u003cO\u003e, HistoryGetResult\u003cO\u003e, Restored\u003cO\u003e. All #[non_exhaustive] with new + setters.\n- Parsers: HistoryGetRequest::parse, DestroyedQueryRequest::parse, RestoreRequest::parse.\n- Wrappers handle_get_with_history, query, and handle_query_changes_with_history. queryChanges calls query_destroyed_changes first and falls through to the plain handler on Ok(None).\n- Pub pieces for custom getters: strip_object_history_property, attach_object_history.\n- run_restore_phase with a RestoreHooks trait for per-type pre-checks and an optional type-specific patch parser. Includes parent-first ordering for tree types.\n- apply_restore_patch (a changed SERVER_SET/IMMUTABLE value ⇒ invalidProperties; an identical value is allowed), restored_diff, append_restore_results (restored/notRestored are null when empty, present whenever the URI is in using).\n- enforce_max_objects_in_set_with_restore: create+update+destroy+restore (decision 6(a)).\n- Dispatcher::register_history_aware(name, handler) marks a method; plain register clears the mark. Dispatcher::object_history_gaps(supported_types).\n- Handler-level rule, kept as defence in depth: in history handlers, without the URI in using, a true flag, onlyDestroyed:true, a non-null destroyedAfter/destroyedBefore or a non-empty restore ⇒ invalidArguments; false, null and empty values are accepted (decision 18). The dispatcher-wide check for every deployment is bead H23 (JMAP-tna1.3.25), which follows this bead.\n\nAcceptance: mock-backend contract tests, every bullet of note §10 'srv contract tests', including:\n- historyLimit:\"x\" ignored when both flags are false\n- a flag on an unsupported type ⇒ invalidArguments\n- objectHistory in properties without a flag is neither an error nor returned\n- destroyedAfter:null alone accepted\n- state-kind routing of queryChanges\n- restore {} ≡ null; non-object patch ⇒ invalidPatch\n- restore runs before an update of the same id; oldState is read before the restore\n- objectHistory in create ⇒ invalidProperties\n- maxObjectsInSet counts restores\n- Other redacted to serverFail\n- object_history_gaps flags a plain re-registration\nREADME/AGENTS/public-api snapshot updated; CHANGELOG bullet.",
-  "notes": "2026-11-13: updated for decision 18",
+  "notes": "2026-11-13: updated for decision 18\n2026-11-13: decisions 24 and 25: ObjectHistoryBackend docs MUST forbid discarding the final version while older versions remain (6(d) 'treat as gone' only as fallback for a backend breaking this). onlyDestroyed queryState encodes the query kind AND destroyedAfter/destroyedBefore; a queryChanges whose window doesn't match the state gets cannotCalculateChanges (object-history §4 MAY). Tests for both.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:40.352283665Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T04:04:30.36063077Z",
+  "updated_at": "2026-11-13T04:20:07.396994605Z",
   "labels": [
     "spec-sync"
   ],
@@ -27,6 +27,14 @@
       "depends_on_id": "JMAP-tna1.3.1",
       "type": "blocks",
       "created_at": "2026-11-13T02:53:35.331194212Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.3",
+      "depends_on_id": "JMAP-tna1.3.27",
+      "type": "blocks",
+      "created_at": "2026-11-13T04:20:09.671334988Z",
       "created_by": "Mark Atwood",
       "metadata": "{}"
     }

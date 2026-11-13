@@ -29,6 +29,14 @@
       "created_at": "2026-11-13T02:53:35.088706597Z",
       "created_by": "Mark Atwood",
       "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.1",
+      "depends_on_id": "JMAP-tna1.3.27",
+      "type": "blocks",
+      "created_at": "2026-11-13T04:20:08.518332114Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
     }
   ]
 }
