@@ -2713,7 +2713,9 @@ async fn copy_file_blob<B: FileNodeBackend>(
 /// destroys every copy made for the entry, the root's included, deepest
 /// first, and returns the SetError for the entry. Readers of the
 /// destination can see the partial subtree until then, and the state
-/// advances even for a copy that is undone.
+/// advances even for a copy that is undone. An `onExists` "replace" made
+/// for the entry has already run and is not undone; the caller still
+/// lists what it destroyed.
 async fn copy_subtree<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -3224,6 +3226,9 @@ mod tests {
     ///   (draft-ietf-jmap-filenode-20 §3.2.3).
     /// - [`hide_node`][Self::hide_node]: persistent; `get_objects` treats
     ///   the node as undiscoverable when asked for it by id.
+    /// - [`fail_copy_object_after`][Self::fail_copy_object_after]: the
+    ///   first `n` calls to `copy_object` succeed, then the next returns
+    ///   `Err`. Single-shot.
     ///
     /// Test-only — kept inside `mod tests` rather than the public
     /// reference implementation to avoid promoting "fault-injection"
@@ -3281,6 +3286,11 @@ mod tests {
         /// Node ids `get_objects` leaves out of a by-id read, as a backend
         /// does for a node the caller cannot discover. Persistent.
         hidden: std::collections::HashSet<String>,
+        /// When `Some(n)`, `copy_object` fails once `copy_object_calls`
+        /// reaches `n`; cleared when it fires.
+        copy_object_fail_after: Option<u64>,
+        /// Running count of `copy_object` invocations on this backend.
+        copy_object_calls: u64,
     }
 
     struct QueryObjectsErrConfig {
@@ -3424,6 +3434,14 @@ mod tests {
         /// `notFound` when asked for it by id. Persistent.
         fn hide_node(&self, id: &str) {
             self.faults.lock().unwrap().hidden.insert(id.to_owned());
+        }
+
+        /// Let the first `n` `copy_object` calls through and fail the
+        /// next one with `MemoryError`. Single-shot.
+        fn fail_copy_object_after(&self, n: u64) {
+            let mut guard = self.faults.lock().unwrap();
+            guard.copy_object_calls = 0;
+            guard.copy_object_fail_after = Some(n);
         }
     }
 
@@ -3587,6 +3605,16 @@ mod tests {
             obj: O,
             create: &serde_json::Value,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            {
+                let mut guard = self.faults.lock().unwrap();
+                if guard.copy_object_fail_after == Some(guard.copy_object_calls) {
+                    guard.copy_object_fail_after = None;
+                    return Err(BackendSetError::Other(MemoryError::new(
+                        "injected copy_object failure",
+                    )));
+                }
+                guard.copy_object_calls = guard.copy_object_calls.saturating_add(1);
+            }
             self.inner
                 .copy_object(&(), from_account_id, to_account_id, obj, create)
                 .await
@@ -6276,5 +6304,65 @@ mod tests {
         let err = &resp["notCreated"]["c"];
         assert_eq!(err["type"], "forbidden", "{resp}");
         assert!(err.get("existingId").is_none(), "{resp}");
+    }
+
+    // -----------------------------------------------------------------------
+    // FileNode/copy — subtree rollback
+    // -----------------------------------------------------------------------
+
+    /// -20 §3.2.4: a Directory copy "succeeds or fails as a whole". When
+    /// `copy_object` fails part-way through the subtree, the copies made
+    /// so far are destroyed again, after the role an override gave the
+    /// root copy is cleared (-20 §5 forbids destroying a role Directory),
+    /// and the account is left as it was.
+    #[tokio::test]
+    async fn copy_subtree_failure_part_way_removes_the_copies() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("top", None, "top"));
+        backend.seed_node("acc1", make_filenode("a", Some("top"), "a"));
+        backend.seed_node("acc1", make_filenode("b", Some("a"), "b"));
+        backend.seed_node("acc1", make_filenode("dest", None, "dest"));
+        let before = all_ids(&backend).await;
+        // The root copy and `a` are stored; the copy of `b` fails.
+        backend.fail_copy_object_after(2);
+
+        let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+            &backend,
+            &(),
+            json!({
+                "fromAccountId": "acc1",
+                "accountId": "acc1",
+                "create": { "c": { "id": "top", "parentId": "dest", "role": "archive" } }
+            }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect("FileNode/copy must not fail as a whole");
+
+        assert_eq!(resp["notCreated"]["c"]["type"], "serverFail", "{resp}");
+        assert!(resp["created"].is_null(), "{resp}");
+        assert_eq!(all_ids(&backend).await, before, "no copy is left behind");
+        assert_eq!(
+            backend.update_object_call_count(),
+            1,
+            "the root copy's role is cleared before its destroy"
+        );
+        assert_eq!(backend.destroy_object_call_count(), 2, "both copies");
+    }
+
+    /// Every FileNode id stored in `acc1`, sorted.
+    async fn all_ids(backend: &FaultyBackend) -> Vec<String> {
+        let (nodes, _) = backend
+            .inner
+            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .await
+            .expect("get_objects");
+        let mut ids: Vec<String> = nodes
+            .into_iter()
+            .map(|n| n.id.as_ref().to_owned())
+            .collect();
+        ids.sort();
+        ids
     }
 }
