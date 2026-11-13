@@ -2318,6 +2318,50 @@ async fn filenode_copy_keeps_timestamps_and_drops_sharing_role_subscription() {
     assert_eq!(resp["created"]["dated"]["created"], "2024-05-05T00:00:00Z");
 }
 
+/// Oracle: draft-ietf-jmap-filenode-20 §3.1, "setting a property that has
+/// a default value to null, on create or update, sets it to that default",
+/// and §3.1.1, where `created`, `modified` and `accessed` default to the
+/// current server time. A null override in `FileNode/copy` is a client
+/// giving another value (§3.2.4), so the copy takes the default and not the
+/// source's date.
+#[tokio::test]
+async fn filenode_copy_null_timestamp_override_sets_server_time() {
+    let backend = backend_with_src_tree();
+    let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({ "fromAccountId": "src", "accountId": "src",
+                "create": { "c": { "id": "top", "name": "top-copy", "created": null,
+                                   "modified": null, "accessed": null } } }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("must not return top-level error");
+    let copy_id = resp["created"]["c"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{resp}"));
+
+    let HandlerOutput { primary: got, .. } = handle_filenode_get(
+        &backend,
+        &(),
+        json!({ "accountId": "src", "ids": [copy_id] }),
+        &[],
+    )
+    .await
+    .expect("FileNode/get must succeed");
+    let stored = &got["list"][0];
+    for date in ["created", "modified", "accessed"] {
+        let value = stored[date]
+            .as_str()
+            .unwrap_or_else(|| panic!("stored copy lacks {date}: {got}"));
+        assert!(
+            !value.starts_with("2020-"),
+            "{date} must be the server time, not the source's: {got}"
+        );
+    }
+}
+
 #[tokio::test]
 async fn filenode_copy_subtree_fails_as_a_whole() {
     let backend = backend_with_src_tree();
