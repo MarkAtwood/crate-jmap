@@ -142,10 +142,10 @@ pub use calendars::{
     AvailabilityMetadata, CalendarEventMetadata, LookupWindow, SPACE_CALENDAR_ID_PROPERTY,
 };
 pub use capability::{
-    CHAT_FILENODE_SPACE_ROLE, ChatCalendarsCapability, ChatCapability, ChatCapabilityRole,
-    ChatFilenodeCapability, ChatPushCapability, ChatTasksCapability, JMAP_CHAT_CALENDARS_URI,
-    JMAP_CHAT_DID_URI, JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_TASKS_URI,
-    JMAP_CHAT_URI, JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS, may_advertise_chat_did,
+    ChatCalendarsCapability, ChatCapability, ChatCapabilityRole, ChatFilenodeCapability,
+    ChatPushCapability, ChatTasksCapability, JMAP_CHAT_CALENDARS_URI, JMAP_CHAT_DID_URI,
+    JMAP_CHAT_FILENODE_URI, JMAP_CHAT_PUSH_URI, JMAP_CHAT_TASKS_URI, JMAP_CHAT_URI,
+    JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS, may_advertise_chat_did,
 };
 pub use chat::{
     ChannelPermission, ChannelPermissionTargetType, Chat, ChatKind, ChatMember, ChatMemberRole,

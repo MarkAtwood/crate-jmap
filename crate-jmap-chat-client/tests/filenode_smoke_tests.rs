@@ -1,9 +1,10 @@
-//! Wiremock smoke tests for Space file tree discovery in jmap-chat-client.
+//! Wiremock smoke tests for Space root discovery in jmap-chat-client.
 //!
-//! Spec oracle: draft-atwood-jmap-chat-filenode-00 §Discovering the File
-//! Tree Root — "To locate the file tree root for a given Space, clients
-//! issue a `FileNode/query` request filtering on
-//! `role: "chatspace"` and `spaceId: <id>`."
+//! Spec oracle: draft-atwood-jmap-chat-filenode-00 §Discovering Space
+//! Roots — "To locate the Space roots of a given Space, clients issue a
+//! `FileNode/query` request filtering on `spaceId: <id>`. The result
+//! contains every Space root of that Space, and is empty when the Space
+//! has none".
 
 #[path = "helpers.rs"]
 mod helpers;
@@ -26,21 +27,20 @@ fn query_response(ids: serde_json::Value) -> serde_json::Value {
     )
 }
 
-/// The request MUST be `FileNode/query` with the role + spaceId filter
-/// from the draft, and declare the filenode capabilities in `using`
-/// (RFC 8620 §3.3). "When a file tree exists for the Space, exactly one
-/// matching FileNode is returned."
+/// The request MUST be `FileNode/query` filtering on `spaceId` alone (the
+/// draft no longer defines a Space-root role) and declare the filenode
+/// capabilities in `using` (RFC 8620 §3.3).
 #[tokio::test]
-async fn space_file_tree_root_sends_role_and_space_filter() {
+async fn space_roots_sends_space_id_filter_only() {
     let server = MockServer::start().await;
     mock_jmap_post(&server, query_response(json!(["fn-root"]))).await;
 
     let sc = helpers::make_client(&server);
-    let root = sc
-        .space_file_tree_root(&Id::from("sp1"))
+    let roots = sc
+        .space_roots(&Id::from("sp1"))
         .await
-        .expect("space_file_tree_root must succeed");
-    assert_eq!(root, Some(Id::from("fn-root")));
+        .expect("space_roots must succeed");
+    assert_eq!(roots, vec![Id::from("fn-root")]);
 
     let body = recorded_body(&server).await;
     assert_eq!(body["methodCalls"][0][0], json!("FileNode/query"));
@@ -48,10 +48,7 @@ async fn space_file_tree_root_sends_role_and_space_filter() {
         body["methodCalls"][0][1],
         json!({
             "accountId": TEST_ACCOUNT_ID,
-            "filter": {
-                "role": "chatspace",
-                "spaceId": "sp1"
-            }
+            "filter": { "spaceId": "sp1" }
         })
     );
     assert_eq!(
@@ -64,35 +61,31 @@ async fn space_file_tree_root_sends_role_and_space_filter() {
     );
 }
 
-/// "When no file tree exists, the result is empty" → `Ok(None)`.
+/// "is empty when the Space has none" → an empty `Vec`.
 #[tokio::test]
-async fn space_file_tree_root_absent_is_none() {
+async fn space_roots_absent_is_empty() {
     let server = MockServer::start().await;
     mock_jmap_post(&server, query_response(json!([]))).await;
 
     let sc = helpers::make_client(&server);
-    let root = sc
-        .space_file_tree_root(&Id::from("sp1"))
+    let roots = sc
+        .space_roots(&Id::from("sp1"))
         .await
         .expect("empty result must succeed");
-    assert!(root.is_none());
+    assert!(roots.is_empty());
 }
 
-/// "at most one root per Space is permitted" — a server returning two
-/// roots is non-compliant and surfaces as `UnexpectedResponse` rather
-/// than an arbitrary pick.
+/// "A Space has zero, one, or more Space roots" (§Space File Tree): every
+/// returned id comes back, in the server's order.
 #[tokio::test]
-async fn space_file_tree_root_multiple_roots_is_error() {
+async fn space_roots_returns_every_root_in_order() {
     let server = MockServer::start().await;
-    mock_jmap_post(&server, query_response(json!(["fn-a", "fn-b"]))).await;
+    mock_jmap_post(&server, query_response(json!(["fn-b", "fn-a"]))).await;
 
     let sc = helpers::make_client(&server);
-    let err = sc
-        .space_file_tree_root(&Id::from("sp1"))
+    let roots = sc
+        .space_roots(&Id::from("sp1"))
         .await
-        .expect_err("two roots must be rejected");
-    assert!(
-        matches!(err, jmap_base_client::ClientError::UnexpectedResponse(_)),
-        "expected UnexpectedResponse, got {err:?}"
-    );
+        .expect("several roots must succeed");
+    assert_eq!(roots, vec![Id::from("fn-b"), Id::from("fn-a")]);
 }

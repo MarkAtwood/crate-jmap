@@ -1997,7 +1997,6 @@ pub const jmap_chat_types::CHAT_CAP_AVAILABILITY: &str
 pub const jmap_chat_types::CHAT_CAP_CALENDAR_EVENT: &str
 pub const jmap_chat_types::CHAT_CAP_TASK: &str
 pub const jmap_chat_types::CHAT_CAP_VTC: &str
-pub const jmap_chat_types::CHAT_FILENODE_SPACE_ROLE: &str
 pub const jmap_chat_types::COMPANION_EPHEMERAL_DATA_TYPES: &[&str]
 pub const jmap_chat_types::JMAP_CHAT_CALENDARS_URI: &str
 pub const jmap_chat_types::JMAP_CHAT_DID_URI: &str
