@@ -16,6 +16,14 @@
 //! literal pattern characters matches a run of whole text characters
 //! whose prepared forms concatenate to the run's prepared form; this is
 //! how a fullwidth "ｒｅｐｏｒｔ" matches the literal "report".
+//!
+//! Because the unit is the text character, one whose prepared form is
+//! several code points cannot be split between pattern tokens: "cafe*"
+//! does not match "café.txt", although "é" prepares to "E" followed by
+//! U+0301 COMBINING ACUTE ACCENT, while "café*" and "caf?*" do. A match
+//! over the prepared text code point by code point would accept "cafe*"
+//! too; this matcher keeps text characters whole so that a literal, `?`
+//! and a set each take what a user sees as one character.
 
 use jmap_metadata_server::unicode_casemap_prepare;
 
@@ -46,17 +54,21 @@ enum ClassItem {
 
 impl ClassItem {
     /// Whether text character `c`, whose prepared form is `prepared`, is
-    /// a member. A range is matched case-insensitively by also trying
-    /// `c`'s single-character lower- and uppercase forms, so `[a-z]`
-    /// matches "Q".
+    /// a member. A range is matched case-insensitively by trying `c` and,
+    /// when it is a single character, its prepared form, each with its
+    /// single-character lower- and uppercase forms. So `[a-z]` matches "Q"
+    /// and fullwidth "Ｑ", and `[0-9]` matches fullwidth "７".
     fn contains(&self, c: char, prepared: &str) -> bool {
         match self {
             ClassItem::Char(member) => member == prepared,
             ClassItem::Range(lo, hi) => {
                 let in_range = |x: char| *lo <= x && x <= *hi;
-                in_range(c)
-                    || single(c.to_lowercase()).is_some_and(in_range)
-                    || single(c.to_uppercase()).is_some_and(in_range)
+                let cased = |x: char| {
+                    in_range(x)
+                        || single(x.to_lowercase()).is_some_and(in_range)
+                        || single(x.to_uppercase()).is_some_and(in_range)
+                };
+                cased(c) || single(prepared.chars()).is_some_and(cased)
             }
         }
     }
@@ -299,6 +311,27 @@ mod tests {
     fn question_mark_is_one_text_character() {
         assert!(glob_match("caf?", "caf\u{E9}"));
         assert!(glob_match("caf[\u{E9}]", "CAF\u{C9}"));
+    }
+
+    /// A range matches a character by its prepared form too, as literals
+    /// and single set members do: fullwidth digits and letters fall in the
+    /// ASCII ranges they prepare to.
+    #[test]
+    fn ranges_use_the_prepared_form() {
+        assert!(glob_match("v[0-9]", "v\u{FF17}"));
+        assert!(glob_match("[a-z]1", "\u{FF31}1"));
+        assert!(glob_match("[A-Z]1", "\u{FF51}1"));
+        assert!(!glob_match("[0-9]", "\u{FF41}"));
+    }
+
+    /// The documented limit: a text character whose prepared form is
+    /// several code points stays whole, so a literal cannot take part of
+    /// it.
+    #[test]
+    fn a_text_character_is_not_split_between_tokens() {
+        assert!(glob_match("caf\u{E9}*", "caf\u{E9}.txt"));
+        assert!(glob_match("caf?*", "caf\u{E9}.txt"));
+        assert!(!glob_match("cafe*", "caf\u{E9}.txt"));
     }
 
     /// The memoised matcher stays fast on a pattern that defeats naive
