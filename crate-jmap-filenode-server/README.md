@@ -379,6 +379,10 @@ with per-account blob stores overrides it. `onExists`, `compareCaseInsensitively
 `onDestroyRemoveChildren` apply to the copied root in the destination. The implicit
 `FileNode/set` of `onSuccessDestroyOriginal` always removes the originals' subtrees.
 
+One gap remains in "as a whole": an `onExists: "replace"` runs before the copy is
+stored, and a destroy cannot be undone, so when the copy then fails the replaced node
+stays destroyed. Its id is still listed in `destroyed`, so the client sees what happened.
+
 ## CallerCtx
 
 `register_filenode_handlers` registers each method as a `ClosureHandler`

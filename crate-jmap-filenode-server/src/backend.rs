@@ -123,8 +123,9 @@ impl CaseFolding {
 ///   else the stored `myRights` (a parent's, for a File or SymLink). When
 ///   neither states rights the handler proceeds, and
 ///   [`destroy_object`](Self::destroy_object) stays the atomic check.
-/// - Copy: the source must be discoverable in `fromAccountId`, and the copy
-///   is a create in `accountId`.
+/// - Copy: `mayRead` on the source in `fromAccountId` (-20 §3.2.4; a node
+///   discoverable only through a descendant's `shareWith` has `mayRead`
+///   false), and the copy is a create in `accountId`.
 ///
 /// draft-ietf-jmap-filenode-20 §5: these rights are checked "in the rights
 /// of the node itself; for a node with no myRights, these are its parent's
