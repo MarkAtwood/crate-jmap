@@ -95,8 +95,9 @@ wire behaviour that a conforming peer can observe.
   draft-ietf-jmap-filenode-20 §3.2.4. Copying a Directory copies its
   whole subtree, all or nothing, with `maxFileNodeDepth` counted for the
   deepest copied node; copies keep `created`, `modified` and `accessed`
-  and drop `shareWith`, `role`, `isSubscribed` and `spaceId`; File blobs
-  go through `copy_blob`; and the implicit destroy of
+  (a null override sets one to the current server time, its -20 §3.1
+  default) and drop `shareWith`, `role`, `isSubscribed` and `spaceId`;
+  File blobs go through `copy_blob`; and the implicit destroy of
   `onSuccessDestroyOriginal` always removes the originals' subtrees and
   lists every destroyed id.
 - **jmap-filenode-server**: the reference `MemoryBackend` sets the

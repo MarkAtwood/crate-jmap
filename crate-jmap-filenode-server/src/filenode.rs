@@ -1241,12 +1241,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
-            // §3.1.1: created, modified and accessed default to the current
-            // server time; a null modified or accessed is set to it.
-            let now = now_utc_string();
-            for date in [&mut node.created, &mut node.modified, &mut node.accessed] {
-                date.get_or_insert_with(|| now.clone());
-            }
+            default_dates_to_now(&mut node);
 
             let build = move |id: &Id| {
                 node.id = id.clone();
@@ -1848,9 +1843,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 ///
 /// "Each copy is a new node, with a new id and a new changed value. It has
 /// the same created, modified and accessed values as its original, unless
-/// the client gives others." `shareWith`, `role` and `isSubscribed` are not
-/// copied ("the copy takes its rights from its new parent, and isSubscribed
-/// takes its default value"), and neither is `spaceId`, which marks a
+/// the client gives others." An override of null sets that date to the
+/// current server time, its default (-20 §3.1). `shareWith`, `role` and
+/// `isSubscribed` are not copied ("the copy takes its rights from its new
+/// parent, and isSubscribed takes its default value"), and neither is
+/// `spaceId`, which marks a
 /// draft-atwood-jmap-chat-filenode-00 Space root; an override in the create
 /// object sets any of them, a `role` under the same uniqueness rule as
 /// `FileNode/set`. A File's blob goes through [`FileNodeBackend::copy_blob`]
@@ -2121,6 +2118,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     continue;
                 }
             };
+            // -20 §3.2.4 keeps the source's dates "unless the client gives
+            // others", and an override of null gives the default (§3.1).
+            default_dates_to_now(&mut root);
             // draft-ietf-jmap-filenode-20 §3.2.4: "the same additional
             // errors as FileNode/set apply". Every check runs before any
             // onExists destroy or write, so an invalid copy has no side
@@ -2627,6 +2627,21 @@ fn copy_of(mut node: FileNode, kept: CopiedMetadata) -> FileNode {
     node
 }
 
+/// Sets each of `node`'s `created`, `modified` and `accessed` that is
+/// absent or null to the current server time.
+///
+/// draft-ietf-jmap-filenode-20 §3.1: "setting a property that has a default
+/// value to null, on create or update, sets it to that default", and §3.1.1
+/// gives all three the current server time as their default. `FileNode/set`
+/// create applies this to the new node, `FileNode/copy` to the copied root
+/// after the client's overrides.
+fn default_dates_to_now(node: &mut FileNode) {
+    let now = now_utc_string();
+    for date in [&mut node.created, &mut node.modified, &mut node.accessed] {
+        date.get_or_insert_with(|| now.clone());
+    }
+}
+
 /// `nodes`, the descendants of `root`, ordered so that each comes after its
 /// parent, for copying a subtree parents first. A node whose parent chain
 /// does not reach `root` within `nodes` is left out: the backend returned
@@ -2806,7 +2821,9 @@ async fn copy_subtree<B: FileNodeBackend>(
 /// - `myRights`: derived from caller's permissions on the destination.
 ///
 /// `created`, `modified` and `accessed` keep the source's values "unless
-/// the client gives others" (-20 §3.2.4).
+/// the client gives others" (-20 §3.2.4). A null override leaves the field
+/// absent here; the caller then sets it to its default, the current server
+/// time (-20 §3.1).
 ///
 /// Returns the merged FileNode on success. On a malformed override
 /// (e.g. wrong-shape `role`, malformed `nodeType`), returns an
