@@ -97,7 +97,9 @@ wire behaviour that a conforming peer can observe.
   names for every case-insensitive name comparison, not an
   implementation-defined fold. The reference `MemoryBackend` compares
   prepared names instead of `str::to_lowercase`, so fullwidth and other
-  compatibility forms now collide with their plain forms.
+  compatibility forms now collide with their plain forms. Its `nameMatch`
+  and `mediaTypeMatch` globs use the same collation, and now also support
+  the `[...]`, `[!...]` and `[^...]` sets of -20 §3.2.5.
 - **BREAKING** **jmap-chat-client**: `SessionClient::space_file_tree_root`
   is now `space_roots` and returns every Space root as a `Vec<Id>`. It
   queries `FileNode/query` on `spaceId` alone, as

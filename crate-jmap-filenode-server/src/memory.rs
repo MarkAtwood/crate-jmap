@@ -1544,7 +1544,8 @@ fn node_matches_tree(
 /// - `blobId` — exact match on blob_id
 /// - `mediaType` — exact match on media_type
 /// - `name` — exact byte match on name
-/// - `nameMatch` / `mediaTypeMatch` — case-insensitive glob match (`*`, `?`)
+/// - `nameMatch` / `mediaTypeMatch` — glob match (`*`, `?`, `[...]`),
+///   case-insensitive under `i;unicode-casemap`
 /// - `isExecutable` — exact match on the executable flag
 /// - `minSize` / `maxSize` — size bounds (`size >= minSize` / `size < maxSize`)
 /// - `createdBefore` / `createdAfter`
@@ -1683,14 +1684,14 @@ fn node_matches_filter(
     }
 
     if let Some(ref pattern) = fc.name_match
-        && !glob_match_case_insensitive(pattern, &node.name)
+        && !crate::glob::glob_match(pattern, &node.name)
     {
         return Ok(false);
     }
 
     if let Some(ref pattern) = fc.media_type_match {
         let mt = node.media_type.as_deref().unwrap_or("");
-        if !glob_match_case_insensitive(pattern, mt) {
+        if !crate::glob::glob_match(pattern, mt) {
             return Ok(false);
         }
     }
@@ -1918,37 +1919,6 @@ fn metadata_matches(
     exists.is_none_or(|p| metadata_path_exists(metadata, p))
         && contains.is_none_or(|m| metadata_text_contains(metadata, m))
         && equals.is_none_or(|m| metadata_text_equals(metadata, m))
-}
-
-/// Case-insensitive glob matcher.
-///
-/// Supports `*` (matches any sequence including empty) and `?` (matches
-/// any single character). Iterative algorithm with O(len(pattern) *
-/// len(text)) worst-case; sufficient for reference-impl correctness.
-/// `[...]` character classes are not supported.
-fn glob_match_case_insensitive(pattern: &str, text: &str) -> bool {
-    let p: Vec<char> = pattern.chars().flat_map(char::to_lowercase).collect();
-    let t: Vec<char> = text.chars().flat_map(char::to_lowercase).collect();
-    glob_match_inner(&p, 0, &t, 0)
-}
-
-fn glob_match_inner(p: &[char], pi: usize, t: &[char], ti: usize) -> bool {
-    if pi == p.len() {
-        return ti == t.len();
-    }
-    match p[pi] {
-        '*' => {
-            // Try matching zero, one, two, ... chars against the rest.
-            for skip in ti..=t.len() {
-                if glob_match_inner(p, pi + 1, t, skip) {
-                    return true;
-                }
-            }
-            false
-        }
-        '?' => ti < t.len() && glob_match_inner(p, pi + 1, t, ti + 1),
-        c => ti < t.len() && t[ti] == c && glob_match_inner(p, pi + 1, t, ti + 1),
-    }
 }
 
 /// Reject a `FileNode/query` sort [`compare_nodes`] cannot apply.
