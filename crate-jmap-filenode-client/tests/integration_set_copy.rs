@@ -503,8 +503,9 @@ async fn filenode_copy_omits_unset_copy_args() {
 
 /// RFC 8620 §5.3: each `created` value holds only "properties of the
 /// created Foo object that were not sent by the client". Oracle: the
-/// hand-written response echoes the server-set `id` and `size` (draft-16
-/// marks `size` server-set); the client-sent `name`, required on a full
+/// hand-written response echoes the server-set `id` and `size`
+/// (draft-ietf-jmap-filenode-20 §3.1.3: "size: "UnsignedInt"
+/// (server-set)"); the client-sent `name`, required on a full
 /// `FileNode`, is absent and the response must still parse.
 #[tokio::test]
 async fn filenode_set_created_omits_client_sent_properties() {
