@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-lehj.11",
+  "title": "calendars MemoryBackend::get_availability: use the -34 BusyStatus/IncludeInAvailability helpers",
+  "description": "Found in spec-sync batch 1. MemoryBackend::get_availability still returns [] so the reference backend never exercises BusyStatus::for_event and IncludeInAvailability::counts_event (added for JMAP-lehj.2, -34 §2.2). Implement availability in the memory backend with those helpers and test it end to end.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T00:09:52.311237909Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T00:09:52.311237909Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lehj.11",
+      "depends_on_id": "JMAP-lehj",
+      "type": "parent-child",
+      "created_at": "2026-11-13T00:09:52.436080732Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

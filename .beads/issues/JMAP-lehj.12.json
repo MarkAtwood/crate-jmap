@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-lehj.12",
+  "title": "calendars-server: close lehj.1 per-event limit test and enforcement gaps",
+  "description": "Found in spec-sync batch 1 (JMAP-lehj.1). Tests missing: handler-level maxDateTime, an update that changes a date, the store-read serverFail SetError, and re-reading the stored event after a rejected over-limit update. Enforcement gaps documented in CalendarsLimits but not in the backend trait docs: CalendarEvent/copy does not check the per-event caps (-34 §5.9 says a create over them MUST be invalidProperties), participants added by override path are not counted, and updates are counted from the caller's possibly reduced view. Also reword the CalendarsLimits doc where 'never rejects a valid event' reads as contradicting the timeZone-change case. Also -33 framing leftovers from lehj.7: CalendarAlert.recurrence_id maintainer note and the types_test.rs calendar_alert_recurrence_id_null_for_non_recurring comment.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T00:09:52.610747948Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T00:09:52.610747948Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lehj.12",
+      "depends_on_id": "JMAP-lehj",
+      "type": "parent-child",
+      "created_at": "2026-11-13T00:09:52.734765126Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

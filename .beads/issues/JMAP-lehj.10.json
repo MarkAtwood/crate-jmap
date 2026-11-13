@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-lehj.10",
+  "title": "calendars-client: CalendarEventGetParams cites §5.4 and carries non--34 /get arguments",
+  "description": "Found in spec-sync batch 1 (calendars-34). CalendarEventGetParams and the 'Fetch CalendarEvent objects by IDs' doc in crate-jmap-calendars-client cite -34 §5.4, but CalendarEvent/get is §5.7. Its fields expandRecurrences, reducedParticipants, fetchCalendars are not -34 /get arguments; the real ones are reduceParticipants, recurrenceOverridesBefore, recurrenceOverridesAfter, timeZone. Fix the citation and the argument set (breaking for the client API; check the server side accepts the -34 names).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T00:09:52.008090253Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T00:09:52.008090253Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-lehj.10",
+      "depends_on_id": "JMAP-lehj",
+      "type": "parent-child",
+      "created_at": "2026-11-13T00:09:52.135730689Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
