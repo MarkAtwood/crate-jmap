@@ -1444,6 +1444,38 @@ async fn filenode_set_compare_case_insensitively_uses_unicode_casemap() {
     assert!(resp["created"]["ss"].is_object(), "{resp}");
 }
 
+/// draft-ietf-jmap-filenode-20 §3.2.5 `nameMatch`: "The match is
+/// case-insensitive", and §1.1 makes that `i;unicode-casemap`. So
+/// `nameMatch` agrees with the name collision check above: the fullwidth
+/// "ＤＯＣ" and dotless "ı" names match the plain patterns, which
+/// lowercasing would not give. `[...]` sets (§3.2.5) match too.
+#[tokio::test]
+async fn filenode_query_name_match_uses_unicode_casemap() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let fullwidth = create_node(&backend, "acc1", "\u{FF24}\u{FF2F}\u{FF23}-1", None, "s0").await;
+    let dotless = create_node(&backend, "acc1", "\u{0131}tem", None, "s1").await;
+    create_node(&backend, "acc1", "other", None, "s2").await;
+
+    let query = |pattern: &str| {
+        let backend = &backend;
+        let pattern = pattern.to_owned();
+        async move {
+            let HandlerOutput { primary, .. } = handle_filenode_query(
+                backend,
+                &(),
+                json!({ "accountId": "acc1", "filter": { "nameMatch": pattern } }),
+                &[],
+            )
+            .await
+            .expect("query must succeed");
+            primary["ids"].clone()
+        }
+    };
+    assert_eq!(query("doc-*").await, json!([fullwidth]));
+    assert_eq!(query("ITEM").await, json!([dotless]));
+    assert_eq!(query("[d]oc-[0-9]").await, json!([fullwidth]));
+}
+
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
     let backend = MemoryBackend::new()

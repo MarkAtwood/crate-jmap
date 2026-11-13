@@ -42,6 +42,8 @@ use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHa
 
 mod backend;
 mod filenode;
+#[cfg(feature = "memory")]
+mod glob;
 mod helpers;
 /// In-memory reference implementation of [`FileNodeBackend`].
 ///
