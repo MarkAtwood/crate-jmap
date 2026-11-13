@@ -99,3 +99,8 @@ hax = "hax"
 # §5.6 `GroupInfoRatchetTreeTBE` (crate-jmap-chat-mimi-client). Not a typo
 # of `the`.
 tbe = "tbe"
+
+# `caf` / `CAF` — the stem of "café" written with an escaped or
+# decomposed é (e.g. `"caf\u{E9}"`) in the glob tests and module docs
+# (crate-jmap-filenode-server/src/glob.rs). Not a typo of `calf`.
+caf = "caf"
