@@ -572,6 +572,13 @@ pub trait FileNodeBackend: JmapBackend {
     /// Used for: (1) cycle detection — if proposed new `parentId` is in the
     /// descendant set, the move would create a cycle; (2) `nodeHasChildren`
     /// guard — if result is non-empty, the node has children.
+    ///
+    /// # Order
+    ///
+    /// Each id comes after the id of its parent, as a breadth-first walk
+    /// gives them. The handlers destroy a cascade in reverse order, so each
+    /// node goes before its parent and a backend that refuses to destroy a
+    /// non-empty Directory still sees each Directory emptied first.
     fn get_descendant_ids(
         &self,
         caller: &Self::CallerCtx,

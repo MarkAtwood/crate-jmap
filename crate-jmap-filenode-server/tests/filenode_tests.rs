@@ -250,6 +250,29 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
     );
 }
 
+/// The cascade destroys each node before its parent, so a backend that
+/// refuses to destroy a non-empty Directory can still run it. The
+/// `destroyed` list records the destroys in the order they ran.
+#[tokio::test]
+async fn filenode_set_destroy_cascade_runs_deepest_first() {
+    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    backend.seed_node(&Id::from("acc1"), make_dir("a", "a", None));
+    backend.seed_node(&Id::from("acc1"), make_dir("b", "b", Some("a")));
+    backend.seed_node(&Id::from("acc1"), make_dir("c", "c", Some("b")));
+
+    let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({ "accountId": "acc1", "onDestroyRemoveChildren": true, "destroy": ["a"] }),
+        &[],
+    )
+    .await
+    .expect("set must not return top-level error");
+
+    assert_eq!(resp["destroyed"], json!(["c", "b", "a"]), "{resp}");
+}
+
 // ---------------------------------------------------------------------------
 // Test 5b: multi-level destroy WITHOUT onDestroyRemoveChildren: destroy set
 // {A, B} where A is grandparent, B is A's child, and B has its own child C
