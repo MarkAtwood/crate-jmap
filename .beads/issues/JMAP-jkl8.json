@@ -1,0 +1,15 @@
+{
+  "id": "JMAP-jkl8",
+  "title": "JMAP Tasks revived: updated draft by Mark + crate implementation of his 17 items",
+  "description": "Mark 2026-11-13: the WG was wrong to drop JMAP Tasks. (a) Mark writes an updated Tasks draft folding in his 17 jmapio/jmap items (#456-#472), JMAP Data Types registrations with Supports History, Calendars -34 alignment. (b) The tasks crates (jmap-tasks-types/-server/-client, jmap-chat-tasks-server) implement those items now as the de facto reference. No WG approach for now. Decision: docs/design/DECISIONS.md #23. Spec base: /data/PROJECT/IETF/specs/draft-ietf-jmap-tasks-06.txt; editor's source /data/GIT/jmapio-jmap spec/tasks/*.mdown; Mark's item on github.com/jmapio/jmap (gh issue view/pr view \u003cn\u003e -R jmapio/jmap). Prior crate audit: JMAP-t8ej.17.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T03:52:26.312859148Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T03:52:26.312859148Z",
+  "labels": [
+    "spec-sync"
+  ]
+}

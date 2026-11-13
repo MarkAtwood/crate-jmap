@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-jkl8.3",
+  "title": "Tasks #457/#458, #459/#460: wire-name spellings (TaskId, assigneee, taskListHasTask)",
+  "description": "Decision: docs/design/DECISIONS.md #23. Spec base: /data/PROJECT/IETF/specs/draft-ietf-jmap-tasks-06.txt; editor's source /data/GIT/jmapio-jmap spec/tasks/*.mdown; Mark's item on github.com/jmapio/jmap (gh issue view/pr view \u003cn\u003e -R jmapio/jmap). Prior crate audit: JMAP-t8ej.17. Make the crates use the corrected names from PR #458 and PR #460 everywhere (serde names, SetError type taskListHasTask). Check whether the crate already uses them; if it accepted the misspellings for compatibility, decide (document) whether to keep accepting them on input. Size S.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T03:52:27.121185027Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T03:52:27.121185027Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-jkl8.3",
+      "depends_on_id": "JMAP-jkl8",
+      "type": "parent-child",
+      "created_at": "2026-11-13T03:52:27.246948547Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-jkl8.3",
+      "depends_on_id": "JMAP-jkl8.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T03:52:30.160744469Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

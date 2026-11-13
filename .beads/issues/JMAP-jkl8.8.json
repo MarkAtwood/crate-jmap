@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-jkl8.8",
+  "title": "Tasks #470: participant matching via calendarAddress (Calendars -34)",
+  "description": "Decision: docs/design/DECISIONS.md #23. Spec base: /data/PROJECT/IETF/specs/draft-ietf-jmap-tasks-06.txt; editor's source /data/GIT/jmapio-jmap spec/tasks/*.mdown; Mark's item on github.com/jmapio/jmap (gh issue view/pr view \u003cn\u003e -R jmapio/jmap). Prior crate audit: JMAP-t8ej.17. Issue #470: participant matching still uses sendTo/scheduleId, which Calendars dropped (-33, still so in -34). Match participants by calendarAddress as calendars-server does (tasks-types/src/capability.rs:165-169, task.rs:89). Size M.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T03:52:28.718962274Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T03:52:28.718962274Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-jkl8.8",
+      "depends_on_id": "JMAP-jkl8",
+      "type": "parent-child",
+      "created_at": "2026-11-13T03:52:28.865150817Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-jkl8.8",
+      "depends_on_id": "JMAP-jkl8.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T03:52:33.116096685Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

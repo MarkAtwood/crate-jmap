@@ -5,9 +5,10 @@ Bead: JMAP-r44n (children r44n.1-.5). Spec: jmapio/jmap f8f44fd
 posted -04 at `~/PROJECT/IETF/specs/draft-ietf-jmap-emailpush-04.txt`.
 
 Status: final. Mark's decisions of 2026-11-13 are recorded in `docs/design/DECISIONS.md`.
-This note applies decisions 3 (placement), 9 (config normalization) and 10 (`objectHistory`
-in `properties`), and follows decisions 1, 2 and 8 where conditional-02 meets
-PushSubscription. Every place a decision changed the draft is marked "(decision N)".
+This note applies decisions 3 (placement), 9 (config normalization), 10 (`objectHistory`
+in `properties`), 16 (validation without a required hook) and 20 (delivery input), and
+follows decisions 1, 2, 8 and 17 where conditional-02 meets PushSubscription. Every place a
+decision changed the draft is marked "(decision N)".
 Companion notes: `docs/design/conditional.md`, `docs/design/object-history.md`,
 `docs/design/blobext.md`.
 
@@ -22,9 +23,11 @@ Placement follows the chat-push precedent (`validate_chat_push`, `strip_unsuppor
 
 - an `emailpush` feature in `jmap-mail-types` holds the wire types;
 - an `emailpush` feature in `jmap-mail-server` holds validation, filter evaluation,
-  projection and splitting;
-- `jmap-server` push.rs gets a generic extension seam: a `using` gate and a required
-  validation hook;
+  projection and splitting. The deployment's `create_push_subscription` and
+  `update_push_subscription` MUST call its `check_email_push_change`, as chat backends call
+  `validate_chat_push` (decision 16);
+- `jmap-server` push.rs gets a generic, non-breaking extension seam: a `using` gate and an
+  echo of extension keys whose stored value differs from what the client sent (decision 16);
 - `jmap-base-client` and `jmap-mail-client` get client helpers.
 
 No new crates (decision 3). Stored configs are normalized with their defaults filled
@@ -58,7 +61,7 @@ Section numbers are those of -05. "Consumer" means the deployment that owns tran
 | §4 lost access or capability: "MUST stop sending" and "MUST remove that account from the "emailPush" map" | stop: `email_pushes_for` takes the live `EmailPushAccount`. Remove: `prune_email_push`, called from `list_push_subscriptions` (strip on read, the `strip_unsupported_chat_push` precedent) and from the consumer's revocation path (persist) | r44n.3 |
 | §4 only to the URL, not EventSource (RFC 8620 §7.3) or WebSocket (RFC 8887) | the kit has no transport; no SSE/WS code path builds EmailPush; testjig unchanged | rustdoc MUST |
 | §4 `filter`: FilterOperator\|FilterCondition\|null; null pushes all | `EmailPushConfig.filter: Option<EmailFilter>` | -05 states no default for `filter`; an absent `filter` is stored as `null` (decision 9) and raised upstream (§12) |
-| §4 config defaults; RFC 8620 §5.3 echo of server-changed values | `check_email_push_change` stores every config with `filter`, `properties` and `urgency` filled; `/get` returns that; `created`/`updated` echo it (decision 9) | §5.1 item 3, §5.2 step 5 |
+| §4 config defaults; RFC 8620 §5.3 echo of server-changed values | `check_email_push_change` normalizes every config with `filter`, `properties` and `urgency` filled before the backend stores it; `/get` returns that; `created`/`updated` echo it through the generic echo of changed extension keys (decisions 9, 16) | §5.1 item 3, §5.2 step 5 |
 | §4 evaluated "as it is immediately after delivery", incl. Sieve-assigned mailboxes and keywords; later changes push nothing | input contract of `DeliveredEmail` (post-Sieve Email) | Sieve runs in the consumer |
 | §4 "MUST support FilterOperator objects with any of the "AND", "OR", and "NOT" operators" | `filter::email_matches` | r44n.4 |
 | §4 with mail: "all the FilterCondition properties it supports for the "Email/query" method"; else at least hasKeyword, notKeyword, from, to, cc, bcc, subject, header, minSize, maxSize | the evaluator covers every RFC 8621 §4.4.1 condition and the metadata-05 conditions, a superset of anything a backend's Email/query can decode (`EmailFilterCondition` is `deny_unknown_fields`). For a non-mail account, the 10-condition minimum plus `EmailPushAccount.filter_conditions` | r44n.4 |
@@ -66,7 +69,7 @@ Section numbers are those of -05. "Consumer" means the deployment that owns tran
 | §4 `properties` String[] (default: []); Email/get `properties` "except that the "bodyValues" property is not supported"; empty gives `{}`; "the "id" property is not included unless it is listed" | `project::project_email` (shared Email/get projection, default `bodyProperties`, no implicit id) | r44n.1 |
 | §4 with mail: "all the properties it supports for the "Email/get" method"; else keywords, from, to, cc, subject, preview, receivedAt, sentAt; with ObjectID also id, threadId, mailboxIds | `project::check_email_property` + `EmailPushAccount` flags and `properties` extras | `header:*` forms accepted for mail accounts as Email/get does; for non-mail only if declared. `objectHistory` (object-history-03 §3.1) is accepted where this deployment's Email/get accepts it and dropped from the stored list, so it is never pushed and pushes stay a true prefix (decision 10) |
 | §4 `urgency` String (default: "normal"), "MUST be an `urgency-option`" (RFC 8030 §5.3) | `jmap_types::Urgency` (closed set, rejects others); `OutboundEmailPush.urgency` feeds `jmap_web_push::PushOptions.urgency` | |
-| §4 invalidProperties with "emailPush" when (1) "The change includes "emailPush"" and a key is not an emailpush account; (2) unsupported filter condition; (3) unsupported property "including "bodyValues""; (4) urgency not an urgency-option; (5) emailPush non-null and keys null, "the "properties" list also includes "keys"" | `emailpush::check_email_push_change` | (1) only when the change touches emailPush (r44n.3) |
+| §4 invalidProperties with "emailPush" when (1) "The change includes "emailPush"" and a key is not an emailpush account; (2) unsupported filter condition; (3) unsupported property "including "bodyValues""; (4) urgency not an urgency-option; (5) emailPush non-null and keys null, "the "properties" list also includes "keys"" | `emailpush::check_email_push_change`, called by the deployment's `create_`/`update_push_subscription` (decision 16) | (1) only when the change touches emailPush (r44n.3) |
 | §4 "MUST include the path to each invalid value": `emailPush/{accountId}`, `.../filter`, `.../properties`, `.../urgency` | same; collects every bad path. A non-object config value is the invalid value at `emailPush/{accountId}` | r44n.5 |
 | §5 Example | tests (§10) | the request's `p256dh` is RFC 8792-wrapped; unwrap in the fixture |
 | §6 client "MUST specify encryption keys" and "ignore any push notification received that is not encrypted with those keys" | server: validate rule (5), and `email_pushes_for` also refuses a keyless subscription. Client: rustdoc MUST on `parse_push_payload`, which takes decrypted bytes | RFC 8291 decrypt is out of scope |
@@ -93,11 +96,12 @@ jmap-mail-types, jmap-mail-server and jmap-mail-client, after the mdn/sieve prec
   is enabled by `memory` (as today) or `emailpush`, so plain mail-server users gain no deps.
   `EmailCondition` is the only public item from `filter.rs`; it is re-exported through
   `emailpush` (Public API rule 6, one path).
-- `jmap-server`: generic PushSubscription extension seam: the `using` gate, the required
-  validation hook, `using` plumbing, and a public filter-depth check. It stays mail-free,
-  with no dependency on mail-types. The conditional-02 opt-in registration for
-  `PushSubscription/set` (decision 1) is the conditional epic's, in the same file; §9 says
-  how the two fit.
+- `jmap-server`: generic, non-breaking PushSubscription extension seam: the `using` gate,
+  `using` plumbing, the echo of extension keys whose stored value differs from what the
+  client sent, and a public filter-depth check. No new required trait method (decision 16).
+  It stays mail-free, with no dependency on mail-types. The conditional-02 opt-in attach
+  call for `PushSubscription/set` (decisions 1, 17) is the conditional epic's, in the same
+  file; §9 says how the two fit.
 - `jmap-base-client`: generic `PushSubscription/get` and `/set` methods on `JmapClient`.
   Base-client has no method bindings today; `jmap-chat-client` has private chat-flavoured ones.
   Conditional or atomic PushSubscription/set goes through the conditional epic's generic
@@ -206,42 +210,32 @@ mail-types round-trip test pins them.
    When C is in `using`, an absent P is shown as `null` in `/get` and in the `created` echo
    (§4 "(default: null)", RFC 8620 §5.3). `chatPush` stays ungated, because
    draft-atwood-jmap-chat-push-00 has no `using` rule.
-3. New hook, **required** (the hook rule settles this; see §6):
-   ```rust
-   fn check_push_subscription_change(&self, caller: &Self::CallerCtx,
-       change: PushSubscriptionChange<'_>)
-       -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
+3. No validation hook on `PushSubscriptionBackend` (decision 16). Extension validation
+   follows the chatPush precedent: the backend's `create_push_subscription` and
+   `update_push_subscription` validate and normalize the extension properties they are
+   given, and return a SetError to reject. For EmailPush they MUST call
+   `jmap_mail_server::emailpush::check_email_push_change` (§5.2); the memory backend does,
+   and the `EmailPushBackend` rustdoc says MUST. The trait and
+   `register_push_subscription_handlers` keep their signatures, so this is non-breaking.
 
-   #[non_exhaustive]
-   pub struct PushSubscriptionChange<'a> {
-       pub old: Option<&'a PushSubscription>,   // None on create
-       pub new: &'a mut PushSubscription,       // patched/created; hook may normalize extra
-       pub changed: &'a BTreeSet<String>,       // top-level names the create sent / the patch touched (first path segment)
-       pub using: &'a [String],
-   }
-   ```
-   The handler calls the hook after the RFC 8620 checks (url, verificationCode, immutables,
-   expires) and before `create_`/`update_push_subscription`. The hook has no side effects,
-   so conditional-02 `atomic` can run it in a validate-all phase.
+   New generic echo in `handle_push_subscription_set`: `created` and `updated` echo every
+   `extra` key whose value in what the backend stored (the `StoredPushSubscription` from
+   create, the `PushSubscription` from update) differs from what the client sent (the
+   created object, or the stored object with the patch applied), and do not echo keys that
+   match (decision 16). For example, `emailPush` normalized with its defaults filled
+   (decision 9), or with `objectHistory` dropped from a `properties` list (decision 10),
+   must be echoed: RFC 8620 §5.3 `updated` holds "any property that changed in a way *not*
+   explicitly requested". The echo is additive behaviour for every backend; a backend that
+   stores `extra` as sent echoes nothing new.
 
-   The hook call lives inside `handle_push_subscription_set`, not in a registration
-   closure. Decision 1 leaves `register_push_subscription_handlers` unchanged and gives
-   conditional-02 a separate opt-in registration that re-registers `PushSubscription/set`
-   through `new_set`, last-wins, as object-history's `register_<x>_handlers_with_history`
-   does. That opt-in handler must call the same `handle_push_subscription_set`, so the
-   hook runs on both paths, inside the `begin_set` scope on the conditional one. The hook
-   stays a method of `PushSubscriptionBackend` and is not given its own opt-in trait and
-   registration. A second last-wins `/set` registration would let a deployment that
-   registers the conditional path after the extension path silently lose EmailPush
-   validation (decision 1 interaction; §9, §12 Q1).
+   There is one `PushSubscription/set` registration. Conditional-02 attaches to it with
+   `register_push_subscription_conditional` (decisions 1, 17) instead of re-registering it,
+   so validation runs inside the backend's create and update, inside the `begin_set` scope on
+   the conditional path, and no last-wins registration can drop it (decision 16).
 
-   `created` and `updated` now echo every `extra` key whose value the hook changed. For
-   example, `emailPush` normalized with its defaults filled (decision 9), or with
-   `objectHistory` dropped from a `properties` list (decision 10), must be echoed: RFC 8620
-   §5.3 `updated` holds "any property that changed in a way *not* explicitly requested".
-
-   The hook check and the store are not one atomic step. An account revoked in between is
-   handled by pruning (§5.2), not by a re-check.
+   Validation and store happen in the same backend call, but an account revoked during a
+   long-lived subscription is still handled by pruning (§5.2) and by the send-time check
+   (§5.3), not by a re-check at write time.
 4. `parse::nests_deeper_than` becomes `pub fn filter_nests_deeper_than(&Value, usize)`, and
    `MAX_FILTER_DEPTH` becomes pub. The dispatcher's depth check covers only a top-level
    `filter` argument, while a filter under `emailPush/{id}/filter` sits inside the
@@ -250,10 +244,15 @@ mail-types round-trip test pins them.
 
 ### 5.2 `jmap-mail-server` `emailpush` validation
 
-`pub async fn check_email_push_change<B: EmailPushBackend>(backend, caller, change) -> Result<(), BackendSetError<B::Error>>`
-is called from the backend's `check_push_subscription_change`. A backend that also supports
-chatPush calls `validate_chat_push` there too. If `change.changed` lacks `"emailPush"`, only
-rule (5) runs. That rule cannot fire on an update, because `keys` is immutable. Otherwise:
+`pub async fn check_email_push_change<B: EmailPushBackend>(backend: &B, caller: &B::CallerCtx, old: Option<&PushSubscription>, new: &mut PushSubscription) -> Result<(), BackendSetError<B::Error>>`
+validates and normalizes one create (`old: None`) or update (`old` = the stored
+subscription, `new` = it with the patch applied). The deployment's
+`create_push_subscription` and `update_push_subscription` MUST call it before storing, as
+chat backends call `validate_chat_push` there; a backend that also supports chatPush calls
+both (decision 16). It has no side effects. The change "includes "emailPush"" when `new`
+has an `emailPush` key on create, or when `old` and `new` differ in `emailPush` on update.
+If it does not, only rule (5) runs. That rule cannot fire on an update, because `keys` is
+immutable. Otherwise:
 
 1. Read `extra["emailPush"]`. Absent or `null` passes. A non-object value adds the path `emailPush`.
 2. Rule (5): if the value is non-null and `new.keys` is `None`, add `keys`.
@@ -265,8 +264,9 @@ rule (5) runs. That rule cannot fire on an update, because `keys` is immutable. 
      only conditions in `support(A)`. For a mail account that is every `EmailCondition`; for
      a non-mail account it is the 10 required conditions, plus `inMailbox*` when
      `object_ids`, plus `filter_conditions`. A metadata condition also needs
-     `urn:ietf:params:jmap:metadata` in `using` and `metadata_info::<Email>(caller, A)`.
-     Otherwise add `emailPush/A/filter`.
+     `metadata_info::<Email>(caller, A)`. The backend's create and update receive no
+     `using`, so the earlier `urn:ietf:params:jmap:metadata`-in-`using` gate is dropped
+     (decision 16). Otherwise add `emailPush/A/filter`.
    - `properties` must decode as `Vec<String>`, and every name must pass
      `project::check_email_property(name, ctx(A))`. `bodyValues` always fails. Without
      mail, the allowed set is the 8-name minimum, plus `id`/`threadId`/`mailboxIds` when
@@ -282,12 +282,18 @@ rule (5) runs. That rule cannot fire on an update, because `keys` is immutable. 
    every `objectHistory` entry from `properties` and keeps the other names in their order
    (decision 10). The stored list is then exactly what delivery projects, so each pushed
    Email is a true prefix of the stored list (§3 prefix rule), and the client sees the
-   dropped name in the `created`/`updated` echo.
+   dropped name in the `created`/`updated` echo (§5.1 item 3, decision 16).
+
+The per-config checks that need no backend call (decode, filter depth, the conditions and
+properties allowed for a given `EmailPushAccount`) are one pure function,
+`check_email_push_config`, shared with delivery: `email_pushes_for` skips any stored config
+that fails it, so a deployment that forgot to call `check_email_push_change`, or wrote a
+config directly, never sends a push built from an invalid config (decision 16).
 
 A change that touches `emailPush` (including a deep patch such as `emailPush/A/urgency`)
 normalizes the whole map. A config that reached storage another way, for example written by
 the consumer directly, stays as it is until the next `emailPush` write. Delivery skips
-`objectHistory` anyway (§5.3).
+`objectHistory` anyway and skips configs that fail `check_email_push_config` (§5.3).
 
 `pub fn prune_email_push(sub: &mut PushSubscription, accounts: &BTreeMap<Id, EmailPushAccount>) -> bool`
 removes keys that are not in `accounts`. When every key goes it keeps `{}`, because §4 says
@@ -321,8 +327,17 @@ pub fn email_pushes_for(stored: &StoredPushSubscription, now_secs: i64, batch: &
     -> Result<Vec<OutboundEmailPush>, EmailPushError>;
 ```
 
-`email_pushes_for` returns `[]` in four cases: `is_deliverable` is false, `keys` is `None`,
-`emailPush` has no entry for `account_id`, or no Email matches. Otherwise it runs these steps:
+`DeliveredEmail` keeps wrapping `&jmap_mail_types::Email` (public `Email::new`), whose
+`id`, `blobId`, `threadId` and `mailboxIds` are required (decision 20). Its rustdoc says that
+an IMAP-only deployment without ObjectID (RFC 8474) has no JMAP values for them and fills
+them with any valid placeholder: for such an account (`mail: false, object_ids: false`)
+validation rejects those four properties and `inMailbox`/`inMailboxOtherThan`, and
+`email_pushes_for` skips any config that would use them, so a placeholder is never emitted
+or matched (decision 20).
+
+`email_pushes_for` returns `[]` in five cases: `is_deliverable` is false, `keys` is `None`,
+`emailPush` has no entry for `account_id`, that entry fails `check_email_push_config` for
+the live `account` (decision 16), or no Email matches. Otherwise it runs these steps:
 
 1. Filter with `filter::email_matches`. A thread condition with `thread_keywords: None`
    returns `MissingThreadKeywords`, never a silent pass.
@@ -369,9 +384,10 @@ switch they are evaluated. The memory backend supplies the thread keywords.
 ### 5.5 Dispatcher, errors and capability
 
 - EmailPush adds no methods and no `register_*` function, and
-  `register_push_subscription_handlers` keeps its signature. The only other PushSubscription
-  registration is conditional-02's opt-in path (decision 1), which the conditional epic adds
-  in `jmap-server` push.rs and which reuses `handle_push_subscription_set` (§5.1 item 3).
+  `register_push_subscription_handlers` keeps its signature. Conditional-02's opt-in is the
+  attach call `register_push_subscription_conditional` (decisions 1, 17), which the
+  conditional epic adds in `jmap-server` push.rs; it wraps the one registered
+  `PushSubscription/set` rather than re-registering it (§5.1 item 3, decision 16).
 - `atomic: true` or a non-empty `ifUnchangedBy` on PushSubscription/set without
   `urn:ietf:params:jmap:conditional` in `using` is `invalidArguments`, from the conditional
   dispatcher check, on every deployment whether or not it opted in (decision 2). EmailPush
@@ -397,13 +413,17 @@ Hook rule (AGENTS.md "Default bodies on spec-semantic backend methods"):
 | Hook | Contract | Default? |
 |---|---|---|
 | `jmap_server::PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES` (const) | (property, capability) gate pairs. EmailPush backends list `(EMAIL_PUSH_PROPERTY, JMAP_EMAILPUSH_URI)` | `&[]`: nothing gated means RFC 8620 behaviour, so a default is fine |
-| `PushSubscriptionBackend::check_push_subscription_change` | Validate and normalize the extension properties of one create or update. No side effects: it runs inside the conditional `begin_set` scope on the opt-in path (decision 1) and must give the same answer on both registration paths. Return a SetError to reject | **None.** A no-op would accept and echo any `emailPush`/`chatPush`, which is wrong wire data for a backend that has extensions. Backends without extensions write `async { Ok(()) }`. It stays on `PushSubscriptionBackend` rather than an opt-in trait (§5.1 item 3, §12 Q1) |
+| `PushSubscriptionBackend::create_push_subscription` / `update_push_subscription` (existing, required) | Rustdoc gains: validate and normalize extension properties before storing, and return a SetError to reject; EmailPush backends MUST call `check_email_push_change` (chatPush backends `validate_chat_push`). No new trait method, so no default question and no break (decision 16) | n/a |
 | `jmap_mail_server::emailpush::EmailPushBackend: PushSubscriptionBackend` :: `email_push_accounts(caller) -> Result<BTreeMap<Id, EmailPushAccount>, Error>` | The caller's accessible accounts whose accountCapabilities include emailpush. Each `#[non_exhaustive] EmailPushAccount` carries `mail`, `object_ids`, `email_history`, `filter_conditions` and `properties` extras. `email_history` is true exactly when the account's object-history capability lists `Email` in `supportedTypes`, so Email/get accepts `objectHistory` there (decision 10). Drives rule 1, `prune_email_push` and delivery. Not a `MailBackend` subtrait (decision 3) | **None.** An empty default would reject every config and strip every map, which is wrong `/get` output. `EmailPushAccount::new` sets `email_history: false`: a deployment without Email history then rejects `objectHistory`, which is what its Email/get supports |
 | `PushSubscriptionBackend::list_push_subscriptions` (existing, required) | Rustdoc gains: EmailPush backends run `prune_email_push` on what they return (r44n.3) | n/a |
 | `JmapBackend::metadata_info::<Email>` (existing) | Gates metadata properties and conditions | existing `None` default = absent data |
 
 Consumer MUSTs (rustdoc on `EmailPushBackend`, as on `PushSubscriptionBackend`):
 
+- Call `check_email_push_change` from `create_push_subscription` and
+  `update_push_subscription` before storing, and store the normalized result (decision 16).
+- Build each `DeliveredEmail` from a full `Email`; without ObjectID, fill `id`, `blobId`,
+  `threadId` and `mailboxIds` with any valid placeholder (decision 20, §5.3).
 - Call `email_pushes_for` only for SMTP/LMTP-style deliveries, after Sieve, with the live
   `EmailPushAccount`.
 - Send each result only to the subscription URL, for example with `jmap_web_push::Sender`
@@ -418,7 +438,8 @@ Consumer MUSTs (rustdoc on `EmailPushBackend`, as on `PushSubscriptionBackend`):
   `PushSubscriptionBackend` in a new `memory/push.rs`:
   - CSPRNG verification code and an `overQuota` cap;
   - PushVerification queued in an outbox `Vec`;
-  - `check_push_subscription_change` calls `check_email_push_change`;
+  - `create_push_subscription` and `update_push_subscription` call
+    `check_email_push_change` before storing (decision 16);
   - `list_push_subscriptions` strips with `prune_email_push`.
 
   It also implements `EmailPushBackend`. Every account returns
@@ -443,8 +464,8 @@ Consumer MUSTs (rustdoc on `EmailPushBackend`, as on `PushSubscriptionBackend`):
 
   It returns the outbox and does no network I/O. `Email/import` does not call it.
 - The memory `Email/query` uses the shared evaluator (§5.4).
-- The chat-server `MemoryBackend` moves its `validate_chat_push` calls out of create and
-  update into `check_push_subscription_change`. Behaviour is unchanged.
+- The chat-server `MemoryBackend` keeps its `validate_chat_push` calls in create and update;
+  there is no hook to move them into (decision 16).
 
 ## 8. Client bindings
 
@@ -478,15 +499,16 @@ Comparison "uses the same representation the server would return for that proper
 Foo/get". Conditional support is opt-in (decision 1), so all of this applies only on a
 deployment that registers the conditional PushSubscription path:
 
-0. Wiring (decision 1). `register_push_subscription_handlers` keeps its signature and gains
-   no `ConditionalBackend` bound; the conditional draft's "gains the bound" is superseded.
-   The conditional epic adds an opt-in registration in `jmap-server` push.rs, bounded on
-   `PushSubscriptionBackend + ConditionalBackend`, which calls
-   `register_push_subscription_handlers` and then re-registers `PushSubscription/set` with
-   `new_set` (no `accountId`: `SetScopeRequest.account_id = None`). That handler wraps the
-   same `handle_push_subscription_set`, so the required `check_push_subscription_change`
-   hook runs on both paths. That is why the hook stays on the base trait (§5.1 item 3). A
-   deployment that does not opt in still gets the decision 2 rejection of conditional
+0. Wiring (decisions 1, 16, 17). `register_push_subscription_handlers` keeps its signature
+   and gains no `ConditionalBackend` bound; the conditional draft's "gains the bound" is
+   superseded. The conditional epic adds the attach call
+   `register_push_subscription_conditional<B: PushSubscriptionBackend + ConditionalBackend>`
+   in `jmap-server` push.rs, made after `register_push_subscription_handlers`. It attaches
+   `SetSupport` to the registered `PushSubscription/set` (no `accountId`:
+   `SetScopeRequest.account_id = None`) and does not re-register it. EmailPush validation
+   runs inside the backend's `create_`/`update_push_subscription`, so it runs the same way
+   with and without the attach call, inside the `begin_set` scope when attached (decision 16).
+   A deployment that does not opt in still gets the decision 2 rejection of conditional
    arguments sent without the URI (§5.5).
 1. An `ifUnchangedBy` pointer under `emailPush` without emailpush in `using` is not a valid
    pointer for that request, so it is rejected under rule 4 (`invalidArguments`): the
@@ -499,13 +521,14 @@ deployment that registers the conditional PushSubscription path:
    makes `emailPush/A/urgency` and `emailPush/A/filter` comparable even when the client
    omitted them. A pointer to `emailPush/A/properties` compares against the stored list,
    which never contains `objectHistory` (decision 10).
-3. Under `atomic`, `check_push_subscription_change` is the validate phase, so it stays free
-   of side effects. PushSubscription/set has no `ifInState` (RFC 8620 §7.2.2), so §3.1
-   rule 5 does not apply. The PushVerification that create sends is a side effect for
-   conditional to defer; it is not specific to EmailPush.
+3. Under `atomic`, `check_email_push_change` runs inside the backend's create or update,
+   inside the scope, so a rejected config is a SetError that fails the method and rolls back
+   (decision 16). It has no side effects. PushSubscription/set has no `ifInState`
+   (RFC 8620 §7.2.2), so §3.1 rule 5 does not apply. The PushVerification that create sends
+   is a side effect for conditional to defer; it is not specific to EmailPush.
 
 Ordering: land the §5.1 seam (§11 E1) before the conditional epic's PushSubscription bead,
-which restructures the same handler.
+which attaches to the same handler.
 
 **object-history-03 (JMAP-tna1.3).**
 
@@ -539,13 +562,14 @@ which restructures the same handler.
   matching `types` get both.
 - The scene and vtc push helpers are unaffected.
 
-**Breaking changes.**
+**Breaking changes.** None (decision 16): the PushSubscription surface gains no required
+method, and the conditional epic leaves `register_push_subscription_handlers` and
+`PushSubscriptionBackend` untouched (decision 1).
 
 | Crate | Change | Kind |
 |---|---|---|
-| jmap-server | `PushSubscriptionBackend` gains required `check_push_subscription_change` | **BREAKING**. In-tree implementors: chat memory and 2 test mocks. Out of tree: every consumer implementing the trait. This is the only breaking change on the PushSubscription surface: with decision 1 the conditional epic leaves `register_push_subscription_handlers` and `PushSubscriptionBackend` untouched (§12 Q1) |
-| jmap-server | new const (defaulted), `PushSubscriptionChange`, pub `filter_nests_deeper_than`/`MAX_FILTER_DEPTH` | additive |
-| jmap-server | `created`/`updated` echo hook-normalized extension keys (decision 9); gated properties stripped/rejected without capability | wire change for backends that gate or normalize |
+| jmap-server | new const (defaulted), pub `filter_nests_deeper_than`/`MAX_FILTER_DEPTH`; rustdoc on `create_`/`update_push_subscription`. No new trait method (decision 16) | additive |
+| jmap-server | `created`/`updated` echo extension keys whose stored value differs from what the client sent (decisions 9, 16); gated properties stripped/rejected without capability | wire change for backends that gate or normalize; non-breaking |
 | jmap-mail-server | memory `Email/query` now evaluates maxSize, from, to, cc, bcc, subject, header, text, body and the thread conditions | wire behaviour change (memory only; fixes a silent pass) |
 | jmap-mail-server | `emailpush` and `test-helpers` features; `memory` adds `PushSubscriptionBackend` | additive |
 | jmap-mail-types, jmap-mail-client, jmap-base-client | new feature/items/bindings | additive |
@@ -571,13 +595,13 @@ All oracles are hand-written JSON from the spec, never output of the code under 
     `invalidArguments`, and `/set` create and a `emailPush/A` patch give
     `invalidProperties ["emailPush"]`.
   - With it, an absent `emailPush` is `null` in `/get` and in `created`.
-  - The hook sees `changed` exactly (create keys; patch first segments).
-  - The hook's SetError reaches `notCreated`/`notUpdated`.
-  - A normalized extra key is echoed in `created` and `updated`, and an unchanged one is not
-    (decision 9).
-  - The hook is called from `handle_push_subscription_set`, so a test that registers `/set`
-    through any other path that calls that function still sees it. The conditional epic's
-    PushSubscription bead adds the opt-in-path test (decision 1).
+  - A SetError from the mock's `create_`/`update_push_subscription` reaches
+    `notCreated`/`notUpdated`.
+  - An extra key the mock stores with a different value is echoed in `created` and
+    `updated`, and a key stored as sent is not (decisions 9, 16).
+  - A mock that stores `extra` unchanged gets responses identical to today's (non-breaking,
+    decision 16). The conditional epic's PushSubscription bead adds the attach-call test
+    (decisions 1, 17).
 - **mail-server validate** (one test per bullet and path; r44n.5)
   - The §5 request is accepted for an account with `mail: false, object_ids: true`.
   - An unknown account gives `["emailPush","emailPush/X"]`.
@@ -591,7 +615,10 @@ All oracles are hand-written JSON from the spec, never output of the code under 
   - A filter nested 33 deep gives `.../filter`.
   - `header:Subject:asText` is accepted for a mail account and rejected for an undeclared
     non-mail account.
-  - A metadata condition without metadata in `using` gives `.../filter`.
+  - A metadata condition on an account without `metadata_info::<Email>` gives `.../filter`
+    (decision 16).
+  - An update whose `emailPush` equals the stored one skips the account check (rule 1),
+    computed from `old` and `new` (decision 16).
   - Normalization (decision 9): a create with `{"A": {}}` stores, returns from `/get` and
     echoes in `created` `{"A": {"filter": null, "properties": [], "urgency": "normal"}}`; a
     patch `emailPush/A: {"urgency": "high"}` echoes the whole normalized `emailPush` in
@@ -616,6 +643,9 @@ All oracles are hand-written JSON from the spec, never output of the code under 
   - r44n.1: `properties: []` gives `[{}]`, and `["from"]` gives no `id`.
   - A config holding `objectHistory` (stored directly, bypassing validation) projects the
     other names in order and never emits `objectHistory` (decision 10).
+  - A config stored directly that fails `check_email_push_config` (for example `bodyValues`
+    in `properties`, or `id` for an account with `object_ids: false`) gets no push
+    (decisions 16, 20).
   - r44n.2 splitting:
     - N small Emails over `max_bytes` give at least 2 pushes, every Email complete, each
       push at most `max_bytes` by `serde_json::to_vec`;
@@ -640,17 +670,17 @@ wave can run in parallel worktrees.
 
 | Key | Bead | Title | Crates (files) | Size | Deps | Wave |
 |---|---|---|---|---|---|---|
-| E1 | new | jmap-server: PushSubscription extension seam (using plumbing, capability gate, required `check_push_subscription_change` called from `handle_push_subscription_set`, normalized echo, pub filter depth); chat memory moves `validate_chat_push` into the hook; mocks | jmap-server (`push.rs`, `parse.rs`, `lib.rs`, tests), jmap-chat-server (`memory.rs` push impl) | M | - | 1 |
+| E1 | new | jmap-server: non-breaking PushSubscription extension seam (using plumbing, capability gate, generic echo of extension keys stored differently from what was sent, `create_`/`update_push_subscription` rustdoc, pub filter depth); no required hook, chat memory unchanged (decision 16) | jmap-server (`push.rs`, `parse.rs`, `lib.rs`, tests) | M | - | 1 |
 | E2 | new | mail-types: `emailpush` feature (URI, capabilities, `EmailPushConfig` with normalized serialization (decision 9), `EmailPush` serde, accessors) | jmap-mail-types (`emailpush.rs`, `lib.rs`, `Cargo.toml`) | S | - | 1 |
 | E3 | r44n.4 | mail-server: crate-private Email filter evaluator, `EmailCondition`, required-condition list; memory Email/query uses it with thread keywords | jmap-mail-server (`filter.rs`, `memory/mod.rs` filter fns, `lib.rs` mod line) | M | - | 1 |
 | E4 | new | mail-server: move the Email/get property check and projection into crate-private `project.rs`; no behaviour change | jmap-mail-server (`project.rs`, `email.rs`, `helpers.rs`, `lib.rs` mod line) | S | - | 1 |
 | E11 | new | base-client: generic PushSubscription/get and /set on `JmapClient` | jmap-base-client (`push.rs`, `client.rs`) | S | - | 1 |
 | E5 | new | mail-server: `emailpush` feature skeleton: `pub mod emailpush`, `EmailPushAccount` (incl. `email_history`, decision 10), `EmailPushBackend` (not a `MailBackend` subtrait, decision 3), `EmailPushError`, URI re-export, metadata-server optional-dep wiring | jmap-mail-server (`emailpush/mod.rs`, `lib.rs`, `Cargo.toml`) | S | E2, E3 | 2 |
 | E12 | new | mail-client `emailpush` feature: typed helpers, `parse_push_payload` | jmap-mail-client (`methods/push.rs`, `lib.rs`, `Cargo.toml`) | S | E2, E11 | 2 |
-| E6 | r44n.5 | mail-server: `check_email_push_change` with every invalidProperties path, normalization (decision 9), `objectHistory` accept-and-drop (decision 10) | jmap-mail-server (`emailpush/validate.rs`, `project.rs` check ctx) | M | E1, E4, E5 | 3 |
-| E8 | r44n.1 | mail-server: `email_pushes_for` core: deliverability gates, filter, projection without implicit `id`, `state`, `urgency` | jmap-mail-server (`emailpush/deliver.rs`) | M | E3, E4, E5 | 3 |
+| E6 | r44n.5 | mail-server: `check_email_push_change(backend, caller, old, new)` for the deployment's create/update to call (decision 16), every invalidProperties path, normalization (decision 9), `objectHistory` accept-and-drop (decision 10), shared pure `check_email_push_config` | jmap-mail-server (`emailpush/validate.rs`, `project.rs` check ctx) | M | E1, E4, E5 | 3 |
+| E8 | r44n.1 | mail-server: `email_pushes_for` core: deliverability gates, filter, projection without implicit `id`, `state`, `urgency`; `DeliveredEmail` placeholder-id rustdoc (decision 20) | jmap-mail-server (`emailpush/deliver.rs`) | M | E3, E4, E5 | 3 |
 | E7 | r44n.3 | mail-server: `prune_email_push`, `list_push_subscriptions` rustdoc, account check only when `emailPush` changed | jmap-mail-server (`emailpush/validate.rs`) | S | E5, E6 | 4 |
-| E9 | r44n.2 | mail-server: split across pushes, then prefix truncation, `LimitTooSmall` | jmap-mail-server (`emailpush/deliver.rs`) | M | E8 | 4 |
+| E9 | r44n.2 | mail-server: split across pushes, then prefix truncation, `LimitTooSmall`; send-time skip of configs failing `check_email_push_config` (decision 16) | jmap-mail-server (`emailpush/deliver.rs`) | M | E8, E6 | 4 |
 | E10 | new | mail-server memory: PushSubscriptionBackend + EmailPushBackend, `deliver_email`, EmailDelivery state, `test-helpers` feature, §5 end-to-end and r44n.3 end-to-end tests | jmap-mail-server (`memory/push.rs` new, `memory/mod.rs` impl blocks, `Cargo.toml`) | L | E6, E7, E9 | 5 |
 | E13 | new | Docs: AGENTS.md crate map rows, mail crates' README/PLAN.md, web-push docs, CHANGELOGs | AGENTS.md, READMEs, PLAN.md, CHANGELOGs | S | E10, E12 | 6 |
 | E14 | new (follow-up) | chat-client onto base-client PushSubscription bindings | jmap-chat-client | S | E11 | later |
@@ -664,40 +694,29 @@ Each bead refreshes its own crate's public-api snapshot. File overlaps within a 
 - Wave 3: E6 and E8 each add re-exports to `emailpush/mod.rs`. E6 also edits `project.rs`
   (the check context) while E8 calls `project_email` from it; land E6's `project.rs` change
   first or rebase.
-- Wave 4: E7 follows E6 in `validate.rs`; E9 follows E8 in `deliver.rs`.
+- Wave 4: E7 follows E6 in `validate.rs`; E9 follows E8 in `deliver.rs` and calls E6's
+  `check_email_push_config` (decision 16).
 
 Cross-note ordering: E1 lands before the conditional epic's PushSubscription bead
-(`docs/design/conditional.md` §11), which adds the opt-in registration of decision 1 over the
-same `handle_push_subscription_set`. Object-history's cross-extension test bead (H12) needs
+(`docs/design/conditional.md` §11), which adds the attach call of decisions 1 and 17 over the
+same registered `PushSubscription/set`. Object-history's cross-extension test bead (H12) needs
 E10.
 
 ## 12. Open questions for Mark
 
 Decided and removed: placement (decision 3), normalization of stored configs (decision 9),
-`objectHistory` in `properties` (decision 10). All in `docs/design/DECISIONS.md`.
+`objectHistory` in `properties` (decision 10), the required push hook (decision 16: no hook,
+validation called from the backend's create/update, non-breaking echo), the delivery input
+type (decision 20: keep `&Email`, document placeholder ids). All in
+`docs/design/DECISIONS.md`.
 
 Remaining:
 
-1. **Required push hook as a breaking change.** Decision 1 made conditional-02 opt-in so that
-   `register_*_handlers` and the backend traits stay non-breaking. This note keeps
-   `check_push_subscription_change` as a required method of `PushSubscriptionBackend`, a
-   **BREAKING** change (in tree: chat memory and 2 test mocks). The decision 1 shape (a separate
-   trait plus an opt-in `register_push_subscription_handlers_with_extensions`) is possible but
-   composes badly with decision 1 itself: both opt-in paths would re-register
-   `PushSubscription/set` last-wins, so registering the conditional path after the extension
-   path would silently drop EmailPush and chatPush validation, unless a third combined
-   registration exists. *Recommend keeping the required hook* (one break, one `/set` body). Confirm.
-2. **`objectHistory` gating.** This note reads decision 10's "matching Email/get" as: accept
+1. **`objectHistory` gating.** This note reads decision 10's "matching Email/get" as: accept
    `objectHistory` only where this deployment's Email/get accepts it (`mail && email_history`,
    i.e. the account's object-history capability lists `Email`), and reject it elsewhere as an
    unsupported property (§4 rule 3). The alternative is to accept it on every account. Confirm
    the gated reading.
-3. **Delivery input type** (not covered by a decision): `DeliveredEmail` wraps
-   `jmap_mail_types::Email`, whose `id`/`blobId`/`threadId`/`mailboxIds` are required, but a
-   deployment with neither mail nor ObjectID has no JMAP ids for them. *Recommend keeping
-   `&Email`*: validation rejects those properties and `inMailbox*` for such accounts, so
-   whatever internal ids the backend fills in are never emitted or consulted. A partial-map
-   input would lose typed filter evaluation.
 
 ### Upstream list (emailpush; from `docs/design/DECISIONS.md`)
 

@@ -1,0 +1,34 @@
+{
+  "id": "JMAP-tna1.3.25",
+  "title": "jmap-server: dispatcher check for object-history arguments without the URI (decision 18)",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H23. Crates: jmap-server. Size: S.\n\nDecision 18 (resolves D2, JMAP-tna1.3.7): the same shape as decision 2's conditional check. Design: docs/design/object-history.md §5 'Dispatcher check (decision 18)' and 'Error mapping', §9 Breaking changes, §10 srv contract tests.\n\nAdd one dispatcher check in jmap-server that runs for every deployment, whatever the registration (plain register_\u003cx\u003e_handlers or register_\u003cx\u003e_handlers_with_history), when urn:ietf:params:jmap:object-history is not in the request's using:\n- */get: includeReplaced: true or includeDestroyed: true =\u003e invalidArguments\n- */query: onlyDestroyed: true, or a non-null destroyedAfter or destroyedBefore =\u003e invalidArguments\n- */set: a non-empty restore =\u003e invalidArguments\nfalse, null and empty values ({} for restore) are accepted and removed before the handler runs. On rejection the handler is not called. Other history arguments (historyAfter, historyBefore, historySkip, historyLimit) are not checked: §3 ignores them when both flags are false. Place it beside conditional's decision-2 check; share its structure if conditional C3 (JMAP-y1yu.3) has landed, otherwise keep it independent. No name collisions in the crates or Mark's drafts (decision 18).\n\nAcceptance:\n- Dispatcher tests with probe Foo/get, Foo/query and Foo/set handlers: every rejected case gives invalidArguments and the handler is not called; every accepted default reaches the handler without the key.\n- The same results with plain and _with_history registration; with the URI in using the check does nothing.\n- CHANGELOG [Unreleased] \"Changed\" entry: wire behaviour change on every deployment (as decision 2); public-api additions only.\n",
+  "notes": "2026-11-13: filed for decision 18 (resolves D2, JMAP-tna1.3.7).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T03:59:06.334603737Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T03:59:06.334603737Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.25",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T03:59:06.498172996Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.25",
+      "depends_on_id": "JMAP-tna1.3.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T03:59:06.769391392Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

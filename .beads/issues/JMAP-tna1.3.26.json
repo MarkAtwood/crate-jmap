@@ -1,0 +1,50 @@
+{
+  "id": "JMAP-tna1.3.26",
+  "title": "object-history: Task/TaskList history from Mark's Tasks draft registrations, drop the pending list (decision 23)",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H24. Crates: jmap-object-history-types, jmap-types (registry). Size: S.\n\nDecision 23 (replaces the closed upstream ask H21, JMAP-tna1.3.23): Task and TaskList history registrations come from Mark's own updated Tasks draft (JMAP-jkl8.9), which registers JMAP Data Types for TaskList, Task and TaskNotification with Supports History Yes, Yes, No. Design: docs/design/object-history.md §2 (7.2 row), §4 (PENDING_HISTORY_REGISTRATION), §9 tasks bullet.\n\nOnce that draft exists with its registrations:\n- Add the TaskList, Task and TaskNotification rows to the jmap-types data-type registry (blobext:B1, JMAP-tna1.4), with Can Reference Blobs, Can Use for State Change and Supports History copied from the draft, and `reference` citing it by name.\n- Remove Task and TaskList from OHT PENDING_HISTORY_REGISTRATION (H1, JMAP-tna1.3.1); remove the constant if it is then empty, or leave it empty with its rustdoc, whichever keeps the public API non-breaking.\n- Update the rustdoc and object-history README that cite the pending list.\n\nAcceptance:\n- is_history_type is true for Task and TaskList through the registry, false for TaskNotification.\n- The registry oracle test gains the three hand-copied rows.\n- Each type crate's HistoryObject cross-check test still passes.\n- CHANGELOG bullet; public-api snapshots.\n",
+  "notes": "2026-11-13: filed for decision 23; replaces the acceptance follow-up of the closed H21 (JMAP-tna1.3.23).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T03:59:16.147615215Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T03:59:16.147615215Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.26",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T03:59:16.288730029Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.26",
+      "depends_on_id": "JMAP-tna1.3.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T03:59:16.426989704Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.26",
+      "depends_on_id": "JMAP-tna1.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T03:59:16.55785795Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.26",
+      "depends_on_id": "JMAP-jkl8.9",
+      "type": "blocks",
+      "created_at": "2026-11-13T03:59:16.702654667Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -3,7 +3,7 @@
 Bead: JMAP-tna1 (children tna1.1 client update, tna1.2 server); epic JMAP-m4nc (RFC 9404 `jmap-blob`) is folded into it (decision 4).
 Spec: `~/PROJECT/IETF/specs/draft-ietf-jmap-blobext-03.txt`; legacy `~/PROJECT/IETF/specs/rfc9404.txt` (decision 11).
 Related: conditional-02 (JMAP-y1yu, `docs/design/conditional.md`), object-history-03 (JMAP-tna1.3, `docs/design/object-history.md`), emailpush-05 (JMAP-r44n, `docs/design/emailpush.md`).
-Decisions: `docs/design/DECISIONS.md` (Mark, 2026-11-13). Every place a decision changed the draft is marked "(decision N)".
+Decisions: `docs/design/DECISIONS.md` (Mark, 2026-11-13), including the follow-up decisions 17 (conditional attach call), 19 (Blob conditional details), 21 (RFC 9404 serving rulings), 22 and 23 (Supports History values). Every place a decision changed the draft is marked "(decision N)".
 
 ## 1. Summary
 
@@ -27,7 +27,7 @@ Existing crates: chat-client blob methods get five -03 fixes now (tna1.1), becom
 | §2.1 `uploadUrl` per-account; uploads return `expires`; null → SHOULD use session `uploadUrl`; servers MUST keep session `uploadUrl` | N/A server (transport); `base-client::BlobUploadResponse.expires`; `blob-client::upload_url()` | |
 | §2.1 `chunkSize` hint; servers MUST allow other sizes | Handler never checks chunk sizes | |
 | §2.1 server MAY also advertise `urn:ietf:params:jmap:blob` (decision 11) | `blob-types::Rfc9404AccountCapability` via `BlobAccountCapability::rfc9404()`; `blob-server` mode switch (§5) | Served, not just tolerated |
-| §2.1 client MUST NOT send both `blob` and `blob2` in `using` | `blob-client` (using = core + blob2 + type capabilities only); server: every Blob/* method answers `invalidArguments` when both are present (§5, open question 3) | |
+| §2.1 client MUST NOT send both `blob` and `blob2` in `using` | `blob-client` (using = core + blob2 + type capabilities only); server: every Blob/* method answers `invalidArguments` when both are present (§5, decision 21(i)) | |
 | §3 DSO: exactly one of `data:asText`/`data:asBase64`/`blobId`; valid base64; range not past end; `size`/`position`/`digest:*` match; else `invalidProperties` `["data"]` (MUST NOT guess) | `blob-server::set::validate_sources` | A source `digest:<alg>` not in `supportedDigestAlgorithms` cannot be checked, so it is also `["data"]` |
 | §3 unknown/inaccessible `blobId` → `notFound` | `blob-server::set` via `blob_info`; backend re-verifies in `create_blob` | Includes a `#ref` with no creation (gap e) |
 | §3/§5 chunk `size`/`position`/`digest:*` MUST be correct | `blob-server::get::chunks` computes `position` and digests itself | |
@@ -80,10 +80,10 @@ RFC 9404 coverage (decision 11):
 | RFC 9404 section / requirement | Where | Notes |
 |---|---|---|
 | §3.1 `blob` capability: session `{}`; account object MUST contain `maxSizeBlobSet`, `maxDataSources` (≥ 64), `supportedTypeNames`, `supportedDigestAlgorithms` | `blob-types::Rfc9404AccountCapability`, built by `BlobAccountCapability::rfc9404()` | Same limits as `blob2`; `adler` left out (RFC 3230 spells it `adler32`) |
-| §4.1 `Blob/upload`: create only; `created` `id`/`type`/`size`; `notCreated`; no state; MUST add every creation to `createdIds` | `blob-server::upload` (reuses the Blob/set create pipeline) | Every upload is persistent, so it is always in `created` |
+| §4.1 `Blob/upload`: create only; `created` `id`/`type`/`size`; `notCreated`; no state; MUST add every creation to `createdIds` | `blob-server::upload` (reuses the Blob/set create pipeline) | Every upload is persistent, so it is always in `created`. Response is `accountId`/`created`/`notCreated` only: §4.1 text over the §4.1.2/§4.2.2 examples (decision 21(iii); a possible RFC 9404 erratum, on the upstream list) |
 | §4.1 DSO: exactly one data key or a blobId range; range past end, invalid base64 or UTF-8, invalid references → `notCreated` (MUST NOT guess) | `blob-server::set::validate_sources` | Same `invalidProperties` `["data"]` / `notFound` / `tooLarge` mapping as -03 |
 | §4.2 `Blob/get`: properties `data`, `data:asText`, `data:asBase64`, `digest:<alg>`, `size`; default `data`+`size` whenever `properties` is absent | `blob-server::get` in `Rfc9404` mode | Gap (g) does not apply: §4.2.2 G4/G5 send offset/length without `properties` |
-| §4.3 `Blob/lookup` | `blob-server::lookup` (same rules as -03 §6) | Unknown blob → empty arrays (normative text), not the §4.3.1 example's `notFound` (open question 3) |
+| §4.3 `Blob/lookup` | `blob-server::lookup` (same rules as -03 §6) | Unknown blob → empty arrays (§4.3 normative text), not the §4.3.1 example's `notFound` (decision 21(ii); a possible RFC 9404 erratum, on the upstream list) |
 | §5 security considerations | same contracts as -03 §10 | |
 
 Gaps in -03 settled as written (decision 15: all eight accepted; all eight are on the upstream list for the blobext author in `docs/design/DECISIONS.md`):
@@ -261,16 +261,16 @@ pub const DATA_TYPES: &[DataTypeEntry];      // sorted by type_name; a test chec
 pub fn data_type(type_name: &str) -> Option<&'static DataTypeEntry>;
 ```
 
-Rows: the IETF registrations (RFC 9404 Table 1; RFC 9425 Quota; RFC 9661 SieveScript; RFC 9670 Principal, ShareNotification; RFC 9610 AddressBook, ContactCard; draft-ietf-jmap-calendars-33; draft-ietf-jmap-filenode-20), "Supports History" from object-history-03 §7.2 Table 1, plus the atwood drafts' rows, each citing its draft. "Can Reference Blobs: Yes" for Chat, Message, Space, CustomEmoji (chat), SceneAsset, SceneObject, SceneAvatar (scene), VTCRecording (vtc), GraphNode (graph) (decision 14; overrides draft Q7). Task and TaskList (draft-ietf-jmap-tasks-06 registers no types yet) and the atwood types carry "Supports History" per decision 5 until their documents state it (open question 4).
+Rows: the IETF registrations (RFC 9404 Table 1; RFC 9425 Quota; RFC 9661 SieveScript; RFC 9670 Principal, ShareNotification; RFC 9610 AddressBook, ContactCard; draft-ietf-jmap-calendars-33; draft-ietf-jmap-filenode-20), "Supports History" from object-history-03 §7.2 Table 1, plus the atwood drafts' rows, each citing its draft. "Can Reference Blobs: Yes" for Chat, Message, Space, CustomEmoji (chat), SceneAsset, SceneObject, SceneAvatar (scene), VTCRecording (vtc), GraphNode (graph) (decision 14; overrides draft Q7). The atwood types carry "Supports History" as decision 22 confirmed it: Yes for the decision-5 private types, No for GraphNodeOp, PresenceStatus, ReadPosition, SceneAvatar, VTCParticipant and KeyPackage; object-history bead H14 writes those lines into the drafts and H15 sets the rows (decision 22). Task, TaskList and TaskNotification get rows once Mark's updated Tasks draft registers them with Supports History Yes, Yes, No (decision 23, JMAP-jkl8.9); until then they are not in the table, and Task/TaskList are covered by object-history's pending list.
 
 ## 5. Server design (`jmap-blob-server`)
 
 Modules: `backend.rs`, `get.rs`, `set.rs`, `upload.rs` (decision 11), `lookup.rs`, `convert.rs`, `mode.rs` (decision 11), `order.rs` (topological sort), `range.rs` (pure range/UTF-8/digest helpers), `memory/` (feature-gated).
 
-`register_blob_handlers(dispatcher, Arc<B>)` registers `Blob/get`, `Blob/set`, `Blob/lookup`, `Blob/convert` and `Blob/upload` (decision 11) with the sibling `reg!`/`ClosureHandler` macro (siblings use `register`). It forwards `cx.created_ids` (set, upload, convert) and `cx.using` (every handler, for the mode switch below; lookup also for type capabilities). `handle_blob_*` are public so consumers can override one method. `register_blob_handlers_with_conditional` is the opt-in path for conditional Blob/set (decision 1, §9). Capability advertisement: the consumer puts `BlobCapability` in `capabilities` and `blob_capability(...)` in `accountCapabilities` under `blob2`, and, to serve older clients, `{}` and `blob_capability(...).rfc9404()` under `blob` (decision 11).
+`register_blob_handlers(dispatcher, Arc<B>)` registers `Blob/get`, `Blob/set`, `Blob/lookup`, `Blob/convert` and `Blob/upload` (decision 11) with the sibling `reg!`/`ClosureHandler` macro (siblings use `register`). It forwards `cx.created_ids` (set, upload, convert) and `cx.using` (every handler, for the mode switch below; lookup also for type capabilities). `handle_blob_*` are public so consumers can override one method. `register_blob_conditional` is the separate attach call that opts Blob/set in to conditional (decisions 1, 17; §9). Capability advertisement: the consumer puts `BlobCapability` in `capabilities` and `blob_capability(...)` in `accountCapabilities` under `blob2`, and, to serve older clients, `{}` and `blob_capability(...).rfc9404()` under `blob` (decision 11).
 
 **Mode switch (`mode.rs`, decision 11).** `BlobMode::from_using(&cx.using)`:
-- `blob` and `blob2` both present → every Blob/* method answers method-level `invalidArguments` ("-03 §2.1: a client MUST NOT include both"; open question 3).
+- `blob` and `blob2` both present → every Blob/* method in that request answers method-level `invalidArguments` ("-03 §2.1: a client MUST NOT include both"; decision 21(i)).
 - `blob` present, `blob2` absent → `Rfc9404`.
 - otherwise → `Blobext`. As in every sibling, handlers do not otherwise gate on `using`: Blob/set, Blob/convert and Blob/upload run in either mode.
 
@@ -307,18 +307,18 @@ Common start: mode check, `extract_account_id`, `account_exists` (`accountNotFou
 - `ifUnchangedBy`/`atomic`: handled by the dispatcher, never in `set.rs` (decision 1; §9).
 
 **Blob/upload** (`upload.rs`, RFC 9404 §4.1, decision 11):
-- `accountId`, `create` required (else `invalidArguments`); a non-empty `update` or `destroy` → `invalidArguments` ("only create is allowed": dropping them would silently lose a write, the decision 2 reasoning). `enforce_max_objects_in_set`.
+- `accountId`, `create` required (else `invalidArguments`); a non-empty `update` or `destroy` → `invalidArguments` ("only create is allowed": dropping them would silently lose a write, the decision 2 reasoning; decision 21(iv)). `enforce_max_objects_in_set`.
 - Each `UploadObject` runs `set::create_one` with `size`/`digest:*` absent and `no_persist: false`; same SetError mapping (`invalidProperties` `["data"]`, `tooLarge`, `notFound`). `#` refs resolve against the call and `cx.created_ids`, as in RFC 9404 §4.1.2.
-- `created[cid]` = `id`/`type`/`size`/`expires`, never omitted, so every upload reaches `createdIds` (§4.1 MUST). Response `BlobUploadCallResponse`: `accountId`, `created`, `notCreated`, no state (open question 3).
+- `created[cid]` = `id`/`type`/`size`/`expires`, never omitted, so every upload reaches `createdIds` (§4.1 MUST). Response `BlobUploadCallResponse`: `accountId`, `created`, `notCreated`, no state: RFC 9404 §4.1 text over its examples (decision 21(iii)).
 
 **Blob/lookup** (`lookup.rs`):
 - `typeNames` and `ids` required. `enforce_max_objects_in_get` on `ids`.
 - Each name must be in `supportedTypeNames`, `lookup_type_capability(name)` must be `Some(uri)`, and `uri` must be in `cx.using`; otherwise `JmapError::custom("unknownDataType")` with a description naming the type.
 - One `blob_references(type_name, &ids)` per type. `list` in request order (a duplicate id repeats its row), every requested type a key (default `[]`). No `notFound`.
-- `Rfc9404` mode: identical (RFC 9404 §4.3 has the same rules; decision 11).
+- `Rfc9404` mode: identical (RFC 9404 §4.3 has the same rules; decision 11). An unknown blob gets a row with empty arrays and no `notFound`, following the §4.3 text over the §4.3.1 example (decision 21(ii)).
 
 **Blob/convert** (`convert.rs`):
-- `create` required (else `invalidArguments`). `enforce_max_objects_in_set`. Parse each entry from `Value`; zero or several recipe keys → `invalidProperties` naming them.
+- `create` required (else `invalidArguments`). `atomic: true` or a non-empty `ifUnchangedBy` → `invalidArguments`: Blob/convert is not a Foo/set, and ignoring `atomic` would partly apply a pipeline the client asked to be all-or-nothing; `atomic: false`, `{}` and `null` are accepted (decision 19). `enforce_max_objects_in_set`. Parse each entry from `Value`; zero or several recipe keys → `invalidProperties` naming them.
 - `check_recipe` against the capability (paths per gap h):
   - Null list → `[<recipeKey>]`; type not in list → `[<recipeKey>/type]` (`patch/deltaType`). Extract/decompress with null `type` skip the list check (backend auto-detects).
   - width/height > `maxImageDimension` → `tooLarge`; `quality` outside 1..=100 → `invalidProperties`; `background` not a CSS hex colour (`#` + 3, 4, 6 or 8 hex digits) → `invalidProperties`. `colorSpace` `Other` goes to the backend (spec values are open).
@@ -350,7 +350,7 @@ Async hooks are RPITIT `+ Send` and take `(caller, account_id, …)`; ranges are
 | `blob_references(…, type_name, blob_ids) -> Result<BTreeMap<Id, Vec<Id>>>` | §6: containment closure (Mailbox/Thread via Email), only ids the caller can discover by querying, current versions only, invisible blobs → no entry | **None**: an empty default would deny real references |
 | `convert(…, ConvertParams) -> Result<ConvertOutcome, BackendSetError>` | Runs or defers the recipe (size `None`). A deferred id MUST work wherever blobIds are accepted, including the consumer's mail/filenode/scene hooks. Sniffs input formats (read types, auto-detect → `unknownFormat`), clamps `level`, hardened parsers, bomb limits (`tooLarge`), §10.5 scan. An omitted (`noPersist`) result stays usable as input within the same call | **None**: a default `conversionFailed` would misreport an advertised conversion. A backend with every list null is never called and writes a trivial body |
 
-The draft's `blob_set_atomic` hook is dropped (decision 1): atomic Blob/set runs inside the dispatcher's `ConditionalBackend::begin_set` scope, which the opt-in registration requires (§9).
+The draft's `blob_set_atomic` hook is dropped (decisions 1, 17): atomic Blob/set runs inside the dispatcher's `ConditionalBackend::begin_set` scope, which the `register_blob_conditional` attach call requires (§9).
 
 No permission hooks: per "Caller identity", ACLs live inside the hooks above.
 
@@ -375,17 +375,18 @@ No permission hooks: per "Caller identity", ACLs live inside the hooks above.
 - `blob_convert(BTreeMap<Id, ConvertRequest>)` → `BlobConvertResponse`.
 - `upload_url()`: account `uploadUrl` when non-null, else `session.upload_url`, as a `JmapUrlTemplate` for `JmapClient::upload_blob`.
 - `preferred_digest_algorithm(client_supported)`, `lookup_type_names()`, `verify_digest(alg, bytes, value) -> Option<bool>`.
-- Args via `jmap_base_client::to_args`; `using` = core + blob2 (+ type capabilities), never `jmap:blob`. RFC 9404 client bindings (for servers that only offer `blob`) are a separate follow-up, B24 (open question 5).
+- Args via `jmap_base_client::to_args`; `using` = core + blob2 (+ type capabilities), never `jmap:blob`. RFC 9404 client bindings (for servers that only offer `blob`) are a separate follow-up, B24, kept at P3 (decision 21(v)).
 
 ## 9. Interactions and breaking changes
 
 **conditional-02 (JMAP-y1yu, `docs/design/conditional.md`).**
 - Blob/set is a Foo/set, so with `urn:ietf:params:jmap:conditional` in `using` it MUST honour `ifUnchangedBy` and `atomic`.
-- Decision 1: the conditional capability is opt-in. `register_blob_handlers` keeps its signature and bound; `register_blob_handlers_with_conditional<B: BlobBackend + ConditionalBackend>` registers Blob/set with `ClosureHandler::new_set::<BlobObject>` instead, and only a deployment that uses it may advertise conditional (`Dispatcher::conditional_gaps`). The dispatcher evaluates `ifUnchangedBy` through the registered `Blob/get` (§5 accepts `id` in `properties`) and runs atomic writes in the `begin_set` scope. `set.rs` contains no precondition or rollback code, and the draft's `blob_set_atomic` hook is gone.
+- Decisions 1 and 17: the conditional capability is opt-in. `register_blob_handlers` keeps its signature and bound; the separate attach call `register_blob_conditional<B: BlobBackend + ConditionalBackend>`, made after it, attaches `SetSupport::new::<BlobObject, B>` to the registered Blob/set through `Dispatcher::attach_set_support`, and only a deployment whose `conditional_ready()` is true may advertise conditional. The dispatcher evaluates `ifUnchangedBy` through the registered `Blob/get` (§5 accepts `id` in `properties`) and runs atomic writes in the `begin_set` scope. `set.rs` contains no precondition or rollback code, and there is no `blob_set_atomic` hook (decision 17).
 - Decision 2: `atomic: true` or a non-empty `ifUnchangedBy` on Blob/set without the conditional URI in `using` is rejected by the dispatcher with `invalidArguments`, on every deployment, opted in or not.
 - Decision 7: `atomicFailure` / `cannotApplyAtomically` are `&str` consts in `jmap_types::conditional`, matching how blob-types defines its own codes.
 - Non-null `ifInState` stays `invalidArguments` in the handler (conditional note §5.2 step 6: `Blob/get` has no `state`).
-- `type` and `expires` are in `BlobObject`'s `SetObject` lists but `Blob/get` never returns them, so a pointer to them needs a ruling (open question 1). Blob/convert, Blob/lookup and Blob/upload are not Foo/set (open question 2 for convert).
+- `type` and `expires` are in `BlobObject`'s `SetObject` lists but `Blob/get` never returns them. A pointer to either gets `invalidArguments` under conditional §3.1 rule 4, not `forbidden`: the dispatcher's internal `Blob/get` rejects the unknown property name (§5 step 2) and the evaluator returns that error as is (decision 19). `size`, `digest:<alg>`, `{}` and `null` work.
+- Blob/lookup and Blob/upload are not Foo/set and are untouched. Blob/convert is not Foo/set either, but its handler answers `atomic: true` or a non-empty `ifUnchangedBy` with `invalidArguments` (§5, decision 19).
 
 **object-history-03 §3.1 (JMAP-tna1.3, `docs/design/object-history.md`).**
 - "A version that is not current does not count as a reference to the blob ... such as the blobHasReference error and Blob/lookup method": stated in the `destroy_blob` and `blob_references` contracts.
@@ -440,7 +441,7 @@ Fixtures are hand-written JSON copied from the spec (test-oracle rule), never ge
 - **chat-client**: tna1.1: `typeNames` always an array; `size: null` parses; `using` has chat; `accountId` is the blob2 primary account. B15: each wrapper sends the same request body as before (wiremock) and carries `#[deprecated]`.
 - **umbrella** (`jmap-blob`, decision 4): builds with no features, `client`, `server`, and all features; the RFC 9404 §3.1.1 and -03 §2.1.1 capability examples parse through the re-exported types.
 - **siblings (B20, B21)**: Email/import, FileNode/set etc. accept `#c1` from an earlier Blob/set.
-- **conditional (B18, decision 1)**: `ifUnchangedBy {"B1": {"size": 13}}` pass and fail; `{"B1": null}`; `atomic` with the memory backend rolls back created blobs; plain `register_blob_handlers` plus conditional args without the URI → `invalidArguments` (decision 2).
+- **conditional (B18, decisions 1, 17, 19)**: `ifUnchangedBy {"B1": {"size": 13}}` pass and fail; `{"B1": null}` and `{"B1": {}}`; a `digest:sha-256` pointer; `{"B1": {"type": "text/plain"}}` and `{"B1": {"expires": null}}` → `invalidArguments` (decision 19); `atomic` with the memory backend rolls back created blobs; plain `register_blob_handlers` plus conditional args without the URI → `invalidArguments` (decision 2); `conditional_ready()` after `register_blob_handlers` + `register_blob_conditional`. Blob/convert (B10) with `atomic: true` or `ifUnchangedBy: {"x": {}}` → `invalidArguments`, with `atomic: false` accepted (decision 19).
 
 ## 11. Bead breakdown
 
@@ -460,30 +461,26 @@ Shared files (workspace `Cargo.toml`, AGENTS.md, RELEASING.md, CHANGELOG) change
 | B7 | Blob/get handler + tests | `get.rs`, `tests/get.rs` | M | B5 |
 | B8 | Blob/set handler + tests | `set.rs`, `tests/set.rs` | M | B5 |
 | B9 | Blob/lookup handler + tests | `lookup.rs`, `tests/lookup.rs` | S | B5 |
-| B10 | Blob/convert handler (recipe checks, refs, cycles) + tests, incl. deferred-blob get/set tests | `convert.rs`, `tests/convert.rs` | M | B6 |
-| B11 | RFC 9404 `urn:ietf:params:jmap:blob` (decision 11): Blob/upload, 9404 Blob/get/lookup mode, upload types | blob-types `rfc9404.rs`; blob-server `upload.rs`, `get.rs`, `lib.rs`, `tests/rfc9404.rs` | M | B7-B10 |
+| B10 | Blob/convert handler (recipe checks, refs, cycles, conditional args → `invalidArguments`, decision 19) + tests, incl. deferred-blob get/set tests | `convert.rs`, `tests/convert.rs` | M | B6 |
+| B11 | RFC 9404 `urn:ietf:params:jmap:blob` (decision 11): Blob/upload, 9404 Blob/get/lookup mode, upload types, rulings (i)-(iv) (decision 21) | blob-types `rfc9404.rs`; blob-server `upload.rs`, `get.rs`, `lib.rs`, `tests/rfc9404.rs` | M | B7-B10 |
 | B12 | blob-client: bindings + wiremock tests | blob-client | M | B1, B2, B3 |
 | B13 | base-client: `BlobUploadResponse.expires` | base-client | S | — |
 | B14 (= tna1.1) | chat-client: -03 fixes (typeNames required, using, blob2 account, drop notFound, BlobObject fields, re-cite, smoke test, BREAKING CHANGELOG) | chat-client | S | — |
 | B15 | chat-client: blob methods become `#[deprecated]` wrappers over blob-client (decision 12) | chat-client, RELEASING layer | S | B12, B14 |
 | B16 (P3) | chat-client: remove the deprecated blob wrappers in the next breaking release (decision 12, **BREAKING**) | chat-client | S | B15 |
 | B17 | cid-types: re-cite RFC 9404 → blobext-03 | cid-types (docs) | S | — |
-| B18 | blob-server: conditional opt-in `register_blob_handlers_with_conditional`, `BlobObject: SetObject`, memory `ConditionalBackend` on `ScopedState` (decision 1) | blob-types `set.rs`; blob-server `lib.rs`, memory | S | B8, JMAP-y1yu |
+| B18 | blob-server: conditional attach call `register_blob_conditional`, `BlobObject: SetObject`, memory `ConditionalBackend` on `ScopedState` (decisions 1, 17); `type`/`expires` pointers → `invalidArguments` (decision 19) | blob-types `set.rs`; blob-server `lib.rs`, memory | S | B8, JMAP-y1yu |
 | B19 | testjig: advertise blob2 and blob with the real account capabilities, register handlers | testjig | S | B7-B11 |
 | B20 | mail-server (canonical): resolve `#creationId` in blobId-typed properties | mail-server | M | — |
 | B21 | Propagate `#creationId` blobId resolution: filenode, scene, chat, contacts, calendars | sibling `*-server` crates | M | B20 |
 | B22 | `jmap-blob` umbrella crate (decision 4; folds JMAP-m4nc) | new `crate-jmap-blob/` + root files | S | B11, B12 |
 | B23 (P3) | RFC 8620 §6.3 `Blob/copy` in blob-server (`copy_blob` hook); core, not blobext | blob-server | M | B8 |
-| B24 (P3) | blob-client: RFC 9404 bindings (Blob/upload, 9404 Blob/get/lookup), carried from JMAP-m4nc | blob-client | S | B11, B12 |
+| B24 (P3) | blob-client: RFC 9404 bindings (Blob/upload, 9404 Blob/get/lookup), carried from JMAP-m4nc; kept at P3 (decision 21(v)) | blob-client | S | B11, B12 |
 
 Parallel lanes: {B0, B1, B13, B14, B17, B20} first; then {B2, B3, B21}; then {B4, B12}; then B5; then {B6, B7, B8, B9}; then {B10, B15}; then B11 (right after the blob2 server, decision 11); then {B18, B19, B22, B24}. B7-B10 each own one handler module and one test file. Cross-note: object-history's beads that read "Supports History" depend on B1 (`blobext:B1`).
 
 ## 12. Open questions for Mark
 
-Decided and removed: crate names (decision 4), chat-client blob methods (decision 12), legacy `blob` (decision 11), memory conversion scope (decision 13), data-type registry contents and home (decision 14), gap rulings (a)-(h) (decision 15). The draft's Q4 and Q5 are reshaped by decision 1 below.
+Decided and removed: crate names (decision 4), chat-client blob methods (decision 12), legacy `blob` (decision 11), memory conversion scope (decision 13), data-type registry contents and home (decision 14), gap rulings (a)-(h) (decision 15), conditional pointers to `type`/`expires` (decision 19: `invalidArguments`, overriding this note's `forbidden` recommendation), conditional arguments on Blob/convert (decision 19: `invalidArguments`), RFC 9404 serving rulings (decision 21 (i)-(iv); (ii) and (iii) go on the upstream list as possible RFC 9404 errata), "Supports History" for types without a registered value (decisions 22 and 23), RFC 9404 client bindings (decision 21(v): B24 stays at P3). The draft's Q4 and Q5 were reshaped by decision 1.
 
-1. **Conditional pointers to `type`/`expires` on Blob.** Under decision 1 the dispatcher admits any name in `BlobObject`'s `SetObject` lists, but `Blob/get` never returns `type` or `expires`, so `{"type": null}` would always hold and `{"type": "text/plain"}` always fail. *Recommend* `Blob/get` marks `type` and `expires` unreadable through `HandlerOutput::with_unreadable()` (conditional note §5.1), so such a pointer gets `forbidden` and is never compared; `size` and `digest:<alg>` work as is. Blobs are immutable, so in practice only existence (`{}`/`null`) ever fails.
-2. **Conditional arguments on Blob/convert** (not a Foo/set; the conditional note leaves non-`/set` arguments untouched, and decision 2 covers only a missing URI). *Recommend* `invalidArguments` for `atomic: true` or a non-empty `ifUnchangedBy`: ignoring `atomic` would partially apply a pipeline the client asked to be all-or-nothing.
-3. **RFC 9404 serving rulings (B11), for the upstream list:** (i) both `blob` and `blob2` in `using`: -03 §2.1 forbids it for clients but says nothing about servers; *recommend* method-level `invalidArguments` on every Blob/* call. (j) RFC 9404 §4.3.1's example returns `notFound` for an unknown blob, while §4.3 requires a row with empty arrays; *recommend* the normative text, no `notFound` key (a possible RFC 9404 erratum). (k) Blob/upload responses: §4.1 says "no state field" but the §4.1.2 and §4.2.2 examples carry `oldState`/`updated`/`destroyed`; *recommend* `accountId`/`created`/`notCreated` only, as gap (b). (l) Blob/upload with a non-empty `update` or `destroy`: *recommend* `invalidArguments`.
-4. **"Supports History" for types without a registered value** (Task, TaskList, the atwood types). Decision 5 puts them in object-history's first round and leaves the per-type list to bead filing. *Recommend* B1 encodes decision 5's proposal (Yes, except GraphNodeOp, PresenceStatus, ReadPosition, SceneAvatar, VTCParticipant, TaskNotification) citing decision 5 and the pending draft change, and object-history's beads edit those rows if the list changes.
-5. **RFC 9404 client bindings (B24).** JMAP-m4nc asked for client helpers; decision 11 covers only serving. *Recommend* keeping B24 at P3 for clients that talk to `blob`-only servers, or closing it if no consumer needs one.
+Remaining: none.
