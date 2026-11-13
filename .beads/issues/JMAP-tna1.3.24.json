@@ -2,13 +2,15 @@
   "id": "JMAP-tna1.3.24",
   "title": "upstream: draft object-history stopgap messages/issues (decision 6)",
   "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H22. Crates: none. Size: S.\n\nDecision 6: implement the stopgaps now, raise them upstream, and offer Mark drafted list messages or issues. Source: the 'Upstream list' in docs/design/DECISIONS.md. Design: docs/design/object-history.md §2 rows for §3, §4, §5.1, and §9 conditional.\n\nDraft, for Mark to send, text for the object-history author (brong/draft-gondwana-jmap-object-history, or the jmap list):\n(a) RFC 8620 maxObjectsInSet names only create/update/destroy; propose that restore entries count toward it.\n(c) -03 adds no Foo/queryChanges arguments; propose a sentence that an onlyDestroyed query is identified by its queryState (the server encodes the kind).\n(d) A destroyed object whose final version was discarded while older versions remain: propose that it is gone (notFound for get, query and restore), not represented by an older version.\n\nFor BOTH the object-history and conditional authors:\n(b) conditional §4 atomic covers 'every creation, update, and destroy' and atomicFailure names only notCreated/notUpdated/notDestroyed. Propose that atomic covers restores and atomicFailure MAY carry notRestored.\n\nCite -03 section numbers and quote the spec text. Do not send anything.\n\nAcceptance: the drafted text is handed to Mark, and the item is marked as offered in the upstream list.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:55.454326093Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T02:50:55.454326093Z",
+  "updated_at": "2026-11-13T04:40:53.814606894Z",
+  "closed_at": "2026-11-13T04:40:53.814606894Z",
+  "close_reason": "Done 2026-11-13: drafted in docs/upstream/2026-11-13/ and filed: https://github.com/brong/draft-gondwana-jmap-object-history/issues/1 and the conditional pair (conditional #1, object-history #2).",
   "labels": [
     "spec-sync"
   ],
