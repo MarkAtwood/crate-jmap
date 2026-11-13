@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.10",
+  "title": "blob-server: Blob/convert handler",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B10. Crates: jmap-blob-server. Size: M.\n\nImplement handle_blob_convert in convert.rs per docs/design/blobext.md §5 'Blob/convert' (blobext-03 §8-§8.8): create required; enforce_max_objects_in_set; per-entry parse with zero/several recipe keys -\u003e invalidProperties; check_recipe and check_archive with JSON-pointer property paths (gap h), null capability list -\u003e [\u003crecipeKey\u003e], maxImageDimension/maxArchiveEntries/maxConvertSize -\u003e tooLarge, quality, background, '..' entries, mode; topo_order over all refs with cycle -\u003e every member invalidProperties; resolve refs (notFound); backend convert; ConvertedBlob with isIncomplete/description/entries; Extract returns the archive's id/type/size. Response accountId/created/notCreated only (gap b). Common start incl. BlobMode Conflict. Acceptance: tests/convert.rs covering blobext.md §10 'server, Blob/convert' (§9.4-§9.7 via tar and the stub converter, decision 13), plus deferred-blob tests: Blob/get size materializes, failed deferred -\u003e notFound in get, set and convert.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:45.464369045Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:45.464369045Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.10",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:45.594800203Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.10",
+      "depends_on_id": "JMAP-tna1.2.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.952750983Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

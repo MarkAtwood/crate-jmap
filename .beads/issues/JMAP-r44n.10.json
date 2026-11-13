@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-r44n.10",
+  "title": "mail-server: emailpush feature skeleton (EmailPushAccount, EmailPushBackend, EmailPushError, URI re-export)",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E5. Crates: jmap-mail-server. Size: S.\n\nSpec: draft-ietf-jmap-emailpush-05 §2.1, §4. Design: docs/design/emailpush.md §3, §6; decisions 3 and 10 in docs/design/DECISIONS.md.\n\nIn crate-jmap-mail-server add feature emailpush = [\"jmap-mail-types/emailpush\", \"dep:jmap-metadata-server\"] (metadata-server stays optional: enabled by memory or emailpush only), and pub mod emailpush (emailpush/mod.rs) with private validate/deliver submodules declared empty. Items: #[non_exhaustive] EmailPushAccount { mail, object_ids, email_history, filter_conditions, properties extras } with new() and setters (email_history defaults to false; it is true exactly when the account's object-history capability lists Email, decision 10); trait EmailPushBackend: jmap_server::PushSubscriptionBackend (NOT a MailBackend subtrait, decision 3) with required email_push_accounts(caller) -\u003e Result\u003cBTreeMap\u003cId, EmailPushAccount\u003e, Error\u003e (rustdoc MUST: exactly the accounts advertised with the emailpush account capability; consumer MUSTs from §6); #[non_exhaustive] EmailPushError { LimitTooSmall, MissingThreadKeywords }; re-export EmailCondition from filter.rs; re-export JMAP_EMAILPUSH_URI at the crate root like JMAP_MDN_URI. Widen filter.rs to cfg(any(feature = \"memory\", feature = \"emailpush\")).\nAcceptance: the crate builds and tests with no features, with emailpush alone, and with memory alone (cargo hack or explicit feature runs); plain mail-server users gain no deps; public-api snapshot refreshed.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:37.530835126Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:37.530835126Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.10",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:37.666424105Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.10",
+      "depends_on_id": "JMAP-r44n.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:28.091755362Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.10",
+      "depends_on_id": "JMAP-r44n.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:28.210644951Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

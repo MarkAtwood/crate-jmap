@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.13",
+  "title": "chat-client: remove deprecated blob wrappers (next breaking release)",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B16. Crates: jmap-chat-client. Size: S.\n\nPer docs/design/DECISIONS.md decision 12 and docs/design/blobext.md §9 step 3: in the next breaking release, delete the #[deprecated] blob methods and types from jmap-chat-client (one public path per item: jmap-blob-client), drop the blob-client dependency if nothing else uses it and update RELEASING/AGENTS layers accordingly. Acceptance: BREAKING CHANGELOG entry naming each removed item and its jmap-blob-client replacement; public-api snapshot updated; testjig and docs no longer reference the removed items.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:52:39.016945586Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:52:39.016945586Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.13",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:52:39.215686092Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.13",
+      "depends_on_id": "JMAP-tna1.12",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:33.155102344Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

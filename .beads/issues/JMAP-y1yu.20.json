@@ -1,0 +1,177 @@
+{
+  "id": "JMAP-y1yu.20",
+  "title": "conditional docs: AGENTS.md, READMEs, CHANGELOG",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C12. Crates: workspace (AGENTS.md, README.md, CHANGELOG.md). Size: S.\n\nDocs per docs/design/conditional.md §9 Compatibility and §11. AGENTS.md: conditional section (dispatcher evaluation, ConditionalBackend under the spec-method-defaults hook rule with required begin_set, the opt-in register_\u003cx\u003e_conditional pattern composing with _with_history, decision 1), crate map mentions. README crate tables. CHANGELOG [Unreleased]: Added (conditional module, consts, ConditionalBackend, opt-in fns, SetCall, filenode_set_conditional); Changed: decision 2 wire behaviour (atomic:true / non-empty ifUnchangedBy without the URI now invalidArguments on every deployment) and JmapError.extra keeping unknown properties on decode. No BREAKING entries (decisions 1, 7). Close JMAP-y1yu when done. Acceptance: docs build, typos clean, every new public item mentioned.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:35.984402853Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:35.984402853Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:36.108726507Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.684985322Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.2",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.806495189Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.925824443Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.046891577Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.167293985Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.288764593Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.409268993Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.8",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.528848505Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.9",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.648852238Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.10",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.76918273Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.11",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:26.888403603Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.12",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.007880252Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.13",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.130178459Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.14",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.249572688Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.15",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.370055315Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.16",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.490535279Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.17",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.611121632Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.18",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.730922401Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.20",
+      "depends_on_id": "JMAP-y1yu.19",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.851027335Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

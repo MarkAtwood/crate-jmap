@@ -1,0 +1,65 @@
+{
+  "id": "JMAP-tna1.2.13",
+  "title": "testjig: advertise blob2 and blob, register blob handlers",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B19. Crates: jmap-testjig. Size: S.\n\nPer docs/design/blobext.md §9 'testjig': advertise urn:ietf:params:jmap:blob2 with the real BlobAccountCapability in accountCapabilities (the capability loop currently writes {}, violating blobext-03 §2.1 'MUST contain') and urn:ietf:params:jmap:blob with its rfc9404() view (decision 11), {} in capabilities for both; register_blob_handlers on the memory backend. The jig's blob store is separate from the mail/filenode stores, so cross-type lookups are out of scope. Acceptance: an HTTP test runs -03 §9.1 Blob/set then Blob/get, and RFC 9404 §4.1.2 Blob/upload then Blob/get, end to end; Session JSON carries all 17 blob2 keys and the 4 blob keys.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:48.014158901Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:48.014158901Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.13",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:48.139336727Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.13",
+      "depends_on_id": "JMAP-tna1.2.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:33.7563156Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.13",
+      "depends_on_id": "JMAP-tna1.2.8",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:33.87629793Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.13",
+      "depends_on_id": "JMAP-tna1.2.9",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:33.997523632Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.13",
+      "depends_on_id": "JMAP-tna1.2.10",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:34.116395207Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.13",
+      "depends_on_id": "JMAP-tna1.2.11",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:34.236846562Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

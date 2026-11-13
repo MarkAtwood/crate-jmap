@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-r44n.16",
+  "title": "mail-server memory: email_history follows the memory object-history capability; objectHistory end to end in EmailPush",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E16. Crates: jmap-mail-server. Size: S.\n\nFollow-up once object-history lands Email history in the memory backend (docs/design/object-history.md H5). Spec: object-history-03 §3.1; draft-ietf-jmap-emailpush-05 §3 prefix rule, §4. Design: docs/design/emailpush.md §6, §7, §9 (object-history); decision 10 in docs/design/DECISIONS.md.\n\nMake the memory EmailPushBackend set EmailPushAccount.email_history from its ObjectHistoryBackend::object_history_capability (true exactly when supported_types contains \"Email\") instead of the fixed false.\nAcceptance: with the memory backend registered via register_mail_handlers_with_history, a PushSubscription/set with properties [\"from\",\"objectHistory\",\"subject\"] is accepted, stored and echoed as [\"from\",\"subject\"], and deliver_email pushes Emails whose keys are a prefix of [\"from\",\"subject\"] with no objectHistory; with history not offered for Email the same set =\u003e invalidProperties [\"emailPush\",\"emailPush/A/properties\"].",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:41.26650721Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:41.26650721Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.16",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:41.391156161Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.16",
+      "depends_on_id": "JMAP-r44n.12",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.510712281Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.16",
+      "depends_on_id": "JMAP-tna1.3.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.63119003Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-tna1.10",
+  "title": "jmap-blob: umbrella re-export crate (replaces the 0.0.1 placeholder)",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B22. Crates: jmap-blob (new), workspace root. Size: S.\n\nPer docs/design/DECISIONS.md decision 4 and docs/design/blobext.md §3 and §9 (crates.io): bring the claimed crates.io placeholder jmap-blob (0.0.1, 'RFC 9404') into the workspace as crate-jmap-blob/, an umbrella facade like the JMAP-amr2 jmap-mail umbrella: re-export jmap-blob-types always and jmap-blob-client / jmap-blob-server behind `client` / `server` features (keep the 0.0.1 module names if it published any; check its source first). Cargo description updated to blobext-03 with RFC 9404 legacy support. Root: workspace members, [workspace.dependencies], AGENTS.md crate map row (it is the first umbrella in the workspace; JMAP-amr2 and siblings follow its shape), RELEASING.md layer 5, publishes on the shared jmap-* version line. This bead also completes JMAP-m4nc's Done-when (m4nc is folded into JMAP-tna1). Acceptance: builds with no features, client, server and all features; a test parses the RFC 9404 §3.1.1 and blobext-03 §2.1.1 capability examples through the re-exports; public-api snapshot; README.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:48.947138702Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:48.947138702Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.10",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:49.072135847Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.10",
+      "depends_on_id": "JMAP-tna1.2.11",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:34.483032037Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.10",
+      "depends_on_id": "JMAP-tna1.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:34.604656257Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "id": "JMAP-y1yu.19",
+  "title": "testjig: opt in to conditional, advertise, HTTP end-to-end",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C11. Crates: jmap-testjig. Size: S.\n\nImplement docs/design/conditional.md §5.3 and §10 testjig items (decision 1, 2 in docs/design/DECISIONS.md). One shared ScopeGate for all memory backends; call register_\u003cx\u003e_conditional for the 7 registered crates (mail, chat, calendars, tasks, contacts, filenode, sharing); add JMAP_CONDITIONAL_URI with ConditionalCapability {} to the Session and to check_known_capabilities only when dispatcher.conditional_ready(). Acceptance: test asserting conditional_ready() for the jig dispatcher; Session contains the URI; example 5.8 atomic swap over HTTP; atomic: true without the URI in using -\u003e invalidArguments over HTTP; README notes the opt-in.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:35.662374554Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:35.662374554Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:35.787718131Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:24.719307991Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:24.842889102Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.8",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:24.962176381Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.9",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.08350773Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.10",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.203707165Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.11",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.324716048Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.12",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.445064051Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.19",
+      "depends_on_id": "JMAP-y1yu.13",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:25.563503971Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

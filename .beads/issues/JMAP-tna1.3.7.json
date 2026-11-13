@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-tna1.3.7",
+  "title": "Decision: object-history arguments without the URI in using (handler-only or dispatcher-wide)",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: D2. Crates: none (outcome may add a jmap-server follow-up). Size: S.\n\nContext: docs/design/object-history.md §5 'Foo/get' and 'Foo/query', §12 Q1; docs/design/DECISIONS.md decision 2 (the conditional precedent).\n\nH3 implements the interim rule. The _with_history handlers reject the following with invalidArguments when urn:ietf:params:jmap:object-history is not in using, and ignore the other history arguments:\n- includeReplaced: true or includeDestroyed: true\n- onlyDestroyed: true\n- a non-null restore\n\nPlain handlers keep ignoring these arguments. So a deployment without history silently returns live data for includeDestroyed:true and silently drops a restore write.\n\nQuestion for Mark: extend the rejection to one dispatcher check on */get, */query and */set on every deployment, as decision 2 does for conditional? Recommended: yes.\n\nAcceptance: the answer is recorded in docs/design/DECISIONS.md and note §12 Q1 is updated. If the answer is dispatcher-wide, file one S follow-up bead in jmap-server (it depends on H3) for the check and its dispatcher tests.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "decision",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:50.184490372Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:50.184490372Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.7",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:50.30772206Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

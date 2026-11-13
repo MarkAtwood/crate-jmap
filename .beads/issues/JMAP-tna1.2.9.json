@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.9",
+  "title": "blob-server: Blob/lookup handler",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B9. Crates: jmap-blob-server. Size: S.\n\nImplement handle_blob_lookup in lookup.rs per docs/design/blobext.md §5 'Blob/lookup' (blobext-03 §6): typeNames and ids required; enforce_max_objects_in_get; each type must be in supportedTypeNames, have a capability from lookup_type_capability (registry default, B1/decision 14) and that capability must be in cx.using, else method-level unknownDataType naming the type; one blob_references call per type; list in request order, every requested type a key defaulting to []; no notFound. Common start incl. BlobMode Conflict -\u003e invalidArguments. Acceptance: tests/lookup.rs with -03 §9.3 verbatim; unknownDataType for an unadvertised name, for mail not in using, and for Identity; hidden object omitted; unknown blob -\u003e empty arrays.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:44.908118076Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:44.908118076Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.9",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:45.155456145Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.9",
+      "depends_on_id": "JMAP-tna1.2.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.831500636Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

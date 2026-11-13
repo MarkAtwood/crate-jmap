@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-y1yu.14",
+  "title": "vtc-server: opt-in conditional with streamKey/streamUri unreadable marks",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C9f. Crates: jmap-vtc-server. Size: M.\n\nApply the C7 pattern (docs/design/conditional.md §5.1, §6, §7; conditional-02 §9.1; decision 1 in docs/design/DECISIONS.md). register_vtc_conditional; register_vtc_handlers unchanged; VTCLivestream/get marks redacted streamKey/streamUri with HandlerOutput::with_unreadable; memory on ScopedState with the event queue in Inner (rollback drops events; delivery deferred to commit) + ConditionalBackend; Atomic final-state: participant alreadyExists, caps. Acceptance: precondition on streamKey for a non-moderator -\u003e forbidden; atomic rollback emits no event; final-state test; public-api additions only.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:34.108049406Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:34.108049406Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.14",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:34.233721914Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.14",
+      "depends_on_id": "JMAP-y1yu.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:24.086255942Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

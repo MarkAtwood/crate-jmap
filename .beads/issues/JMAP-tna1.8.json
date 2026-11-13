@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-tna1.8",
+  "title": "mail-server: resolve #creationId in blobId-typed properties (canonical)",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B20. Crates: jmap-mail-server. Size: M.\n\nPer docs/design/blobext.md §9 'Existing crates' (sibling servers): today a blobId of \"#c1\" fails parse_wire_id, so a blob created by Blob/set, Blob/upload or Blob/convert cannot be used later in the same request (RFC 8620 §5.3; blobext-03 §8 'later method calls'; RFC 9404 §4.1). In the canonical extension server jmap-mail-server, resolve #creationId via resolve_creation_ref against cx.created_ids for every blobId-typed argument/property: Email/set (attachments, bodyStructure blobId), Email/import, Email/parse, SieveScript/set blobId. Unknown creation id keeps the existing error per method. Acceptance: tests where an earlier invocation's createdIds supplies #c1 to Email/import, Email/set and SieveScript/set and the call succeeds; an unknown #ref fails as before; AGENTS.md canonical note so B21 can mirror it.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:48.325365946Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:48.325365946Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.8",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:48.451733399Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

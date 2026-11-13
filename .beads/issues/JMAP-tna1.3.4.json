@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-tna1.3.4",
+  "title": "mail-server canonical history: Mailbox/Identity/VacationResponse, register_mail_handlers_with_history, memory backend",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H4. Crates: jmap-mail-types (src/backend.rs), jmap-mail-server, root AGENTS.md. Size: L.\n\nSpec: object-history-03 §3, §4, §5.1, §5.2, §8.2. Design: docs/design/object-history.md §5 ('Opt-in without touching plain handlers', 'Registration'), §6, §7, §9 'Existing crates'.\n\nThis is the canonical shape that every sibling crate copies.\n\nWork:\n- impl HistoryObject for Mailbox, Identity, VacationResponse in mail-types (Email and SieveScript come in H5/H6).\n- Move each handle_\u003cx\u003e_set body into a private \u003cx\u003e_set_impl\u003cB, R: RestoreStage\u003cB\u003e\u003e. NoRestore keeps the plain bytes; WithRestore runs run_restore_phase. Mailbox uses parent-first restore order.\n- Add history /get, /set, and Mailbox /query and /queryChanges handlers.\n- register_mail_handlers_with_history calls register_mail_handlers, then re-registers through Dispatcher::register_history_aware. Bind `using` from CallContext where the plain registration has none.\n- Memory: ObjectHistoryBackend for MemoryBackend through MemoryBackend::with_object_history(capability, retention), off by default.\n  - VersionLog lives in Inner, so conditional ScopedState rollback covers it.\n  - Record every update and destroy; the private ChangeType gains Restored, folded with OHS fold_restore.\n  - Destroyed-query state carries a private kind prefix (decision 6(c)); rights_changed_at per Mailbox.\n  - test-helpers knobs: set_history_clock_for_test, discard_version_for_test, purge_object_history, set_rights_changed_at_for_test.\n  - Debug-assert that supported_types only lists is_history_type names.\n- Add an 'object-history opt-in pattern' section to root AGENTS.md: separate trait, _with_history, call register_\u003cx\u003e_conditional after it.\n- Registry cross-check test: every HistoryObject impl satisfies is_history_type.\n\nAcceptance:\n- Restored id in Mailbox/changes is updated or created, never destroyed.\n- Ids are never reused; restoring a current id ⇒ notFound; final version discarded ⇒ notFound for get, query and restore (decision 6(d)).\n- Parent and child Mailbox restore in either key order.\n- §8.2 cut hides versions from before a rights change.\n- VacationResponse restore ⇒ notFound.\n- Plain register_mail_handlers bytes unchanged (snapshot tests).\n- public-api, README/PLAN, CHANGELOG bullet.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:40.66438905Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:40.66438905Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.4",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:40.789146509Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.4",
+      "depends_on_id": "JMAP-tna1.3.2",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:35.451294586Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.4",
+      "depends_on_id": "JMAP-tna1.3.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:35.570226553Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

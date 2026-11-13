@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.3.9",
+  "title": "contacts-server history: AddressBook, ContactCard",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H7. Crates: jmap-contacts-types, jmap-contacts-server. Size: M.\n\nSpec: object-history-03 §3, §3.2.1 example, §4, §5.1, §7.3 (objectHistory reserved in JSContact Card). Design: docs/design/object-history.md §5, §6, §7, §9 'Existing crates'; follow H4's canonical shape.\n\nWork:\n- impl HistoryObject for AddressBook and ContactCard.\n- _set_impl split; history handlers (ContactCard has /query, AddressBook does not).\n- register_contacts_handlers_with_history.\n- Memory ObjectHistoryBackend: VersionLog in Inner, record onDestroyRemoveContents cascades, rights_changed_at per AddressBook.\n- Registry cross-check test.\n\nAcceptance:\n- §3.2.1 ContactCard example byte-for-byte except state: three versions, hasOlder false/true/true, expires = replaced + 2592000 s.\n- objectHistory in a ContactCard create ⇒ invalidProperties.\n- A restore referencing a destroyed AddressBook ⇒ invalidProperties, then succeeds once the AddressBook is restored earlier in the request.\n- Cascade destroys appear in includeDestroyed.\n- CHANGELOG bullet, public-api.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:50.790155826Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:50.790155826Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.9",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:50.927074235Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.9",
+      "depends_on_id": "JMAP-tna1.3.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:35.933537849Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

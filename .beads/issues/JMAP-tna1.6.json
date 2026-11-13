@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-tna1.6",
+  "title": "base-client: BlobUploadResponse.expires",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B13. Crates: jmap-base-client. Size: S.\n\nAdd `expires: Option\u003cUTCDate\u003e` to jmap_base_client::BlobUploadResponse per docs/design/blobext.md §9 'Existing crates' (blobext-03 §2.1 and §7: uploads return expires). Additive on a #[non_exhaustive] type. Acceptance: a test parses an upload response with expires, with null expires and without the key; public-api snapshot and CHANGELOG (additive) updated.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:46.459775092Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:46.459775092Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.6",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:46.587880269Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

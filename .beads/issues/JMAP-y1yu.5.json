@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-y1yu.5",
+  "title": "jmap-server push: opt-in conditional PushSubscription/set",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C5. Crates: jmap-server (push.rs, tests). Size: S.\n\nImplement the PushSubscription part of docs/design/conditional.md §5.1 and §9 emailpush paragraph (conditional-02 §2.1, §9.1; RFC 8620 §7.2.2). Decision 1 (docs/design/DECISIONS.md): add register_push_subscription_conditional\u003cB: PushSubscriptionBackend + ConditionalBackend\u003e(dispatcher, backend) attaching SetSupport for PushSubscription/set; register_push_subscription_handlers is unchanged. SetScopeRequest.account_id = None (scope keyed by credentials). Lands after the emailpush push.rs seam (emailpush bead 1). Acceptance: mock-backend tests (serialized_writes_scope): precondition on keys or url -\u003e forbidden (PushSubscription/get already forbids them); ifInState still ignored (no /get state); a precondition on a readable property passes and fails as specified; conditional_ready() true with push + probe registered and opted in; public-api additions only.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:31.329612361Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:31.329612361Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.5",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:31.451480473Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.5",
+      "depends_on_id": "JMAP-y1yu.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:22.315469547Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.5",
+      "depends_on_id": "JMAP-r44n.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:22.43804688Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

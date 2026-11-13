@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.3",
+  "title": "blob-types: Blob/convert recipes and Blob/lookup types",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B3. Crates: jmap-blob-types. Size: M.\n\nImplement docs/design/blobext.md §4 (second half) in crate-jmap-blob-types: convert.rs (ConvertRequest with exactly-one-recipe custom Deserialize, Recipe and the seven recipe structs, ColorSpace, ArchiveEntry, EntryType, CompressionMethod, ConvertedBlob, BlobConvertResponse, compress_level_range per §8.5.1-4), lookup.rs (BlobLookupArgs, BlobInfo, BlobLookupResponse with no notFound). No data_types module here: the registry is jmap_types::data_types (B1, decision 14). Specs: blobext-03 §6, §8-§8.8, §9.3-§9.7. Acceptance: §9.3-§9.7 request/response round-trips from hand-written JSON; every Other variant round-trips; Recipe with 0/1/2 recipe keys; ArchiveEntry wire names (blockDevice, charDevice, linkTarget); public-api snapshot.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:42.521440213Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:42.521440213Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.3",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:42.658774183Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.3",
+      "depends_on_id": "JMAP-tna1.2.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.87374604Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

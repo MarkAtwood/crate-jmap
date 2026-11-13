@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-tna1.3.12",
+  "title": "object-history-client: history get, destroyed query, restore over base-client SetCall",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H10. Crates: jmap-object-history-client. Size: M.\n\nSpec: object-history-03 §3, §3.1 (no reliance on expires/hasOlder/version across requests), §4, §5.1, §8.4. Design: docs/design/object-history.md §8; docs/design/conditional.md §8 (SetCall, set_call); decision 8.\n\nWork:\n- Sealed JmapObjectHistoryExt::with_object_history_session(session) -\u003e SessionClient, mail-client canonical shape. Uses OHT types directly, with no re-exports.\n- supports::\u003cO\u003e(cap).\n- Generic get_history::\u003cO\u003e(\u0026HistoryGetCall) -\u003e GetResponse\u003cHistoryEntry\u003cO\u003e\u003e.\n- query_destroyed::\u003cO\u003e(\u0026DestroyedQueryCall\u003cO\u003e) -\u003e QueryResponse. queryChanges is the ordinary call.\n- restore::\u003cO\u003e(\u0026SetCall, extra_using) builds on base-client SetCall.restore (added by conditional:C6 per decision 8). It adds JMAP_OBJECT_HISTORY_URI to extra_using, calls JmapClient::set_call and returns (SetResponse\u003cPartialObject\u003e, RestoreOutcome). Documented: restore may be combined with conditional options; an atomicFailure decodes through ConditionalError, and AtomicFailure::not_restored() (decision 6(b)).\n- Paging helpers older_page_before (returns replaced exactly as received) and has_older.\n- Rustdoc covers §8.4 and §3.1.\n\nAcceptance:\n- wiremock tests: request JSON for each call matches hand-written spec-shaped JSON, including `using`.\n- RestoreOutcome decode from the §5.3 example response.\n- atomicFailure with notRestored decodes.\n- README/PLAN/public-api, CHANGELOG.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:51.743749414Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:51.743749414Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.12",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:51.866775313Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.12",
+      "depends_on_id": "JMAP-tna1.3.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:36.295672949Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.12",
+      "depends_on_id": "JMAP-y1yu.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:36.41687479Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

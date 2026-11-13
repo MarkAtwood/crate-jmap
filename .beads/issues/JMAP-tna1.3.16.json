@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.3.16",
+  "title": "jmap-chat-spec: add 'Supports History' to every JMAP Data Types registration in Mark's drafts",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H14. Crates: none (repo ~/PROJECT/jmap-chat-spec). Size: S.\n\nDecision 5 follow-up; values per D1. Spec: object-history-03 §7.2 adds a 'Supports History' column (Yes/No) to the JMAP Data Types registry; the default is No for registrations without a value. Design: docs/design/object-history.md §9 'Spec repository'.\n\nWork in ~/PROJECT/jmap-chat-spec. Follow that repo's AGENTS.md: read each file in full first, grep the guides for affected text, and do not commit without Mark's approval.\n\nAdd a 'Supports History' field to every registration entry, in each draft's existing entry format:\n- draft-atwood-jmap-chat-00.md (definition-list format, about l.1892): ChatContact, Chat, Message, Space, SpaceInvite, CustomEmoji, SpaceBan = Yes; ReadPosition, PresenceStatus = No.\n- draft-atwood-jmap-chat-mimi-00.md (about l.636): KeyPackage = per D1 (proposed No).\n- draft-atwood-jmap-graph-00.md (one-line format, about l.506): Graph, GraphNode, GraphEdge = Yes.\n- draft-atwood-jmap-graph-edit-00.md: GraphNodeOp = No.\n- draft-atwood-jmap-scene-00.md (about l.2985): SceneRegion, SceneObject, SceneAsset = Yes; SceneAvatar = No.\n- draft-atwood-jmap-vtc-00.md (about l.1974): VTCCall, VTCRecording, VTCLivestream = Yes; VTCParticipant = No.\nAll values are subject to D1's confirmation.\n\nCitations:\n- Each edited draft cites the column's source as {{JMAP-OBJ-HISTORY}}. Add the informative reference entry where it is missing; copy the one in chat-00.\n- Update the existing JMAP-OBJ-HISTORY references in chat-00 and graph-provenance-00 from -02 to the posted draft-ietf-jmap-object-history-03 (2026-11-02).\n- Check that chat-00's Message note (about l.782, 'MAY list \"Message\" in supportedTypes') still reads consistently.\n\nRender-check every edited draft per the spec-render memory:\nKRAMDOWN_REFCACHEDIR=~/PROJECT/jmap-chat-spec/.refcache ~/.local/share/gem/ruby/3.2.0/bin/kramdown-rfc \u003cdraft\u003e.md \u003e \u003cscratch\u003e/x.xml \u0026\u0026 xml2rfc --text -o \u003cscratch\u003e/x.txt \u003cscratch\u003e/x.xml\n\nAcceptance:\n- All six drafts render without errors.\n- Every registration entry has exactly one Supports History value, matching D1.\n- `grep -r 'Supports History'` across the repo is consistent.\n- Changes are left uncommitted for Mark's review.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:52.991880417Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:52.991880417Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.16",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:53.117592768Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.16",
+      "depends_on_id": "JMAP-tna1.3.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:37.862310155Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

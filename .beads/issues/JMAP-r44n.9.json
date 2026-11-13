@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.9",
+  "title": "base-client: generic PushSubscription/get and /set bindings on JmapClient",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E11. Crates: jmap-base-client. Size: S.\n\nSpec: RFC 8620 §7.2.1, §7.2.2; draft-ietf-jmap-emailpush-05 §4 (capability in using). Design: docs/design/emailpush.md §8, decision 8 in docs/design/DECISIONS.md.\n\nAdd JmapClient::push_subscription_get(ids, properties, extra_using) and push_subscription_set(create, update, destroy, extra_using), typed on jmap_types::PushSubscription (crate-jmap-base-client push.rs/client.rs). extra_using adds capability URIs such as urn:ietf:params:jmap:emailpush to the request's using. No accountId (PushSubscription has none). No conditional arguments: rustdoc points to the conditional epic's generic SetCall for ifUnchangedBy/atomic (decision 8).\nAcceptance: request serialization tests against RFC 8620 §7.2 example JSON; extra_using appears in using; responses decode, including created/updated echoes with extra keys. Public-api snapshot refreshed, CHANGELOG entry.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:37.218274376Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:37.218274376Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.9",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:37.341844436Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

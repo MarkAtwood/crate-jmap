@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.17",
+  "title": "Draft upstream jmapio/jmap issues for emailpush (filter default, exclude objectHistory)",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E17. Crates: none. Size: S.\n\nFollow-up. Source: the upstream list in docs/design/DECISIONS.md and docs/design/emailpush.md §12. If a combined cross-draft upstream bead exists, fold this into it.\n\nDraft (do not file without Mark) two jmapio/jmap issue texts for draft-ietf-jmap-emailpush: (1) EmailPushConfig `filter` has no stated default; crate-jmap treats an absent filter as null (decision 9); ask the draft to say \"(default: null)\". (2) Suggest that §4 exclude \"objectHistory\" from `properties` as it excludes \"bodyValues\": EmailPush has no includeReplaced/includeDestroyed, so object-history-03 §3.1 never returns it and listing it would break the §3 prefix rule; crate-jmap accepts it where Email/get does and drops it from the stored list (decision 10).\nAcceptance: both issue texts written and handed to Mark, quoting the -05 text they refer to.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:41.579881606Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:41.579881606Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.17",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:41.718821081Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

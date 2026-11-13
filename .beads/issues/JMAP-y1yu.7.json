@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-y1yu.7",
+  "title": "mail-server: opt-in conditional (canonical crate)",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C7. Crates: jmap-mail-server. Size: L.\n\nCanonical per-crate conversion per docs/design/conditional.md §5.1, §6, §7 (conditional-02 §3, §4.1, §4.2, §5.2, §6). Decision 1 (docs/design/DECISIONS.md): add pub register_mail_conditional\u003cB: MailBackend + ConditionalBackend\u003e(dispatcher, backend) that attaches SetSupport to each registered mail /set (Mailbox, Email, EmailSubmission, Identity, VacationResponse, and SieveScript when register_sieve_handlers was called), skipping unregistered ones; register_mail_handlers/register_sieve_handlers/register_mdn_handlers unchanged; works after register_mail_handlers_with_history too. Memory backend: Inner #[derive(Clone)], Arc\u003cMutex\u003cInner\u003e\u003e -\u003e ScopedState (memory feature enables jmap-server/scoped-state), all async lock sites .lock().await, ConditionalBackend impl (begin_set via ScopedState::open; Atomic validate: Mailbox name+parent, role, parent cycle, SieveScript name and single active, overQuota/caps on final state); handlers skip cross-object pre-checks when cx.atomic; implicit onSuccessUpdateEmail runs inside the scope. Acceptance: example 5.2 integration test; one precondition, one atomic rollback, one final-state quota test; conditional_ready() true after register_mail_handlers + register_mail_conditional; all existing tests pass unchanged; crate README/PLAN document the opt-in; public-api additions only. This is the pattern C8/C9* copy.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:31.939364383Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:31.939364383Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.7",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:32.061093317Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.7",
+      "depends_on_id": "JMAP-y1yu.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:22.687407031Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.7",
+      "depends_on_id": "JMAP-y1yu.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:22.813934584Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

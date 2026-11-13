@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.2.14",
+  "title": "blob-server: RFC 8620 §6.3 Blob/copy",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B23. Crates: jmap-blob-server. Size: M.\n\nOptional follow-up from docs/design/blobext.md §11: implement RFC 8620 §6.3 Blob/copy (core, selected by urn:ietf:params:jmap:core, unchanged by RFC 9404 and blobext-03) in jmap-blob-server with a copy_blob(caller, from_account, to_account, blob_id) hook (no default: a no-op would report false copies) and memory support. Response fromAccountId/accountId/copied/notCopied with notFound per RFC 8620. Acceptance: tests for copy between two memory accounts, unknown blob -\u003e notCopied notFound, fromAccountId == accountId behaviour; public-api snapshot.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "feature",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:49.262407485Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:49.262407485Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.14",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:49.387213683Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.14",
+      "depends_on_id": "JMAP-tna1.2.8",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:34.72398216Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

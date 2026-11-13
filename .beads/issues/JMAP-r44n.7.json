@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.7",
+  "title": "mail-types: emailpush feature (URI, capabilities, EmailPushConfig normalized serde, EmailPush, accessors)",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E2. Crates: jmap-mail-types. Size: S.\n\nSpec: draft-ietf-jmap-emailpush-05 §2.1, §3, §4, §5 figures, §7. Design: docs/design/emailpush.md §4, §3 (decision 3), and decision 9 in docs/design/DECISIONS.md.\n\nAdd feature `emailpush` to crate-jmap-mail-types (no new deps, no async). Private mod emailpush, items re-exported at the crate root as in the mdn/sieve layout of lib.rs: JMAP_EMAILPUSH_URI, EMAIL_PUSH_PROPERTY, EmailPushCapability and EmailPushAccountCapability (empty + extra), EmailPushConfig { filter: Option\u003cEmailFilter\u003e (serde default, ALWAYS serialized, null included), properties: Vec\u003cString\u003e (default []), urgency: jmap_types::Urgency (default \"normal\"), extra }, EmailPush (hand-written serde like jmap_types::StateChange: @type \"EmailPush\" always emitted, another value rejected without echoing it, absence accepted; accountId, emails: Vec\u003cMap\u003e, state: Option\u003cState\u003e always serialized, extra), accessors email_push(\u0026PushSubscription) and set_email_push(\u0026mut PushSubscription, Option\u003cBTreeMap\u003cId, EmailPushConfig\u003e\u003e). All #[non_exhaustive]. The serde defaults are the single source of the normalized form (decision 9).\nAcceptance (hand-written JSON oracles from the spec): the §5 Session capability figure deserializes and `\"urn:ietf:params:jmap:emailpush\": {}` round-trips; the §5 EmailPush figure round-trips equal as a Value with \"state\": null emitted; a wrong @type is rejected and a missing one accepted; vendor extras on EmailPush and EmailPushConfig are preserved; `{}` decodes and re-serializes to exactly {\"filter\":null,\"properties\":[],\"urgency\":\"normal\"}; \"urgent\" fails to decode. Public-api snapshot refreshed.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:36.606375378Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:36.606375378Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.7",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:36.730328751Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

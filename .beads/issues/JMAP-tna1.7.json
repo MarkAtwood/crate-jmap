@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-tna1.7",
+  "title": "cid-types: re-cite RFC 9404 to blobext-03",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B17. Crates: jmap-cid-types. Size: S.\n\nDocs only, per docs/design/blobext.md §9 'Existing crates': re-cite crate-jmap-cid-types blobext.rs and lib docs from RFC 9404 §4.1 to draft-ietf-jmap-blobext-03 §5 (Blob/get digest:* properties). Acceptance: no code change; cargo doc builds; grep shows no remaining stale RFC 9404 §4.1 citations in that crate.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:47.401660875Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:47.401660875Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.7",
+      "depends_on_id": "JMAP-tna1",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:47.529705631Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

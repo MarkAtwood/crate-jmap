@@ -1,0 +1,49 @@
+{
+  "id": "JMAP-r44n.12",
+  "title": "mail-server memory: PushSubscriptionBackend + EmailPushBackend, deliver_email, test-helpers, end-to-end tests",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E10. Crates: jmap-mail-server. Size: L.\n\nSpec: RFC 8620 §7.2 (PushSubscription, verification), draft-ietf-jmap-emailpush-05 §3 (\"delivered\" = conditions that change EmailDelivery, not JMAP creation), §4, §5. Design: docs/design/emailpush.md §7, §10 (r44n.3 memory, deliver); decisions 9 and 10.\n\nIn crate-jmap-mail-server memory (new memory/push.rs, impl blocks in memory/mod.rs, Cargo.toml): MemoryBackend (CallerCtx = (), single owner) implements jmap_server::PushSubscriptionBackend with a CSPRNG verification code, an overQuota cap, PushVerification queued in an outbox Vec, check_push_subscription_change calling check_email_push_change, and list_push_subscriptions stripping with prune_email_push. It implements EmailPushBackend: every account returns EmailPushAccount { mail: true, object_ids: true, email_history: false }. New feature test-helpers = [\"memory\"] with set_email_push_account_for_test (no-mail, no-ObjectID, Email-history, revoked) and set_push_max_bytes_for_test; the self dev-dependency gets features [\"memory\",\"mdn\",\"sieve\",\"emailpush\",\"test-helpers\"]. pub async fn deliver_email(account_id, raw, mailbox_ids, keywords) -\u003e Result\u003c(Id, Vec\u003c(Id, OutboundEmailPush)\u003e), _\u003e reuses the import path, bumps Email state and a new EmailDelivery state, and runs email_pushes_for per stored subscription with max_bytes = PUSH_PLAINTEXT_BYTES (3993, documented as equal to jmap_web_push::MAX_PLAINTEXT). It returns the outbox and does no network I/O. Email/import does not call it.\nAcceptance: the §5 request/delivery end to end via the dispatcher (register_push_subscription_handlers + mail handlers) yields the spec's EmailPush figure; normalized emailPush returned by /get and echoed in created/updated (decision 9); objectHistory with email_history set via test helper is stored without it, and rejected with the default (decision 10); deliver_email pushes while Email/import and Email/set create do not; r44n.3 end to end after revoking R — /get lacks R, an update of types only succeeds and the stored map loses R, patch emailPush/R =\u003e [\"emailPush\",\"emailPush/R\"], patch emailPush/R/urgency =\u003e invalidPatch, deliveries to R push nothing; splitting exercised through set_push_max_bytes_for_test. Public-api snapshot and CHANGELOG.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:38.155291903Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:38.155291903Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.12",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:38.283312074Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.12",
+      "depends_on_id": "JMAP-r44n.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:29.661578513Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.12",
+      "depends_on_id": "JMAP-r44n.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:29.786739669Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.12",
+      "depends_on_id": "JMAP-r44n.2",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:29.908642622Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

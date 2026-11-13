@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-tna1.3.8",
+  "title": "mail-server SieveScript history (feature sieve), register_sieve_handlers_with_history",
+  "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H6. Crates: jmap-mail-types, jmap-mail-server (feature sieve). Size: S.\n\nSpec: object-history-03 §5.2 (SieveScript comes back inactive; activate with onSuccessActivateScript; name clash ⇒ alreadyExists), §3, §4. Design: docs/design/object-history.md §5 'Registration', §9 'Existing crates'.\n\nWork:\n- impl HistoryObject for SieveScript.\n- History get/set handlers. Bind `using` from CallContext, because Sieve is registered without it.\n- Destroyed query: SieveScript has no QueryObject and filters in the handler, so use get_object_history(ids: None, include_destroyed) plus the same handler-side filter and paging.\n- A restored script id is a valid onSuccessActivateScript target in the same call.\n- register_sieve_handlers_with_history.\n- Memory records script versions.\n\nThis bead runs after H5 because it shares mail-server lib.rs and memory/mod.rs.\n\nAcceptance:\n- Restore ⇒ isActive false.\n- Name clash ⇒ alreadyExists.\n- Restore + onSuccessActivateScript of the same id activates it.\n- Destroyed query filtering and paging work.\n- CHANGELOG bullet, public-api.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:50.480655157Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:50.480655157Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.3.8",
+      "depends_on_id": "JMAP-tna1.3",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:50.607409444Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.3.8",
+      "depends_on_id": "JMAP-tna1.3.5",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:35.812411015Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

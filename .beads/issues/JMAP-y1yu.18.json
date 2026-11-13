@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-y1yu.18",
+  "title": "filenode-client: filenode_set_conditional",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C10. Crates: jmap-filenode-client. Size: S.\n\nImplement docs/design/conditional.md §8 FileNode binding (decision 8, docs/design/DECISIONS.md; conditional-02 §5). New fn filenode_set_conditional built on base-client SetCall/set_call with using = USING_FILENODE + conditional URI; FileNodeSetParams and filenode_set unchanged (struct not non_exhaustive). Acceptance: wiremock tests sending example 5.1 and 5.8 request shapes and decoding stateMismatch(failed) and atomicFailure via ConditionalError; public-api additions only.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:35.343424926Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:35.343424926Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.18",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:35.467660663Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.18",
+      "depends_on_id": "JMAP-y1yu.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:24.588060716Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

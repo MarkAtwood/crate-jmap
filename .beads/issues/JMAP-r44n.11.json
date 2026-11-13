@@ -1,0 +1,41 @@
+{
+  "id": "JMAP-r44n.11",
+  "title": "mail-client: emailpush feature (typed emailPush helpers, parse_push_payload)",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E12. Crates: jmap-mail-client. Size: S.\n\nSpec: draft-ietf-jmap-emailpush-05 §3 (clients MUST NOT rely on EmailPush as a complete record; RECOMMENDED property choice), §4, §6 (client MUST specify keys and ignore pushes not encrypted with them). Design: docs/design/emailpush.md §8; decisions 3 and 8.\n\nIn crate-jmap-mail-client add feature emailpush = [\"jmap-mail-types/emailpush\"] with methods/push.rs: EmailPushSubscriptionInput (a create with REQUIRED keys, so a keyless create cannot be built); set_email_push(sub_id, Option\u003cBTreeMap\u003cId, EmailPushConfig\u003e\u003e) and patch_email_push(sub_id, account, Option\u003cEmailPushConfig\u003e), both over the base-client PushSubscription/set binding with JMAP_EMAILPUSH_URI in using; parse_push_payload(\u0026[u8]) -\u003e #[non_exhaustive] PushPayload { StateChange, PushVerification, EmailPush, Other(Value) }, which dispatches on @type over DECRYPTED bytes. Rustdoc carries the §6 MUST, the §3 MUST NOT rely, and the RECOMMENDED property ordering. No re-export of the mail-types accessors (Public API rule 6).\nAcceptance: parse_push_payload on the §5 EmailPush figure and on the RFC 8620 §7.1 and §7.2.2 examples; the create input cannot omit keys (compile-time: required field); request using contains the emailpush URI. Public-api snapshot refreshed.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:37.846813545Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:37.846813545Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.11",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:37.969210364Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.11",
+      "depends_on_id": "JMAP-r44n.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:28.33118611Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-r44n.11",
+      "depends_on_id": "JMAP-r44n.9",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:28.451654386Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

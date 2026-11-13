@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-y1yu.16",
+  "title": "graph-server: opt-in conditional incl. GraphNodeOp/set seq rollback",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C9h. Crates: jmap-graph-server. Size: M.\n\nApply the C7 pattern (docs/design/conditional.md §5.1, §7, §9 Other crates; decision 1 in docs/design/DECISIONS.md). register_graph_conditional attaches to every registered graph /set from both register_graph_handlers and register_graph_edit_handlers (GraphNodeOp/set); both register fns unchanged; memory on ScopedState + ConditionalBackend so an atomic rollback restores the op seq; Atomic final-state: edge endpoints after node destroys, caps. Acceptance: precondition, atomic rollback (seq unchanged after rollback), final-state edge-endpoint test; conditional_ready() for each register combination; public-api additions only.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:34.712794017Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:34.712794017Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.16",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:34.839228021Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.16",
+      "depends_on_id": "JMAP-y1yu.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:24.33149144Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

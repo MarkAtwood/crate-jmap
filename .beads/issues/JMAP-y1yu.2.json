@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-y1yu.2",
+  "title": "jmap-server: ConditionalBackend, SetScope, SetSupport and opt-in attach API",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C2. Crates: jmap-server. Size: M.\n\nImplement docs/design/conditional.md §5.1 and §6 (conditional-02 §4, §6.1, §6.2, §9.1). In crate-jmap-server: trait ConditionalBackend: JmapBackend with REQUIRED begin_set(caller, SetScopeRequest) -\u003e Result\u003cBox\u003cdyn SetScope\u003e, BeginSetError\u003cE\u003e\u003e (no default, spec-method-defaults rule) and hidden_properties (default Ok(empty), fail-open permission hook); SetScope (commit/rollback, drop rolls back); SetScopeRequest, SetMode {Isolated, Atomic}, BeginSetError, CommitError {Rejected(Vec\u003cDeferredFailure\u003e), Other}, DeferredFailure, SetOp {Create, Update, Destroy, Restore}; SET_SCOPE task_local + current_set_scope(); serialized_writes_scope(request) helper (refuses Atomic, no-op Isolated, rustdoc states the only condition it is correct under). Decision 1 (docs/design/DECISIONS.md): opt-in, non-breaking: SetSupport\u003cC\u003e { data_type, [SERVER_SET, CLIENT_SETTABLE], Arc\u003cdyn DynConditional\u003cC\u003e\u003e } with SetSupport::new::\u003cO: SetObject, B: ConditionalBackend\u003e(Arc\u003cB\u003e); Dispatcher::attach_set_support(method, support) -\u003e Result (errors on unregistered or non-/set method); Dispatcher::register of a method drops its SetSupport. No change to JmapHandler, ClosureHandler or any register fn. CallContext gains pub atomic: bool; HandlerOutput gains non-wire unreadable map + with_unreadable(). All #[non_exhaustive] where listed in §6. Acceptance: unit tests for attach/register-drops/unregistered error, scope drop rolls back with a test SetScope; rustdoc on every hook states the contract text from §6; public-api/jmap-server.txt additions only; existing tests unchanged.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:30.128401527Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:30.128401527Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.2",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:30.251973166Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.2",
+      "depends_on_id": "JMAP-y1yu.1",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:21.945634462Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

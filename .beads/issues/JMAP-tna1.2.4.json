@@ -1,0 +1,49 @@
+{
+  "id": "JMAP-tna1.2.4",
+  "title": "blob-server: BlobBackend trait, register_blob_handlers, mode/range/order helpers",
+  "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B4. Crates: jmap-blob-server. Size: M.\n\nFix the public surface of crate-jmap-blob-server per docs/design/blobext.md §5 and §6: backend.rs (BlobBackend: JmapBackend with every hook in the §6 table and its default/no-default rule; lookup_type_capability default = jmap_types::data_types::data_type filtered on can_reference_blobs, decision 14; no blob_set_atomic hook, decision 1), lib.rs (register_blob_handlers registering Blob/get, Blob/set, Blob/lookup, Blob/convert via the sibling reg! macro; public handle_blob_* stubs returning serverFail; Blob/upload is added later by B11), mode.rs (BlobMode::from_using: both blob and blob2 -\u003e Conflict, blob only -\u003e Rfc9404, else Blobext; decision 11), range.rs (select_range with checked arithmetic, UTF-8 helpers), order.rs (topo_order with cycle members). Unit tests for range (isTruncated table incl. u64::MAX), order (chains, cycles) and mode. Acceptance: public-api snapshot fixed so B7-B10 do not touch it; clippy clean; rustdoc on every hook contract (spec section cited).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:42.830777679Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:42.830777679Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-tna1.2.4",
+      "depends_on_id": "JMAP-tna1.2",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:42.954662675Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.4",
+      "depends_on_id": "JMAP-tna1.4",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:30.992386865Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.4",
+      "depends_on_id": "JMAP-tna1.2.2",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.111714141Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-tna1.2.4",
+      "depends_on_id": "JMAP-tna1.2.3",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:31.232393327Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

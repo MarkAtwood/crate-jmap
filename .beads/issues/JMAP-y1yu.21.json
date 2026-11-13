@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-y1yu.21",
+  "title": "Next breaking release: growable options parameter on all 30 typed *_set fns",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C13. Crates: jmap-calendars-client, jmap-chat-mimi-client, jmap-contacts-client, jmap-filenode-client, jmap-graph-client, jmap-mail-client, jmap-scene-client, jmap-sharing-client, jmap-tasks-client, jmap-vtc-client (and jmap-base-client for the shared options type). Size: L.\n\nFollow-up from decision 8 (docs/design/DECISIONS.md; docs/design/conditional.md §8, §9 Compatibility). BREAKING, schedule for the next breaking release only. Give each of the 30 typed *_set client fns (address_book_set ... vtc_recording_set) one growable #[non_exhaustive] options parameter (e.g. SetOptions in jmap-base-client) carrying conditional-02 ConditionalSetArgs and object-history-03 restore together, so later per-set options need no signature change; using gains the conditional URI only when conditional args are non-default. Then reimplement filenode_set_conditional on it (keep it as a #[deprecated] wrapper per the repo stability policy) . Acceptance: every typed *_set fn takes the options parameter; one wiremock test per crate showing ifUnchangedBy/atomic serialized and default options producing byte-identical requests to today; CHANGELOG BREAKING entry; public-api snapshots updated.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:36.293537142Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:36.293537142Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.21",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:36.422334967Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.21",
+      "depends_on_id": "JMAP-y1yu.6",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:27.971357824Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

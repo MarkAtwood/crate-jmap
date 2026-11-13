@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.8",
+  "title": "mail-server: move Email/get property check and projection into crate-private project.rs",
+  "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E4. Crates: jmap-mail-server. Size: S.\n\nDesign: docs/design/emailpush.md §3 (project.rs), §5.2, §5.3. Pure refactor, no behaviour change.\n\nMove the Email/get property-name check and the per-property projection (default bodyProperties, header:* forms, metadata projection) from crate-jmap-mail-server/src/email.rs (and helpers.rs where they live) into a crate-private src/project.rs exposing check_email_property(name, ctx) and project_email(email, properties). Leave a hook point for a caller-chosen \"no implicit id\" mode (EmailPush needs it later; Email/get keeps its implicit id). Add one mod line in lib.rs. Do NOT fix the silent dropping of unknown names here (that is the separate follow-up bug bead).\nAcceptance: all existing mail-server tests pass unchanged; the public-api snapshot is unchanged.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "chore",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:36.913605326Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:36.913605326Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.8",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:37.036858348Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "JMAP-y1yu.11",
+  "title": "tasks-server: opt-in conditional + chat-tasks task_hidden_properties",
+  "description": "Design: docs/design/conditional.md. Decisions: docs/design/DECISIONS.md.\nNote key: C9c. Crates: jmap-tasks-server, jmap-chat-tasks-server. Size: M.\n\nApply the C7 pattern (docs/design/conditional.md §5.1, §6, §7; conditional-02 §9.1; decision 1 in docs/design/DECISIONS.md). register_tasks_conditional; register_tasks_handlers unchanged; memory on ScopedState + ConditionalBackend; Atomic final-state checks (single default TaskList where specified, quotas/caps). In jmap-chat-tasks-server add task_hidden_properties (Task chatId hidden via ChatBackend::may_view_chat, same decision as redact_task_chat_ids) for consumers' ConditionalBackend::hidden_properties. Acceptance: precondition, atomic rollback, final-state tests; a chatId precondition for a caller who cannot view the chat -\u003e forbidden even when the value matches; public-api additions only.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T02:50:33.203392094Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T02:50:33.203392094Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-y1yu.11",
+      "depends_on_id": "JMAP-y1yu",
+      "type": "parent-child",
+      "created_at": "2026-11-13T02:50:33.329769892Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-y1yu.11",
+      "depends_on_id": "JMAP-y1yu.7",
+      "type": "blocks",
+      "created_at": "2026-11-13T02:53:23.543637029Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
