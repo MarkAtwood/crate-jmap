@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-gs76.7",
+  "title": "jmap-search: umbrella crate (claimed 0.0.1)",
+  "description": "Umbrella facade re-exporting jmap-search-types (always) and -client/-server behind features where they exist (did/cid: types only). Same shape as jmap-tasks (JMAP-unaa) and jmap-blob (JMAP-tna1.10). Done when: the crate lives in this workspace as a member (Cargo.toml members + [workspace.dependencies] entry once something depends on it), follows the canonical-template rule, has a public-api/ snapshot, a RELEASING.md layer entry, and publishes on the shared jmap-* version line (replacing 0.0.1). Placeholder source: ~/PROJECT/jmap-name-claims/\u003cname\u003e/ (publish log in this session; verify on crates.io).",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-13T05:04:44.346398649Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-13T05:04:44.346398649Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-gs76.7",
+      "depends_on_id": "JMAP-gs76",
+      "type": "parent-child",
+      "created_at": "2026-11-13T05:04:44.472280756Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

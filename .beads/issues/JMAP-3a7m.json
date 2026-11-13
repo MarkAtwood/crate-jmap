@@ -2,14 +2,15 @@
   "id": "JMAP-3a7m",
   "title": "watch: JMAP list implementation reviews (blobext, object-history, refplus, metadata)",
   "description": "Mark posted implementation reviews from crate-jmap to jmap@ietf.org on 2026-11-01: draft-ietf-jmap-blobext-02, -object-history-02, -refplus-02, -metadata-05 (issues + line numbers). No replies as of 2026-11-02. Check the list (IETF IMAP archive or Fastmail IETF folder); answer replies; turn agreed fixes into crate-jmap work. JMAP session at IETF 127: Thu 2026-11-19 09:00 PT.",
+  "notes": "2026-11-13: filed from implementing (all in docs/upstream/2026-11-13/): brong/draft-gondwana-jmap-object-history#1, brong/draft-gondwana-jmap-conditional#1 \u003c-\u003e object-history#2, jmapio/jmap#484 (emailpush), brong/draft-gondwana-jmap-blobext#1; 2 RFC 9404 errata submitted by Mark via errata.rfc-editor.org (pending RPC screening, IDs not yet assigned; record them here); list summary sent to jmap@ietf.org 2026-11-13 04:39Z (note ~/PROJECT/IETF/notes/2026-11-13-jmap-implementation-findings-sent.md). Watch replies; turn agreed changes into beads under JMAP-y1yu/r44n/tna1. Also: Bron's object-history editor's copy is at -04 (JMAP-tna1.3.27). IETF 127 JMAP session Thu 2026-11-19 09:00 PT.",
   "status": "deferred",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-02T19:18:05.873433166Z",
   "created_by": "agent",
-  "updated_at": "2026-11-02T19:18:05.873433166Z",
-  "defer_until": "2026-11-09T00:00:00-08:00",
+  "updated_at": "2026-11-13T05:05:02.921353416Z",
+  "defer_until": "2026-11-19T00:00:00Z",
   "labels": [
     "upstream-watch"
   ]

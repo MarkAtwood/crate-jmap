@@ -1,1 +1,2 @@
 {"id":"01a156c5-8806-7092-a15c-0864b94f60b0","issue_id":"JMAP-6itf","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-20T00:45:48.422038709Z"}
+{"id":"01a1d34a-df14-7498-be4e-925e3bf9290c","issue_id":"JMAP-6itf","event_type":"closed","actor":"system","old_value":"","new_value":"All children completed","created_at":"2026-11-13T05:04:21.780301516Z"}
