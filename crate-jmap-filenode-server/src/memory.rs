@@ -952,6 +952,26 @@ fn descendant_ids(nodes: &HashMap<Id, FileNode>, id: &Id) -> Vec<Id> {
     found
 }
 
+/// The ids of `parent` and its ancestors among `nodes` that carry a
+/// non-empty `shareWith`, nearest first: the sources of the rights a child
+/// of `parent` inherits. A cycle in a malformed tree ends the walk.
+fn sharing_ancestors(nodes: &HashMap<Id, FileNode>, parent: Option<&Id>) -> Vec<Id> {
+    let mut seen = std::collections::HashSet::new();
+    let mut found = Vec::new();
+    let mut current = parent;
+    while let Some(id) = current {
+        if !seen.insert(id) {
+            break;
+        }
+        let Some(node) = nodes.get(id) else { break };
+        if node.share_with.as_ref().is_some_and(|s| !s.is_empty()) {
+            found.push(id.clone());
+        }
+        current = node.parent_id.as_ref();
+    }
+    found
+}
+
 /// The `forbidden` SetError for destroying, renaming or moving a Directory
 /// with a role (draft-ietf-jmap-filenode-20 §5).
 fn role_forbidden() -> BackendSetError<MemoryError> {
@@ -1211,17 +1231,24 @@ impl FileNodeBackend for MemoryBackend {
             return Err(role_forbidden());
         }
 
-        let share_with_changed = updated_props
-            .as_ref()
-            .is_some_and(|props| props.contains("shareWith"));
-        store.nodes.insert(id.clone(), updated_node.clone());
-        store.bump_state(ChangeType::Updated, id.clone(), updated_props);
         // draft-ietf-jmap-filenode-20 §5: "A node's rights can change
         // without any change to the node itself: through a change to
-        // shareWith on an ancestor ... The server MUST report every node
-        // whose rights for a user changed as changed in FileNode/changes".
-        // This backend has no users, so it reports the whole subtree; only
-        // `myRights` changed for them, and not their `changed` (§3.1.1).
+        // shareWith on an ancestor, or when the node or an ancestor moves
+        // to a parent whose inherited rights differ. The server MUST report
+        // every node whose rights for a user changed as changed in
+        // FileNode/changes". This backend has no users, so it treats any
+        // change to the shareWith in force as a change for some user and
+        // reports the whole subtree; only `myRights` changed for those
+        // nodes, and not their `changed` (§3.1.1).
+        let inherited_rights_changed = updated_node.parent_id != node.parent_id
+            && sharing_ancestors(&store.nodes, node.parent_id.as_ref())
+                != sharing_ancestors(&store.nodes, updated_node.parent_id.as_ref());
+        let share_with_changed = inherited_rights_changed
+            || updated_props
+                .as_ref()
+                .is_some_and(|props| props.contains("shareWith"));
+        store.nodes.insert(id.clone(), updated_node.clone());
+        store.bump_state(ChangeType::Updated, id.clone(), updated_props);
         if share_with_changed {
             for descendant in descendant_ids(&store.nodes, id) {
                 store.bump_state(

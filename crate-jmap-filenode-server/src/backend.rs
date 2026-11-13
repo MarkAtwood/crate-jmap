@@ -286,8 +286,11 @@ pub trait FileNodeBackend: JmapBackend {
     ///   FileNode/changes" for that user.
     ///
     /// The reference `MemoryBackend` has no users: it sets `changed` as
-    /// above, reports the whole subtree of a node whose `shareWith`
-    /// changed, and has no inherited rights that a move could change.
+    /// above, and reports the whole subtree of a node whose `shareWith`
+    /// changed or that moved to a parent with a different set of sharing
+    /// ancestors (those with a non-empty `shareWith`). It treats such a
+    /// change as a change of rights for some user, since it has no users
+    /// to check.
     fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
