@@ -70,9 +70,12 @@ impl CaseFolding {
 ///
 /// # Permission enforcement (backend canonical)
 ///
-/// The handlers in this crate check no `myRights`; the backend is the
-/// canonical enforcement point. [`files_rights`](Self::files_rights) only
-/// reports rights. The backend MUST enforce the caller's rights inside the
+/// The backend is the canonical enforcement point. The handlers check
+/// `myRights` in one place only, the `onExists` "replace" of
+/// `FileNode/set` and `FileNode/copy`, whose check order
+/// draft-ietf-jmap-filenode-20 §3.2.3 fixes (see Destroy below); elsewhere
+/// [`files_rights`](Self::files_rights) only reports rights. The backend
+/// MUST enforce the caller's rights inside the
 /// same atomic boundary as the write in
 /// [`create_object`](Self::create_object),
 /// [`update_object`](Self::update_object) and
@@ -103,12 +106,23 @@ impl CaseFolding {
 ///   `executable` (-20 §3.1.2), and `mayShare` to change `shareWith`. A
 ///   move to the top level needs the account's `mayCreateTopLevelFileNode`
 ///   in place of `mayAddChildren` (-20 §5).
-/// - Destroy: `mayDelete`, which an `onExists` replacement also needs on the
-///   existing node. -20 §3.2.3 also makes `forbidden` "a destroy that would
-///   remove nodes the user cannot discover", such as an
-///   `onDestroyRemoveChildren` cascade over a hidden descendant; the
-///   handler sees only the descendants [`get_descendant_ids`](Self::get_descendant_ids)
-///   returns, so the backend refuses the destroy of their parent.
+/// - Destroy: `mayDelete`. -20 §3.2.3 also makes `forbidden` "a destroy
+///   that would remove nodes the user cannot discover", such as an
+///   `onDestroyRemoveChildren` cascade over a hidden descendant; for a
+///   plain destroy the handler sees only the descendants
+///   [`get_descendant_ids`](Self::get_descendant_ids) returns, so the
+///   backend refuses the destroy of their parent.
+/// - `onExists` "replace": -20 §3.2.3 has the server check, in order,
+///   that the existing node is discoverable (else `forbidden`, without
+///   its id), that the user has `mayDelete` on it (else `forbidden`), and
+///   only then its children (`nodeHasChildren`, or `forbidden` when a
+///   cascade would remove an undiscoverable descendant). The handlers make
+///   these checks before any destroy: a node or descendant that
+///   [`JmapBackend::get_objects`] leaves out is undiscoverable, and the
+///   rights are [`files_rights`](Self::files_rights) where it is `Some`,
+///   else the stored `myRights` (a parent's, for a File or SymLink). When
+///   neither states rights the handler proceeds, and
+///   [`destroy_object`](Self::destroy_object) stays the atomic check.
 /// - Copy: the source must be discoverable in `fromAccountId`, and the copy
 ///   is a create in `accountId`.
 ///

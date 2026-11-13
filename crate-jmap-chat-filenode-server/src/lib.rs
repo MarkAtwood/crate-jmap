@@ -793,12 +793,16 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
 /// [`destroy_space_file_tree`] destroys in a server context and does not
 /// go through this check.
 ///
-/// This covers the `onExists` replacements of draft-ietf-jmap-filenode,
-/// which "require `mayDelete` on the existing node, and fail with
-/// "forbidden" without it", as `FileNode/set` destroys the replaced node
-/// through `destroy_object`. Without the right the destroy fails with
-/// `forbidden`; return that SetError from `destroy_object` without
-/// removing the node.
+/// This covers the `onExists` "replace" of draft-ietf-jmap-filenode-20
+/// §3.2.3 too: "If the user does not have mayDelete on the existing node,
+/// the operation fails with "forbidden"". `FileNode/set` and
+/// `FileNode/copy` check that themselves first, with the rights
+/// `FileNodeBackend::files_rights` reports (so [`space_files_rights`] when
+/// the deployment wires it there), before any `nodeHasChildren` check or
+/// cascade. They then destroy the replaced node through `destroy_object`,
+/// where this check is the atomic backstop and the only one that applies
+/// the Space root's `"manage_space"` rule: without the right, return its
+/// SetError from `destroy_object` without removing the node.
 ///
 /// # Errors
 ///
