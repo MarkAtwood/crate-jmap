@@ -2,11 +2,12 @@
   "id": "JMAP-gs76",
   "title": "Name claims 2026-11-13: 22 crates.io placeholders",
   "description": "Mark 2026-11-13 claimed 22 names on crates.io as 0.0.1 placeholders built in ~/PROJECT/jmap-name-claims/ (same format as the 2026-10-30 claims; publishing paced by the crates.io new-crate rate limit). New-extension names are tracked by their design epics: jmap-blob-types/-server/-client (JMAP-tna1.2.1), jmap-object-history-types/-server/-client (JMAP-tna1.3.1). This epic tracks the rest: umbrellas for existing families and names held for extensions implemented as modules/features. Children: one per name. Verify each is live on crates.io (owner MarkAtwood) before closing a child.",
+  "notes": "2026-11-13: all 22 names published as 0.0.1 and verified on crates.io (owner MarkAtwood): jmap-blob-types/-server/-client, jmap-object-history{,-types,-server,-client}, jmap-conditional, jmap-emailpush, jmap-mdn, jmap-sieve, jmap-refplus, jmap-mail-sharing, jmap-filenode, jmap-sharing, jmap-metadata, jmap-vtc, jmap-scene, jmap-graph, jmap-did, jmap-cid, jmap-search. Children stay open: each closes when its crate joins the workspace (or, for held names, when Mark decides).",
   "status": "open",
   "priority": 3,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T05:04:42.360083124Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T05:04:42.360083124Z"
+  "updated_at": "2026-11-13T07:27:30.131146789Z"
 }
