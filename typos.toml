@@ -38,6 +38,9 @@ extend-ignore-re = [
     "JrQLj5P_89iXES9-vFgrIy29clF9CC_oPPsw3c5D0bs",
     # Beads issue ids (e.g. `JMAP-fo38`): random base36, not words.
     "JMAP-[0-9a-z]{4}",
+    # RFC 9404-style blob ids: `G` followed by a 40-hex-digit SHA-1 (e.g.
+    # docs/upstream/2026-11-13/rfc9404-erratum-upload.md). Hex, not words.
+    "G[0-9a-f]{40}",
 ]
 
 [default.extend-words]
