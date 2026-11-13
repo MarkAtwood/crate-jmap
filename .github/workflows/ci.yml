@@ -114,7 +114,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: crate-ci/typos@master
+      - uses: crate-ci/typos@v1.52.2
 
   # -------------------------------------------------------------------------
   # msrv — verify the workspace actually compiles on the declared minimum
