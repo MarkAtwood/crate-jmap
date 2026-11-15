@@ -294,9 +294,18 @@ fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
             v.as_str().is_some_and(|p| PHYSICS_MODES.contains(&p))
         }),
     );
-    for key in ["parentId", "name", "visualRef", "visualType", "assetUri"] {
+    for key in ["parentId", "name", "visualRef", "visualType"] {
         check(key, optional(key, |v| v.is_null() || v.is_string()));
     }
+    // draft-atwood-jmap-updates-00 §7.1: an RFC 3986 URI.
+    check(
+        "assetUri",
+        optional("assetUri", |v| {
+            v.is_null()
+                || v.as_str()
+                    .is_some_and(|s| jmap_types::uri::check_uri(s).is_ok())
+        }),
+    );
     for key in ["interactable", "visible"] {
         check(key, optional(key, Value::is_boolean));
     }

@@ -921,3 +921,21 @@ async fn changes_reports_created_regions() {
     );
     assert_eq!(resp["created"], json!([id]));
 }
+
+#[tokio::test]
+async fn endpoint_uris_must_be_rfc3986_uris() {
+    // draft-atwood-jmap-updates-00 §7.1 (jmap-chat-spec 2b85363): a
+    // URI-valued property "SHOULD hold a URI as defined in RFC 3986
+    // Section 3"; "URIs in JMAP are ASCII". `simulationUri` and `inputUri`
+    // stay opaque in meaning (L408-L412), but a value with a space or a raw
+    // non-ASCII character is not a URI.
+    let backend = backend();
+    for (key, bad) in [
+        ("simulationUri", "wss://sim.example.com/regions/a b"),
+        ("inputUri", "udp://ïnput.example:9000"),
+    ] {
+        let mut r = design_review_room();
+        r[key] = json!(bad);
+        assert_invalid(&create_error(&backend, r).await, &[key]);
+    }
+}

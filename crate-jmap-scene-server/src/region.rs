@@ -304,10 +304,20 @@ fn malformed(m: &Map<String, Value>) -> Vec<&'static str> {
             .is_some_and(|s| !s.is_empty()),
     );
     check("bounds", m.get("bounds").is_some_and(bounds_ok));
+    // draft-atwood-jmap-updates-00 §7.1: the endpoint URIs are opaque in
+    // meaning but SHOULD be RFC 3986 URIs.
+    for key in ["simulationUri", "inputUri"] {
+        check(
+            key,
+            optional(key, |v| {
+                v.is_null()
+                    || v.as_str()
+                        .is_some_and(|s| jmap_types::uri::check_uri(s).is_ok())
+            }),
+        );
+    }
     for key in [
         "description",
-        "simulationUri",
-        "inputUri",
         "viewHint",
         "chatId",
         "spaceId",

@@ -729,3 +729,13 @@ async fn destroy_of_unknown_object_is_not_found() {
         "notFound"
     );
 }
+
+#[tokio::test]
+async fn asset_uri_must_be_an_rfc3986_uri() {
+    // draft-atwood-jmap-updates-00 §7.1: `assetUri` (L622) SHOULD hold an
+    // RFC 3986 URI; one with a space is invalid.
+    let backend = setup();
+    let mut c = sculpture();
+    c["assetUri"] = json!("https://cdn.example.com/assets/sculpture 001.glb");
+    assert_invalid(&create_error(&backend, c).await, &["assetUri"]);
+}

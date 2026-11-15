@@ -564,3 +564,16 @@ async fn destroy_of_unknown_asset_is_not_found() {
     let resp = set(&backend, ALICE, json!({ "destroy": ["S9"] })).await;
     assert_eq!(resp["notDestroyed"]["S9"]["type"], json!("notFound"));
 }
+
+#[tokio::test]
+async fn asset_uri_must_be_an_rfc3986_uri() {
+    // draft-atwood-jmap-updates-00 §7.1: `assetUri` (L345) SHOULD hold an
+    // RFC 3986 URI; a raw non-ASCII IRI is not one (map it per RFC 3987
+    // §3.1 first).
+    let backend = backend();
+    let mut req = spec_create();
+    req["assetUri"] = json!("https://cdn.exämple.com/a.glb");
+    let err = create_error(&backend, req).await;
+    assert_eq!(err["type"], json!("invalidProperties"));
+    assert_eq!(properties(&err), ["assetUri"]);
+}

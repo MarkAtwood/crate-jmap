@@ -296,7 +296,12 @@ fn malformed<'a>(m: &'a Map<String, Value>, cap: &SceneCapability) -> Vec<&'a st
     {
         let ok = match v {
             Value::Null => true,
-            Value::String(s) => key != "sha256" || is_lowercase_sha256(s),
+            Value::String(s) => match key.as_str() {
+                "sha256" => is_lowercase_sha256(s),
+                // draft-atwood-jmap-updates-00 §7.1: an RFC 3986 URI.
+                "assetUri" => jmap_types::uri::check_uri(s).is_ok(),
+                _ => true,
+            },
             _ => false,
         };
         if !ok {
@@ -358,7 +363,8 @@ async fn create_asset<B: SceneBackend>(
         return Err(invalid(
             &bad,
             "blobId and mediaType are required; mediaType must be supported; \
-             name, assetUri and sha256 must be strings or null, sha256 lowercase hex",
+             name, assetUri and sha256 must be strings or null, assetUri an RFC 3986 URI, \
+             sha256 lowercase hex",
         ));
     };
 
@@ -476,7 +482,8 @@ async fn update_asset<B: SceneBackend>(
     if !bad.is_empty() {
         return Err(invalid(
             &bad,
-            "name, assetUri and sha256 must be strings or null, sha256 lowercase hex",
+            "name, assetUri and sha256 must be strings or null, assetUri an RFC 3986 URI, \
+             sha256 lowercase hex",
         ));
     }
 
