@@ -346,3 +346,40 @@ async fn query_other_sort_property_is_unsupported() {
     };
     assert_eq!(err.error_type.to_string(), "unsupportedSort");
 }
+
+#[tokio::test]
+async fn stream_uri_must_be_an_rfc3986_uri() {
+    // draft-atwood-jmap-updates-00 §7.1 (jmap-chat-spec 2b85363): a
+    // URI-valued property "SHOULD hold a URI as defined in RFC 3986
+    // Section 3". L1372 `streamUri` is "the RTMP or equivalent ingest
+    // endpoint"; one with a space is not a URI, on create or update.
+    let backend = media_backend();
+    let mut bad = start();
+    bad["streamUri"] = json!("rtmp://live.example.com/my ingest");
+    let err = create(&backend, BOB, bad).await.expect_err("not a URI");
+    assert_invalid(&err, json!(["streamUri"]));
+
+    // A stopped stream may be reconfigured, but only with a URI.
+    seed_as(
+        &backend,
+        "VTCLivestream",
+        stored_livestream("L1", "stopped", json!("2026-06-05T14:41:00Z")),
+    );
+    let err = update(
+        &backend,
+        BOB,
+        "L1",
+        json!({ "streamUri": "rtmp://lïve.example.com/x" }),
+    )
+    .await
+    .expect_err("not a URI");
+    assert_invalid(&err, json!(["streamUri"]));
+    update(
+        &backend,
+        BOB,
+        "L1",
+        json!({ "streamUri": "rtmp://live.example.com/y" }),
+    )
+    .await
+    .expect("a URI is accepted");
+}

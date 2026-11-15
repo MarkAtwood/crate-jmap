@@ -169,7 +169,8 @@ pub trait VtcBackend: JmapBackend {
     /// - mint a ULID `id` ("VTCCall IDs are ULIDs ... assigned by the
     ///   server at the time the call is created"), call `build(&id)` once
     ///   for the call carrying it, and assign a `joinUri` ("The server
-    ///   generates `joinUri` pointing to the deployment's media stack");
+    ///   generates `joinUri` pointing to the deployment's media stack"), which
+    ///   MUST be an RFC 3986 URI (draft-atwood-jmap-updates-00 §7.1);
     /// - when `call.chat_id` names a Chat already referenced by a call in
     ///   state `"active"` or `"ringing"`, refuse with
     ///   [`call_already_active_on_chat`];

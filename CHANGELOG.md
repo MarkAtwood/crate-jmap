@@ -143,6 +143,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-vtc-server**: `VTCLivestream/set` rejects a `streamUri` that is not
+  an RFC 3986 URI with `invalidProperties`, on create and update
+  (draft-atwood-jmap-updates-00 §7.1).
 - **jmap-scene-server**: `SceneAsset/set` and `SceneObject/set` reject an
   `assetUri`, and `SceneRegion/set` a `simulationUri` or `inputUri`, that is
   not an RFC 3986 URI with `invalidProperties` naming it

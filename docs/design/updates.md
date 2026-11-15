@@ -329,7 +329,7 @@ names that comparison, which §7.1 allows.
 | chat-mimi | KeyMaterial `clientUri`/`userUri`, capability `userUri` | KeyMaterial/fetch: a non-URI request `targetUser` is `invalidArguments`; a provider reply with a non-URI `userUri`/`clientUri` is `serverFail` (malformed reply). Capability `userUri`: `MimiBackend::mimi_capability` rustdoc MUST (deployment config), JMAP-cayv.18 | done |
 | chat-federation | PeerAttachment and PeerAvatar `fetchUrl` | Peer/deliver: a non-URI attachment `fetchUrl` is `invalidArguments` before any fetch; Peer/groupUpdate: a non-URI avatar `fetchUrl` is a failed (unfetched) avatar, the request still applies; outbound: the deployment mints URIs (rustdoc), JMAP-cayv.19 | done |
 | scene | SceneAsset/SceneObject `assetUri`, SceneRegion `simulationUri`/`inputUri` | `/set` create and update: a non-URI value is `invalidProperties` naming it (the endpoints stay opaque in meaning; a `host:port` endpoint still parses as a URI), JMAP-cayv.20 | done |
-| vtc | VTCCall/VTCEvent `joinUri`, VTCRecording `streamUri`, push `joinUri` | none (server-set) | bead |
+| vtc | VTCCall `joinUri` (and its copies in events and push), VTCLivestream `streamUri` | `joinUri`: server-set, `VtcBackend::create_call` rustdoc MUST (the memory backend's is a URI); `streamUri`: `VTCLivestream/set` create and update reject a non-URI with `invalidProperties`, JMAP-cayv.21 | done |
 | graph | GraphNode `uri`, query `objectUri` | none | bead |
 | tasks | Task `uri` | none | bead |
 | filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | none (server-set Session data) | bead |

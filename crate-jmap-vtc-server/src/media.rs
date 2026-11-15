@@ -833,6 +833,11 @@ async fn create_livestream<B: VtcBackend>(
         .into_iter()
         .filter(|k| !m.get(*k).is_some_and(Value::is_string))
         .collect();
+    // draft-atwood-jmap-updates-00 §7.1: the ingest endpoint is an RFC 3986
+    // URI.
+    if !bad.contains(&"streamUri") && !stream_uri_ok(m.get("streamUri")) {
+        bad.push("streamUri");
+    }
     if m.get("platform")
         .is_some_and(|p| !p.is_string() && !p.is_null())
     {
@@ -841,7 +846,8 @@ async fn create_livestream<B: VtcBackend>(
     if !bad.is_empty() {
         return Err(invalid(
             &bad,
-            "streamUri and streamKey must be strings; platform a string or null",
+            "streamUri (an RFC 3986 URI) and streamKey must be strings; \
+             platform a string or null",
         ));
     }
     let platform = m.get("platform").cloned().unwrap_or(Value::Null);
@@ -1070,6 +1076,9 @@ async fn update_livestream<B: VtcBackend>(
             "stream configuration can change only while stopped or failed",
         ));
     }
+    if !stream_uri_ok(patch.as_map().get("streamUri")) {
+        return Err(invalid(&["streamUri"], "streamUri must be an RFC 3986 URI"));
+    }
 
     let mut echo = Map::new();
     let mut from = None;
@@ -1093,6 +1102,14 @@ async fn update_livestream<B: VtcBackend>(
     // only stop a stream, so a stream read as `"stopped"` or `"failed"`
     // cannot become `"starting"` or `"live"` again before the write.
     apply::<VtcLivestream, B>(backend, caller, account_id, id, from, patch, echo).await
+}
+
+/// `true` unless `value` is a string that is not an RFC 3986 URI
+/// (draft-atwood-jmap-updates-00 §7.1); other types are checked elsewhere.
+fn stream_uri_ok(value: Option<&Value>) -> bool {
+    value
+        .and_then(Value::as_str)
+        .is_none_or(|s| jmap_types::uri::check_uri(s).is_ok())
 }
 
 /// §VTCRecording/set and §VTCLivestream/set: "Only participants with
