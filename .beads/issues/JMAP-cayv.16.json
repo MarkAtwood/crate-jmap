@@ -3,17 +3,17 @@
   "title": "testjig: i18n opt-in and end-to-end tests (language, Accept-Language, WS, pruning, preferredLanguages, problem details)",
   "description": "jmap-testjig: opt in to i18n on all localizable families and add end-to-end tests over HTTP and WS:\n- language view on /get, plus a /query sort\n- Accept-Language does NOT alter /get data, but does localize problem-details title/detail\n- the WS handshake Accept-Language applies to the whole connection\n- stale-translation pruning from a client without i18n\n- preferredLanguages is null on a shared account\n- problem details on Session, eventsource, upload and download errors\nLast child; depends on the rest.\n",
   "notes": "2026-11-15: preferredLanguages was DROPPED from draft-atwood-jmap-updates-00 (working copy in jmap-chat-spec). The account value of urn:ietf:params:jmap:i18n is now {} like the Session value; the Account Language Preference section is gone (left to a future JMAP account-settings spec). Remove preferredLanguages from scope here.\nDone 2026-11-15 for Mailbox, AddressBook (and Principal via the shared sharing backend) over HTTP and WS; the Calendar end-to-end case moves to JMAP-cayv.10 (blocked on JMAP-lehj). Dropped: preferredLanguages (removed from the draft) and upload/download problem cases (the jig has no upload/download resources; base-client tests cover the client side). Accept-Language is read by the jig's HTTP layer (CallerCtx is ()), not via JmapBackend::accept_language.",
-  "status": "in_progress",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "assignee": "Mark Atwood",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-15T02:07:26.569926494Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-15T06:50:40.844774901Z",
+  "updated_at": "2026-11-15T06:50:50.13423508Z",
   "started_at": "2026-11-15T06:46:42.521722839Z",
-  "lease_expires_at": "2026-11-15T06:51:42.521722839Z",
-  "heartbeat_at": "2026-11-15T06:46:42.521722839Z",
+  "closed_at": "2026-11-15T06:50:50.13423508Z",
+  "close_reason": "testjig advertises i18n; localized problem titles with Content-Language; WS handshake Accept-Language per connection; 6 end-to-end tests over HTTP and WS. Calendar case moved to JMAP-cayv.10 (dependency removed).",
   "labels": [
     "spec",
     "i18n"
@@ -48,14 +48,6 @@
       "depends_on_id": "JMAP-cayv.9",
       "type": "blocks",
       "created_at": "2026-11-15T02:07:44.511674824Z",
-      "created_by": "Mark Atwood",
-      "metadata": "{}"
-    },
-    {
-      "issue_id": "JMAP-cayv.16",
-      "depends_on_id": "JMAP-cayv.10",
-      "type": "blocks",
-      "created_at": "2026-11-15T02:07:44.980070065Z",
       "created_by": "Mark Atwood",
       "metadata": "{}"
     },
