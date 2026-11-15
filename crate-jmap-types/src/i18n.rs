@@ -770,6 +770,58 @@ pub fn prune_stale_localizations(
 // /get: the single-language view
 // ---------------------------------------------------------------------------
 
+/// The tag that §4.2.1 chooses for `obj` under `ranges`, and the
+/// PatchObject stored for it when it is a key of `localizations`.
+fn choose(
+    obj: &Map<String, Value>,
+    ranges: &[LanguageRange],
+) -> (Option<LanguageTag>, Option<Map<String, Value>>) {
+    let locale = obj
+        .get("locale")
+        .and_then(Value::as_str)
+        .and_then(|s| LanguageTag::parse(s).ok());
+    let mut localizations: BTreeMap<LanguageTag, Map<String, Value>> =
+        match obj.get("localizations") {
+            Some(Value::Object(m)) => m
+                .iter()
+                .filter_map(|(k, v)| Some((LanguageTag::parse(k).ok()?, v.as_object()?.clone())))
+                .collect(),
+            _ => BTreeMap::new(),
+        };
+    let available: Vec<&LanguageTag> = localizations.keys().chain(locale.as_ref()).collect();
+    let chosen = lookup(ranges, available.iter().copied())
+        .or(locale.as_ref())
+        .cloned();
+    let patch = chosen.as_ref().and_then(|t| localizations.remove(t));
+    (chosen, patch)
+}
+
+/// The value that the `/get` view under `ranges` ([`localized_view`])
+/// gives `property` of the serialized object `obj`, for sorting and
+/// filtering a `/query` with `language` (draft-atwood-jmap-updates-00
+/// §4.2.2). `None` when the property is absent; `Some(&Value::Null)` when
+/// the chosen language has no value for it.
+///
+/// ```rust
+/// use jmap_types::i18n::{LanguageRange, localized_value};
+/// use serde_json::json;
+///
+/// let obj = json!({"name": "Inbox", "locale": "en",
+///                  "localizations": {"de": {"name": "Posteingang"}}});
+/// let de: Vec<LanguageRange> = vec!["de-AT".parse().unwrap()];
+/// assert_eq!(localized_value(obj.as_object().unwrap(), "name", &de), Some(json!("Posteingang")));
+/// ```
+pub fn localized_value(
+    obj: &Map<String, Value>,
+    property: &str,
+    ranges: &[LanguageRange],
+) -> Option<Value> {
+    match choose(obj, ranges).1.and_then(|mut p| p.remove(property)) {
+        Some(v) => Some(v),
+        None => obj.get(property).cloned(),
+    }
+}
+
 /// Turn the serialized object `obj` into its view in one language
 /// (draft-atwood-jmap-updates-00 §4.2.1).
 ///
@@ -803,22 +855,8 @@ pub fn localized_view(
     properties: &[LocalizableProperty],
     ranges: &[LanguageRange],
 ) {
-    let locale = obj
-        .get("locale")
-        .and_then(Value::as_str)
-        .and_then(|s| LanguageTag::parse(s).ok());
-    let localizations: BTreeMap<LanguageTag, Map<String, Value>> = match obj.get("localizations") {
-        Some(Value::Object(m)) => m
-            .iter()
-            .filter_map(|(k, v)| Some((LanguageTag::parse(k).ok()?, v.as_object()?.clone())))
-            .collect(),
-        _ => BTreeMap::new(),
-    };
-    let available: Vec<&LanguageTag> = localizations.keys().chain(locale.as_ref()).collect();
-    let chosen = lookup(ranges, available.iter().copied())
-        .or(locale.as_ref())
-        .cloned();
-    if let Some(patch) = chosen.as_ref().and_then(|t| localizations.get(t)) {
+    let (chosen, patch) = choose(obj, ranges);
+    if let Some(patch) = patch {
         for p in properties {
             if let Some(v) = patch.get(p.name) {
                 obj.insert(p.name.to_owned(), v.clone());

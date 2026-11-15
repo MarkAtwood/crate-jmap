@@ -461,3 +461,31 @@ fn prune_nothing_when_base_unchanged() {
     assert!(!removed);
     assert_eq!(locs, stored()["localizations"]);
 }
+
+// --- /query: localized_value ---------------------------------------------
+
+/// draft §4.2.2: a `/query` with `language` compares "the value that /get
+/// with the same language would return, not the base value".
+#[test]
+fn localized_value_matches_the_view() {
+    let obj = json!({
+        "name": "Team contacts",
+        "description": "Our team",
+        "locale": "en",
+        "localizations": {
+            "fr": { "name": "Contacts du groupe", "description": null },
+            "de": { "name": "Team-Kontakte" }
+        }
+    });
+    let o = obj.as_object().unwrap();
+    let v = |p: &str, r: &[&str]| jmap_types::i18n::localized_value(o, p, &ranges(r));
+    assert_eq!(v("name", &["fr-CH"]), Some(json!("Contacts du groupe")));
+    // A property the PatchObject omits keeps the base value.
+    assert_eq!(v("description", &["de"]), Some(json!("Our team")));
+    // A null in the PatchObject: no value in that language.
+    assert_eq!(v("description", &["fr"]), Some(Value::Null));
+    // No match: the base value.
+    assert_eq!(v("name", &["ja"]), Some(json!("Team contacts")));
+    // Absent property.
+    assert_eq!(v("color", &["fr"]), None);
+}

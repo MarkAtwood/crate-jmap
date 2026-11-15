@@ -59,7 +59,10 @@ pub use helpers::{
     resolve_creation_ref, resolve_query_offset, resolve_query_start, serialize_value,
     strip_read_only_patch, take_bool_arg, uses_metadata, utc_date_from_epoch_seconds,
 };
-pub use i18n::{I18nInfo, I18nProjection, I18nSet, localized_update, uses_i18n};
+pub use i18n::{
+    I18nInfo, I18nProjection, I18nSet, localized_query_state, localized_update, unwrap_query_state,
+    uses_i18n,
+};
 
 mod parse;
 mod push;

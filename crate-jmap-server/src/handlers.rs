@@ -443,6 +443,12 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 /// [`BackendQueryError::Method`](crate::backend::BackendQueryError::Method)
 /// is returned to the client unchanged; any other backend error becomes the
 /// redacted `serverFail`.
+///
+/// Like [`handle_get`] it does not see `using`, so a non-null `language`
+/// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
+/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// uses its own handler, which passes `language` to the backend and wraps
+/// the queryState with [`crate::localized_query_state`].
 pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -456,6 +462,12 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // No `using` here: draft-atwood-jmap-updates-00 §3 treats the
+    // capability as absent, so a non-null `language` is invalidArguments.
+    // Types with localizable properties have their own handlers that pass
+    // `language` through `QueryParams` / `QueryChangesParams`.
+    I18nProjection::from_args::<O>(&mut args, &[], None)?;
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -534,6 +546,12 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 /// [`JmapBackend::query_changes`] with `collapse_threads: false`. For
 /// `Email/queryChanges` (which may need `collapseThreads: true`), use the
 /// domain-specific handler in jmap-mail-server instead.
+///
+/// Like [`handle_get`] it does not see `using`, so a non-null `language`
+/// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
+/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// uses its own handler, which passes `language` to the backend and checks
+/// `sinceQueryState` with [`crate::unwrap_query_state`].
 pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -547,6 +565,12 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // No `using` here: draft-atwood-jmap-updates-00 §3 treats the
+    // capability as absent, so a non-null `language` is invalidArguments.
+    // Types with localizable properties have their own handlers that pass
+    // `language` through `QueryParams` / `QueryChangesParams`.
+    I18nProjection::from_args::<O>(&mut args, &[], None)?;
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),

@@ -416,3 +416,75 @@ pub fn localized_update<O: JmapObject>(
     check_and_fold(new, O::LOCALIZABLE, max_localizations)?;
     Ok(prune_stale_localizations(old, new, patch, O::LOCALIZABLE))
 }
+
+// ---------------------------------------------------------------------------
+// /query and /queryChanges: queryState
+// ---------------------------------------------------------------------------
+
+/// Separates the backend's queryState from the language in a wrapped state.
+/// Language ranges never contain `|`, so the last occurrence is the mark.
+const LANG_MARK: &str = "|lang=";
+
+fn join_ranges(language: &[LanguageRange]) -> String {
+    language
+        .iter()
+        .map(LanguageRange::as_str)
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// The `queryState` to return from a `Foo/query` whose `language` was
+/// `language` (draft-atwood-jmap-updates-00 §4.2.3: "The queryState of a
+/// /query result reflects the language it was computed with").
+///
+/// With `language` `None` the backend's `state` is returned unchanged.
+/// Otherwise it is wrapped as `<state>|lang=<r1>,<r2>`, the ranges in
+/// canonical case (decision 28). Backend query states MUST NOT contain
+/// `|lang=`. [`unwrap_query_state`] reverses it.
+///
+/// ```rust
+/// use jmap_server::{localized_query_state, unwrap_query_state};
+/// use jmap_types::State;
+/// use jmap_types::i18n::LanguageRange;
+///
+/// let de: Vec<LanguageRange> = vec!["DE-ch".parse().unwrap(), "de".parse().unwrap()];
+/// let wrapped = localized_query_state(&State::from("17"), Some(&de));
+/// assert_eq!(wrapped.as_ref(), "17|lang=de-CH,de");
+/// assert_eq!(unwrap_query_state(&wrapped, Some(&de)).unwrap().as_ref(), "17");
+/// assert!(unwrap_query_state(&wrapped, None).is_err());
+/// ```
+pub fn localized_query_state(
+    state: &jmap_types::State,
+    language: Option<&[LanguageRange]>,
+) -> jmap_types::State {
+    match language {
+        None => state.clone(),
+        Some(l) => {
+            jmap_types::State::from(format!("{}{LANG_MARK}{}", state.as_ref(), join_ranges(l)))
+        }
+    }
+}
+
+/// The backend's queryState inside a `Foo/queryChanges` `sinceQueryState`,
+/// checked against the request's `language`.
+///
+/// # Errors
+///
+/// `cannotCalculateChanges` when the language that `sinceQueryState` was
+/// computed with differs from `language` (draft-atwood-jmap-updates-00
+/// §4.2.3), including when one of them has a language and the other not.
+pub fn unwrap_query_state(
+    since: &jmap_types::State,
+    language: Option<&[LanguageRange]>,
+) -> Result<jmap_types::State, JmapError> {
+    let s = since.as_ref();
+    let (inner, was) = match s.rfind(LANG_MARK) {
+        Some(i) => (&s[..i], Some(&s[i + LANG_MARK.len()..])),
+        None => (s, None),
+    };
+    let now = language.map(join_ranges);
+    if was != now.as_deref() {
+        return Err(JmapError::cannot_calculate_changes());
+    }
+    Ok(jmap_types::State::from(inner))
+}

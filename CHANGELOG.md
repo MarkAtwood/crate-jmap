@@ -42,6 +42,16 @@ wire behaviour that a conforming peer can observe.
   checks the result and prunes translations made stale by a changed base
   value, returning `true` when the backend must return the updated object
   so `localizations` is echoed.
+- **jmap-server**: draft-atwood-jmap-updates-00 `language` on `/query` and
+  `/queryChanges`. `QueryParams::language` and `QueryChangesParams::language`
+  carry it to the backend, which sorts and filters localizable properties
+  on the localized value; `localized_query_state` and `unwrap_query_state`
+  record the language in `queryState` and answer a mismatch with
+  `cannotCalculateChanges`. `handle_query` and `handle_query_changes` reject
+  a non-null `language` with `invalidArguments`.
+- **jmap-types**: `i18n::localized_value`, the value a localizable property
+  has in the `/get` view for a `language`, for backends that sort and
+  filter.
 - **jmap-calendars-server**: `CalendarEvent/set` enforces the per-event
   account limits of draft-ietf-jmap-calendars-34 §5.9. `CalendarsLimits`
   gains `max_calendars_per_event`, `max_participants_per_event`,

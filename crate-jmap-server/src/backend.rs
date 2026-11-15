@@ -525,6 +525,13 @@ pub struct QueryParams<'a, O: QueryObject> {
     /// `anchorOffset`, added to the anchor's index; ignored without an
     /// `anchor`.
     pub anchor_offset: i64,
+    /// `language` (draft-atwood-jmap-updates-00 §4.2.2): sort and filter
+    /// on a localizable property ([`JmapObject::LOCALIZABLE`]) compare the
+    /// value `/get` with these ranges returns
+    /// ([`jmap_types::i18n::localized_value`]), not the base value. `None`
+    /// compares stored values. Set only for an account whose
+    /// [`JmapBackend::i18n_info`] is `Some`; such a backend MUST honour it.
+    pub language: Option<&'a [jmap_types::i18n::LanguageRange]>,
 }
 
 impl<'a, O: QueryObject> QueryParams<'a, O> {
@@ -538,6 +545,7 @@ impl<'a, O: QueryObject> QueryParams<'a, O> {
             position: 0,
             anchor: None,
             anchor_offset: 0,
+            language: None,
         }
     }
 
@@ -582,6 +590,13 @@ impl<'a, O: QueryObject> QueryParams<'a, O> {
         self.anchor_offset = anchor_offset;
         self
     }
+
+    /// Set [`language`](Self::language).
+    #[must_use]
+    pub fn language(mut self, language: Option<&'a [jmap_types::i18n::LanguageRange]>) -> Self {
+        self.language = language;
+        self
+    }
 }
 
 impl<O: QueryObject> Default for QueryParams<'_, O> {
@@ -612,6 +627,7 @@ where
             .field("position", &self.position)
             .field("anchor", &self.anchor)
             .field("anchor_offset", &self.anchor_offset)
+            .field("language", &self.language)
             .finish()
     }
 }
@@ -637,6 +653,14 @@ pub struct QueryChangesParams<'a, O: QueryObject> {
     /// `collapseThreads`, meaningful only for `Email/queryChanges`
     /// (RFC 8621 §4.5); `false` for every other type.
     pub collapse_threads: bool,
+    /// `language`, as passed to the original `/query`
+    /// (draft-atwood-jmap-updates-00 §4.2.3): sort and filter
+    /// on a localizable property ([`JmapObject::LOCALIZABLE`]) compare the
+    /// value `/get` with these ranges returns
+    /// ([`jmap_types::i18n::localized_value`]), not the base value. `None`
+    /// compares stored values. Set only for an account whose
+    /// [`JmapBackend::i18n_info`] is `Some`; such a backend MUST honour it.
+    pub language: Option<&'a [jmap_types::i18n::LanguageRange]>,
 }
 
 impl<'a, O: QueryObject> QueryChangesParams<'a, O> {
@@ -650,6 +674,7 @@ impl<'a, O: QueryObject> QueryChangesParams<'a, O> {
             max_changes: None,
             up_to_id: None,
             collapse_threads: false,
+            language: None,
         }
     }
 
@@ -687,6 +712,13 @@ impl<'a, O: QueryObject> QueryChangesParams<'a, O> {
         self.collapse_threads = collapse_threads;
         self
     }
+
+    /// Set [`language`](Self::language).
+    #[must_use]
+    pub fn language(mut self, language: Option<&'a [jmap_types::i18n::LanguageRange]>) -> Self {
+        self.language = language;
+        self
+    }
 }
 
 impl<O: QueryObject> Clone for QueryChangesParams<'_, O> {
@@ -710,6 +742,7 @@ where
             .field("max_changes", &self.max_changes)
             .field("up_to_id", &self.up_to_id)
             .field("collapse_threads", &self.collapse_threads)
+            .field("language", &self.language)
             .finish()
     }
 }

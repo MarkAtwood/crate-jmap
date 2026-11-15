@@ -2,14 +2,14 @@
   "id": "JMAP-cayv.6",
   "title": "jmap-server Session: i18n capability and preferredLanguages account capability (null for non-owned accounts)",
   "description": "jmap-server Session: advertise urn:ietf:params:jmap:i18n ({}) only on opt-in, and the account capability with `preferredLanguages`.\n- Add a backend hook returning Option\u003cVec\u003cLanguageTag\u003e\u003e per account. How it is set is the deployment's business.\n- The hook MUST return null (None) for accounts the requesting user does not own (draft Privacy Considerations, SHOULD; we enforce it in the helper so backends can't leak).\n- Document in rustdoc: a server MAY use preferredLanguages for text written with no request in progress (push text). It MUST NOT use it to change /get or /query results.\n",
-  "notes": "Design: docs/design/updates.md (final 2026-11-15, decisions 27-31). Account capability comes from i18n_info; preferred_languages None for accounts the caller does not own (draft §9).",
+  "notes": "Design: docs/design/updates.md (final 2026-11-15, decisions 27-31). Account capability comes from i18n_info; preferred_languages None for accounts the caller does not own (draft §9).\n2026-11-15: preferredLanguages was DROPPED from draft-atwood-jmap-updates-00 (working copy in jmap-chat-spec). The account value of urn:ietf:params:jmap:i18n is now {} like the Session value; the Account Language Preference section is gone (left to a future JMAP account-settings spec). Remove preferredLanguages from scope here.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-15T02:07:23.682814528Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-15T02:31:58.388678618Z",
+  "updated_at": "2026-11-15T03:24:25.813680361Z",
   "labels": [
     "spec",
     "i18n"

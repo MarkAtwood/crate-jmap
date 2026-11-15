@@ -2,13 +2,14 @@
   "id": "JMAP-cayv.16",
   "title": "testjig: i18n opt-in and end-to-end tests (language, Accept-Language, WS, pruning, preferredLanguages, problem details)",
   "description": "jmap-testjig: opt in to i18n on all localizable families and add end-to-end tests over HTTP and WS:\n- language view on /get, plus a /query sort\n- Accept-Language does NOT alter /get data, but does localize problem-details title/detail\n- the WS handshake Accept-Language applies to the whole connection\n- stale-translation pruning from a client without i18n\n- preferredLanguages is null on a shared account\n- problem details on Session, eventsource, upload and download errors\nLast child; depends on the rest.\n",
+  "notes": "2026-11-15: preferredLanguages was DROPPED from draft-atwood-jmap-updates-00 (working copy in jmap-chat-spec). The account value of urn:ietf:params:jmap:i18n is now {} like the Session value; the Account Language Preference section is gone (left to a future JMAP account-settings spec). Remove preferredLanguages from scope here.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-15T02:07:26.569926494Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-15T02:07:26.569926494Z",
+  "updated_at": "2026-11-15T03:24:26.174927949Z",
   "labels": [
     "spec",
     "i18n"
