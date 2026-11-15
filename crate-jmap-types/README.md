@@ -21,6 +21,7 @@ spec requires.
 | `ResultReference` | §9 | Reference to a prior method's result |
 | `Argument<T>` | §9 | A method argument that is either a value or a `ResultReference` |
 | `JmapUri` | draft-atwood-jmap-object-uri-00 | `jmap:<type>:<accountId>:<objectId>` object reference |
+| `i18n::*` | draft-atwood-jmap-updates-00 §3–§4 | `urn:ietf:params:jmap:i18n` capability, `LanguageTag` (RFC 5646), `LanguageRange` and `lookup` (RFC 4647), `Localizations`, and the `/set` check, pruning and `/get` view helpers |
 
 The `query` module also re-exports the generic filter algebra used across the
 crate family: `Filter<T>`, `FilterOperator<T>`, and `Operator` (RFC 8620 §5.5).
@@ -226,6 +227,7 @@ jmap-types          ← this crate
 
 - **No field validation.** `Id::from("")` succeeds. `UTCDate::from("not-a-date")` succeeds. `SetError::new("")` also succeeds and produces a wire-noncompliant `{"type":""}` shape. RFC 8620 field constraints (non-empty Ids, valid date formats, non-empty SetError types) are enforced by consumers such as `jmap-server`, not here. Construct a `SetError` from a typed `SetErrorType` variant when the type is a known one.
 - **`Argument<T>` sealed type set.** The `Argument<T>` type (which holds either a plain value or a `ResultReference`) is constrained to a sealed set of inner types. Newtypes that serialize as JSON strings (`Id`, `Date`, `UTCDate`, `State`, plus their `Vec<_>` forms), plus `String`, `Vec<String>`, `u32`, `u64`, and `bool` are in the set. `serde_json::Value` and every JSON-object-shaped type are intentionally excluded — including `serde_json::Value` would silently swallow any `ResultReference` payload. To add a new type to the sealed set, a PR to this crate is required.
+- **Language tags are well-formed, not valid.** `i18n::LanguageTag` checks the RFC 5646 grammar and folds case, but does not look subtags up in the IANA registry, so `qq-Zzzz` parses. Equality ignores the input's case.
 - **`JmapError` method-level only.** `JmapError` covers RFC 8620 §3.6.2 method-level errors. Request-level errors (§3.6.1, returned as HTTP 400/500 with an RFC 7807 body) are `RequestError` in `jmap-server`, not here.
 
 ## References
@@ -233,7 +235,11 @@ jmap-types          ← this crate
 - [RFC 8620] — JMAP Core (normative)
 - [RFC 7807] — Problem Details for HTTP APIs (request-level errors, §3.6.1)
 - [RFC 6901] — JSON Pointer (used in `ResultReference.path`)
+- [RFC 5646], [RFC 4647] — language tags and Lookup (`i18n` module)
+- draft-atwood-jmap-updates-00 — localized display text (`i18n` module)
 
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 7807]: https://www.rfc-editor.org/rfc/rfc7807
 [RFC 6901]: https://www.rfc-editor.org/rfc/rfc6901
+[RFC 5646]: https://www.rfc-editor.org/rfc/rfc5646
+[RFC 4647]: https://www.rfc-editor.org/rfc/rfc4647

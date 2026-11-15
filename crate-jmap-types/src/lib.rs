@@ -32,6 +32,7 @@
 
 mod backend;
 mod error;
+pub mod i18n;
 mod id;
 mod jmap_uri;
 mod methods;

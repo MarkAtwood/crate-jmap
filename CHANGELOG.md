@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: new `i18n` module for draft-atwood-jmap-updates-00
+  localized display text: `JMAP_I18N_URI`, `I18nCapability`,
+  `I18nAccountCapability`; `LanguageTag` (RFC 5646 well-formed, canonical
+  case, case-insensitive equality) and `LanguageRange` (RFC 4647 §2.1);
+  `lookup` (RFC 4647 §3.4); `Localizations`, `Localizable` and
+  `LocalizableProperty`; `parse_locale` and `check_localizations`
+  (`invalidProperties` SetErrors for `/set`), `prune_stale_localizations`
+  and `localized_view` (the single-language `/get` view, which returns
+  `localizations: null`).
 - **jmap-calendars-server**: `CalendarEvent/set` enforces the per-event
   account limits of draft-ietf-jmap-calendars-34 §5.9. `CalendarsLimits`
   gains `max_calendars_per_event`, `max_participants_per_event`,

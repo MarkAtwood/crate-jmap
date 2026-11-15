@@ -1,4 +1,151 @@
 pub mod jmap_types
+pub mod jmap_types::i18n
+#[non_exhaustive] pub enum jmap_types::i18n::LanguageTagError
+pub jmap_types::i18n::LanguageTagError::EmptySubtag
+pub jmap_types::i18n::LanguageTagError::IllFormed
+pub jmap_types::i18n::LanguageTagError::InvalidSubtag
+impl core::clone::Clone for jmap_types::i18n::LanguageTagError
+pub fn jmap_types::i18n::LanguageTagError::clone(&self) -> jmap_types::i18n::LanguageTagError
+impl core::cmp::Eq for jmap_types::i18n::LanguageTagError
+impl core::cmp::PartialEq for jmap_types::i18n::LanguageTagError
+pub fn jmap_types::i18n::LanguageTagError::eq(&self, &jmap_types::i18n::LanguageTagError) -> bool
+impl core::error::Error for jmap_types::i18n::LanguageTagError
+impl core::fmt::Debug for jmap_types::i18n::LanguageTagError
+pub fn jmap_types::i18n::LanguageTagError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::i18n::LanguageTagError
+pub fn jmap_types::i18n::LanguageTagError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::i18n::LanguageTagError
+#[non_exhaustive] pub struct jmap_types::i18n::I18nAccountCapability
+pub jmap_types::i18n::I18nAccountCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::i18n::I18nAccountCapability::preferred_languages: core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageTag>>
+impl core::clone::Clone for jmap_types::i18n::I18nAccountCapability
+pub fn jmap_types::i18n::I18nAccountCapability::clone(&self) -> jmap_types::i18n::I18nAccountCapability
+impl core::cmp::PartialEq for jmap_types::i18n::I18nAccountCapability
+pub fn jmap_types::i18n::I18nAccountCapability::eq(&self, &jmap_types::i18n::I18nAccountCapability) -> bool
+impl core::default::Default for jmap_types::i18n::I18nAccountCapability
+pub fn jmap_types::i18n::I18nAccountCapability::default() -> jmap_types::i18n::I18nAccountCapability
+impl core::fmt::Debug for jmap_types::i18n::I18nAccountCapability
+pub fn jmap_types::i18n::I18nAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::i18n::I18nAccountCapability
+impl serde_core::ser::Serialize for jmap_types::i18n::I18nAccountCapability
+pub fn jmap_types::i18n::I18nAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::i18n::I18nAccountCapability
+pub fn jmap_types::i18n::I18nAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::i18n::I18nCapability
+pub jmap_types::i18n::I18nCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_types::i18n::I18nCapability
+pub fn jmap_types::i18n::I18nCapability::clone(&self) -> jmap_types::i18n::I18nCapability
+impl core::cmp::PartialEq for jmap_types::i18n::I18nCapability
+pub fn jmap_types::i18n::I18nCapability::eq(&self, &jmap_types::i18n::I18nCapability) -> bool
+impl core::default::Default for jmap_types::i18n::I18nCapability
+pub fn jmap_types::i18n::I18nCapability::default() -> jmap_types::i18n::I18nCapability
+impl core::fmt::Debug for jmap_types::i18n::I18nCapability
+pub fn jmap_types::i18n::I18nCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::i18n::I18nCapability
+impl serde_core::ser::Serialize for jmap_types::i18n::I18nCapability
+pub fn jmap_types::i18n::I18nCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::i18n::I18nCapability
+pub fn jmap_types::i18n::I18nCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_types::i18n::LanguageRange(_)
+impl jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::as_str(&self) -> &str
+pub fn jmap_types::i18n::LanguageRange::is_wildcard(&self) -> bool
+pub fn jmap_types::i18n::LanguageRange::parse(&str) -> core::result::Result<Self, jmap_types::i18n::LanguageTagError>
+impl core::clone::Clone for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::clone(&self) -> jmap_types::i18n::LanguageRange
+impl core::cmp::Eq for jmap_types::i18n::LanguageRange
+impl core::cmp::Ord for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::cmp(&self, &jmap_types::i18n::LanguageRange) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::eq(&self, &jmap_types::i18n::LanguageRange) -> bool
+impl core::cmp::PartialOrd for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::partial_cmp(&self, &jmap_types::i18n::LanguageRange) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::i18n::LanguageRange
+impl core::str::traits::FromStr for jmap_types::i18n::LanguageRange
+pub type jmap_types::i18n::LanguageRange::Err = jmap_types::i18n::LanguageTagError
+pub fn jmap_types::i18n::LanguageRange::from_str(&str) -> core::result::Result<Self, Self::Err>
+impl serde_core::ser::Serialize for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::i18n::LanguageRange
+pub fn jmap_types::i18n::LanguageRange::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+pub struct jmap_types::i18n::LanguageTag(_)
+impl jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::as_str(&self) -> &str
+pub fn jmap_types::i18n::LanguageTag::parse(&str) -> core::result::Result<Self, jmap_types::i18n::LanguageTagError>
+impl core::clone::Clone for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::clone(&self) -> jmap_types::i18n::LanguageTag
+impl core::cmp::Eq for jmap_types::i18n::LanguageTag
+impl core::cmp::Ord for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::cmp(&self, &jmap_types::i18n::LanguageTag) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::eq(&self, &jmap_types::i18n::LanguageTag) -> bool
+impl core::cmp::PartialOrd for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::partial_cmp(&self, &jmap_types::i18n::LanguageTag) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::AsRef<str> for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::as_ref(&self) -> &str
+impl core::fmt::Debug for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_types::i18n::LanguageTag
+impl core::str::traits::FromStr for jmap_types::i18n::LanguageTag
+pub type jmap_types::i18n::LanguageTag::Err = jmap_types::i18n::LanguageTagError
+pub fn jmap_types::i18n::LanguageTag::from_str(&str) -> core::result::Result<Self, Self::Err>
+impl serde_core::ser::Serialize for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::i18n::LanguageTag
+pub fn jmap_types::i18n::LanguageTag::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_types::i18n::LocalizableProperty
+pub jmap_types::i18n::LocalizableProperty::name: &'static str
+pub jmap_types::i18n::LocalizableProperty::nullable: bool
+impl jmap_types::i18n::LocalizableProperty
+pub const fn jmap_types::i18n::LocalizableProperty::new(&'static str, bool) -> Self
+impl core::clone::Clone for jmap_types::i18n::LocalizableProperty
+pub fn jmap_types::i18n::LocalizableProperty::clone(&self) -> jmap_types::i18n::LocalizableProperty
+impl core::cmp::Eq for jmap_types::i18n::LocalizableProperty
+impl core::cmp::PartialEq for jmap_types::i18n::LocalizableProperty
+pub fn jmap_types::i18n::LocalizableProperty::eq(&self, &jmap_types::i18n::LocalizableProperty) -> bool
+impl core::fmt::Debug for jmap_types::i18n::LocalizableProperty
+pub fn jmap_types::i18n::LocalizableProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_types::i18n::LocalizableProperty
+impl core::marker::StructuralPartialEq for jmap_types::i18n::LocalizableProperty
+#[non_exhaustive] pub struct jmap_types::i18n::Localizations(_)
+impl jmap_types::i18n::Localizations
+pub fn jmap_types::i18n::Localizations::get(&self, &jmap_types::i18n::LanguageTag) -> core::option::Option<&jmap_types::PatchObject>
+pub fn jmap_types::i18n::Localizations::is_empty(&self) -> bool
+pub fn jmap_types::i18n::Localizations::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&jmap_types::i18n::LanguageTag, &jmap_types::PatchObject)>
+pub fn jmap_types::i18n::Localizations::len(&self) -> usize
+pub fn jmap_types::i18n::Localizations::tags(&self) -> impl core::iter::traits::iterator::Iterator<Item = &jmap_types::i18n::LanguageTag> + core::clone::Clone
+impl core::clone::Clone for jmap_types::i18n::Localizations
+pub fn jmap_types::i18n::Localizations::clone(&self) -> jmap_types::i18n::Localizations
+impl core::cmp::Eq for jmap_types::i18n::Localizations
+impl core::cmp::PartialEq for jmap_types::i18n::Localizations
+pub fn jmap_types::i18n::Localizations::eq(&self, &jmap_types::i18n::Localizations) -> bool
+impl core::default::Default for jmap_types::i18n::Localizations
+pub fn jmap_types::i18n::Localizations::default() -> jmap_types::i18n::Localizations
+impl core::fmt::Debug for jmap_types::i18n::Localizations
+pub fn jmap_types::i18n::Localizations::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::i18n::Localizations
+impl serde_core::ser::Serialize for jmap_types::i18n::Localizations
+pub fn jmap_types::i18n::Localizations::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::i18n::Localizations
+pub fn jmap_types::i18n::Localizations::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+pub const jmap_types::i18n::JMAP_I18N_URI: &str
+pub trait jmap_types::i18n::Localizable
+pub const jmap_types::i18n::Localizable::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
+pub fn jmap_types::i18n::check_localizations(core::option::Option<&jmap_types::i18n::LanguageTag>, &serde_json::value::Value, &[jmap_types::i18n::LocalizableProperty]) -> core::result::Result<core::option::Option<jmap_types::i18n::Localizations>, alloc::boxed::Box<jmap_types::SetError>>
+pub fn jmap_types::i18n::localized_view(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &[jmap_types::i18n::LocalizableProperty], &[jmap_types::i18n::LanguageRange])
+pub fn jmap_types::i18n::lookup<'a, I>(&[jmap_types::i18n::LanguageRange], I) -> core::option::Option<&'a jmap_types::i18n::LanguageTag> where I: core::iter::traits::collect::IntoIterator<Item = &'a jmap_types::i18n::LanguageTag>, <I as core::iter::traits::collect::IntoIterator>::IntoIter: core::clone::Clone
+pub fn jmap_types::i18n::parse_locale(&serde_json::value::Value) -> core::result::Result<core::option::Option<jmap_types::i18n::LanguageTag>, alloc::boxed::Box<jmap_types::SetError>>
+pub fn jmap_types::i18n::prune_stale_localizations(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_types::PatchObject, &[jmap_types::i18n::LocalizableProperty]) -> bool
 pub macro jmap_types::impl_string_enum!
 pub enum jmap_types::Argument<T: jmap_types::resultref::sealed::Sealed>
 pub jmap_types::Argument::Ref(jmap_types::ResultReference)
