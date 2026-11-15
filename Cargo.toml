@@ -9,6 +9,7 @@ members = [
     "crate-jmap-tasks-types",
     "crate-jmap-filenode-types",
     "crate-jmap-sharing-types",
+    "crate-jmap-quotas-types",
     "crate-jmap-jscalendar-types",
     "crate-jmap-jscontact-types",
     "crate-jmap-metadata-types",

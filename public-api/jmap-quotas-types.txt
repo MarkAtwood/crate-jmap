@@ -1,0 +1,189 @@
+pub mod jmap_quotas_types
+pub use jmap_quotas_types::Filter
+pub use jmap_quotas_types::FilterOperator
+pub use jmap_quotas_types::Operator
+#[non_exhaustive] pub enum jmap_quotas_types::QuotaComparatorProperty
+pub jmap_quotas_types::QuotaComparatorProperty::Name
+pub jmap_quotas_types::QuotaComparatorProperty::Other(alloc::string::String)
+pub jmap_quotas_types::QuotaComparatorProperty::Used
+impl jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::as_str(&self) -> &str
+impl core::clone::Clone for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::clone(&self) -> jmap_quotas_types::QuotaComparatorProperty
+impl core::cmp::Eq for jmap_quotas_types::QuotaComparatorProperty
+impl core::cmp::PartialEq for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::eq(&self, &jmap_quotas_types::QuotaComparatorProperty) -> bool
+impl core::convert::From<&str> for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_quotas_types::QuotaComparatorProperty
+impl serde_core::ser::Serialize for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_quotas_types::QuotaComparatorProperty
+pub fn jmap_quotas_types::QuotaComparatorProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_quotas_types::QuotaProperty
+pub jmap_quotas_types::QuotaProperty::Description
+pub jmap_quotas_types::QuotaProperty::HardLimit
+pub jmap_quotas_types::QuotaProperty::Id
+pub jmap_quotas_types::QuotaProperty::Name
+pub jmap_quotas_types::QuotaProperty::ResourceType
+pub jmap_quotas_types::QuotaProperty::Scope
+pub jmap_quotas_types::QuotaProperty::SoftLimit
+pub jmap_quotas_types::QuotaProperty::Types
+pub jmap_quotas_types::QuotaProperty::Used
+pub jmap_quotas_types::QuotaProperty::WarnLimit
+impl core::clone::Clone for jmap_quotas_types::QuotaProperty
+pub fn jmap_quotas_types::QuotaProperty::clone(&self) -> jmap_quotas_types::QuotaProperty
+impl core::cmp::Eq for jmap_quotas_types::QuotaProperty
+impl core::cmp::PartialEq for jmap_quotas_types::QuotaProperty
+pub fn jmap_quotas_types::QuotaProperty::eq(&self, &jmap_quotas_types::QuotaProperty) -> bool
+impl core::fmt::Debug for jmap_quotas_types::QuotaProperty
+pub fn jmap_quotas_types::QuotaProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_quotas_types::QuotaProperty
+pub fn jmap_quotas_types::QuotaProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_quotas_types::QuotaProperty
+#[non_exhaustive] pub enum jmap_quotas_types::ResourceType
+pub jmap_quotas_types::ResourceType::Count
+pub jmap_quotas_types::ResourceType::Octets
+pub jmap_quotas_types::ResourceType::Other(alloc::string::String)
+impl jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::clone(&self) -> jmap_quotas_types::ResourceType
+impl core::cmp::Eq for jmap_quotas_types::ResourceType
+impl core::cmp::PartialEq for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::eq(&self, &jmap_quotas_types::ResourceType) -> bool
+impl core::convert::From<&str> for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_quotas_types::ResourceType
+impl serde_core::ser::Serialize for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_quotas_types::ResourceType
+pub fn jmap_quotas_types::ResourceType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_quotas_types::Scope
+pub jmap_quotas_types::Scope::Account
+pub jmap_quotas_types::Scope::Domain
+pub jmap_quotas_types::Scope::Global
+pub jmap_quotas_types::Scope::Other(alloc::string::String)
+impl jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::as_str(&self) -> &str
+impl core::clone::Clone for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::clone(&self) -> jmap_quotas_types::Scope
+impl core::cmp::Eq for jmap_quotas_types::Scope
+impl core::cmp::PartialEq for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::eq(&self, &jmap_quotas_types::Scope) -> bool
+impl core::convert::From<&str> for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_quotas_types::Scope
+impl serde_core::ser::Serialize for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_quotas_types::Scope
+pub fn jmap_quotas_types::Scope::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_quotas_types::Quota
+pub jmap_quotas_types::Quota::description: core::option::Option<alloc::string::String>
+pub jmap_quotas_types::Quota::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_quotas_types::Quota::hard_limit: u64
+pub jmap_quotas_types::Quota::id: jmap_types::id::Id
+pub jmap_quotas_types::Quota::name: alloc::string::String
+pub jmap_quotas_types::Quota::resource_type: jmap_quotas_types::ResourceType
+pub jmap_quotas_types::Quota::scope: jmap_quotas_types::Scope
+pub jmap_quotas_types::Quota::soft_limit: core::option::Option<u64>
+pub jmap_quotas_types::Quota::types: alloc::vec::Vec<alloc::string::String>
+pub jmap_quotas_types::Quota::used: u64
+pub jmap_quotas_types::Quota::warn_limit: core::option::Option<u64>
+impl core::clone::Clone for jmap_quotas_types::Quota
+pub fn jmap_quotas_types::Quota::clone(&self) -> jmap_quotas_types::Quota
+impl core::cmp::Eq for jmap_quotas_types::Quota
+impl core::cmp::PartialEq for jmap_quotas_types::Quota
+pub fn jmap_quotas_types::Quota::eq(&self, &jmap_quotas_types::Quota) -> bool
+impl core::fmt::Debug for jmap_quotas_types::Quota
+pub fn jmap_quotas_types::Quota::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_quotas_types::Quota
+impl jmap_types::backend::GetObject for jmap_quotas_types::Quota
+impl jmap_types::backend::JmapObject for jmap_quotas_types::Quota
+pub type jmap_quotas_types::Quota::Property = jmap_quotas_types::QuotaProperty
+pub const jmap_quotas_types::Quota::TYPE_NAME: &'static str
+impl jmap_types::backend::QueryObject for jmap_quotas_types::Quota
+pub type jmap_quotas_types::Quota::Comparator = jmap_quotas_types::QuotaComparator
+pub type jmap_quotas_types::Quota::Filter = jmap_types::query::Filter<jmap_quotas_types::QuotaFilterCondition>
+impl serde_core::ser::Serialize for jmap_quotas_types::Quota
+pub fn jmap_quotas_types::Quota::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_quotas_types::Quota
+pub fn jmap_quotas_types::Quota::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_quotas_types::QuotaCapability
+pub jmap_quotas_types::QuotaCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_quotas_types::QuotaCapability
+pub fn jmap_quotas_types::QuotaCapability::clone(&self) -> jmap_quotas_types::QuotaCapability
+impl core::cmp::PartialEq for jmap_quotas_types::QuotaCapability
+pub fn jmap_quotas_types::QuotaCapability::eq(&self, &jmap_quotas_types::QuotaCapability) -> bool
+impl core::default::Default for jmap_quotas_types::QuotaCapability
+pub fn jmap_quotas_types::QuotaCapability::default() -> jmap_quotas_types::QuotaCapability
+impl core::fmt::Debug for jmap_quotas_types::QuotaCapability
+pub fn jmap_quotas_types::QuotaCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_quotas_types::QuotaCapability
+impl serde_core::ser::Serialize for jmap_quotas_types::QuotaCapability
+pub fn jmap_quotas_types::QuotaCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_quotas_types::QuotaCapability
+pub fn jmap_quotas_types::QuotaCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_quotas_types::QuotaComparator
+pub jmap_quotas_types::QuotaComparator::collation: core::option::Option<alloc::string::String>
+pub jmap_quotas_types::QuotaComparator::is_ascending: bool
+pub jmap_quotas_types::QuotaComparator::property: jmap_quotas_types::QuotaComparatorProperty
+impl jmap_quotas_types::QuotaComparator
+pub fn jmap_quotas_types::QuotaComparator::new(jmap_quotas_types::QuotaComparatorProperty) -> Self
+impl core::clone::Clone for jmap_quotas_types::QuotaComparator
+pub fn jmap_quotas_types::QuotaComparator::clone(&self) -> jmap_quotas_types::QuotaComparator
+impl core::cmp::Eq for jmap_quotas_types::QuotaComparator
+impl core::cmp::PartialEq for jmap_quotas_types::QuotaComparator
+pub fn jmap_quotas_types::QuotaComparator::eq(&self, &jmap_quotas_types::QuotaComparator) -> bool
+impl core::fmt::Debug for jmap_quotas_types::QuotaComparator
+pub fn jmap_quotas_types::QuotaComparator::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_quotas_types::QuotaComparator
+impl serde_core::ser::Serialize for jmap_quotas_types::QuotaComparator
+pub fn jmap_quotas_types::QuotaComparator::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_quotas_types::QuotaComparator
+pub fn jmap_quotas_types::QuotaComparator::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_quotas_types::QuotaFilterCondition
+pub jmap_quotas_types::QuotaFilterCondition::name: core::option::Option<alloc::string::String>
+pub jmap_quotas_types::QuotaFilterCondition::resource_type: core::option::Option<jmap_quotas_types::ResourceType>
+pub jmap_quotas_types::QuotaFilterCondition::scope: core::option::Option<jmap_quotas_types::Scope>
+pub jmap_quotas_types::QuotaFilterCondition::type_name: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_quotas_types::QuotaFilterCondition
+pub fn jmap_quotas_types::QuotaFilterCondition::clone(&self) -> jmap_quotas_types::QuotaFilterCondition
+impl core::cmp::Eq for jmap_quotas_types::QuotaFilterCondition
+impl core::cmp::PartialEq for jmap_quotas_types::QuotaFilterCondition
+pub fn jmap_quotas_types::QuotaFilterCondition::eq(&self, &jmap_quotas_types::QuotaFilterCondition) -> bool
+impl core::default::Default for jmap_quotas_types::QuotaFilterCondition
+pub fn jmap_quotas_types::QuotaFilterCondition::default() -> jmap_quotas_types::QuotaFilterCondition
+impl core::fmt::Debug for jmap_quotas_types::QuotaFilterCondition
+pub fn jmap_quotas_types::QuotaFilterCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_quotas_types::QuotaFilterCondition
+impl serde_core::ser::Serialize for jmap_quotas_types::QuotaFilterCondition
+pub fn jmap_quotas_types::QuotaFilterCondition::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_quotas_types::QuotaFilterCondition
+pub fn jmap_quotas_types::QuotaFilterCondition::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_quotas_types::JMAP_QUOTA_URI: &str
+pub type jmap_quotas_types::QuotaFilter = jmap_types::query::Filter<jmap_quotas_types::QuotaFilterCondition>

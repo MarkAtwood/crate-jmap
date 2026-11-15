@@ -161,6 +161,12 @@ wire behaviour that a conforming peer can observe.
   §2 `i;unicode-casemap` preparation that `metadataTextContains` already
   used, so FileNode backends can compare names with it.
 
+- **jmap-quotas-types** (new crate): RFC 9425 JMAP for Quotas data types —
+  `Quota`, `Scope`, `ResourceType`, `QuotaFilterCondition` / `QuotaFilter`,
+  `QuotaComparator` / `QuotaComparatorProperty`, `QuotaProperty`,
+  `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
+  `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
+
 ### Changed
 
 - **jmap-calendars-types**, **jmap-calendars-server**: a BusyPeriod's
