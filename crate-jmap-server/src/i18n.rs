@@ -13,8 +13,8 @@
 
 use crate::{JmapObject, SetError, SetErrorType};
 use jmap_types::i18n::{
-    JMAP_I18N_URI, LanguageRange, LanguageTag, LocalizableProperty, check_localizations,
-    localized_view, parse_locale, prune_stale_localizations,
+    JMAP_I18N_URI, LanguageRange, LocalizableProperty, check_localizations, localized_view,
+    parse_locale, prune_stale_localizations,
 };
 use jmap_types::{JmapError, PatchObject};
 use serde_json::{Map, Value};
@@ -27,13 +27,6 @@ use serde_json::{Map, Value};
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct I18nInfo {
-    /// The `preferredLanguages` of the account capability
-    /// (draft-atwood-jmap-updates-00 §3): the owner's languages, most
-    /// preferred first, or `None` when none are recorded. MUST be `None`
-    /// for an account the caller does not own (§9: sharing an account
-    /// must not reveal its owner's languages). Handlers never use it to
-    /// change `/get` or `/query` results (§3.1).
-    pub preferred_languages: Option<Vec<LanguageTag>>,
     /// The most localizations stored per object, or `None` for no limit
     /// (§4.1: "A server MAY limit the number of localizations it stores
     /// per object").
@@ -41,17 +34,9 @@ pub struct I18nInfo {
 }
 
 impl I18nInfo {
-    /// An account that supports localizations, with no recorded
-    /// language preference and no limit.
+    /// An account that supports localizations, with no limit.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Set [`preferred_languages`](Self::preferred_languages).
-    #[must_use]
-    pub fn with_preferred_languages(mut self, langs: Option<Vec<LanguageTag>>) -> Self {
-        self.preferred_languages = langs;
-        self
     }
 
     /// Set [`max_localizations`](Self::max_localizations).

@@ -44,31 +44,14 @@ pub struct I18nCapability {
     pub extra: Map<String, Value>,
 }
 
-/// The `accountCapabilities` value of [`JMAP_I18N_URI`]
+/// The `accountCapabilities` value of [`JMAP_I18N_URI`]: an empty object
 /// (draft-atwood-jmap-updates-00 §3).
 ///
 /// Present on an account only when the server supports localizations
-/// for it.
-///
-/// ```rust
-/// use jmap_types::i18n::I18nAccountCapability;
-///
-/// let cap: I18nAccountCapability = serde_json::from_value(
-///     serde_json::json!({ "preferredLanguages": ["fr-ch", "de"] }),
-/// ).unwrap();
-/// let langs = cap.preferred_languages.as_deref().unwrap();
-/// assert_eq!(langs[0].as_str(), "fr-CH");
-/// ```
+/// for it. The draft defines no account-level language preference.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
 pub struct I18nAccountCapability {
-    /// The languages the account's owner prefers, most preferred first,
-    /// or `None` (`null` on the wire) when the server has none recorded.
-    /// A server returns `None` for an account the requesting user does
-    /// not own (§9), and never uses it to change `/get` or `/query`
-    /// results (§3.1).
-    pub preferred_languages: Option<Vec<LanguageTag>>,
     /// Catch-all for vendor / site / private extension fields.
     #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
     pub extra: Map<String, Value>,

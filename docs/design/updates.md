@@ -4,6 +4,11 @@ Source: `/data/PROJECT/jmap-chat-spec/draft-atwood-jmap-updates-00.md` at jmap-c
 2b85363 (Mark's own draft, tracked there as jmap-chat-spec-dhv2; not yet on datatracker). All
 wire names below are quoted from it. Design only; no code in the repo was changed.
 
+Draft change after 2b85363 (working copy, 2026-11-15): the account-level `preferredLanguages`
+and its "Account Language Preference" section were dropped; the account value of the capability
+is `{}` like the Session value. Text below is updated to match; JMAP-cayv.6 removed it from the
+code.
+
 Status: final. Mark's decisions of 2026-11-15 are recorded in `docs/design/DECISIONS.md` as
 decisions 27 to 31: 27 (metadata-style opt-in), 28 (queryState wrapper), 29 (libraries), 30 (view
 `localizations` is null, gap G1) and 31 (the remaining recommendations of §12 adopted as written). Companion notes:
@@ -15,7 +20,7 @@ decisions 27 to 31: 27 (metadata-style opt-in), 28 (queryState wrapper), 29 (lib
 The draft has three independent parts:
 
 1. **Localized display text** (§3–§5): capability `urn:ietf:params:jmap:i18n` (Session `{}`,
-   account `{preferredLanguages: String[]|null}`), JSCalendar-style `locale` and `localizations`
+   account value also `{}`), JSCalendar-style `locale` and `localizations`
    on the localizable properties of Mailbox, Quota, AddressBook, Principal and Calendar, and a
    `language` argument (RFC 4647 language ranges) on their `/get`, `/query` and `/queryChanges`.
    This is the only part with a wire change.
@@ -47,11 +52,9 @@ non-breaking and the capability is advertised only by a deployment that opts in.
 | § | Requirement | Where / why |
 |---|---|---|
 | 3 | Session capability `urn:ietf:params:jmap:i18n`, value `{}` | `jmap_types::i18n::{JMAP_I18N_URI, I18nCapability}`; Session is the consumer's job; testjig advertises it |
-| 3 | Account capability `{preferredLanguages: String[]\|null}` per account that supports localizations | `I18nAccountCapability { preferred_languages: Option<Vec<LanguageTag>> }`; present iff `i18n_info(caller, account)` is `Some` |
+| 3 | Account capability `{}` per account that supports localizations (draft change: `preferredLanguages` dropped) | `I18nAccountCapability {}`; present iff `i18n_info(caller, account)` is `Some` |
 | 3 | Without the URI in `using`: neither return nor accept `locale`/`localizations`; `language` → `invalidArguments` | `jmap_server::i18n::I18nRequest::from_args` (one call at the top of each affected handler, Q2); `/get` strips the two properties; `/set` naming them → `invalidProperties` (same as metadata's `check_metadata_entry`) |
 | 3 | URI in `using` but account lacks the account capability: `/set` naming them → `invalidProperties`; `language` → `invalidArguments` | Same helper, keyed on `i18n_info(..)` being `None` |
-| 3.1 | `preferredLanguages` MAY drive out-of-request text; MUST NOT change `/get`/`/query` | Hook result is advertised only; handlers never read it. Rustdoc on the hook |
-| 9 | SHOULD return `preferredLanguages: null` for accounts the user does not own | `I18nInfo::preferred_languages` doc: backend returns `None` unless `principal_id(caller)` owns the account; memory backend does so; testjig asserts |
 | 4.1 | `locale: String\|null` (default null), `localizations: String[PatchObject]\|null` (default null) | `Option<LanguageTag>`, `Option<Localizations>` fields on Mailbox, AddressBook, Principal, Calendar (and Quota later); `#[serde(default, skip_serializing_if = "Option::is_none")]`, and the `/get` projection emits `null` explicitly when i18n is in `using` |
 | 4.1 | PatchObject keys are localizable properties only; values of the property's type; null only where nullable | `Localizable` trait in `jmap-types`: `const LOCALIZABLE: &[LocalizableProperty]` (name + nullable); `check_localizations` |
 | 4.1 | Keys are language tags; unique ignoring case; no key equals `locale` ignoring case; SHOULD store canonical case | `LanguageTag::parse` (RFC 5646 well-formed, Q5) + canonical case on store; check rejects duplicates |
@@ -99,7 +102,7 @@ No new crate. Extend:
 - `jmap-mail-types` / `-server`: Mailbox. `jmap-contacts-*`: AddressBook. `jmap-sharing-*`:
   Principal. `jmap-calendars-*`: Calendar (Q9). The quotas crate (JMAP-1igi): Quota.
 - `jmap-base-client` and the four typed clients: `language` option, `locale`/`localizations`
-  fields, `preferredLanguages` reader, WS handshake Accept-Language, RFC 9457 parsing.
+  fields, WS handshake Accept-Language, RFC 9457 parsing.
 - `jmap-testjig`: opt-in, problem details on every resource, end-to-end tests.
 
 Chat adoption (Message `language`, Chat/Space localizable properties) is out of scope: it waits on
@@ -115,7 +118,7 @@ pub struct I18nCapability {}                       // Session value {}
 
 #[non_exhaustive] #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct I18nAccountCapability { pub preferred_languages: Option<Vec<LanguageTag>> }
+pub struct I18nAccountCapability {}                // account value {}
 
 /// RFC 5646 well-formed tag, stored in RFC 5646 §2.1.1 canonical case;
 /// Eq/Hash/Ord are case-insensitive (equal to canonical-case equality).
@@ -202,8 +205,7 @@ queryState: the handler wraps the backend's state when `language` is non-null an
 ### 5.5 Session
 
 `jmap_server` has no Session builder; consumers (and testjig) add `I18nCapability` and, per account,
-`I18nAccountCapability` from `i18n_info`. `I18nInfo::preferred_languages` is `None` for accounts the
-caller does not own (draft §9).
+`I18nAccountCapability` (`{}`) for each account whose `i18n_info` is `Some`.
 
 ## 6. Backend hooks
 
@@ -213,7 +215,6 @@ fn i18n_info(&self, caller: &Self::CallerCtx, account_id: &Id) -> Option<I18nInf
 fn accept_language(caller: &Self::CallerCtx) -> Option<&str> { None }   // Q8
 
 #[non_exhaustive] pub struct I18nInfo {
-    pub preferred_languages: Option<Vec<LanguageTag>>,
     pub max_localizations: Option<usize>,
 }
 ```
@@ -225,14 +226,14 @@ arguments as the draft requires.
 ## 7. Memory reference backend scope
 
 Mailbox, AddressBook, Principal, Calendar memory backends: store the two fields, return
-`Some(I18nInfo)` with `preferred_languages` for owned accounts, honour `QueryParams::language` in
+`Some(I18nInfo)`, honour `QueryParams::language` in
 Mailbox and Principal sort/filter, cap 32 localizations per object. Default Mailboxes get `locale:
 "en"` and no localizations (a MAY; keeps fixtures simple).
 
 ## 8. Client bindings
 
 `jmap-base-client`: `GetCall`/`QueryCall`/`QueryChangesCall` gain `language(Vec<LanguageRange>)`;
-the request builder adds the URI to `using` when it is set; `Session::preferred_languages(account)`;
+the request builder adds the URI to `using` when it is set;
 WS `connect` takes an optional Accept-Language; `ProblemDetails` parsing per RFC 9457. Typed
 clients (mail, contacts, sharing, calendars): `locale`/`localizations` come with the types.
 

@@ -17,7 +17,6 @@ pub fn jmap_types::i18n::LanguageTagError::fmt(&self, &mut core::fmt::Formatter<
 impl core::marker::StructuralPartialEq for jmap_types::i18n::LanguageTagError
 #[non_exhaustive] pub struct jmap_types::i18n::I18nAccountCapability
 pub jmap_types::i18n::I18nAccountCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
-pub jmap_types::i18n::I18nAccountCapability::preferred_languages: core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageTag>>
 impl core::clone::Clone for jmap_types::i18n::I18nAccountCapability
 pub fn jmap_types::i18n::I18nAccountCapability::clone(&self) -> jmap_types::i18n::I18nAccountCapability
 impl core::cmp::PartialEq for jmap_types::i18n::I18nAccountCapability

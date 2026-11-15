@@ -15,9 +15,9 @@ wire behaviour that a conforming peer can observe.
 ### Added
 
 - **jmap-types**: new `i18n` module for draft-atwood-jmap-updates-00
-  localized display text: `JMAP_I18N_URI`, `I18nCapability`,
-  `I18nAccountCapability`; `LanguageTag` (RFC 5646 well-formed, canonical
-  case, case-insensitive equality) and `LanguageRange` (RFC 4647 §2.1);
+  localized display text: `JMAP_I18N_URI`, `I18nCapability` and
+  `I18nAccountCapability` (both `{}`); `LanguageTag` (RFC 5646
+  well-formed, canonical case, case-insensitive equality) and `LanguageRange` (RFC 4647 §2.1);
   `lookup` (RFC 4647 §3.4); `Localizations` and `LocalizableProperty`,
   with `JmapObject::LOCALIZABLE` (default empty) listing a type's
   localizable properties; `parse_locale` and `check_localizations`
@@ -26,8 +26,7 @@ wire behaviour that a conforming peer can observe.
   `localizations: null`).
 - **jmap-server**: draft-atwood-jmap-updates-00 `language` on `/get`.
   `JmapBackend::i18n_info` (default `None`) says which accounts support
-  localizations, with `I18nInfo` (`preferred_languages`,
-  `max_localizations`). `handle_get_with_metadata` returns `locale` and
+  localizations, with `I18nInfo` (`max_localizations`). `handle_get_with_metadata` returns `locale` and
   `localizations` (`null` when absent) when `urn:ietf:params:jmap:i18n` is
   in `using` and the account supports it, and with a non-null `language`
   returns each object's single-language view. `I18nProjection` and

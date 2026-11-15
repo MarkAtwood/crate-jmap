@@ -186,11 +186,9 @@ pub fn jmap_server::HandlerOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> 
 impl core::marker::StructuralPartialEq for jmap_server::HandlerOutput
 #[non_exhaustive] pub struct jmap_server::I18nInfo
 pub jmap_server::I18nInfo::max_localizations: core::option::Option<usize>
-pub jmap_server::I18nInfo::preferred_languages: core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageTag>>
 impl jmap_server::I18nInfo
 pub fn jmap_server::I18nInfo::new() -> Self
 pub fn jmap_server::I18nInfo::with_max_localizations(self, core::option::Option<usize>) -> Self
-pub fn jmap_server::I18nInfo::with_preferred_languages(self, core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageTag>>) -> Self
 impl core::clone::Clone for jmap_server::I18nInfo
 pub fn jmap_server::I18nInfo::clone(&self) -> jmap_server::I18nInfo
 impl core::cmp::Eq for jmap_server::I18nInfo

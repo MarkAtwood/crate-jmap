@@ -1178,6 +1178,16 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// (draft-atwood-jmap-updates-00), as seen by `caller`, or [`None`]
     /// when the account does not support localizations.
     ///
+    /// # Session
+    ///
+    /// The deployment builds the Session object. It advertises
+    /// `urn:ietf:params:jmap:i18n` with the value `{}`
+    /// ([`I18nCapability`](jmap_types::i18n::I18nCapability)) in
+    /// `capabilities` only when it supports localizations at all, and with
+    /// the value `{}` ([`I18nAccountCapability`](jmap_types::i18n::I18nAccountCapability))
+    /// in the `accountCapabilities` of exactly the accounts for which this
+    /// method returns `Some` for the requesting caller (§3).
+    ///
     /// `Some` puts the capability in the account's `accountCapabilities`;
     /// the deployment then stores `locale` and `localizations` on every
     /// type with [`JmapObject::LOCALIZABLE`] properties in this account

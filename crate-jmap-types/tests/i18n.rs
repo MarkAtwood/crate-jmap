@@ -39,8 +39,8 @@ fn chosen(rs: &[&str], ts: &[&str]) -> Option<String> {
 
 // --- capability --------------------------------------------------------
 
-/// draft §3: "Its value is an empty object", and the account value is
-/// `{preferredLanguages: String[]|null}` (Session excerpt in §3).
+/// draft §3: the Session value "is an empty object", and the account
+/// value "is also an empty object".
 #[test]
 fn capability_values_match_the_session_excerpt() {
     assert_eq!(JMAP_I18N_URI, "urn:ietf:params:jmap:i18n");
@@ -48,18 +48,13 @@ fn capability_values_match_the_session_excerpt() {
         serde_json::to_value(I18nCapability::default()).unwrap(),
         json!({})
     );
-
-    let acct: I18nAccountCapability =
-        serde_json::from_value(json!({ "preferredLanguages": [ "fr-CH", "de" ] })).unwrap();
-    assert_eq!(
-        serde_json::to_value(&acct).unwrap(),
-        json!({ "preferredLanguages": [ "fr-CH", "de" ] })
-    );
-    // null is a value, not an absent member.
     assert_eq!(
         serde_json::to_value(I18nAccountCapability::default()).unwrap(),
-        json!({ "preferredLanguages": null })
+        json!({})
     );
+    // Unknown members round-trip (workspace extras policy).
+    let acct: I18nAccountCapability = serde_json::from_value(json!({ "x-site": 1 })).unwrap();
+    assert_eq!(serde_json::to_value(&acct).unwrap(), json!({ "x-site": 1 }));
 }
 
 // --- RFC 5646 well-formedness ------------------------------------------
