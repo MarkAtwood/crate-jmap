@@ -332,7 +332,7 @@ names that comparison, which §7.1 allows.
 | vtc | VTCCall `joinUri` (and its copies in events and push), VTCLivestream `streamUri` | `joinUri`: server-set, `VtcBackend::create_call` rustdoc MUST (the memory backend's is a URI); `streamUri`: `VTCLivestream/set` create and update reject a non-URI with `invalidProperties`, JMAP-cayv.21 | done |
 | graph | GraphNode `uri`, query `objectUri` | `uri`: already rejected on `/set`; the hand-rolled character-set check is replaced by `check_uri` (full grammar), JMAP-cayv.22. `objectUri` filter values are compared as strings (graph-projection), so a non-URI just matches nothing | done |
 | tasks | Person `uri` (CheckItem `assignee`, Comment `author`, TaskNotification `changedBy`) | Task/set create and update and Task/copy reject a Person `uri` that is not a URI with `invalidProperties` naming `checklists`/`comments`; `changedBy` is server-set, JMAP-cayv.23 | done |
-| filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | none (server-set Session data) | bead |
+| filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | server-set Session data: `FileNodeCapability::check_uris` for the deployment to run before advertising (templates checked by expanding `{id}`), JMAP-cayv.24 | done |
 | did | capability `didDocumentUri` | none (server-set) | bead |
 | jscontact / jscalendar (contacts, calendars servers) | Card/Event `uri` members (links, media, online services, etc.) | none (sloppy-Value fields) | bead |
 

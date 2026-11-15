@@ -88,3 +88,115 @@ pub struct FileNodeCapability {
     /// Always serialized (as `null` when `None`).
     pub web_write_url_template: Option<String>,
 }
+
+impl FileNodeCapability {
+    /// Check the URL-valued members against draft-atwood-jmap-updates-00
+    /// §7.1 before advertising the capability: `webTrashUrl` SHOULD be an
+    /// RFC 3986 URI, and the level-1 URI Templates `webUrlTemplate` and
+    /// `webWriteUrlTemplate` (RFC 6570) SHOULD expand to one. A template is
+    /// checked by expanding `{id}` with a sample Id.
+    ///
+    /// # Errors
+    ///
+    /// The wire name of the first member that fails.
+    ///
+    /// ```rust
+    /// use jmap_filenode_types::FileNodeCapability;
+    ///
+    /// let mut cap: FileNodeCapability = serde_json::from_value(serde_json::json!({
+    ///     "maxFileNodeDepth": null, "maxSizeFileNodeName": 255,
+    ///     "supportedNodeTypes": ["file", "directory"], "fileNodeQuerySortOptions": [],
+    ///     "mayCreateTopLevelFileNode": true, "webTrashUrl": null,
+    ///     "caseInsensitiveNames": false,
+    ///     "webUrlTemplate": "https://files.example.com/node/{id}",
+    ///     "webWriteUrlTemplate": null
+    /// })).unwrap();
+    /// assert_eq!(cap.check_uris(), Ok(()));
+    /// cap.web_trash_url = Some("https://files.example.com/my trash".into());
+    /// assert_eq!(cap.check_uris(), Err("webTrashUrl"));
+    /// ```
+    pub fn check_uris(&self) -> Result<(), &'static str> {
+        use jmap_types::uri::check_uri;
+        if self
+            .web_trash_url
+            .as_deref()
+            .is_some_and(|u| check_uri(u).is_err())
+        {
+            return Err("webTrashUrl");
+        }
+        for (name, template) in [
+            ("webUrlTemplate", &self.web_url_template),
+            ("webWriteUrlTemplate", &self.web_write_url_template),
+        ] {
+            if template
+                .as_deref()
+                .is_some_and(|t| check_uri(&t.replace("{id}", "Sample-Id_1")).is_err())
+            {
+                return Err(name);
+            }
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod uri_tests {
+    use super::FileNodeCapability;
+    use serde_json::json;
+
+    fn cap(
+        trash: serde_json::Value,
+        view: serde_json::Value,
+        write: serde_json::Value,
+    ) -> FileNodeCapability {
+        serde_json::from_value(json!({
+            "maxFileNodeDepth": null, "maxSizeFileNodeName": 255,
+            "supportedNodeTypes": ["file", "directory"], "fileNodeQuerySortOptions": [],
+            "mayCreateTopLevelFileNode": true, "webTrashUrl": trash,
+            "caseInsensitiveNames": false, "webUrlTemplate": view, "webWriteUrlTemplate": write
+        }))
+        .unwrap()
+    }
+
+    /// draft-atwood-jmap-updates-00 §7.1: "A URI Template (RFC 6570) ...
+    /// SHOULD expand to such a URI."
+    #[test]
+    fn templates_must_expand_to_uris() {
+        let null = serde_json::Value::Null;
+        assert_eq!(
+            cap(null.clone(), null.clone(), null.clone()).check_uris(),
+            Ok(())
+        );
+        assert_eq!(
+            cap(
+                null.clone(),
+                json!("https://f.example/v/{id}"),
+                json!("https://f.example/w/{id}?x=1")
+            )
+            .check_uris(),
+            Ok(())
+        );
+        assert_eq!(
+            cap(
+                null.clone(),
+                json!("https://f.example/v/{id} view"),
+                null.clone()
+            )
+            .check_uris(),
+            Err("webUrlTemplate")
+        );
+        assert_eq!(
+            cap(
+                null.clone(),
+                null.clone(),
+                json!("https://fïles.example/{id}")
+            )
+            .check_uris(),
+            Err("webWriteUrlTemplate")
+        );
+        assert_eq!(
+            cap(json!("/trash"), null.clone(), null).check_uris(),
+            Err("webTrashUrl")
+        );
+    }
+}

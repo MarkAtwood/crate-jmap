@@ -182,6 +182,8 @@ pub jmap_filenode_types::FileNodeCapability::supported_node_types: alloc::vec::V
 pub jmap_filenode_types::FileNodeCapability::web_trash_url: core::option::Option<alloc::string::String>
 pub jmap_filenode_types::FileNodeCapability::web_url_template: core::option::Option<alloc::string::String>
 pub jmap_filenode_types::FileNodeCapability::web_write_url_template: core::option::Option<alloc::string::String>
+impl jmap_filenode_types::FileNodeCapability
+pub fn jmap_filenode_types::FileNodeCapability::check_uris(&self) -> core::result::Result<(), &'static str>
 impl core::clone::Clone for jmap_filenode_types::FileNodeCapability
 pub fn jmap_filenode_types::FileNodeCapability::clone(&self) -> jmap_filenode_types::FileNodeCapability
 impl core::cmp::PartialEq for jmap_filenode_types::FileNodeCapability

@@ -115,6 +115,10 @@ wire behaviour that a conforming peer can observe.
   `check_display_text` checks the display-text profile of
   draft-atwood-jmap-updates-00 §6.2 (offered, not enforced). New
   dependency: `icu_segmenter` 2.2.
+- **jmap-filenode-types**: `FileNodeCapability::check_uris` checks that
+  `webTrashUrl` is an RFC 3986 URI and that `webUrlTemplate` and
+  `webWriteUrlTemplate` expand to one (draft-atwood-jmap-updates-00 §7.1),
+  for a deployment to run before advertising the capability.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.
