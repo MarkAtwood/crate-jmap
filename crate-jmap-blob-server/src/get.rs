@@ -8,15 +8,14 @@ use jmap_blob_types::{
     BlobAccountCapability, BlobGetArgs, BlobGetItem, BlobGetResponse, BlobProperty, BlobRef,
     DataSourceObject, DataSourceProperty, DigestAlgorithm,
 };
-use jmap_server::{
-    HandlerOutput, enforce_max_objects_in_get, extract_account_id, server_fail_from_backend,
-};
+use jmap_server::{HandlerOutput, enforce_max_objects_in_get, server_fail_from_backend};
 use jmap_types::{Id, JmapError};
 use serde_json::Value;
 
 use crate::backend::{BlobBackend, ChunkRef, DigestQuery};
 use crate::mode::BlobMode;
 use crate::range::{select_range, utf8_text};
+use crate::start::{Start, compute_digest, start};
 
 /// Handle `Blob/get` (blobext-03 §5; RFC 9404 §4.2).
 ///
@@ -56,26 +55,12 @@ pub async fn handle_blob_get<B: BlobBackend>(
     created_ids: &BTreeMap<Id, Id>,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
-    let mode = BlobMode::from_using(using);
-    if mode == BlobMode::Conflict {
-        return Err(JmapError::invalid_arguments(
-            "using must not contain both urn:ietf:params:jmap:blob and \
-             urn:ietf:params:jmap:blob2 (blobext-03 §2.1)",
-        ));
-    }
-    let (account_id, mut map) = extract_account_id(args)?;
-    if !backend
-        .account_exists(caller, &account_id)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?
-    {
-        return Err(JmapError::account_not_found());
-    }
-    let capability = backend
-        .blob_capability(caller, &account_id)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?
-        .ok_or_else(JmapError::account_not_supported_by_method)?;
+    let Start {
+        mode,
+        account_id,
+        args: mut map,
+        capability,
+    } = start(backend, caller, args, using).await?;
     enforce_max_objects_in_get(&map, backend.max_objects_in_get(caller, &account_id))?;
 
     if mode == BlobMode::Rfc9404 {
@@ -296,7 +281,7 @@ async fn get_one<B: BlobBackend>(
         }
         item.is_encoding_problem = (plan.data || plan.as_text) && text.is_none();
         for alg in missing {
-            digests.insert(alg.clone(), compute_digest(backend, alg, &octets)?);
+            digests.insert(alg.clone(), compute_digest(backend, alg, &[&octets])?);
         }
     }
     item.digests = digests;
@@ -381,7 +366,7 @@ async fn project_chunks<B: BlobBackend>(
                                 })?,
                         );
                     }
-                    compute_digest(backend, alg, octets.as_deref().unwrap_or_default())?
+                    compute_digest(backend, alg, &[octets.as_deref().unwrap_or_default()])?
                 }
             };
             dso.digests.insert(alg.clone(), digest);
@@ -392,17 +377,4 @@ async fn project_chunks<B: BlobBackend>(
         out.push(dso);
     }
     Ok(out)
-}
-
-/// The base64 `alg` digest of `octets` through the backend's digester.
-fn compute_digest<B: BlobBackend>(
-    backend: &B,
-    alg: &DigestAlgorithm,
-    octets: &[u8],
-) -> Result<String, JmapError> {
-    let mut digester = backend.digester(alg).ok_or_else(|| {
-        JmapError::server_fail(format!("advertised digest algorithm {alg} has no digester"))
-    })?;
-    digester.update(octets);
-    Ok(digester.finish())
 }

@@ -474,15 +474,16 @@ async fn handlers_are_registered() {
         .iter()
         .map(|inv| &inv[1]["type"])
         .collect();
-    // The four Blob methods are mounted: Blob/get answers (no error type),
-    // the others are stubs until JMAP-tna1.2.8 to .10; an unregistered
-    // method is unknownMethod.
+    // The four Blob methods are mounted: Blob/get and Blob/set answer (no
+    // error type), the others are stubs until JMAP-tna1.2.9 and .10; an
+    // unregistered method is unknownMethod.
     assert_eq!(resp["methodResponses"][0][0], "Blob/get");
+    assert_eq!(resp["methodResponses"][1][0], "Blob/set");
     assert_eq!(
         errors,
         [
             &Value::Null,
-            &json!("serverFail"),
+            &Value::Null,
             &json!("serverFail"),
             &json!("serverFail"),
             &json!("unknownMethod")

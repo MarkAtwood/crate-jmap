@@ -24,13 +24,6 @@ pub(crate) struct TopoOrder<K> {
 /// reference then fails to resolve (`notFound`).
 ///
 /// Ties keep the order of `nodes`, so the result is deterministic.
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "used by the Blob/set and Blob/convert handlers, bd JMAP-tna1.2.8 and .10"
-    )
-)]
 pub(crate) fn topo_order<K, F>(nodes: &[K], deps: F) -> TopoOrder<K>
 where
     K: Ord + Clone,

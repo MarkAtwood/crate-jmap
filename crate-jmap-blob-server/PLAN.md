@@ -13,10 +13,11 @@ Tracked by bd JMAP-tna1.2 (epic).
 | `mode.rs` | `BlobMode::from_using`: blob2 vs RFC 9404 vs both (`invalidArguments`) | -03 §2.1 | JMAP-tna1.2.4 (done) |
 | `range.rs` | range clamp, UTF-8 and digest helpers | -03 §5 | JMAP-tna1.2.4 (done) |
 | `order.rs` | topological sort of `#creationId` refs, cycle detection | RFC 8620 §5.3 | JMAP-tna1.2.4 (done) |
+| `start.rs` | common start (mode conflict, account, capability) and digest helper, shared by every handler | -03 §2.1 | JMAP-tna1.2.8 (done) |
 | `memory/` (feature `memory`) | `MemoryBackend`: store, chunks, reference index, stored digests, touch | design §7 | JMAP-tna1.2.5 (done) |
 | `memory/convert.rs` | ustar archive/extract, deferred results, stub converter (`test-helpers`) | -03 §8 | JMAP-tna1.2.6 (done) |
 | `get.rs` | `Blob/get` | -03 §5 | JMAP-tna1.2.7 (done) |
-| `set.rs` | `Blob/set` | -03 §4 | JMAP-tna1.2.8 |
+| `set.rs` | `Blob/set` (`create_one` shared with Blob/upload) | -03 §3, §4, §7 | JMAP-tna1.2.8 (done) |
 | `lookup.rs` | `Blob/lookup` | -03 §6 | JMAP-tna1.2.9 |
 | `convert.rs` | `Blob/convert` | -03 §8 | JMAP-tna1.2.10 |
 | `upload.rs` | RFC 9404 `Blob/upload` and 9404-mode get/lookup | RFC 9404 §4 | JMAP-tna1.2.11 |

@@ -214,6 +214,21 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: `Blob/set` (blobext-03 §3, §4, §7). Creates run
+  in `#creationId` dependency order, so an entry may build on another
+  entry of the same call (a cycle rejects its members), on an earlier
+  call's blob, or on ranges of stored blobs. Every data source is checked
+  before anything is stored: exactly one data key, valid base64, a range
+  within its source, and its `size`, `position` and `digest:*`; any
+  failure is `invalidProperties` `["data"]`. A wrong whole `size` or
+  digest rejects the entry and creates nothing; more sources than
+  `maxDataSources` or octets than `maxSizeBlobSet` is `tooLarge`. Every
+  created BlobObject carries `expires`; a `noPersist` blob the backend
+  omits stays usable within the call. `update` touches `expires` (other
+  properties only at their current values); `destroy` reports the
+  backend's `blobHasReference`. `oldState`/`newState` are `null` and a
+  non-null `ifInState` is `invalidArguments`. (bd:JMAP-tna1.2.8)
+
 - **jmap-blob-server**: `Blob/get` (blobext-03 §5). `offset`/`length`
   ranges with `isTruncated`; `data`, `data:asText` (null plus
   `isEncodingProblem` for invalid UTF-8) and `data:asBase64`; `digest:*`
