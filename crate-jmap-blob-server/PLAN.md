@@ -18,7 +18,7 @@ Tracked by bd JMAP-tna1.2 (epic).
 | `memory/convert.rs` | ustar archive/extract, deferred results, stub converter (`test-helpers`) | -03 §8 | JMAP-tna1.2.6 (done) |
 | `get.rs` | `Blob/get` | -03 §5 | JMAP-tna1.2.7 (done) |
 | `set.rs` | `Blob/set` (`create_one` shared with Blob/upload) | -03 §3, §4, §7 | JMAP-tna1.2.8 (done) |
-| `lookup.rs` | `Blob/lookup` | -03 §6 | JMAP-tna1.2.9 |
+| `lookup.rs` | `Blob/lookup` (both modes) | -03 §6, RFC 9404 §4.3 | JMAP-tna1.2.9 (done) |
 | `convert.rs` | `Blob/convert` | -03 §8 | JMAP-tna1.2.10 |
 | `upload.rs` | RFC 9404 `Blob/upload` and 9404-mode get/lookup | RFC 9404 §4 | JMAP-tna1.2.11 |
 

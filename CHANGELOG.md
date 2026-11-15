@@ -214,6 +214,15 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: `Blob/lookup` (blobext-03 §6; RFC 9404 §4.3).
+  Each type name must be advertised in `supportedTypeNames`, able to
+  reference blobs (`lookup_type_capability`, the JMAP Data Types registry
+  by default) and have its capability in `using`, else `unknownDataType`.
+  `list` has one entry per requested id in request order, with a
+  `matchedIds` key for every requested type. An unknown or invisible blob,
+  or an unresolved `#creationId`, gets empty arrays and no `notFound`, in
+  both modes. (bd:JMAP-tna1.2.9)
+
 - **jmap-blob-server**: `Blob/set` (blobext-03 §3, §4, §7). Creates run
   in `#creationId` dependency order, so an entry may build on another
   entry of the same call (a cycle rejects its members), on an earlier

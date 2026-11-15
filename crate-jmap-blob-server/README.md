@@ -6,8 +6,8 @@ JMAP Blob Management method handlers for the `jmap-server` dispatcher:
 
 **Status: surface fixed, handlers pending.** `BlobBackend`,
 `register_blob_handlers`, `BlobMode` and the `memory` backend are in
-place, and `Blob/get` and `Blob/set` are implemented; `Blob/lookup` and
-`Blob/convert` answer `serverFail` until their beads land (see `PLAN.md`).
+place, and `Blob/get`, `Blob/set` and `Blob/lookup` are implemented;
+`Blob/convert` answers `serverFail` until its bead lands (see `PLAN.md`).
 
 ## What it is
 
