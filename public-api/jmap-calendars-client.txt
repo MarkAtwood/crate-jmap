@@ -23,10 +23,11 @@ pub fn jmap_calendars_client::CalendarEventCopyParams::fmt(&self, &mut core::fmt
 impl serde_core::ser::Serialize for jmap_calendars_client::CalendarEventCopyParams
 pub fn jmap_calendars_client::CalendarEventCopyParams::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 pub struct jmap_calendars_client::CalendarEventGetParams
-pub jmap_calendars_client::CalendarEventGetParams::expand_recurrences: core::option::Option<bool>
 pub jmap_calendars_client::CalendarEventGetParams::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
-pub jmap_calendars_client::CalendarEventGetParams::fetch_calendars: core::option::Option<bool>
-pub jmap_calendars_client::CalendarEventGetParams::reduced_participants: core::option::Option<bool>
+pub jmap_calendars_client::CalendarEventGetParams::recurrence_overrides_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_client::CalendarEventGetParams::recurrence_overrides_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_calendars_client::CalendarEventGetParams::reduce_participants: core::option::Option<bool>
+pub jmap_calendars_client::CalendarEventGetParams::time_zone: core::option::Option<alloc::string::String>
 impl core::clone::Clone for jmap_calendars_client::CalendarEventGetParams
 pub fn jmap_calendars_client::CalendarEventGetParams::clone(&self) -> jmap_calendars_client::CalendarEventGetParams
 impl core::default::Default for jmap_calendars_client::CalendarEventGetParams

@@ -35,15 +35,16 @@ use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-/// Oracle: draft-ietf-jmap-calendars-34 §5.4 — `expandRecurrences`,
-/// `reducedParticipants`, `fetchCalendars` are `CalendarEvent/get`
-/// extra args. All three are optional booleans; absent means "use
-/// server default".
+/// Oracle: draft-ietf-jmap-calendars-34 §5.7 — `recurrenceOverridesBefore`,
+/// `recurrenceOverridesAfter` (UTCDateTime|null), `reduceParticipants`
+/// (Boolean) and `timeZone` (TimeZoneId) are the `CalendarEvent/get`
+/// arguments beyond the standard /get ones; absent means "use server
+/// default".
 ///
 /// Verifies that production `calendar_event_get` threads each flag set
 /// in `CalendarEventGetParams` to the wire under its exact spec name.
 #[tokio::test]
-async fn calendar_event_get_params_all_three_passthrough() {
+async fn calendar_event_get_params_passthrough() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -66,9 +67,10 @@ async fn calendar_event_get_params_all_three_passthrough() {
 
     let sc = helpers::make_client(&server);
     let params = CalendarEventGetParams {
-        expand_recurrences: Some(true),
-        reduced_participants: Some(false),
-        fetch_calendars: Some(true),
+        recurrence_overrides_before: Some(jmap_types::UTCDate::from("2027-01-01T00:00:00Z")),
+        recurrence_overrides_after: Some(jmap_types::UTCDate::from("2026-01-01T00:00:00Z")),
+        reduce_participants: Some(true),
+        time_zone: Some("America/New_York".to_owned()),
         ..Default::default()
     };
     let _ = sc
@@ -84,26 +86,24 @@ async fn calendar_event_get_params_all_three_passthrough() {
         serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
     let args = &body["methodCalls"][0][1];
     assert_eq!(
-        args["expandRecurrences"],
-        json!(true),
-        "expandRecurrences mismatch"
+        args["recurrenceOverridesBefore"],
+        json!("2027-01-01T00:00:00Z")
     );
     assert_eq!(
-        args["reducedParticipants"],
-        json!(false),
-        "reducedParticipants mismatch"
+        args["recurrenceOverridesAfter"],
+        json!("2026-01-01T00:00:00Z")
     );
-    assert_eq!(
-        args["fetchCalendars"],
-        json!(true),
-        "fetchCalendars mismatch"
-    );
+    assert_eq!(args["reduceParticipants"], json!(true));
+    assert_eq!(args["timeZone"], json!("America/New_York"));
+    for old in ["expandRecurrences", "reducedParticipants", "fetchCalendars"] {
+        assert!(args.get(old).is_none(), "{old} is not a -34 /get argument");
+    }
 }
 
-/// Oracle: draft-ietf-jmap-calendars-34 §5.4 — when no `params` are
-/// provided, none of the three extra arg keys may appear on the wire.
+/// Oracle: draft-ietf-jmap-calendars-34 §5.7 — when no `params` are
+/// provided, none of the extra argument keys may appear on the wire.
 #[tokio::test]
-async fn calendar_event_get_no_params_omits_all_three_keys() {
+async fn calendar_event_get_no_params_omits_the_extra_keys() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -137,18 +137,17 @@ async fn calendar_event_get_no_params_omits_all_three_keys() {
     let body: serde_json::Value =
         serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
     let args = &body["methodCalls"][0][1];
-    assert!(
-        args.get("expandRecurrences").is_none(),
-        "expandRecurrences must be absent when params=None"
-    );
-    assert!(
-        args.get("reducedParticipants").is_none(),
-        "reducedParticipants must be absent when params=None"
-    );
-    assert!(
-        args.get("fetchCalendars").is_none(),
-        "fetchCalendars must be absent when params=None"
-    );
+    for key in [
+        "recurrenceOverridesBefore",
+        "recurrenceOverridesAfter",
+        "reduceParticipants",
+        "timeZone",
+    ] {
+        assert!(
+            args.get(key).is_none(),
+            "{key} must be absent when params=None"
+        );
+    }
 }
 
 /// Oracle: draft-ietf-jmap-calendars-34 §5.5 / RFC 8620 §5.2 —

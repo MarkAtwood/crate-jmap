@@ -14,13 +14,12 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch `CalendarEvent` objects by IDs (draft-ietf-jmap-calendars-34 §5.4).
+    /// Fetch `CalendarEvent` objects by IDs (draft-ietf-jmap-calendars-34 §5.7).
     ///
-    /// Pass `ids: None` to fetch all events. `params` carries
-    /// CalendarEvent-specific extra arguments:
-    /// - `expand_recurrences`: expand recurring events to instances.
-    /// - `reduced_participants`: hide participants other than the user.
-    /// - `fetch_calendars`: include Calendar objects in implicit fetch.
+    /// Pass `ids: None` to fetch all events. `params` carries the
+    /// CalendarEvent/get arguments of [`CalendarEventGetParams`]:
+    /// `recurrenceOverridesBefore`, `recurrenceOverridesAfter`,
+    /// `reduceParticipants` and `timeZone`.
     ///
     /// # Errors
     ///

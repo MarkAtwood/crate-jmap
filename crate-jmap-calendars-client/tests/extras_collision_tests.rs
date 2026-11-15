@@ -53,10 +53,12 @@ async fn calendar_event_get_typed_param_wins_over_colliding_extra() {
     )
     .await;
     let mut params = CalendarEventGetParams {
-        expand_recurrences: Some(false),
+        reduce_participants: Some(false),
         ..CalendarEventGetParams::default()
     };
-    params.extra.insert("expandRecurrences".into(), json!(true));
+    params
+        .extra
+        .insert("reduceParticipants".into(), json!(true));
     params.extra.insert("acmeCorpX".into(), json!("kept"));
 
     helpers::make_client(&server)
@@ -65,9 +67,9 @@ async fn calendar_event_get_typed_param_wins_over_colliding_extra() {
         .expect("must succeed");
 
     let (raw, args) = sent_args(&server).await;
-    assert_eq!(args["expandRecurrences"], json!(false));
+    assert_eq!(args["reduceParticipants"], json!(false));
     assert_eq!(args["acmeCorpX"], json!("kept"));
-    assert_eq!(raw.matches("\"expandRecurrences\"").count(), 1);
+    assert_eq!(raw.matches("\"reduceParticipants\"").count(), 1);
 }
 
 #[tokio::test]

@@ -154,6 +154,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-calendars-client**: `CalendarEventGetParams` now has
+  the draft-ietf-jmap-calendars-34 §5.7 `CalendarEvent/get` arguments,
+  `recurrence_overrides_before`, `recurrence_overrides_after`,
+  `reduce_participants` and `time_zone`. The removed `expand_recurrences`
+  (a `CalendarEvent/query` argument, still on `calendar_event_query`),
+  `reduced_participants` and `fetch_calendars` are not -34 `/get` arguments,
+  and servers ignored them. Migrate `reduced_participants` to
+  `reduce_participants`.
 - **jmap-mail-server**: the Email `preview` of a parsed message now comes
   from `jmap_mime::grapheme_preview`, so it never ends in half a combining
   or emoji sequence (draft-atwood-jmap-updates-00 §6.5).

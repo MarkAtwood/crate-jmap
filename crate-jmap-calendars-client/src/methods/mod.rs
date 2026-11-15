@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 
 // ---------------------------------------------------------------------------
 // Response types (RFC 8620 §5)
@@ -275,8 +275,8 @@ pub struct CalendarEventCopyParams {
 // CalendarEvent/get extra parameters
 // ---------------------------------------------------------------------------
 
-/// Extra parameters accepted by `CalendarEvent/get`
-/// (draft-ietf-jmap-calendars-34 §5.4).
+/// Extra arguments accepted by `CalendarEvent/get`
+/// (draft-ietf-jmap-calendars-34 §5.7).
 ///
 /// All fields are optional. Pass `None` for any field to omit it from the
 /// request (the server uses its default).
@@ -289,23 +289,32 @@ pub struct CalendarEventCopyParams {
 /// "Method-argument structs in *-client crates"). Forward-compat for
 /// future spec-defined fields is the `extra` map, not `#[non_exhaustive]`.
 ///
+/// `expandRecurrences` is a `CalendarEvent/query` argument (§5.11), passed
+/// to [`SessionClient::calendar_event_query`](crate::SessionClient::calendar_event_query).
+///
 /// [`EmailGetParams`]: https://docs.rs/jmap-mail-client/latest/jmap_mail_client/methods/struct.EmailGetParams.html
 #[derive(Debug, Clone, Default, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEventGetParams {
-    /// If `true`, expand recurring events into individual instances.
+    /// `recurrenceOverridesBefore` (`UTCDateTime|null`): only return
+    /// `recurrenceOverrides` whose recurrence id is before this time.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub expand_recurrences: Option<bool>,
-    /// If `true`, participants are filtered to those relevant to the
-    /// authenticated user (reducedParticipants draft §5.4).
+    pub recurrence_overrides_before: Option<UTCDate>,
+    /// `recurrenceOverridesAfter` (`UTCDateTime|null`): only return
+    /// `recurrenceOverrides` whose recurrence id is on or after this time.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub reduced_participants: Option<bool>,
-    /// If `true`, the server SHOULD also include `Calendar/get`-style
-    /// responses for the `Calendar` objects referenced by returned events
-    /// (draft §5.4 `fetchCalendars` argument). The fetched calendars are
-    /// emitted as additional `methodResponses` entries, not inlined.
+    pub recurrence_overrides_after: Option<UTCDate>,
+    /// `reduceParticipants` (`Boolean`, default `false`): if `true`, only
+    /// participants relevant to the user (the owner and the user's own
+    /// participant) are returned.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub fetch_calendars: Option<bool>,
+    pub reduce_participants: Option<bool>,
+    /// `timeZone` (`TimeZoneId`, default `"Etc/UTC"`): the time zone for
+    /// floating events when computing `utcStart`/`utcEnd` and when
+    /// translating recurrence ids for the two `recurrenceOverrides*`
+    /// arguments.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_zone: Option<String>,
     /// Catch-all for vendor / site / private extension fields not
     /// covered by the typed fields above. Preserves unknown fields
     /// across deserialize/serialize round-trip per workspace
@@ -843,38 +852,27 @@ mod tests {
         );
     }
 
-    /// Oracle: CalendarEventGetParams serializes correctly to JSON.
-    /// All Some fields appear; None fields are absent via
-    /// `skip_serializing_if`. Independent of the production builder —
-    /// directly exercises the struct's Serialize derive against the
-    /// expected wire shape from draft-ietf-jmap-calendars-34 §5.4.
+    /// Oracle: draft-ietf-jmap-calendars-34 §5.7 argument names and
+    /// types (`recurrenceOverridesBefore`/`After` UTCDateTime,
+    /// `reduceParticipants` Boolean, `timeZone` TimeZoneId); `None`
+    /// fields are absent.
     #[test]
     fn calendar_event_get_params_serializes() {
         let params = CalendarEventGetParams {
-            expand_recurrences: Some(true),
-            reduced_participants: Some(false),
-            fetch_calendars: None,
-            extra: serde_json::Map::new(),
+            recurrence_overrides_before: Some(UTCDate::from("2026-12-01T00:00:00Z")),
+            reduce_participants: Some(true),
+            time_zone: Some("Europe/Berlin".to_owned()),
+            ..Default::default()
         };
         let out = serde_json::to_value(&params).expect("Serialize is infallible for plain data");
-        let obj = out
-            .as_object()
-            .expect("Params must serialize to a JSON object");
-        // Some fields appear with camelCase wire names
-        assert_eq!(obj.get("expandRecurrences"), Some(&json!(true)));
-        assert_eq!(obj.get("reducedParticipants"), Some(&json!(false)));
-        // None field is omitted via skip_serializing_if
-        assert!(
-            obj.get("fetchCalendars").is_none(),
-            "fetchCalendars must be absent when None"
+        assert_eq!(
+            out,
+            json!({
+                "recurrenceOverridesBefore": "2026-12-01T00:00:00Z",
+                "reduceParticipants": true,
+                "timeZone": "Europe/Berlin"
+            })
         );
-        // No snake_case leakage
-        assert!(
-            obj.get("expand_recurrences").is_none(),
-            "snake_case must not appear on the wire"
-        );
-        // Extra map is empty so it doesn't add anything to the output
-        assert!(obj.len() == 2, "expected exactly 2 set fields, got: {out}");
     }
 
     /// Oracle: CalendarEventGetParams.extra carries vendor / site
@@ -885,13 +883,12 @@ mod tests {
         let mut extra = serde_json::Map::new();
         extra.insert("acmeCorpDebug".to_owned(), json!(true));
         let params = CalendarEventGetParams {
-            expand_recurrences: Some(true),
-            reduced_participants: None,
-            fetch_calendars: None,
+            reduce_participants: Some(true),
             extra,
+            ..Default::default()
         };
         let out = serde_json::to_value(&params).expect("Serialize is infallible for plain data");
-        assert_eq!(out["expandRecurrences"], json!(true));
+        assert_eq!(out["reduceParticipants"], json!(true));
         assert_eq!(out["acmeCorpDebug"], json!(true));
     }
 

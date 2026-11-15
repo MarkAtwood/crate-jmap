@@ -182,13 +182,15 @@ to properties, as in the canonical `jmap-mail-client`.
 
 ```rust
 pub struct CalendarEventGetParams {
-    pub expand_recurrences: Option<bool>,   // draft §5.11
-    pub reduced_participants: Option<bool>, // draft §5.4
-    pub fetch_calendars: Option<bool>,      // draft §5.4
+    pub recurrence_overrides_before: Option<UTCDate>, // draft-34 §5.7
+    pub recurrence_overrides_after: Option<UTCDate>,  // draft-34 §5.7
+    pub reduce_participants: Option<bool>,            // draft-34 §5.7
+    pub time_zone: Option<String>,                    // draft-34 §5.7
 }
 ```
 
-Pass `None` for any field to omit it from the request.
+Pass `None` for any field to omit it from the request. `expandRecurrences`
+is a `CalendarEvent/query` argument (§5.11), passed to `calendar_event_query`.
 
 ## How it works
 
