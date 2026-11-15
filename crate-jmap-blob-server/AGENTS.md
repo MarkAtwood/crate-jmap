@@ -39,8 +39,9 @@ knobs behind `test-helpers`.
 
 Design: `docs/design/blobext.md` §5–§7. The crate owns wire validation,
 method semantics and error mapping; blob storage, the reverse lookup index
-and media conversion are backend hooks. The handlers are `serverFail`
-stubs until bd JMAP-tna1.2.7 to .10.
+and media conversion are backend hooks. `Blob/get` is done (bd
+JMAP-tna1.2.7); the other handlers are `serverFail` stubs until bd
+JMAP-tna1.2.8 to .10.
 
 ## Crate Family Context
 

@@ -23,10 +23,6 @@ pub(crate) struct Selection {
 ///
 /// `offset + length` is computed with a checked add: an overflow extends
 /// past every blob's end.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "used by the Blob/get handler, bd JMAP-tna1.2.7")
-)]
 pub(crate) fn select_range(size: u64, offset: Option<u64>, length: Option<u64>) -> Selection {
     let offset = offset.unwrap_or(0);
     let start = offset.min(size);
@@ -46,10 +42,6 @@ pub(crate) fn select_range(size: u64, offset: Option<u64>, length: Option<u64>) 
 /// The octets as text when they are valid UTF-8 (`data:asText`), or
 /// `None`, which the handler writes as `null` with `isEncodingProblem`
 /// (blobext-03 §5). A range that cuts a multi-octet sequence is invalid.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "used by the Blob/get handler, bd JMAP-tna1.2.7")
-)]
 pub(crate) fn utf8_text(bytes: &[u8]) -> Option<&str> {
     std::str::from_utf8(bytes).ok()
 }

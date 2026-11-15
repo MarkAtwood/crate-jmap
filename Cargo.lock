@@ -1809,6 +1809,7 @@ version = "0.5.0"
 name = "jmap-blob-server"
 version = "0.5.0"
 dependencies = [
+ "base64",
  "jmap-blob-server",
  "jmap-blob-types",
  "jmap-server",

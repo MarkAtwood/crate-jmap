@@ -22,6 +22,7 @@ memory = []
 test-helpers = ["memory"]
 
 [dependencies]
+base64 = "0.22"
 jmap-types = { workspace = true }
 jmap-blob-types = { workspace = true }
 jmap-server = { workspace = true }

@@ -214,6 +214,20 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: `Blob/get` (blobext-03 §5). `offset`/`length`
+  ranges with `isTruncated`; `data`, `data:asText` (null plus
+  `isEncodingProblem` for invalid UTF-8) and `data:asBase64`; `digest:*`
+  over exactly the returned octets, from `stored_digest` or the
+  `digester` (an advertised algorithm with neither is `serverFail`);
+  `imageData`; `chunks` projected to `dataSourceProperties` with computed
+  `position` and per-chunk digests. `ids` must be a list, `properties` is
+  required with `offset` or `length`, and unknown or unadvertised property
+  names are `invalidArguments`. `#creationId` ids resolve against earlier
+  calls; unresolved ones are listed in `notFound` as sent. With
+  `urn:ietf:params:jmap:blob` in `using` the RFC 9404 rules apply, and
+  both blob capabilities together are `invalidArguments`.
+  (bd:JMAP-tna1.2.7)
+
 - **jmap-blob-server**: the memory backend runs `Blob/convert` (decision
   13). `application/x-tar` archives come from a hand-rolled ustar writer:
   the recipe is checked when it runs (entry errors name
