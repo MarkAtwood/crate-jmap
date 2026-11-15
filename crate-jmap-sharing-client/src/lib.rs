@@ -79,6 +79,7 @@ impl JmapSharingExt for jmap_base_client::JmapClient {
         methods::SessionClient {
             client: self.clone(),
             session,
+            i18n: None,
         }
     }
 }

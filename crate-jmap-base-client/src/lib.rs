@@ -67,6 +67,7 @@ mod auth;
 mod blob;
 mod client;
 mod error;
+mod i18n;
 mod push;
 mod query;
 mod request;
@@ -90,6 +91,7 @@ pub use error::{
     ClientError, HttpError, HttpErrorKind, InvalidHeaderValueError, ParseCategory, ParseError,
     SerializeError, WebSocketError, WebSocketErrorKind, to_args,
 };
+pub use i18n::I18nSetting;
 pub use push::StateChange;
 pub use query::QueryParams;
 pub use request::{
@@ -98,6 +100,7 @@ pub use request::{
 };
 pub use sse::{SseEvent, SseFrame, parse_sse_block};
 pub use ws::{
-    DEFAULT_WS_MAX_MESSAGE_BYTES, WsFrame, WsReceiver, WsRequestError, WsSender, WsSession,
-    connect_ws, connect_ws_allow_plaintext, connect_ws_with_limit,
+    DEFAULT_WS_MAX_MESSAGE_BYTES, WsConnectOptions, WsFrame, WsReceiver, WsRequestError, WsSender,
+    WsSession, connect_ws, connect_ws_allow_plaintext, connect_ws_with_limit,
+    connect_ws_with_options,
 };

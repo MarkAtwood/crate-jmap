@@ -79,6 +79,17 @@ wire behaviour that a conforming peer can observe.
   `handle_query_changes_with_i18n`, the `using`-aware forms of
   `handle_query` and `handle_query_changes` for types with localizable
   properties.
+- **jmap-mail-client**, **jmap-contacts-client**, **jmap-sharing-client**:
+  `SessionClient::with_i18n(language)` uses draft-atwood-jmap-updates-00 on
+  every call: it adds `urn:ietf:params:jmap:i18n` to `using` (so `locale`
+  and `localizations` can be read and written) and sends `language` on
+  `/get`, `/query` and `/queryChanges` of Mailbox, AddressBook and
+  Principal. It fails with `InvalidSession` when the Session does not
+  advertise the capability.
+- **jmap-base-client**: `I18nSetting`, the shared client-side setting
+  behind `with_i18n`; `connect_ws_with_options` and `WsConnectOptions`,
+  whose `accept_language` sets `Accept-Language` on the WebSocket opening
+  handshake (draft-atwood-jmap-updates-00 §4.3).
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.

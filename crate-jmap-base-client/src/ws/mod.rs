@@ -817,7 +817,12 @@ pub async fn connect_ws_with_limit(
     auth_header: Option<crate::auth::AuthHeader<'_>>,
     max_message_bytes: usize,
 ) -> Result<WsSession, crate::error::ClientError> {
-    connect_impl(ws_url, auth_header, max_message_bytes, false).await
+    connect_impl(
+        ws_url,
+        auth_header,
+        &WsConnectOptions::new().max_message_bytes(max_message_bytes),
+    )
+    .await
 }
 
 /// Establish a WebSocket connection that also accepts plaintext `ws://`.
@@ -837,15 +842,99 @@ pub async fn connect_ws_allow_plaintext(
     auth_header: Option<crate::auth::AuthHeader<'_>>,
     max_message_bytes: usize,
 ) -> Result<WsSession, crate::error::ClientError> {
-    connect_impl(ws_url, auth_header, max_message_bytes, true).await
+    connect_impl(
+        ws_url,
+        auth_header,
+        &WsConnectOptions::new()
+            .max_message_bytes(max_message_bytes)
+            .allow_plaintext(true),
+    )
+    .await
+}
+
+/// Options for [`connect_ws_with_options`].
+///
+/// Build with [`WsConnectOptions::new`] and the setters; the defaults are
+/// those of [`connect_ws`].
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WsConnectOptions {
+    /// Per-message and per-frame byte cap; default
+    /// [`DEFAULT_WS_MAX_MESSAGE_BYTES`]. Must be greater than 0.
+    pub max_message_bytes: usize,
+    /// Accept plaintext `ws://` as well as `wss://`; default `false`. See
+    /// [`connect_ws_allow_plaintext`].
+    pub allow_plaintext: bool,
+    /// The `Accept-Language` header of the opening handshake, e.g.
+    /// `"fr-CH, fr;q=0.9"`. draft-atwood-jmap-updates-00 §4.3: a server
+    /// SHOULD treat it as the Accept-Language of every Request on the
+    /// connection (for its custom strings, RFC 8620 §3.8). It does not
+    /// change the data of localizable properties; pass a `language`
+    /// argument for that. `None` sends no header.
+    pub accept_language: Option<String>,
+}
+
+impl Default for WsConnectOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl WsConnectOptions {
+    /// The defaults of [`connect_ws`].
+    pub fn new() -> Self {
+        Self {
+            max_message_bytes: DEFAULT_WS_MAX_MESSAGE_BYTES,
+            allow_plaintext: false,
+            accept_language: None,
+        }
+    }
+
+    /// Set [`max_message_bytes`](Self::max_message_bytes).
+    #[must_use]
+    pub fn max_message_bytes(mut self, max: usize) -> Self {
+        self.max_message_bytes = max;
+        self
+    }
+
+    /// Set [`allow_plaintext`](Self::allow_plaintext).
+    #[must_use]
+    pub fn allow_plaintext(mut self, allow: bool) -> Self {
+        self.allow_plaintext = allow;
+        self
+    }
+
+    /// Set [`accept_language`](Self::accept_language).
+    #[must_use]
+    pub fn accept_language(mut self, value: Option<String>) -> Self {
+        self.accept_language = value;
+        self
+    }
+}
+
+/// Establish a WebSocket connection (RFC 8887) with [`WsConnectOptions`],
+/// for example to send `Accept-Language` on the opening handshake.
+///
+/// # Errors
+///
+/// Those of [`connect_ws_with_limit`], and
+/// [`ClientError::InvalidArgument`](crate::error::ClientError::InvalidArgument)
+/// when `accept_language` is not a valid header value.
+pub async fn connect_ws_with_options(
+    ws_url: &str,
+    auth_header: Option<crate::auth::AuthHeader<'_>>,
+    options: &WsConnectOptions,
+) -> Result<WsSession, crate::error::ClientError> {
+    connect_impl(ws_url, auth_header, options).await
 }
 
 async fn connect_impl(
     ws_url: &str,
     auth_header: Option<crate::auth::AuthHeader<'_>>,
-    max_message_bytes: usize,
-    allow_plaintext: bool,
+    options: &WsConnectOptions,
 ) -> Result<WsSession, crate::error::ClientError> {
+    let max_message_bytes = options.max_message_bytes;
+    let allow_plaintext = options.allow_plaintext;
     if max_message_bytes == 0 {
         return Err(crate::error::ClientError::InvalidArgument(
             "connect_ws_with_limit: max_message_bytes must be > 0".to_owned(),
@@ -891,6 +980,16 @@ async fn connect_impl(
             crate::error::ClientError::InvalidArgument("invalid auth header value".to_owned())
         })?;
         request.headers_mut().insert(hdr_name, hdr_value);
+    }
+    if let Some(lang) = &options.accept_language {
+        let value = http::HeaderValue::from_str(lang).map_err(|_| {
+            crate::error::ClientError::InvalidArgument(
+                "invalid Accept-Language header value".to_owned(),
+            )
+        })?;
+        request
+            .headers_mut()
+            .insert(http::header::ACCEPT_LANGUAGE, value);
     }
 
     // WebSocketConfig is #[non_exhaustive] in tungstenite; use Default + field assignment.

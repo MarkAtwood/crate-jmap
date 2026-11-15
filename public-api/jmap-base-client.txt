@@ -337,6 +337,22 @@ impl core::fmt::Debug for jmap_base_client::HttpError
 pub fn jmap_base_client::HttpError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_base_client::HttpError
 pub fn jmap_base_client::HttpError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::I18nSetting
+pub jmap_base_client::I18nSetting::language: core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageRange>>
+impl jmap_base_client::I18nSetting
+pub fn jmap_base_client::I18nSetting::add_language(&self, &mut serde_json::value::Value)
+pub fn jmap_base_client::I18nSetting::add_to_using(&self, &mut jmap_types::wire::JmapRequest)
+pub fn jmap_base_client::I18nSetting::new(&jmap_base_client::Session, core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageRange>>) -> core::result::Result<Self, jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::I18nSetting
+pub fn jmap_base_client::I18nSetting::clone(&self) -> jmap_base_client::I18nSetting
+impl core::cmp::Eq for jmap_base_client::I18nSetting
+impl core::cmp::PartialEq for jmap_base_client::I18nSetting
+pub fn jmap_base_client::I18nSetting::eq(&self, &jmap_base_client::I18nSetting) -> bool
+impl core::default::Default for jmap_base_client::I18nSetting
+pub fn jmap_base_client::I18nSetting::default() -> jmap_base_client::I18nSetting
+impl core::fmt::Debug for jmap_base_client::I18nSetting
+pub fn jmap_base_client::I18nSetting::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::I18nSetting
 #[non_exhaustive] pub struct jmap_base_client::InvalidHeaderValueError
 impl jmap_base_client::InvalidHeaderValueError
 pub fn jmap_base_client::InvalidHeaderValueError::message(&self) -> &str
@@ -635,6 +651,25 @@ impl core::fmt::Debug for jmap_base_client::WebSocketError
 pub fn jmap_base_client::WebSocketError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_base_client::WebSocketError
 pub fn jmap_base_client::WebSocketError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_base_client::WsConnectOptions
+pub jmap_base_client::WsConnectOptions::accept_language: core::option::Option<alloc::string::String>
+pub jmap_base_client::WsConnectOptions::allow_plaintext: bool
+pub jmap_base_client::WsConnectOptions::max_message_bytes: usize
+impl jmap_base_client::WsConnectOptions
+pub fn jmap_base_client::WsConnectOptions::accept_language(self, core::option::Option<alloc::string::String>) -> Self
+pub fn jmap_base_client::WsConnectOptions::allow_plaintext(self, bool) -> Self
+pub fn jmap_base_client::WsConnectOptions::max_message_bytes(self, usize) -> Self
+pub fn jmap_base_client::WsConnectOptions::new() -> Self
+impl core::clone::Clone for jmap_base_client::WsConnectOptions
+pub fn jmap_base_client::WsConnectOptions::clone(&self) -> jmap_base_client::WsConnectOptions
+impl core::cmp::Eq for jmap_base_client::WsConnectOptions
+impl core::cmp::PartialEq for jmap_base_client::WsConnectOptions
+pub fn jmap_base_client::WsConnectOptions::eq(&self, &jmap_base_client::WsConnectOptions) -> bool
+impl core::default::Default for jmap_base_client::WsConnectOptions
+pub fn jmap_base_client::WsConnectOptions::default() -> Self
+impl core::fmt::Debug for jmap_base_client::WsConnectOptions
+pub fn jmap_base_client::WsConnectOptions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::WsConnectOptions
 pub struct jmap_base_client::WsReceiver
 impl jmap_base_client::WsReceiver
 pub async fn jmap_base_client::WsReceiver::next_frame(&mut self) -> core::option::Option<core::result::Result<jmap_base_client::WsFrame, jmap_base_client::ClientError>>
@@ -704,6 +739,7 @@ pub fn jmap_base_client::DefaultTransport::build_client(&self) -> core::result::
 pub async fn jmap_base_client::connect_ws(&str, core::option::Option<jmap_base_client::AuthHeader<'_>>) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
 pub async fn jmap_base_client::connect_ws_allow_plaintext(&str, core::option::Option<jmap_base_client::AuthHeader<'_>>, usize) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
 pub async fn jmap_base_client::connect_ws_with_limit(&str, core::option::Option<jmap_base_client::AuthHeader<'_>>, usize) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
+pub async fn jmap_base_client::connect_ws_with_options(&str, core::option::Option<jmap_base_client::AuthHeader<'_>>, &jmap_base_client::WsConnectOptions) -> core::result::Result<jmap_base_client::WsSession, jmap_base_client::ClientError>
 pub fn jmap_base_client::expand_url_template(&str, &[(&str, &str)]) -> core::result::Result<alloc::string::String, jmap_base_client::ClientError>
 pub fn jmap_base_client::extract_response<T: serde_core::de::DeserializeOwned>(&jmap_types::wire::JmapResponse, &str) -> core::result::Result<T, jmap_base_client::ClientError>
 pub fn jmap_base_client::method_error_details<'a>(&'a jmap_types::wire::JmapResponse, &str) -> core::option::Option<&'a serde_json::map::Map<alloc::string::String, serde_json::value::Value>>

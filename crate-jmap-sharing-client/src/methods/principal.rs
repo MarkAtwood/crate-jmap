@@ -66,6 +66,8 @@ impl super::SessionClient {
         if let Some(props) = properties {
             args["properties"] = jmap_base_client::to_args(props)?;
         }
+        // draft-atwood-jmap-updates-00 §4.2: `language` from `with_i18n`.
+        self.add_language(&mut args);
         let req = super::build_request("Principal/get", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -233,6 +235,8 @@ impl super::SessionClient {
         if let Some(s) = sort {
             args["sort"] = jmap_base_client::to_args(s)?;
         }
+        // draft-atwood-jmap-updates-00 §4.2: `language` from `with_i18n`.
+        self.add_language(&mut args);
         let req = super::build_request("Principal/query", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -312,6 +316,8 @@ impl super::SessionClient {
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
         }
+        // draft-atwood-jmap-updates-00 §4.2: `language` from `with_i18n`.
+        self.add_language(&mut args);
         let req = super::build_request("Principal/queryChanges", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
