@@ -32,6 +32,16 @@ wire behaviour that a conforming peer can observe.
   in `using` and the account supports it, and with a non-null `language`
   returns each object's single-language view. `I18nProjection` and
   `uses_i18n` let type-specific `/get` handlers do the same.
+- **jmap-server**: draft-atwood-jmap-updates-00 `/set` support for
+  localizable types. `I18nSet` is the handler side: it rejects `locale` and
+  `localizations` with `invalidProperties` when the request or account may
+  not use them, checks and case-folds them on create (with
+  `I18nInfo::max_localizations`), and strips them from `created`/`updated`
+  echoes to clients without the capability. `localized_update` is the
+  backend side, run inside `update_object` on the patched object: it
+  checks the result and prunes translations made stale by a changed base
+  value, returning `true` when the backend must return the updated object
+  so `localizations` is echoed.
 - **jmap-calendars-server**: `CalendarEvent/set` enforces the per-event
   account limits of draft-ietf-jmap-calendars-34 §5.9. `CalendarsLimits`
   gains `max_calendars_per_event`, `max_participants_per_event`,

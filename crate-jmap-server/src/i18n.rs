@@ -5,15 +5,18 @@
 //! [`JmapBackend::i18n_info`](crate::JmapBackend::i18n_info). `/get`
 //! handlers build an [`I18nProjection`] per request; it reads the
 //! `language` argument, rejects it where the draft says to, and shapes
-//! `locale` and `localizations` on every returned object.
+//! `locale` and `localizations` on every returned object. `/set` handlers
+//! build an [`I18nSet`]; backends run [`localized_update`] inside each
+//! update of a type with localizable properties.
 //!
 //! Design: `docs/design/updates.md` (decisions 27 to 31).
 
-use crate::JmapObject;
-use jmap_types::JmapError;
+use crate::{JmapObject, SetError, SetErrorType};
 use jmap_types::i18n::{
-    JMAP_I18N_URI, LanguageRange, LanguageTag, LocalizableProperty, localized_view,
+    JMAP_I18N_URI, LanguageRange, LanguageTag, LocalizableProperty, check_localizations,
+    localized_view, parse_locale, prune_stale_localizations,
 };
+use jmap_types::{JmapError, PatchObject};
 use serde_json::{Map, Value};
 
 /// What a backend supports for `urn:ietf:params:jmap:i18n` in one
@@ -215,4 +218,201 @@ fn parse_ranges(v: &Value) -> Result<Vec<LanguageRange>, JmapError> {
             })
         })
         .collect()
+}
+
+// ---------------------------------------------------------------------------
+// /set
+// ---------------------------------------------------------------------------
+
+fn invalid(property: &str, description: impl Into<String>) -> Box<SetError> {
+    Box::new(
+        SetError::new(SetErrorType::InvalidProperties)
+            .with_properties([property])
+            .with_description(description),
+    )
+}
+
+/// The wire property a `/set` create key or update patch path writes, when
+/// it is `locale` or `localizations` (`"localizations/fr/name"` writes
+/// `localizations`).
+fn localized_root(key: &str) -> Option<&'static str> {
+    match key.split('/').next() {
+        Some("locale") => Some("locale"),
+        Some("localizations") => Some("localizations"),
+        _ => None,
+    }
+}
+
+/// How a `Foo/set` handler treats `locale` and `localizations`
+/// (draft-atwood-jmap-updates-00 §3, §4.1).
+///
+/// Build one per request with [`I18nSet::new`]. Call
+/// [`I18nSet::check_create`] on each create object and
+/// [`I18nSet::check_patch`] on each update patch before handing them to the
+/// backend, and [`I18nSet::echo`] on each object returned in `created` or
+/// `updated`. The checks that need the patched object (a key equal to the
+/// new `locale`, pruning) run in the backend through [`localized_update`],
+/// inside the same atomic update.
+#[derive(Debug, Clone, Default)]
+pub struct I18nSet {
+    /// `None`: the type has no localizable properties.
+    properties: Option<&'static [LocalizableProperty]>,
+    /// The request uses the capability and the account supports it.
+    allowed: bool,
+    max_localizations: Option<usize>,
+}
+
+impl I18nSet {
+    /// The handling for type `O`, given the request's `using` and the
+    /// account's [`JmapBackend::i18n_info`](crate::JmapBackend::i18n_info).
+    pub fn new<O: JmapObject>(using: &[String], info: Option<&I18nInfo>) -> Self {
+        Self {
+            properties: (!O::LOCALIZABLE.is_empty()).then_some(O::LOCALIZABLE),
+            allowed: uses_i18n(using) && info.is_some(),
+            max_localizations: info.and_then(|i| i.max_localizations),
+        }
+    }
+
+    fn gate(&self, key: &str) -> Result<(), Box<SetError>> {
+        match localized_root(key) {
+            Some(root) if self.properties.is_some() && !self.allowed => Err(invalid(
+                root,
+                format!(
+                    "{root} requires urn:ietf:params:jmap:i18n in using and an account that \
+                     supports it"
+                ),
+            )),
+            _ => Ok(()),
+        }
+    }
+
+    /// Check a create object and fold its tags to canonical case.
+    ///
+    /// Without the capability in use, naming `locale` or `localizations`
+    /// is `invalidProperties` (§3). With it, `locale` must be `null` or a
+    /// language tag, and `localizations` must follow §4.1
+    /// ([`check_localizations`]) and the account's
+    /// [`I18nInfo::max_localizations`]. Length and syntax limits of the
+    /// defining specification on localized values are the type's handler's
+    /// to apply.
+    ///
+    /// # Errors
+    ///
+    /// An `invalidProperties` [`SetError`] naming `locale` or
+    /// `localizations`.
+    pub fn check_create(&self, create: &mut Map<String, Value>) -> Result<(), Box<SetError>> {
+        let Some(properties) = self.properties else {
+            return Ok(());
+        };
+        for key in create.keys() {
+            self.gate(key)?;
+        }
+        if !self.allowed {
+            return Ok(());
+        }
+        check_and_fold(create, properties, self.max_localizations)
+    }
+
+    /// Check an update patch before the backend applies it.
+    ///
+    /// Without the capability in use, a patch path into `locale` or
+    /// `localizations` is `invalidProperties` (§3). Everything that depends
+    /// on the patched object is [`localized_update`]'s.
+    ///
+    /// # Errors
+    ///
+    /// An `invalidProperties` [`SetError`] naming `locale` or
+    /// `localizations`.
+    pub fn check_patch(&self, patch: &Map<String, Value>) -> Result<(), Box<SetError>> {
+        if self.properties.is_none() {
+            return Ok(());
+        }
+        patch.keys().try_for_each(|k| self.gate(k))
+    }
+
+    /// Shape a `created` or `updated` entry for the client: without the
+    /// capability in use, `locale` and `localizations` are removed (§3); with
+    /// it they are left as the backend returned them.
+    pub fn echo(&self, entry: &mut Value) {
+        if self.properties.is_some()
+            && !self.allowed
+            && let Value::Object(m) = entry
+        {
+            m.remove("locale");
+            m.remove("localizations");
+        }
+    }
+}
+
+/// Parse `locale` and check `localizations` in `obj`, writing both back in
+/// canonical case.
+fn check_and_fold(
+    obj: &mut Map<String, Value>,
+    properties: &[LocalizableProperty],
+    max: Option<usize>,
+) -> Result<(), Box<SetError>> {
+    let locale = match obj.get("locale") {
+        Some(v) => parse_locale(v)?,
+        None => None,
+    };
+    if let Some(tag) = &locale {
+        obj.insert("locale".to_owned(), Value::String(tag.as_str().to_owned()));
+    }
+    let Some(value) = obj.get("localizations") else {
+        return Ok(());
+    };
+    let locs = check_localizations(locale.as_ref(), value, properties)?;
+    if let (Some(locs), Some(max)) = (&locs, max)
+        && locs.len() > max
+    {
+        return Err(invalid(
+            "localizations",
+            format!("at most {max} localizations per object"),
+        ));
+    }
+    let folded = match locs {
+        Some(l) => serde_json::to_value(&l)
+            .map_err(|_| invalid("localizations", "localizations could not be serialized"))?,
+        None => Value::Null,
+    };
+    obj.insert("localizations".to_owned(), folded);
+    Ok(())
+}
+
+/// The draft-atwood-jmap-updates-00 §4.1 rules that need the patched
+/// object, for a backend's `update_object` of a type with
+/// [`JmapObject::LOCALIZABLE`] properties.
+///
+/// `old` is the stored object and `new` the result of applying `patch` to
+/// it (for example with [`apply_patch_object`](crate::apply_patch_object)),
+/// both serialized. It checks `locale` and `localizations` in `new`
+/// ([`check_localizations`], so no key may equal the new `locale`), applies
+/// `max_localizations` ([`I18nInfo::max_localizations`]), folds tags to
+/// canonical case, and then drops translations made stale by a changed
+/// base value ([`prune_stale_localizations`]). Run it inside the same
+/// atomic update, before validating and writing `new`.
+///
+/// Pruning applies to every client, including those that do not use the
+/// capability: that is the case §4.1 is for.
+///
+/// Returns `true` when pruning removed anything. The backend MUST then
+/// return the updated object (`Ok(Some(_))`) from `update_object`, so that
+/// the handler returns `localizations` in `updated` to clients that use the
+/// capability (§4.1, RFC 8620 §5.3).
+///
+/// # Errors
+///
+/// An `invalidProperties` [`SetError`] naming `locale` or
+/// `localizations`; the backend returns it as the update's SetError.
+pub fn localized_update<O: JmapObject>(
+    old: &Map<String, Value>,
+    new: &mut Map<String, Value>,
+    patch: &PatchObject,
+    max_localizations: Option<usize>,
+) -> Result<bool, Box<SetError>> {
+    if O::LOCALIZABLE.is_empty() {
+        return Ok(false);
+    }
+    check_and_fold(new, O::LOCALIZABLE, max_localizations)?;
+    Ok(prune_stale_localizations(old, new, patch, O::LOCALIZABLE))
 }

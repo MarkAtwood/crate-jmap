@@ -213,6 +213,18 @@ impl core::default::Default for jmap_server::I18nProjection
 pub fn jmap_server::I18nProjection::default() -> jmap_server::I18nProjection
 impl core::fmt::Debug for jmap_server::I18nProjection
 pub fn jmap_server::I18nProjection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_server::I18nSet
+impl jmap_server::I18nSet
+pub fn jmap_server::I18nSet::check_create(&self, &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(), alloc::boxed::Box<jmap_types::set_error::SetError>>
+pub fn jmap_server::I18nSet::check_patch(&self, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(), alloc::boxed::Box<jmap_types::set_error::SetError>>
+pub fn jmap_server::I18nSet::echo(&self, &mut serde_json::value::Value)
+pub fn jmap_server::I18nSet::new<O: jmap_types::backend::JmapObject>(&[alloc::string::String], core::option::Option<&jmap_server::I18nInfo>) -> Self
+impl core::clone::Clone for jmap_server::I18nSet
+pub fn jmap_server::I18nSet::clone(&self) -> jmap_server::I18nSet
+impl core::default::Default for jmap_server::I18nSet
+pub fn jmap_server::I18nSet::default() -> jmap_server::I18nSet
+impl core::fmt::Debug for jmap_server::I18nSet
+pub fn jmap_server::I18nSet::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct jmap_server::MetadataProjection
 impl jmap_server::MetadataProjection
 pub fn jmap_server::MetadataProjection::apply(&self, &serde_json::value::Value, &mut serde_json::value::Value)
@@ -354,6 +366,7 @@ pub fn jmap_server::is_client_updatable<O: jmap_types::backend::SetObject>(&str)
 pub fn jmap_server::is_deliverable(&jmap_server::StoredPushSubscription, i64) -> bool
 pub fn jmap_server::json_merge_patch(&mut serde_json::value::Value, serde_json::value::Value) -> core::result::Result<(), jmap_server::MergePatchError>
 pub fn jmap_server::limit_or_max(core::option::Option<u64>) -> usize
+pub fn jmap_server::localized_update<O: jmap_types::backend::JmapObject>(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_types::patch::PatchObject, core::option::Option<usize>) -> core::result::Result<bool, alloc::boxed::Box<jmap_types::set_error::SetError>>
 pub fn jmap_server::not_found_json(&[jmap_types::id::Id]) -> serde_json::value::Value
 pub fn jmap_server::now_utc_string() -> jmap_types::id::UTCDate
 pub fn jmap_server::now_utc_string_checked() -> core::option::Option<jmap_types::id::UTCDate>
