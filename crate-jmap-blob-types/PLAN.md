@@ -27,7 +27,7 @@ jmap-types (RFC 8620 wire primitives, data_types registry)
 | `get.rs` | `Blob/get` request/response types, `ImageData`, chunks | -03 §5 | JMAP-tna1.2.2 (done) |
 | `convert.rs` | `BlobConvertArgs`, `Blob/convert` recipes, `ArchiveEntry`, enums, `compress_level_range` | -03 §8 | JMAP-tna1.2.3 (done) |
 | `lookup.rs` | `Blob/lookup` request/response types | -03 §6 | JMAP-tna1.2.3 (done) |
-| `rfc9404.rs` | RFC 9404 `Blob/upload` types | RFC 9404 §4.1 | JMAP-tna1.2.11 |
+| `rfc9404.rs` | RFC 9404 `Blob/upload` types | RFC 9404 §4.1 | JMAP-tna1.2.11 (done) |
 
 The JMAP Data Types registry is `jmap_types::data_types`, not this crate
 (decision 14).

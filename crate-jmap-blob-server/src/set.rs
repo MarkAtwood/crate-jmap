@@ -95,56 +95,13 @@ pub async fn handle_blob_set<B: BlobBackend>(
     };
     let mut response = BlobSetResponse::new(account_id.clone());
 
-    // Create: parse every entry, order the valid ones by their in-call
-    // references, then create them.
-    let mut parsed = BTreeMap::new();
-    for (cid, value) in create {
-        if let Err(e) = Id::new_validated(cid.as_str()) {
-            response.not_created.insert(
-                cid,
-                invalid(["id"]).with_description(format!("creation id is not an Id: {e}")),
-            );
-            continue;
-        }
-        match parse_create(value, &capability) {
-            Ok(obj) => {
-                parsed.insert(Id::from(cid.as_str()), obj);
-            }
-            Err(e) => {
-                response.not_created.insert(cid, *e);
-            }
-        }
-    }
-    let nodes: Vec<Id> = parsed.keys().cloned().collect();
-    let order = topo_order(&nodes, |cid| {
-        parsed
-            .get(cid)
-            .map(|obj| creation_refs(&obj.data))
-            .unwrap_or_default()
-    });
-    for cid in &order.cyclic {
-        response.not_created.insert(
-            cid.to_string(),
-            invalid(["data"]).with_description("creation references form a cycle"),
-        );
-    }
-    for cid in order.order {
-        let Some(obj) = parsed.remove(&cid) else {
-            continue;
-        };
-        match create_one(&mut ctx, obj).await? {
-            Ok(created) => {
-                ctx.local.insert(cid.clone(), created.id.clone());
-                if !created.omit_from_response {
-                    let mut object =
-                        BlobObject::new(created.id, created.media_type, Some(created.size));
-                    object.expires = Some(created.expires);
-                    response.created.insert(cid.to_string(), object);
-                }
-            }
-            Err(e) => {
-                response.not_created.insert(cid.to_string(), *e);
-            }
+    let (created, not_created) = create_all(&mut ctx, create, |_| Ok(())).await?;
+    response.not_created = not_created;
+    for (cid, created) in created {
+        if !created.omit_from_response {
+            let mut object = BlobObject::new(created.id, created.media_type, Some(created.size));
+            object.expires = Some(created.expires);
+            response.created.insert(cid, object);
         }
     }
 
@@ -288,6 +245,79 @@ impl<B: BlobBackend> Ctx<'_, B> {
             Err(e) => Ok(Err(Box::new(backend_set_error(e)))),
         }
     }
+}
+
+/// Created blobs and failures of one `create` map, by creation id.
+pub(crate) type CreateResults = (BTreeMap<String, CreatedBlob>, BTreeMap<String, SetError>);
+
+/// Run a `Blob/set` or `Blob/upload` `create` map: check each creation id,
+/// screen each entry with `screen` and then [`parse_create`], order the
+/// valid entries by their in-call references (a cycle rejects its members
+/// with `["data"]`), and create them with [`create_one`]. Every created
+/// blob is recorded in `ctx.local`, including one the backend asks to
+/// omit, so later entries can read it.
+///
+/// # Errors
+///
+/// A method-level `serverFail` from [`create_one`].
+pub(crate) async fn create_all<B: BlobBackend>(
+    ctx: &mut Ctx<'_, B>,
+    create: Map<String, Value>,
+    screen: impl Fn(&Map<String, Value>) -> Result<(), Box<SetError>>,
+) -> Result<CreateResults, JmapError> {
+    let mut created = BTreeMap::new();
+    let mut not_created = BTreeMap::new();
+    let mut parsed = BTreeMap::new();
+    for (cid, value) in create {
+        if let Err(e) = Id::new_validated(cid.as_str()) {
+            not_created.insert(
+                cid,
+                invalid(["id"]).with_description(format!("creation id is not an Id: {e}")),
+            );
+            continue;
+        }
+        let checked = match &value {
+            Value::Object(map) => screen(map),
+            _ => Ok(()),
+        }
+        .and_then(|()| parse_create(value, ctx.capability));
+        match checked {
+            Ok(obj) => {
+                parsed.insert(Id::from(cid.as_str()), obj);
+            }
+            Err(e) => {
+                not_created.insert(cid, *e);
+            }
+        }
+    }
+    let nodes: Vec<Id> = parsed.keys().cloned().collect();
+    let order = topo_order(&nodes, |cid| {
+        parsed
+            .get(cid)
+            .map(|obj| creation_refs(&obj.data))
+            .unwrap_or_default()
+    });
+    for cid in &order.cyclic {
+        not_created.insert(
+            cid.to_string(),
+            invalid(["data"]).with_description("creation references form a cycle"),
+        );
+    }
+    for cid in order.order {
+        let Some(obj) = parsed.remove(&cid) else {
+            continue;
+        };
+        match create_one(ctx, obj).await? {
+            Ok(blob) => {
+                ctx.local.insert(cid.clone(), blob.id.clone());
+                created.insert(cid.to_string(), blob);
+            }
+            Err(e) => {
+                not_created.insert(cid.to_string(), *e);
+            }
+        }
+    }
+    Ok((created, not_created))
 }
 
 /// Steps 1-2 of a create: the entry's properties, typed (blobext-03 §4).

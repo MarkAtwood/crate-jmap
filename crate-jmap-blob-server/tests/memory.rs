@@ -463,7 +463,8 @@ async fn handlers_are_registered() {
             ["Blob/set", {"accountId": "a1"}, "1"],
             ["Blob/lookup", {"accountId": "a1", "typeNames": [], "ids": []}, "2"],
             ["Blob/convert", {"accountId": "a1", "create": {}}, "3"],
-            ["Blob/nope", {"accountId": "a1"}, "4"]
+            ["Blob/upload", {"accountId": "a1", "create": {}}, "4"],
+            ["Blob/nope", {"accountId": "a1"}, "5"]
         ]
     }))
     .unwrap();
@@ -474,16 +475,17 @@ async fn handlers_are_registered() {
         .iter()
         .map(|inv| &inv[1]["type"])
         .collect();
-    // The four Blob methods are mounted: all four answer (no error
-    // type); an
+    // The five Blob methods are mounted and answer (no error type); an
     // unregistered method is unknownMethod.
     assert_eq!(resp["methodResponses"][0][0], "Blob/get");
     assert_eq!(resp["methodResponses"][1][0], "Blob/set");
     assert_eq!(resp["methodResponses"][2][0], "Blob/lookup");
     assert_eq!(resp["methodResponses"][3][0], "Blob/convert");
+    assert_eq!(resp["methodResponses"][4][0], "Blob/upload");
     assert_eq!(
         errors,
         [
+            &Value::Null,
             &Value::Null,
             &Value::Null,
             &Value::Null,

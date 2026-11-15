@@ -1,5 +1,6 @@
 //! Round-trips of the draft-ietf-jmap-blobext-03 examples (§2.1.1, §9.1
-//! to §9.7) and the RFC 9404 §3.1.1 capability.
+//! to §9.7), the RFC 9404 §3.1.1 capability and the RFC 9404 §4.1.1 and
+//! §4.1.2 Blob/upload examples.
 //!
 //! Oracle: the JSON below is copied from the drafts (test-oracle rule).
 //! Where the types normalize (an empty `/set` result map is written as
@@ -8,7 +9,8 @@
 use jmap_blob_types::{
     BlobAccountCapability, BlobConvertArgs, BlobConvertResponse, BlobGetArgs, BlobGetResponse,
     BlobLookupArgs, BlobLookupResponse, BlobProperty, BlobRef, BlobSetArgs, BlobSetResponse,
-    DataSourceProperty, DigestAlgorithm, EntryType, Recipe, Rfc9404AccountCapability,
+    BlobUploadArgs, BlobUploadCallResponse, DataSourceProperty, DigestAlgorithm, EntryType, Recipe,
+    Rfc9404AccountCapability,
 };
 use jmap_types::Id;
 use serde::Serialize;
@@ -120,6 +122,94 @@ fn rfc9404_capability_example() {
         ]
     }));
     assert_eq!(cap.max_data_sources, 100);
+}
+
+/// RFC 9404 §4.1.1, the simple Blob/upload (the example wraps the base64
+/// for publication; "the entire data:asBase64 field would be sent as a
+/// continuous string").
+#[test]
+fn rfc9404_upload_simple() {
+    let args: BlobUploadArgs = exact(json!({
+     "accountId": "account1",
+     "create": {
+      "1": {
+       "data" : [
+       {
+        "data:asBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABAQMAAAAl21bKAAAAA1BMVEX/AAAZ4gk3AAAAAXRSTlN/gFy0ywAAAApJREFUeJxjYgAAAAYAAzY3fKgAAAAASUVORK5CYII="
+       }
+      ],
+      "type": "image/png"
+      }
+     }
+    }));
+    assert_eq!(
+        args.create[&id("1")].media_type.as_deref(),
+        Some("image/png")
+    );
+    let created = json!({
+        "1": {
+            "id": "G4c6751edf9dd6903ff54b792e432fba781271beb",
+            "type": "image/png",
+            "size": 95
+        }
+    });
+    let resp: BlobUploadCallResponse = round_trip(
+        json!({"accountId": "account1", "created": created}),
+        json!({"accountId": "account1", "created": created, "notCreated": null}),
+    );
+    assert_eq!(resp.created["1"].size, Some(95));
+}
+
+/// RFC 9404 §4.1.2, the complex Blob/upload: `#b4` sources with ranges.
+/// The example's requests leave out `accountId`, which RFC 8620 §5.3
+/// requires, so it is added. The responses' `oldState: null` has no field
+/// (decision 21(iii)) and round-trips through `extra`.
+#[test]
+fn rfc9404_upload_complex() {
+    let args: BlobUploadArgs = exact(json!({
+      "accountId": "account1",
+      "create": {
+        "cat": {
+          "data": [
+            {"data:asText": "How"},
+            {"blobId": "#b4", "length": 7, "offset": 3},
+            {"data:asText": "was t"},
+            {"blobId": "#b4", "length": 1, "offset": 1},
+            {"data:asBase64": "YXQ/"}
+          ]
+        }
+      }
+    }));
+    let cat = &args.create[&id("cat")];
+    assert_eq!(cat.data.len(), 5);
+    assert_eq!(cat.data[1].blob_id, Some(BlobRef::Creation(id("b4"))));
+    let resp: BlobUploadCallResponse = round_trip(
+        json!({
+         "oldState": null,
+         "created": {
+           "cat": {
+             "id": "Gcc60576f036321ae6e8037ffc56bdee589bd3e23",
+             "size": 19,
+             "type": "application/octet-stream"
+           }
+         },
+         "notCreated": null,
+         "accountId": "account1"
+        }),
+        json!({
+         "oldState": null,
+         "created": {
+           "cat": {
+             "id": "Gcc60576f036321ae6e8037ffc56bdee589bd3e23",
+             "size": 19,
+             "type": "application/octet-stream"
+           }
+         },
+         "notCreated": null,
+         "accountId": "account1"
+        }),
+    );
+    assert_eq!(resp.extra["oldState"], Value::Null);
 }
 
 /// §9.1 request and response.

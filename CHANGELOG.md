@@ -214,6 +214,20 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: RFC 9404 `Blob/upload` (§4.1), registered by
+  `register_blob_handlers` alongside the blobext methods, so the crate now
+  serves `urn:ietf:params:jmap:blob` as well as `blob2`. Uploads run the
+  Blob/set create pipeline (dependency order, the same source checks and
+  errors); an UploadObject has only `data` and `type`. Every upload is
+  reported in `created`, so it reaches `createdIds`. The response is
+  `accountId`/`created`/`notCreated` only, and a non-empty `update` or
+  `destroy` is `invalidArguments` (decision 21). Blob/get and Blob/lookup
+  already followed RFC 9404 in a `blob` request. (bd:JMAP-tna1.2.11)
+
+- **jmap-blob-types**: RFC 9404 `Blob/upload` types: `BlobUploadArgs`,
+  `UploadObject` and `BlobUploadCallResponse` (named apart from the base
+  client's HTTP `BlobUploadResponse`). (bd:JMAP-tna1.2.11)
+
 - **jmap-blob-server**: `Blob/convert` (blobext-03 §8). Entries run in
   `#creationId` dependency order (a cycle rejects its members), so a
   recipe can read another entry's result or an earlier call's blob.

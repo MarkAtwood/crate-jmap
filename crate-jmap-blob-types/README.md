@@ -17,6 +17,7 @@ method handlers, no async, no network I/O.
 | `BlobGetArgs`, `BlobProperty`, `DataSourceProperty`, `BlobGetItem`, `BlobGetResponse`, `ImageData`, `ImageGps` | `get` | -03 §5 |
 | `BlobLookupArgs`, `BlobInfo`, `BlobLookupResponse` | `lookup` | -03 §6 |
 | `BlobConvertArgs`, `ConvertRequest`, `Recipe` and its seven recipes, `ArchiveEntry`, `EntryType`, `CompressionMethod`, `ColorSpace`, `ConvertedBlob`, `BlobConvertResponse`, `compress_level_range` | `convert` | -03 §8 |
+| `BlobUploadArgs`, `UploadObject`, `BlobUploadCallResponse` | `rfc9404` | RFC 9404 §4.1 |
 | `errors::{UNKNOWN_DATA_TYPE, UNKNOWN_FORMAT, BLOB_HAS_REFERENCE, CONVERSION_FAILED}` | `errors` | -03 §11.3, §11.4 |
 
 ## What it's for

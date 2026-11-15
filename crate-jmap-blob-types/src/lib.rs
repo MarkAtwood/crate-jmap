@@ -4,7 +4,7 @@
 //! Provides the capability objects, [`DigestAlgorithm`] with built-in
 //! digesters, [`BlobRef`] (a blobId or `#creationId`), [`DataSourceObject`],
 //! and the arguments and responses of `Blob/set`, `Blob/get`,
-//! `Blob/lookup` and `Blob/convert`.
+//! `Blob/lookup` and `Blob/convert`, plus RFC 9404 `Blob/upload`.
 //!
 //! This crate is types-only: no method handlers, no async, no network I/O.
 //! It sits between `jmap-types` (shared RFC 8620 wire primitives) and
@@ -45,6 +45,7 @@ mod digest;
 pub mod errors;
 mod get;
 mod lookup;
+mod rfc9404;
 mod serde_util;
 mod set;
 mod source;
@@ -65,5 +66,6 @@ pub use get::{
     ImageGps,
 };
 pub use lookup::{BlobInfo, BlobLookupArgs, BlobLookupResponse};
+pub use rfc9404::{BlobUploadArgs, BlobUploadCallResponse, UploadObject};
 pub use set::{BlobCreateObject, BlobObject, BlobSetArgs, BlobSetResponse, BlobUpdated};
 pub use source::DataSourceObject;
