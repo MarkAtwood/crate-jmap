@@ -147,6 +147,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-did-resolver**: `Resolver::resolve_with_hint` ignores a
+  `didDocumentUri` hint that is not an RFC 3986 URI and resolves by the DID
+  method, so a `did:webvh` hint like that is no longer fetched
+  (draft-atwood-jmap-updates-00 §7.1).
 - **jmap-tasks-server**: `Task/set` (create and update) and `Task/copy`
   reject a Person `uri` in `checklists` (CheckItem `assignee`) or `comments`
   (Comment `author`) that is not an RFC 3986 URI, with `invalidProperties`

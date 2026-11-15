@@ -49,6 +49,9 @@
 //!   derived from the DID, and a `did:plc` audit log comes from the PLC
 //!   directory.
 //!
+//! A hint that is not an RFC 3986 URI (draft-atwood-jmap-updates-00 §7.1)
+//! is ignored, so the method-derived URL is used.
+//!
 //! When the hint is used and its fetch fails with
 //! [`FetchError::Status`] or [`FetchError::Transport`], the
 //! method-derived URL is fetched instead ("When `didDocumentUri` is
@@ -423,6 +426,11 @@ impl<F: Fetch> Resolver<F> {
         if did.method() == "key" {
             return derive_key(did);
         }
+        // draft-atwood-jmap-updates-00 §7.1: `didDocumentUri` is URI-valued.
+        // A hint that is not an RFC 3986 URI cannot be fetched, so it is
+        // ignored and the method's standard resolution is used, as for an
+        // unreachable hint.
+        let hint = hint.filter(|h| jmap_types::uri::check_uri(h).is_ok());
         let now = (self.clock)();
         let cached = self
             .lock()

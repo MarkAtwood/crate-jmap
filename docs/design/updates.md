@@ -333,7 +333,7 @@ names that comparison, which §7.1 allows.
 | graph | GraphNode `uri`, query `objectUri` | `uri`: already rejected on `/set`; the hand-rolled character-set check is replaced by `check_uri` (full grammar), JMAP-cayv.22. `objectUri` filter values are compared as strings (graph-projection), so a non-URI just matches nothing | done |
 | tasks | Person `uri` (CheckItem `assignee`, Comment `author`, TaskNotification `changedBy`) | Task/set create and update and Task/copy reject a Person `uri` that is not a URI with `invalidProperties` naming `checklists`/`comments`; `changedBy` is server-set, JMAP-cayv.23 | done |
 | filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | server-set Session data: `FileNodeCapability::check_uris` for the deployment to run before advertising (templates checked by expanding `{id}`), JMAP-cayv.24 | done |
-| did | capability `didDocumentUri` | none (server-set) | bead |
+| did | capability `didDocumentUri` | server-set hint: jmap-did-resolver ignores a non-URI hint and resolves by method (as for an unreachable hint; did:web already ignored it via the origin check), JMAP-cayv.25 | done |
 | jscontact / jscalendar (contacts, calendars servers) | Card/Event `uri` members (links, media, online services, etc.) | none (sloppy-Value fields) | bead |
 
 ## 14. Text-handling audit (JMAP-cayv.15, 2026-11-15)

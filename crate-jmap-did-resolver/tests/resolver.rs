@@ -1005,3 +1005,26 @@ async fn did_webvh_unreachable_hint_falls_back_to_the_method_url() {
     assert_eq!(log.current().unwrap().version_id, version_id);
     assert_eq!(stub.calls(), [WEBVH_CROSS_ORIGIN_HINT, WEBVH_LOG_URL]);
 }
+
+#[tokio::test]
+async fn did_webvh_non_uri_hint_is_ignored() {
+    // draft-atwood-jmap-updates-00 §7.1 (jmap-chat-spec 2b85363): a
+    // URI-valued property "SHOULD hold a URI as defined in RFC 3986
+    // Section 3". A `didDocumentUri` that is not one cannot be fetched, so
+    // it is treated like an unreachable hint (draft-atwood-jmap-did-00
+    // L194: "fall back to standard method-specific resolution"): only the
+    // method-derived URL is fetched.
+    let (d, version_id) = webvh_expected("basic-update");
+    let stub = Stub::default();
+    let hint = "https://jmap.example.net/did log.jsonl";
+    stub.serve_bytes(hint, &webvh_fixture("basic-update", "did.jsonl"));
+    stub.serve_bytes(WEBVH_LOG_URL, &webvh_fixture("basic-update", "did.jsonl"));
+    let resolver = Resolver::new(&stub, TTL);
+    let log = webvh_log(resolver.resolve_with_hint(&d, hint).await.unwrap());
+    assert_eq!(log.current().unwrap().version_id, version_id);
+    assert!(
+        !stub.calls().contains(&hint.to_owned()),
+        "{:?}",
+        stub.calls()
+    );
+}
