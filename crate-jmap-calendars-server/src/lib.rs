@@ -364,6 +364,8 @@ pub(crate) mod test_support {
         fail_privacy_hooks: Arc<std::sync::atomic::AtomicBool>,
         /// What `limits` returns for every account.
         limits: Arc<Mutex<CalendarsLimits>>,
+        /// When set, `get_objects` returns `Err` (store-read failure tests).
+        fail_get_objects: Arc<std::sync::atomic::AtomicBool>,
     }
 
     impl MockBackend {
@@ -373,6 +375,7 @@ pub(crate) mod test_support {
                 last_get_args: Arc::new(Mutex::new(None)),
                 foreign_accounts: Arc::new(Mutex::new(HashSet::new())),
                 fail_privacy_hooks: Arc::default(),
+                fail_get_objects: Arc::default(),
                 limits: Arc::default(),
             }
         }
@@ -384,6 +387,11 @@ pub(crate) mod test_support {
         }
 
         /// Make `privacy_conflicts` and `may_copy_calendar_event` fail.
+        pub fn fail_get_objects(&self) {
+            self.fail_get_objects
+                .store(true, std::sync::atomic::Ordering::SeqCst);
+        }
+
         pub fn fail_privacy_hooks(&self) {
             self.fail_privacy_hooks
                 .store(true, std::sync::atomic::Ordering::SeqCst);
@@ -564,6 +572,12 @@ pub(crate) mod test_support {
             ids: Option<&[Id]>,
             _properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            if self
+                .fail_get_objects
+                .load(std::sync::atomic::Ordering::SeqCst)
+            {
+                return Err(MockError::new("store read failed"));
+            }
             let type_name = O::TYPE_NAME;
             let guard = self.state.lock().unwrap();
             let Some(acct) = guard.get(account_id.as_ref()) else {

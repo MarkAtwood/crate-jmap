@@ -182,16 +182,17 @@ pub struct CalendarAlert {
     /// recurrence id.
     ///
     /// Serializes as `null` when `None` — intentionally NOT marked
-    /// `skip_serializing_if` so the receiver can distinguish recurring from
-    /// non-recurring events.
+    /// `skip_serializing_if`: the member is required and nullable, so the
+    /// receiver can tell an alert on a stored event that is neither
+    /// recurring nor a stored instance (`null`) from one on an instance.
     ///
     /// **Maintainer note: do NOT add `#[serde(skip_serializing_if = "Option::is_none")]`
     /// to this field.** Adding it would silently break the spec contract:
-    /// per draft-ietf-jmap-calendars-34 §6.4, the receiver uses the
-    /// **presence** of `recurrenceId` to determine whether the alert
-    /// fired for a recurring or non-recurring event. An omitted field
-    /// is indistinguishable from a sender that forgot to include it; an
-    /// explicit `null` carries the "non-recurring" signal. This is the
+    /// per draft-ietf-jmap-calendars-34 §6.4, `recurrenceId` is a required
+    /// `LocalDateTime|null` member, `null` only when the stored
+    /// CalendarEvent has a null `recurrenceId` and no recurrence rule or
+    /// overrides. An omitted field is indistinguishable from a sender that
+    /// forgot to include it; an explicit `null` carries that signal. This is the
     /// same "required-and-nullable" wire shape used by
     /// `PrincipalCalendarsCapability.account_id` in `capability.rs:121`.
     ///

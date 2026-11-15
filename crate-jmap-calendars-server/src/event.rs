@@ -932,6 +932,8 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+    // The target account's per-event caps (§5.9), read once per call.
+    let copy_limits = backend.limits(caller, &account_id);
 
     // RFC 8620 §3.6.2 / §5.4: destination accountId not recognised →
     // accountNotFound. Checked before fromAccountId so that an unknown
@@ -1123,6 +1125,14 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                     create_id,
                     json!({ "type": "invalidProperties", "properties": ["calendarIds"] }),
                 );
+                continue;
+            }
+
+            // draft-ietf-jmap-calendars-34 §5.9: a create over the target
+            // account's per-event caps MUST be invalidProperties; a copy
+            // creates an event there.
+            if let Some(err) = limits_set_error(&merged, &copy_limits, None) {
+                not_created.insert(create_id, err);
                 continue;
             }
 
@@ -2514,6 +2524,165 @@ mod tests {
         )
         .await;
         assert!(resp["updated"].get("ev1").is_some(), "{resp}");
+    }
+
+    /// A create with a floating `start` after `maxDateTime` is
+    /// `invalidProperties` naming `start` (draft-ietf-jmap-calendars-34
+    /// §5.9; floating values compare as though in UTC, §1.5.1).
+    #[tokio::test]
+    async fn set_create_after_max_date_time_is_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc");
+        // 2030-01-01T00:00:00Z
+        let limits =
+            crate::CalendarsLimits::default().with_max_date_time_epoch_seconds(Some(1_893_456_000));
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({ "accountId": "acc", "create": {
+                "c1": { "calendarIds": { "a": true }, "start": "2030-01-01T00:00:01" }
+            } }),
+        )
+        .await;
+        assert_eq!(
+            resp["notCreated"]["c1"]["properties"],
+            json!(["start"]),
+            "{resp}"
+        );
+        assert!(
+            resp["notCreated"]["c1"]["description"]
+                .as_str()
+                .is_some_and(|d| d.contains("maxDateTime")),
+            "{resp}"
+        );
+    }
+
+    /// An update that moves `start` past `maxDateTime` is rejected naming
+    /// `start`, and the stored event is unchanged when read back.
+    #[tokio::test]
+    async fn set_update_moving_a_date_over_max_is_rejected_and_not_stored() {
+        let backend = MockBackend::new_with_account("acc");
+        backend.seed_object(
+            "acc",
+            "CalendarEvent",
+            "ev1",
+            json!({ "id": "ev1", "calendarIds": { "a": true }, "start": "2026-01-01T09:00:00" }),
+        );
+        let limits =
+            crate::CalendarsLimits::default().with_max_date_time_epoch_seconds(Some(1_893_456_000));
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({ "accountId": "acc", "update": { "ev1": { "start": "2031-06-01T09:00:00" } } }),
+        )
+        .await;
+        assert_eq!(
+            resp["notUpdated"]["ev1"]["properties"],
+            json!(["start"]),
+            "{resp}"
+        );
+        let (events, _) = jmap_server::JmapBackend::get_objects::<CalendarEvent>(
+            &backend,
+            &(),
+            &Id::from("acc"),
+            Some(&[Id::from("ev1")]),
+            None,
+        )
+        .await
+        .unwrap();
+        assert_eq!(events[0].start.as_deref(), Some("2026-01-01T09:00:00"));
+    }
+
+    /// The update check reads the stored event; a failed read is the
+    /// redacted `serverFail` SetError for that entry, not a method error.
+    #[tokio::test]
+    async fn set_update_limit_check_store_failure_is_server_fail() {
+        let backend = MockBackend::new_with_account("acc");
+        backend.fail_get_objects();
+        let limits = crate::CalendarsLimits::default().with_max_participants_per_event(Some(1));
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({ "accountId": "acc", "update": {
+                "ev1": { "participants/p2": { "roles": { "attendee": true } } }
+            } }),
+        )
+        .await;
+        assert_eq!(resp["notUpdated"]["ev1"]["type"], "serverFail", "{resp}");
+    }
+
+    /// A `recurrenceOverrides` entry that adds a participant by path counts
+    /// against `maxParticipantsPerEvent` on top of the base event's
+    /// (RFC 8984 §4.3.5 patch form), and one that removes a participant
+    /// with null frees a slot.
+    #[tokio::test]
+    async fn override_adding_participants_by_path_is_counted() {
+        let backend = MockBackend::new_with_account("acc");
+        let limits = crate::CalendarsLimits::default().with_max_participants_per_event(Some(1));
+        let resp = set_with_limits(
+            &backend,
+            limits,
+            json!({ "accountId": "acc", "create": {
+                "over": { "calendarIds": { "a": true },
+                          "participants": { "p1": { "roles": { "owner": true } } },
+                          "recurrenceOverrides": { "2026-01-08T09:00:00": {
+                              "participants/p2": { "roles": { "attendee": true } } } } },
+                "swap": { "calendarIds": { "a": true },
+                          "participants": { "p1": { "roles": { "owner": true } } },
+                          "recurrenceOverrides": { "2026-01-08T09:00:00": {
+                              "participants/p1": null,
+                              "participants/p2": { "roles": { "owner": true } } } } }
+            } }),
+        )
+        .await;
+        assert_eq!(
+            resp["notCreated"]["over"]["properties"],
+            json!(["recurrenceOverrides"]),
+            "{resp}"
+        );
+        assert!(resp["created"]["swap"].is_object(), "{resp}");
+    }
+
+    /// draft-ietf-jmap-calendars-34 §5.9 for CalendarEvent/copy: the event
+    /// it would create in the target account is checked against that
+    /// account's caps.
+    #[tokio::test]
+    async fn copy_over_participant_limit_is_invalid_properties() {
+        let mut backend = MockBackend::new_with_account("src");
+        backend.add_object(
+            "src",
+            "CalendarEvent",
+            "ev1",
+            json!({ "id": "ev1", "title": "t", "calendarIds": { "cal1": true },
+                    "participants": { "p1": {}, "p2": {} } }),
+        );
+        backend.add_object(
+            "dst",
+            "CalendarEvent",
+            "_placeholder_",
+            json!({"id": "_placeholder_"}),
+        );
+        backend
+            .set_limits(crate::CalendarsLimits::default().with_max_participants_per_event(Some(1)));
+        let resp = handle_calendar_event_copy(
+            &backend,
+            &(),
+            json!({ "accountId": "dst", "fromAccountId": "src",
+                    "create": { "c1": { "id": "ev1", "calendarIds": { "cal1": true } } } }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect("must not return a method-level error")
+        .primary;
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
+            "{resp}"
+        );
+        assert_eq!(
+            resp["notCreated"]["c1"]["properties"],
+            json!(["participants"]),
+            "{resp}"
+        );
     }
 
     /// Oracle: §5.9 — creating with both `utcEnd` and `duration` set must

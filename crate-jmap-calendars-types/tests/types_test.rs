@@ -1214,9 +1214,10 @@ fn calendar_alert_with_recurrence_id_roundtrip() {
 
 #[test]
 fn calendar_alert_recurrence_id_null_for_non_recurring() {
-    // Oracle: draft-ietf-jmap-calendars-34 §6.4 — recurrenceId is null for non-recurring events.
-    // It MUST serialize as null (not be omitted) so receivers can distinguish
-    // recurring from non-recurring events.
+    // Oracle: draft-ietf-jmap-calendars-34 §6.4 — recurrenceId "is null if the
+    // stored CalendarEvent has a null "recurrenceId"" and is not recurring (a
+    // stored single instance carries its recurrence id). It is a required,
+    // nullable member, so it serializes as null rather than being omitted.
     let json = &common::fixture("calendar_alert_recurrence_id_null_for_non_recurring.json");
     let alert: CalendarAlert = serde_json::from_str(json)
         .expect("calendar_alert_recurrence_id_null_for_non_recurring: must deserialize");
@@ -1234,7 +1235,7 @@ fn calendar_alert_recurrence_id_null_for_non_recurring() {
     );
     assert!(
         out["recurrenceId"].is_null(),
-        "recurrenceId must serialize as null for non-recurring events"
+        "recurrenceId must serialize as null for a non-recurring stored event"
     );
 }
 

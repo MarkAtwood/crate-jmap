@@ -179,6 +179,14 @@ pub trait CalendarsBackend: JmapBackend {
     /// all three under one mutex acquisition, and a database backend uses
     /// one transaction. A call that returns `Err` MUST leave the stored
     /// data, the state and the change log unchanged.
+    ///
+    /// # Per-event caps
+    ///
+    /// For a CalendarEvent, the backend is the canonical enforcement point
+    /// of the account's per-event caps ([`Self::limits`],
+    /// draft-ietf-jmap-calendars-34 §5.9): an event over them MUST be
+    /// refused with an `invalidProperties` SetError. The handlers check
+    /// first, but their check is incomplete (see [`CalendarsLimits`]).
     fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
@@ -302,6 +310,16 @@ pub trait CalendarsBackend: JmapBackend {
     /// unchanged. State and change log follow
     /// [`create_object`](Self::create_object) ("State and change log"); an
     /// `Ok(None)` return still advances the state.
+    ///
+    /// # Per-event caps
+    ///
+    /// As for [`create_object`](Self::create_object), the backend MUST
+    /// refuse a CalendarEvent update whose result is over the per-event
+    /// caps (draft-ietf-jmap-calendars-34 §5.9). Count from the full stored
+    /// event, not the caller's view: the handler's check reads the event
+    /// through `get_objects` and so, for a caller with a reduced view
+    /// (`hideAttendees`, another user's private event), can count too few
+    /// participants.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -1212,27 +1230,28 @@ pub trait CalendarsBackend: JmapBackend {
 /// than one day; a value within a day of a bound is the backend's to
 /// reject.
 ///
+/// `CalendarEvent/copy` runs the same check on the event it would create,
+/// against the target account's caps. A `recurrenceOverrides` entry that
+/// adds or removes participants by path (`"participants/p9"`, the usual
+/// RFC 8984 patch form) is counted against the base event's participants.
+///
 /// The backend remains the canonical enforcement point. The handler check
-/// can miss a violation but never rejects a valid event; these cases stay
-/// with the backend:
+/// can miss a violation, but it rejects only an event that, as it would be
+/// stored, is over a cap; these cases stay with the backend:
 ///
 /// - Dates the list above does not reach, for example inside an override
 ///   patch's nested paths.
-/// - Participants that a `recurrenceOverrides` entry adds by path (such as
-///   `"participants/p9"`, the usual RFC 8984 patch form) rather than by
-///   replacing the whole `participants` map; they are not counted.
 /// - An update is checked against the stored event as `get_objects`
 ///   returns it to the caller. For a caller who sees a reduced view (for
 ///   example `hideAttendees`, or another user's private event) the counts
 ///   can be too low.
-/// - `CalendarEvent/copy` does not run the check, although it creates an
-///   event in the target account.
 ///
 /// When an update changes `timeZone` or `recurrenceIdTimeZone`, every date
 /// in the list is rechecked, including UTC-only values (`created`,
 /// `updated`, `utcStart`, `utcEnd`, alert `when` and `acknowledged`,
 /// `scheduleUpdated`) that a zone change cannot move. Such an update can
-/// therefore be rejected for an out-of-range `created` it did not touch.
+/// therefore be rejected for an out-of-range `created` it did not touch:
+/// the event was already over a cap, which the update brings to light.
 ///
 /// # Default values
 ///

@@ -154,6 +154,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-server**: `CalendarEvent/copy` now checks the target
+  account's per-event caps (draft-ietf-jmap-calendars-34 §5.9: a create
+  over them MUST be `invalidProperties`), and the per-event participant cap
+  counts participants that a `recurrenceOverrides` entry adds or removes by
+  path (`"participants/p9"`). The backend trait docs now state the backend's
+  duty to enforce the caps on the full stored event.
 - **jmap-calendars-server**: the memory backend's `get_availability` now
   implements draft-ietf-jmap-calendars-34 §2.2 instead of returning an empty
   list (which reported every Principal as free): the relevance rules

@@ -94,8 +94,9 @@ pub(crate) fn limits_set_error(
             properties.insert("participants");
             broken.insert("maxParticipantsPerEvent");
         }
+        let base = event.get("participants").and_then(Value::as_object);
         let override_over = overrides(event)
-            .any(|(_, patch)| map_len(patch.and_then(|p| p.get("participants"))) > max);
+            .any(|(_, patch)| patch.is_some_and(|p| override_participants(base, p) > max));
         if checks("recurrenceOverrides") && override_over {
             properties.insert("recurrenceOverrides");
             broken.insert("maxParticipantsPerEvent");
@@ -140,6 +141,35 @@ fn map_len(value: Option<&Value>) -> u64 {
     value
         .and_then(Value::as_object)
         .map_or(0, |m| u64::try_from(m.len()).unwrap_or(u64::MAX))
+}
+
+/// Participants of the instance an override `patch` produces: the size of
+/// a `participants` map the patch sets whole, or else the base event's
+/// participants plus the ids the patch adds by path (`"participants/p9"`,
+/// RFC 8984 §4.3.5) and minus those it removes with `null`.
+fn override_participants(base: Option<&Map<String, Value>>, patch: &Map<String, Value>) -> u64 {
+    if patch.contains_key("participants") {
+        return map_len(patch.get("participants"));
+    }
+    let mut ids: BTreeSet<&str> = base
+        .into_iter()
+        .flat_map(|m| m.keys().map(String::as_str))
+        .collect();
+    for (path, value) in patch {
+        let Some(rest) = path.strip_prefix("participants/") else {
+            continue;
+        };
+        // Only a pointer to a whole participant adds or removes one.
+        if rest.contains('/') {
+            continue;
+        }
+        if value.is_null() {
+            ids.remove(rest);
+        } else {
+            ids.insert(rest);
+        }
+    }
+    u64::try_from(ids.len()).unwrap_or(u64::MAX)
 }
 
 /// The `recurrenceOverrides` entries of `event` as (recurrence id, patch),
