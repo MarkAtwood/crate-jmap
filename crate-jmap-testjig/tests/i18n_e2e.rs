@@ -25,6 +25,7 @@ fn using(i18n: bool) -> Vec<&'static str> {
         "urn:ietf:params:jmap:core",
         "urn:ietf:params:jmap:mail",
         "urn:ietf:params:jmap:contacts",
+        "urn:ietf:params:jmap:calendars",
     ];
     if i18n {
         u.push(I18N);
@@ -346,5 +347,39 @@ async fn websocket_handshake_language() {
         "{resp}"
     );
     drop(socket);
+    j.handle.shutdown().await;
+}
+
+/// §5.5 on Calendar end to end (the case moved here from JMAP-cayv.16).
+#[tokio::test]
+async fn calendar_view() {
+    let j = jig().await;
+    let resp = j
+        .call(
+            "Calendar/set",
+            json!({ "create": { "cal": {
+                "name": "Work", "locale": "en",
+                "localizations": { "de": { "name": "Arbeit" }, "fr": { "name": "Travail" } }
+            } } }),
+            true,
+            None,
+        )
+        .await;
+    let id = resp["created"]["cal"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{resp}"))
+        .to_owned();
+    let got = j
+        .call(
+            "Calendar/get",
+            json!({ "ids": [id], "properties": ["name", "locale"], "language": ["fr-BE", "de"] }),
+            true,
+            None,
+        )
+        .await;
+    assert_eq!(
+        got["list"][0],
+        json!({ "id": id, "name": "Travail", "locale": "fr" })
+    );
     j.handle.shutdown().await;
 }

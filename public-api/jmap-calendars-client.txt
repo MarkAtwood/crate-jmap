@@ -140,6 +140,7 @@ impl jmap_calendars_client::SessionClient
 pub fn jmap_calendars_client::SessionClient::calendars_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
 pub fn jmap_calendars_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
 pub fn jmap_calendars_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+pub fn jmap_calendars_client::SessionClient::with_i18n(self, core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageRange>>) -> core::result::Result<Self, jmap_base_client::error::ClientError>
 impl jmap_calendars_client::SessionClient
 pub async fn jmap_calendars_client::SessionClient::participant_identity_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_calendars_client::SessionClient::participant_identity_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_calendars_types::participant_identity::ParticipantIdentity>, jmap_base_client::error::ClientError>

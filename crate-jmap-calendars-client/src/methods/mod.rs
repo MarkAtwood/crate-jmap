@@ -480,6 +480,8 @@ pub(crate) fn build_request(
 pub struct SessionClient {
     pub(crate) client: jmap_base_client::JmapClient,
     pub(crate) session: jmap_base_client::Session,
+    /// Set by [`SessionClient::with_i18n`].
+    pub(crate) i18n: Option<jmap_base_client::I18nSetting>,
 }
 
 impl std::fmt::Debug for SessionClient {
@@ -554,7 +556,48 @@ impl SessionClient {
         api_url: &str,
         req: &jmap_types::JmapRequest,
     ) -> Result<jmap_types::JmapResponse, jmap_base_client::ClientError> {
-        self.client.call(api_url, req).await
+        match &self.i18n {
+            Some(i18n) => {
+                let mut req = req.clone();
+                i18n.add_to_using(&mut req);
+                self.client.call(api_url, &req).await
+            }
+            None => self.client.call(api_url, req).await,
+        }
+    }
+
+    /// Use `urn:ietf:params:jmap:i18n` (draft-atwood-jmap-updates-00) on
+    /// every call of this client (decision 32).
+    ///
+    /// The capability is added to `using`, so `Calendar` objects carry
+    /// `locale` and `localizations` and `/set` may write them. With
+    /// `language` set, `Calendar/get` sends it as the `language` argument
+    /// and returns each Calendar's view in the best-matching language
+    /// (RFC 4647 Lookup). CalendarEvent keeps JSCalendar's own
+    /// `localizations` and takes no `language`. `None` returns the stored
+    /// values with every localization.
+    ///
+    /// A client that caches objects by id and state MUST also key its cache
+    /// on the language: views in different languages share a state. See
+    /// [`jmap_base_client::I18nSetting`].
+    ///
+    /// # Errors
+    ///
+    /// [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    /// when the bound Session does not advertise the capability.
+    pub fn with_i18n(
+        mut self,
+        language: Option<Vec<jmap_types::i18n::LanguageRange>>,
+    ) -> Result<Self, jmap_base_client::ClientError> {
+        self.i18n = Some(jmap_base_client::I18nSetting::new(&self.session, language)?);
+        Ok(self)
+    }
+
+    /// Add the `language` argument set by [`Self::with_i18n`] to `args`.
+    pub(crate) fn add_language(&self, args: &mut serde_json::Value) {
+        if let Some(i18n) = &self.i18n {
+            i18n.add_language(args);
+        }
     }
 }
 

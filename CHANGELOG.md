@@ -126,6 +126,15 @@ wire behaviour that a conforming peer can observe.
   (up to 256 characters of the first text body part) cut at a grapheme
   cluster boundary; mime-tree's `ParsedMessage::preview` is cut by
   characters and can split a cluster.
+- **jmap-calendars-types**, **jmap-calendars-server**,
+  **jmap-calendars-client**: Calendar `name` and `description` are
+  localizable (draft-atwood-jmap-updates-00 §5.5). `Calendar` gains `locale`
+  and `localizations`; `Calendar/set` runs the i18n checks and
+  `Calendar/get` returns the language view; the memory backend supports
+  localizations (at most 32 per Calendar) and prunes stale translations;
+  `SessionClient::with_i18n` on the calendars client. CalendarEvent keeps
+  JSCalendar's own `localizations`, and `language` on `CalendarEvent/get` is
+  `invalidArguments`.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.

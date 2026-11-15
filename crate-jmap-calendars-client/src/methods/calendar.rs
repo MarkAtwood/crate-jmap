@@ -58,6 +58,8 @@ impl super::SessionClient {
         if let Some(props) = properties {
             args["properties"] = jmap_base_client::to_args(props)?;
         }
+        // draft-atwood-jmap-updates-00 §4.2: `language` from `with_i18n`.
+        self.add_language(&mut args);
         let req = super::build_request("Calendar/get", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

@@ -56,9 +56,9 @@ pub const BASE_URL: &str = "http://127.0.0.1:8080";
 ///
 /// `urn:ietf:params:jmap:i18n` (draft-atwood-jmap-updates-00 §3) is
 /// advertised with `{}` in both `capabilities` and the account's
-/// `accountCapabilities`: the jig's mail, contacts and sharing memory
-/// backends support localizations in every account, so Mailbox,
-/// AddressBook and Principal take `locale`, `localizations` and
+/// `accountCapabilities`: the jig's mail, contacts, sharing and calendars
+/// memory backends support localizations in every account, so Mailbox,
+/// AddressBook, Principal and Calendar take `locale`, `localizations` and
 /// `language`.
 ///
 /// ponytail: `urn:ietf:params:jmap:cid` (draft-atwood-jmap-cid-00

@@ -212,9 +212,15 @@ pub enum ParticipantIdentityProperty {
 // JmapObject impls
 // ---------------------------------------------------------------------------
 
+/// draft-atwood-jmap-updates-00 §5.5: Calendar `name` and `description`
+/// are localizable.
 impl JmapObject for crate::Calendar {
     const TYPE_NAME: &'static str = "Calendar";
     type Property = CalendarProperty;
+    const LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty] = &[
+        jmap_types::i18n::LocalizableProperty::new("name", false),
+        jmap_types::i18n::LocalizableProperty::new("description", true),
+    ];
 }
 
 impl GetObject for crate::Calendar {}
@@ -242,10 +248,16 @@ impl SetObject for crate::Calendar {
         "shareWith",
         "metadata",
         "privateMetadata",
+        "locale",
+        "localizations",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
 
+/// CalendarEvent is deliberately NOT localizable under
+/// draft-atwood-jmap-updates-00 (§5.5): it is a JSCalendar object with its
+/// own `locale` and `localizations` (RFC 8984 §4.2.8, §4.6.1), and the
+/// `language` argument does not apply to `CalendarEvent/get`.
 impl JmapObject for crate::CalendarEvent {
     const TYPE_NAME: &'static str = "CalendarEvent";
     type Property = CalendarEventProperty;
@@ -429,6 +441,8 @@ mod tests {
             my_rights: rights(),
             metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
             private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
+            locale: Some(de(json!("en"))),
+            localizations: Some(de(json!({"de": {"name": "Arbeit"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

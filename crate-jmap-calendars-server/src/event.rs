@@ -123,6 +123,13 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
         return Err(JmapError::account_not_found());
     }
     enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
+    // draft-atwood-jmap-updates-00 §5.5: CalendarEvent keeps JSCalendar's
+    // own localizations, so `language` is an unknown argument here.
+    jmap_server::I18nProjection::from_args::<CalendarEvent>(
+        &mut args,
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
 
     // Standard /get parameters (RFC 8620 §5.1).
     let ids: Option<Vec<Id>> = match args.remove("ids") {
