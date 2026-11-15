@@ -154,6 +154,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-types**, **jmap-calendars-server**: a BusyPeriod's
+  `event` and `accountId` are now sent as `null` rather than omitted, as
+  draft-ietf-jmap-calendars-34 §2.2 types them (`CalendarEvent|null`,
+  `Id|null`), and `Principal/getAvailability` nulls both whenever
+  `showDetails` is false, whatever the backend returned. Input that omits
+  them still deserializes.
 - **jmap-calendars-server**: `CalendarEvent/copy` now checks the target
   account's per-event caps (draft-ietf-jmap-calendars-34 §5.9: a create
   over them MUST be `invalidProperties`), and the per-event participant cap

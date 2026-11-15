@@ -131,6 +131,12 @@ async fn relevance_rules() {
         ),
     ]);
     let list = availability(&b, false).await.unwrap();
+    // §2.2: `event` and `accountId` are present and null (JMAP-lehj.13).
+    for p in list.as_array().unwrap() {
+        assert_eq!(p["event"], Value::Null, "{p}");
+        assert!(p.as_object().unwrap().contains_key("event"), "{p}");
+        assert!(p.as_object().unwrap().contains_key("accountId"), "{p}");
+    }
     let core: Vec<Value> = list
         .as_array()
         .unwrap()

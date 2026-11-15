@@ -216,13 +216,17 @@ pub struct BusyPeriod {
     /// dependency" between `BusyPeriod` and `CalendarEvent`. That was
     /// inaccurate — both live in the same crate as sibling modules and
     /// neither depends on the other.)
-    #[serde(skip_serializing_if = "Option::is_none")]
+    ///
+    /// Required and nullable on the wire (`CalendarEvent|null`,
+    /// draft-ietf-jmap-calendars-34 §2.2), so `None` serializes as `null`.
+    #[serde(default)]
     pub event: Option<serde_json::Value>,
 
     /// JMAP account id of the calendar containing this event.
     ///
-    /// `null` (i.e., `None`) when `event` is `null`.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// `null` (i.e., `None`) when `event` is `null`. Required and nullable
+    /// on the wire (`Id|null`), so `None` serializes as `null`.
+    #[serde(default)]
     pub account_id: Option<jmap_types::Id>,
 
     /// Catch-all for vendor / site / private extension fields not covered

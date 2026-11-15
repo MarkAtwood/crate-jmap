@@ -816,8 +816,10 @@ fn busy_period_full_deserialize() {
 
 /// Deserialize a BusyPeriod where event and accountId are absent (no detail access).
 ///
-/// Oracle: §2.2 — when showDetails=false or user lacks mayReadItems, event and
-/// accountId are null (absent) in the response.
+/// Oracle: draft-ietf-jmap-calendars-34 §2.2 — `event: CalendarEvent|null` is
+/// null when showDetails is false or the user lacks mayReadItems, and
+/// `accountId: Id|null` is null when event is. Both are required, so they
+/// serialize as null; an input that omits them is still accepted.
 #[test]
 fn busy_period_no_detail_access() {
     let json = &common::fixture("busy_period_no_detail_access.json");
@@ -829,13 +831,15 @@ fn busy_period_no_detail_access() {
     assert!(bp.event.is_none());
     assert!(bp.account_id.is_none());
 
-    // Optional fields absent from wire when None.
+    // Required, nullable members: present as null when None.
     let v = serde_json::to_value(&bp).expect("serialize");
+    assert_eq!(v["event"], serde_json::Value::Null);
+    assert_eq!(v["accountId"], serde_json::Value::Null);
     let obj = v.as_object().expect("object");
-    assert!(!obj.contains_key("event"), "event must be absent when None");
+    assert!(obj.contains_key("event"), "event must be present as null");
     assert!(
-        !obj.contains_key("accountId"),
-        "accountId must be absent when None"
+        obj.contains_key("accountId"),
+        "accountId must be present as null"
     );
 }
 

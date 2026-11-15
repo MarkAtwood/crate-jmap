@@ -46,7 +46,7 @@ use jmap_server::{HandlerOutput, bool_arg, server_fail_from_backend};
 /// Returns an array of `BusyPeriod` objects for the time range
 /// `[utcStart, utcEnd)` for the identified principal.  If `showDetails` is
 /// `false` (the default), the `event` and `accountId` fields within each
-/// `BusyPeriod` are omitted even when the backend populates them.
+/// `BusyPeriod` are `null` even when the backend populates them (§2.2).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_get_availability<B: CalendarsBackend>(
@@ -138,7 +138,17 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
         )
         .await
         .map_err(JmapError::from)?;
-    let list_json = serde_json::to_value(&busy_list).unwrap_or(Value::Array(vec![]));
+    let mut list_json = serde_json::to_value(&busy_list).unwrap_or(Value::Array(vec![]));
+    // §2.2: "event" is null when showDetails is false, and accountId is
+    // null when event is; enforce it whatever the backend returned.
+    if !show_details && let Value::Array(items) = &mut list_json {
+        for item in items {
+            if let Value::Object(m) = item {
+                m.insert("event".to_owned(), Value::Null);
+                m.insert("accountId".to_owned(), Value::Null);
+            }
+        }
+    }
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
         "list": list_json,
