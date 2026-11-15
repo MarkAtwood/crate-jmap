@@ -1642,6 +1642,48 @@ impl MetadataProjection {
     }
 }
 
+/// The values of an RFC 8620 §5.3 PatchObject placed at their JSON Pointer
+/// paths in an empty object, so checks written for a whole object can see
+/// what a patch writes: `{"links/l1/uri": "x"}` becomes
+/// `{"links": {"l1": {"uri": "x"}}}`. Paths are split on `/` and unescaped
+/// (RFC 6901 `~1`, `~0`); a path that runs through a value already placed
+/// as a non-object is skipped. `null` values (removals) are skipped.
+///
+/// ```rust
+/// use serde_json::json;
+///
+/// let patch = json!({ "links/l1/uri": "x", "name": null, "media": { "m": { "uri": "y" } } });
+/// let placed = jmap_server::patch_values_as_object(patch.as_object().unwrap());
+/// assert_eq!(placed, *json!({ "links": { "l1": { "uri": "x" } }, "media": { "m": { "uri": "y" } } }).as_object().unwrap());
+/// ```
+pub fn patch_values_as_object(patch: &Map<String, Value>) -> Map<String, Value> {
+    let mut out = Map::new();
+    'paths: for (path, value) in patch {
+        if value.is_null() {
+            continue;
+        }
+        let segments: Vec<String> = path
+            .split('/')
+            .map(|s| s.replace("~1", "/").replace("~0", "~"))
+            .collect();
+        let Some((last, parents)) = segments.split_last() else {
+            continue;
+        };
+        let mut target = &mut out;
+        for seg in parents {
+            let entry = target
+                .entry(seg.clone())
+                .or_insert_with(|| Value::Object(Map::new()));
+            match entry {
+                Value::Object(m) => target = m,
+                _ => continue 'paths,
+            }
+        }
+        target.insert(last.clone(), value.clone());
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::{

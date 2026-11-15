@@ -278,3 +278,48 @@ pub(crate) fn is_metadata_key(key: &str) -> bool {
     let root = key.split_once('/').map_or(key, |(r, _)| r);
     root == "metadata" || root == "privateMetadata"
 }
+
+/// RFC 9553 maps whose members are Resource objects or OnlineService
+/// objects, whose `uri` "MUST be a URI as defined in Section 3 of
+/// [RFC3986]" (§1.4.4, §2.3.2).
+const JSCONTACT_URI_MAPS: &[&str] = &[
+    "calendars",
+    "cryptoKeys",
+    "directories",
+    "links",
+    "media",
+    "onlineServices",
+    "schedulingAddresses",
+];
+
+/// The `invalidProperties` SetError for the first top-level ContactCard
+/// property that holds a `uri` that is not an RFC 3986 URI (RFC 9553
+/// §1.4.4 Resource, §2.3.2 OnlineService, §2.8.3 Note `author`;
+/// draft-atwood-jmap-updates-00 §7.1), or `None`. `card` is a create
+/// object or [`jmap_server::patch_values_as_object`] of an update patch.
+pub(crate) fn jscontact_uri_error(card: &Map<String, Value>) -> Option<Value> {
+    let bad = |v: Option<&Value>| {
+        v.and_then(Value::as_str)
+            .is_some_and(|u| jmap_types::uri::check_uri(u).is_err())
+    };
+    let members = |key: &str| {
+        card.get(key)
+            .and_then(Value::as_object)
+            .into_iter()
+            .flat_map(|m| m.values())
+    };
+    let property = JSCONTACT_URI_MAPS
+        .iter()
+        .find(|key| members(key).any(|m| bad(m.get("uri"))))
+        .copied()
+        .or_else(|| {
+            members("notes")
+                .any(|n| bad(n.get("author").and_then(|a| a.get("uri"))))
+                .then_some("notes")
+        })?;
+    Some(json!({
+        "type": "invalidProperties",
+        "properties": [property],
+        "description": format!("{property} holds a uri that is not an RFC 3986 URI"),
+    }))
+}

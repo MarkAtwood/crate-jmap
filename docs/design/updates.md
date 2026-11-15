@@ -334,7 +334,7 @@ names that comparison, which §7.1 allows.
 | tasks | Person `uri` (CheckItem `assignee`, Comment `author`, TaskNotification `changedBy`) | Task/set create and update and Task/copy reject a Person `uri` that is not a URI with `invalidProperties` naming `checklists`/`comments`; `changedBy` is server-set, JMAP-cayv.23 | done |
 | filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | server-set Session data: `FileNodeCapability::check_uris` for the deployment to run before advertising (templates checked by expanding `{id}`), JMAP-cayv.24 | done |
 | did | capability `didDocumentUri` | server-set hint: jmap-did-resolver ignores a non-URI hint and resolves by method (as for an unreachable hint; did:web already ignored it via the origin check), JMAP-cayv.25 | done |
-| jscontact / jscalendar (contacts, calendars servers) | Card/Event `uri` members (links, media, online services, etc.) | none (sloppy-Value fields) | bead |
+| jscontact / jscalendar (contacts, calendars servers) | ContactCard: Resource `uri` in calendars, cryptoKeys, directories, links, media, schedulingAddresses; OnlineService `uri`; Note `author.uri`. CalendarEvent: Link `href`, VirtualLocation `uri`, Participant `sendTo` values, at any depth and inside `recurrenceOverrides` PatchObjects | ContactCard/set, ContactCard/copy, CalendarEvent/set and CalendarEvent/copy reject a non-URI with `invalidProperties` naming the top-level property (RFC 9553 and RFC 8984 already say MUST); updates checked through `jmap_server::patch_values_as_object`, JMAP-cayv.26 | done |
 
 ## 14. Text-handling audit (JMAP-cayv.15, 2026-11-15)
 

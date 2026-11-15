@@ -49,7 +49,8 @@ use serde_json::{Value, json};
 use crate::event_limits::{limits_set_error, patched_properties, touches_limited_property};
 use crate::helpers::{
     SetAccumulators, check_metadata_entry, enforce_max_objects_in_get, enforce_max_objects_in_set,
-    extract_account_id, finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
+    extract_account_id, finalize_set_response, jscalendar_uri_error, reject_unsupported_sort,
+    resolve_map_key_refs,
 };
 use crate::{
     CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
@@ -609,6 +610,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
+            if let Some(err) = obj_val.as_object().and_then(jscalendar_uri_error) {
+                not_created.insert(create_id, err);
+                continue;
+            }
 
             // `CalendarEvent.id` is optional, so the create parses without one
             // and `build` sets the id the backend mints.
@@ -709,6 +714,13 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             }
             if let Err(err) = resolve_map_key_refs(&mut patch_val, "calendarIds", created_ids) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|m| jscalendar_uri_error(&jmap_server::patch_values_as_object(m)))
+            {
+                not_updated.insert(id_str, err);
                 continue;
             }
 
@@ -1063,6 +1075,10 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 .map(|o| check_metadata_entry(o, true, using))
             {
                 not_created.insert(create_id, Value::from(&*err));
+                continue;
+            }
+            if let Some(err) = client_val.as_object().and_then(jscalendar_uri_error) {
+                not_created.insert(create_id, err);
                 continue;
             }
             // -05 §3.4: "When the request does not use this capability, only

@@ -119,6 +119,9 @@ wire behaviour that a conforming peer can observe.
   `webTrashUrl` is an RFC 3986 URI and that `webUrlTemplate` and
   `webWriteUrlTemplate` expand to one (draft-atwood-jmap-updates-00 §7.1),
   for a deployment to run before advertising the capability.
+- **jmap-server**: `patch_values_as_object` places a PatchObject's values
+  at their JSON Pointer paths in an empty object, so whole-object checks
+  also see what a patch writes.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.
@@ -147,6 +150,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-contacts-server**: `ContactCard/set` and `ContactCard/copy` reject
+  a JSContact URI member that is not an RFC 3986 URI (a Resource `uri` in
+  `calendars`, `cryptoKeys`, `directories`, `links`, `media` or
+  `schedulingAddresses`, an OnlineService `uri`, a Note `author.uri`) with
+  `invalidProperties` naming the property; RFC 9553 already requires URIs.
+- **jmap-calendars-server**: `CalendarEvent/set` and `CalendarEvent/copy`
+  reject a Link `href`, VirtualLocation `uri` or Participant `sendTo` value
+  that is not an RFC 3986 URI, at any depth including `recurrenceOverrides`,
+  with `invalidProperties`; RFC 8984 already requires URIs.
 - **jmap-did-resolver**: `Resolver::resolve_with_hint` ignores a
   `didDocumentUri` hint that is not an RFC 3986 URI and resolves by the DID
   method, so a `did:webvh` hint like that is no longer fetched

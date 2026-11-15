@@ -48,7 +48,7 @@ use serde_json::{Value, json};
 use crate::ContactsBackend;
 use crate::helpers::{
     SetAccumulators, check_metadata_entry, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, reject_unsupported_sort, resolve_map_key_refs,
+    finalize_set_response, jscontact_uri_error, reject_unsupported_sort, resolve_map_key_refs,
 };
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, bool_arg, check_read_only_patch,
@@ -202,6 +202,10 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
+            if let Some(err) = obj_val.as_object().and_then(jscontact_uri_error) {
+                not_created.insert(create_id, err);
+                continue;
+            }
             // `ContactCard.id` is optional, so the create parses without
             // one and `build` sets the id the backend mints.
             let mut card: ContactCard = match serde_path_to_error::deserialize(obj_val) {
@@ -294,6 +298,12 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             }
             if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Some(err) =
+                jscontact_uri_error(&jmap_server::patch_values_as_object(patch.as_map()))
+            {
+                not_updated.insert(id_str, err);
                 continue;
             }
 
@@ -524,6 +534,10 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 .map(|o| check_metadata_entry(o, true, using))
             {
                 not_copied.insert(create_id, Value::from(&*err));
+                continue;
+            }
+            if let Some(err) = spec_val.as_object().and_then(jscontact_uri_error) {
+                not_copied.insert(create_id, err);
                 continue;
             }
 

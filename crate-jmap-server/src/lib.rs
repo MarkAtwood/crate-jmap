@@ -54,10 +54,11 @@ pub use helpers::{
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_arg,
     is_client_updatable, json_merge_patch, json_type_name, limit_or_max, not_found_json,
     now_utc_string, now_utc_string_checked, optional_arg, parse_max_changes, parse_wire_id,
-    query_anchor_args, reject_did_bearing_properties, reject_metadata_filter_arg,
-    reject_metadata_filter_without_capability, reject_read_only_patch, reject_server_set,
-    resolve_creation_ref, resolve_query_offset, resolve_query_start, serialize_value,
-    strip_read_only_patch, take_bool_arg, uses_metadata, utc_date_from_epoch_seconds,
+    patch_values_as_object, query_anchor_args, reject_did_bearing_properties,
+    reject_metadata_filter_arg, reject_metadata_filter_without_capability, reject_read_only_patch,
+    reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
+    serialize_value, strip_read_only_patch, take_bool_arg, uses_metadata,
+    utc_date_from_epoch_seconds,
 };
 pub use i18n::{
     I18nInfo, I18nProjection, I18nSet, localized_query_state, localized_update, unwrap_query_state,

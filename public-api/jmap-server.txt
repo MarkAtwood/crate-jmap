@@ -383,6 +383,7 @@ pub fn jmap_server::parse_max_changes(core::option::Option<&serde_json::value::V
 pub fn jmap_server::parse_request(serde_json::value::Value, usize) -> core::result::Result<jmap_types::wire::JmapRequest, jmap_types::error::JmapError>
 pub fn jmap_server::parse_request_bytes(&[u8], usize) -> core::result::Result<jmap_types::wire::JmapRequest, jmap_types::error::JmapError>
 pub fn jmap_server::parse_wire_id(&str, &str) -> core::result::Result<jmap_types::id::Id, alloc::boxed::Box<jmap_types::set_error::SetError>>
+pub fn jmap_server::patch_values_as_object(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub fn jmap_server::problem_response(http::status::StatusCode, &jmap_types::problem::ProblemDetails, core::option::Option<&str>) -> http::response::Response<alloc::string::String>
 pub fn jmap_server::query_anchor_args(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(core::option::Option<jmap_types::id::Id>, i64), jmap_types::error::JmapError>
 pub fn jmap_server::register_push_subscription_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_server::PushSubscriptionBackend + 'static
