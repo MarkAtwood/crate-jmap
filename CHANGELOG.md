@@ -214,6 +214,18 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-types**: the draft-ietf-jmap-blobext-03 wire types.
+  `JMAP_BLOB2_URI` / `JMAP_BLOB_URI`, `BlobCapability`,
+  `BlobAccountCapability` (every §2.1 key always written; `check()` for
+  `maxDataSources` ≥ 64 and lowercase digest names; `rfc9404()` gives
+  the RFC 9404 §3.1 account capability without `adler`),
+  `DigestAlgorithm` (RFC 9530 names, ordered by wire string) with
+  built-in sha, sha-256 and sha-512 digesters, `BlobRef` (blobId or
+  `#creationId`), `DataSourceObject`, the Blob/set, Blob/get and
+  Blob/lookup arguments and responses, and Blob/convert: `ConvertRequest`
+  (exactly one recipe), the seven recipes, `ArchiveEntry`,
+  `ConvertedBlob` and `compress_level_range`; `errors` holds the four
+  error codes. (bd:JMAP-tna1.2.2, bd:JMAP-tna1.2.3)
 - **jmap-blob-types**, **jmap-blob-server**, **jmap-blob-client** (new
   crates, scaffold): workspace members for draft-ietf-jmap-blobext-03 and
   RFC 9404 Blob Management. No public items yet; the types, handlers and

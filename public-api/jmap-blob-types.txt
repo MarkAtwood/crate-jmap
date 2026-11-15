@@ -1,1 +1,867 @@
 pub mod jmap_blob_types
+pub mod jmap_blob_types::errors
+pub const jmap_blob_types::errors::BLOB_HAS_REFERENCE: &str
+pub const jmap_blob_types::errors::CONVERSION_FAILED: &str
+pub const jmap_blob_types::errors::UNKNOWN_DATA_TYPE: &str
+pub const jmap_blob_types::errors::UNKNOWN_FORMAT: &str
+#[non_exhaustive] pub enum jmap_blob_types::BlobProperty
+pub jmap_blob_types::BlobProperty::Chunks
+pub jmap_blob_types::BlobProperty::Data
+pub jmap_blob_types::BlobProperty::DataAsBase64
+pub jmap_blob_types::BlobProperty::DataAsText
+pub jmap_blob_types::BlobProperty::Digest(jmap_blob_types::DigestAlgorithm)
+pub jmap_blob_types::BlobProperty::Id
+pub jmap_blob_types::BlobProperty::ImageData
+pub jmap_blob_types::BlobProperty::Other(alloc::string::String)
+pub jmap_blob_types::BlobProperty::Size
+impl jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::name(&self) -> alloc::borrow::Cow<'_, str>
+impl core::clone::Clone for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::clone(&self) -> jmap_blob_types::BlobProperty
+impl core::cmp::Eq for jmap_blob_types::BlobProperty
+impl core::cmp::PartialEq for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::eq(&self, &jmap_blob_types::BlobProperty) -> bool
+impl core::convert::From<&str> for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::from(&str) -> Self
+impl core::fmt::Debug for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobProperty
+impl serde_core::ser::Serialize for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobProperty
+pub fn jmap_blob_types::BlobProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_blob_types::BlobRef
+pub jmap_blob_types::BlobRef::Creation(jmap_types::id::Id)
+pub jmap_blob_types::BlobRef::Id(jmap_types::id::Id)
+impl jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::as_id(&self) -> core::option::Option<&jmap_types::id::Id>
+pub fn jmap_blob_types::BlobRef::parse(&str) -> core::result::Result<Self, jmap_types::id::ValidationError>
+impl core::clone::Clone for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::clone(&self) -> jmap_blob_types::BlobRef
+impl core::cmp::Eq for jmap_blob_types::BlobRef
+impl core::cmp::Ord for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::eq(&self, &jmap_blob_types::BlobRef) -> bool
+impl core::cmp::PartialOrd for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::From<jmap_types::id::Id> for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::from(jmap_types::id::Id) -> Self
+impl core::fmt::Debug for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobRef
+impl serde_core::ser::Serialize for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobRef
+pub fn jmap_blob_types::BlobRef::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_blob_types::CapabilityError
+pub jmap_blob_types::CapabilityError::DigestNotLowercase(alloc::string::String)
+pub jmap_blob_types::CapabilityError::TooFewDataSources(u64)
+impl core::clone::Clone for jmap_blob_types::CapabilityError
+pub fn jmap_blob_types::CapabilityError::clone(&self) -> jmap_blob_types::CapabilityError
+impl core::cmp::Eq for jmap_blob_types::CapabilityError
+impl core::cmp::PartialEq for jmap_blob_types::CapabilityError
+pub fn jmap_blob_types::CapabilityError::eq(&self, &jmap_blob_types::CapabilityError) -> bool
+impl core::error::Error for jmap_blob_types::CapabilityError
+impl core::fmt::Debug for jmap_blob_types::CapabilityError
+pub fn jmap_blob_types::CapabilityError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::CapabilityError
+pub fn jmap_blob_types::CapabilityError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::CapabilityError
+#[non_exhaustive] pub enum jmap_blob_types::ColorSpace
+pub jmap_blob_types::ColorSpace::Grayscale
+pub jmap_blob_types::ColorSpace::Other(alloc::string::String)
+pub jmap_blob_types::ColorSpace::Srgb
+impl jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::as_str(&self) -> &str
+impl core::clone::Clone for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::clone(&self) -> jmap_blob_types::ColorSpace
+impl core::cmp::Eq for jmap_blob_types::ColorSpace
+impl core::cmp::PartialEq for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::eq(&self, &jmap_blob_types::ColorSpace) -> bool
+impl core::convert::From<&str> for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_blob_types::ColorSpace
+impl serde_core::ser::Serialize for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ColorSpace
+pub fn jmap_blob_types::ColorSpace::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_blob_types::CompressionMethod
+pub jmap_blob_types::CompressionMethod::Deflate
+pub jmap_blob_types::CompressionMethod::Other(alloc::string::String)
+pub jmap_blob_types::CompressionMethod::Store
+impl jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::as_str(&self) -> &str
+impl core::clone::Clone for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::clone(&self) -> jmap_blob_types::CompressionMethod
+impl core::cmp::Eq for jmap_blob_types::CompressionMethod
+impl core::cmp::PartialEq for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::eq(&self, &jmap_blob_types::CompressionMethod) -> bool
+impl core::convert::From<&str> for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_blob_types::CompressionMethod
+impl serde_core::ser::Serialize for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::CompressionMethod
+pub fn jmap_blob_types::CompressionMethod::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_blob_types::DataSourceProperty
+pub jmap_blob_types::DataSourceProperty::BlobId
+pub jmap_blob_types::DataSourceProperty::Digest(jmap_blob_types::DigestAlgorithm)
+pub jmap_blob_types::DataSourceProperty::Length
+pub jmap_blob_types::DataSourceProperty::Offset
+pub jmap_blob_types::DataSourceProperty::Other(alloc::string::String)
+pub jmap_blob_types::DataSourceProperty::Position
+pub jmap_blob_types::DataSourceProperty::Size
+impl jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::defaults() -> alloc::vec::Vec<Self>
+impl jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::name(&self) -> alloc::borrow::Cow<'_, str>
+impl core::clone::Clone for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::clone(&self) -> jmap_blob_types::DataSourceProperty
+impl core::cmp::Eq for jmap_blob_types::DataSourceProperty
+impl core::cmp::PartialEq for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::eq(&self, &jmap_blob_types::DataSourceProperty) -> bool
+impl core::convert::From<&str> for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::from(&str) -> Self
+impl core::fmt::Debug for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_blob_types::DataSourceProperty
+impl serde_core::ser::Serialize for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::DataSourceProperty
+pub fn jmap_blob_types::DataSourceProperty::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_blob_types::DigestAlgorithm
+pub jmap_blob_types::DigestAlgorithm::Adler
+pub jmap_blob_types::DigestAlgorithm::Crc32c
+pub jmap_blob_types::DigestAlgorithm::Md5
+pub jmap_blob_types::DigestAlgorithm::Other(alloc::string::String)
+pub jmap_blob_types::DigestAlgorithm::Sha
+pub jmap_blob_types::DigestAlgorithm::Sha256
+pub jmap_blob_types::DigestAlgorithm::Sha512
+pub jmap_blob_types::DigestAlgorithm::Unixcksum
+pub jmap_blob_types::DigestAlgorithm::Unixsum
+impl jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::as_str(&self) -> &str
+impl jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::builtin_digester(&self) -> core::option::Option<alloc::boxed::Box<(dyn jmap_blob_types::Digest + core::marker::Send)>>
+pub fn jmap_blob_types::DigestAlgorithm::from_property_name(&str) -> core::option::Option<Self>
+pub fn jmap_blob_types::DigestAlgorithm::property_name(&self) -> alloc::string::String
+impl core::clone::Clone for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::clone(&self) -> jmap_blob_types::DigestAlgorithm
+impl core::cmp::Eq for jmap_blob_types::DigestAlgorithm
+impl core::cmp::Ord for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::cmp(&self, &Self) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::eq(&self, &Self) -> bool
+impl core::cmp::PartialOrd for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::partial_cmp(&self, &Self) -> core::option::Option<core::cmp::Ordering>
+impl core::convert::From<&str> for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::hash<H: core::hash::Hasher>(&self, &mut H)
+impl serde_core::ser::Serialize for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::DigestAlgorithm
+pub fn jmap_blob_types::DigestAlgorithm::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_blob_types::EntryType
+pub jmap_blob_types::EntryType::BlockDevice
+pub jmap_blob_types::EntryType::CharDevice
+pub jmap_blob_types::EntryType::Directory
+pub jmap_blob_types::EntryType::Fifo
+pub jmap_blob_types::EntryType::File
+pub jmap_blob_types::EntryType::Hardlink
+pub jmap_blob_types::EntryType::Other(alloc::string::String)
+pub jmap_blob_types::EntryType::Symlink
+impl jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::clone(&self) -> jmap_blob_types::EntryType
+impl core::cmp::Eq for jmap_blob_types::EntryType
+impl core::cmp::PartialEq for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::eq(&self, &jmap_blob_types::EntryType) -> bool
+impl core::convert::From<&str> for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_blob_types::EntryType
+impl serde_core::ser::Serialize for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::EntryType
+pub fn jmap_blob_types::EntryType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_blob_types::Recipe
+pub jmap_blob_types::Recipe::Archive(jmap_blob_types::ArchiveRecipe)
+pub jmap_blob_types::Recipe::Compress(jmap_blob_types::CompressRecipe)
+pub jmap_blob_types::Recipe::Decompress(jmap_blob_types::DecompressRecipe)
+pub jmap_blob_types::Recipe::Delta(jmap_blob_types::DeltaRecipe)
+pub jmap_blob_types::Recipe::Extract(jmap_blob_types::ExtractRecipe)
+pub jmap_blob_types::Recipe::ImageConvert(jmap_blob_types::ImageConvertRecipe)
+pub jmap_blob_types::Recipe::Patch(jmap_blob_types::PatchRecipe)
+impl jmap_blob_types::Recipe
+pub const jmap_blob_types::Recipe::KEYS: [&'static str; 7]
+pub fn jmap_blob_types::Recipe::from_key_value(&str, serde_json::value::Value) -> core::result::Result<Self, serde_json::error::Error>
+pub fn jmap_blob_types::Recipe::key(&self) -> &'static str
+impl core::clone::Clone for jmap_blob_types::Recipe
+pub fn jmap_blob_types::Recipe::clone(&self) -> jmap_blob_types::Recipe
+impl core::cmp::Eq for jmap_blob_types::Recipe
+impl core::cmp::PartialEq for jmap_blob_types::Recipe
+pub fn jmap_blob_types::Recipe::eq(&self, &jmap_blob_types::Recipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::Recipe
+pub fn jmap_blob_types::Recipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::Recipe
+#[non_exhaustive] pub struct jmap_blob_types::ArchiveEntry
+pub jmap_blob_types::ArchiveEntry::blob_id: core::option::Option<jmap_blob_types::BlobRef>
+pub jmap_blob_types::ArchiveEntry::comment: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ArchiveEntry::compression_method: core::option::Option<jmap_blob_types::CompressionMethod>
+pub jmap_blob_types::ArchiveEntry::created: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_blob_types::ArchiveEntry::dev_major: core::option::Option<u64>
+pub jmap_blob_types::ArchiveEntry::dev_minor: core::option::Option<u64>
+pub jmap_blob_types::ArchiveEntry::entry_type: core::option::Option<jmap_blob_types::EntryType>
+pub jmap_blob_types::ArchiveEntry::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ArchiveEntry::gid: core::option::Option<u64>
+pub jmap_blob_types::ArchiveEntry::group_name: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ArchiveEntry::link_target: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ArchiveEntry::mode: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ArchiveEntry::modified: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_blob_types::ArchiveEntry::name: alloc::string::String
+pub jmap_blob_types::ArchiveEntry::owner_name: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ArchiveEntry::uid: core::option::Option<u64>
+impl jmap_blob_types::ArchiveEntry
+pub fn jmap_blob_types::ArchiveEntry::file(impl core::convert::Into<alloc::string::String>, jmap_blob_types::BlobRef) -> Self
+pub fn jmap_blob_types::ArchiveEntry::new(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::ArchiveEntry
+pub fn jmap_blob_types::ArchiveEntry::clone(&self) -> jmap_blob_types::ArchiveEntry
+impl core::cmp::Eq for jmap_blob_types::ArchiveEntry
+impl core::cmp::PartialEq for jmap_blob_types::ArchiveEntry
+pub fn jmap_blob_types::ArchiveEntry::eq(&self, &jmap_blob_types::ArchiveEntry) -> bool
+impl core::fmt::Debug for jmap_blob_types::ArchiveEntry
+pub fn jmap_blob_types::ArchiveEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ArchiveEntry
+impl serde_core::ser::Serialize for jmap_blob_types::ArchiveEntry
+pub fn jmap_blob_types::ArchiveEntry::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ArchiveEntry
+pub fn jmap_blob_types::ArchiveEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::ArchiveRecipe
+pub jmap_blob_types::ArchiveRecipe::entries: alloc::vec::Vec<jmap_blob_types::ArchiveEntry>
+pub jmap_blob_types::ArchiveRecipe::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ArchiveRecipe::media_type: alloc::string::String
+impl jmap_blob_types::ArchiveRecipe
+pub fn jmap_blob_types::ArchiveRecipe::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<jmap_blob_types::ArchiveEntry>) -> Self
+impl core::clone::Clone for jmap_blob_types::ArchiveRecipe
+pub fn jmap_blob_types::ArchiveRecipe::clone(&self) -> jmap_blob_types::ArchiveRecipe
+impl core::cmp::Eq for jmap_blob_types::ArchiveRecipe
+impl core::cmp::PartialEq for jmap_blob_types::ArchiveRecipe
+pub fn jmap_blob_types::ArchiveRecipe::eq(&self, &jmap_blob_types::ArchiveRecipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::ArchiveRecipe
+pub fn jmap_blob_types::ArchiveRecipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ArchiveRecipe
+impl serde_core::ser::Serialize for jmap_blob_types::ArchiveRecipe
+pub fn jmap_blob_types::ArchiveRecipe::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ArchiveRecipe
+pub fn jmap_blob_types::ArchiveRecipe::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobAccountCapability
+pub jmap_blob_types::BlobAccountCapability::chunk_size: core::option::Option<u64>
+pub jmap_blob_types::BlobAccountCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobAccountCapability::max_archive_entries: core::option::Option<u64>
+pub jmap_blob_types::BlobAccountCapability::max_convert_size: core::option::Option<u64>
+pub jmap_blob_types::BlobAccountCapability::max_data_sources: u64
+pub jmap_blob_types::BlobAccountCapability::max_image_dimension: core::option::Option<u64>
+pub jmap_blob_types::BlobAccountCapability::max_size_blob_set: core::option::Option<u64>
+pub jmap_blob_types::BlobAccountCapability::supported_archive_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_compress_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_decompress_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_delta_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_digest_algorithms: alloc::vec::Vec<jmap_blob_types::DigestAlgorithm>
+pub jmap_blob_types::BlobAccountCapability::supported_extract_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_image_read_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_image_write_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_patch_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_blob_types::BlobAccountCapability::supported_type_names: alloc::vec::Vec<alloc::string::String>
+pub jmap_blob_types::BlobAccountCapability::upload_url: core::option::Option<alloc::string::String>
+impl jmap_blob_types::BlobAccountCapability
+pub fn jmap_blob_types::BlobAccountCapability::check(&self) -> core::result::Result<(), jmap_blob_types::CapabilityError>
+pub fn jmap_blob_types::BlobAccountCapability::rfc9404(&self) -> jmap_blob_types::Rfc9404AccountCapability
+impl core::clone::Clone for jmap_blob_types::BlobAccountCapability
+pub fn jmap_blob_types::BlobAccountCapability::clone(&self) -> jmap_blob_types::BlobAccountCapability
+impl core::cmp::Eq for jmap_blob_types::BlobAccountCapability
+impl core::cmp::PartialEq for jmap_blob_types::BlobAccountCapability
+pub fn jmap_blob_types::BlobAccountCapability::eq(&self, &jmap_blob_types::BlobAccountCapability) -> bool
+impl core::default::Default for jmap_blob_types::BlobAccountCapability
+pub fn jmap_blob_types::BlobAccountCapability::default() -> Self
+impl core::fmt::Debug for jmap_blob_types::BlobAccountCapability
+pub fn jmap_blob_types::BlobAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobAccountCapability
+impl serde_core::ser::Serialize for jmap_blob_types::BlobAccountCapability
+pub fn jmap_blob_types::BlobAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobAccountCapability
+pub fn jmap_blob_types::BlobAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobCapability
+pub jmap_blob_types::BlobCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_blob_types::BlobCapability
+pub fn jmap_blob_types::BlobCapability::clone(&self) -> jmap_blob_types::BlobCapability
+impl core::cmp::Eq for jmap_blob_types::BlobCapability
+impl core::cmp::PartialEq for jmap_blob_types::BlobCapability
+pub fn jmap_blob_types::BlobCapability::eq(&self, &jmap_blob_types::BlobCapability) -> bool
+impl core::default::Default for jmap_blob_types::BlobCapability
+pub fn jmap_blob_types::BlobCapability::default() -> jmap_blob_types::BlobCapability
+impl core::fmt::Debug for jmap_blob_types::BlobCapability
+pub fn jmap_blob_types::BlobCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobCapability
+impl serde_core::ser::Serialize for jmap_blob_types::BlobCapability
+pub fn jmap_blob_types::BlobCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobCapability
+pub fn jmap_blob_types::BlobCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobConvertArgs
+pub jmap_blob_types::BlobConvertArgs::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobConvertArgs::create: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_blob_types::ConvertRequest>
+pub jmap_blob_types::BlobConvertArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_blob_types::BlobConvertArgs
+pub fn jmap_blob_types::BlobConvertArgs::new(jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_blob_types::ConvertRequest>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobConvertArgs
+pub fn jmap_blob_types::BlobConvertArgs::clone(&self) -> jmap_blob_types::BlobConvertArgs
+impl core::cmp::Eq for jmap_blob_types::BlobConvertArgs
+impl core::cmp::PartialEq for jmap_blob_types::BlobConvertArgs
+pub fn jmap_blob_types::BlobConvertArgs::eq(&self, &jmap_blob_types::BlobConvertArgs) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobConvertArgs
+pub fn jmap_blob_types::BlobConvertArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobConvertArgs
+impl serde_core::ser::Serialize for jmap_blob_types::BlobConvertArgs
+pub fn jmap_blob_types::BlobConvertArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobConvertArgs
+pub fn jmap_blob_types::BlobConvertArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobConvertResponse
+pub jmap_blob_types::BlobConvertResponse::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobConvertResponse::created: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_blob_types::ConvertedBlob>
+pub jmap_blob_types::BlobConvertResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobConvertResponse::not_created: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>
+impl jmap_blob_types::BlobConvertResponse
+pub fn jmap_blob_types::BlobConvertResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobConvertResponse
+pub fn jmap_blob_types::BlobConvertResponse::clone(&self) -> jmap_blob_types::BlobConvertResponse
+impl core::cmp::PartialEq for jmap_blob_types::BlobConvertResponse
+pub fn jmap_blob_types::BlobConvertResponse::eq(&self, &jmap_blob_types::BlobConvertResponse) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobConvertResponse
+pub fn jmap_blob_types::BlobConvertResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobConvertResponse
+impl serde_core::ser::Serialize for jmap_blob_types::BlobConvertResponse
+pub fn jmap_blob_types::BlobConvertResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobConvertResponse
+pub fn jmap_blob_types::BlobConvertResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobCreateObject
+pub jmap_blob_types::BlobCreateObject::data: alloc::vec::Vec<jmap_blob_types::DataSourceObject>
+pub jmap_blob_types::BlobCreateObject::digests: alloc::collections::btree::map::BTreeMap<jmap_blob_types::DigestAlgorithm, alloc::string::String>
+pub jmap_blob_types::BlobCreateObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobCreateObject::media_type: core::option::Option<alloc::string::String>
+pub jmap_blob_types::BlobCreateObject::no_persist: bool
+pub jmap_blob_types::BlobCreateObject::size: core::option::Option<u64>
+impl jmap_blob_types::BlobCreateObject
+pub fn jmap_blob_types::BlobCreateObject::new(alloc::vec::Vec<jmap_blob_types::DataSourceObject>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobCreateObject
+pub fn jmap_blob_types::BlobCreateObject::clone(&self) -> jmap_blob_types::BlobCreateObject
+impl core::cmp::Eq for jmap_blob_types::BlobCreateObject
+impl core::cmp::PartialEq for jmap_blob_types::BlobCreateObject
+pub fn jmap_blob_types::BlobCreateObject::eq(&self, &jmap_blob_types::BlobCreateObject) -> bool
+impl core::default::Default for jmap_blob_types::BlobCreateObject
+pub fn jmap_blob_types::BlobCreateObject::default() -> jmap_blob_types::BlobCreateObject
+impl core::fmt::Debug for jmap_blob_types::BlobCreateObject
+pub fn jmap_blob_types::BlobCreateObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobCreateObject
+impl serde_core::ser::Serialize for jmap_blob_types::BlobCreateObject
+pub fn jmap_blob_types::BlobCreateObject::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobCreateObject
+pub fn jmap_blob_types::BlobCreateObject::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_blob_types::BlobGetArgs
+pub jmap_blob_types::BlobGetArgs::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobGetArgs::data_source_properties: core::option::Option<alloc::vec::Vec<jmap_blob_types::DataSourceProperty>>
+pub jmap_blob_types::BlobGetArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobGetArgs::ids: core::option::Option<alloc::vec::Vec<jmap_blob_types::BlobRef>>
+pub jmap_blob_types::BlobGetArgs::length: core::option::Option<u64>
+pub jmap_blob_types::BlobGetArgs::offset: core::option::Option<u64>
+pub jmap_blob_types::BlobGetArgs::properties: core::option::Option<alloc::vec::Vec<jmap_blob_types::BlobProperty>>
+impl jmap_blob_types::BlobGetArgs
+pub fn jmap_blob_types::BlobGetArgs::new(jmap_types::id::Id, alloc::vec::Vec<jmap_blob_types::BlobRef>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobGetArgs
+pub fn jmap_blob_types::BlobGetArgs::clone(&self) -> jmap_blob_types::BlobGetArgs
+impl core::cmp::Eq for jmap_blob_types::BlobGetArgs
+impl core::cmp::PartialEq for jmap_blob_types::BlobGetArgs
+pub fn jmap_blob_types::BlobGetArgs::eq(&self, &jmap_blob_types::BlobGetArgs) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobGetArgs
+pub fn jmap_blob_types::BlobGetArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobGetArgs
+impl serde_core::ser::Serialize for jmap_blob_types::BlobGetArgs
+pub fn jmap_blob_types::BlobGetArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobGetArgs
+pub fn jmap_blob_types::BlobGetArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobGetItem
+pub jmap_blob_types::BlobGetItem::chunks: core::option::Option<alloc::vec::Vec<jmap_blob_types::DataSourceObject>>
+pub jmap_blob_types::BlobGetItem::data_as_base64: core::option::Option<alloc::string::String>
+pub jmap_blob_types::BlobGetItem::data_as_text: core::option::Option<core::option::Option<alloc::string::String>>
+pub jmap_blob_types::BlobGetItem::digests: alloc::collections::btree::map::BTreeMap<jmap_blob_types::DigestAlgorithm, alloc::string::String>
+pub jmap_blob_types::BlobGetItem::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobGetItem::id: jmap_types::id::Id
+pub jmap_blob_types::BlobGetItem::image_data: core::option::Option<core::option::Option<jmap_blob_types::ImageData>>
+pub jmap_blob_types::BlobGetItem::is_encoding_problem: bool
+pub jmap_blob_types::BlobGetItem::is_truncated: bool
+pub jmap_blob_types::BlobGetItem::size: core::option::Option<u64>
+impl jmap_blob_types::BlobGetItem
+pub fn jmap_blob_types::BlobGetItem::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobGetItem
+pub fn jmap_blob_types::BlobGetItem::clone(&self) -> jmap_blob_types::BlobGetItem
+impl core::cmp::PartialEq for jmap_blob_types::BlobGetItem
+pub fn jmap_blob_types::BlobGetItem::eq(&self, &jmap_blob_types::BlobGetItem) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobGetItem
+pub fn jmap_blob_types::BlobGetItem::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobGetItem
+impl serde_core::ser::Serialize for jmap_blob_types::BlobGetItem
+pub fn jmap_blob_types::BlobGetItem::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobGetItem
+pub fn jmap_blob_types::BlobGetItem::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_blob_types::BlobGetResponse
+pub jmap_blob_types::BlobGetResponse::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobGetResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobGetResponse::list: alloc::vec::Vec<jmap_blob_types::BlobGetItem>
+pub jmap_blob_types::BlobGetResponse::not_found: alloc::vec::Vec<jmap_types::id::Id>
+impl jmap_blob_types::BlobGetResponse
+pub fn jmap_blob_types::BlobGetResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobGetResponse
+pub fn jmap_blob_types::BlobGetResponse::clone(&self) -> jmap_blob_types::BlobGetResponse
+impl core::cmp::PartialEq for jmap_blob_types::BlobGetResponse
+pub fn jmap_blob_types::BlobGetResponse::eq(&self, &jmap_blob_types::BlobGetResponse) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobGetResponse
+pub fn jmap_blob_types::BlobGetResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobGetResponse
+impl serde_core::ser::Serialize for jmap_blob_types::BlobGetResponse
+pub fn jmap_blob_types::BlobGetResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobGetResponse
+pub fn jmap_blob_types::BlobGetResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobInfo
+pub jmap_blob_types::BlobInfo::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobInfo::id: jmap_types::id::Id
+pub jmap_blob_types::BlobInfo::matched_ids: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<jmap_types::id::Id>>
+impl jmap_blob_types::BlobInfo
+pub fn jmap_blob_types::BlobInfo::new(jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<jmap_types::id::Id>>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobInfo
+pub fn jmap_blob_types::BlobInfo::clone(&self) -> jmap_blob_types::BlobInfo
+impl core::cmp::Eq for jmap_blob_types::BlobInfo
+impl core::cmp::PartialEq for jmap_blob_types::BlobInfo
+pub fn jmap_blob_types::BlobInfo::eq(&self, &jmap_blob_types::BlobInfo) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobInfo
+pub fn jmap_blob_types::BlobInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobInfo
+impl serde_core::ser::Serialize for jmap_blob_types::BlobInfo
+pub fn jmap_blob_types::BlobInfo::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobInfo
+pub fn jmap_blob_types::BlobInfo::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobLookupArgs
+pub jmap_blob_types::BlobLookupArgs::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobLookupArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobLookupArgs::ids: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_blob_types::BlobLookupArgs::type_names: alloc::vec::Vec<alloc::string::String>
+impl jmap_blob_types::BlobLookupArgs
+pub fn jmap_blob_types::BlobLookupArgs::new(jmap_types::id::Id, alloc::vec::Vec<alloc::string::String>, alloc::vec::Vec<jmap_types::id::Id>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobLookupArgs
+pub fn jmap_blob_types::BlobLookupArgs::clone(&self) -> jmap_blob_types::BlobLookupArgs
+impl core::cmp::Eq for jmap_blob_types::BlobLookupArgs
+impl core::cmp::PartialEq for jmap_blob_types::BlobLookupArgs
+pub fn jmap_blob_types::BlobLookupArgs::eq(&self, &jmap_blob_types::BlobLookupArgs) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobLookupArgs
+pub fn jmap_blob_types::BlobLookupArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobLookupArgs
+impl serde_core::ser::Serialize for jmap_blob_types::BlobLookupArgs
+pub fn jmap_blob_types::BlobLookupArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobLookupArgs
+pub fn jmap_blob_types::BlobLookupArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobLookupResponse
+pub jmap_blob_types::BlobLookupResponse::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobLookupResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobLookupResponse::list: alloc::vec::Vec<jmap_blob_types::BlobInfo>
+impl jmap_blob_types::BlobLookupResponse
+pub fn jmap_blob_types::BlobLookupResponse::new(jmap_types::id::Id, alloc::vec::Vec<jmap_blob_types::BlobInfo>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobLookupResponse
+pub fn jmap_blob_types::BlobLookupResponse::clone(&self) -> jmap_blob_types::BlobLookupResponse
+impl core::cmp::Eq for jmap_blob_types::BlobLookupResponse
+impl core::cmp::PartialEq for jmap_blob_types::BlobLookupResponse
+pub fn jmap_blob_types::BlobLookupResponse::eq(&self, &jmap_blob_types::BlobLookupResponse) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobLookupResponse
+pub fn jmap_blob_types::BlobLookupResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobLookupResponse
+impl serde_core::ser::Serialize for jmap_blob_types::BlobLookupResponse
+pub fn jmap_blob_types::BlobLookupResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobLookupResponse
+pub fn jmap_blob_types::BlobLookupResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobObject
+pub jmap_blob_types::BlobObject::expires: core::option::Option<core::option::Option<jmap_types::id::UTCDate>>
+pub jmap_blob_types::BlobObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobObject::id: jmap_types::id::Id
+pub jmap_blob_types::BlobObject::media_type: core::option::Option<alloc::string::String>
+pub jmap_blob_types::BlobObject::size: core::option::Option<u64>
+impl jmap_blob_types::BlobObject
+pub fn jmap_blob_types::BlobObject::new(jmap_types::id::Id, core::option::Option<alloc::string::String>, core::option::Option<u64>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobObject
+pub fn jmap_blob_types::BlobObject::clone(&self) -> jmap_blob_types::BlobObject
+impl core::cmp::Eq for jmap_blob_types::BlobObject
+impl core::cmp::PartialEq for jmap_blob_types::BlobObject
+pub fn jmap_blob_types::BlobObject::eq(&self, &jmap_blob_types::BlobObject) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobObject
+pub fn jmap_blob_types::BlobObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobObject
+impl serde_core::ser::Serialize for jmap_blob_types::BlobObject
+pub fn jmap_blob_types::BlobObject::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobObject
+pub fn jmap_blob_types::BlobObject::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobSetArgs
+pub jmap_blob_types::BlobSetArgs::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobSetArgs::create: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_blob_types::BlobCreateObject>>
+pub jmap_blob_types::BlobSetArgs::destroy: core::option::Option<alloc::vec::Vec<jmap_blob_types::BlobRef>>
+pub jmap_blob_types::BlobSetArgs::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobSetArgs::if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_blob_types::BlobSetArgs::update: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_blob_types::BlobRef, jmap_types::patch::PatchObject>>
+impl jmap_blob_types::BlobSetArgs
+pub fn jmap_blob_types::BlobSetArgs::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobSetArgs
+pub fn jmap_blob_types::BlobSetArgs::clone(&self) -> jmap_blob_types::BlobSetArgs
+impl core::cmp::Eq for jmap_blob_types::BlobSetArgs
+impl core::cmp::PartialEq for jmap_blob_types::BlobSetArgs
+pub fn jmap_blob_types::BlobSetArgs::eq(&self, &jmap_blob_types::BlobSetArgs) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobSetArgs
+pub fn jmap_blob_types::BlobSetArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobSetArgs
+impl serde_core::ser::Serialize for jmap_blob_types::BlobSetArgs
+pub fn jmap_blob_types::BlobSetArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobSetArgs
+pub fn jmap_blob_types::BlobSetArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobSetResponse
+pub jmap_blob_types::BlobSetResponse::account_id: jmap_types::id::Id
+pub jmap_blob_types::BlobSetResponse::created: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_blob_types::BlobObject>
+pub jmap_blob_types::BlobSetResponse::destroyed: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_blob_types::BlobSetResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::BlobSetResponse::new_state: core::option::Option<jmap_types::id::State>
+pub jmap_blob_types::BlobSetResponse::not_created: alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>
+pub jmap_blob_types::BlobSetResponse::not_destroyed: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::set_error::SetError>
+pub jmap_blob_types::BlobSetResponse::not_updated: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::set_error::SetError>
+pub jmap_blob_types::BlobSetResponse::old_state: core::option::Option<jmap_types::id::State>
+pub jmap_blob_types::BlobSetResponse::updated: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, core::option::Option<jmap_blob_types::BlobUpdated>>
+impl jmap_blob_types::BlobSetResponse
+pub fn jmap_blob_types::BlobSetResponse::new(jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobSetResponse
+pub fn jmap_blob_types::BlobSetResponse::clone(&self) -> jmap_blob_types::BlobSetResponse
+impl core::cmp::PartialEq for jmap_blob_types::BlobSetResponse
+pub fn jmap_blob_types::BlobSetResponse::eq(&self, &jmap_blob_types::BlobSetResponse) -> bool
+impl core::fmt::Debug for jmap_blob_types::BlobSetResponse
+pub fn jmap_blob_types::BlobSetResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobSetResponse
+impl serde_core::ser::Serialize for jmap_blob_types::BlobSetResponse
+pub fn jmap_blob_types::BlobSetResponse::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobSetResponse
+pub fn jmap_blob_types::BlobSetResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::BlobUpdated
+pub jmap_blob_types::BlobUpdated::expires: core::option::Option<core::option::Option<jmap_types::id::UTCDate>>
+pub jmap_blob_types::BlobUpdated::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_blob_types::BlobUpdated
+pub fn jmap_blob_types::BlobUpdated::with_expires(core::option::Option<jmap_types::id::UTCDate>) -> Self
+impl core::clone::Clone for jmap_blob_types::BlobUpdated
+pub fn jmap_blob_types::BlobUpdated::clone(&self) -> jmap_blob_types::BlobUpdated
+impl core::cmp::Eq for jmap_blob_types::BlobUpdated
+impl core::cmp::PartialEq for jmap_blob_types::BlobUpdated
+pub fn jmap_blob_types::BlobUpdated::eq(&self, &jmap_blob_types::BlobUpdated) -> bool
+impl core::default::Default for jmap_blob_types::BlobUpdated
+pub fn jmap_blob_types::BlobUpdated::default() -> jmap_blob_types::BlobUpdated
+impl core::fmt::Debug for jmap_blob_types::BlobUpdated
+pub fn jmap_blob_types::BlobUpdated::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::BlobUpdated
+impl serde_core::ser::Serialize for jmap_blob_types::BlobUpdated
+pub fn jmap_blob_types::BlobUpdated::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobUpdated
+pub fn jmap_blob_types::BlobUpdated::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::CompressRecipe
+pub jmap_blob_types::CompressRecipe::blob_id: jmap_blob_types::BlobRef
+pub jmap_blob_types::CompressRecipe::checksum: core::option::Option<bool>
+pub jmap_blob_types::CompressRecipe::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::CompressRecipe::level: core::option::Option<u64>
+pub jmap_blob_types::CompressRecipe::media_type: alloc::string::String
+impl jmap_blob_types::CompressRecipe
+pub fn jmap_blob_types::CompressRecipe::new(jmap_blob_types::BlobRef, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::CompressRecipe
+pub fn jmap_blob_types::CompressRecipe::clone(&self) -> jmap_blob_types::CompressRecipe
+impl core::cmp::Eq for jmap_blob_types::CompressRecipe
+impl core::cmp::PartialEq for jmap_blob_types::CompressRecipe
+pub fn jmap_blob_types::CompressRecipe::eq(&self, &jmap_blob_types::CompressRecipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::CompressRecipe
+pub fn jmap_blob_types::CompressRecipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::CompressRecipe
+impl serde_core::ser::Serialize for jmap_blob_types::CompressRecipe
+pub fn jmap_blob_types::CompressRecipe::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::CompressRecipe
+pub fn jmap_blob_types::CompressRecipe::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::ConvertRequest
+pub jmap_blob_types::ConvertRequest::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ConvertRequest::no_persist: bool
+pub jmap_blob_types::ConvertRequest::recipe: jmap_blob_types::Recipe
+impl jmap_blob_types::ConvertRequest
+pub fn jmap_blob_types::ConvertRequest::new(jmap_blob_types::Recipe) -> Self
+impl core::clone::Clone for jmap_blob_types::ConvertRequest
+pub fn jmap_blob_types::ConvertRequest::clone(&self) -> jmap_blob_types::ConvertRequest
+impl core::cmp::Eq for jmap_blob_types::ConvertRequest
+impl core::cmp::PartialEq for jmap_blob_types::ConvertRequest
+pub fn jmap_blob_types::ConvertRequest::eq(&self, &jmap_blob_types::ConvertRequest) -> bool
+impl core::fmt::Debug for jmap_blob_types::ConvertRequest
+pub fn jmap_blob_types::ConvertRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ConvertRequest
+impl serde_core::ser::Serialize for jmap_blob_types::ConvertRequest
+pub fn jmap_blob_types::ConvertRequest::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ConvertRequest
+pub fn jmap_blob_types::ConvertRequest::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_blob_types::ConvertedBlob
+pub jmap_blob_types::ConvertedBlob::description: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ConvertedBlob::entries: core::option::Option<alloc::vec::Vec<jmap_blob_types::ArchiveEntry>>
+pub jmap_blob_types::ConvertedBlob::expires: core::option::Option<core::option::Option<jmap_types::id::UTCDate>>
+pub jmap_blob_types::ConvertedBlob::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ConvertedBlob::id: jmap_types::id::Id
+pub jmap_blob_types::ConvertedBlob::is_incomplete: bool
+pub jmap_blob_types::ConvertedBlob::media_type: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ConvertedBlob::size: core::option::Option<u64>
+impl jmap_blob_types::ConvertedBlob
+pub fn jmap_blob_types::ConvertedBlob::new(jmap_types::id::Id, core::option::Option<alloc::string::String>, core::option::Option<u64>) -> Self
+impl core::clone::Clone for jmap_blob_types::ConvertedBlob
+pub fn jmap_blob_types::ConvertedBlob::clone(&self) -> jmap_blob_types::ConvertedBlob
+impl core::cmp::Eq for jmap_blob_types::ConvertedBlob
+impl core::cmp::PartialEq for jmap_blob_types::ConvertedBlob
+pub fn jmap_blob_types::ConvertedBlob::eq(&self, &jmap_blob_types::ConvertedBlob) -> bool
+impl core::fmt::Debug for jmap_blob_types::ConvertedBlob
+pub fn jmap_blob_types::ConvertedBlob::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ConvertedBlob
+impl serde_core::ser::Serialize for jmap_blob_types::ConvertedBlob
+pub fn jmap_blob_types::ConvertedBlob::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ConvertedBlob
+pub fn jmap_blob_types::ConvertedBlob::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::DataSourceObject
+pub jmap_blob_types::DataSourceObject::blob_id: core::option::Option<jmap_blob_types::BlobRef>
+pub jmap_blob_types::DataSourceObject::data_as_base64: core::option::Option<alloc::string::String>
+pub jmap_blob_types::DataSourceObject::data_as_text: core::option::Option<alloc::string::String>
+pub jmap_blob_types::DataSourceObject::digests: alloc::collections::btree::map::BTreeMap<jmap_blob_types::DigestAlgorithm, alloc::string::String>
+pub jmap_blob_types::DataSourceObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::DataSourceObject::length: core::option::Option<u64>
+pub jmap_blob_types::DataSourceObject::offset: core::option::Option<u64>
+pub jmap_blob_types::DataSourceObject::position: core::option::Option<u64>
+pub jmap_blob_types::DataSourceObject::size: core::option::Option<u64>
+impl jmap_blob_types::DataSourceObject
+pub fn jmap_blob_types::DataSourceObject::base64(impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_blob_types::DataSourceObject::blob(jmap_blob_types::BlobRef) -> Self
+pub fn jmap_blob_types::DataSourceObject::text(impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::DataSourceObject
+pub fn jmap_blob_types::DataSourceObject::clone(&self) -> jmap_blob_types::DataSourceObject
+impl core::cmp::Eq for jmap_blob_types::DataSourceObject
+impl core::cmp::PartialEq for jmap_blob_types::DataSourceObject
+pub fn jmap_blob_types::DataSourceObject::eq(&self, &jmap_blob_types::DataSourceObject) -> bool
+impl core::default::Default for jmap_blob_types::DataSourceObject
+pub fn jmap_blob_types::DataSourceObject::default() -> jmap_blob_types::DataSourceObject
+impl core::fmt::Debug for jmap_blob_types::DataSourceObject
+pub fn jmap_blob_types::DataSourceObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::DataSourceObject
+impl serde_core::ser::Serialize for jmap_blob_types::DataSourceObject
+pub fn jmap_blob_types::DataSourceObject::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::DataSourceObject
+pub fn jmap_blob_types::DataSourceObject::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_blob_types::DecompressRecipe
+pub jmap_blob_types::DecompressRecipe::blob_id: jmap_blob_types::BlobRef
+pub jmap_blob_types::DecompressRecipe::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::DecompressRecipe::media_type: core::option::Option<alloc::string::String>
+impl jmap_blob_types::DecompressRecipe
+pub fn jmap_blob_types::DecompressRecipe::new(jmap_blob_types::BlobRef, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::DecompressRecipe
+pub fn jmap_blob_types::DecompressRecipe::clone(&self) -> jmap_blob_types::DecompressRecipe
+impl core::cmp::Eq for jmap_blob_types::DecompressRecipe
+impl core::cmp::PartialEq for jmap_blob_types::DecompressRecipe
+pub fn jmap_blob_types::DecompressRecipe::eq(&self, &jmap_blob_types::DecompressRecipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::DecompressRecipe
+pub fn jmap_blob_types::DecompressRecipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::DecompressRecipe
+impl serde_core::ser::Serialize for jmap_blob_types::DecompressRecipe
+pub fn jmap_blob_types::DecompressRecipe::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::DecompressRecipe
+pub fn jmap_blob_types::DecompressRecipe::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::DeltaRecipe
+pub jmap_blob_types::DeltaRecipe::blob_id: jmap_blob_types::BlobRef
+pub jmap_blob_types::DeltaRecipe::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::DeltaRecipe::media_type: alloc::string::String
+pub jmap_blob_types::DeltaRecipe::new_blob_id: jmap_blob_types::BlobRef
+impl jmap_blob_types::DeltaRecipe
+pub fn jmap_blob_types::DeltaRecipe::new(jmap_blob_types::BlobRef, jmap_blob_types::BlobRef, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::DeltaRecipe
+pub fn jmap_blob_types::DeltaRecipe::clone(&self) -> jmap_blob_types::DeltaRecipe
+impl core::cmp::Eq for jmap_blob_types::DeltaRecipe
+impl core::cmp::PartialEq for jmap_blob_types::DeltaRecipe
+pub fn jmap_blob_types::DeltaRecipe::eq(&self, &jmap_blob_types::DeltaRecipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::DeltaRecipe
+pub fn jmap_blob_types::DeltaRecipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::DeltaRecipe
+impl serde_core::ser::Serialize for jmap_blob_types::DeltaRecipe
+pub fn jmap_blob_types::DeltaRecipe::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::DeltaRecipe
+pub fn jmap_blob_types::DeltaRecipe::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::ExtractRecipe
+pub jmap_blob_types::ExtractRecipe::blob_id: jmap_blob_types::BlobRef
+pub jmap_blob_types::ExtractRecipe::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ExtractRecipe::media_type: core::option::Option<alloc::string::String>
+impl jmap_blob_types::ExtractRecipe
+pub fn jmap_blob_types::ExtractRecipe::new(jmap_blob_types::BlobRef, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::ExtractRecipe
+pub fn jmap_blob_types::ExtractRecipe::clone(&self) -> jmap_blob_types::ExtractRecipe
+impl core::cmp::Eq for jmap_blob_types::ExtractRecipe
+impl core::cmp::PartialEq for jmap_blob_types::ExtractRecipe
+pub fn jmap_blob_types::ExtractRecipe::eq(&self, &jmap_blob_types::ExtractRecipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::ExtractRecipe
+pub fn jmap_blob_types::ExtractRecipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ExtractRecipe
+impl serde_core::ser::Serialize for jmap_blob_types::ExtractRecipe
+pub fn jmap_blob_types::ExtractRecipe::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ExtractRecipe
+pub fn jmap_blob_types::ExtractRecipe::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::ImageConvertRecipe
+pub jmap_blob_types::ImageConvertRecipe::auto_orient: core::option::Option<bool>
+pub jmap_blob_types::ImageConvertRecipe::background: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ImageConvertRecipe::blob_id: jmap_blob_types::BlobRef
+pub jmap_blob_types::ImageConvertRecipe::color_space: core::option::Option<jmap_blob_types::ColorSpace>
+pub jmap_blob_types::ImageConvertRecipe::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ImageConvertRecipe::height: core::option::Option<u64>
+pub jmap_blob_types::ImageConvertRecipe::ignore_aspect: core::option::Option<bool>
+pub jmap_blob_types::ImageConvertRecipe::media_type: alloc::string::String
+pub jmap_blob_types::ImageConvertRecipe::quality: core::option::Option<u64>
+pub jmap_blob_types::ImageConvertRecipe::strip_metadata: core::option::Option<bool>
+pub jmap_blob_types::ImageConvertRecipe::width: core::option::Option<u64>
+impl jmap_blob_types::ImageConvertRecipe
+pub fn jmap_blob_types::ImageConvertRecipe::new(jmap_blob_types::BlobRef, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::ImageConvertRecipe
+pub fn jmap_blob_types::ImageConvertRecipe::clone(&self) -> jmap_blob_types::ImageConvertRecipe
+impl core::cmp::Eq for jmap_blob_types::ImageConvertRecipe
+impl core::cmp::PartialEq for jmap_blob_types::ImageConvertRecipe
+pub fn jmap_blob_types::ImageConvertRecipe::eq(&self, &jmap_blob_types::ImageConvertRecipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::ImageConvertRecipe
+pub fn jmap_blob_types::ImageConvertRecipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ImageConvertRecipe
+impl serde_core::ser::Serialize for jmap_blob_types::ImageConvertRecipe
+pub fn jmap_blob_types::ImageConvertRecipe::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ImageConvertRecipe
+pub fn jmap_blob_types::ImageConvertRecipe::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::ImageData
+pub jmap_blob_types::ImageData::comment: core::option::Option<alloc::string::String>
+pub jmap_blob_types::ImageData::date: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_blob_types::ImageData::duration: core::option::Option<f64>
+pub jmap_blob_types::ImageData::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ImageData::gps: core::option::Option<jmap_blob_types::ImageGps>
+pub jmap_blob_types::ImageData::height: core::option::Option<u64>
+pub jmap_blob_types::ImageData::orientation: core::option::Option<u64>
+pub jmap_blob_types::ImageData::width: core::option::Option<u64>
+impl core::clone::Clone for jmap_blob_types::ImageData
+pub fn jmap_blob_types::ImageData::clone(&self) -> jmap_blob_types::ImageData
+impl core::cmp::PartialEq for jmap_blob_types::ImageData
+pub fn jmap_blob_types::ImageData::eq(&self, &jmap_blob_types::ImageData) -> bool
+impl core::default::Default for jmap_blob_types::ImageData
+pub fn jmap_blob_types::ImageData::default() -> jmap_blob_types::ImageData
+impl core::fmt::Debug for jmap_blob_types::ImageData
+pub fn jmap_blob_types::ImageData::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ImageData
+impl serde_core::ser::Serialize for jmap_blob_types::ImageData
+pub fn jmap_blob_types::ImageData::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ImageData
+pub fn jmap_blob_types::ImageData::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::ImageGps
+pub jmap_blob_types::ImageGps::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::ImageGps::latitude: f64
+pub jmap_blob_types::ImageGps::longitude: f64
+impl jmap_blob_types::ImageGps
+pub fn jmap_blob_types::ImageGps::new(f64, f64) -> Self
+impl core::clone::Clone for jmap_blob_types::ImageGps
+pub fn jmap_blob_types::ImageGps::clone(&self) -> jmap_blob_types::ImageGps
+impl core::cmp::PartialEq for jmap_blob_types::ImageGps
+pub fn jmap_blob_types::ImageGps::eq(&self, &jmap_blob_types::ImageGps) -> bool
+impl core::fmt::Debug for jmap_blob_types::ImageGps
+pub fn jmap_blob_types::ImageGps::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::ImageGps
+impl serde_core::ser::Serialize for jmap_blob_types::ImageGps
+pub fn jmap_blob_types::ImageGps::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::ImageGps
+pub fn jmap_blob_types::ImageGps::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::PatchRecipe
+pub jmap_blob_types::PatchRecipe::blob_id: jmap_blob_types::BlobRef
+pub jmap_blob_types::PatchRecipe::delta_blob_id: jmap_blob_types::BlobRef
+pub jmap_blob_types::PatchRecipe::delta_type: alloc::string::String
+pub jmap_blob_types::PatchRecipe::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_blob_types::PatchRecipe
+pub fn jmap_blob_types::PatchRecipe::new(jmap_blob_types::BlobRef, jmap_blob_types::BlobRef, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_blob_types::PatchRecipe
+pub fn jmap_blob_types::PatchRecipe::clone(&self) -> jmap_blob_types::PatchRecipe
+impl core::cmp::Eq for jmap_blob_types::PatchRecipe
+impl core::cmp::PartialEq for jmap_blob_types::PatchRecipe
+pub fn jmap_blob_types::PatchRecipe::eq(&self, &jmap_blob_types::PatchRecipe) -> bool
+impl core::fmt::Debug for jmap_blob_types::PatchRecipe
+pub fn jmap_blob_types::PatchRecipe::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::PatchRecipe
+impl serde_core::ser::Serialize for jmap_blob_types::PatchRecipe
+pub fn jmap_blob_types::PatchRecipe::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::PatchRecipe
+pub fn jmap_blob_types::PatchRecipe::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_blob_types::Rfc9404AccountCapability
+pub jmap_blob_types::Rfc9404AccountCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_types::Rfc9404AccountCapability::max_data_sources: u64
+pub jmap_blob_types::Rfc9404AccountCapability::max_size_blob_set: core::option::Option<u64>
+pub jmap_blob_types::Rfc9404AccountCapability::supported_digest_algorithms: alloc::vec::Vec<jmap_blob_types::DigestAlgorithm>
+pub jmap_blob_types::Rfc9404AccountCapability::supported_type_names: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for jmap_blob_types::Rfc9404AccountCapability
+pub fn jmap_blob_types::Rfc9404AccountCapability::clone(&self) -> jmap_blob_types::Rfc9404AccountCapability
+impl core::cmp::Eq for jmap_blob_types::Rfc9404AccountCapability
+impl core::cmp::PartialEq for jmap_blob_types::Rfc9404AccountCapability
+pub fn jmap_blob_types::Rfc9404AccountCapability::eq(&self, &jmap_blob_types::Rfc9404AccountCapability) -> bool
+impl core::fmt::Debug for jmap_blob_types::Rfc9404AccountCapability
+pub fn jmap_blob_types::Rfc9404AccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_types::Rfc9404AccountCapability
+impl serde_core::ser::Serialize for jmap_blob_types::Rfc9404AccountCapability
+pub fn jmap_blob_types::Rfc9404AccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::Rfc9404AccountCapability
+pub fn jmap_blob_types::Rfc9404AccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_blob_types::JMAP_BLOB2_URI: &str
+pub const jmap_blob_types::JMAP_BLOB_URI: &str
+pub const jmap_blob_types::MIN_MAX_DATA_SOURCES: u64
+pub trait jmap_blob_types::Digest
+pub fn jmap_blob_types::Digest::finish(alloc::boxed::Box<Self>) -> alloc::string::String
+pub fn jmap_blob_types::Digest::update(&mut self, &[u8])
+pub fn jmap_blob_types::compress_level_range(&str) -> core::option::Option<core::ops::range::RangeInclusive<u64>>

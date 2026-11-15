@@ -117,7 +117,7 @@ crates, never in a support crate.
 | `crate-jmap-quotas-server/` | `jmap-quotas-server` | RFC 9425 `Quota/get`, `/changes`, `/query`, `/queryChanges` — `QuotasBackend` (`recognized_types`, default `registry_types` from `jmap_types::data_types`); RFC 9425 §4.1 `types` cut to the `using` capabilities and Quotas with none hidden in `/get` and `/query`; `memory` backend with `set_used` (`updatedProperties: ["used"]`) |
 | `crate-jmap-quotas-client/` | `jmap-quotas-client` | RFC 9425 client: `JmapQuotasExt::with_quotas_session`, `quota_get`, `quota_get_properties`, `quota_changes`, `quota_query`, `quota_query_changes`; `using` carries every Session capability unless `with_type_capabilities` narrows it |
 | `crate-jmap-quotas/` | `jmap-quotas` | Umbrella: re-exports `jmap-quotas-types` (always), `-client` (`client` feature), `-server` (`server`; `memory` adds its reference backend). First workspace umbrella; JMAP-amr2's claimed umbrellas copy its shape |
-| `crate-jmap-blob-types/` | `jmap-blob-types` | draft-ietf-jmap-blobext-03 (`urn:ietf:params:jmap:blob2`) and RFC 9404 (`urn:ietf:params:jmap:blob`) data types. Scaffold (bd JMAP-tna1.2.1): no public items yet; capability, digest, data source, Blob/set and Blob/get types land in JMAP-tna1.2.2, convert and lookup in .3. No async |
+| `crate-jmap-blob-types/` | `jmap-blob-types` | draft-ietf-jmap-blobext-03 (`urn:ietf:params:jmap:blob2`) data types and the RFC 9404 (`urn:ietf:params:jmap:blob`) capability: `BlobAccountCapability` (all 17 keys always written; `check` for `maxDataSources` ≥ 64 and lowercase digest names; `rfc9404()` view without `adler`), `DigestAlgorithm` (RFC 9530 names, wire-string `Eq`/`Ord`/`Hash`, built-in sha/sha-256/sha-512 `Digest`ers in padded base64), `BlobRef` (blobId or `#creationId`), `DataSourceObject` and `BlobCreateObject` (`digest:*` keys collected by custom serde), Blob/set args/response (null `oldState`/`newState`, tri-state `expires`), Blob/get args (`BlobProperty`, `DataSourceProperty`), `BlobGetItem`, `ImageData`; Blob/lookup types (no `notFound`); Blob/convert `ConvertRequest` (exactly one recipe), the seven recipes, `ArchiveEntry`, `ConvertedBlob`, `compress_level_range`; `errors` codes. No async; depends on `jmap-types`, serde, base64, sha1, sha2 |
 | `crate-jmap-blob-server/` | `jmap-blob-server` | draft-ietf-jmap-blobext-03 `Blob/get`, `/set`, `/lookup`, `/convert` and RFC 9404 `Blob/upload` over a `BlobBackend` trait, `memory` and `test-helpers` features. Scaffold (bd JMAP-tna1.2.1): no public items yet; trait and registration land in JMAP-tna1.2.4 (design: docs/design/blobext.md) |
 | `crate-jmap-blob-client/` | `jmap-blob-client` | draft-ietf-jmap-blobext-03 client: `JmapBlobExt::with_blob_session` and typed `Blob/*` calls over `jmap-base-client`. Scaffold (bd JMAP-tna1.2.1): no public items yet |
 
@@ -156,10 +156,10 @@ jmap-metadata-client   — pure client helpers (property constants, filter-condi
                          builders, /changes helpers). Depends on serde_json only; it
                          does not re-export jmap-metadata-types (bd JMAP-wzq9.30).
 
-jmap-blob-types        — draft-ietf-jmap-blobext-03 / RFC 9404 data types (scaffold,
-                         bd JMAP-tna1.2.1, no dependencies yet). No async. Will
-                         depend on jmap-types, serde, serde_json, base64, sha1
-                         and sha2 (docs/design/blobext.md §3).
+jmap-blob-types        — draft-ietf-jmap-blobext-03 / RFC 9404 data types: capability,
+                         digests, Blob/set, get, lookup and convert. No async.
+                         Depends on jmap-types, serde, serde_json, base64, sha1
+                         and sha2.
     ├── jmap-blob-server   — Blob/* method handlers, BlobBackend trait (with
     │                        jmap-server).
     └── jmap-blob-client   — Blob/* client bindings (with jmap-base-client).

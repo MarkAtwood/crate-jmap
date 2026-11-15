@@ -92,7 +92,7 @@ Run all four before considering any work done.
 |---|---|
 | Async | None — sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Dependencies | jmap-types, serde, serde_json, base64, sha1, sha2 only (docs/design/blobext.md §3); none declared until used — cargo warns on unused ones |
+| Dependencies | jmap-types, serde, serde_json, base64, sha1, sha2 only (docs/design/blobext.md §3) |
 | Field names | Must match blobext-03 / RFC 9404 exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from blobext-03 / RFC 9404 examples — never from code under test |

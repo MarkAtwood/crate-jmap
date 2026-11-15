@@ -11,7 +11,10 @@ keywords = ["jmap", "blob", "types", "rfc9404"]
 categories = ["encoding", "network-programming"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
-# Scaffold (bd JMAP-tna1.2.1): no dependencies yet. cargo warns on unused
-# ones (cargo::unused_dependencies), so each arrives with the code that
-# uses it: jmap-types, serde, serde_json, base64 0.22, sha1 0.10 and sha2
-# 0.10 in JMAP-tna1.2.2 / .3 (docs/design/blobext.md §3).
+[dependencies]
+jmap-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+base64 = "0.22"
+sha1 = "0.10"
+sha2 = "0.10"
