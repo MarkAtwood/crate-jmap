@@ -333,3 +333,49 @@ fn malformed_entries_skipped_unknown_types_kept() {
         json!([{ "type": "urn:example:future", "uri": "https://z.example/" }])
     );
 }
+
+/// draft-atwood-jmap-updates-00 §7.1 (jmap-chat-spec 2b85363): "A
+/// property ... whose value is a URI or URL SHOULD hold a URI as defined in
+/// RFC 3986 Section 3"; "URIs in JMAP are ASCII". A peer Endpoint whose
+/// `uri` is not one (a space, a raw non-ASCII IRI) is dropped on ingest
+/// like a malformed entry; the others keep their order.
+#[test]
+fn non_uri_endpoints_are_dropped() {
+    let session = json!({ "ownerEndpoints": [
+        { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob room" },
+        { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.b.example/bob#lobby" },
+        { "type": "urn:ietf:params:jmap:chat:cap:blob", "uri": "https://bücher.example/f" },
+        { "type": "urn:ietf:params:jmap:chat:cap:payment", "uri": "zcash:t1abc?amount=1" },
+    ]});
+    let kept: Vec<String> = owner_endpoints(session.as_object().unwrap())
+        .expect("two remain")
+        .into_iter()
+        .map(|e| e.uri)
+        .collect();
+    assert_eq!(
+        kept,
+        ["https://meet.b.example/bob#lobby", "zcash:t1abc?amount=1"]
+    );
+}
+
+/// The same rule for the server's own advertisement: an owner Session
+/// whose `ownerEndpoints` has a non-URI `uri` is refused, naming the entry.
+#[test]
+fn anonymous_session_refuses_non_uri_owner_endpoint() {
+    let mut session = owner_session();
+    session.insert(
+        "ownerEndpoints".into(),
+        json!([
+            { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "https://meet.a.example/john" },
+            { "type": "urn:ietf:params:jmap:chat:cap:vtc", "uri": "/relative/room" }
+        ]),
+    );
+    let fields = FederationSession::new(vec![draft_key()]).with_owner_user_id("john@example.com");
+    assert_eq!(
+        anonymous_well_known_session(session.clone(), &fields),
+        Err(AnonymousSessionError::OwnerEndpointNotUri(1))
+    );
+    // Without an owner the endpoints are removed, so nothing is refused.
+    let no_owner = FederationSession::new(vec![draft_key()]);
+    assert!(anonymous_well_known_session(session, &no_owner).is_ok());
+}

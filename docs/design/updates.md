@@ -325,7 +325,7 @@ names that comparison, which §7.1 allows.
 |---|---|---|---|
 | core (jmap-types / jmap-server) | PushSubscription `url` | `https://` prefix + `check_uri` (this bead) | done |
 | base-client | Session `apiUrl`, `downloadUrl`/`uploadUrl`/`eventSourceUrl` templates, WebSocket `url` | scheme checks with `url` (WHATWG, for HTTP use) | none: client fetches, not stored data |
-| chat | ChatContact `uri`, rich-text link `uri`, Message attachment `uri` | none | bead |
+| chat | Endpoint `uri` (ChatContact `endpoints`, Session `ownerEndpoints`), MessageAction `uri`, rich-text link `uri` | Endpoint: non-URI peer entries dropped on ingest (`owner_endpoints`) and the server's own refused (`anonymous_well_known_session`), JMAP-cayv.17. MessageAction: not checked, chat-00 §MessageAction: "Servers MUST store and forward MessageAction records without inspection or transformation". Rich-text link: in `body`, which servers relay unparsed (a client rule) | done |
 | chat-mimi | KeyMaterial `clientUri`/`userUri`, capability `userUri` | none | bead |
 | chat-federation | Peer `fetchUrl` | none | bead |
 | scene | SceneAsset/SceneObject `assetUri`, SceneRegion `simulationUri`/`inputUri` | none (scene-client parses with `url` to fetch) | bead |

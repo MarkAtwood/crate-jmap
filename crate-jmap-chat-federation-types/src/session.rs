@@ -140,6 +140,10 @@ pub fn owner_endpoints(extra: &Map<String, Value>) -> Option<Vec<Endpoint>> {
         .iter()
         .filter_map(|e| serde_json::from_value::<Endpoint>(e.clone()).ok())
         .filter(|e| !crate::is_jmap_object_uri(&e.uri))
+        // draft-atwood-jmap-updates-00 §7.1: a URI-valued property SHOULD
+        // hold an RFC 3986 URI. A peer endpoint whose `uri` is not one
+        // (a space, a raw non-ASCII IRI) is dropped like a malformed entry.
+        .filter(|e| jmap_types::uri::check_uri(&e.uri).is_ok())
         .collect();
     (!entries.is_empty()).then_some(entries)
 }
@@ -158,6 +162,12 @@ pub enum AnonymousSessionError {
     /// discloses the signing key, so this builder refuses.
     #[error("peerSigningKeys[{0}] contains the private key member \"d\"")]
     PrivateKeyMember(usize),
+    /// The `ownerEndpoints` entry at this index has a `uri` that is not an
+    /// RFC 3986 URI (draft-atwood-jmap-updates-00 §7.1: a URI-valued
+    /// property SHOULD hold one; peers drop such entries in
+    /// [`owner_endpoints`]). Map an IRI to a URI first (RFC 3987 §3.1).
+    #[error("ownerEndpoints[{0}].uri is not an RFC 3986 URI")]
+    OwnerEndpointNotUri(usize),
 }
 
 /// The Session object to answer an unsigned GET of `/.well-known/jmap`.
@@ -214,6 +224,18 @@ pub fn anonymous_well_known_session(
         .position(|k| k.get("d").is_some())
     {
         return Err(AnonymousSessionError::PrivateKeyMember(i));
+    }
+    // Only an owner's endpoints are published; without an owner they are
+    // removed below.
+    if fields.owner_user_id.is_some()
+        && let Some(Value::Array(endpoints)) = session.get("ownerEndpoints")
+        && let Some(i) = endpoints.iter().position(|e| {
+            e.get("uri")
+                .and_then(Value::as_str)
+                .is_some_and(|u| jmap_types::uri::check_uri(u).is_err())
+        })
+    {
+        return Err(AnonymousSessionError::OwnerEndpointNotUri(i));
     }
     session.insert("accounts".into(), Value::Object(Map::new()));
     session.insert("primaryAccounts".into(), Value::Object(Map::new()));

@@ -1,6 +1,7 @@
 pub mod jmap_chat_federation_types
 #[non_exhaustive] pub enum jmap_chat_federation_types::AnonymousSessionError
 pub jmap_chat_federation_types::AnonymousSessionError::NoPeerSigningKeys
+pub jmap_chat_federation_types::AnonymousSessionError::OwnerEndpointNotUri(usize)
 pub jmap_chat_federation_types::AnonymousSessionError::PrivateKeyMember(usize)
 impl core::clone::Clone for jmap_chat_federation_types::AnonymousSessionError
 pub fn jmap_chat_federation_types::AnonymousSessionError::clone(&self) -> jmap_chat_federation_types::AnonymousSessionError

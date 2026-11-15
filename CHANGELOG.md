@@ -143,6 +143,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-federation-types**: `owner_endpoints` also drops peer
+  Endpoint entries whose `uri` is not an RFC 3986 URI, and
+  `anonymous_well_known_session` refuses an owner's `ownerEndpoints` entry
+  that is not one, with the new `AnonymousSessionError::OwnerEndpointNotUri`
+  (draft-atwood-jmap-updates-00 §7.1). MessageAction `uri` is still stored
+  and forwarded without inspection, as draft-atwood-jmap-chat-00 requires.
 - **jmap-testjig**: advertises `urn:ietf:params:jmap:i18n` (`{}` in the
   Session and the account), so Mailbox, AddressBook and Principal take
   `locale`, `localizations` and `language`. Its problem details carry a
