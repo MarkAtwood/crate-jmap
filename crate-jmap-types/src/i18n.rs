@@ -19,7 +19,8 @@
 //! `invalidProperties` [`SetError`], and [`prune_stale_localizations`],
 //! which drops translations of a base value that an update changed.
 //!
-//! A data type declares its localizable properties with [`Localizable`].
+//! A data type declares its localizable properties with
+//! [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE).
 //! Design: `docs/design/updates.md` (decisions 27 to 31).
 
 use crate::{PatchObject, SetError, SetErrorType};
@@ -473,27 +474,6 @@ impl LocalizableProperty {
     pub const fn new(name: &'static str, nullable: bool) -> Self {
         Self { name, nullable }
     }
-}
-
-/// A data type with localizable properties (draft-atwood-jmap-updates-00
-/// §5): it gains `locale` and `localizations`, and its `/get`, `/query`
-/// and `/queryChanges` take `language`.
-///
-/// ```rust
-/// use jmap_types::i18n::{Localizable, LocalizableProperty};
-///
-/// struct AddressBookLike;
-/// impl Localizable for AddressBookLike {
-///     const LOCALIZABLE: &'static [LocalizableProperty] = &[
-///         LocalizableProperty::new("name", false),
-///         LocalizableProperty::new("description", true),
-///     ];
-/// }
-/// ```
-pub trait Localizable {
-    /// The localizable properties, as listed by the defining
-    /// specification.
-    const LOCALIZABLE: &'static [LocalizableProperty];
 }
 
 /// The `localizations` property: a map from [`LanguageTag`] to a

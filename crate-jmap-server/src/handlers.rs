@@ -24,6 +24,7 @@
 //! exists so each call site is one line and reviewable at a glance.
 
 use crate::HandlerOutput;
+use crate::I18nProjection;
 use jmap_types::{Id, JmapError, State};
 use serde_json::{Value, json};
 
@@ -165,10 +166,30 @@ pub fn server_fail_value_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -
 /// returns the standard `get` response shape. Returns the method-level
 /// `requestTooLarge` error when `ids` holds more entries than
 /// [`JmapBackend::max_objects_in_get`] allows; a null `ids` is not counted.
+///
+/// It does not see the request's `using`, so it treats
+/// `urn:ietf:params:jmap:i18n` as absent: a non-null `language` argument
+/// is `invalidArguments`, and `locale`/`localizations` are not returned
+/// for a type with [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE)
+/// properties. Such types use [`handle_get_with_metadata`].
 pub async fn handle_get<O: GetObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    get_impl::<O, B>(backend, caller, args, &[]).await
+}
+
+/// The body of [`handle_get`] and [`handle_get_with_metadata`]. `using`
+/// drives the `urn:ietf:params:jmap:i18n` handling ([`I18nProjection`]);
+/// [`handle_get`] passes none, so a type with localizable properties
+/// never returns `locale` or `localizations` through it and `language` is
+/// rejected.
+async fn get_impl<O: GetObject, B: JmapBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -180,6 +201,12 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     }
     enforce_max_objects_in_get(&args, backend.max_objects_in_get(caller, &account_id))?;
 
+    let i18n = I18nProjection::from_args::<O>(
+        &mut args,
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
+
     let ids: Option<Vec<Id>> = optional_arg(&mut args, "ids", || {
         JmapError::invalid_arguments("ids must be an Id array")
     })?;
@@ -187,10 +214,16 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     let properties: Option<Vec<String>> = optional_arg(&mut args, "properties", || {
         JmapError::invalid_arguments("properties must be a string array")
     })?;
+    let backend_properties = i18n.backend_properties(properties.as_deref());
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<O>(caller, &account_id, ids_slice, properties.as_deref())
+        .get_objects::<O>(
+            caller,
+            &account_id,
+            ids_slice,
+            backend_properties.as_deref(),
+        )
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
@@ -207,15 +240,22 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     // wire shape is identical.
     let mut list_json = serialize_value(&list)?;
 
-    // RFC 8620 §5.1: "If supplied, only the properties listed in the array
-    // are returned for each Foo object. ... The id property of the object
-    // is *always* returned". Backends MAY ignore `properties`, so project
-    // here. ponytail: unknown property names are not rejected with
-    // invalidArguments; the generic handler has no per-type property list.
-    if let (Some(props), Value::Array(items)) = (&properties, &mut list_json) {
+    if let Value::Array(items) = &mut list_json {
         for item in items {
             if let Value::Object(map) = item {
-                map.retain(|k, _| k == "id" || props.iter().any(|p| p == k));
+                // Before the properties filter: the language view reads
+                // `localizations` even when the client did not ask for it.
+                i18n.apply(map);
+                // RFC 8620 §5.1: "If supplied, only the properties listed
+                // in the array are returned for each Foo object. ... The
+                // id property of the object is *always* returned".
+                // Backends MAY ignore `properties`, so project here.
+                // ponytail: unknown property names are not rejected with
+                // invalidArguments; the generic handler has no per-type
+                // property list.
+                if let Some(props) = &properties {
+                    map.retain(|k, _| k == "id" || props.iter().any(|p| p == k));
+                }
             }
         }
     }
@@ -239,13 +279,24 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 /// subselectors applied, and `privateMetadata` never returned when
 /// `supportsPrivate` is false (-05 §2, §3, §3.1). The backend is asked for
 /// the root property in place of each subselector. When `O` is not listed
-/// this is exactly [`handle_get`], so an unrelated property that happens to
+/// this is the metadata-free path, so an unrelated property that happens to
 /// be named `metadata` is left alone.
+///
+/// For a type with [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE)
+/// properties it also handles draft-atwood-jmap-updates-00 through
+/// [`I18nProjection`]: with `urn:ietf:params:jmap:i18n` in `using` and
+/// [`JmapBackend::i18n_info`] `Some` for the account, `locale` and
+/// `localizations` are returned (`null` when absent), and a non-null
+/// `language` returns each object's single-language view (§4.2.1)
+/// without changing `state`. Otherwise the two properties are not
+/// returned and `language` is `invalidArguments` (§3).
 ///
 /// # Errors
 ///
-/// Those of [`handle_get`], and `invalidArguments` for a malformed
-/// `metadata/` or `privateMetadata/` entry (-05 §3.1).
+/// Those of [`handle_get`], `invalidArguments` for a malformed
+/// `metadata/` or `privateMetadata/` entry (-05 §3.1), and
+/// `invalidArguments` for a `language` the request may not send or that
+/// is not an array of RFC 4647 language ranges.
 pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -258,14 +309,14 @@ pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
         .and_then(|s| Id::new_validated(s).ok())
         .and_then(|id| backend.metadata_info::<O>(caller, &id));
     let Some(info) = info else {
-        return handle_get::<O, B>(backend, caller, args).await;
+        return get_impl::<O, B>(backend, caller, args, using).await;
     };
     let properties: Option<Vec<String>> = match args.get("properties") {
         None | Some(Value::Null) => None,
         Some(v) => match serde_json::from_value(v.clone()) {
             Ok(props) => Some(props),
             // handle_get reports the malformed argument.
-            Err(_) => return handle_get::<O, B>(backend, caller, args).await,
+            Err(_) => return get_impl::<O, B>(backend, caller, args, using).await,
         },
     };
     let projection = MetadataProjection::new(properties.as_deref(), true, using, Some(&info))?;
@@ -282,7 +333,7 @@ pub async fn handle_get_with_metadata<O: GetObject, B: JmapBackend>(
         }
         args["properties"] = json!(roots);
     }
-    let mut out = handle_get::<O, B>(backend, caller, args).await?;
+    let mut out = get_impl::<O, B>(backend, caller, args, using).await?;
     if let Some(Value::Array(list)) = out.primary.get_mut("list") {
         for item in list {
             let source = item.clone();

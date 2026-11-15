@@ -35,6 +35,7 @@ pub use jmap_types::{
 mod backend;
 mod handlers;
 mod helpers;
+mod i18n;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
@@ -58,6 +59,7 @@ pub use helpers::{
     resolve_creation_ref, resolve_query_offset, resolve_query_start, serialize_value,
     strip_read_only_patch, take_bool_arg, uses_metadata, utc_date_from_epoch_seconds,
 };
+pub use i18n::{I18nInfo, I18nProjection, uses_i18n};
 
 mod parse;
 mod push;

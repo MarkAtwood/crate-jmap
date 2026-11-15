@@ -20,6 +20,16 @@ pub trait JmapObject:
     const TYPE_NAME: &'static str;
     /// The property selector enum for this type (server-side only, no serde).
     type Property: Send + Sync + 'static;
+    /// The localizable properties of this type
+    /// (draft-atwood-jmap-updates-00 §5), as its defining specification
+    /// lists them; empty, the default, for a type that has none.
+    ///
+    /// A type with localizable properties gains `locale` and
+    /// `localizations` and takes the `language` argument on `/get`,
+    /// `/query` and `/queryChanges` when `urn:ietf:params:jmap:i18n` is in
+    /// `using`; a type without them rejects `language`. See
+    /// [`crate::i18n`].
+    const LOCALIZABLE: &'static [crate::i18n::LocalizableProperty] = &[];
 }
 
 /// Marker for object types that support `get` and `changes` operations.

@@ -184,6 +184,35 @@ pub fn jmap_server::HandlerOutput::eq(&self, &jmap_server::HandlerOutput) -> boo
 impl core::fmt::Debug for jmap_server::HandlerOutput
 pub fn jmap_server::HandlerOutput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_server::HandlerOutput
+#[non_exhaustive] pub struct jmap_server::I18nInfo
+pub jmap_server::I18nInfo::max_localizations: core::option::Option<usize>
+pub jmap_server::I18nInfo::preferred_languages: core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageTag>>
+impl jmap_server::I18nInfo
+pub fn jmap_server::I18nInfo::new() -> Self
+pub fn jmap_server::I18nInfo::with_max_localizations(self, core::option::Option<usize>) -> Self
+pub fn jmap_server::I18nInfo::with_preferred_languages(self, core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageTag>>) -> Self
+impl core::clone::Clone for jmap_server::I18nInfo
+pub fn jmap_server::I18nInfo::clone(&self) -> jmap_server::I18nInfo
+impl core::cmp::Eq for jmap_server::I18nInfo
+impl core::cmp::PartialEq for jmap_server::I18nInfo
+pub fn jmap_server::I18nInfo::eq(&self, &jmap_server::I18nInfo) -> bool
+impl core::default::Default for jmap_server::I18nInfo
+pub fn jmap_server::I18nInfo::default() -> jmap_server::I18nInfo
+impl core::fmt::Debug for jmap_server::I18nInfo
+pub fn jmap_server::I18nInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_server::I18nInfo
+pub struct jmap_server::I18nProjection
+impl jmap_server::I18nProjection
+pub fn jmap_server::I18nProjection::apply(&self, &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>)
+pub fn jmap_server::I18nProjection::backend_properties(&self, core::option::Option<&[alloc::string::String]>) -> core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub fn jmap_server::I18nProjection::from_args<O: jmap_types::backend::JmapObject>(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &[alloc::string::String], core::option::Option<&jmap_server::I18nInfo>) -> core::result::Result<Self, jmap_types::error::JmapError>
+pub fn jmap_server::I18nProjection::language(&self) -> core::option::Option<&[jmap_types::i18n::LanguageRange]>
+impl core::clone::Clone for jmap_server::I18nProjection
+pub fn jmap_server::I18nProjection::clone(&self) -> jmap_server::I18nProjection
+impl core::default::Default for jmap_server::I18nProjection
+pub fn jmap_server::I18nProjection::default() -> jmap_server::I18nProjection
+impl core::fmt::Debug for jmap_server::I18nProjection
+pub fn jmap_server::I18nProjection::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct jmap_server::MetadataProjection
 impl jmap_server::MetadataProjection
 pub fn jmap_server::MetadataProjection::apply(&self, &serde_json::value::Value, &mut serde_json::value::Value)
@@ -285,6 +314,7 @@ pub fn jmap_server::JmapBackend::account_exists(&self, &Self::CallerCtx, &jmap_t
 pub fn jmap_server::JmapBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::ChangesParams<'_>) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::ChangesResult, jmap_server::BackendChangesError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::JmapBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> impl core::future::future::Future<Output = core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>> + core::marker::Send
 pub fn jmap_server::JmapBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<jmap_types::id::State, Self::Error>> + core::marker::Send
+pub fn jmap_server::JmapBackend::i18n_info(&self, &Self::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_server::I18nInfo>
 pub fn jmap_server::JmapBackend::max_objects_in_get(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
 pub fn jmap_server::JmapBackend::max_objects_in_set(&self, &Self::CallerCtx, &jmap_types::id::Id) -> u64
 pub fn jmap_server::JmapBackend::metadata_info<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> core::option::Option<jmap_metadata_types::capability::DataTypeMetadataInfo>
@@ -350,6 +380,7 @@ pub fn jmap_server::server_fail_value_from_backend<E: core::fmt::Display + ?core
 pub fn jmap_server::state_change_for(&jmap_types::push::PushSubscription, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::id::State>>) -> core::option::Option<jmap_types::push::StateChange>
 pub fn jmap_server::strip_read_only_patch<O: jmap_types::backend::SetObject>(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, core::option::Option<&serde_json::map::Map<alloc::string::String, serde_json::value::Value>>) -> core::result::Result<(), alloc::boxed::Box<jmap_types::set_error::SetError>>
 pub fn jmap_server::take_bool_arg(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &str, bool) -> bool
+pub fn jmap_server::uses_i18n(&[alloc::string::String]) -> bool
 pub fn jmap_server::uses_metadata(&[alloc::string::String]) -> bool
 pub fn jmap_server::utc_date_from_epoch_seconds(i64) -> core::option::Option<jmap_types::id::UTCDate>
 pub type jmap_server::BackendCallFn<B, C> = (dyn core::ops::function::Fn(alloc::sync::Arc<B>, jmap_server::CallContext<C>) -> jmap_server::HandlerFuture + core::marker::Send + core::marker::Sync + 'static)

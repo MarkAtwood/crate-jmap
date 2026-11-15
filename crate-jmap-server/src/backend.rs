@@ -874,6 +874,17 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// still reach this method with an unknown account; backends SHOULD then
     /// return `Ok` with an empty `found` list and every requested id in `not_found`. Returning `Err` is permitted but surfaces as
     /// `serverFail`, not `accountNotFound`.
+    ///
+    /// # Localized properties
+    ///
+    /// For a type with [`JmapObject::LOCALIZABLE`] properties, return the
+    /// stored base values with their `locale` and `localizations`. The
+    /// handlers build the single-language view of the `language` argument
+    /// themselves. Do not let the request's Accept-Language change what
+    /// this method or `query_objects` returns for a localizable property:
+    /// draft-atwood-jmap-updates-00 §4.2.1 says the server MUST NOT, since
+    /// a client that caches objects by id and state could not tell the
+    /// languages apart.
     fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -1126,6 +1137,28 @@ pub trait JmapBackend: Send + Sync + 'static {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
+        let _ = (caller, account_id);
+        None
+    }
+
+    /// What `account_id` supports of `urn:ietf:params:jmap:i18n`
+    /// (draft-atwood-jmap-updates-00), as seen by `caller`, or [`None`]
+    /// when the account does not support localizations.
+    ///
+    /// `Some` puts the capability in the account's `accountCapabilities`;
+    /// the deployment then stores `locale` and `localizations` on every
+    /// type with [`JmapObject::LOCALIZABLE`] properties in this account
+    /// and honours the `language` argument of
+    /// [`QueryParams`](crate::QueryParams). `None` makes the handlers
+    /// reject `language` with `invalidArguments` and never return the two
+    /// properties (§3). Keep it in step with the Session object.
+    ///
+    /// Default: [`None`], a backend without localizations.
+    fn i18n_info(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> Option<crate::I18nInfo> {
         let _ = (caller, account_id);
         None
     }

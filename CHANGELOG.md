@@ -18,11 +18,20 @@ wire behaviour that a conforming peer can observe.
   localized display text: `JMAP_I18N_URI`, `I18nCapability`,
   `I18nAccountCapability`; `LanguageTag` (RFC 5646 well-formed, canonical
   case, case-insensitive equality) and `LanguageRange` (RFC 4647 §2.1);
-  `lookup` (RFC 4647 §3.4); `Localizations`, `Localizable` and
-  `LocalizableProperty`; `parse_locale` and `check_localizations`
+  `lookup` (RFC 4647 §3.4); `Localizations` and `LocalizableProperty`,
+  with `JmapObject::LOCALIZABLE` (default empty) listing a type's
+  localizable properties; `parse_locale` and `check_localizations`
   (`invalidProperties` SetErrors for `/set`), `prune_stale_localizations`
   and `localized_view` (the single-language `/get` view, which returns
   `localizations: null`).
+- **jmap-server**: draft-atwood-jmap-updates-00 `language` on `/get`.
+  `JmapBackend::i18n_info` (default `None`) says which accounts support
+  localizations, with `I18nInfo` (`preferred_languages`,
+  `max_localizations`). `handle_get_with_metadata` returns `locale` and
+  `localizations` (`null` when absent) when `urn:ietf:params:jmap:i18n` is
+  in `using` and the account supports it, and with a non-null `language`
+  returns each object's single-language view. `I18nProjection` and
+  `uses_i18n` let type-specific `/get` handlers do the same.
 - **jmap-calendars-server**: `CalendarEvent/set` enforces the per-event
   account limits of draft-ietf-jmap-calendars-34 §5.9. `CalendarsLimits`
   gains `max_calendars_per_event`, `max_participants_per_event`,
@@ -48,6 +57,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server**: `handle_get` and `handle_get_with_metadata` reject a
+  non-null `language` argument with `invalidArguments` unless the type has
+  localizable properties, `urn:ietf:params:jmap:i18n` is in `using` and
+  the account supports it (draft-atwood-jmap-updates-00 §3). It was
+  ignored before. `handle_get` never sees `using`, so it always rejects it.
 - **jmap-calendars-server**: `CalendarEvent/get` rejects a `properties`
   list naming `utcStart` or `utcEnd` together with `recurrenceOverrides`
   with `invalidArguments` (draft-ietf-jmap-calendars-34 §5.7).

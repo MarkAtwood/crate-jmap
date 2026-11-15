@@ -139,8 +139,6 @@ pub fn jmap_types::i18n::Localizations::serialize<__S>(&self, __S) -> core::resu
 impl<'de> serde_core::de::Deserialize<'de> for jmap_types::i18n::Localizations
 pub fn jmap_types::i18n::Localizations::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 pub const jmap_types::i18n::JMAP_I18N_URI: &str
-pub trait jmap_types::i18n::Localizable
-pub const jmap_types::i18n::Localizable::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub fn jmap_types::i18n::check_localizations(core::option::Option<&jmap_types::i18n::LanguageTag>, &serde_json::value::Value, &[jmap_types::i18n::LocalizableProperty]) -> core::result::Result<core::option::Option<jmap_types::i18n::Localizations>, alloc::boxed::Box<jmap_types::SetError>>
 pub fn jmap_types::i18n::localized_view(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &[jmap_types::i18n::LocalizableProperty], &[jmap_types::i18n::LanguageRange])
 pub fn jmap_types::i18n::lookup<'a, I>(&[jmap_types::i18n::LanguageRange], I) -> core::option::Option<&'a jmap_types::i18n::LanguageTag> where I: core::iter::traits::collect::IntoIterator<Item = &'a jmap_types::i18n::LanguageTag>, <I as core::iter::traits::collect::IntoIterator>::IntoIter: core::clone::Clone
@@ -686,6 +684,7 @@ pub fn jmap_types::PushSubscription::fmt(&self, &mut core::fmt::Formatter<'_>) -
 impl core::marker::StructuralPartialEq for jmap_types::PushSubscription
 impl jmap_types::JmapObject for jmap_types::PushSubscription
 pub type jmap_types::PushSubscription::Property = ()
+pub const jmap_types::PushSubscription::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_types::PushSubscription::TYPE_NAME: &'static str
 impl jmap_types::SetObject for jmap_types::PushSubscription
 pub type jmap_types::PushSubscription::Patch = jmap_types::PatchObject
@@ -938,9 +937,11 @@ impl core::marker::StructuralPartialEq for jmap_types::ValidationError
 pub trait jmap_types::GetObject: jmap_types::JmapObject
 pub trait jmap_types::JmapObject: serde_core::ser::Serialize + for<'de> serde_core::de::Deserialize<'de> + core::marker::Send + core::marker::Sync + 'static
 pub type jmap_types::JmapObject::Property: core::marker::Send + core::marker::Sync + 'static
+pub const jmap_types::JmapObject::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_types::JmapObject::TYPE_NAME: &'static str
 impl jmap_types::JmapObject for jmap_types::PushSubscription
 pub type jmap_types::PushSubscription::Property = ()
+pub const jmap_types::PushSubscription::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_types::PushSubscription::TYPE_NAME: &'static str
 pub trait jmap_types::QueryObject: jmap_types::JmapObject
 pub type jmap_types::QueryObject::Comparator: serde_core::ser::Serialize + serde_core::de::DeserializeOwned + core::marker::Send + core::marker::Sync + 'static
