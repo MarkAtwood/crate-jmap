@@ -127,7 +127,7 @@ pub async fn require_bearer_token(
     if state.token.ct_eq(&supplied).into() {
         next.run(request).await
     } else {
-        unauthorized()
+        unauthorized(crate::http::accept_language(request.headers()))
     }
 }
 
@@ -255,10 +255,11 @@ fn hex_digit(b: u8) -> Option<u8> {
 
 /// Build the canonical 401 response with the RFC 6750 §3 challenge and an
 /// RFC 9457 problem details body (draft-atwood-jmap-updates-00 §7.2).
-fn unauthorized() -> Response {
+fn unauthorized(accept_language: Option<&str>) -> Response {
     let mut resp = crate::http::problem(
         StatusCode::UNAUTHORIZED,
         Some("missing or invalid bearer token"),
+        accept_language,
     );
     resp.headers_mut().insert(
         header::WWW_AUTHENTICATE,

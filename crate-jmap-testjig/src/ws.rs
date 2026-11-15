@@ -109,15 +109,28 @@ const PUSH_CHANNEL_BOUND: usize = 64;
 /// status with an RFC 9457 problem details body
 /// (draft-atwood-jmap-updates-00 §7.2 names the WebSocket opening
 /// handshake).
+///
+/// The handshake's Accept-Language is the Accept-Language of every Request
+/// on the connection (draft-atwood-jmap-updates-00 §4.3): it picks the
+/// language of RequestError titles. It never changes JMAP data.
 pub async fn get_ws(
     AxumState(state): AxumState<AppState>,
+    headers: axum::http::HeaderMap,
     upgrade: Result<WebSocketUpgrade, axum::extract::ws::rejection::WebSocketUpgradeRejection>,
 ) -> Response {
+    let accept_language = crate::http::accept_language(&headers);
     match upgrade {
-        Ok(upgrade) => upgrade
-            .protocols([JMAP_SUBPROTOCOL])
-            .on_upgrade(move |socket| handle_socket(socket, state)),
-        Err(rejection) => crate::http::problem(rejection.status(), Some(&rejection.body_text())),
+        Ok(upgrade) => {
+            let lang = crate::locale::choose(accept_language);
+            upgrade
+                .protocols([JMAP_SUBPROTOCOL])
+                .on_upgrade(move |socket| handle_socket(socket, state, lang))
+        }
+        Err(rejection) => crate::http::problem(
+            rejection.status(),
+            Some(&rejection.body_text()),
+            accept_language,
+        ),
     }
 }
 
@@ -128,7 +141,7 @@ pub async fn get_ws(
 /// Exits cleanly on receiving a Close frame, on a stream error, on a
 /// non-text frame followed by a close, or when the push channel
 /// becomes inert (no push task active and no recv task pending).
-async fn handle_socket(mut socket: WebSocket, state: AppState) {
+async fn handle_socket(mut socket: WebSocket, state: AppState, lang: crate::locale::Lang) {
     let inner = Arc::clone(&state.inner);
     let account = Id::from(session::ACCOUNT_ID);
 
@@ -168,6 +181,7 @@ async fn handle_socket(mut socket: WebSocket, state: AppState) {
                             &mut socket,
                             &push_tx,
                             &mut push_task,
+                            lang,
                         ).await {
                             // Any inability to write back means the
                             // socket is gone; exit cleanly.
@@ -227,11 +241,12 @@ async fn handle_text_frame(
     socket: &mut WebSocket,
     push_tx: &mpsc::Sender<Message>,
     push_task: &mut Option<JoinHandle<()>>,
+    lang: crate::locale::Lang,
 ) -> Result<(), String> {
     let value: Value = match serde_json::from_str(text) {
         Ok(v) => v,
         Err(_) => {
-            return send_request_error(socket, JmapError::not_json(), None).await;
+            return send_request_error(socket, JmapError::not_json(), None, lang).await;
         }
     };
 
@@ -241,7 +256,7 @@ async fn handle_text_frame(
     let envelope = value.get("@type").and_then(Value::as_str).unwrap_or("");
 
     match envelope {
-        "Request" => handle_request_frame(value, state, request_id, socket).await,
+        "Request" => handle_request_frame(value, state, request_id, socket, lang).await,
         "WebSocketPushEnable" => {
             handle_push_enable(value, state, account.clone(), push_tx.clone(), push_task);
             Ok(())
@@ -250,7 +265,7 @@ async fn handle_text_frame(
             handle_push_disable(push_task);
             Ok(())
         }
-        _ => send_request_error(socket, JmapError::not_request(), request_id).await,
+        _ => send_request_error(socket, JmapError::not_request(), request_id, lang).await,
     }
 }
 
@@ -261,10 +276,11 @@ async fn handle_request_frame(
     state: Arc<AppStateInner>,
     request_id: Option<String>,
     socket: &mut WebSocket,
+    lang: crate::locale::Lang,
 ) -> Result<(), String> {
     let request = match parse_request(value, MAX_CALLS_IN_REQUEST) {
         Ok(r) => r,
-        Err(err) => return send_request_error(socket, err, request_id).await,
+        Err(err) => return send_request_error(socket, err, request_id, lang).await,
     };
 
     let mut response = state
@@ -304,8 +320,9 @@ async fn send_request_error(
     socket: &mut WebSocket,
     err: JmapError,
     request_id: Option<String>,
+    lang: crate::locale::Lang,
 ) -> Result<(), String> {
-    let body = request_error_body(&err, request_id);
+    let body = request_error_body(&err, request_id, lang);
     let txt = serde_json::to_string(&body).map_err(|e| format!("serialize RequestError: {e}"))?;
     socket
         .send(Message::Text(txt.into()))
@@ -314,7 +331,11 @@ async fn send_request_error(
 }
 
 /// Build the JSON body of an RFC 8887 §4.3.4 RequestError envelope.
-fn request_error_body(err: &JmapError, request_id: Option<String>) -> Value {
+fn request_error_body(
+    err: &JmapError,
+    request_id: Option<String>,
+    lang: crate::locale::Lang,
+) -> Value {
     // RFC 9457 problem details + RFC 8887 extension fields. The
     // testjig's POST /jmap path uses jmap-server's
     // `RequestError::into_response` to assemble this shape, but that
@@ -336,6 +357,13 @@ fn request_error_body(err: &JmapError, request_id: Option<String>) -> Value {
     }
     if let Some(req_id) = request_id {
         body["requestId"] = Value::String(req_id);
+    }
+    // draft-atwood-jmap-updates-00 §4.3: the handshake's Accept-Language
+    // picks the title language for the whole connection. A WebSocket
+    // message has no Content-Language header.
+    let status = jmap_server::error_status(err).as_u16();
+    if let Some(title) = crate::locale::title(status, lang) {
+        body["title"] = Value::String(title.to_owned());
     }
     body
 }
@@ -583,15 +611,22 @@ mod tests {
         let mut err = JmapError::limit("maxCallsInRequest");
         err.description = Some("17 calls exceed 16".to_owned());
         assert_eq!(
-            request_error_body(&err, Some("r1".to_owned())),
+            request_error_body(&err, Some("r1".to_owned()), crate::locale::Lang::En),
             json!({
                 "@type": "RequestError",
                 "type": "urn:ietf:params:jmap:error:limit",
                 "status": 400,
+                "title": "Bad Request",
                 "limit": "maxCallsInRequest",
                 "detail": "17 calls exceed 16",
                 "requestId": "r1",
             })
+        );
+        // draft-atwood-jmap-updates-00 §4.3: the handshake language picks
+        // the title.
+        assert_eq!(
+            request_error_body(&err, None, crate::locale::Lang::De)["title"],
+            "Ungültige Anfrage"
         );
     }
 

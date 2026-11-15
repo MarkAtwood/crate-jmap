@@ -300,7 +300,11 @@ pub async fn get_events(
     let Query(query) = match query {
         Ok(q) => q,
         Err(rejection) => {
-            return crate::http::problem(rejection.status(), Some(&rejection.body_text()));
+            return crate::http::problem(
+                rejection.status(),
+                Some(&rejection.body_text()),
+                crate::http::accept_language(&headers),
+            );
         }
     };
     let types_filter = TypesFilter::from_query(query.types.as_deref());

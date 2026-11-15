@@ -318,10 +318,27 @@ async fn get_session(AxumState(state): AxumState<AppState>) -> Response {
 /// even when it only calls `Core/echo`. Slice bd:JMAP-cf7p.3 may
 /// re-enable the check once the extension MemoryBackends mount their
 /// methods.
+///
+/// A request-level error is RFC 9457 problem details whose `title` follows
+/// the request's Accept-Language (draft-atwood-jmap-updates-00 §7.2).
+/// Accept-Language never reaches the dispatcher, so it cannot change JMAP
+/// data (§4.2.1).
 async fn post_jmap(
     AxumState(state): AxumState<AppState>,
+    headers: axum::http::HeaderMap,
     body: Body,
-) -> Result<Response, ApiError> {
+) -> Response {
+    match post_jmap_inner(state, body).await {
+        Ok(resp) => resp,
+        Err(ApiError(err)) => localized_problem(
+            err.status(),
+            err.problem_details(),
+            accept_language(&headers),
+        ),
+    }
+}
+
+async fn post_jmap_inner(state: AppState, body: Body) -> Result<Response, ApiError> {
     let bytes = axum::body::to_bytes(body, MAX_REQUEST_BYTES)
         .await
         .map_err(map_body_error)?;
@@ -404,25 +421,56 @@ impl IntoResponse for ApiError {
     }
 }
 
+/// The request's `Accept-Language` field value, if any.
+pub(crate) fn accept_language(headers: &axum::http::HeaderMap) -> Option<&str> {
+    headers
+        .get(axum::http::header::ACCEPT_LANGUAGE)
+        .and_then(|v| v.to_str().ok())
+}
+
 /// An `about:blank` RFC 9457 problem details response for a non-API
 /// resource or failure (draft-atwood-jmap-updates-00 §7.2: every JMAP HTTP
 /// resource SHOULD send problem details on a 4xx or 5xx). `title` is the
-/// status phrase (RFC 9457 §4.2.1); the jig sends no Content-Language.
-pub(crate) fn problem(status: axum::http::StatusCode, detail: Option<&str>) -> Response {
+/// status phrase (RFC 9457 §4.2.1) in the language `accept_language`
+/// prefers (English or German), labelled with Content-Language (§7.2,
+/// RFC 8620 §3.8).
+pub(crate) fn problem(
+    status: axum::http::StatusCode,
+    detail: Option<&str>,
+    accept_language: Option<&str>,
+) -> Response {
     let mut details = jmap_types::problem::ProblemDetails::for_status(status.as_u16());
-    if let Some(reason) = status.canonical_reason() {
-        details = details.with_title(reason);
-    }
     if let Some(d) = detail {
         details = details.with_detail(d);
     }
-    let (parts, body) = jmap_server::problem_response(status, &details, None).into_parts();
+    localized_problem(status, details, accept_language)
+}
+
+/// Add a `title` in the preferred language to `details` and send it with
+/// Content-Language.
+fn localized_problem(
+    status: axum::http::StatusCode,
+    mut details: jmap_types::problem::ProblemDetails,
+    accept_language: Option<&str>,
+) -> Response {
+    let lang = crate::locale::choose(accept_language);
+    let mut content_language = None;
+    if let Some(title) = crate::locale::title(status.as_u16(), lang) {
+        details = details.with_title(title);
+        content_language = Some(lang.tag());
+    }
+    let (parts, body) =
+        jmap_server::problem_response(status, &details, content_language).into_parts();
     Response::from_parts(parts, Body::from(body))
 }
 
 /// Fallback for unknown paths: a 404 problem details response.
-async fn not_found() -> Response {
-    problem(axum::http::StatusCode::NOT_FOUND, None)
+async fn not_found(headers: axum::http::HeaderMap) -> Response {
+    problem(
+        axum::http::StatusCode::NOT_FOUND,
+        None,
+        accept_language(&headers),
+    )
 }
 
 /// The typed [`Arc<MemoryBackend>`] handles produced by

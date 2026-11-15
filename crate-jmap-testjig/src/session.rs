@@ -50,9 +50,16 @@ pub const DEFAULT_ADDR: SocketAddr =
 /// upload / event-source URLs in [`session_json`].
 pub const BASE_URL: &str = "http://127.0.0.1:8080";
 
-/// The 10 capability URIs the testjig advertises: RFC 8620 base `core`
-/// plus the 9 workspace extension capabilities (mail, chat, calendars,
-/// tasks, contacts, filenode, sharing, metadata, cid).
+/// The 11 capability URIs the testjig advertises: RFC 8620 base `core`
+/// plus the 10 workspace extension capabilities (mail, chat, calendars,
+/// tasks, contacts, filenode, sharing, metadata, cid, i18n).
+///
+/// `urn:ietf:params:jmap:i18n` (draft-atwood-jmap-updates-00 §3) is
+/// advertised with `{}` in both `capabilities` and the account's
+/// `accountCapabilities`: the jig's mail, contacts and sharing memory
+/// backends support localizations in every account, so Mailbox,
+/// AddressBook and Principal take `locale`, `localizations` and
+/// `language`.
 ///
 /// ponytail: `urn:ietf:params:jmap:cid` (draft-atwood-jmap-cid-00
 /// §Capability) is advertised so CID-aware clients can opt in, but the
@@ -82,6 +89,7 @@ pub const ADVERTISED_CAPABILITIES: &[&str] = &[
     "urn:ietf:params:jmap:sharing",
     "urn:ietf:params:jmap:metadata",
     "urn:ietf:params:jmap:cid",
+    "urn:ietf:params:jmap:i18n",
 ];
 
 /// The RFC 8887 WebSocket subprotocol capability URI. Not in
@@ -127,7 +135,7 @@ pub fn session_json() -> Value {
 ///   requires; every other account capability is `{}`.
 /// - `accounts`: single entry keyed by [`ACCOUNT_ID`]; `name` =
 ///   [`USERNAME`]; not personal, not read-only;
-///   `accountCapabilities` re-advertises all 9 extension URIs (Core
+///   `accountCapabilities` re-advertises all 10 extension URIs (Core
 ///   is conventionally session-only, not per-account).
 /// - `primaryAccounts`: every extension URI maps to [`ACCOUNT_ID`].
 ///   `urn:ietf:params:jmap:core` is NOT in `primaryAccounts` per
@@ -177,7 +185,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
         }),
     );
 
-    // Account-capabilities: the 9 extension URIs (Core is session-only).
+    // Account-capabilities: the 10 extension URIs (Core is session-only).
     let mut account_capabilities =
         serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len() - 1);
     for uri in ADVERTISED_CAPABILITIES

@@ -143,6 +143,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-testjig**: advertises `urn:ietf:params:jmap:i18n` (`{}` in the
+  Session and the account), so Mailbox, AddressBook and Principal take
+  `locale`, `localizations` and `language`. Its problem details carry a
+  `title` in the request's Accept-Language (English or German) with
+  Content-Language, and over WebSocket the handshake's Accept-Language
+  sets the RequestError title for the whole connection
+  (draft-atwood-jmap-updates-00 §4.3, §7.2).
 - **jmap-chat-server**: push message snippets, and **jmap-mail-server**:
   `maxBodyValueBytes` body values and the Email `preview` built from raw
   headers, are now cut at a grapheme cluster boundary

@@ -68,6 +68,7 @@
 
 pub mod auth;
 pub mod http;
+mod locale;
 pub(crate) mod replay;
 pub mod session;
 pub mod spawn;

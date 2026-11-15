@@ -24,6 +24,9 @@ extend-ignore-re = [
     # French example name from draft-atwood-jmap-updates-00 Appendix A
     # (crate-jmap-types i18n tests and docs).
     "Contacts du groupe",
+    # German problem title in crate-jmap-testjig/src/locale.rs
+    # (draft-atwood-jmap-updates-00 §7.2 localized titles).
+    "Methode nicht erlaubt",
     "redaction-canary-cred-[A-Za-z0-9]+",
     # RFC 4648 §10 base64 test vector `"fo"` -> `"Zm8"`
     # (crate-jmap-chat-server/src/memory.rs base64url test). Not a word.
