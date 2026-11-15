@@ -2,13 +2,14 @@
   "id": "JMAP-cayv.3",
   "title": "jmap-server: language argument on /get and dispatcher gating for i18n",
   "description": "jmap-server: `language` on /get, plus the dispatcher gating.\n- Gating, per the decision from child .1:\n  - `language` without i18n in `using`, or for an account without I18nAccountCapability: invalidArguments.\n  - `locale` or `localizations` in /set: invalidProperties.\n- handle_get / handle_get_with_metadata (handlers.rs:168, :249): parse `language` as LanguageRange[]|null. When it is set and O: Localizable, apply jmap_types::i18n::lookup + localized_view to each serialized item before the `properties` filter. `state` is unchanged.\n- Data never varies with Accept-Language. Document in the rustdoc that consumers MUST NOT let Accept-Language reach get_objects/query_objects for localizable properties (draft: MUST NOT, state-keyed caches).\n- Types that are not Localizable reject `language` with invalidArguments.\nTests: language view, no language, the non-capable account, and properties filtering combined with language.\n",
+  "notes": "Design: docs/design/updates.md (final 2026-11-15, decisions 27-31). JmapBackend::i18n_info(caller, account) -\u003e Option\u003cI18nInfo\u003e (default None) gates the account; I18nRequest::from_args per handler on every deployment (decision 31/Q2). /get view returns localizations: null (decision 30).",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-15T02:07:22.766368136Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-15T02:07:22.766368136Z",
+  "updated_at": "2026-11-15T02:31:57.717955802Z",
   "labels": [
     "spec",
     "i18n"

@@ -2,13 +2,14 @@
   "id": "JMAP-cayv.5",
   "title": "jmap-server: /query and /queryChanges with language (localized sort/filter, queryState, cannotCalculateChanges)",
   "description": "jmap-server: /query and /queryChanges with `language`.\n- Sort and filter on a localizable property compare the value /get would return for that `language`, not the base value. This needs the backend query hook to receive the language (decision .1(c)). Memory backends do it.\n- When the Comparator has no collation, the backend MAY pick one for the chosen language. Default: keep the current collation.\n- queryState encodes the language (decision .1(d)). When the /queryChanges `language` differs from the one in sinceQueryState: cannotCalculateChanges.\nTests: sorting Mailboxes by localized name; a language mismatch on queryChanges.\n",
+  "notes": "Design: docs/design/updates.md (final 2026-11-15, decisions 27-31). QueryParams::language / QueryChangesParams::language (non_exhaustive builder field); backends reporting i18n MUST honour it. queryState wrapper \u003cinner\u003e|lang=\u003cranges\u003e in the handler, mismatch -\u003e cannotCalculateChanges (decision 28). Only Mailbox, Principal (and later Quota) have /query.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-15T02:07:23.385291905Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-15T02:07:23.385291905Z",
+  "updated_at": "2026-11-15T02:31:58.187459444Z",
   "labels": [
     "spec",
     "i18n"
