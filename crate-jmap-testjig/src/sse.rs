@@ -600,6 +600,9 @@ pub(crate) async fn snapshot_all_states(
     // Sharing (RFC 9670).
     poll_type!(state.sharing, jmap_sharing_types::Principal);
 
+    // Quotas (RFC 9425).
+    poll_type!(state.quotas, jmap_quotas_types::Quota);
+
     // Metadata (draft-ietf-jmap-metadata-05): no standalone object type.
     // Per-type metadata properties are tracked through each extension's
     // own state tokens.

@@ -12,6 +12,7 @@ members = [
     "crate-jmap-quotas-types",
     "crate-jmap-quotas-server",
     "crate-jmap-quotas-client",
+    "crate-jmap-quotas",
     "crate-jmap-jscalendar-types",
     "crate-jmap-jscontact-types",
     "crate-jmap-metadata-types",
@@ -93,6 +94,8 @@ jmap-calendars-types   = { path = "crate-jmap-calendars-types",  version = "0.5"
 jmap-tasks-types       = { path = "crate-jmap-tasks-types",      version = "0.5" }
 jmap-filenode-types    = { path = "crate-jmap-filenode-types",   version = "0.5" }
 jmap-quotas-types      = { path = "crate-jmap-quotas-types",     version = "0.5" }
+jmap-quotas-server     = { path = "crate-jmap-quotas-server",    version = "0.5" }
+jmap-quotas-client     = { path = "crate-jmap-quotas-client",    version = "0.5" }
 jmap-sharing-types     = { path = "crate-jmap-sharing-types",    version = "0.5" }
 jmap-jscalendar-types  = { path = "crate-jmap-jscalendar-types", version = "0.5" }
 jmap-jscontact-types   = { path = "crate-jmap-jscontact-types",  version = "0.5" }

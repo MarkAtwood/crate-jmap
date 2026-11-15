@@ -1,0 +1,29 @@
+[package]
+name = "jmap-quotas"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP for Quotas (RFC 9425): umbrella crate re-exporting jmap-quotas-types, -client, and -server"
+keywords = ["jmap", "quota", "rfc9425"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-quotas-types = { workspace = true }
+jmap-quotas-client = { workspace = true, optional = true }
+jmap-quotas-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-quotas-client"]
+server = ["dep:jmap-quotas-server"]
+# The server's in-memory reference backend (not production).
+memory = ["server", "jmap-quotas-server/memory"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

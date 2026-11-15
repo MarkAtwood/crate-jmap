@@ -169,6 +169,14 @@ wire behaviour that a conforming peer can observe.
   draft-atwood-jmap chat, chat-mimi, graph, graph-edit, scene and vtc
   drafts. Shared by Blob/lookup, object history and Quota. (bd:JMAP-tna1.4)
 
+- **jmap-quotas** (umbrella, replaces the 0.0.1 placeholder): re-exports
+  `jmap-quotas-types` as `types`, `jmap-quotas-client` as `client` (feature
+  `client`) and `jmap-quotas-server` as `server` (feature `server`; `memory`
+  adds its reference backend). (bd:JMAP-1igi.4)
+- **jmap-testjig**: mounts the quotas memory backend, advertises
+  `urn:ietf:params:jmap:quota` and seeds one account Quota
+  (`quota-storage`); Quota state is polled for push. (bd:JMAP-1igi.4)
+
 - **jmap-quotas-client** (new crate): RFC 9425 client —
   `JmapQuotasExt::with_quotas_session` and `SessionClient` with
   `quota_get`, `quota_get_properties`, `quota_changes`, `quota_query`,

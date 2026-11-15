@@ -104,6 +104,7 @@ pub(crate) struct AppStateInner {
     pub(crate) contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
     pub(crate) filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
     pub(crate) sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
+    pub(crate) quotas: Arc<jmap_quotas_server::memory::MemoryBackend>,
     /// Testjig-internal state-change signal for signal-driven SSE / WS
     /// push (bd:JMAP-cf7p.9).
     ///
@@ -222,6 +223,7 @@ impl AppState {
                 contacts: backends.contacts,
                 filenode: backends.filenode,
                 sharing: backends.sharing,
+                quotas: backends.quotas,
                 state_change_tx,
                 state_log,
             }),
@@ -490,6 +492,7 @@ struct ExtensionBackends {
     contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
     filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
     sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
+    quotas: Arc<jmap_quotas_server::memory::MemoryBackend>,
 }
 
 /// Construct one reference [`MemoryBackend`] from each extension-server
@@ -557,6 +560,27 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     );
     jmap_sharing_server::register_sharing_handlers(dispatcher, Arc::clone(&sharing));
 
+    // Quotas (RFC 9425): Quota, read-only. One account quota on the mail,
+    // calendar, contacts and file data, so a client sees a Quota whatever
+    // of those capabilities it uses (RFC 9425 §4.1).
+    let quotas = Arc::new(jmap_quotas_server::memory::MemoryBackend::new().with_account(&account));
+    quotas.seed_quota(
+        &account,
+        serde_json::json!({
+            "id": "quota-storage",
+            "resourceType": "octets",
+            "used": 0,
+            "warnLimit": 805_306_368,
+            "softLimit": 966_367_641,
+            "hardLimit": 1_073_741_824,
+            "scope": "account",
+            "name": session::USERNAME,
+            "description": "Storage for this account",
+            "types": ["Email", "CalendarEvent", "ContactCard", "FileNode"]
+        }),
+    );
+    jmap_quotas_server::register_quotas_handlers(dispatcher, Arc::clone(&quotas));
+
     // Metadata (draft-ietf-jmap-metadata-05): metadata is now per-type
     // properties on listed data types, not a standalone object.
     // Extension backends handle metadata through their own handlers
@@ -570,6 +594,7 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
         contacts,
         filenode,
         sharing,
+        quotas,
     }
 }
 
@@ -1011,6 +1036,7 @@ mod tests {
             ("ContactCard/get", "urn:ietf:params:jmap:contacts"),
             ("FileNode/get", "urn:ietf:params:jmap:filenode"),
             ("Principal/get", "urn:ietf:params:jmap:sharing"),
+            ("Quota/get", "urn:ietf:params:jmap:quota"),
         ];
         for (method, capability) in probes {
             let state = AppState::new();
@@ -1031,6 +1057,44 @@ mod tests {
                 "{method} must be registered on the dispatcher; got response: {inv}"
             );
         }
+    }
+
+    /// RFC 9425 §4.1 through the jig: the seeded Quota's `types` hold only
+    /// the types whose capability is in `using`, and with none of them the
+    /// Quota is not returned.
+    #[tokio::test]
+    async fn post_jmap_quota_get_follows_using() {
+        let get = |caps: &[&str]| {
+            let mut using = vec!["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:quota"];
+            using.extend_from_slice(caps);
+            serde_json::to_string(&json!({
+                "using": using,
+                "methodCalls": [["Quota/get", {"accountId": session::ACCOUNT_ID, "ids": null}, "c1"]]
+            }))
+            .unwrap()
+        };
+        let body = get(&["urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:filenode"]);
+        let (status, resp) = send(
+            router(AppState::new()),
+            http::Method::POST,
+            "/jmap",
+            Some(&body),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let list = &resp["methodResponses"][0][1]["list"];
+        assert_eq!(list[0]["id"], "quota-storage", "{resp}");
+        assert_eq!(list[0]["types"], json!(["Email", "FileNode"]));
+
+        let body = get(&["urn:ietf:params:jmap:tasks"]);
+        let (_, resp) = send(
+            router(AppState::new()),
+            http::Method::POST,
+            "/jmap",
+            Some(&body),
+        )
+        .await;
+        assert_eq!(resp["methodResponses"][0][1]["list"], json!([]), "{resp}");
     }
 
     /// Oracle: bd:JMAP-cf7p.6 — a custom token configured via
