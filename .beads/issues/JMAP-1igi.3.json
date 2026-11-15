@@ -1,0 +1,30 @@
+{
+  "id": "JMAP-1igi.3",
+  "title": "jmap-quotas-client: SessionClient quota_get/changes/query/query_changes",
+  "description": "New crate crate-jmap-quotas-client (extension-client family, mirror jmap-mail-client): JmapQuotasExt::with_quotas_session, SessionClient with quota_get, quota_changes (returns updatedProperties), quota_query, quota_query_changes; USING includes core + quota. Wiremock tests on RFC 9425 §5 request/response examples.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T08:27:06.960534644Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T08:27:06.960534644Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-1igi.3",
+      "depends_on_id": "JMAP-1igi",
+      "type": "parent-child",
+      "created_at": "2026-11-15T08:27:07.076083286Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-1igi.3",
+      "depends_on_id": "JMAP-1igi.1",
+      "type": "blocks",
+      "created_at": "2026-11-15T08:27:08.775849455Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
