@@ -11,9 +11,8 @@
 //!
 //! # Status
 //!
-//! The public surface is fixed (bd JMAP-tna1.2.4) and `Blob/get`,
-//! `Blob/set` and `Blob/lookup` are implemented (JMAP-tna1.2.7, .8, .9);
-//! `Blob/convert` answers `serverFail` until bd JMAP-tna1.2.10 lands. The `memory` reference backend arrives with
+//! The public surface is fixed (bd JMAP-tna1.2.4) and the four blobext
+//! handlers are implemented (JMAP-tna1.2.7 to .10). The `memory` reference backend arrives with
 //! JMAP-tna1.2.5, RFC 9404 `Blob/upload` with JMAP-tna1.2.11.
 
 #![forbid(unsafe_code)]

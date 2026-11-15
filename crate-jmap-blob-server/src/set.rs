@@ -545,7 +545,7 @@ fn slice(bytes: &[u8], range: Range<u64>) -> &[u8] {
     bytes.get(start..end).unwrap_or_default()
 }
 
-fn invalid<I, S>(props: I) -> SetError
+pub(crate) fn invalid<I, S>(props: I) -> SetError
 where
     I: IntoIterator<Item = S>,
     S: Into<String>,
@@ -559,11 +559,11 @@ fn bad_source(i: usize, why: &str) -> SetError {
     invalid(["data"]).with_description(format!("data/{i}: {why}"))
 }
 
-fn not_found(why: &str) -> SetError {
+pub(crate) fn not_found(why: &str) -> SetError {
     SetError::new(SetErrorType::NotFound).with_description(why)
 }
 
-fn too_large(why: &str) -> SetError {
+pub(crate) fn too_large(why: &str) -> SetError {
     SetError::new(SetErrorType::TooLarge).with_description(why)
 }
 

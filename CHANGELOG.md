@@ -214,6 +214,22 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: `Blob/convert` (blobext-03 §8). Entries run in
+  `#creationId` dependency order (a cycle rejects its members), so a
+  recipe can read another entry's result or an earlier call's blob.
+  Before the backend runs a recipe the handler checks its shape, its type
+  against the advertised list (a `null` list means unsupported; a null
+  extract or decompress type is left to auto-detection), image
+  dimensions, quality and background, the §8.3 archive entry rules (no
+  `..` components; zip holds only files and directories), and every
+  input against `maxConvertSize`. Failures are `invalidProperties`
+  naming a path into the request (`archive/entries/3/name`), `notFound`
+  or `tooLarge`; backend errors such as `unknownFormat` and
+  `conversionFailed` pass through. An extract reports the archive's own
+  id, type and size with its `entries`, and `noPersist` has no effect on
+  it. `atomic: true` and a non-empty `ifUnchangedBy` are
+  `invalidArguments`. (bd:JMAP-tna1.2.10)
+
 - **jmap-blob-server**: `Blob/lookup` (blobext-03 §6; RFC 9404 §4.3).
   Each type name must be advertised in `supportedTypeNames`, able to
   reference blobs (`lookup_type_capability`, the JMAP Data Types registry
