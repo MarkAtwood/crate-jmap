@@ -447,12 +447,44 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 /// Like [`handle_get`] it does not see `using`, so a non-null `language`
 /// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
 /// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
-/// uses its own handler, which passes `language` to the backend and wraps
-/// the queryState with [`crate::localized_query_state`].
+/// uses [`handle_query_with_i18n`] or its own handler.
 pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    query_impl::<O, B>(backend, caller, args, &[]).await
+}
+
+/// [`handle_query`] for a type with
+/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// (draft-atwood-jmap-updates-00 §4.2.2).
+///
+/// `using` is the request's capability list ([`crate::CallContext::using`]).
+/// With `urn:ietf:params:jmap:i18n` in it and
+/// [`JmapBackend::i18n_info`] `Some` for the account, a `language` argument
+/// is passed to the backend as [`QueryParams::language`] and recorded in
+/// the `queryState` ([`crate::localized_query_state`]); otherwise a
+/// non-null `language` is `invalidArguments` (§3).
+///
+/// # Errors
+///
+/// Those of [`handle_query`].
+pub async fn handle_query_with_i18n<O: QueryObject, B: JmapBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError> {
+    query_impl::<O, B>(backend, caller, args, using).await
+}
+
+/// The body of [`handle_query`] and [`handle_query_with_i18n`].
+async fn query_impl<O: QueryObject, B: JmapBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -463,11 +495,14 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // No `using` here: draft-atwood-jmap-updates-00 §3 treats the
-    // capability as absent, so a non-null `language` is invalidArguments.
-    // Types with localizable properties have their own handlers that pass
-    // `language` through `QueryParams` / `QueryChangesParams`.
-    I18nProjection::from_args::<O>(&mut args, &[], None)?;
+    // draft-atwood-jmap-updates-00 §3, §4.2: with an empty `using` (the
+    // plain handlers) a non-null `language` is invalidArguments.
+    let i18n = I18nProjection::from_args::<O>(
+        &mut args,
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
+    let language = i18n.language();
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -515,14 +550,15 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
                 .limit(limit)
                 .position(position)
                 .anchor(anchor.as_ref())
-                .anchor_offset(anchor_offset),
+                .anchor_offset(anchor_offset)
+                .language(language),
         )
         .await
         .map_err(JmapError::from)?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
-        "queryState": result.query_state.as_ref(),
+        "queryState": crate::localized_query_state(&result.query_state, language).as_ref(),
         "canCalculateChanges": result.can_calculate_changes,
         "position": result.position,
         // bd:JMAP-wlip.28 — Vec<Id> serializes directly via Id's
@@ -550,12 +586,43 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 /// Like [`handle_get`] it does not see `using`, so a non-null `language`
 /// (draft-atwood-jmap-updates-00 §4.2) is `invalidArguments`. A type with
 /// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
-/// uses its own handler, which passes `language` to the backend and checks
-/// `sinceQueryState` with [`crate::unwrap_query_state`].
+/// uses [`handle_query_changes_with_i18n`] or its own handler.
 pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    query_changes_impl::<O, B>(backend, caller, args, &[]).await
+}
+
+/// [`handle_query_changes`] for a type with
+/// [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE) properties
+/// (draft-atwood-jmap-updates-00 §4.2.3).
+///
+/// As [`handle_query_with_i18n`] for `language`. `sinceQueryState` is
+/// checked with [`crate::unwrap_query_state`]: a language other than the one
+/// it was computed with is `cannotCalculateChanges`.
+///
+/// # Errors
+///
+/// Those of [`handle_query_changes`], and `cannotCalculateChanges` for a
+/// language mismatch.
+pub async fn handle_query_changes_with_i18n<O: QueryObject, B: JmapBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError> {
+    query_changes_impl::<O, B>(backend, caller, args, using).await
+}
+
+/// The body of [`handle_query_changes`] and
+/// [`handle_query_changes_with_i18n`].
+async fn query_changes_impl<O: QueryObject, B: JmapBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -566,16 +633,20 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // No `using` here: draft-atwood-jmap-updates-00 §3 treats the
-    // capability as absent, so a non-null `language` is invalidArguments.
-    // Types with localizable properties have their own handlers that pass
-    // `language` through `QueryParams` / `QueryChangesParams`.
-    I18nProjection::from_args::<O>(&mut args, &[], None)?;
+    // draft-atwood-jmap-updates-00 §3, §4.2: with an empty `using` (the
+    // plain handlers) a non-null `language` is invalidArguments.
+    let i18n = I18nProjection::from_args::<O>(
+        &mut args,
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
+    let language = i18n.language();
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
         None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
     };
+    let since_query_state = crate::unwrap_query_state(&since_query_state, language)?;
 
     let max_changes = crate::parse_max_changes(args.get("maxChanges"))?;
 
@@ -608,7 +679,8 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
                 .filter(filter.as_ref())
                 .sort(sort.as_deref())
                 .max_changes(max_changes)
-                .up_to_id(up_to_id.as_ref()),
+                .up_to_id(up_to_id.as_ref())
+                .language(language),
         )
         .await
         .map_err(JmapError::from)?;
@@ -626,8 +698,8 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
-        "oldQueryState": result.old_query_state.as_ref(),
-        "newQueryState": result.new_query_state.as_ref(),
+        "oldQueryState": crate::localized_query_state(&result.old_query_state, language).as_ref(),
+        "newQueryState": crate::localized_query_state(&result.new_query_state, language).as_ref(),
         // bd:JMAP-wlip.28 — Vec<Id> serializes directly.
         "removed": result.removed,
         "added": added,

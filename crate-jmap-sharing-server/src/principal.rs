@@ -158,6 +158,14 @@ pub async fn handle_principal_set<B: SharingBackend>(
     // unbounded /set batches before touching the storage layer.
     enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
+    // draft-atwood-jmap-updates-00 §3, §4.1: `locale` and `localizations`.
+    // The checks that need the patched object run in the backend
+    // (`jmap_server::localized_update`).
+    let i18n_set = jmap_server::I18nSet::new::<Principal>(
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    );
+
     let old_state = backend
         .get_state::<Principal>(caller, &account_id)
         .await
@@ -189,6 +197,13 @@ pub async fn handle_principal_set<B: SharingBackend>(
             if let Some(Err(err)) = obj_val
                 .as_object()
                 .map(|o| check_metadata_entry(o, true, using))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&*err));
+                continue;
+            }
+            let mut obj_val = obj_val;
+            if let Value::Object(m) = &mut obj_val
+                && let Err(err) = i18n_set.check_create(m)
             {
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
@@ -268,7 +283,9 @@ pub async fn handle_principal_set<B: SharingBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
+                    let mut entry = jmap_server::serialize_value(&created_obj)?;
+                    i18n_set.echo(&mut entry);
+                    created.insert(create_id, entry);
                 }
                 Err(e) => {
                     not_created.insert(create_id, backend_set_error_value(e));
@@ -324,7 +341,9 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     continue;
                 }
             }
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, using)
+                .and_then(|()| i18n_set.check_patch(patch.as_map()))
+            {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
@@ -335,7 +354,9 @@ pub async fn handle_principal_set<B: SharingBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
+                    let mut entry = jmap_server::serialize_value(&obj)?;
+                    i18n_set.echo(&mut entry);
+                    updated.insert(id_str, entry);
                 }
                 Ok(None) => {
                     mutated = true;
@@ -443,7 +464,8 @@ pub async fn handle_principal_query<B: SharingBackend>(
         PrincipalFilterCondition::has_metadata_condition,
         using,
     )?;
-    jmap_server::handle_query::<Principal, B>(backend, caller, args).await
+    // draft-atwood-jmap-updates-00 §4.2.2: `language` on Principal.
+    jmap_server::handle_query_with_i18n::<Principal, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------
@@ -480,7 +502,8 @@ pub async fn handle_principal_query_changes<B: SharingBackend>(
         PrincipalFilterCondition::has_metadata_condition,
         using,
     )?;
-    jmap_server::handle_query_changes::<Principal, B>(backend, caller, args).await
+    // draft-atwood-jmap-updates-00 §4.2.3: `language` on Principal.
+    jmap_server::handle_query_changes_with_i18n::<Principal, B>(backend, caller, args, using).await
 }
 
 // ---------------------------------------------------------------------------

@@ -118,6 +118,8 @@ pub jmap_sharing_types::Principal::description: core::option::Option<alloc::stri
 pub jmap_sharing_types::Principal::email: core::option::Option<alloc::string::String>
 pub jmap_sharing_types::Principal::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_sharing_types::Principal::id: jmap_types::id::Id
+pub jmap_sharing_types::Principal::locale: core::option::Option<jmap_types::i18n::LanguageTag>
+pub jmap_sharing_types::Principal::localizations: core::option::Option<jmap_types::i18n::Localizations>
 pub jmap_sharing_types::Principal::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_sharing_types::Principal::name: alloc::string::String
 pub jmap_sharing_types::Principal::principal_type: jmap_sharing_types::PrincipalType
@@ -133,6 +135,7 @@ impl core::marker::StructuralPartialEq for jmap_sharing_types::Principal
 impl jmap_types::backend::GetObject for jmap_sharing_types::Principal
 impl jmap_types::backend::JmapObject for jmap_sharing_types::Principal
 pub type jmap_sharing_types::Principal::Property = jmap_sharing_types::PrincipalProperty
+pub const jmap_sharing_types::Principal::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_sharing_types::Principal::TYPE_NAME: &'static str
 impl jmap_types::backend::QueryObject for jmap_sharing_types::Principal
 pub type jmap_sharing_types::Principal::Comparator = serde_json::value::Value

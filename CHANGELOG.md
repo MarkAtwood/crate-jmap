@@ -66,6 +66,19 @@ wire behaviour that a conforming peer can observe.
   every account (at most 32 per AddressBook) and prunes stale translations.
   ContactCard keeps JSContact's own `localizations`, and `language` on
   `ContactCard/get` is `invalidArguments`.
+- **jmap-sharing-types**, **jmap-sharing-server**: Principal `name` and
+  `description` are localizable (draft-atwood-jmap-updates-00 §5.4).
+  `Principal` gains `locale` and `localizations`; `Principal/set` runs the
+  i18n checks, `Principal/get` returns the language view, and
+  `Principal/query` and `/queryChanges` take `language`. The memory backend
+  supports localizations in every account (at most 32 per Principal) and
+  prunes stale translations; it evaluates no `name` filter or sort, so
+  `language` changes only its `queryState`. ShareNotification `name` stays
+  non-localizable.
+- **jmap-server**: `handle_query_with_i18n` and
+  `handle_query_changes_with_i18n`, the `using`-aware forms of
+  `handle_query` and `handle_query_changes` for types with localizable
+  properties.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.

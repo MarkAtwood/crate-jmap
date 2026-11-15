@@ -60,9 +60,15 @@ pub enum ShareNotificationProperty {
 // JmapObject impls
 // ---------------------------------------------------------------------------
 
+/// draft-atwood-jmap-updates-00 §5.4: Principal `name` and `description`
+/// are localizable.
 impl JmapObject for crate::Principal {
     const TYPE_NAME: &'static str = "Principal";
     type Property = PrincipalProperty;
+    const LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty] = &[
+        jmap_types::i18n::LocalizableProperty::new("name", false),
+        jmap_types::i18n::LocalizableProperty::new("description", true),
+    ];
 }
 
 impl GetObject for crate::Principal {}
@@ -82,6 +88,8 @@ impl SetObject for crate::Principal {
         "timeZone",
         "metadata",
         "privateMetadata",
+        "locale",
+        "localizations",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
@@ -93,6 +101,9 @@ impl QueryObject for crate::Principal {
     type Comparator = serde_json::Value;
 }
 
+/// ShareNotification is deliberately NOT localizable
+/// (draft-atwood-jmap-updates-00 §5.4): its `name` records the object's
+/// name at the time of the change, filled with the base value.
 impl JmapObject for crate::ShareNotification {
     const TYPE_NAME: &'static str = "ShareNotification";
     type Property = ShareNotificationProperty;
@@ -152,6 +163,8 @@ mod tests {
             accounts: Some(BTreeMap::new()),
             metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
             private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
+            locale: Some(de(json!("en"))),
+            localizations: Some(de(json!({"fr": {"name": "Salle 4B"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

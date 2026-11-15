@@ -493,9 +493,21 @@ fn invalid_patched_properties(
     })
 }
 
+/// The most localizations the memory backend stores per object
+/// (draft-atwood-jmap-updates-00 §4.1 MAY).
+const MAX_LOCALIZATIONS: usize = 32;
+
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
+
+    /// Every account supports localizations
+    /// (draft-atwood-jmap-updates-00), with at most 32 localizations per
+    /// Principal. This backend evaluates no `name` filter or sort, so the
+    /// `language` of a `/query` changes only its `queryState`.
+    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+        Some(jmap_server::I18nInfo::new().with_max_localizations(Some(MAX_LOCALIZATIONS)))
+    }
 
     /// The info set by [`MemoryBackend::with_metadata_info`] for Principal,
     /// the same for every account; `None` for any other type.
@@ -848,6 +860,7 @@ impl JmapBackend for MemoryBackend {
             filter,
             sort,
             max_changes,
+            language,
             ..
         } = params;
         let changes = self
@@ -864,7 +877,10 @@ impl JmapBackend for MemoryBackend {
             .query_objects::<O>(
                 caller,
                 account_id,
-                QueryParams::new().filter(filter).sort(sort),
+                QueryParams::new()
+                    .filter(filter)
+                    .sort(sort)
+                    .language(language),
             )
             .await
             .map_err(|e| match e {
@@ -1045,6 +1061,17 @@ impl SharingBackend for MemoryBackend {
         // `O::Patch` is a consumer-controlled associated type — see the
         // `create_object` comment above for the full rationale.
         apply_patch_object(base, &patch_map).map_err(|e| invalid_patch(e.to_string()))?;
+        // draft-atwood-jmap-updates-00 §4.1: check `locale` and
+        // `localizations` on the patched object and prune translations of a
+        // changed base value, in this same update. A no-op for types without
+        // localizable properties.
+        let pruned = jmap_server::localized_update::<O>(
+            &before,
+            base,
+            &jmap_types::PatchObject::from_map(patch_map.clone()),
+            Some(MAX_LOCALIZATIONS),
+        )
+        .map_err(BackendSetError::SetError)?;
         if let Some(info) = info {
             // -05 §3.2: "In an update, null is equivalent to {}"; the patch
             // removed the property instead.
@@ -1066,9 +1093,12 @@ impl SharingBackend for MemoryBackend {
         let updated_props = Some(changed_properties(&before, base));
         // A null or wrong-typed value on a required property must not reach
         // storage, or every later /get fails to decode it.
-        if O::deserialize(&current).is_err() {
+        let Ok(decoded) = O::deserialize(&current) else {
             return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
-        }
+        };
+        // `localized_update` contract: return the object when pruning removed
+        // anything, so the handler echoes `localizations`.
+        let echo = pruned.then_some(decoded);
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -1084,7 +1114,7 @@ impl SharingBackend for MemoryBackend {
                 updated_props,
             });
 
-        Ok(None)
+        Ok(echo)
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(

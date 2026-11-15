@@ -115,6 +115,19 @@ pub struct Principal {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, Value>>,
 
+    /// The language of `name` and `description`
+    /// (draft-atwood-jmap-updates-00 §4.1); `None` when unknown or not
+    /// stored. Returned only to requests that use
+    /// `urn:ietf:params:jmap:i18n`; jmap-sharing-server shapes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<jmap_types::i18n::LanguageTag>,
+
+    /// `name` and `description` in other languages
+    /// (draft-atwood-jmap-updates-00 §4.1, §5.4). A `null` localized
+    /// `description` means there is none in that language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub localizations: Option<jmap_types::i18n::Localizations>,
+
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation

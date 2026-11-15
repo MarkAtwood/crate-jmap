@@ -45,8 +45,8 @@ pub use backend::{
 };
 pub use handlers::{
     SERVER_FAIL_INTERNAL_DESC, changes_error_from_backend, handle_changes, handle_get,
-    handle_get_with_metadata, handle_query, handle_query_changes, server_fail_from_backend,
-    server_fail_value_from_backend,
+    handle_get_with_metadata, handle_query, handle_query_changes, handle_query_changes_with_i18n,
+    handle_query_with_i18n, server_fail_from_backend, server_fail_value_from_backend,
 };
 pub use helpers::{
     CREATE_ID_PLACEHOLDER, MergePatchError, MetadataProjection, PatchPathError, apply_jmap_patch,
