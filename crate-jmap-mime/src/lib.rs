@@ -271,10 +271,68 @@ pub fn message_to_jmap_body(
     }
 }
 
+/// Octets of the first text body part decoded for [`grapheme_preview`]:
+/// 256 characters need at most 1024 octets of UTF-8, and the rest is
+/// lookahead so the cluster that character 256 starts is seen whole.
+const PREVIEW_DECODE_BYTES: usize = 1280;
+
+/// The RFC 8621 §4.1.4 Email `preview` of `msg` ("up to 256 characters of
+/// the beginning of the message"), from the first `textBody` part of the
+/// message whose bytes are `raw`, cut at an extended grapheme cluster
+/// boundary (UAX #29; draft-atwood-jmap-updates-00 §6.5) so a combining
+/// sequence or emoji sequence is never split. `None` when there is no text
+/// body or it decodes to nothing.
+///
+/// [`ParsedMessage::preview`] (and so [`JmapBodyFields::preview`]) is cut
+/// by characters by mime-tree, which can split a cluster; prefer this.
+///
+/// ```rust
+/// let raw = format!(
+///     "Subject: t\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{}e\u{301}x",
+///     "a".repeat(255)
+/// );
+/// let msg = mime_tree::parse(raw.as_bytes()).unwrap();
+/// assert_eq!(jmap_mime::grapheme_preview(raw.as_bytes(), &msg).unwrap(), "a".repeat(255));
+/// ```
+pub fn grapheme_preview(raw: &[u8], msg: &ParsedMessage) -> Option<String> {
+    let part = msg.part_index.find_by_id(msg.text_body.first()?)?;
+    let decoded = mime_tree::decode_body_value(raw, part, Some(PREVIEW_DECODE_BYTES)).ok()?;
+    let preview = jmap_types::text::truncate_graphemes_chars(&decoded.value, 256);
+    (!preview.is_empty()).then(|| preview.to_owned())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use mime_tree::{decode_body_value, parse};
+
+    /// draft-atwood-jmap-updates-00 §6.5 against mime-tree's own cut: with
+    /// an "e" as character 256 and its U+0301 as 257, mime-tree keeps the
+    /// bare "e"; the grapheme preview drops the whole cluster.
+    #[test]
+    fn grapheme_preview_never_splits_a_cluster() {
+        let raw = format!(
+            "Subject: t\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{}e\u{301}xyz",
+            "a".repeat(255)
+        );
+        let msg = parse(raw.as_bytes()).unwrap();
+        assert_eq!(
+            msg.preview.as_deref(),
+            Some(format!("{}e", "a".repeat(255)).as_str())
+        );
+        assert_eq!(
+            grapheme_preview(raw.as_bytes(), &msg).unwrap(),
+            "a".repeat(255)
+        );
+        // Short bodies are whole; no text body is None.
+        let raw =
+            b"Subject: t\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nhi \xF0\x9F\x91\x8B";
+        let msg = parse(raw).unwrap();
+        assert_eq!(grapheme_preview(raw, &msg).unwrap(), "hi \u{1F44B}");
+        let raw = b"Subject: t\r\nContent-Type: application/octet-stream\r\n\r\nx";
+        let msg = parse(raw).unwrap();
+        assert_eq!(grapheme_preview(raw, &msg), None);
+    }
 
     // Oracle: mime_tree::parse() on known-good RFC 5322 bytes.
 

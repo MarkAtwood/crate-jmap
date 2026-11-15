@@ -122,6 +122,10 @@ wire behaviour that a conforming peer can observe.
 - **jmap-server**: `patch_values_as_object` places a PatchObject's values
   at their JSON Pointer paths in an empty object, so whole-object checks
   also see what a patch writes.
+- **jmap-mime**: `grapheme_preview` computes the RFC 8621 Email `preview`
+  (up to 256 characters of the first text body part) cut at a grapheme
+  cluster boundary; mime-tree's `ParsedMessage::preview` is cut by
+  characters and can split a cluster.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.
@@ -150,6 +154,9 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**: the Email `preview` of a parsed message now comes
+  from `jmap_mime::grapheme_preview`, so it never ends in half a combining
+  or emoji sequence (draft-atwood-jmap-updates-00 §6.5).
 - **jmap-contacts-server**: `ContactCard/set` and `ContactCard/copy` reject
   a JSContact URI member that is not an RFC 3986 URI (a Resource `uri` in
   `calendars`, `cryptoKeys`, `directories`, `links`, `media` or

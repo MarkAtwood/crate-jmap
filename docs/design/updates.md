@@ -344,8 +344,9 @@ Helpers: `jmap_types::text::{truncate_graphemes, truncate_graphemes_chars, check
 - **Truncation (§6.5).** Code-point truncation replaced with grapheme-cluster truncation in
   chat-server push snippets (octets), mail-server `maxBodyValueBytes` body values (octets) and the
   Email `preview` built by mail-server `parse.rs` (RFC 8621 §4.1.4 "up to 256 characters"). The
-  `preview` that jmap-mime copies from the external `mime-tree` crate is cut there by characters, not
-  graphemes (follow-up bead). jmap-mime `encoded_words` splits header text into adjacent RFC 2047
+  `preview` that jmap-mime copied from the external `mime-tree` crate is cut there by characters;
+  `jmap_mime::grapheme_preview` now recomputes it from the decoded text body and mail-server uses it
+  (JMAP-cayv.27). jmap-mime `encoded_words` splits header text into adjacent RFC 2047
   encoded-words, which decoders concatenate, so it is not a shortening and is unchanged.
 - **Normalization (§6.3).** No server normalizes stored text. graph-server search and
   metadata-server filters apply NFKD and simple case mapping only to compare (`i;unicode-casemap`);

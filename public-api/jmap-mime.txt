@@ -162,5 +162,6 @@ impl core::marker::StructuralPartialEq for jmap_mime::JmapBodyFields
 pub const jmap_mime::MAX_PART_DEPTH: usize
 pub fn jmap_mime::body_value_to_jmap(mime_tree::message::DecodedBodyValue) -> jmap_mail_types::email::EmailBodyValue
 pub fn jmap_mime::compose_email(&jmap_mime::EmailDraft, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<u8>>) -> core::result::Result<alloc::vec::Vec<u8>, jmap_mime::ComposeError>
+pub fn jmap_mime::grapheme_preview(&[u8], &mime_tree::message::ParsedMessage) -> core::option::Option<alloc::string::String>
 pub fn jmap_mime::message_to_jmap_body(&mime_tree::message::ParsedMessage, impl core::ops::function::Fn(&mime_tree::part::ParsedPart) -> jmap_types::id::Id) -> jmap_mime::JmapBodyFields
 pub fn jmap_mime::part_to_jmap(&mime_tree::part::ParsedPart, impl core::ops::function::Fn(&mime_tree::part::ParsedPart) -> jmap_types::id::Id) -> jmap_mail_types::email::EmailBodyPart

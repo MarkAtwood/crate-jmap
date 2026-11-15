@@ -167,8 +167,11 @@ pub(crate) fn fill_from_message(
         email.has_attachment = !body_fields.attachments.is_empty();
         email.attachments = body_fields.attachments;
         email.body_structure = Some(body_fields.body_structure);
-        if body_fields.preview.is_some() {
-            email.preview = body_fields.preview;
+        // RFC 8621 §4.1.4 preview, cut at a grapheme cluster boundary
+        // (draft-atwood-jmap-updates-00 §6.5); mime-tree's own preview is
+        // cut by characters.
+        if let Some(preview) = jmap_mime::grapheme_preview(bytes, &parsed_msg) {
+            email.preview = Some(preview);
         }
     }
 }
