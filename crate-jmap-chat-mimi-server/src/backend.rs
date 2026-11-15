@@ -206,6 +206,10 @@ pub trait MimiBackend: JmapBackend {
     /// `maxKeyPackages` from it. Return the value the Session object
     /// carries; a different value makes the handler contradict the
     /// advertised capability.
+    ///
+    /// `userUri` MUST be an RFC 3986 URI (draft-atwood-jmap-updates-00
+    /// §7.1); map an internationalized identifier to a URI first (RFC 3987
+    /// §3.1). Client URIs derived from it are then URIs too.
     fn mimi_capability(
         &self,
         caller: &Self::CallerCtx,

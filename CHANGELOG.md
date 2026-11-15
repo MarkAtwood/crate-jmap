@@ -143,6 +143,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-mimi-server**: `KeyMaterial/fetch` rejects a request whose
+  `targetUser` is not an RFC 3986 URI with `invalidArguments`, and fails a
+  provider reply whose `userUri` or `clientUri` is not one with
+  `serverFail` (draft-atwood-jmap-updates-00 §7.1).
 - **jmap-chat-federation-types**: `owner_endpoints` also drops peer
   Endpoint entries whose `uri` is not an RFC 3986 URI, and
   `anonymous_well_known_session` refuses an owner's `ownerEndpoints` entry

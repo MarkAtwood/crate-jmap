@@ -195,6 +195,11 @@ pub async fn handle_key_material_fetch<B: MimiBackend>(
     require_bound(backend, caller, &account_id, room_id).await?;
     let target_user = String::from_utf8(request.target_user)
         .map_err(|_| bad("the request's targetUser is not UTF-8"))?;
+    // draft-atwood-jmap-updates-00 §7.1: a URI-valued argument SHOULD hold
+    // an RFC 3986 URI, and this one names the provider endpoint.
+    if jmap_types::uri::check_uri(&target_user).is_err() {
+        return Err(bad("the request's targetUser is not an RFC 3986 URI"));
+    }
 
     let local = backend
         .local_key_material_account(caller, room_id, &target_user)
@@ -216,6 +221,18 @@ pub async fn handle_key_material_fetch<B: MimiBackend>(
         let reply = send(backend, caller, &account_id, room_id, endpoint, &body).await?;
         let decoded = wire::key_material_response(&reply.body)
             .map_err(malformed_reply("KeyMaterialResponse"))?;
+        // The provider's userUri and clientUri reach the client as
+        // URI-valued properties (draft-atwood-jmap-updates-00 §7.1); MIMI
+        // defines them as URIs, so a reply carrying anything else is
+        // malformed.
+        if let Some(bad_uri) = std::iter::once(decoded.user_uri.as_str())
+            .chain(decoded.clients.iter().map(|c| c.client_uri.as_str()))
+            .find(|u| jmap_types::uri::check_uri(u).is_err())
+        {
+            return Err(malformed_reply("KeyMaterialResponse")(format!(
+                "{bad_uri:?} is not an RFC 3986 URI"
+            )));
+        }
         let clients = decoded
             .clients
             .into_iter()

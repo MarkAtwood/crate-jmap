@@ -830,3 +830,53 @@ async fn room_unbind_then_the_room_methods_reject_the_room() {
     }
     assert!(backend.hub_requests().is_empty());
 }
+
+/// draft-atwood-jmap-updates-00 §7.1 (jmap-chat-spec 2b85363): "A
+/// property, argument, or Session member whose value is a URI or URL
+/// SHOULD hold a URI as defined in RFC 3986 Section 3". A KeyMaterialRequest
+/// whose `targetUser` is not one (a space, a raw non-ASCII IRI) is the
+/// client's error, like the L231 checks: `invalidArguments`, and nothing
+/// goes to the hub.
+#[tokio::test]
+async fn key_material_fetch_rejects_a_non_uri_target_user() {
+    let backend = backend().await;
+    for target in ["mimi://a.example/u/car ol", "mimi://a.example/u/zoë"] {
+        assert_eq!(
+            key_material(&backend, "b1", &key_material_request(BOB, target, ROOM)).await,
+            Err("invalidArguments".to_owned()),
+            "{target}"
+        );
+    }
+    assert!(backend.hub_requests().is_empty());
+}
+
+/// The same rule for the provider's reply: MIMI's `userUri` and
+/// `clientUri` are URIs, and they reach the client as URI-valued
+/// properties, so a reply carrying a non-URI is the provider's failure:
+/// `serverFail`, as for any malformed reply (L406 analogue).
+#[tokio::test]
+async fn key_material_fetch_fails_on_a_non_uri_in_the_reply() {
+    let backend = backend().await;
+    let request = key_material_request(BOB, CAROL, ROOM);
+    // userStatus noCompatibleMaterial (1) with a non-URI userUri, no clients.
+    backend.queue_hub_reply(reply(
+        [&[1u8, 1][..], &opaque(b"not a uri"), &opaque(&[])].concat(),
+    ));
+    assert_eq!(
+        key_material(&backend, "b1", &request).await,
+        Err("serverFail".to_owned())
+    );
+    // A good userUri with one client whose clientUri is not a URI.
+    let clients = [
+        &[1u8][..],
+        &opaque("mimi://a.example/u/carol/ç1".as_bytes()),
+    ]
+    .concat();
+    backend.queue_hub_reply(reply(
+        [&[1u8, 1][..], &opaque(CAROL.as_bytes()), &opaque(&clients)].concat(),
+    ));
+    assert_eq!(
+        key_material(&backend, "b1", &request).await,
+        Err("serverFail".to_owned())
+    );
+}
