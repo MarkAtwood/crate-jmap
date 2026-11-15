@@ -1,0 +1,34 @@
+{
+  "id": "JMAP-cayv.6",
+  "title": "jmap-server Session: i18n capability and preferredLanguages account capability (null for non-owned accounts)",
+  "description": "jmap-server Session: advertise urn:ietf:params:jmap:i18n ({}) only on opt-in, and the account capability with `preferredLanguages`.\n- Add a backend hook returning Option\u003cVec\u003cLanguageTag\u003e\u003e per account. How it is set is the deployment's business.\n- The hook MUST return null (None) for accounts the requesting user does not own (draft Privacy Considerations, SHOULD; we enforce it in the helper so backends can't leak).\n- Document in rustdoc: a server MAY use preferredLanguages for text written with no request in progress (push text). It MUST NOT use it to change /get or /query results.\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:23.682814528Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:23.682814528Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.6",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:23.803976766Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.6",
+      "depends_on_id": "JMAP-cayv.2",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:33.553941827Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

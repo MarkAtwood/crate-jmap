@@ -1,0 +1,50 @@
+{
+  "id": "JMAP-cayv.9",
+  "title": "sharing-server: Principal name/description localizable; ShareNotification name stays base",
+  "description": "jmap-sharing-server (with sharing-types): Principal `name` and `description` are localizable.\n- name: not nullable. description: nullable.\n- ShareNotification `name` (RFC 9670 3) is NOT localizable; fill it with the base value.\nAlso check the Principal /query name filter against the text-handling child: compare with the sort collation.\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:24.538399878Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:24.538399878Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.9",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:24.657519785Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.9",
+      "depends_on_id": "JMAP-cayv.4",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:37.876354475Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.9",
+      "depends_on_id": "JMAP-cayv.5",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:38.347820062Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.9",
+      "depends_on_id": "JMAP-cayv.6",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:38.825745761Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

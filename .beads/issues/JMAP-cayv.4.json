@@ -1,0 +1,34 @@
+{
+  "id": "JMAP-cayv.4",
+  "title": "jmap-server: /set localizations validation, stale-translation pruning, updated echo",
+  "description": "jmap-server: /set for localizable types.\n- On create and update: run jmap_types::i18n::check_localizations.\n- On update: compute which base localizable properties changed and which localizations paths the patch touched, then run prune_stale.\n- When pruning changed anything, include `localizations` in that object's `updated` entry (RFC 8620 5.3, server-changed properties). Only do this for callers with i18n in `using`; others never see the property.\n- Base-only rules stay base-only: sibling uniqueness etc. is checked on base values. Localized values get the same length and syntax limits (draft SHOULD).\n- Optional per-object cap on the number of localizations, reported as invalidProperties.\n- Works with the conditional epic (JMAP-y1yu): pruning is part of the same atomic update.\nTests: a client without i18n renames -\u003e translations pruned; a client updating only localizations/fr/name while renaming -\u003e de pruned, fr kept.\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:23.076326651Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:23.076326651Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.4",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:23.209113176Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.4",
+      "depends_on_id": "JMAP-cayv.3",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:34.048466756Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

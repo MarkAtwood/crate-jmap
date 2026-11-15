@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-cayv.1",
+  "title": "Design note docs/design/updates.md + DECISIONS: opt-in shape, gating, query hook, queryState, tag/URI/grapheme libs, Accept-Language entry",
+  "description": "Design note docs/design/updates.md for draft-atwood-jmap-updates-00, plus DECISIONS.md entries, before any code (same pattern as conditional.md and blobext.md). Questions for Mark to settle:\n(a) Opt-in shape. Recommendation: an additive attach call `register_\u003cx\u003e_i18n` after `register_\u003cx\u003e_handlers`, like the conditional precedent (decisions 1 and 17). The capability is advertised only when a deployment opts in.\n(b) Arguments without the URI. Recommendation: one dispatcher check, like decisions 2 and 18:\n   - `language` without i18n in `using`, or on an account without the account capability: invalidArguments.\n   - `locale` or `localizations` in /set: invalidProperties.\n(c) How /query sorts and filters on localized values. Choices: a `language` parameter on the backend query hook, or generic post-processing in jmap-server. The memory backend sorts in place, so the parameter is probably needed.\n(d) queryState carries the language, as with decision 6(c) for onlyDestroyed. Pick the encoding.\n(e) BCP 47 tag parsing. Either hand-rolled RFC 5646 well-formedness plus canonical case, or a crate (oxilangtag, language-tags). Decision 13 leaned to no new deps.\n(f) RFC 3986 validation. The workspace `url` crate is WHATWG URL, not RFC 3986: it normalizes and accepts things 3986 does not. Choose fluent-uri, iri-string (also does the RFC 3987 mapping), or hand-rolled.\n(g) Grapheme segmentation: add unicode-segmentation (UAX 29), or a minimal hand-rolled cluster scan.\n(h) Where Accept-Language enters. The crates have no HTTP, so the consumer's CallerCtx must expose it, for problem details and the RFC 9425 Quota description without i18n. Add an accessor on the CallerCtx trait, or pass it per call?\n(i) Calendars localizations target draft-ietf-jmap-calendars (unpublished). Ship them behind the same opt-in, coordinated with JMAP-lehj (-34 sync)?\nOutput: the design doc, DECISIONS.md entries, and bead text updated to the answers.\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:22.158793578Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:22.158793578Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.1",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:22.276644211Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

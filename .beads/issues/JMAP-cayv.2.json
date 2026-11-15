@@ -1,0 +1,34 @@
+{
+  "id": "JMAP-cayv.2",
+  "title": "jmap-types: i18n module (capability, LanguageTag, Localizations, RFC 4647 Lookup, check/prune helpers, Localizable trait)",
+  "description": "jmap-types: new `i18n` module (pure, no async):\n- JMAP_I18N_URI = \"urn:ietf:params:jmap:i18n\"\n- I18nCapability {} and I18nAccountCapability { preferred_languages: Option\u003cVec\u003cLanguageTag\u003e\u003e }\n- LanguageTag: RFC 5646 well-formed, case-insensitive Eq/Hash, `canonical()` per 5646 2.1.1\n- LanguageRange: RFC 4647 2.1, including \"*\"\n- Localizations: map from LanguageTag to the existing jmap_types::PatchObject (patch.rs:81)\n\nPure functions:\n- `lookup(ranges, available_keys, locale) -\u003e Option\u003c\u0026LanguageTag\u003e`: RFC 4647 3.4 Lookup. It truncates subtags and never widens (\"de\" does not match \"de-CH\"). \"*\" is skipped when other ranges follow and selects the default when it is last. With no match, it returns `locale`.\n- `localized_view(obj: \u0026mut Map, localizations, chosen)`: applies the chosen PatchObject and sets `locale`; `localizations` is kept (the draft dropped the strip step).\n- `check_localizations(locale, localizations, \u0026[LocalizableProperty{name, nullable}]) -\u003e Result\u003c(), SetError invalidProperties naming \"localizations\"\u003e`. Rules:\n  - keys are language tags\n  - keys are unique ignoring case, and no key equals `locale`\n  - patch keys are localizable properties only\n  - values have the property's type\n  - null only for nullable properties\n- `prune_stale(localizations, changed_base_props, touched)`: for each language whose PatchObject the update did not set (not `localizations` as a whole, not `localizations/\u003ctag\u003e`, not `localizations/\u003ctag\u003e/\u003cprop\u003e`), remove the changed props and drop empty patches. Returns whether anything changed, so the caller echoes `localizations` in `updated`.\n- Trait `Localizable { const LOCALIZABLE: \u0026'static [LocalizableProperty]; }`.\n\nTests:\n- RFC 4647 examples; \"de\" vs \"de-CH\"; \"*\" first, middle and last; locale null\n- case-colliding keys; key == locale; null on non-nullable\n- pruning with each kind of touched path\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:22.477231558Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:22.477231558Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.2",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:22.605322065Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.2",
+      "depends_on_id": "JMAP-cayv.1",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:31.118269515Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

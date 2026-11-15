@@ -1,0 +1,50 @@
+{
+  "id": "JMAP-cayv.7",
+  "title": "mail-server: Mailbox name localizable (canonical crate); Identity/VacationResponse excluded",
+  "description": "jmap-mail-server (with mail-types): Mailbox `name` is localizable.\n- Opt-in attach call per child .1(a).\n- impl Localizable for Mailbox: [name, not nullable].\n- Sibling-name uniqueness on base names only. Localized names SHOULD meet Net-Unicode (RFC 5198) like base names: reuse the existing name validation.\n- Do NOT add Identity, ParticipantIdentity or VacationResponse. The draft excludes them; note this in the rustdoc so nobody \"fixes\" it.\n- The canonical crate for the pattern; the other families copy it.\nTests: Mailbox/get with language, /query sorted by localized name, duplicate localized sibling names allowed.\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:23.967652164Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:23.967652164Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.7",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:24.087984032Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.7",
+      "depends_on_id": "JMAP-cayv.4",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:34.997155599Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.7",
+      "depends_on_id": "JMAP-cayv.5",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:35.46760966Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.7",
+      "depends_on_id": "JMAP-cayv.6",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:35.939980338Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

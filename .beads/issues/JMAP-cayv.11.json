@@ -1,0 +1,58 @@
+{
+  "id": "JMAP-cayv.11",
+  "title": "quotas: Quota name/description localizable and RFC 9425 Accept-Language selection (after JMAP-1igi)",
+  "description": "Quotas (RFC 9425), after JMAP-1igi lands: Quota `name` and `description` are localizable. Both are server-set, so the server populates locale and localizations itself.\n- Without i18n in `using`: select `description` by Accept-Language, as RFC 9425 4.1 MUST. This needs the CallerCtx Accept-Language accessor (decision .1(h)).\n- With i18n: base values plus all localizations, and `language` selects. The draft \"Updates: 9425\" for opt-in clients.\nBlocked on JMAP-1igi. Once that epic is decomposed, this may move under it.\n",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:25.130855027Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:25.130855027Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.11",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:25.266642921Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.11",
+      "depends_on_id": "JMAP-cayv.4",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:40.716237153Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.11",
+      "depends_on_id": "JMAP-cayv.5",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:41.192395092Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.11",
+      "depends_on_id": "JMAP-cayv.6",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:41.673494346Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.11",
+      "depends_on_id": "JMAP-1igi",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:42.147035629Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

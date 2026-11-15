@@ -1,0 +1,50 @@
+{
+  "id": "JMAP-cayv.8",
+  "title": "contacts-server: AddressBook name/description localizable; ContactCard excluded",
+  "description": "jmap-contacts-server (with contacts-types): AddressBook `name` and `description` are localizable.\n- name: not nullable. description: nullable; a null localized value means no description in that language.\n- ContactCard is excluded: it keeps JSContact's own language/localizations (RFC 9553 2.1.5, 2.7.1), and `language` on ContactCard/get is invalidArguments.\nFollows the mail-server pattern (previous child).\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:24.258469272Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:24.258469272Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.8",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:24.379069701Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.8",
+      "depends_on_id": "JMAP-cayv.4",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:36.4090155Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.8",
+      "depends_on_id": "JMAP-cayv.5",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:36.892883229Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.8",
+      "depends_on_id": "JMAP-cayv.6",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:37.389497022Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

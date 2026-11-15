@@ -1,0 +1,34 @@
+{
+  "id": "JMAP-cayv.5",
+  "title": "jmap-server: /query and /queryChanges with language (localized sort/filter, queryState, cannotCalculateChanges)",
+  "description": "jmap-server: /query and /queryChanges with `language`.\n- Sort and filter on a localizable property compare the value /get would return for that `language`, not the base value. This needs the backend query hook to receive the language (decision .1(c)). Memory backends do it.\n- When the Comparator has no collation, the backend MAY pick one for the chosen language. Default: keep the current collation.\n- queryState encodes the language (decision .1(d)). When the /queryChanges `language` differs from the one in sinceQueryState: cannotCalculateChanges.\nTests: sorting Mailboxes by localized name; a language mismatch on queryChanges.\n",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T02:07:23.385291905Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T02:07:23.385291905Z",
+  "labels": [
+    "spec",
+    "i18n"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.5",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T02:07:23.514031838Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    },
+    {
+      "issue_id": "JMAP-cayv.5",
+      "depends_on_id": "JMAP-cayv.3",
+      "type": "blocks",
+      "created_at": "2026-11-15T02:07:34.520030888Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
