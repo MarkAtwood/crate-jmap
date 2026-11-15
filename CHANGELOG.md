@@ -154,6 +154,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-server**: the memory backend's `get_availability` now
+  implements draft-ietf-jmap-calendars-34 §2.2 instead of returning an empty
+  list (which reported every Principal as free): the relevance rules
+  through `IncludeInAvailability::counts_event`, `busyStatus` through
+  `BusyStatus::for_event`, `showDetails`/`eventProperties`, and merging and
+  splitting of detail-less periods. It evaluates UTC and floating events; a
+  relevant event with another time zone or a recurrence fails the call
+  with `serverFail` rather than being left out.
 - **BREAKING** **jmap-calendars-client**: `CalendarEventGetParams` now has
   the draft-ietf-jmap-calendars-34 §5.7 `CalendarEvent/get` arguments,
   `recurrence_overrides_before`, `recurrence_overrides_after`,

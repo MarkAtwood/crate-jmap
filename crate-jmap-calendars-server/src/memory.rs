@@ -1802,18 +1802,279 @@ impl CalendarsBackend for MemoryBackend {
         })
     }
 
+    /// draft-ietf-jmap-calendars-34 §2.2 for this single-user backend.
+    ///
+    /// ponytail: a Principal is an account this backend knows, its own
+    /// calendars are the Calendars of that account, and their stored
+    /// `isSubscribed` / `includeInAvailability` / `myRights` are its
+    /// per-user values (the caller is the only user, so its
+    /// `hideAttendees` view is the whole event). Its calendar addresses are
+    /// the `calendarAddress` of the account's ParticipantIdentity objects,
+    /// compared exactly.
+    ///
+    /// The backend has no time-zone database and no recurrence expansion,
+    /// so it evaluates events whose times are UTC or floating (taken as
+    /// `Etc/UTC`, the CalendarEvent/get default). A relevant event with
+    /// another `timeZone`, `recurrenceRules` or `recurrenceOverrides` makes
+    /// the call fail with `serverFail` (decision on JMAP-lehj.11): leaving
+    /// it out would report the Principal free when it is not.
     async fn get_availability(
         &self,
         _caller: &(),
         _account_id: &jmap_types::Id,
-        _principal_id: &jmap_types::Id,
-        _utc_start: &jmap_types::UTCDate,
-        _utc_end: &jmap_types::UTCDate,
-        _show_details: bool,
-        _event_properties: Option<&[String]>,
+        principal_id: &jmap_types::Id,
+        utc_start: &jmap_types::UTCDate,
+        utc_end: &jmap_types::UTCDate,
+        show_details: bool,
+        event_properties: Option<&[String]>,
     ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, jmap_server::BackendQueryError<Self::Error>>
     {
-        Ok(vec![])
+        use jmap_calendars_types::{BusyStatus, Calendar, CalendarEvent};
+        use jmap_server::BackendQueryError;
+        use serde::Deserialize as _;
+
+        let unsupported = |why: &str| {
+            BackendQueryError::Other(MemoryError::new(format!(
+                "getAvailability: the memory backend cannot evaluate {why}"
+            )))
+        };
+        let inner = self.inner.lock().unwrap();
+        let account = principal_id.as_ref();
+        if !inner.known_accounts.contains(account) {
+            return Err(BackendQueryError::Method(jmap_types::JmapError::custom(
+                "notFound",
+            )));
+        }
+        let (Ok(window_start), Ok(window_end)) =
+            (utc_start.to_epoch_seconds(), utc_end.to_epoch_seconds())
+        else {
+            return Err(BackendQueryError::Method(
+                jmap_types::JmapError::invalid_arguments("utcStart and utcEnd must be UTCDates"),
+            ));
+        };
+        let calendars: HashMap<Id, Calendar> = inner
+            .objects_ref("Calendar", account)
+            .into_iter()
+            .flatten()
+            .filter_map(|(id, v)| Some((id.clone(), Calendar::deserialize(v).ok()?)))
+            .collect();
+        let addresses: Vec<String> = inner
+            .objects_ref("ParticipantIdentity", account)
+            .into_iter()
+            .flatten()
+            .filter_map(|(_, v)| v.get("calendarAddress")?.as_str().map(str::to_owned))
+            .collect();
+        let addresses: Vec<&str> = addresses.iter().map(String::as_str).collect();
+
+        let mut with_event: Vec<(i64, i64, BusyStatus, serde_json::Value)> = Vec::new();
+        let mut without_event: Vec<(i64, i64, BusyStatus)> = Vec::new();
+        for (_, stored) in inner
+            .objects_ref("CalendarEvent", account)
+            .into_iter()
+            .flatten()
+        {
+            let Ok(event) = CalendarEvent::deserialize(stored) else {
+                continue;
+            };
+            // The calendars the event is in.
+            let in_calendars: Vec<&Calendar> = event
+                .calendar_ids
+                .iter()
+                .flatten()
+                .filter(|(_, on)| **on)
+                .filter_map(|(id, _)| calendars.get(id))
+                .collect();
+            // "relevant if all of the above are true for any one calendar
+            // that it is in": subscribed, includeInAvailability (with the
+            // participation rules), mayReadFreeBusy.
+            let calendar_ok = in_calendars.iter().any(|c| {
+                c.is_subscribed
+                    && c.my_rights.may_read_free_busy
+                    && c.include_in_availability.counts_event(&event, &addresses)
+            });
+            if !calendar_ok
+                || event.privacy.as_deref() == Some("secret")
+                || event.free_busy_status.as_deref().unwrap_or("busy") != "busy"
+                || event.status.as_deref() == Some("cancelled")
+            {
+                continue;
+            }
+            let recurring = event
+                .recurrence_rules
+                .as_ref()
+                .is_some_and(|r| !r.is_null() && r.as_array().is_none_or(|a| !a.is_empty()))
+                || event
+                    .recurrence_overrides
+                    .as_ref()
+                    .is_some_and(|o| !o.is_empty());
+            if recurring {
+                return Err(unsupported("a recurring event"));
+            }
+            if event
+                .time_zone
+                .as_deref()
+                .is_some_and(|tz| tz != "Etc/UTC" && tz != "UTC")
+            {
+                return Err(unsupported("an event with a time zone other than UTC"));
+            }
+            let Some(start) = event.start.as_deref().and_then(|s| {
+                jmap_types::UTCDate::from(format!("{s}Z"))
+                    .to_epoch_seconds()
+                    .ok()
+            }) else {
+                return Err(unsupported("an event start that is not a LocalDateTime"));
+            };
+            let Some(duration) =
+                rfc8984_duration_seconds(event.duration.as_deref().unwrap_or("PT0S"))
+            else {
+                return Err(unsupported("an event duration it cannot parse"));
+            };
+            let end = start + duration;
+            // "The event finishes after the "utcStart" argument and starts
+            // before the "utcEnd" argument."
+            if end <= window_start || start >= window_end {
+                continue;
+            }
+            let busy = BusyStatus::for_event(&event, &addresses);
+            // "event": null when showDetails is false, the event is
+            // private, or the user lacks mayReadItems on every calendar it
+            // is in.
+            let readable = in_calendars.iter().any(|c| c.my_rights.may_read_items);
+            if show_details && event.privacy.as_deref() != Some("private") && readable {
+                let mut view = stored.clone();
+                if let (Some(props), serde_json::Value::Object(m)) = (event_properties, &mut view) {
+                    m.retain(|k, _| props.iter().any(|p| p == k));
+                }
+                with_event.push((start, end, busy, view));
+            } else {
+                without_event.push((start, end, busy));
+            }
+        }
+
+        let period = |start: i64, end: i64, busy: &BusyStatus, event: Option<serde_json::Value>| {
+            let date = |t: i64| jmap_server::utc_date_from_epoch_seconds(t);
+            let (Some(s), Some(e)) = (date(start), date(end)) else {
+                return Err(unsupported("a date outside the UTCDate range"));
+            };
+            serde_json::from_value(serde_json::json!({
+                "utcStart": s,
+                "utcEnd": e,
+                "busyStatus": busy,
+                "event": event,
+                "accountId": event_account(&event, account),
+            }))
+            .map_err(|e| BackendQueryError::Other(MemoryError::serde("build BusyPeriod", &e)))
+        };
+        let mut out = Vec::new();
+        for (start, end, busy, event) in with_event {
+            out.push(period(start, end, &busy, Some(event))?);
+        }
+        for (start, end, busy) in merge_busy_periods(without_event) {
+            out.push(period(start, end, &busy, None)?);
+        }
+        out.sort_by(|a: &jmap_calendars_types::BusyPeriod, b| {
+            a.utc_start.as_ref().cmp(b.utc_start.as_ref())
+        });
+        Ok(out)
+    }
+}
+
+/// `accountId` of a BusyPeriod: the account for an event, `null` without
+/// one (draft-ietf-jmap-calendars-34 §2.2).
+fn event_account(event: &Option<serde_json::Value>, account: &str) -> serde_json::Value {
+    match event {
+        Some(_) => serde_json::Value::String(account.to_owned()),
+        None => serde_json::Value::Null,
+    }
+}
+
+/// Seconds in an RFC 8984 §1.4.6 Duration (`"P" (dur-week / dur-day /
+/// dur-time)`, e.g. `"PT1H30M"`, `"P1DT2H"`, `"P2W"`), or `None` when it
+/// does not parse. Weeks and days are taken as 7 and 1 times 86400
+/// seconds, which is exact for UTC times.
+fn rfc8984_duration_seconds(s: &str) -> Option<i64> {
+    let rest = s.strip_prefix('P')?;
+    let (date, time) = match rest.split_once('T') {
+        Some((d, t)) => (d, Some(t)),
+        None => (rest, None),
+    };
+    let mut total: i64 = 0;
+    let mut take = |part: &str, units: &[(char, i64)]| -> Option<()> {
+        let mut num = String::new();
+        let mut next = 0;
+        for c in part.chars() {
+            if c.is_ascii_digit() {
+                num.push(c);
+                continue;
+            }
+            let i = units[next..].iter().position(|(u, _)| *u == c)? + next;
+            let n: i64 = num.parse().ok()?;
+            total = total.checked_add(n.checked_mul(units[i].1)?)?;
+            num.clear();
+            next = i + 1;
+        }
+        num.is_empty().then_some(())
+    };
+    take(date, &[('W', 604_800), ('D', 86_400)])?;
+    if let Some(t) = time {
+        if t.is_empty() {
+            return None;
+        }
+        take(t, &[('H', 3600), ('M', 60), ('S', 1)])?;
+    }
+    (!rest.is_empty() && rest != "T").then_some(total)
+}
+
+/// Merge and split busy periods that carry no event so none overlap and
+/// adjacent ones differ in status, choosing "confirmed > unavailable >
+/// tentative" where they overlap (draft-ietf-jmap-calendars-34 §2.2).
+fn merge_busy_periods(
+    periods: Vec<(i64, i64, jmap_calendars_types::BusyStatus)>,
+) -> Vec<(i64, i64, jmap_calendars_types::BusyStatus)> {
+    use jmap_calendars_types::BusyStatus;
+    let rank = |b: &BusyStatus| match b {
+        BusyStatus::Confirmed => 3,
+        BusyStatus::Unavailable => 2,
+        BusyStatus::Tentative => 1,
+        _ => 2,
+    };
+    let mut points: Vec<i64> = periods.iter().flat_map(|(s, e, _)| [*s, *e]).collect();
+    points.sort_unstable();
+    points.dedup();
+    let mut out: Vec<(i64, i64, BusyStatus)> = Vec::new();
+    for w in points.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let best = periods
+            .iter()
+            .filter(|(s, e, _)| *s <= a && *e >= b && s < e)
+            .max_by_key(|(_, _, st)| rank(st))
+            .map(|(_, _, st)| *st);
+        let Some(status) = best else { continue };
+        match out.last_mut() {
+            Some((_, end, st)) if *end == a && *st == status => *end = b,
+            _ => out.push((a, b, status)),
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+mod duration_tests {
+    use super::rfc8984_duration_seconds as d;
+
+    /// RFC 8984 §1.4.6 Duration grammar: "P" then weeks, or days and/or a
+    /// time part; the units appear in order and each at most once.
+    #[test]
+    fn rfc8984_durations() {
+        assert_eq!(d("PT1H"), Some(3600));
+        assert_eq!(d("PT1H30M"), Some(5400));
+        assert_eq!(d("P1DT2H"), Some(93_600));
+        assert_eq!(d("P2W"), Some(1_209_600));
+        assert_eq!(d("PT0S"), Some(0));
+        assert_eq!(d("P1D"), Some(86_400));
+        for bad in ["", "P", "PT", "1H", "PT1M1H", "PT1X", "P1DT", "PTH"] {
+            assert_eq!(d(bad), None, "{bad:?}");
+        }
     }
 }
 
