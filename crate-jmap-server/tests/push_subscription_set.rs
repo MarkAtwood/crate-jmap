@@ -372,6 +372,32 @@ async fn create_with_non_https_url_is_invalid_properties() {
     assert_eq!(backend.len(), 0, "a rejected create must not reach storage");
 }
 
+/// draft-atwood-jmap-updates-00 §7.1: a URL-valued property "SHOULD hold
+/// a URI as defined in RFC 3986 Section 3"; "URIs in JMAP are ASCII". An
+/// `https://` value with a space or a raw non-ASCII character is not one.
+#[tokio::test]
+async fn create_with_non_rfc3986_url_is_invalid_properties() {
+    for url in ["https://example.com/push me", "https://bücher.example/push"] {
+        let backend = Arc::new(MockBackend::default());
+        let (_, args, _) = set(
+            &backend,
+            "credA",
+            json!({
+                "create": {
+                    "k1": { "deviceClientId": "a889-ffea-910", "url": url, "types": null }
+                }
+            }),
+        )
+        .await;
+        assert_eq!(
+            args["notCreated"]["k1"]["properties"],
+            json!(["url"]),
+            "{url}: {args}"
+        );
+        assert_eq!(backend.len(), 0);
+    }
+}
+
 /// RFC 8620 §7.2 (rfc8620.txt:3649): "This MUST be null (or omitted) when
 /// the subscription is created."
 #[tokio::test]

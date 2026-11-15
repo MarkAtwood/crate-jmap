@@ -68,6 +68,7 @@ mod blob;
 mod client;
 mod error;
 mod i18n;
+mod iri;
 mod push;
 mod query;
 mod request;
@@ -92,6 +93,7 @@ pub use error::{
     SerializeError, WebSocketError, WebSocketErrorKind, to_args,
 };
 pub use i18n::I18nSetting;
+pub use iri::{IriError, iri_to_uri, uri_to_iri};
 pub use push::StateChange;
 pub use query::QueryParams;
 pub use request::{

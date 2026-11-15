@@ -102,6 +102,13 @@ wire behaviour that a conforming peer can observe.
 - **jmap-base-client**: `ClientError::Problem { status, details }` carries
   the parsed problem details of a 4xx/5xx from the Session resource, API,
   upload, download or event source.
+- **jmap-types**: `uri` module: `check_uri` and `check_uri_reference`
+  check RFC 3986 syntax (draft-atwood-jmap-updates-00 §7.1), with
+  `UriError`. New dependency: `iri-string` (already in the tree via
+  reqwest).
+- **jmap-base-client**: `iri_to_uri` and `uri_to_iri` map between IRIs and
+  URIs (RFC 3987 §3.1, §3.2): A-label hosts and percent-encoded UTF-8 on the
+  way out, U-labels and decoded characters for display, with `IriError`.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.
@@ -130,6 +137,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server**: `PushSubscription/set` rejects a `url` that is not an
+  RFC 3986 URI (for example one with a space or a raw non-ASCII
+  character) with `invalidProperties`, in addition to requiring
+  `https://`.
 - **jmap-base-client**: a 4xx/5xx response (other than 401, 403 and 429)
   with an `application/problem+json` body is now `ClientError::Problem`
   instead of `ClientError::Http`; other error bodies stay `Http`.

@@ -49,6 +49,7 @@ mod wire;
 // reachable as `jmap_types::impl_string_enum!` regardless of this `mod`'s
 // visibility. See bd JMAP-wk77.
 mod string_enum;
+pub mod uri;
 
 pub use backend::{GetObject, JmapObject, QueryObject, SetObject, check_property_classification};
 pub use error::{JmapError, MethodErrorType, json_type_name};

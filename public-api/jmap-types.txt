@@ -175,6 +175,23 @@ pub fn jmap_types::problem::ProblemDetails::deserialize<__D>(__D) -> core::resul
 pub const jmap_types::problem::ABOUT_BLANK: &str
 pub const jmap_types::problem::JMAP_ERROR_URN_PREFIX: &str
 pub const jmap_types::problem::PROBLEM_JSON: &str
+pub mod jmap_types::uri
+#[non_exhaustive] pub enum jmap_types::uri::UriError
+pub jmap_types::uri::UriError::Relative
+pub jmap_types::uri::UriError::Syntax
+impl core::clone::Clone for jmap_types::uri::UriError
+pub fn jmap_types::uri::UriError::clone(&self) -> jmap_types::uri::UriError
+impl core::cmp::Eq for jmap_types::uri::UriError
+impl core::cmp::PartialEq for jmap_types::uri::UriError
+pub fn jmap_types::uri::UriError::eq(&self, &jmap_types::uri::UriError) -> bool
+impl core::error::Error for jmap_types::uri::UriError
+impl core::fmt::Debug for jmap_types::uri::UriError
+pub fn jmap_types::uri::UriError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::uri::UriError
+pub fn jmap_types::uri::UriError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::uri::UriError
+pub fn jmap_types::uri::check_uri(&str) -> core::result::Result<(), jmap_types::uri::UriError>
+pub fn jmap_types::uri::check_uri_reference(&str) -> core::result::Result<(), jmap_types::uri::UriError>
 pub macro jmap_types::impl_string_enum!
 pub enum jmap_types::Argument<T: jmap_types::resultref::sealed::Sealed>
 pub jmap_types::Argument::Ref(jmap_types::ResultReference)

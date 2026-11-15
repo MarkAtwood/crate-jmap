@@ -1737,6 +1737,8 @@ dependencies = [
  "futures",
  "http",
  "httpdate",
+ "idna",
+ "iri-string",
  "jmap-cid-types",
  "jmap-did-types",
  "jmap-types",
@@ -2494,6 +2496,7 @@ dependencies = [
 name = "jmap-types"
 version = "0.5.0"
 dependencies = [
+ "iri-string",
  "serde",
  "serde_json",
  "thiserror",

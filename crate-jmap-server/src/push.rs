@@ -483,11 +483,12 @@ fn validate_create(obj: Value) -> Result<PushSubscription, Value> {
         return Err(Value::from(&err));
     }
     // RFC 8620 §7.2 (rfc8620.txt:3620-3621): "This MUST begin with
-    // "https://"."
+    // "https://"." draft-atwood-jmap-updates-00 §7.1: it is an RFC 3986
+    // URI, so an IRI or a malformed URL is rejected too.
     if !fields
         .get("url")
         .and_then(Value::as_str)
-        .is_some_and(|url| url.starts_with("https://"))
+        .is_some_and(|url| url.starts_with("https://") && jmap_types::uri::check_uri(url).is_ok())
     {
         return Err(invalid_property("url"));
     }

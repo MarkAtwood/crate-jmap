@@ -311,3 +311,27 @@ Q5–Q7 (29); the others are the recommendations below, adopted as written (deci
    for every request on the connection.
 9. **Calendars:** ship Calendar `name`/`description` behind the same opt-in now, after JMAP-lehj's
    -34 sync lands, citing the draft row "when it is published".
+
+## 13. URI audit (JMAP-cayv.14, 2026-11-15)
+
+Draft §7.1: URI-valued properties SHOULD hold RFC 3986 URIs (absolute unless the spec allows a
+relative reference; fragments allowed). Helpers: `jmap_types::uri::{check_uri, check_uri_reference}`
+(iri-string, decision 29) and `jmap_base_client::{iri_to_uri, uri_to_iri}` (RFC 3987 §3.1/§3.2, idna for
+A-labels). Identifying URIs compare as exact strings: `jmap_server::check_known_capabilities` uses `==`;
+chat-client `own_participant_key` normalizes per RFC 3986 §6.2.2 because draft-ietf-jmap-calendars §3
+names that comparison, which §7.1 allows.
+
+| Crate family | URI-valued properties | Validation now | Follow-up |
+|---|---|---|---|
+| core (jmap-types / jmap-server) | PushSubscription `url` | `https://` prefix + `check_uri` (this bead) | done |
+| base-client | Session `apiUrl`, `downloadUrl`/`uploadUrl`/`eventSourceUrl` templates, WebSocket `url` | scheme checks with `url` (WHATWG, for HTTP use) | none: client fetches, not stored data |
+| chat | ChatContact `uri`, rich-text link `uri`, Message attachment `uri` | none | bead |
+| chat-mimi | KeyMaterial `clientUri`/`userUri`, capability `userUri` | none | bead |
+| chat-federation | Peer `fetchUrl` | none | bead |
+| scene | SceneAsset/SceneObject `assetUri`, SceneRegion `simulationUri`/`inputUri` | none (scene-client parses with `url` to fetch) | bead |
+| vtc | VTCCall/VTCEvent `joinUri`, VTCRecording `streamUri`, push `joinUri` | none (server-set) | bead |
+| graph | GraphNode `uri`, query `objectUri` | none | bead |
+| tasks | Task `uri` | none | bead |
+| filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | none (server-set Session data) | bead |
+| did | capability `didDocumentUri` | none (server-set) | bead |
+| jscontact / jscalendar (contacts, calendars servers) | Card/Event `uri` members (links, media, online services, etc.) | none (sloppy-Value fields) | bead |
