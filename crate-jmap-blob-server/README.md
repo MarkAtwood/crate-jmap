@@ -7,7 +7,7 @@ JMAP Blob Management method handlers for the `jmap-server` dispatcher:
 **Status: surface fixed, handlers pending.** `BlobBackend`,
 `register_blob_handlers`, `BlobMode` and the `memory` backend are in
 place; the four handlers answer `serverFail` until their beads land (see
-`PLAN.md`), and the memory backend's `convert` until JMAP-tna1.2.6.
+`PLAN.md`).
 
 ## What it is
 
@@ -54,9 +54,12 @@ Advertise `urn:ietf:params:jmap:blob2` yourself: `{}` in the Session
   bytes and blobs built from other blobs stored as chunk lists of leaf
   blobs; `expires` one hour ahead (five minutes for `noPersist`, `null`
   while referenced); touches honoured up to seven days; a stored sha-256 of
-  each whole blob. Feature `test-helpers` adds `advertise_for_test`,
-  `add_reference_for_test`, `hide_object_for_test`, `set_clock_for_test`
-  and `omit_no_persist_for_test`.
+  each whole blob. It builds and lists `application/x-tar` itself (a
+  hand-rolled ustar; archives are generated on first read) and runs other
+  recipes through a test stub. Feature `test-helpers` adds
+  `advertise_for_test`, `add_reference_for_test`, `hide_object_for_test`,
+  `set_clock_for_test`, `omit_no_persist_for_test`,
+  `stub_converter_for_test` and `fail_deferred_for_test`.
 
 ## Gotchas
 

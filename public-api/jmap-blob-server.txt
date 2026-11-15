@@ -5,11 +5,13 @@ impl jmap_blob_server::memory::MemoryBackend
 pub fn jmap_blob_server::memory::MemoryBackend::add_reference_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::advertise_for_test(&self, &jmap_types::id::Id, jmap_blob_types::capability::BlobAccountCapability)
 pub fn jmap_blob_server::memory::MemoryBackend::default_capability() -> jmap_blob_types::capability::BlobAccountCapability
+pub fn jmap_blob_server::memory::MemoryBackend::fail_deferred_for_test(&self, &jmap_types::id::Id, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::hide_object_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::new() -> Self
 pub fn jmap_blob_server::memory::MemoryBackend::omit_no_persist_for_test(&self, bool)
 pub fn jmap_blob_server::memory::MemoryBackend::register_account(&self, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::set_clock_for_test(&self, i64)
+pub fn jmap_blob_server::memory::MemoryBackend::stub_converter_for_test(&self, impl core::ops::function::Fn(&jmap_blob_types::convert::Recipe) -> core::result::Result<alloc::vec::Vec<u8>, alloc::boxed::Box<jmap_types::set_error::SetError>> + core::marker::Send + core::marker::Sync + 'static)
 pub fn jmap_blob_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
 impl core::clone::Clone for jmap_blob_server::memory::MemoryBackend
 pub fn jmap_blob_server::memory::MemoryBackend::clone(&self) -> jmap_blob_server::memory::MemoryBackend

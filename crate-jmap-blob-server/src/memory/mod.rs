@@ -24,6 +24,14 @@
 //!   `maxDataSources` 64, digests `sha-256` and `sha`, no lookup types,
 //!   `application/x-tar` archive and extract, every other conversion
 //!   `null` (decision 13).
+//! - Conversions (decision 13): an `application/x-tar` ArchiveRecipe is
+//!   checked when `Blob/convert` runs and generated on first read (its
+//!   `size` is `null` until then, blobext-03 §8); an `application/x-tar`
+//!   ExtractRecipe lists the archive and gives each file a new blob. A
+//!   failed generation (an entry blob destroyed meanwhile, or
+//!   `fail_deferred_for_test`) removes the blob. Every other recipe runs
+//!   through `stub_converter_for_test` (feature `test-helpers`), and is a
+//!   `serverFail` without one.
 //! - Objects that reference blobs exist only through
 //!   `add_reference_for_test` (feature `test-helpers`): this backend stores
 //!   no other data types, so without them `Blob/lookup` finds nothing,
@@ -37,11 +45,13 @@
 
 #![deny(clippy::await_holding_lock)]
 
+mod convert;
+
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use jmap_blob_types::{BlobAccountCapability, DigestAlgorithm, errors};
+use jmap_blob_types::{BlobAccountCapability, BlobRef, DigestAlgorithm, Recipe, errors};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesParams, ChangesResult,
     GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
@@ -49,6 +59,7 @@ use jmap_server::{
 };
 use jmap_types::{Id, SetError, SetErrorType, State, UTCDate};
 
+use self::convert::{TarEntry, build_tar, looks_like_tar, parse_tar, plan_archive};
 use crate::backend::{
     BlobBackend, BlobCreate, BlobMeta, BlobSource, ChunkRef, ConvertOutcome, ConvertParams,
     CreatedBlob, DigestQuery, TouchOutcome,
@@ -68,7 +79,20 @@ enum Repr {
     Bytes(Vec<u8>),
     /// Ranges of leaf (`Bytes`) blobs of the same account, in order.
     Chunks(Vec<ChunkRef>),
+    /// An ArchiveRecipe result not generated yet (blobext-03 §8): built on
+    /// first read. `size` is meaningless until then.
+    Deferred(Deferred),
 }
+
+#[derive(Debug, Clone)]
+struct Deferred {
+    entries: Vec<TarEntry>,
+    /// Make generation fail (`fail_deferred_for_test`).
+    fail: bool,
+}
+
+/// Archive media type the memory backend builds and lists.
+const TAR: &str = "application/x-tar";
 
 #[derive(Debug, Clone)]
 struct StoredBlob {
@@ -77,7 +101,7 @@ struct StoredBlob {
     media_type: Option<String>,
     /// Seconds since the epoch, or `None` for no specific expiry.
     expires: Option<i64>,
-    /// Base64 sha-256 of the whole blob.
+    /// Base64 sha-256 of the whole blob (`None` while deferred).
     sha256: Option<String>,
 }
 
@@ -114,8 +138,45 @@ impl Account {
         })
     }
 
+    /// Generate `blob_id` if it is a deferred result. `false` when the blob
+    /// does not exist, or its generation failed: it is then removed, so it
+    /// "does not exist" everywhere (blobext-03 §8).
+    fn materialize(&mut self, blob_id: &Id) -> bool {
+        let plan = match self.blobs.get(blob_id) {
+            None => return false,
+            Some(StoredBlob {
+                repr: Repr::Deferred(d),
+                ..
+            }) => d.clone(),
+            Some(_) => return true,
+        };
+        let built = if plan.fail {
+            None
+        } else {
+            for content in plan.entries.iter().filter_map(|e| e.content.as_ref()) {
+                self.materialize(content);
+            }
+            build_tar(&plan.entries, |id| {
+                let size = self.blobs.get(id)?.size;
+                self.read(id, 0..size)
+            })
+        };
+        match (built, self.blobs.get_mut(blob_id)) {
+            (Some(bytes), Some(blob)) => {
+                blob.size = bytes.len() as u64;
+                blob.sha256 = sha256(&bytes);
+                blob.repr = Repr::Bytes(bytes);
+                true
+            }
+            _ => {
+                self.blobs.remove(blob_id);
+                false
+            }
+        }
+    }
+
     /// Leaf chunks covering `range` of `blob_id`, or `None` if the blob is
-    /// missing or `range` runs past its end.
+    /// missing, not generated yet, or `range` runs past its end.
     fn leaf_chunks(&self, blob_id: &Id, range: Range<u64>) -> Option<Vec<ChunkRef>> {
         let blob = self.blobs.get(blob_id)?;
         if range.start > range.end || range.end > blob.size {
@@ -132,6 +193,7 @@ impl Account {
                     blob.size,
                 )]
             }),
+            Repr::Deferred(_) => None,
             Repr::Chunks(chunks) => {
                 let mut out = Vec::new();
                 let mut pos = 0u64;
@@ -180,12 +242,31 @@ struct Inner {
     now: Option<i64>,
     /// Leave `noPersist` blobs out of the response.
     omit_no_persist: bool,
+    /// Runs the recipes the backend does not implement itself.
+    stub: Option<StubConverter>,
+}
+
+/// A test converter for the recipes the memory backend does not run
+/// itself (`stub_converter_for_test`).
+#[derive(Clone)]
+struct StubConverter(Arc<ConvertFn>);
+
+type ConvertFn = dyn Fn(&Recipe) -> Result<Vec<u8>, Box<SetError>> + Send + Sync;
+
+impl std::fmt::Debug for StubConverter {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("StubConverter")
+    }
+}
+
+fn mint(next_id: &mut u64) -> Id {
+    *next_id += 1;
+    Id::from(format!("B{next_id}"))
 }
 
 impl Inner {
     fn mint(&mut self) -> Id {
-        self.next_id += 1;
-        Id::from(format!("B{}", self.next_id))
+        mint(&mut self.next_id)
     }
 
     fn now(&self) -> i64 {
@@ -272,6 +353,7 @@ impl MemoryBackend {
                 next_id: 0,
                 now: None,
                 omit_no_persist: false,
+                stub: None,
             })),
         }
     }
@@ -366,6 +448,36 @@ impl MemoryBackend {
         self.lock().omit_no_persist = omit;
     }
 
+    /// Run every recipe other than an `application/x-tar` archive or
+    /// extract through `converter`, which returns the result's octets or a
+    /// SetError (decision 13). Without one, such a recipe is a
+    /// `serverFail`: the default capability advertises them as `null`.
+    #[cfg(feature = "test-helpers")]
+    pub fn stub_converter_for_test(
+        &self,
+        converter: impl Fn(&Recipe) -> Result<Vec<u8>, Box<SetError>> + Send + Sync + 'static,
+    ) {
+        self.lock().stub = Some(StubConverter(Arc::new(converter)));
+    }
+
+    /// Make the generation of deferred result `blob_id` fail: from then on
+    /// the blob does not exist (blobext-03 §8).
+    ///
+    /// # Panics
+    ///
+    /// If the account does not exist or `blob_id` is not a deferred result
+    /// that has not been generated yet.
+    #[cfg(feature = "test-helpers")]
+    pub fn fail_deferred_for_test(&self, account_id: &Id, blob_id: &Id) {
+        self.with_account_mut(account_id, |a| match a.blobs.get_mut(blob_id) {
+            Some(StoredBlob {
+                repr: Repr::Deferred(d),
+                ..
+            }) => d.fail = true,
+            _ => panic!("{} is not a pending deferred blob", blob_id.as_ref()),
+        });
+    }
+
     #[cfg(feature = "test-helpers")]
     fn with_account_mut(&self, account_id: &Id, f: impl FnOnce(&mut Account)) {
         let mut inner = self.lock();
@@ -385,11 +497,14 @@ impl MemoryBackend {
     }
 
     fn info(&self, account_id: &Id, blob_id: &Id) -> Result<Option<BlobMeta>, MemoryError> {
-        let inner = self.lock();
+        let mut inner = self.lock();
         let acc = inner
             .accounts
-            .get(account_id)
+            .get_mut(account_id)
             .ok_or_else(|| unknown_account(account_id))?;
+        if !acc.materialize(blob_id) {
+            return Ok(None);
+        }
         Ok(acc.blobs.get(blob_id).map(|b| {
             let mut meta = BlobMeta::new(b.media_type.clone(), b.size);
             meta.expires = if acc.is_referenced(blob_id) {
@@ -409,7 +524,7 @@ impl MemoryBackend {
         let mut inner = self.lock();
         let now = inner.now();
         let omit = inner.omit_no_persist && create.no_persist;
-        let Some(acc) = inner.accounts.get(account_id) else {
+        let Some(acc) = inner.accounts.get_mut(account_id) else {
             return Err(BackendSetError::Other(unknown_account(account_id)));
         };
 
@@ -425,6 +540,7 @@ impl MemoryBackend {
                 BlobSource::Bytes(b) => pieces.push(Piece::Bytes(b)),
                 BlobSource::Blob { blob_id, range } => {
                     all_inline = false;
+                    acc.materialize(&blob_id);
                     let chunks = acc
                         .leaf_chunks(&blob_id, range)
                         .ok_or_else(|| not_found(&blob_id))?;
@@ -595,6 +711,192 @@ impl MemoryBackend {
     }
 }
 
+/// The blobIds a recipe reads.
+fn recipe_inputs(recipe: &Recipe) -> Vec<&BlobRef> {
+    match recipe {
+        Recipe::ImageConvert(r) => vec![&r.blob_id],
+        Recipe::Archive(r) => r
+            .entries
+            .iter()
+            .filter_map(|e| e.blob_id.as_ref())
+            .collect(),
+        Recipe::Extract(r) => vec![&r.blob_id],
+        Recipe::Compress(r) => vec![&r.blob_id],
+        Recipe::Decompress(r) => vec![&r.blob_id],
+        Recipe::Delta(r) => vec![&r.blob_id, &r.new_blob_id],
+        Recipe::Patch(r) => vec![&r.blob_id, &r.delta_blob_id],
+        _ => Vec::new(),
+    }
+}
+
+/// The media type of a stub conversion's result, where the recipe names
+/// one.
+fn recipe_output_type(recipe: &Recipe) -> Option<String> {
+    match recipe {
+        Recipe::ImageConvert(r) => Some(r.media_type.clone()),
+        Recipe::Archive(r) => Some(r.media_type.clone()),
+        Recipe::Compress(r) => Some(r.media_type.clone()),
+        Recipe::Delta(r) => Some(r.media_type.clone()),
+        _ => None,
+    }
+}
+
+fn literal(r: &BlobRef) -> Result<&Id, BackendSetError<MemoryError>> {
+    r.as_id().ok_or_else(|| {
+        BackendSetError::Other(MemoryError::new(format!(
+            "unresolved creation reference {r}"
+        )))
+    })
+}
+
+impl MemoryBackend {
+    fn convert_blob(
+        &self,
+        account_id: &Id,
+        params: ConvertParams,
+    ) -> Result<ConvertOutcome, BackendSetError<MemoryError>> {
+        let mut guard = self.lock();
+        let now = guard.now();
+        let omit = guard.omit_no_persist && params.no_persist;
+        let stub = guard.stub.clone();
+        let Inner {
+            accounts, next_id, ..
+        } = &mut *guard;
+        let Some(acc) = accounts.get_mut(account_id) else {
+            return Err(BackendSetError::Other(unknown_account(account_id)));
+        };
+        let expires = now
+            + if params.no_persist {
+                NO_PERSIST_EXPIRES_SECS
+            } else {
+                EXPIRES_SECS
+            };
+
+        match &params.recipe {
+            Recipe::Archive(r) if r.media_type.eq_ignore_ascii_case(TAR) => {
+                let entries = plan_archive(r, now, |id| {
+                    acc.materialize(id)
+                        .then(|| acc.blobs.get(id).map(|b| b.size))
+                        .flatten()
+                })
+                .map_err(BackendSetError::SetError)?;
+                let id = mint(next_id);
+                acc.blobs.insert(
+                    id.clone(),
+                    StoredBlob {
+                        repr: Repr::Deferred(Deferred {
+                            entries,
+                            fail: false,
+                        }),
+                        size: 0,
+                        media_type: Some(r.media_type.clone()),
+                        expires: Some(expires),
+                        sha256: None,
+                    },
+                );
+                let mut out = ConvertOutcome::new(id, Some(r.media_type.clone()), None);
+                out.expires = utc_date_from_epoch_seconds(expires);
+                out.omit_from_response = omit;
+                Ok(out)
+            }
+            Recipe::Extract(r) => {
+                let archive = literal(&r.blob_id)?;
+                if !acc.materialize(archive) {
+                    return Err(not_found(archive));
+                }
+                let Some(blob) = acc.blobs.get(archive) else {
+                    return Err(not_found(archive));
+                };
+                let (size, media_type) = (blob.size, blob.media_type.clone());
+                let blob_expires = if acc.is_referenced(archive) {
+                    None
+                } else {
+                    blob.expires
+                };
+                let bytes = acc
+                    .read(archive, 0..size)
+                    .ok_or_else(|| not_found(archive))?;
+                let unknown = || {
+                    set_error(
+                        SetErrorType::from(errors::UNKNOWN_FORMAT),
+                        "the memory backend extracts only application/x-tar",
+                    )
+                };
+                match &r.media_type {
+                    Some(t) if !t.eq_ignore_ascii_case(TAR) => return Err(unknown()),
+                    None if !looks_like_tar(&bytes) => return Err(unknown()),
+                    _ => {}
+                }
+                let parsed = parse_tar(&bytes).ok_or_else(|| {
+                    set_error(
+                        SetErrorType::from(errors::CONVERSION_FAILED),
+                        "not a valid tar archive",
+                    )
+                })?;
+                let mut entries = Vec::with_capacity(parsed.entries.len());
+                for p in parsed.entries {
+                    let mut entry = p.entry;
+                    if let Some(content) = p.content {
+                        let id = mint(next_id);
+                        acc.blobs.insert(
+                            id.clone(),
+                            StoredBlob {
+                                size: content.len() as u64,
+                                sha256: sha256(&content),
+                                repr: Repr::Bytes(content),
+                                media_type: None,
+                                expires: Some(now + EXPIRES_SECS),
+                            },
+                        );
+                        entry.blob_id = Some(BlobRef::Id(id));
+                    }
+                    entries.push(entry);
+                }
+                // blobext-03 §8.4: the result's id, type and size are the
+                // archive's; noPersist has no effect.
+                let mut out = ConvertOutcome::new(archive.clone(), media_type, Some(size));
+                out.expires = blob_expires.and_then(utc_date_from_epoch_seconds);
+                out.is_incomplete = parsed.problem.is_some();
+                out.description = parsed.problem;
+                out.entries = Some(entries);
+                Ok(out)
+            }
+            recipe => {
+                let Some(StubConverter(convert)) = stub else {
+                    return Err(BackendSetError::Other(MemoryError::new(format!(
+                        "the memory backend does not run {} recipes",
+                        recipe.key()
+                    ))));
+                };
+                for input in recipe_inputs(recipe) {
+                    let id = literal(input)?;
+                    if !acc.materialize(id) {
+                        return Err(not_found(id));
+                    }
+                }
+                let bytes = convert(recipe).map_err(BackendSetError::SetError)?;
+                let size = bytes.len() as u64;
+                let media_type = recipe_output_type(recipe);
+                let id = mint(next_id);
+                acc.blobs.insert(
+                    id.clone(),
+                    StoredBlob {
+                        size,
+                        sha256: sha256(&bytes),
+                        repr: Repr::Bytes(bytes),
+                        media_type: media_type.clone(),
+                        expires: Some(expires),
+                    },
+                );
+                let mut out = ConvertOutcome::new(id, media_type, Some(size));
+                out.expires = utc_date_from_epoch_seconds(expires);
+                out.omit_from_response = omit;
+                Ok(out)
+            }
+        }
+    }
+}
+
 fn not_an_object_store<T>(type_name: &str) -> Result<T, MemoryError> {
     Err(MemoryError::new(format!(
         "the blob MemoryBackend stores no {type_name} objects"
@@ -684,11 +986,14 @@ impl BlobBackend for MemoryBackend {
         blob_id: &Id,
         range: Range<u64>,
     ) -> Result<Option<Vec<u8>>, MemoryError> {
-        let inner = self.lock();
+        let mut inner = self.lock();
         let acc = inner
             .accounts
-            .get(account_id)
+            .get_mut(account_id)
             .ok_or_else(|| unknown_account(account_id))?;
+        if !acc.materialize(blob_id) {
+            return Ok(None);
+        }
         Ok(acc.read(blob_id, range))
     }
 
@@ -716,14 +1021,19 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Vec<ChunkRef>>, MemoryError> {
-        let inner = self.lock();
+        let mut inner = self.lock();
         let acc = inner
             .accounts
-            .get(account_id)
+            .get_mut(account_id)
             .ok_or_else(|| unknown_account(account_id))?;
+        if !acc.materialize(blob_id) {
+            return Ok(None);
+        }
         Ok(acc.blobs.get(blob_id).map(|b| match &b.repr {
             Repr::Chunks(c) => c.clone(),
-            Repr::Bytes(_) => vec![ChunkRef::new(blob_id.clone(), 0, b.size, b.size)],
+            Repr::Bytes(_) | Repr::Deferred(_) => {
+                vec![ChunkRef::new(blob_id.clone(), 0, b.size, b.size)]
+            }
         }))
     }
 
@@ -768,14 +1078,9 @@ impl BlobBackend for MemoryBackend {
     async fn convert(
         &self,
         _caller: &(),
-        _account_id: &Id,
-        _params: ConvertParams,
+        account_id: &Id,
+        params: ConvertParams,
     ) -> Result<ConvertOutcome, BackendSetError<MemoryError>> {
-        // FIXME(bd JMAP-tna1.2.6): ustar archive/extract and deferred
-        // results. Until then a conversion is a serverFail, never a
-        // misleading conversionFailed.
-        Err(BackendSetError::Other(MemoryError::new(
-            "Blob/convert is not implemented in the memory backend yet",
-        )))
+        self.convert_blob(account_id, params)
     }
 }

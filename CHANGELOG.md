@@ -214,6 +214,16 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: the memory backend runs `Blob/convert` (decision
+  13). `application/x-tar` archives come from a hand-rolled ustar writer:
+  the recipe is checked when it runs (entry errors name
+  `archive/entries/<i>/<property>`) and the archive is generated on first
+  read, with a `null` size until then; a failed generation makes the blob
+  not exist. An `application/x-tar` extract lists the archive, gives each
+  file a new blob and reports `isIncomplete` for a truncated one;
+  `unknownFormat` for anything else. Other recipes run through
+  `stub_converter_for_test`; `fail_deferred_for_test` fails a deferred
+  result (feature `test-helpers`). (bd:JMAP-tna1.2.6)
 - **jmap-blob-server**: `memory::MemoryBackend` (feature `memory`), the
   reference `BlobBackend`. Accounts must be registered; blobs made only of
   inline data are stored as bytes, blobs built from other blobs as chunk
