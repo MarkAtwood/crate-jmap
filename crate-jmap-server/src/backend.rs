@@ -1097,6 +1097,31 @@ pub trait JmapBackend: Send + Sync + 'static {
         None
     }
 
+    /// The request's `Accept-Language` header field value (RFC 9110
+    /// §12.5.4), as the HTTP or WebSocket layer recorded it in the caller
+    /// context, or [`None`].
+    ///
+    /// It is the entry point for language in the JMAP layer, with the same
+    /// shape as [`Self::principal_id`] (decision 31): an associated function
+    /// over the caller context, so it is read without a backend lookup.
+    /// Over a WebSocket, the transport fills it from the opening
+    /// handshake for every Request on the connection
+    /// (draft-atwood-jmap-updates-00 §4.3).
+    ///
+    /// Use it only for custom strings that are not data: the `title` and
+    /// `detail` of a problem details response
+    /// ([`problem_response`](crate::problem_response), with
+    /// Content-Language), and the RFC 9425 Quota `description` when
+    /// `urn:ietf:params:jmap:i18n` is not in `using`. With that capability in
+    /// `using`, Accept-Language MUST NOT change `/get` or `/query` results
+    /// (§4.2.1); the `language` argument does that.
+    ///
+    /// Default: [`None`].
+    fn accept_language(caller: &Self::CallerCtx) -> Option<&str> {
+        let _ = caller;
+        None
+    }
+
     /// Maximum number of objects this account permits in a single
     /// `/set` call (RFC 8620 §5.3 `maxObjectsInSet`) (bd:JMAP-ayoz.41.1).
     ///

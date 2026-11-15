@@ -12,6 +12,9 @@ pub jmap_base_client::ClientError::InvalidSession(alloc::string::String)
 pub jmap_base_client::ClientError::MethodError(jmap_types::error::JmapError)
 pub jmap_base_client::ClientError::MethodNotFound(alloc::string::String)
 pub jmap_base_client::ClientError::Parse(jmap_base_client::ParseError)
+pub jmap_base_client::ClientError::Problem
+pub jmap_base_client::ClientError::Problem::details: alloc::boxed::Box<jmap_types::problem::ProblemDetails>
+pub jmap_base_client::ClientError::Problem::status: u16
 pub jmap_base_client::ClientError::RateLimited
 pub jmap_base_client::ClientError::RateLimited::retry_after: jmap_types::id::UTCDate
 pub jmap_base_client::ClientError::ResponseTooLarge

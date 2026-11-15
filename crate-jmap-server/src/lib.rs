@@ -73,7 +73,7 @@ pub use push::{
     MAX_PUSH_EXPIRY_SECS, PushSubscriptionBackend, StoredPushSubscription, is_deliverable,
     register_push_subscription_handlers, state_change_for,
 };
-pub use response::{RequestError, error_invocation, error_status, request_error};
+pub use response::{RequestError, error_invocation, error_status, problem_response, request_error};
 
 use std::{
     collections::{BTreeMap, HashMap},

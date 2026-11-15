@@ -293,8 +293,16 @@ impl CloseAfter {
 pub async fn get_events(
     AxumState(state): AxumState<AppState>,
     headers: axum::http::HeaderMap,
-    Query(query): Query<EventQuery>,
-) -> Sse<ReceiverStream<Result<Event, Infallible>>> {
+    query: Result<Query<EventQuery>, axum::extract::rejection::QueryRejection>,
+) -> axum::response::Response {
+    // draft-atwood-jmap-updates-00 §7.2: the event source returns problem
+    // details on a 4xx, here for a malformed query string.
+    let Query(query) = match query {
+        Ok(q) => q,
+        Err(rejection) => {
+            return crate::http::problem(rejection.status(), Some(&rejection.body_text()));
+        }
+    };
     let types_filter = TypesFilter::from_query(query.types.as_deref());
     let ping_mode = PingMode::from_query(query.ping);
     let close_after = CloseAfter::from_query(query.closeafter.as_deref());
@@ -351,7 +359,7 @@ pub async fn get_events(
         tx,
     ));
 
-    Sse::new(ReceiverStream::new(rx))
+    axum::response::IntoResponse::into_response(Sse::new(ReceiverStream::new(rx)))
 }
 
 /// Parse the `Last-Event-ID` request header per RFC 8620 §7.3 /

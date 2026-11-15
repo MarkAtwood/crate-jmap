@@ -90,6 +90,18 @@ wire behaviour that a conforming peer can observe.
   behind `with_i18n`; `connect_ws_with_options` and `WsConnectOptions`,
   whose `accept_language` sets `Accept-Language` on the WebSocket opening
   handshake (draft-atwood-jmap-updates-00 §4.3).
+- **jmap-types**: `problem` module: `ProblemDetails`, the RFC 9457
+  problem details object (with RFC 8620's `limit` member and extension
+  members), and the `PROBLEM_JSON`, `JMAP_ERROR_URN_PREFIX` and
+  `ABOUT_BLANK` constants (draft-atwood-jmap-updates-00 §7.2).
+- **jmap-server**: `problem_response` builds an RFC 9457 error response for
+  any JMAP HTTP resource, with an optional `Content-Language` for a
+  localized `title`/`detail`; `RequestError::problem_details` and
+  `RequestError::status`; `JmapBackend::accept_language`, the caller's
+  Accept-Language (default `None`), for those custom strings.
+- **jmap-base-client**: `ClientError::Problem { status, details }` carries
+  the parsed problem details of a 4xx/5xx from the Session resource, API,
+  upload, download or event source.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.
@@ -118,6 +130,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-base-client**: a 4xx/5xx response (other than 401, 403 and 429)
+  with an `application/problem+json` body is now `ClientError::Problem`
+  instead of `ClientError::Http`; other error bodies stay `Http`.
+- **jmap-testjig**: every 4xx is RFC 9457 problem details: the 401 from
+  the bearer-token check, unknown paths (404), a non-upgrade request to
+  `/ws`, and a malformed `/events` query.
+- RFC 7807 citations now cite RFC 9457, which obsoletes it.
 - **jmap-server**: `handle_get` and `handle_get_with_metadata` reject a
   non-null `language` argument with `invalidArguments` unless the type has
   localizable properties, `urn:ietf:params:jmap:i18n` is in `using` and

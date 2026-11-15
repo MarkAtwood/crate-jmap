@@ -22,7 +22,7 @@
 //! | `@type` | Body |
 //! |---------|------|
 //! | `Response` | RFC 8620 §3.4 JmapResponse + `requestId` (echoed) |
-//! | `RequestError` | RFC 7807 Problem Details + `requestId` |
+//! | `RequestError` | RFC 9457 problem details + `requestId` |
 //! | `StateChange` | RFC 8620 §7.1 StateChange + optional `pushState` |
 //!
 //! Per §4.3.1, any binary frame, fragmented-message that does not
@@ -104,10 +104,21 @@ const PUSH_CHANNEL_BOUND: usize = 64;
 /// the module-private `handle_socket` task. The bearer-token
 /// middleware runs before this handler, so by the time the upgrade
 /// is accepted the caller is known-authenticated.
-pub async fn get_ws(AxumState(state): AxumState<AppState>, upgrade: WebSocketUpgrade) -> Response {
-    upgrade
-        .protocols([JMAP_SUBPROTOCOL])
-        .on_upgrade(move |socket| handle_socket(socket, state))
+///
+/// A request that is not a valid WebSocket upgrade gets the rejection's
+/// status with an RFC 9457 problem details body
+/// (draft-atwood-jmap-updates-00 §7.2 names the WebSocket opening
+/// handshake).
+pub async fn get_ws(
+    AxumState(state): AxumState<AppState>,
+    upgrade: Result<WebSocketUpgrade, axum::extract::ws::rejection::WebSocketUpgradeRejection>,
+) -> Response {
+    match upgrade {
+        Ok(upgrade) => upgrade
+            .protocols([JMAP_SUBPROTOCOL])
+            .on_upgrade(move |socket| handle_socket(socket, state)),
+        Err(rejection) => crate::http::problem(rejection.status(), Some(&rejection.body_text())),
+    }
 }
 
 /// Main per-connection loop. Reads incoming frames, dispatches each
@@ -304,7 +315,7 @@ async fn send_request_error(
 
 /// Build the JSON body of an RFC 8887 §4.3.4 RequestError envelope.
 fn request_error_body(err: &JmapError, request_id: Option<String>) -> Value {
-    // RFC 7807 Problem Details + RFC 8887 extension fields. The
+    // RFC 9457 problem details + RFC 8887 extension fields. The
     // testjig's POST /jmap path uses jmap-server's
     // `RequestError::into_response` to assemble this shape, but that
     // helper produces an HTTP response (with status + body); over
@@ -564,7 +575,7 @@ mod tests {
     use super::*;
 
     /// Oracle: RFC 8620 §3.6.1 ("limit" errors MUST carry a "limit"
-    /// property naming the limit), RFC 7807 §3.1 ("detail" is a
+    /// property naming the limit), RFC 9457 §3.1.4 ("detail" is a
     /// human-readable explanation) and RFC 8887 §4.3.4 (`@type` and
     /// `requestId`). Expected object is hand-written.
     #[test]

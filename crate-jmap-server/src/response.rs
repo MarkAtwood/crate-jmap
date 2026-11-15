@@ -1,25 +1,55 @@
-//! HTTP response helpers for JMAP request-level errors (RFC 8620 §3.6.1, RFC 7807).
+//! HTTP response helpers for JMAP request-level errors (RFC 8620 §3.6.1) and
+//! RFC 9457 problem details for any JMAP HTTP resource
+//! (draft-atwood-jmap-updates-00 §7.2).
 
 use http::{Response, StatusCode, header};
-use serde::Serialize;
 
 use crate::{Invocation, JmapError};
 use jmap_types::MethodErrorType;
+use jmap_types::problem::ProblemDetails;
 
-/// RFC 7807 Problem Details body for JMAP request-level errors.
+/// An HTTP error response with an RFC 9457 problem details body, for any
+/// JMAP HTTP resource (draft-atwood-jmap-updates-00 §7.2: the Session
+/// resource, API, upload, download, event source, WebSocket opening
+/// handshake and extension resources SHOULD all return one on a 4xx or
+/// 5xx).
 ///
-/// `type` and `status` are always present.  `limit` is present for `limit`
-/// errors (RFC 8620 §3.6.1 requires naming the exceeded limit).  `detail` is
-/// present for any error, `limit` included, that carries a description.
-#[derive(Serialize)]
-struct ProblemDetails<'a> {
-    #[serde(rename = "type")]
-    type_urn: String,
-    status: u16,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    limit: Option<&'a str>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    detail: Option<&'a str>,
+/// The `Content-Type` is `application/problem+json`. When the caller
+/// localized `title` or `detail` from the request's Accept-Language
+/// (see [`JmapBackend::accept_language`](crate::JmapBackend::accept_language)),
+/// pass the language as `content_language`: it labels the response with
+/// `Content-Language` (RFC 8620 §3.8).
+///
+/// ```rust
+/// use http::StatusCode;
+/// use jmap_types::problem::ProblemDetails;
+///
+/// let resp = jmap_server::problem_response(
+///     StatusCode::UNAUTHORIZED,
+///     &ProblemDetails::for_status(401).with_title("Nicht autorisiert"),
+///     Some("de"),
+/// );
+/// assert_eq!(resp.headers()["content-type"], "application/problem+json");
+/// assert_eq!(resp.headers()["content-language"], "de");
+/// ```
+pub fn problem_response(
+    status: StatusCode,
+    details: &ProblemDetails,
+    content_language: Option<&str>,
+) -> Response<String> {
+    // ProblemDetails holds only strings, an integer and a string-keyed map:
+    // serialization cannot fail.
+    let body = serde_json::to_string(details).expect("ProblemDetails is infallible");
+    let mut builder = Response::builder()
+        .status(status)
+        .header(header::CONTENT_TYPE, jmap_types::problem::PROBLEM_JSON);
+    if let Some(lang) = content_language
+        && let Ok(value) = header::HeaderValue::from_str(lang)
+    {
+        builder = builder.header(header::CONTENT_LANGUAGE, value);
+    }
+    // The status and the headers set above are valid.
+    builder.body(body).expect("valid status code and headers")
 }
 
 /// Wrap a method-level error as an error `Invocation` for `methodResponses`.
@@ -93,7 +123,7 @@ pub fn error_status(err: &JmapError) -> StatusCode {
 /// [`error_status`].  Use [`request_error`] to construct.
 ///
 /// Call [`RequestError::into_response`] to produce an `http::Response<String>`
-/// with the RFC 7807 Problem Details body.  Any HTTP framework that works with
+/// with the RFC 9457 problem details body.  Any HTTP framework that works with
 /// the `http` crate (axum, hyper, warp, etc.) accepts this directly.
 #[derive(Debug)]
 // bd:JMAP-wlip.31 — both fields are private today, so #[non_exhaustive]
@@ -131,36 +161,24 @@ impl std::fmt::Display for RequestError {
 impl std::error::Error for RequestError {}
 
 impl RequestError {
-    /// Convert into an HTTP response with an RFC 7807 Problem Details body.
-    ///
-    /// The `Content-Type` is `application/problem+json`.  The body is a JSON
-    /// object with at minimum `"type"` (full URN) and `"status"` fields per
-    /// RFC 7807 §3.1, plus `"limit"` for `limit` errors (RFC 8620 §3.6.1).
+    /// The RFC 9457 problem details of this error (RFC 8620 §3.6.1): type
+    /// `urn:ietf:params:jmap:error:<type>`, `status`, `detail` from the
+    /// description, and `limit` for `limit` errors. Add a localized `title`
+    /// and send it with [`problem_response`].
+    pub fn problem_details(&self) -> ProblemDetails {
+        ProblemDetails::for_jmap_error(&self.err, self.status.as_u16())
+    }
+
+    /// The HTTP status code.
+    pub fn status(&self) -> StatusCode {
+        self.status
+    }
+
+    /// Convert into an HTTP response with an RFC 9457 problem details body
+    /// ([`Self::problem_details`], [`problem_response`]) and no
+    /// `Content-Language`.
     pub fn into_response(self) -> Response<String> {
-        let status = self.status;
-        let err = self.err;
-        // RFC 8620 §3.6.1 requires RFC 7807 Problem Details format with full URN type.
-        // For "limit" errors, RFC 8620 §3.6.1 REQUIRES a "limit" property naming
-        // the exceeded limit, carried in JmapError::limit_name.
-        let limit = (err.error_type == MethodErrorType::Limit)
-            .then(|| err.limit_name.as_deref().unwrap_or("unknown"));
-        let detail = err.description.as_deref();
-        let details = ProblemDetails {
-            type_urn: format!("urn:ietf:params:jmap:error:{}", err.error_type),
-            status: status.as_u16(),
-            limit,
-            detail,
-        };
-        // ProblemDetails only contains String, u16, and Option<&str> fields —
-        // all JSON-serializable; to_json() cannot fail here.
-        let body = serde_json::to_string(&details).expect("ProblemDetails is infallible");
-        // Builder only fails for invalid status codes or header values; both are
-        // controlled here and known-valid, so this cannot panic.
-        Response::builder()
-            .status(status)
-            .header(header::CONTENT_TYPE, "application/problem+json")
-            .body(body)
-            .expect("valid status code and Content-Type header")
+        problem_response(self.status, &self.problem_details(), None)
     }
 }
 
@@ -304,7 +322,7 @@ mod tests {
         assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
     }
 
-    /// Oracle: RFC 8620 §3.6.1 + RFC 7807 — Content-Type must be application/problem+json.
+    /// Oracle: RFC 8620 §3.6.1 + RFC 9457 §3 — Content-Type must be application/problem+json.
     #[test]
     fn request_error_content_type_is_problem_json() {
         let re = request_error(JmapError::not_request());
@@ -314,7 +332,7 @@ mod tests {
                 .get(header::CONTENT_TYPE)
                 .and_then(|v| v.to_str().ok()),
             Some("application/problem+json"),
-            "Content-Type must be application/problem+json per RFC 7807"
+            "Content-Type must be application/problem+json per RFC 9457"
         );
     }
 
@@ -333,7 +351,7 @@ mod tests {
         );
     }
 
-    /// Oracle: RFC 7807 §3.1 — status field must equal the HTTP status code.
+    /// Oracle: RFC 9457 §3.1.2 — status field must equal the HTTP status code.
     #[test]
     fn request_error_status_field_matches_http_status() {
         let body: serde_json::Value = serde_json::from_str(
@@ -362,7 +380,7 @@ mod tests {
     }
 
     /// Oracle: RFC 8620 §3.6.1 ("limit" property naming the limit) and
-    /// RFC 7807 §3.1 ("detail"). A limit error with a description carries
+    /// RFC 9457 §3.1.4 ("detail"). A limit error with a description carries
     /// both. Expected object is hand-written.
     #[test]
     fn request_error_limit_with_description_includes_limit_and_detail() {

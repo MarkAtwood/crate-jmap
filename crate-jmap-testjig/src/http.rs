@@ -276,6 +276,7 @@ pub fn router(state: AppState) -> Router {
             auth,
             require_bearer_token,
         ))
+        .fallback(not_found)
         .with_state(state)
 }
 
@@ -376,7 +377,7 @@ fn map_body_error(err: axum_core::Error) -> ApiError {
 /// [`IntoResponse`] for it without violating Rust's orphan rule.
 ///
 /// `RequestError::into_response` already produces a correctly-shaped
-/// RFC 7807 Problem Details response with `application/problem+json`
+/// RFC 9457 problem details response with `application/problem+json`
 /// Content-Type and the right HTTP status; we just adapt the body
 /// type from `http::Response<String>` to axum's preferred shape.
 struct ApiError(RequestError);
@@ -401,6 +402,27 @@ impl IntoResponse for ApiError {
         let (parts, body) = self.0.into_response().into_parts();
         Response::from_parts(parts, Body::from(body))
     }
+}
+
+/// An `about:blank` RFC 9457 problem details response for a non-API
+/// resource or failure (draft-atwood-jmap-updates-00 §7.2: every JMAP HTTP
+/// resource SHOULD send problem details on a 4xx or 5xx). `title` is the
+/// status phrase (RFC 9457 §4.2.1); the jig sends no Content-Language.
+pub(crate) fn problem(status: axum::http::StatusCode, detail: Option<&str>) -> Response {
+    let mut details = jmap_types::problem::ProblemDetails::for_status(status.as_u16());
+    if let Some(reason) = status.canonical_reason() {
+        details = details.with_title(reason);
+    }
+    if let Some(d) = detail {
+        details = details.with_detail(d);
+    }
+    let (parts, body) = jmap_server::problem_response(status, &details, None).into_parts();
+    Response::from_parts(parts, Body::from(body))
+}
+
+/// Fallback for unknown paths: a 404 problem details response.
+async fn not_found() -> Response {
+    problem(axum::http::StatusCode::NOT_FOUND, None)
 }
 
 /// The typed [`Arc<MemoryBackend>`] handles produced by
@@ -657,7 +679,7 @@ mod tests {
     }
 
     /// Oracle: RFC 8620 §3.6.1 — `notJSON` is a request-level error
-    /// at HTTP 400 with RFC 7807 Problem Details body.
+    /// at HTTP 400 with RFC 9457 problem details body.
     #[tokio::test]
     async fn post_jmap_malformed_json_returns_400_not_json() {
         let state = AppState::new();
@@ -985,5 +1007,78 @@ mod tests {
         .await;
         assert_eq!(status, StatusCode::OK);
         assert_eq!(body["methodResponses"][0][0], "Core/echo");
+    }
+
+    // -------------------------------------------------------------------
+    // RFC 9457 problem details on every resource
+    // (draft-atwood-jmap-updates-00 §7.2: "Every HTTP resource of a JMAP
+    // server SHOULD return a problem details object (RFC 9457) as the body
+    // of an error response with a 4xx or 5xx status code. This includes
+    // ... the Session resource, the event source ..., the WebSocket
+    // opening handshake").
+    // -------------------------------------------------------------------
+
+    /// GET `path` (authorized when `token`) and return status, Content-Type
+    /// and the parsed body.
+    async fn get_problem(path: &str, token: bool) -> (StatusCode, String, Value) {
+        let mut req = http::Request::builder().method(http::Method::GET).uri(path);
+        if token {
+            req = req.header(header::AUTHORIZATION, format!("Bearer {TEST_TOKEN}"));
+        }
+        let resp = <Router as tower::ServiceExt<_>>::oneshot(
+            router(AppState::new()),
+            req.body(Body::empty()).unwrap(),
+        )
+        .await
+        .unwrap();
+        let status = resp.status();
+        let ct = resp.headers()[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        (status, ct, serde_json::from_slice(&bytes).unwrap())
+    }
+
+    /// The Session resource without credentials: 401 problem details
+    /// (RFC 9457 §4.2.1 about:blank with the status phrase as title).
+    #[tokio::test]
+    async fn unauthorized_is_problem_details() {
+        let (status, ct, body) = get_problem("/.well-known/jmap", false).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(ct, "application/problem+json");
+        assert_eq!(body["type"], "about:blank");
+        assert_eq!(body["status"], 401);
+        assert_eq!(body["title"], "Unauthorized");
+    }
+
+    /// An unknown path: 404 problem details.
+    #[tokio::test]
+    async fn unknown_path_is_problem_details() {
+        let (status, ct, body) = get_problem("/no-such-resource", true).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        assert_eq!(ct, "application/problem+json");
+        assert_eq!(body["status"], 404);
+    }
+
+    /// The WebSocket endpoint without an upgrade: the rejection's status
+    /// with problem details.
+    #[tokio::test]
+    async fn websocket_handshake_failure_is_problem_details() {
+        let (status, ct, body) = get_problem("/ws", true).await;
+        assert!(status.is_client_error(), "{status}");
+        assert_eq!(ct, "application/problem+json");
+        assert_eq!(body["status"], status.as_u16());
+    }
+
+    /// The event source with a malformed query: 400 problem details.
+    #[tokio::test]
+    async fn event_source_bad_query_is_problem_details() {
+        let (status, ct, body) = get_problem("/events?ping=notanumber", true).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST);
+        assert_eq!(ct, "application/problem+json");
+        assert_eq!(body["type"], "about:blank");
     }
 }

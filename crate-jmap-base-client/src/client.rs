@@ -369,6 +369,55 @@ impl JmapClient {
         }
     }
 
+    /// `resp` unchanged on a success status; otherwise the error.
+    ///
+    /// Call after [`Self::check_auth_status`] and [`Self::check_rate_limit`].
+    /// A 4xx or 5xx whose body is `application/problem+json` and parses as
+    /// RFC 9457 problem details is [`ClientError::Problem`]
+    /// (draft-atwood-jmap-updates-00 §7.2: every JMAP HTTP resource SHOULD
+    /// send one); anything else is the opaque [`ClientError::Http`]. The
+    /// body read is capped at [`MAX_PROBLEM_BODY`] bytes.
+    pub(crate) async fn error_for_status(
+        resp: reqwest::Response,
+    ) -> Result<reqwest::Response, ClientError> {
+        let status = resp.status();
+        if !status.is_client_error() && !status.is_server_error() {
+            return Ok(resp);
+        }
+        let is_problem = resp
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|ct| ct.split(';').next())
+            .is_some_and(|mt| {
+                mt.trim()
+                    .eq_ignore_ascii_case(jmap_types::problem::PROBLEM_JSON)
+            });
+        if !is_problem {
+            return resp.error_for_status().map_err(ClientError::from_reqwest);
+        }
+        // Keep the transport error for the fallback before consuming the body.
+        let fallback = resp.error_for_status_ref().err();
+        let parsed = read_capped_body(resp, MAX_PROBLEM_BODY)
+            .await
+            .ok()
+            .and_then(|b| serde_json::from_slice::<jmap_types::problem::ProblemDetails>(&b).ok());
+        match (parsed, fallback) {
+            (Some(details), _) => Err(ClientError::Problem {
+                status: status.as_u16(),
+                details: Box::new(details),
+            }),
+            (None, Some(e)) => Err(ClientError::from_reqwest(e)),
+            // error_for_status_ref always errs on a 4xx/5xx.
+            (None, None) => Err(ClientError::Problem {
+                status: status.as_u16(),
+                details: Box::new(jmap_types::problem::ProblemDetails::for_status(
+                    status.as_u16(),
+                )),
+            }),
+        }
+    }
+
     /// Returns `Err(ClientError::RateLimited)` for HTTP 429 Too Many Requests
     /// (RFC 6585 §4), with `retry_after` taken from the `Retry-After` header
     /// (RFC 9110 §10.2.3).
@@ -391,6 +440,10 @@ impl JmapClient {
         }
     }
 }
+
+/// The most bytes of a problem details body [`JmapClient::error_for_status`]
+/// reads; problem details are small JSON objects.
+const MAX_PROBLEM_BODY: u64 = 64 * 1024;
 
 /// Read a response body into memory, capped at `limit` bytes.
 ///
@@ -469,9 +522,7 @@ impl JmapClient {
             let raw_resp = req.send().await.map_err(ClientError::from_reqwest)?;
             Self::check_auth_status(raw_resp.status())?;
             Self::check_rate_limit(&raw_resp)?;
-            raw_resp
-                .error_for_status()
-                .map_err(ClientError::from_reqwest)?
+            Self::error_for_status(raw_resp).await?
         };
 
         // Stream the body chunk-by-chunk with the cap enforced before each
@@ -536,9 +587,7 @@ impl JmapClient {
             let raw_resp = builder.send().await.map_err(ClientError::from_reqwest)?;
             Self::check_auth_status(raw_resp.status())?;
             Self::check_rate_limit(&raw_resp)?;
-            raw_resp
-                .error_for_status()
-                .map_err(ClientError::from_reqwest)?
+            Self::error_for_status(raw_resp).await?
         };
 
         // Stream the body chunk-by-chunk with the cap enforced before each
@@ -651,7 +700,7 @@ impl JmapClient {
 
         let resp = req.send().await.map_err(ClientError::from_reqwest)?;
         Self::check_auth_status(resp.status())?;
-        let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
+        let resp = Self::error_for_status(resp).await?;
 
         // Verify Content-Type before streaming. A misconfigured server returning
         // application/json would silently produce no events (no SSE delimiter found).

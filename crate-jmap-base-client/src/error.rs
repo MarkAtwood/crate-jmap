@@ -700,6 +700,26 @@ pub enum ClientError {
     #[error("JMAP method error: {0}")]
     MethodError(jmap_types::JmapError),
 
+    /// The server answered with a 4xx or 5xx status other than 401, 403
+    /// and 429 and an RFC 9457 problem details body
+    /// (`application/problem+json`), from any JMAP HTTP resource: the
+    /// Session resource, API, upload, download or event source
+    /// (RFC 8620 §3.6.1, draft-atwood-jmap-updates-00 §7.2).
+    ///
+    /// Act on [`ProblemDetails::problem_type`](jmap_types::problem::ProblemDetails::problem_type)
+    /// (for JMAP types, [`ProblemDetails::jmap_error_type`](jmap_types::problem::ProblemDetails::jmap_error_type))
+    /// and `status`, never on `title` or `detail`, which are display text
+    /// and may be localized. Retriability follows the status: a 5xx may be
+    /// retried, a 4xx not without changing the request. An error response
+    /// without a problem details body stays [`ClientError::Http`].
+    #[error("HTTP {status}: {}", details.problem_type)]
+    Problem {
+        /// The HTTP status code.
+        status: u16,
+        /// The parsed problem details body.
+        details: Box<jmap_types::problem::ProblemDetails>,
+    },
+
     /// A caller-supplied value could not be serialized to JSON. Indicates
     /// a caller bug — the data structure contains values JSON cannot
     /// represent. Not retriable.
@@ -955,6 +975,7 @@ mod tests {
             ClientError::InvalidSession(_) => {}
             ClientError::MethodNotFound(_) => {}
             ClientError::MethodError(_) => {}
+            ClientError::Problem { .. } => {}
             ClientError::Serialize(_) => {}
             ClientError::SseFrameTooLarge { .. } => {}
             ClientError::ResponseTooLarge { .. } => {}

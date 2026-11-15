@@ -7,7 +7,7 @@ use thiserror::Error;
 /// The machine-readable `type` of a [`JmapError`].
 ///
 /// Known variants are the RFC 8620 request-level error types (§3.6.1,
-/// whose wire form in an RFC 7807 problem-details body is prefixed with
+/// whose wire form in an RFC 9457 problem-details body is prefixed with
 /// `urn:ietf:params:jmap:error:`), the §3.6.2 method-level error types,
 /// and the method-specific errors of §5.1 to §5.6. Every other wire
 /// string, including extension errors such as `"rateLimited"`, is
@@ -126,7 +126,7 @@ pub struct JmapError {
     /// (RFC 8620 §3.6.1: "the "limit" property MUST contain the name of
     /// the limit being applied"), e.g. `"maxCallsInRequest"`.
     ///
-    /// Request-level errors are sent as an RFC 7807 problem-details body,
+    /// Request-level errors are sent as an RFC 9457 problem-details body,
     /// where `jmap-server` writes this as the `"limit"` property. It never
     /// appears in a `methodResponses` error, so it is not serialized here
     /// (the `limit` key there is the `tooManyChanges` count).
@@ -384,7 +384,7 @@ impl JmapError {
     /// `limit_name` is the name of the exceeded limit (e.g. `"maxCallsInRequest"`),
     /// stored in [`limit_name`][JmapError::limit_name]. The HTTP layer
     /// (`jmap-server::RequestError`) writes it as the RFC-required `"limit"`
-    /// property of the RFC 7807 problem-details body.
+    /// property of the RFC 9457 problem-details body.
     pub fn limit(limit_name: impl Into<String>) -> Self {
         Self {
             error_type: MethodErrorType::Limit,
@@ -398,7 +398,7 @@ impl JmapError {
     ///
     /// The URI is stored in [`description`][JmapError::description].  The HTTP layer
     /// (`jmap-server::RequestError`) reads `description` to populate the `"detail"` field
-    /// in the RFC 7807 problem-details response body — the same mechanism used by
+    /// in the RFC 9457 problem-details response body — the same mechanism used by
     /// [`limit()`][Self::limit] for its limit-name payload.
     ///
     /// **Invariant**: always construct unknownCapability errors that carry a URI with this

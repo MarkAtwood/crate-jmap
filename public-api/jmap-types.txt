@@ -144,6 +144,37 @@ pub fn jmap_types::i18n::localized_view(&mut serde_json::map::Map<alloc::string:
 pub fn jmap_types::i18n::lookup<'a, I>(&[jmap_types::i18n::LanguageRange], I) -> core::option::Option<&'a jmap_types::i18n::LanguageTag> where I: core::iter::traits::collect::IntoIterator<Item = &'a jmap_types::i18n::LanguageTag>, <I as core::iter::traits::collect::IntoIterator>::IntoIter: core::clone::Clone
 pub fn jmap_types::i18n::parse_locale(&serde_json::value::Value) -> core::result::Result<core::option::Option<jmap_types::i18n::LanguageTag>, alloc::boxed::Box<jmap_types::SetError>>
 pub fn jmap_types::i18n::prune_stale_localizations(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &jmap_types::PatchObject, &[jmap_types::i18n::LocalizableProperty]) -> bool
+pub mod jmap_types::problem
+#[non_exhaustive] pub struct jmap_types::problem::ProblemDetails
+pub jmap_types::problem::ProblemDetails::detail: core::option::Option<alloc::string::String>
+pub jmap_types::problem::ProblemDetails::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::problem::ProblemDetails::instance: core::option::Option<alloc::string::String>
+pub jmap_types::problem::ProblemDetails::limit: core::option::Option<alloc::string::String>
+pub jmap_types::problem::ProblemDetails::problem_type: alloc::string::String
+pub jmap_types::problem::ProblemDetails::status: core::option::Option<u16>
+pub jmap_types::problem::ProblemDetails::title: core::option::Option<alloc::string::String>
+impl jmap_types::problem::ProblemDetails
+pub fn jmap_types::problem::ProblemDetails::for_jmap_error(&jmap_types::JmapError, u16) -> Self
+pub fn jmap_types::problem::ProblemDetails::for_status(u16) -> Self
+pub fn jmap_types::problem::ProblemDetails::jmap_error_type(&self) -> core::option::Option<jmap_types::MethodErrorType>
+pub fn jmap_types::problem::ProblemDetails::new(impl core::convert::Into<alloc::string::String>, u16) -> Self
+pub fn jmap_types::problem::ProblemDetails::with_detail(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_types::problem::ProblemDetails::with_instance(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_types::problem::ProblemDetails::with_title(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_types::problem::ProblemDetails
+pub fn jmap_types::problem::ProblemDetails::clone(&self) -> jmap_types::problem::ProblemDetails
+impl core::cmp::PartialEq for jmap_types::problem::ProblemDetails
+pub fn jmap_types::problem::ProblemDetails::eq(&self, &jmap_types::problem::ProblemDetails) -> bool
+impl core::fmt::Debug for jmap_types::problem::ProblemDetails
+pub fn jmap_types::problem::ProblemDetails::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::problem::ProblemDetails
+impl serde_core::ser::Serialize for jmap_types::problem::ProblemDetails
+pub fn jmap_types::problem::ProblemDetails::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::problem::ProblemDetails
+pub fn jmap_types::problem::ProblemDetails::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_types::problem::ABOUT_BLANK: &str
+pub const jmap_types::problem::JMAP_ERROR_URN_PREFIX: &str
+pub const jmap_types::problem::PROBLEM_JSON: &str
 pub macro jmap_types::impl_string_enum!
 pub enum jmap_types::Argument<T: jmap_types::resultref::sealed::Sealed>
 pub jmap_types::Argument::Ref(jmap_types::ResultReference)

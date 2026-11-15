@@ -37,6 +37,7 @@ mod id;
 mod jmap_uri;
 mod methods;
 mod patch;
+pub mod problem;
 mod push;
 mod query;
 mod resultref;

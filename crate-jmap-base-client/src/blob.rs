@@ -736,7 +736,7 @@ impl JmapClient {
         let status = resp.status();
         Self::check_auth_status(status)?;
         Self::check_rate_limit(&resp)?;
-        let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
+        let resp = Self::error_for_status(resp).await?;
 
         let upload_limit = self.config.max_upload_response_body;
 
@@ -864,7 +864,7 @@ impl JmapClient {
         let status = resp.status();
         Self::check_auth_status(status)?;
         Self::check_rate_limit(&resp)?;
-        resp.error_for_status().map_err(ClientError::from_reqwest)
+        Self::error_for_status(resp).await
     }
 
     /// Upload raw bytes via a [`crate::Session`]-supplied URL

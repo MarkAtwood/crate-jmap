@@ -45,7 +45,7 @@ use axum::{
     extract::{Request, State as AxumState},
     http::{HeaderValue, StatusCode, header},
     middleware::Next,
-    response::{IntoResponse, Response},
+    response::Response,
 };
 use std::sync::Arc;
 use subtle::ConstantTimeEq;
@@ -253,13 +253,13 @@ fn hex_digit(b: u8) -> Option<u8> {
     }
 }
 
-/// Build the canonical 401 response with the RFC 6750 §3 challenge.
+/// Build the canonical 401 response with the RFC 6750 §3 challenge and an
+/// RFC 9457 problem details body (draft-atwood-jmap-updates-00 §7.2).
 fn unauthorized() -> Response {
-    let mut resp = (
+    let mut resp = crate::http::problem(
         StatusCode::UNAUTHORIZED,
-        "missing or invalid bearer token\n",
-    )
-        .into_response();
+        Some("missing or invalid bearer token"),
+    );
     resp.headers_mut().insert(
         header::WWW_AUTHENTICATE,
         // Static realm; sufficient for the test jig's purposes.

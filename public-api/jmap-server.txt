@@ -300,6 +300,8 @@ pub fn jmap_server::QueryResult::fmt(&self, &mut core::fmt::Formatter<'_>) -> co
 #[non_exhaustive] pub struct jmap_server::RequestError
 impl jmap_server::RequestError
 pub fn jmap_server::RequestError::into_response(self) -> http::response::Response<alloc::string::String>
+pub fn jmap_server::RequestError::problem_details(&self) -> jmap_types::problem::ProblemDetails
+pub fn jmap_server::RequestError::status(&self) -> http::status::StatusCode
 impl core::convert::From<jmap_types::error::JmapError> for jmap_server::RequestError
 pub fn jmap_server::RequestError::from(jmap_types::error::JmapError) -> Self
 impl core::error::Error for jmap_server::RequestError
@@ -324,6 +326,7 @@ pub const jmap_server::SERVER_FAIL_INTERNAL_DESC: &str
 pub trait jmap_server::JmapBackend: core::marker::Send + core::marker::Sync + 'static
 pub type jmap_server::JmapBackend::CallerCtx: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static
 pub type jmap_server::JmapBackend::Error: core::error::Error + core::marker::Send + core::marker::Sync + 'static
+pub fn jmap_server::JmapBackend::accept_language(&Self::CallerCtx) -> core::option::Option<&str>
 pub fn jmap_server::JmapBackend::account_exists(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_server::JmapBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_server::ChangesParams<'_>) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::ChangesResult, jmap_server::BackendChangesError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::JmapBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> impl core::future::future::Future<Output = core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>> + core::marker::Send
@@ -380,6 +383,7 @@ pub fn jmap_server::parse_max_changes(core::option::Option<&serde_json::value::V
 pub fn jmap_server::parse_request(serde_json::value::Value, usize) -> core::result::Result<jmap_types::wire::JmapRequest, jmap_types::error::JmapError>
 pub fn jmap_server::parse_request_bytes(&[u8], usize) -> core::result::Result<jmap_types::wire::JmapRequest, jmap_types::error::JmapError>
 pub fn jmap_server::parse_wire_id(&str, &str) -> core::result::Result<jmap_types::id::Id, alloc::boxed::Box<jmap_types::set_error::SetError>>
+pub fn jmap_server::problem_response(http::status::StatusCode, &jmap_types::problem::ProblemDetails, core::option::Option<&str>) -> http::response::Response<alloc::string::String>
 pub fn jmap_server::query_anchor_args(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(core::option::Option<jmap_types::id::Id>, i64), jmap_types::error::JmapError>
 pub fn jmap_server::register_push_subscription_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_server::PushSubscriptionBackend + 'static
 pub fn jmap_server::reject_did_bearing_properties(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &[&str], core::option::Option<&serde_json::map::Map<alloc::string::String, serde_json::value::Value>>) -> core::option::Option<jmap_types::set_error::SetError>
