@@ -50,6 +50,7 @@ async fn memory_backend_state_advances_after_create() {
     use jmap_mail_types::MailboxRights;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let state_before = backend
@@ -92,6 +93,7 @@ async fn memory_backend_create_then_get() {
     use jmap_mail_types::MailboxRights;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let mailbox = |id: &Id| {
@@ -134,6 +136,7 @@ async fn memory_backend_destroy_removes_object() {
     use jmap_mail_types::MailboxRights;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let mailbox = |id: &Id| {
@@ -184,6 +187,7 @@ async fn memory_backend_get_changes_from_zero() {
     use jmap_types::State;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let m1 = |id: &Id| {
@@ -244,6 +248,7 @@ async fn memory_backend_search_snippets_highlight() {
     use jmap_mail_types::EmailFilterCondition;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Store a blob and import an email with a known subject.
@@ -288,6 +293,7 @@ async fn memory_backend_search_snippets_highlight() {
 #[tokio::test]
 async fn thread_get_returns_email_ids() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Import two emails (they will land in the same thread only if they share
@@ -372,6 +378,7 @@ async fn thread_get_returns_email_ids() {
 #[tokio::test]
 async fn thread_changes_from_zero_returns_all() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Import one email; this creates a thread.
@@ -453,6 +460,7 @@ async fn thread_changes_from_zero_returns_all() {
 #[tokio::test]
 async fn search_snippet_get_returns_snippets() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Import an email with a known subject and body.
@@ -1065,6 +1073,7 @@ async fn mailbox_set_create_and_get() {
 #[tokio::test]
 async fn mailbox_set_destroy_with_emails_no_flag_fails() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     // Create a mailbox.
@@ -1128,6 +1137,7 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
 #[tokio::test]
 async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     // Create mailbox.
@@ -2555,6 +2565,7 @@ async fn submission_get_response_structure() {
 #[tokio::test]
 async fn submission_set_create_and_get() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an Identity to send from.
@@ -2656,6 +2667,7 @@ async fn submission_set_on_success_update_email() {
     use jmap_mail_types::{self, Keyword};
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create Identity.
@@ -2783,6 +2795,7 @@ async fn dispatch_submission_set_on_success_update_email_orders_responses() {
     use std::sync::Arc;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (identity_id, _) = backend
@@ -2854,6 +2867,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
     use jmap_mail_types::Identity;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account-imm-sub"));
     let account_id = Id::from("account-imm-sub");
 
     // Create Identity.
@@ -2935,6 +2949,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
 #[tokio::test]
 async fn submission_set_invalid_identity_fails() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Import an email (exists).
@@ -3110,6 +3125,7 @@ async fn email_set_create_and_get() {
 #[tokio::test]
 async fn email_set_create_keyword_false_value_not_stored() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Pre-create a mailbox so the email create succeeds.
@@ -4563,6 +4579,7 @@ async fn submission_set_update_only_undo_status_allowed() {
     use jmap_mail_types::Identity;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an Identity and email, then a submission.
@@ -4647,6 +4664,7 @@ async fn submission_set_update_only_undo_status_allowed() {
 #[tokio::test]
 async fn mailbox_set_create_child_then_destroy_parent_blocked() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     // First create the parent mailbox.
@@ -5082,6 +5100,7 @@ async fn make_identity_and_email(
     mailbox_id: &str,
 ) -> (Id, Id) {
     use jmap_mail_types::Identity;
+    backend.register_account(account_id);
     let identity = |id: &Id| Identity::new(id.clone(), addr, true);
     let (identity_id, _) = backend
         .create_object::<Identity, _>(&(), account_id, "i", identity)
@@ -5903,6 +5922,7 @@ async fn submission_query_changes_honors_sort() {
 #[tokio::test]
 async fn submission_set_create_no_recipients_fails() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an Identity.
@@ -5968,6 +5988,7 @@ async fn submission_set_create_no_recipients_fails() {
 #[tokio::test]
 async fn mailbox_set_role_uniqueness_create_then_update() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create a mailbox with no role that we will try to assign a role to via update.
@@ -6045,6 +6066,7 @@ async fn mailbox_set_role_uniqueness_create_then_update() {
 #[tokio::test]
 async fn mailbox_set_role_swap_succeeds_in_single_request() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create mailbox A with role "inbox".
@@ -6433,6 +6455,7 @@ async fn mailbox_set_create_backend_other_goes_to_not_created() {
 async fn mailbox_set_update_backend_other_goes_to_not_updated() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     // Pre-create a mailbox via the inner backend so the update has a target.
     let mailbox = |id: &Id| {
         jmap_mail_types::Mailbox::new(
@@ -6478,6 +6501,7 @@ async fn mailbox_set_update_backend_other_goes_to_not_updated() {
 async fn mailbox_set_destroy_backend_other_goes_to_not_destroyed() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     let mailbox = |id: &Id| {
         jmap_mail_types::Mailbox::new(
             id.clone(),
@@ -6550,6 +6574,7 @@ async fn email_set_update_backend_other_goes_to_not_updated() {
     use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     let email = |id: &Id| {
         jmap_mail_types::Email::new(
             id.clone(),
@@ -6592,6 +6617,7 @@ async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
     use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     let email = |id: &Id| {
         jmap_mail_types::Email::new(
             id.clone(),
@@ -6666,6 +6692,7 @@ async fn submission_set_create_backend_other_goes_to_not_created() {
     use std::collections::BTreeMap;
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
 
     // Create an Identity so identityId validation passes.
     let identity =
@@ -6751,6 +6778,7 @@ async fn identity_set_create_backend_other_goes_to_not_created() {
 async fn identity_set_update_backend_other_goes_to_not_updated() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     let identity = |id: &Id| Identity::new(id.clone(), "user@example.com".to_owned(), true);
     let (id, _) = backend
         .inner
@@ -6785,6 +6813,7 @@ async fn identity_set_update_backend_other_goes_to_not_updated() {
 async fn identity_set_destroy_backend_other_goes_to_not_destroyed() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     // mayDelete = true so the handler proceeds to call destroy_object.
     let identity = |id: &Id| Identity::new(id.clone(), "user@example.com".to_owned(), true);
     let (id, _) = backend
@@ -6923,6 +6952,7 @@ async fn set_per_id_server_fail_redacts_backend_display_create() {
 async fn set_per_id_server_fail_redacts_backend_display_update() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     let mailbox = |id: &Id| {
         jmap_mail_types::Mailbox::new(
             id.clone(),
@@ -6970,6 +7000,7 @@ async fn set_per_id_server_fail_redacts_backend_display_update() {
 async fn set_per_id_server_fail_redacts_backend_display_destroy() {
     let backend = FaultyBackend::new();
     let account = Id::from("acct1");
+    backend.inner.register_account(&account);
     let mailbox = |id: &Id| {
         jmap_mail_types::Mailbox::new(
             id.clone(),
@@ -7695,6 +7726,7 @@ fn capability_uri_vacation_response_matches_rfc() {
 #[tokio::test]
 async fn submission_set_create_send_at_from_client_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
@@ -8011,6 +8043,7 @@ async fn email_set_create_body_value_is_truncated_true_rejected() {
 #[tokio::test]
 async fn submission_set_create_send_at_null_accepted() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
@@ -8060,6 +8093,7 @@ async fn submission_set_create_send_at_null_accepted() {
 /// Helper: import a message with known headers and return its email id.
 async fn import_msg_with_headers(backend: &MemoryBackend, raw: &[u8]) -> Id {
     let blob_id = Id::from(format!("blob-hdr-{}", uuid::Uuid::new_v4()));
+    backend.register_account(&Id::from("acct1"));
     backend.store_blob(&blob_id, raw.to_vec());
     backend
         .import_email(
@@ -8672,6 +8706,7 @@ async fn submission_set_destroy_non_string_returns_invalid_arguments() {
 #[tokio::test]
 async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct-onsuccess-no-apply"));
     let account_id = Id::from("acct-onsuccess-no-apply");
 
     // Create an Identity so the submission handler can validate it.
@@ -8894,6 +8929,7 @@ async fn email_parse_header_invalid_form_rejected() {
 #[tokio::test]
 async fn email_query_collapse_threads_deduplicates() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct-collapse"));
     let account_id = Id::from("acct-collapse");
 
     // Import two emails that end up in the same thread by shared message-id reference.
@@ -9058,6 +9094,7 @@ async fn thread_get_email_ids_sorted_by_received_at() {
 #[tokio::test]
 async fn mailbox_set_destroy_with_children() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     // Create the parent mailbox directly via the backend.
@@ -9139,6 +9176,7 @@ async fn mailbox_set_destroy_with_children() {
 #[tokio::test]
 async fn mailbox_set_create_duplicate_name() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     // Create a parent mailbox to hold the duplicates.
@@ -9268,6 +9306,7 @@ async fn mailbox_set_create_duplicate_name() {
 #[tokio::test]
 async fn email_get_properties_filtering_restricts_fields() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     let (mailbox_id, _) = backend
@@ -9355,6 +9394,7 @@ async fn email_get_properties_filtering_restricts_fields() {
 #[tokio::test]
 async fn email_get_no_properties_returns_default_fields() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     let (mailbox_id, _) = backend
@@ -13810,6 +13850,7 @@ Subject: Re: Project Alpha Discussion\r\n\r\nAnother reply.\r\n";
 #[tokio::test]
 async fn email_set_create_size_is_nonzero() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create a mailbox first (required so mailboxIds is valid).
@@ -13870,6 +13911,7 @@ async fn mailbox_set_destroy_child_then_parent_in_one_request() {
     use jmap_mail_types::MailboxRights;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     // Create parent.

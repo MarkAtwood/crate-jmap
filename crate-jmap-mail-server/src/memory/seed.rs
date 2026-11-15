@@ -243,8 +243,10 @@ fn multipart_alternative(headers: &[(&str, &str)], plain_body: &str, html_body: 
 
 /// Populate `backend` with the canonical seed-data fixture.
 ///
-/// Creates 5 mailboxes and 16 emails. Returns the assigned Ids for all
-/// objects so callers can reference them in assertions.
+/// Registers `account_id` (fixture setup, like
+/// [`MemoryBackend::seed_object`]), then creates 5 mailboxes and 16
+/// emails. Returns the assigned Ids for all objects so callers can
+/// reference them in assertions.
 ///
 /// # Panics
 ///
@@ -254,6 +256,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
     let mut mailboxes: HashMap<&'static str, Id> = HashMap::new();
     let mut emails: HashMap<&'static str, Id> = HashMap::new();
     let mut threads: HashMap<&'static str, Id> = HashMap::new();
+    backend.register_account(account_id);
 
     // -----------------------------------------------------------------------
     // Mailboxes

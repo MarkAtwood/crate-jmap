@@ -46,6 +46,7 @@ Disposition-Notification-To: Jane Sender <Jane_Sender@example.org>\r\n\
 The email body.\r\n";
 
     let blob_id = Id::from("blob-mdn-email");
+    backend.register_account(account_id);
     backend.store_blob(&blob_id, raw.to_vec());
 
     let mailbox_id = Id::from("inbox-mdn");
@@ -63,6 +64,7 @@ The email body.\r\n";
 ///
 /// Panics on any backend error — this is test fixture setup code.
 async fn setup_identity(backend: &MemoryBackend, account_id: &Id) -> Id {
+    backend.register_account(account_id);
     let identity = |id: &Id| Identity::new(id.clone(), "Jane_Sender@example.org", true);
     let (identity_id, _) = backend
         .create_object::<Identity, _>(&(), account_id, "ident-mdn", identity)

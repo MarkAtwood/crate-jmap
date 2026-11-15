@@ -216,6 +216,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-mail-server**, **jmap-chat-server**,
+  **jmap-calendars-server**, **jmap-tasks-server**,
+  **jmap-contacts-server**, **jmap-sharing-server** (`memory` feature): no
+  `MemoryBackend` mutation registers an account any more. Before, a direct
+  backend call on an unknown account could bring that account into
+  existence. Now a create, import or copy into an unknown account is
+  `BackendSetError::Other`, and an update or destroy is `notFound`.
+  Only `register_account`, `with_account`, `new_with_accounts`,
+  `seed_object` and mail's `setup_seed_data` register accounts. Tests
+  that call the backend directly must register first. The handlers already
+  answered `accountNotFound`, so the wire behaviour is unchanged.
+  (bd:JMAP-ayoz.36)
 - **jmap-testjig**: the Session advertises RFC 9670 Sharing as
   `urn:ietf:params:jmap:principals` instead of the undefined
   `urn:ietf:params:jmap:sharing`. The account's principals capability

@@ -247,17 +247,49 @@ impl Inner {
         *entry
     }
 
+    /// The store for `type_name` in `account_id`, created empty on first
+    /// use. Pure storage: it never registers the account (bd:JMAP-ayoz.36);
+    /// mutations check `require_account` first.
     fn objects_mut(
         &mut self,
         type_name: &'static str,
         account_id: &str,
     ) -> &mut HashMap<Id, serde_json::Value> {
-        self.known_accounts.insert(account_id.to_owned());
         self.objects
             .entry(type_name)
             .or_default()
             .entry(account_id.to_owned())
             .or_default()
+    }
+
+    /// `Err` unless `account_id` was registered. Creates and copies are
+    /// per-object mutations, not account lifecycle operations
+    /// (bd:JMAP-ayoz.2, JMAP-ayoz.36): one aimed at an unknown account fails
+    /// instead of registering it. The handlers answer `accountNotFound`
+    /// before this is reached; it guards direct backend callers.
+    fn require_account(&self, account_id: &str) -> Result<(), BackendSetError<MemoryError>> {
+        if self.known_accounts.contains(account_id) {
+            Ok(())
+        } else {
+            Err(BackendSetError::Other(MemoryError::new(format!(
+                "unknown account {account_id:?}"
+            ))))
+        }
+    }
+
+    /// `notFound` for an update or destroy in an account nobody registered:
+    /// it has no objects (RFC 8620 §5.3).
+    fn require_account_for_target(
+        &self,
+        account_id: &str,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        if self.known_accounts.contains(account_id) {
+            Ok(())
+        } else {
+            Err(BackendSetError::SetError(Box::new(SetError::new(
+                SetErrorType::NotFound,
+            ))))
+        }
     }
 
     fn objects_ref(
@@ -281,7 +313,6 @@ impl Inner {
     }
 
     fn aux_mut(&mut self, account_id: &str) -> &mut AccountAux {
-        self.known_accounts.insert(account_id.to_owned());
         self.aux.entry(account_id.to_owned()).or_default()
     }
 
@@ -1039,7 +1070,7 @@ impl ContactsBackend for MemoryBackend {
 
         let mut inner = self.inner.lock().unwrap();
         check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
-        inner.known_accounts.insert(account_id.as_ref().to_owned());
+        inner.require_account(account_id.as_ref())?;
 
         if O::TYPE_NAME == "ContactCard" {
             check_contact_card_create(&inner, account_id.as_ref(), &val)?;
@@ -1126,6 +1157,7 @@ impl ContactsBackend for MemoryBackend {
         }
 
         let mut inner = self.inner.lock().unwrap();
+        inner.require_account_for_target(account_id.as_ref())?;
 
         // -05 §3.2 rule 1: "If the user cannot read the related object,
         // reject with "notFound"" comes before "forbidden". Here only a
@@ -1346,6 +1378,7 @@ impl ContactsBackend for MemoryBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
+        inner.require_account_for_target(account_id.as_ref())?;
 
         let removed = inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1405,9 +1438,7 @@ impl ContactsBackend for MemoryBackend {
             ))));
         }
 
-        inner
-            .known_accounts
-            .insert(to_account_id.as_ref().to_owned());
+        inner.require_account(to_account_id.as_ref())?;
 
         let new_id = Id::from(uuid::Uuid::new_v4().to_string());
 

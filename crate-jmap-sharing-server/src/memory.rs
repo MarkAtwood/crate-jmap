@@ -156,10 +156,11 @@ impl Inner {
     ) -> &mut HashMap<Id, serde_json::Value> {
         // Note: deliberately no `known_accounts.insert(...)` side-effect.
         // Account registration is the responsibility of the caller (the
-        // matching `SharingBackend` write op) — `create_object` registers
-        // explicitly after the create commits, while `update_object` and
-        // `destroy_object` MUST gate on `known_accounts.contains(...)`
-        // before invoking this helper. Coupling registration to lookup
+        // matching `SharingBackend` write op) — no write op registers an
+        // account (bd:JMAP-ayoz.2, JMAP-ayoz.36): `create_object` fails on
+        // an unknown account, and `update_object` and `destroy_object`
+        // MUST gate on `known_accounts.contains(...)` before invoking this
+        // helper. Coupling registration to lookup
         // would let an unknown accountId pass the handler-layer
         // `account_exists` check on its second visit (RFC 8620 §3.6.2
         // requires consistent `accountNotFound`).
@@ -950,7 +951,16 @@ impl SharingBackend for MemoryBackend {
             check_metadata_create(metadata_info_for::<O>(&inner), obj)?;
         }
 
-        inner.known_accounts.insert(account_id.as_ref().to_owned());
+        // A create is a per-object mutation, not an account lifecycle
+        // operation (bd:JMAP-ayoz.2): fail rather than register. The
+        // handler answers `accountNotFound` first; this guards direct
+        // backend callers.
+        if !inner.known_accounts.contains(account_id.as_ref()) {
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "unknown account {:?}",
+                account_id.as_ref()
+            ))));
+        }
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())

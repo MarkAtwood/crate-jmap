@@ -186,17 +186,50 @@ impl Inner {
         *entry
     }
 
+    /// The store for `type_name` in `account_id`, created empty on first
+    /// use. Pure storage: it never registers the account, so a mutation on
+    /// an account nobody registered cannot bring it into existence
+    /// (bd:JMAP-ayoz.36). Mutations check [`Self::require_account`] first.
     fn objects_mut(
         &mut self,
         type_name: &'static str,
         account_id: &str,
     ) -> &mut HashMap<Id, serde_json::Value> {
-        self.known_accounts.insert(account_id.to_owned());
         self.objects
             .entry(type_name)
             .or_default()
             .entry(account_id.to_owned())
             .or_default()
+    }
+
+    /// `Err` unless `account_id` was registered. Creates, imports and
+    /// copies are per-object mutations, not account lifecycle operations
+    /// (bd:JMAP-ayoz.2): one aimed at an unknown account fails instead of
+    /// registering it. The handlers answer `accountNotFound` before this is
+    /// reached; it guards direct backend callers.
+    fn require_account(&self, account_id: &str) -> Result<(), BackendSetError<MemoryError>> {
+        if self.known_accounts.contains(account_id) {
+            Ok(())
+        } else {
+            Err(BackendSetError::Other(MemoryError::new(format!(
+                "unknown account {account_id:?}"
+            ))))
+        }
+    }
+
+    /// `notFound` for an update or destroy in an account nobody registered:
+    /// it has no objects (RFC 8620 §5.3).
+    fn require_account_for_target(
+        &self,
+        account_id: &str,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        if self.known_accounts.contains(account_id) {
+            Ok(())
+        } else {
+            Err(BackendSetError::SetError(Box::new(SetError::new(
+                SetErrorType::NotFound,
+            ))))
+        }
     }
 
     fn objects_ref(
@@ -585,6 +618,9 @@ impl MemoryBackend {
                 index.insert(msg_id.to_owned(), id.clone());
             }
         }
+        // Seeding is fixture setup: it registers the account (explicitly,
+        // since `objects_mut` no longer does).
+        inner.known_accounts.insert(account.to_owned());
         inner
             .objects_mut(type_name, account)
             .insert(id.clone(), value);
@@ -1700,6 +1736,7 @@ impl MailBackend for MemoryBackend {
         })?;
 
         let mut inner = self.inner.lock().unwrap();
+        inner.require_account(account_id.as_ref())?;
         if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
             check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         }
@@ -1750,6 +1787,7 @@ impl MailBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
 
         let mut inner = self.inner.lock().unwrap();
+        inner.require_account(account_id.as_ref())?;
         check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.blobs.insert(blob_id, message);
         inner.insert_email(account_id, &email, val);
@@ -1792,6 +1830,7 @@ impl MailBackend for MemoryBackend {
         }
 
         let mut inner = self.inner.lock().unwrap();
+        inner.require_account_for_target(account_id.as_ref())?;
         // draft-ietf-jmap-metadata-05 §3.2 rule 1: "If the user cannot read
         // the related object, reject with "notFound"" comes before
         // "forbidden". Here only a missing object is unreadable.
@@ -1924,6 +1963,7 @@ impl MailBackend for MemoryBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
+        inner.require_account_for_target(account_id.as_ref())?;
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
         store.remove(id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
@@ -1987,6 +2027,7 @@ impl MailBackend for MemoryBackend {
         // the duplicate check before either inserts, resulting in duplicates.
         let (email, email_id) = {
             let mut inner = self.inner.lock().unwrap();
+            inner.require_account(account_id.as_ref())?;
 
             // Check for duplicate Message-ID (RFC 8621 §4.8).
             if let Some(msg_ids) = &parsed.message_id
@@ -2150,6 +2191,7 @@ impl MailBackend for MemoryBackend {
         })?;
 
         let mut inner = self.inner.lock().unwrap();
+        inner.require_account(to_account_id.as_ref())?;
         if O::TYPE_NAME == Email::TYPE_NAME {
             check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
             let email = Email::deserialize(&val).map_err(|e| {
@@ -3484,6 +3526,7 @@ mod tests {
     async fn rejected_email_patch_leaves_stored_json_unchanged() {
         let backend = MemoryBackend::new();
         let account = Id::from("account1");
+        backend.register_account(&account);
         let id = Id::from("e1");
         let stored = serde_json::json!({ "id": "e1", "mailboxIds": { "m1": true } });
         backend
@@ -3517,6 +3560,74 @@ mod tests {
         assert_eq!(after, Some(stored));
     }
 
+    /// bd:JMAP-ayoz.36 (and ayoz.2): no mutation registers an account. On
+    /// an account nobody registered, create, import and copy fail, update
+    /// and destroy are `notFound` (RFC 8620 §5.3: it has no objects), and
+    /// `account_exists` stays false afterwards (RFC 8620 §3.6.2 would
+    /// otherwise stop answering `accountNotFound` for it).
+    #[tokio::test]
+    async fn mutations_never_register_an_account() {
+        use crate::MailBackend;
+        use jmap_server::JmapBackend;
+        let backend = MemoryBackend::new();
+        let ghost = Id::from("ghost");
+        let mailbox = |id: &Id| {
+            Mailbox::new(
+                id.clone(),
+                "Inbox",
+                0,
+                0,
+                0,
+                0,
+                0,
+                jmap_mail_types::MailboxRights::default(),
+                true,
+            )
+        };
+        assert!(matches!(
+            backend
+                .create_object::<Mailbox, _>(&(), &ghost, "c", mailbox)
+                .await,
+            Err(BackendSetError::Other(_))
+        ));
+        let blob = Id::from("b");
+        backend.store_blob(&blob, b"Subject: x\r\n\r\nbody\r\n".to_vec());
+        assert!(matches!(
+            backend
+                .import_email(&(), &ghost, &blob, &[Id::from("m")], &[], None)
+                .await,
+            Err(BackendSetError::Other(_))
+        ));
+        let not_found = |r: Result<(), BackendSetError<MemoryError>>| matches!(r, Err(BackendSetError::SetError(se)) if se.error_type == SetErrorType::NotFound);
+        assert!(not_found(
+            backend
+                .destroy_object::<Mailbox>(&(), &ghost, &Id::from("x"))
+                .await
+        ));
+        assert!(not_found(
+            backend
+                .update_object::<Mailbox>(&(), &ghost, &Id::from("x"), Default::default())
+                .await
+                .map(|_| ())
+        ));
+
+        // Copy into an unknown account, from a real one.
+        let real = Id::from("real");
+        backend.register_account(&real);
+        let (_, mbox) = backend
+            .create_object::<Mailbox, _>(&(), &real, "c", mailbox)
+            .await
+            .unwrap();
+        assert!(matches!(
+            backend
+                .copy_object::<Mailbox>(&(), &real, &ghost, mbox, &serde_json::json!({}))
+                .await,
+            Err(BackendSetError::Other(_))
+        ));
+
+        assert!(!backend.account_exists(&(), &ghost).await.unwrap());
+    }
+
     /// backend.rs "# Singleton types": "if an object already exists for the
     /// given key, the implementation MUST return the existing object rather
     /// than creating a duplicate." A second create of the VacationResponse
@@ -3526,6 +3637,7 @@ mod tests {
     async fn create_object_returns_existing_singleton() {
         let backend = MemoryBackend::new();
         let account = Id::from("account1");
+        backend.register_account(&account);
         let stored = serde_json::json!({
             "id": "singleton",
             "isEnabled": true,
