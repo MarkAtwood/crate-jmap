@@ -58,6 +58,14 @@ wire behaviour that a conforming peer can observe.
   localizations in every account (at most 32 per Mailbox) and prunes stale
   translations on rename. Identity and VacationResponse are deliberately
   not localizable.
+- **jmap-contacts-types**, **jmap-contacts-server**: AddressBook `name`
+  and `description` are localizable (draft-atwood-jmap-updates-00 §5.3).
+  `AddressBook` gains `locale` and `localizations`; `AddressBook/set` runs
+  the i18n checks and `AddressBook/get` returns the language view through
+  `handle_get_with_metadata`. The memory backend supports localizations in
+  every account (at most 32 per AddressBook) and prunes stale translations.
+  ContactCard keeps JSContact's own `localizations`, and `language` on
+  `ContactCard/get` is `invalidArguments`.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.

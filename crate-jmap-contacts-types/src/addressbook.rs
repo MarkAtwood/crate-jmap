@@ -36,6 +36,8 @@ const ADDRESS_BOOK_TYPED_FIELDS: &[&str] = &[
     "myRights",
     "metadata",
     "privateMetadata",
+    "locale",
+    "localizations",
 ];
 
 /// Access rights a principal holds on an AddressBook (RFC 9610 §2).
@@ -149,6 +151,19 @@ pub struct AddressBook {
     /// handling as `metadata`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
+
+    /// The language of `name` and `description`
+    /// (draft-atwood-jmap-updates-00 §4.1); `None` when unknown or not
+    /// stored. Returned only to requests that use
+    /// `urn:ietf:params:jmap:i18n`; jmap-contacts-server shapes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<jmap_types::i18n::LanguageTag>,
+
+    /// `name` and `description` in other languages
+    /// (draft-atwood-jmap-updates-00 §4.1, §5.3). A `null` localized
+    /// `description` means there is none in that language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub localizations: Option<jmap_types::i18n::Localizations>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

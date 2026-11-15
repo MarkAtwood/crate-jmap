@@ -127,6 +127,8 @@ pub jmap_contacts_types::AddressBook::extra: serde_json::map::Map<alloc::string:
 pub jmap_contacts_types::AddressBook::id: jmap_types::id::Id
 pub jmap_contacts_types::AddressBook::is_default: bool
 pub jmap_contacts_types::AddressBook::is_subscribed: bool
+pub jmap_contacts_types::AddressBook::locale: core::option::Option<jmap_types::i18n::LanguageTag>
+pub jmap_contacts_types::AddressBook::localizations: core::option::Option<jmap_types::i18n::Localizations>
 pub jmap_contacts_types::AddressBook::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_contacts_types::AddressBook::my_rights: jmap_contacts_types::AddressBookRights
 pub jmap_contacts_types::AddressBook::name: alloc::string::String
@@ -145,6 +147,7 @@ impl core::marker::StructuralPartialEq for jmap_contacts_types::AddressBook
 impl jmap_types::backend::GetObject for jmap_contacts_types::AddressBook
 impl jmap_types::backend::JmapObject for jmap_contacts_types::AddressBook
 pub type jmap_contacts_types::AddressBook::Property = jmap_contacts_types::AddressBookProperty
+pub const jmap_contacts_types::AddressBook::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_contacts_types::AddressBook::TYPE_NAME: &'static str
 impl jmap_types::backend::SetObject for jmap_contacts_types::AddressBook
 pub type jmap_contacts_types::AddressBook::Patch = jmap_types::patch::PatchObject

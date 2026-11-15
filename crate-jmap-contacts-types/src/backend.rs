@@ -111,9 +111,15 @@ pub enum ContactCardProperty {
 // JmapObject impls
 // ---------------------------------------------------------------------------
 
+/// draft-atwood-jmap-updates-00 §5.3: AddressBook `name` and
+/// `description` are localizable.
 impl JmapObject for crate::AddressBook {
     const TYPE_NAME: &'static str = "AddressBook";
     type Property = AddressBookProperty;
+    const LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty] = &[
+        jmap_types::i18n::LocalizableProperty::new("name", false),
+        jmap_types::i18n::LocalizableProperty::new("description", true),
+    ];
 }
 
 impl GetObject for crate::AddressBook {}
@@ -134,12 +140,18 @@ impl SetObject for crate::AddressBook {
         "shareWith",
         "metadata",
         "privateMetadata",
+        "locale",
+        "localizations",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
 
 // AddressBook does NOT implement QueryObject — spec has no AddressBook/query.
 
+/// ContactCard is deliberately NOT localizable under
+/// draft-atwood-jmap-updates-00 (§5.3): it is a JSContact Card with its
+/// own `language` and `localizations` (RFC 9553 §2.1.5, §2.7.1), and the
+/// `language` argument does not apply to `ContactCard/get`.
 impl JmapObject for crate::ContactCard {
     const TYPE_NAME: &'static str = "ContactCard";
     type Property = ContactCardProperty;
@@ -230,6 +242,8 @@ mod tests {
             my_rights: rights(),
             metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
             private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
+            locale: Some(de(json!("en"))),
+            localizations: Some(de(json!({"fr": {"name": "Équipe"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

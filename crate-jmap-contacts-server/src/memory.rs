@@ -588,9 +588,20 @@ impl MemoryBackend {
 // JmapBackend impl (read-side supertrait)
 // ---------------------------------------------------------------------------
 
+/// The most localizations the memory backend stores per object
+/// (draft-atwood-jmap-updates-00 §4.1 MAY).
+const MAX_LOCALIZATIONS: usize = 32;
+
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
+
+    /// Every account supports localizations
+    /// (draft-atwood-jmap-updates-00), with at most 32 localizations per
+    /// AddressBook.
+    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+        Some(jmap_server::I18nInfo::new().with_max_localizations(Some(MAX_LOCALIZATIONS)))
+    }
 
     /// The info set by [`MemoryBackend::with_metadata_info`], the same for
     /// every account.
@@ -1172,6 +1183,17 @@ impl ContactsBackend for MemoryBackend {
         // The value-dependent patch errors (missing parent, path through an
         // array or a Binary value) land here, after rule 3 and before rule 4 (-05 §3.2).
         apply_patch_object(target, patch_map).map_err(|e| invalid_patch(e.to_string()))?;
+        // draft-atwood-jmap-updates-00 §4.1: check `locale` and
+        // `localizations` on the patched object and prune translations of a
+        // changed base value, in this same update. A no-op for types without
+        // localizable properties (ContactCard keeps JSContact's own).
+        let pruned = jmap_server::localized_update::<O>(
+            &before,
+            target,
+            &jmap_types::PatchObject::from_map(patch_map.clone()),
+            Some(MAX_LOCALIZATIONS),
+        )
+        .map_err(BackendSetError::SetError)?;
         if let Some(info) = &metadata_info {
             // -05 §3.2: "In an update, null is equivalent to {}"; the patch
             // removed the property instead.
@@ -1195,12 +1217,15 @@ impl ContactsBackend for MemoryBackend {
         // RFC 8620 §5.3: the patched object must still be valid. Re-check it
         // against the typed object so a null or wrong-typed required property
         // is rejected here instead of stored and breaking every later /get.
-        O::deserialize(&current).map_err(|e| {
+        let decoded = O::deserialize(&current).map_err(|e| {
             BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_description(format!("patch produced invalid {}: {e}", O::TYPE_NAME)),
             ))
         })?;
+        // `localized_update` contract: return the object when pruning removed
+        // anything, so the handler echoes `localizations`.
+        let echo = pruned.then_some(decoded);
 
         // RFC 9610 §3: a ContactCard MUST belong to at least one
         // AddressBook at all times. Reject the update if the post-patch
@@ -1306,13 +1331,12 @@ impl ContactsBackend for MemoryBackend {
             });
         }
 
-        // Ok(None) is workspace-canonical: per crate-jmap-mail-server's
-        // analogous comment ('MemoryBackend does not echo server-modified
-        // fields'), the reference impl never returns Ok(Some). The single-
+        // The reference impl returns Ok(Some) only after pruning stale
+        // localizations (draft-atwood-jmap-updates-00 §4.1). The single-
         // default demotion above changed OTHER objects, not this one, so
         // RFC 8620 §5.3's Ok(Some)-for-server-set-fields contract does not
-        // fire here either way.
-        Ok(None)
+        // fire for it.
+        Ok(echo)
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(
