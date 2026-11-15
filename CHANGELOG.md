@@ -143,6 +143,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-graph-server**: `GraphNode/set` checks `uri` against the full RFC
+  3986 grammar (`jmap_types::uri::check_uri`) instead of a character-set
+  check, so values such as a `[` inside a host name or a non-numeric port
+  are now `invalidProperties`.
 - **jmap-vtc-server**: `VTCLivestream/set` rejects a `streamUri` that is not
   an RFC 3986 URI with `invalidProperties`, on create and update
   (draft-atwood-jmap-updates-00 §7.1).

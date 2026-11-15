@@ -330,7 +330,7 @@ names that comparison, which §7.1 allows.
 | chat-federation | PeerAttachment and PeerAvatar `fetchUrl` | Peer/deliver: a non-URI attachment `fetchUrl` is `invalidArguments` before any fetch; Peer/groupUpdate: a non-URI avatar `fetchUrl` is a failed (unfetched) avatar, the request still applies; outbound: the deployment mints URIs (rustdoc), JMAP-cayv.19 | done |
 | scene | SceneAsset/SceneObject `assetUri`, SceneRegion `simulationUri`/`inputUri` | `/set` create and update: a non-URI value is `invalidProperties` naming it (the endpoints stay opaque in meaning; a `host:port` endpoint still parses as a URI), JMAP-cayv.20 | done |
 | vtc | VTCCall `joinUri` (and its copies in events and push), VTCLivestream `streamUri` | `joinUri`: server-set, `VtcBackend::create_call` rustdoc MUST (the memory backend's is a URI); `streamUri`: `VTCLivestream/set` create and update reject a non-URI with `invalidProperties`, JMAP-cayv.21 | done |
-| graph | GraphNode `uri`, query `objectUri` | none | bead |
+| graph | GraphNode `uri`, query `objectUri` | `uri`: already rejected on `/set`; the hand-rolled character-set check is replaced by `check_uri` (full grammar), JMAP-cayv.22. `objectUri` filter values are compared as strings (graph-projection), so a non-URI just matches nothing | done |
 | tasks | Task `uri` | none | bead |
 | filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | none (server-set Session data) | bead |
 | did | capability `didDocumentUri` | none (server-set) | bead |

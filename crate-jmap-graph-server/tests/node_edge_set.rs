@@ -206,6 +206,30 @@ async fn node_uri() {
     assert_eq!(resp["notCreated"]["bad"]["properties"], json!(["uri"]));
     assert!(resp["created"]["jmap"].is_object(), "{resp}");
     assert!(resp["created"]["web"].is_object(), "{resp}");
+
+    // RFC 3986 §3.2.2: `[` and `]` delimit an IP literal and may not appear
+    // inside a registered name, and §3.2.3 allows only digits in a port.
+    // Both pass a character-set check but not the grammar
+    // (draft-atwood-jmap-updates-00 §7.1).
+    let resp = nodes(
+        &backend,
+        ALICE,
+        json!({
+            "bracket": { "graphId": g, "uri": "https://exa[mple.com/" },
+            "port": { "graphId": g, "uri": "https://example.com:8x/" }
+        }),
+    )
+    .await;
+    assert_eq!(
+        resp["notCreated"]["bracket"]["properties"],
+        json!(["uri"]),
+        "{resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["port"]["properties"],
+        json!(["uri"]),
+        "{resp}"
+    );
 }
 
 /// L182: `graphId` is "(Id, immutable)".

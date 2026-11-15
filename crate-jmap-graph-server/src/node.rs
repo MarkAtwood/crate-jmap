@@ -19,8 +19,8 @@ use serde_json::{Map, Value, json};
 use crate::edit::check_node_edit;
 use crate::helpers::{
     SetOps, TypeCheck, check_annotations, decode_patch, fetch_one, forbidden, handle_get_visible,
-    handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, is_uri,
-    mistyped, not_found, patched, patched_properties, readable_rights, string_or_null, to_map,
+    handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, mistyped,
+    not_found, patched, patched_properties, readable_rights, string_or_null, to_map,
 };
 use crate::{EditLog, GraphBackend};
 use jmap_server::JmapBackend;
@@ -54,7 +54,8 @@ fn validate(m: &Map<String, Value>, cap: &GraphCapability) -> Result<(), Value> 
     }
     if m.get("uri")
         .and_then(Value::as_str)
-        .is_some_and(|u| !is_uri(u))
+        // The full RFC 3986 grammar (draft-atwood-jmap-updates-00 §7.1).
+        .is_some_and(|u| jmap_types::uri::check_uri(u).is_err())
     {
         return Err(invalid(&["uri"], "uri is not a URI (RFC 3986)"));
     }

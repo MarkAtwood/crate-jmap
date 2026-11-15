@@ -397,43 +397,6 @@ pub(crate) fn check_annotations(
     Ok(())
 }
 
-/// `true` if `s` is an RFC 3986 §3 URI: `scheme ":" hier-part [ "?" query ]
-/// [ "#" fragment ]`, with `scheme = ALPHA *( ALPHA / DIGIT / "+" / "-" /
-/// "." )`.
-///
-/// ponytail: after the scheme this checks the character set only (the
-/// unreserved and reserved characters and `%` followed by two hex digits),
-/// not the hier-part grammar; a full RFC 3986 parser is the upgrade path
-/// if a stricter check is ever needed.
-pub(crate) fn is_uri(s: &str) -> bool {
-    let Some((scheme, rest)) = s.split_once(':') else {
-        return false;
-    };
-    let mut sc = scheme.bytes();
-    if !sc.next().is_some_and(|c| c.is_ascii_alphabetic())
-        || !sc.all(|c| c.is_ascii_alphanumeric() || matches!(c, b'+' | b'-' | b'.'))
-    {
-        return false;
-    }
-    let b = rest.as_bytes();
-    let mut i = 0;
-    while i < b.len() {
-        match b[i] {
-            b'%' => {
-                if !(b.get(i + 1).is_some_and(u8::is_ascii_hexdigit)
-                    && b.get(i + 2).is_some_and(u8::is_ascii_hexdigit))
-                {
-                    return false;
-                }
-                i += 3;
-            }
-            c if c.is_ascii_alphanumeric() || b"-._~:/?#[]@!$&'()*+,;=".contains(&c) => i += 1,
-            _ => return false,
-        }
-    }
-    true
-}
-
 /// The top-level properties a PatchObject touches: `annotations/x` touches
 /// `annotations`.
 pub(crate) fn patched_properties(patch: &PatchObject) -> Vec<String> {
