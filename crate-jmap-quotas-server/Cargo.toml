@@ -1,0 +1,31 @@
+[package]
+name = "jmap-quotas-server"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Quotas method handlers (RFC 9425 Quota/get, /changes, /query, /queryChanges) — backend-agnostic, plugs into jmap-server Dispatcher"
+keywords = ["jmap", "rfc9425", "server", "quota"]
+categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[features]
+# Public, feature-gated in-memory reference implementation of QuotasBackend.
+# Not production — a reference impl, integration-test harness and
+# documentation example. Mirrors the canonical jmap-mail-server `memory`
+# feature (JMAP-hwdv.1).
+memory = []
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-quotas-types = { workspace = true }
+jmap-server = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Path-only self-dep with the `memory` feature, so integration tests get the
+# reference impl; cargo drops it on publish (JMAP-31o4).
+jmap-quotas-server = { path = ".", features = ["memory"] }

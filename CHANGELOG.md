@@ -169,6 +169,14 @@ wire behaviour that a conforming peer can observe.
   draft-atwood-jmap chat, chat-mimi, graph, graph-edit, scene and vtc
   drafts. Shared by Blob/lookup, object history and Quota. (bd:JMAP-tna1.4)
 
+- **jmap-quotas-server** (new crate): RFC 9425 `Quota/get`, `/changes`,
+  `/query` and `/queryChanges` handlers, `register_quotas_handlers`, the
+  `QuotasBackend` trait (`recognized_types`, default `registry_types` from
+  `jmap_types::data_types`) and a `memory` feature `MemoryBackend`. The
+  handlers apply RFC 9425 §4.1: `types` holds only types whose capability
+  is in `using`, and a Quota with none is not returned by `/get` or
+  counted by `/query`. (bd:JMAP-1igi.2)
+
 - **jmap-quotas-types** (new crate): RFC 9425 JMAP for Quotas data types —
   `Quota`, `Scope`, `ResourceType`, `QuotaFilterCondition` / `QuotaFilter`,
   `QuotaComparator` / `QuotaComparatorProperty`, `QuotaProperty`,
