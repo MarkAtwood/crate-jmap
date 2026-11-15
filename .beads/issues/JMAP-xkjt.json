@@ -3,13 +3,17 @@
   "title": "testjig advertises urn:ietf:params:jmap:sharing instead of RFC 9670's urn:ietf:params:jmap:principals",
   "description": "The testjig's Session advertises the non-existent capability urn:ietf:params:jmap:sharing for the mounted sharing backend (Principal, ShareNotification). RFC 9670 §1.5 defines urn:ietf:params:jmap:principals (and urn:ietf:params:jmap:principals:owner); jmap-sharing-types exports JMAP_PRINCIPALS_URI. A conforming client looking for principals finds no capability and no primaryAccounts entry, so it cannot use the jig's Principal methods. The bad URI appears at crate-jmap-testjig/src/session.rs:89 (ADVERTISED_CAPABILITIES), src/http.rs:1042 (the post_jmap_all_extension_get_methods_dispatch probe, which passes only because the dispatcher does not check using), and tests/spawn_smoke.rs:55. Second gap, same fix: RFC 9670 §1.5.1 says the principals value in accountCapabilities MUST contain currentUserPrincipalId (Id|null), but the jig gives every account capability {}. Found 2026-11-15 while mounting quotas (JMAP-1igi.4).",
   "acceptance_criteria": "ADVERTISED_CAPABILITIES lists urn:ietf:params:jmap:principals (via jmap_sharing_types::JMAP_PRINCIPALS_URI), not :sharing; the principals accountCapabilities value carries currentUserPrincipalId (null or the seeded Principal's id); decide whether to also advertise principals:owner (RFC 9670 §1.5.2) and say so; the probe test and spawn_smoke use the RFC URI; session.rs doc comments updated; CHANGELOG entry",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
+  "assignee": "Mark Atwood",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-15T09:27:31.042442893Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-15T09:27:31.042442893Z",
+  "updated_at": "2026-11-15T09:32:20.429554226Z",
+  "started_at": "2026-11-15T09:30:38.62505353Z",
+  "closed_at": "2026-11-15T09:32:20.429554226Z",
+  "close_reason": "Closed",
   "labels": [
     "spec"
   ]
