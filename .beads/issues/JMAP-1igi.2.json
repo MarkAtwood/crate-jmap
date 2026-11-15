@@ -2,13 +2,14 @@
   "id": "JMAP-1igi.2",
   "title": "jmap-quotas-server: Quota/get, /changes, /query, /queryChanges + MemoryBackend",
   "description": "New crate crate-jmap-quotas-server (extension-server family, mirror jmap-mail-server): QuotasBackend: JmapBackend; register_quotas_handlers; handle_quota_get/changes/query/query_changes. RFC 9425 §4.1: filter each Quota's types to those whose capability is in the request's using (jmap_types data-type registry, JMAP-tna1.4), and drop a Quota left with no recognized types (from /get and /query). §4.3 /changes updatedProperties ['used'] when only used changed (ChangesResult::updated_properties). §4.4 filter (name contains, scope/resourceType exact, type contained) and sort name/used, unsupportedSort for others. memory feature MemoryBackend with seed helpers and a used-only update path. Push: Quota state changes flow through the generic push. Tests with RFC 9425 §5.1/§5.2 examples as oracles.",
+  "notes": "Add jmap-quotas-types to [workspace.dependencies] here (deferred from 1igi.1: unused entry warns).",
   "status": "open",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-15T08:27:06.663995839Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-15T08:27:06.663995839Z",
+  "updated_at": "2026-11-15T08:31:08.226254058Z",
   "dependencies": [
     {
       "issue_id": "JMAP-1igi.2",
