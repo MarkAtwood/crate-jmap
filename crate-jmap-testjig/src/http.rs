@@ -602,6 +602,16 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     );
     jmap_quotas_server::register_quotas_handlers(dispatcher, Arc::clone(&quotas));
 
+    // Blob (draft-ietf-jmap-blobext-03 `blob2` and RFC 9404 `blob`):
+    // Blob/get, /set, /lookup, /convert and /upload. The account keeps
+    // the backend's default capability, which the Session advertises
+    // (`session::blob_capability`). Blobs have no state, so nothing is
+    // kept for the SSE poller. ponytail: this blob store is separate from
+    // the mail and filenode memory stores, so no Email or FileNode
+    // references a blob here and Blob/lookup finds nothing.
+    let blob = Arc::new(jmap_blob_server::memory::MemoryBackend::new().with_account(&account));
+    jmap_blob_server::register_blob_handlers(dispatcher, blob);
+
     // Metadata (draft-ietf-jmap-metadata-05): metadata is now per-type
     // properties on listed data types, not a standalone object.
     // Extension backends handle metadata through their own handlers
@@ -1058,6 +1068,7 @@ mod tests {
             ("FileNode/get", "urn:ietf:params:jmap:filenode"),
             ("Principal/get", "urn:ietf:params:jmap:principals"),
             ("Quota/get", "urn:ietf:params:jmap:quota"),
+            ("Blob/get", "urn:ietf:params:jmap:blob2"),
         ];
         for (method, capability) in probes {
             let state = AppState::new();

@@ -56,9 +56,16 @@ pub const DEFAULT_ADDR: SocketAddr =
 /// upload / event-source URLs in [`session_json`].
 pub const BASE_URL: &str = "http://127.0.0.1:8080";
 
-/// The 12 capability URIs the testjig advertises: RFC 8620 base `core`
-/// plus the 11 workspace extension capabilities (mail, chat, calendars,
-/// tasks, contacts, filenode, principals, metadata, cid, i18n, quota).
+/// The 14 capability URIs the testjig advertises: RFC 8620 base `core`
+/// plus the 13 workspace extension capabilities (mail, chat, calendars,
+/// tasks, contacts, filenode, principals, metadata, cid, i18n, quota,
+/// blob2, blob).
+///
+/// Blob is advertised twice (docs/design/DECISIONS.md decision 11):
+/// `urn:ietf:params:jmap:blob2` (draft-ietf-jmap-blobext-03 §2.1) and
+/// RFC 9404's `urn:ietf:params:jmap:blob` for older clients, each with
+/// `{}` in `capabilities` and, in `accountCapabilities`, the blob memory
+/// backend's default capability (its RFC 9404 view under `blob`).
 ///
 /// RFC 9670 Sharing is advertised as `urn:ietf:params:jmap:principals`
 /// (§1.5.1); `urn:ietf:params:jmap:principals:owner` (§1.5.2) is an
@@ -101,7 +108,21 @@ pub const ADVERTISED_CAPABILITIES: &[&str] = &[
     "urn:ietf:params:jmap:cid",
     "urn:ietf:params:jmap:i18n",
     "urn:ietf:params:jmap:quota",
+    BLOB2_URI,
+    BLOB_URI,
 ];
+
+const BLOB2_URI: &str = jmap_blob_types::JMAP_BLOB2_URI;
+const BLOB_URI: &str = jmap_blob_types::JMAP_BLOB_URI;
+
+/// The blob account capability the jig's blob backend enforces: the
+/// memory backend's default, which every account it registers keeps.
+///
+/// blobext-03 §2.1 says the account capability object "MUST contain"
+/// all 17 keys, so the Session writes this value, not `{}`.
+pub(crate) fn blob_capability() -> jmap_blob_types::BlobAccountCapability {
+    jmap_blob_server::memory::MemoryBackend::default_capability()
+}
 
 /// The RFC 8887 WebSocket subprotocol capability URI. Not in
 /// [`ADVERTISED_CAPABILITIES`] because it carries no account-scoped
@@ -146,7 +167,7 @@ pub fn session_json() -> Value {
 ///   requires; every other account capability is `{}`.
 /// - `accounts`: single entry keyed by [`ACCOUNT_ID`]; `name` =
 ///   [`USERNAME`]; not personal, not read-only;
-///   `accountCapabilities` re-advertises all 11 extension URIs (Core
+///   `accountCapabilities` re-advertises all 13 extension URIs (Core
 ///   is conventionally session-only, not per-account).
 /// - `primaryAccounts`: every extension URI maps to [`ACCOUNT_ID`].
 ///   `urn:ietf:params:jmap:core` is NOT in `primaryAccounts` per
@@ -196,7 +217,7 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
         }),
     );
 
-    // Account-capabilities: the 11 extension URIs (Core is session-only).
+    // Account-capabilities: the 13 extension URIs (Core is session-only).
     let mut account_capabilities =
         serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len() - 1);
     for uri in ADVERTISED_CAPABILITIES
@@ -221,6 +242,18 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
             "supportedBodyTypes": jmap_chat_server::message::SUPPORTED_BODY_TYPES,
             "supportsThreads": false,
         }),
+    );
+
+    // blobext-03 §2.1 and RFC 9404 §3.1: the account capability objects
+    // MUST contain every key, so the backend's real limits go here.
+    let blob = blob_capability();
+    account_capabilities.insert(
+        BLOB2_URI.to_owned(),
+        serde_json::to_value(&blob).unwrap_or_else(|_| json!({})),
+    );
+    account_capabilities.insert(
+        BLOB_URI.to_owned(),
+        serde_json::to_value(blob.rfc9404()).unwrap_or_else(|_| json!({})),
     );
 
     // RFC 9670 §1.5.1: the principals account capability MUST carry

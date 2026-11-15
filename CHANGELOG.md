@@ -214,6 +214,15 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-testjig**: mounts the blob memory backend (Blob/get, /set,
+  /lookup, /convert, /upload) and advertises both
+  `urn:ietf:params:jmap:blob2` and RFC 9404's `urn:ietf:params:jmap:blob`,
+  each with `{}` in `capabilities` and the backend's real account
+  capability (all 17 blobext keys; the 4 RFC 9404 keys) in
+  `accountCapabilities`. The blob store is separate from the mail and
+  filenode stores, so Blob/lookup finds no references.
+  (bd:JMAP-tna1.2.13)
+
 - **jmap-blob-server**: RFC 9404 `Blob/upload` (§4.1), registered by
   `register_blob_handlers` alongside the blobext methods, so the crate now
   serves `urn:ietf:params:jmap:blob` as well as `blob2`. Uploads run the

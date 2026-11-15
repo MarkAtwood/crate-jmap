@@ -2581,6 +2581,8 @@ dependencies = [
  "http",
  "http-body-util",
  "jmap-base-client",
+ "jmap-blob-server",
+ "jmap-blob-types",
  "jmap-calendars-server",
  "jmap-calendars-types",
  "jmap-chat-client",

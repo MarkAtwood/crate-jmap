@@ -100,6 +100,7 @@ jmap-quotas-types      = { path = "crate-jmap-quotas-types",     version = "0.5"
 jmap-quotas-server     = { path = "crate-jmap-quotas-server",    version = "0.5" }
 jmap-quotas-client     = { path = "crate-jmap-quotas-client",    version = "0.5" }
 jmap-blob-types        = { path = "crate-jmap-blob-types",       version = "0.5" }
+jmap-blob-server       = { path = "crate-jmap-blob-server",      version = "0.5" }
 jmap-sharing-types     = { path = "crate-jmap-sharing-types",    version = "0.5" }
 jmap-jscalendar-types  = { path = "crate-jmap-jscalendar-types", version = "0.5" }
 jmap-jscontact-types   = { path = "crate-jmap-jscontact-types",  version = "0.5" }

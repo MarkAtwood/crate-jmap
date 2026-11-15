@@ -22,7 +22,7 @@ name = "jmap-testjig"
 path = "src/main.rs"
 
 [dependencies]
-# The 8 extension server crates plus the dispatcher foundation. Each
+# The extension server crates plus the dispatcher foundation. Each
 # extension crate is pulled in with its `memory` feature so the
 # reference MemoryBackend is available to mount on the dispatcher.
 # All 8 reference impls use `type CallerCtx = ();` which lines up with
@@ -36,6 +36,7 @@ jmap-contacts-server = { workspace = true, features = ["memory"] }
 jmap-filenode-server = { workspace = true, features = ["memory"] }
 jmap-sharing-server = { workspace = true, features = ["memory"] }
 jmap-quotas-server = { workspace = true, features = ["memory"] }
+jmap-blob-server = { workspace = true, features = ["memory"] }
 jmap-types = { workspace = true }
 
 # Each *-types crate is pulled in alongside its *-server pair so the
@@ -51,6 +52,7 @@ jmap-contacts-types = { workspace = true }
 jmap-filenode-types = { workspace = true }
 jmap-sharing-types = { workspace = true }
 jmap-quotas-types = { workspace = true }
+jmap-blob-types = { workspace = true }
 
 # Serde for request/response JSON shapes plumbed through the dispatcher
 # (the dispatcher itself uses serde_json::Value internally).
