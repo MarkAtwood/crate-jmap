@@ -1,0 +1,28 @@
+[package]
+name = "jmap-blob-server"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Blob Management method handlers (Blob/set, get, lookup, convert; draft-ietf-jmap-blobext-03, RFC 9404) — backend-agnostic, plugs into jmap-server Dispatcher"
+keywords = ["jmap", "blob", "server", "rfc9404"]
+categories = ["network-programming", "web-programming::http-server"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[features]
+# Public, feature-gated in-memory reference implementation of BlobBackend.
+# Not production — a reference impl, integration-test harness and
+# documentation example. Mirrors the canonical jmap-mail-server `memory`
+# feature (JMAP-hwdv.1).
+memory = []
+# Test knobs on the memory backend (stub converter, deferred-result
+# failure, noPersist omission; docs/design/blobext.md §7).
+test-helpers = ["memory"]
+
+# Scaffold (bd JMAP-tna1.2.1): no dependencies yet. cargo warns on unused
+# ones (cargo::unused_dependencies), so each arrives with the code that
+# uses it in JMAP-tna1.2.4 (docs/design/blobext.md §3): jmap-server,
+# jmap-types, jmap-blob-types; dev: tokio and a path-only self-dependency
+# with `memory` and `test-helpers` (JMAP-31o4).

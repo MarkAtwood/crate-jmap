@@ -1802,6 +1802,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-blob-client"
+version = "0.5.0"
+
+[[package]]
+name = "jmap-blob-server"
+version = "0.5.0"
+
+[[package]]
+name = "jmap-blob-types"
+version = "0.5.0"
+
+[[package]]
 name = "jmap-calendars-client"
 version = "0.5.0"
 dependencies = [

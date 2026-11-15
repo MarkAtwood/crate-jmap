@@ -214,6 +214,14 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-types**, **jmap-blob-server**, **jmap-blob-client** (new
+  crates, scaffold): workspace members for draft-ietf-jmap-blobext-03 and
+  RFC 9404 Blob Management. No public items yet; the types, handlers and
+  bindings follow under JMAP-tna1.2. `jmap-blob-server` has `memory` and
+  `test-helpers` features that gate nothing yet. No dependencies yet, as
+  cargo warns on unused ones; each arrives with the code that uses it.
+  (bd:JMAP-tna1.2.1)
+
 ### Changed
 
 - **BREAKING** **jmap-mail-server**, **jmap-chat-server**,

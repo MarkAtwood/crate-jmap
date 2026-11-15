@@ -1,0 +1,17 @@
+[package]
+name = "jmap-blob-types"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Blob Management data types — Blob/set, get, lookup, convert (draft-ietf-jmap-blobext-03, RFC 9404)"
+keywords = ["jmap", "blob", "types", "rfc9404"]
+categories = ["encoding", "network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+# Scaffold (bd JMAP-tna1.2.1): no dependencies yet. cargo warns on unused
+# ones (cargo::unused_dependencies), so each arrives with the code that
+# uses it: jmap-types, serde, serde_json, base64 0.22, sha1 0.10 and sha2
+# 0.10 in JMAP-tna1.2.2 / .3 (docs/design/blobext.md §3).

@@ -39,7 +39,7 @@ below). A crate's own self-dev-dependency is not an ordering edge.
 
 | Layer | Crates |
 |---|---|
-| 1 | `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-client`, `jmap-metadata-types`, `jmap-types` |
+| 1 | `jmap-blob-client`, `jmap-blob-server`, `jmap-blob-types`, `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-client`, `jmap-metadata-types`, `jmap-types` |
 | 2 | `jmap-contacts-types`, `jmap-did-types`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-jscalendar-types`, `jmap-mail-types`, `jmap-metadata-server`, `jmap-quotas-types`, `jmap-scene-types`, `jmap-server`, `jmap-sharing-types`, `jmap-vtc-types`, `jmap-web-push` |
 | 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-server`, `jmap-did-resolver`, `jmap-filenode-server`, `jmap-graph-server`, `jmap-mime`, `jmap-peer-auth`, `jmap-quotas-server`, `jmap-scene-server`, `jmap-sharing-server`, `jmap-tasks-types`, `jmap-vtc-server` |
 | 4 | `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-scene-server`, `jmap-chat-server`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-graph-client`, `jmap-mail-client`, `jmap-mail-server`, `jmap-peer-auth-io`, `jmap-quotas-client`, `jmap-scene-client`, `jmap-scene-vtc-server`, `jmap-sharing-client`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client` |
@@ -51,6 +51,9 @@ dependencies are listed separately):
 
 | Crate | Layer | `jmap-*` dependencies | `jmap-*` dev-dependencies |
 |---|---|---|---|
+| `jmap-blob-client` | 1 | (none) | (none) |
+| `jmap-blob-server` | 1 | (none) | (none) |
+| `jmap-blob-types` | 1 | (none) | (none) |
 | `jmap-cid-types` | 1 | (none) | (none) |
 | `jmap-jscontact-types` | 1 | (none) | (none) |
 | `jmap-metadata-types` | 1 | (none) | (none) |

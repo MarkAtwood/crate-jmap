@@ -117,6 +117,9 @@ crates, never in a support crate.
 | `crate-jmap-quotas-server/` | `jmap-quotas-server` | RFC 9425 `Quota/get`, `/changes`, `/query`, `/queryChanges` — `QuotasBackend` (`recognized_types`, default `registry_types` from `jmap_types::data_types`); RFC 9425 §4.1 `types` cut to the `using` capabilities and Quotas with none hidden in `/get` and `/query`; `memory` backend with `set_used` (`updatedProperties: ["used"]`) |
 | `crate-jmap-quotas-client/` | `jmap-quotas-client` | RFC 9425 client: `JmapQuotasExt::with_quotas_session`, `quota_get`, `quota_get_properties`, `quota_changes`, `quota_query`, `quota_query_changes`; `using` carries every Session capability unless `with_type_capabilities` narrows it |
 | `crate-jmap-quotas/` | `jmap-quotas` | Umbrella: re-exports `jmap-quotas-types` (always), `-client` (`client` feature), `-server` (`server`; `memory` adds its reference backend). First workspace umbrella; JMAP-amr2's claimed umbrellas copy its shape |
+| `crate-jmap-blob-types/` | `jmap-blob-types` | draft-ietf-jmap-blobext-03 (`urn:ietf:params:jmap:blob2`) and RFC 9404 (`urn:ietf:params:jmap:blob`) data types. Scaffold (bd JMAP-tna1.2.1): no public items yet; capability, digest, data source, Blob/set and Blob/get types land in JMAP-tna1.2.2, convert and lookup in .3. No async |
+| `crate-jmap-blob-server/` | `jmap-blob-server` | draft-ietf-jmap-blobext-03 `Blob/get`, `/set`, `/lookup`, `/convert` and RFC 9404 `Blob/upload` over a `BlobBackend` trait, `memory` and `test-helpers` features. Scaffold (bd JMAP-tna1.2.1): no public items yet; trait and registration land in JMAP-tna1.2.4 (design: docs/design/blobext.md) |
+| `crate-jmap-blob-client/` | `jmap-blob-client` | draft-ietf-jmap-blobext-03 client: `JmapBlobExt::with_blob_session` and typed `Blob/*` calls over `jmap-base-client`. Scaffold (bd JMAP-tna1.2.1): no public items yet |
 
 ## Dependency Tree
 
@@ -152,6 +155,14 @@ jmap-metadata-types    — draft-ietf-jmap-metadata-05 data types: DataTypeMetad
 jmap-metadata-client   — pure client helpers (property constants, filter-condition
                          builders, /changes helpers). Depends on serde_json only; it
                          does not re-export jmap-metadata-types (bd JMAP-wzq9.30).
+
+jmap-blob-types        — draft-ietf-jmap-blobext-03 / RFC 9404 data types (scaffold,
+                         bd JMAP-tna1.2.1, no dependencies yet). No async. Will
+                         depend on jmap-types, serde, serde_json, base64, sha1
+                         and sha2 (docs/design/blobext.md §3).
+    ├── jmap-blob-server   — Blob/* method handlers, BlobBackend trait (with
+    │                        jmap-server).
+    └── jmap-blob-client   — Blob/* client bindings (with jmap-base-client).
 
 jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
                          (urn:ietf:params:jmap:cid) plus the Sha256 typed wire
@@ -319,11 +330,11 @@ not reproduce the flaw for consistency's sake.
 | Family | Canonical | Siblings (must mirror) |
 |---|---|---|
 | Foundation types | `jmap-types` | (none — sole foundation) |
-| Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types`, `jmap-scene-types`, `jmap-vtc-types`, `jmap-graph-types`, `jmap-quotas-types` |
+| Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types`, `jmap-scene-types`, `jmap-vtc-types`, `jmap-graph-types`, `jmap-quotas-types`, `jmap-blob-types` |
 | Foundation server | `jmap-server` | (none — sole foundation) |
-| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server`, `jmap-vtc-server`, `jmap-scene-server`, `jmap-graph-server`, `jmap-quotas-server` |
+| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server`, `jmap-vtc-server`, `jmap-scene-server`, `jmap-graph-server`, `jmap-quotas-server`, `jmap-blob-server` |
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
-| Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-metadata-client`, `jmap-sharing-client`, `jmap-vtc-client`, `jmap-scene-client`, `jmap-graph-client`, `jmap-quotas-client` |
+| Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-metadata-client`, `jmap-sharing-client`, `jmap-vtc-client`, `jmap-scene-client`, `jmap-graph-client`, `jmap-quotas-client`, `jmap-blob-client` |
 
 JMAP PatchObject path application (RFC 8620 §5.3) lives in `jmap-server::helpers` (`apply_jmap_patch`); extension servers must call it rather than reimplement it.
 

@@ -1,0 +1,17 @@
+[package]
+name = "jmap-blob-client"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Blob Management HTTP client — extension trait over jmap-base-client (draft-ietf-jmap-blobext-03)"
+keywords = ["jmap", "blob", "client", "rfc9404"]
+categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+# Scaffold (bd JMAP-tna1.2.1): no dependencies yet. cargo warns on unused
+# ones (cargo::unused_dependencies), so each arrives with the bindings
+# (bead B12, docs/design/blobext.md §3): jmap-base-client, jmap-types,
+# jmap-blob-types; dev: tokio and wiremock.
