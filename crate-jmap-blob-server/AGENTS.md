@@ -39,8 +39,8 @@ knobs behind `test-helpers`.
 
 Design: `docs/design/blobext.md` §5–§7. The crate owns wire validation,
 method semantics and error mapping; blob storage, the reverse lookup index
-and media conversion are backend hooks. Scaffold only until
-bd JMAP-tna1.2.4.
+and media conversion are backend hooks. The handlers are `serverFail`
+stubs until bd JMAP-tna1.2.7 to .10.
 
 ## Crate Family Context
 
@@ -84,7 +84,7 @@ Run all four before considering any work done.
 | Async | Backend methods return `impl Future + Send`; no tokio runtime dep (dev-only, for tests) |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — the backend decides what a caller may see |
-| Dependencies | jmap-types, jmap-blob-types, jmap-server; `tokio` dev-only plus a dev self-dependency enabling `memory` and `test-helpers` |
+| Dependencies | jmap-types, jmap-blob-types, jmap-server, serde_json; `tokio` dev-only plus a dev self-dependency enabling `memory` and `test-helpers` (added with the integration tests) |
 | Method names | Must match blobext-03 / RFC 9404 exactly |
 | Test harness | `MemoryBackend` behind `feature = "memory"`. Not production. |
 

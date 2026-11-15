@@ -1,1 +1,165 @@
 pub mod jmap_blob_server
+#[non_exhaustive] pub enum jmap_blob_server::BlobMode
+pub jmap_blob_server::BlobMode::Blobext
+pub jmap_blob_server::BlobMode::Conflict
+pub jmap_blob_server::BlobMode::Rfc9404
+impl jmap_blob_server::BlobMode
+pub fn jmap_blob_server::BlobMode::from_using(&[alloc::string::String]) -> Self
+impl core::clone::Clone for jmap_blob_server::BlobMode
+pub fn jmap_blob_server::BlobMode::clone(&self) -> jmap_blob_server::BlobMode
+impl core::cmp::Eq for jmap_blob_server::BlobMode
+impl core::cmp::PartialEq for jmap_blob_server::BlobMode
+pub fn jmap_blob_server::BlobMode::eq(&self, &jmap_blob_server::BlobMode) -> bool
+impl core::fmt::Debug for jmap_blob_server::BlobMode
+pub fn jmap_blob_server::BlobMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_blob_server::BlobMode
+impl core::marker::StructuralPartialEq for jmap_blob_server::BlobMode
+#[non_exhaustive] pub enum jmap_blob_server::BlobSource
+pub jmap_blob_server::BlobSource::Blob
+pub jmap_blob_server::BlobSource::Blob::blob_id: jmap_types::id::Id
+pub jmap_blob_server::BlobSource::Blob::range: core::ops::range::Range<u64>
+pub jmap_blob_server::BlobSource::Bytes(alloc::vec::Vec<u8>)
+impl core::clone::Clone for jmap_blob_server::BlobSource
+pub fn jmap_blob_server::BlobSource::clone(&self) -> jmap_blob_server::BlobSource
+impl core::cmp::Eq for jmap_blob_server::BlobSource
+impl core::cmp::PartialEq for jmap_blob_server::BlobSource
+pub fn jmap_blob_server::BlobSource::eq(&self, &jmap_blob_server::BlobSource) -> bool
+impl core::fmt::Debug for jmap_blob_server::BlobSource
+pub fn jmap_blob_server::BlobSource::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::BlobSource
+#[non_exhaustive] pub enum jmap_blob_server::TouchOutcome
+pub jmap_blob_server::TouchOutcome::Applied(core::option::Option<jmap_types::id::UTCDate>)
+pub jmap_blob_server::TouchOutcome::Honoured
+impl core::clone::Clone for jmap_blob_server::TouchOutcome
+pub fn jmap_blob_server::TouchOutcome::clone(&self) -> jmap_blob_server::TouchOutcome
+impl core::cmp::Eq for jmap_blob_server::TouchOutcome
+impl core::cmp::PartialEq for jmap_blob_server::TouchOutcome
+pub fn jmap_blob_server::TouchOutcome::eq(&self, &jmap_blob_server::TouchOutcome) -> bool
+impl core::fmt::Debug for jmap_blob_server::TouchOutcome
+pub fn jmap_blob_server::TouchOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::TouchOutcome
+#[non_exhaustive] pub struct jmap_blob_server::BlobCreate
+pub jmap_blob_server::BlobCreate::media_type: core::option::Option<alloc::string::String>
+pub jmap_blob_server::BlobCreate::no_persist: bool
+pub jmap_blob_server::BlobCreate::size: u64
+pub jmap_blob_server::BlobCreate::sources: alloc::vec::Vec<jmap_blob_server::BlobSource>
+impl jmap_blob_server::BlobCreate
+pub fn jmap_blob_server::BlobCreate::new(alloc::vec::Vec<jmap_blob_server::BlobSource>, u64) -> Self
+impl core::clone::Clone for jmap_blob_server::BlobCreate
+pub fn jmap_blob_server::BlobCreate::clone(&self) -> jmap_blob_server::BlobCreate
+impl core::cmp::Eq for jmap_blob_server::BlobCreate
+impl core::cmp::PartialEq for jmap_blob_server::BlobCreate
+pub fn jmap_blob_server::BlobCreate::eq(&self, &jmap_blob_server::BlobCreate) -> bool
+impl core::fmt::Debug for jmap_blob_server::BlobCreate
+pub fn jmap_blob_server::BlobCreate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::BlobCreate
+#[non_exhaustive] pub struct jmap_blob_server::BlobMeta
+pub jmap_blob_server::BlobMeta::expires: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_blob_server::BlobMeta::media_type: core::option::Option<alloc::string::String>
+pub jmap_blob_server::BlobMeta::size: u64
+impl jmap_blob_server::BlobMeta
+pub fn jmap_blob_server::BlobMeta::new(core::option::Option<alloc::string::String>, u64) -> Self
+impl core::clone::Clone for jmap_blob_server::BlobMeta
+pub fn jmap_blob_server::BlobMeta::clone(&self) -> jmap_blob_server::BlobMeta
+impl core::cmp::Eq for jmap_blob_server::BlobMeta
+impl core::cmp::PartialEq for jmap_blob_server::BlobMeta
+pub fn jmap_blob_server::BlobMeta::eq(&self, &jmap_blob_server::BlobMeta) -> bool
+impl core::fmt::Debug for jmap_blob_server::BlobMeta
+pub fn jmap_blob_server::BlobMeta::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::BlobMeta
+#[non_exhaustive] pub struct jmap_blob_server::ChunkRef
+pub jmap_blob_server::ChunkRef::blob_id: jmap_types::id::Id
+pub jmap_blob_server::ChunkRef::length: u64
+pub jmap_blob_server::ChunkRef::offset: u64
+pub jmap_blob_server::ChunkRef::size: u64
+impl jmap_blob_server::ChunkRef
+pub fn jmap_blob_server::ChunkRef::new(jmap_types::id::Id, u64, u64, u64) -> Self
+impl core::clone::Clone for jmap_blob_server::ChunkRef
+pub fn jmap_blob_server::ChunkRef::clone(&self) -> jmap_blob_server::ChunkRef
+impl core::cmp::Eq for jmap_blob_server::ChunkRef
+impl core::cmp::PartialEq for jmap_blob_server::ChunkRef
+pub fn jmap_blob_server::ChunkRef::eq(&self, &jmap_blob_server::ChunkRef) -> bool
+impl core::fmt::Debug for jmap_blob_server::ChunkRef
+pub fn jmap_blob_server::ChunkRef::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::ChunkRef
+#[non_exhaustive] pub struct jmap_blob_server::ConvertOutcome
+pub jmap_blob_server::ConvertOutcome::description: core::option::Option<alloc::string::String>
+pub jmap_blob_server::ConvertOutcome::entries: core::option::Option<alloc::vec::Vec<jmap_blob_types::convert::ArchiveEntry>>
+pub jmap_blob_server::ConvertOutcome::expires: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_blob_server::ConvertOutcome::id: jmap_types::id::Id
+pub jmap_blob_server::ConvertOutcome::is_incomplete: bool
+pub jmap_blob_server::ConvertOutcome::media_type: core::option::Option<alloc::string::String>
+pub jmap_blob_server::ConvertOutcome::omit_from_response: bool
+pub jmap_blob_server::ConvertOutcome::size: core::option::Option<u64>
+impl jmap_blob_server::ConvertOutcome
+pub fn jmap_blob_server::ConvertOutcome::new(jmap_types::id::Id, core::option::Option<alloc::string::String>, core::option::Option<u64>) -> Self
+impl core::clone::Clone for jmap_blob_server::ConvertOutcome
+pub fn jmap_blob_server::ConvertOutcome::clone(&self) -> jmap_blob_server::ConvertOutcome
+impl core::cmp::Eq for jmap_blob_server::ConvertOutcome
+impl core::cmp::PartialEq for jmap_blob_server::ConvertOutcome
+pub fn jmap_blob_server::ConvertOutcome::eq(&self, &jmap_blob_server::ConvertOutcome) -> bool
+impl core::fmt::Debug for jmap_blob_server::ConvertOutcome
+pub fn jmap_blob_server::ConvertOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::ConvertOutcome
+#[non_exhaustive] pub struct jmap_blob_server::ConvertParams
+pub jmap_blob_server::ConvertParams::no_persist: bool
+pub jmap_blob_server::ConvertParams::recipe: jmap_blob_types::convert::Recipe
+impl jmap_blob_server::ConvertParams
+pub fn jmap_blob_server::ConvertParams::new(jmap_blob_types::convert::Recipe) -> Self
+impl core::clone::Clone for jmap_blob_server::ConvertParams
+pub fn jmap_blob_server::ConvertParams::clone(&self) -> jmap_blob_server::ConvertParams
+impl core::cmp::Eq for jmap_blob_server::ConvertParams
+impl core::cmp::PartialEq for jmap_blob_server::ConvertParams
+pub fn jmap_blob_server::ConvertParams::eq(&self, &jmap_blob_server::ConvertParams) -> bool
+impl core::fmt::Debug for jmap_blob_server::ConvertParams
+pub fn jmap_blob_server::ConvertParams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::ConvertParams
+#[non_exhaustive] pub struct jmap_blob_server::CreatedBlob
+pub jmap_blob_server::CreatedBlob::expires: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_blob_server::CreatedBlob::id: jmap_types::id::Id
+pub jmap_blob_server::CreatedBlob::media_type: core::option::Option<alloc::string::String>
+pub jmap_blob_server::CreatedBlob::omit_from_response: bool
+pub jmap_blob_server::CreatedBlob::size: u64
+impl jmap_blob_server::CreatedBlob
+pub fn jmap_blob_server::CreatedBlob::new(jmap_types::id::Id, core::option::Option<alloc::string::String>, u64) -> Self
+impl core::clone::Clone for jmap_blob_server::CreatedBlob
+pub fn jmap_blob_server::CreatedBlob::clone(&self) -> jmap_blob_server::CreatedBlob
+impl core::cmp::Eq for jmap_blob_server::CreatedBlob
+impl core::cmp::PartialEq for jmap_blob_server::CreatedBlob
+pub fn jmap_blob_server::CreatedBlob::eq(&self, &jmap_blob_server::CreatedBlob) -> bool
+impl core::fmt::Debug for jmap_blob_server::CreatedBlob
+pub fn jmap_blob_server::CreatedBlob::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::CreatedBlob
+#[non_exhaustive] pub struct jmap_blob_server::DigestQuery
+pub jmap_blob_server::DigestQuery::alg: jmap_blob_types::digest::DigestAlgorithm
+pub jmap_blob_server::DigestQuery::blob_id: jmap_types::id::Id
+pub jmap_blob_server::DigestQuery::range: core::ops::range::Range<u64>
+impl jmap_blob_server::DigestQuery
+pub fn jmap_blob_server::DigestQuery::new(jmap_types::id::Id, jmap_blob_types::digest::DigestAlgorithm, core::ops::range::Range<u64>) -> Self
+impl core::clone::Clone for jmap_blob_server::DigestQuery
+pub fn jmap_blob_server::DigestQuery::clone(&self) -> jmap_blob_server::DigestQuery
+impl core::cmp::Eq for jmap_blob_server::DigestQuery
+impl core::cmp::PartialEq for jmap_blob_server::DigestQuery
+pub fn jmap_blob_server::DigestQuery::eq(&self, &jmap_blob_server::DigestQuery) -> bool
+impl core::fmt::Debug for jmap_blob_server::DigestQuery
+pub fn jmap_blob_server::DigestQuery::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_server::DigestQuery
+pub trait jmap_blob_server::BlobBackend: jmap_server::backend::JmapBackend
+pub fn jmap_blob_server::BlobBackend::blob_capability(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_blob_types::capability::BlobAccountCapability>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::blob_chunks(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::vec::Vec<jmap_blob_server::ChunkRef>>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::blob_info(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_blob_server::BlobMeta>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::blob_references(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::convert(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_blob_server::ConvertParams) -> impl core::future::future::Future<Output = core::result::Result<jmap_blob_server::ConvertOutcome, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::create_blob(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_blob_server::BlobCreate) -> impl core::future::future::Future<Output = core::result::Result<jmap_blob_server::CreatedBlob, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::destroy_blob(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::digester(&self, &jmap_blob_types::digest::DigestAlgorithm) -> core::option::Option<alloc::boxed::Box<(dyn jmap_blob_types::digest::Digest + core::marker::Send)>>
+pub fn jmap_blob_server::BlobBackend::image_data(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_blob_types::get::ImageData>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::lookup_type_capability(&self, &str) -> core::option::Option<&str>
+pub fn jmap_blob_server::BlobBackend::read_blob_range(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, core::ops::range::Range<u64>) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::stored_digest(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_blob_server::DigestQuery) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::string::String>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::BlobBackend::touch_blob(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::id::UTCDate>) -> impl core::future::future::Future<Output = core::result::Result<jmap_blob_server::TouchOutcome, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub async fn jmap_blob_server::handle_blob_convert<B: jmap_blob_server::BlobBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_blob_server::handle_blob_get<B: jmap_blob_server::BlobBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_blob_server::handle_blob_lookup<B: jmap_blob_server::BlobBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub async fn jmap_blob_server::handle_blob_set<B: jmap_blob_server::BlobBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub fn jmap_blob_server::register_blob_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_blob_server::BlobBackend + 'static

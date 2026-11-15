@@ -1808,6 +1808,12 @@ version = "0.5.0"
 [[package]]
 name = "jmap-blob-server"
 version = "0.5.0"
+dependencies = [
+ "jmap-blob-types",
+ "jmap-server",
+ "jmap-types",
+ "serde_json",
+]
 
 [[package]]
 name = "jmap-blob-types"

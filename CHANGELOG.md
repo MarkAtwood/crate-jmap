@@ -214,6 +214,15 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: the public surface for blobext-03. `BlobBackend`
+  with the docs/design/blobext.md §6 hooks (`blob_capability`,
+  `blob_info`, `read_blob_range`, `create_blob`, `touch_blob`,
+  `destroy_blob`, `blob_references` and `convert` required;
+  `stored_digest`, `digester`, `blob_chunks`, `image_data` and
+  `lookup_type_capability` defaulted) and its value types,
+  `register_blob_handlers` for Blob/get, Blob/set, Blob/lookup and
+  Blob/convert, and `BlobMode::from_using`. The `handle_blob_*` handlers
+  answer `serverFail` until they are implemented. (bd:JMAP-tna1.2.4)
 - **jmap-blob-types**: the draft-ietf-jmap-blobext-03 wire types.
   `JMAP_BLOB2_URI` / `JMAP_BLOB_URI`, `BlobCapability`,
   `BlobAccountCapability` (every §2.1 key always written; `check()` for

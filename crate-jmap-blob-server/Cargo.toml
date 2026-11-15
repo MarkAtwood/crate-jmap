@@ -21,8 +21,8 @@ memory = []
 # failure, noPersist omission; docs/design/blobext.md §7).
 test-helpers = ["memory"]
 
-# Scaffold (bd JMAP-tna1.2.1): no dependencies yet. cargo warns on unused
-# ones (cargo::unused_dependencies), so each arrives with the code that
-# uses it in JMAP-tna1.2.4 (docs/design/blobext.md §3): jmap-server,
-# jmap-types, jmap-blob-types; dev: tokio and a path-only self-dependency
-# with `memory` and `test-helpers` (JMAP-31o4).
+[dependencies]
+jmap-types = { workspace = true }
+jmap-blob-types = { workspace = true }
+jmap-server = { workspace = true }
+serde_json = { workspace = true }
