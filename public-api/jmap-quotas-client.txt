@@ -1,0 +1,27 @@
+pub mod jmap_quotas_client
+pub use jmap_quotas_client::AddedItem
+pub use jmap_quotas_client::ChangesResponse
+pub use jmap_quotas_client::ClientError
+pub use jmap_quotas_client::GetResponse
+pub use jmap_quotas_client::QueryChangesResponse
+pub use jmap_quotas_client::QueryResponse
+#[non_exhaustive] pub struct jmap_quotas_client::SessionClient
+impl jmap_quotas_client::SessionClient
+pub fn jmap_quotas_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
+pub fn jmap_quotas_client::SessionClient::quota_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub async fn jmap_quotas_client::SessionClient::quota_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_quotas_client::SessionClient::quota_get(&self, core::option::Option<&[jmap_types::id::Id]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_quotas_types::quota::Quota>, jmap_base_client::error::ClientError>
+pub async fn jmap_quotas_client::SessionClient::quota_get_properties(&self, core::option::Option<&[jmap_types::id::Id]>, &[&str]) -> core::result::Result<jmap_types::methods::GetResponse<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>, jmap_base_client::error::ClientError>
+pub async fn jmap_quotas_client::SessionClient::quota_query(&self, core::option::Option<&jmap_quotas_types::quota::QuotaFilter>, core::option::Option<&[jmap_quotas_types::quota::QuotaComparator]>, &jmap_base_client::query::QueryParams) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_quotas_client::SessionClient::quota_query_changes(&self, &jmap_types::id::State, core::option::Option<&jmap_quotas_types::quota::QuotaFilter>, core::option::Option<&[jmap_quotas_types::quota::QuotaComparator]>, core::option::Option<u64>, core::option::Option<&jmap_types::id::Id>, bool) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub fn jmap_quotas_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+pub fn jmap_quotas_client::SessionClient::with_i18n(self, core::option::Option<alloc::vec::Vec<jmap_types::i18n::LanguageRange>>) -> core::result::Result<Self, jmap_base_client::error::ClientError>
+pub fn jmap_quotas_client::SessionClient::with_type_capabilities<I, S>(self, I) -> Self where I: core::iter::traits::collect::IntoIterator<Item = S>, S: core::convert::Into<alloc::string::String>
+impl core::clone::Clone for jmap_quotas_client::SessionClient
+pub fn jmap_quotas_client::SessionClient::clone(&self) -> jmap_quotas_client::SessionClient
+impl core::fmt::Debug for jmap_quotas_client::SessionClient
+pub fn jmap_quotas_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_quotas_client::JmapQuotasExt: jmap_quotas_client::sealed::Sealed
+pub fn jmap_quotas_client::JmapQuotasExt::with_quotas_session(&self, jmap_base_client::request::Session) -> jmap_quotas_client::SessionClient
+impl jmap_quotas_client::JmapQuotasExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_quotas_session(&self, jmap_base_client::request::Session) -> jmap_quotas_client::SessionClient

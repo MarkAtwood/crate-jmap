@@ -2343,6 +2343,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-quotas-client"
+version = "0.5.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-quotas-types",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-quotas-server"
 version = "0.5.0"
 dependencies = [

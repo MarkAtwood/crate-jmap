@@ -11,6 +11,7 @@ members = [
     "crate-jmap-sharing-types",
     "crate-jmap-quotas-types",
     "crate-jmap-quotas-server",
+    "crate-jmap-quotas-client",
     "crate-jmap-jscalendar-types",
     "crate-jmap-jscontact-types",
     "crate-jmap-metadata-types",

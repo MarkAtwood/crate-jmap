@@ -1,0 +1,23 @@
+[package]
+name = "jmap-quotas-client"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Quotas HTTP client — extension trait over jmap-base-client (RFC 9425)"
+keywords = ["jmap", "rfc9425", "client", "quota"]
+categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-quotas-types = { workspace = true }
+jmap-base-client = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }
