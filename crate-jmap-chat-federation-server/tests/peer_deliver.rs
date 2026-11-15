@@ -705,6 +705,31 @@ async fn step11_fetched_blob_must_match_size_and_sha256() {
     assert_eq!(fed.fetched.lock().expect("lock").as_slice(), [FETCH_URL; 3]);
 }
 
+/// draft-atwood-jmap-updates-00 §7.1 (jmap-chat-spec 2b85363): a
+/// URI-valued property "SHOULD hold a URI as defined in RFC 3986 Section
+/// 3"; "URIs in JMAP are ASCII". An attachment `fetchUrl` that is not one
+/// is rejected before any fetch, with the `invalidArguments` fed L412
+/// uses for an unusable attachment.
+#[tokio::test]
+async fn step11_non_uri_fetch_url_is_rejected_unfetched() {
+    let fed = Fed::new();
+    for url in [
+        "https://peer.example/blob/a b",
+        "https://bücher.example/blob/1",
+    ] {
+        let mut m = message("M1");
+        let mut a = abc_attachment("a.txt", ABC_SHA256);
+        a["fetchUrl"] = json!(url);
+        m["attachments"] = json!([a]);
+        assert_error(
+            fed.deliver(deliver_args(LOW, "direct", m)).await,
+            "invalidArguments",
+        );
+    }
+    assert!(fed.fetched.lock().expect("lock").is_empty());
+    assert!(fed.messages().await.is_empty());
+}
+
 /// fed L413: "Take mentions only from the `mentions` array ... The
 /// receiving server MUST NOT parse `body`, including a rich body's spans,
 /// to find mentions". fed L314-316: an identity equal to the owner's

@@ -835,9 +835,14 @@ async fn group_update_metadata_failed_avatar_keeps_the_current_one() {
     wrong_digest["sha256"] = json!("0".repeat(64));
     let mut unfetchable = abc_avatar();
     unfetchable["fetchUrl"] = json!("https://peer.example/blob/missing");
+    // draft-atwood-jmap-updates-00 §7.1: a `fetchUrl` that is not an RFC
+    // 3986 URI is not fetched at all.
+    let mut not_a_uri = abc_avatar();
+    not_a_uri["fetchUrl"] = json!("https://peer.example/blob/a b");
     for (avatar, fetches) in [
         (not_a_type, 0),
         (too_big, 0),
+        (not_a_uri, 0),
         (wrong_size, 1),
         (wrong_digest, 1),
         (unfetchable, 1),

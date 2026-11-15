@@ -1150,7 +1150,8 @@ fn encrypted_conflict(m: &PeerMessage) -> Option<&'static str> {
 }
 
 /// Step 10: each attachment's `filename`, `contentType` and `size` per
-/// draft-atwood-jmap-chat-00 §Attachment. The `sha256` form step 11
+/// draft-atwood-jmap-chat-00 §Attachment, and its `fetchUrl` an RFC 3986
+/// URI (draft-atwood-jmap-updates-00 §7.1). The `sha256` form step 11
 /// compares against is enforced by its type at deserialize. `size` is bounded by `maxAttachmentBytes` before any
 /// fetch (draft-atwood-jmap-chat-00 §Denial of Service: "Enforce
 /// `maxBodyBytes` and `maxAttachmentBytes` at parse time, before any
@@ -1162,8 +1163,17 @@ fn check_attachments(attachments: &[PeerAttachment], limits: &ChatLimits) -> Res
             limits.max_attachments_per_message
         )));
     }
-    for a in attachments {
-        let a = &a.attachment;
+    for peer in attachments {
+        // draft-atwood-jmap-updates-00 §7.1: `fetchUrl` is URI-valued and
+        // SHOULD be an RFC 3986 URI. One that is not cannot be fetched;
+        // the request is rejected as for a URL the SSRF policy refuses.
+        if jmap_types::uri::check_uri(&peer.fetch_url).is_err() {
+            return Err(JmapError::invalid_arguments(format!(
+                "attachment {} has a fetchUrl that is not an RFC 3986 URI",
+                peer.attachment.blob_id
+            )));
+        }
+        let a = &peer.attachment;
         let valid = !a.filename.contains(['/', '\\', '\0'])
             && valid_media_type(&a.content_type)
             && a.size <= limits.max_attachment_bytes;

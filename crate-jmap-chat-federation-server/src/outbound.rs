@@ -302,7 +302,9 @@ pub fn peer_batches(
 /// `avatar` is the `avatar` object for the chat's `avatarBlobId`, used
 /// only for `"create"` and `"updateMetadata"` and only when the chat has
 /// one. The deployment builds it from the local blob's `contentType`,
-/// `size` and `sha256`, minting a `fetchUrl` and recording the grant to
+/// `size` and `sha256`, minting a `fetchUrl` (an RFC 3986 URI,
+/// draft-atwood-jmap-updates-00 §7.1: receivers do not fetch anything
+/// else) and recording the grant to
 /// the receiving peer domain first: the serving server "SHOULD serve the
 /// blob only to a peer domain to which it has sent a payload carrying
 /// that `fetchUrl`, recording the grant before it sends the payload"

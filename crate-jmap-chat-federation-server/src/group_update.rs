@@ -207,7 +207,8 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
 
 /// The local blob id of the `avatar` object once it parses as a
 /// [`PeerAvatar`], passes the `contentType` and `size` checks of
-/// draft-atwood-jmap-chat-00 §Attachment, is fetched, and matches its
+/// draft-atwood-jmap-chat-00 §Attachment, has an RFC 3986 `fetchUrl`, is
+/// fetched, and matches its
 /// `size` and `sha256`; `None` on any failure.
 async fn fetch_avatar<B: FederationBackend>(
     backend: &B,
@@ -217,7 +218,13 @@ async fn fetch_avatar<B: FederationBackend>(
 ) -> Option<Id> {
     let avatar: PeerAvatar = serde_json::from_value(avatar).ok()?;
     let limits = backend.limits(caller, account_id);
-    if !valid_media_type(&avatar.content_type) || avatar.size > limits.max_attachment_bytes {
+    // draft-atwood-jmap-updates-00 §7.1: a `fetchUrl` that is not an RFC
+    // 3986 URI is not fetched; the avatar is best-effort, so that is a
+    // failed avatar, not a rejected request.
+    if !valid_media_type(&avatar.content_type)
+        || avatar.size > limits.max_attachment_bytes
+        || jmap_types::uri::check_uri(&avatar.fetch_url).is_err()
+    {
         return None;
     }
     let blob = backend.fetch_avatar(caller, account_id, &avatar).await?;
