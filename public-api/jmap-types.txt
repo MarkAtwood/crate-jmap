@@ -1,4 +1,23 @@
 pub mod jmap_types
+pub mod jmap_types::data_types
+#[non_exhaustive] pub struct jmap_types::data_types::DataTypeEntry
+pub jmap_types::data_types::DataTypeEntry::can_reference_blobs: bool
+pub jmap_types::data_types::DataTypeEntry::can_use_for_state_change: bool
+pub jmap_types::data_types::DataTypeEntry::capability: &'static str
+pub jmap_types::data_types::DataTypeEntry::reference: &'static str
+pub jmap_types::data_types::DataTypeEntry::supports_history: bool
+pub jmap_types::data_types::DataTypeEntry::type_name: &'static str
+impl core::clone::Clone for jmap_types::data_types::DataTypeEntry
+pub fn jmap_types::data_types::DataTypeEntry::clone(&self) -> jmap_types::data_types::DataTypeEntry
+impl core::cmp::Eq for jmap_types::data_types::DataTypeEntry
+impl core::cmp::PartialEq for jmap_types::data_types::DataTypeEntry
+pub fn jmap_types::data_types::DataTypeEntry::eq(&self, &jmap_types::data_types::DataTypeEntry) -> bool
+impl core::fmt::Debug for jmap_types::data_types::DataTypeEntry
+pub fn jmap_types::data_types::DataTypeEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_types::data_types::DataTypeEntry
+impl core::marker::StructuralPartialEq for jmap_types::data_types::DataTypeEntry
+pub const jmap_types::data_types::DATA_TYPES: &[jmap_types::data_types::DataTypeEntry]
+pub fn jmap_types::data_types::data_type(&str) -> core::option::Option<&'static jmap_types::data_types::DataTypeEntry>
 pub mod jmap_types::i18n
 #[non_exhaustive] pub enum jmap_types::i18n::LanguageTagError
 pub jmap_types::i18n::LanguageTagError::EmptySubtag

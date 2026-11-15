@@ -161,6 +161,14 @@ wire behaviour that a conforming peer can observe.
   §2 `i;unicode-casemap` preparation that `metadataTextContains` already
   used, so FileNode backends can compare names with it.
 
+- **jmap-types**: new `data_types` module, the IANA "JMAP Data Types"
+  registry (RFC 9404 §6.3) with object-history-03 §7.2's "Supports History"
+  column: `DataTypeEntry`, `DATA_TYPES` (sorted by type name) and
+  `data_type`. Rows cover RFC 9404 Table 1, RFC 9425, 9661, 9670 and 9610,
+  draft-ietf-jmap-calendars-34, draft-ietf-jmap-filenode-20 and the
+  draft-atwood-jmap chat, chat-mimi, graph, graph-edit, scene and vtc
+  drafts. Shared by Blob/lookup, object history and Quota. (bd:JMAP-tna1.4)
+
 - **jmap-quotas-types** (new crate): RFC 9425 JMAP for Quotas data types —
   `Quota`, `Scope`, `ResourceType`, `QuotaFilterCondition` / `QuotaFilter`,
   `QuotaComparator` / `QuotaComparatorProperty`, `QuotaProperty`,
