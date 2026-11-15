@@ -21,6 +21,12 @@ use serde_json::{Value, json};
 /// and the `accounts` map has a single entry keyed by this id.
 pub const ACCOUNT_ID: &str = "testjig-account";
 
+/// The id of the Principal for [`USERNAME`], seeded in the sharing backend
+/// in [`ACCOUNT_ID`]. It is `currentUserPrincipalId` in the account's
+/// `urn:ietf:params:jmap:principals` capability and owns the account
+/// (`urn:ietf:params:jmap:principals:owner`, RFC 9670 §1.5).
+pub const PRINCIPAL_ID: &str = "testjig-principal";
+
 /// The single hardcoded principal username the testjig authenticates as.
 ///
 /// Returned in the Session's `username` field. Not a real email
@@ -52,7 +58,11 @@ pub const BASE_URL: &str = "http://127.0.0.1:8080";
 
 /// The 12 capability URIs the testjig advertises: RFC 8620 base `core`
 /// plus the 11 workspace extension capabilities (mail, chat, calendars,
-/// tasks, contacts, filenode, sharing, metadata, cid, i18n, quota).
+/// tasks, contacts, filenode, principals, metadata, cid, i18n, quota).
+///
+/// RFC 9670 Sharing is advertised as `urn:ietf:params:jmap:principals`
+/// (§1.5.1); `urn:ietf:params:jmap:principals:owner` (§1.5.2) is an
+/// account capability only, so it is not in this list.
 ///
 /// `urn:ietf:params:jmap:i18n` (draft-atwood-jmap-updates-00 §3) is
 /// advertised with `{}` in both `capabilities` and the account's
@@ -86,7 +96,7 @@ pub const ADVERTISED_CAPABILITIES: &[&str] = &[
     "urn:ietf:params:jmap:tasks",
     "urn:ietf:params:jmap:contacts",
     "urn:ietf:params:jmap:filenode",
-    "urn:ietf:params:jmap:sharing",
+    jmap_sharing_types::JMAP_PRINCIPALS_URI,
     "urn:ietf:params:jmap:metadata",
     "urn:ietf:params:jmap:cid",
     "urn:ietf:params:jmap:i18n",
@@ -211,6 +221,18 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
             "supportedBodyTypes": jmap_chat_server::message::SUPPORTED_BODY_TYPES,
             "supportsThreads": false,
         }),
+    );
+
+    // RFC 9670 §1.5.1: the principals account capability MUST carry
+    // currentUserPrincipalId. §1.5.2: the account is owned by that
+    // Principal, which lives in this same account.
+    account_capabilities.insert(
+        jmap_sharing_types::JMAP_PRINCIPALS_URI.to_owned(),
+        json!({ "currentUserPrincipalId": PRINCIPAL_ID }),
+    );
+    account_capabilities.insert(
+        jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI.to_owned(),
+        json!({ "accountIdForPrincipal": ACCOUNT_ID, "principalId": PRINCIPAL_ID }),
     );
 
     let accounts = json!({
@@ -432,6 +454,49 @@ mod tests {
     /// `urn:ietf:params:jmap:cid` capability in the JMAP Session resource
     /// ({{RFC8620}} Section 2). The value of this capability is an object
     /// with no defined properties in this version of the specification."
+    #[test]
+    fn session_advertises_principals_per_rfc_9670() {
+        let s = session_json();
+        // §1.5.1: "The value of this property in the JMAP Session
+        // "capabilities" property is an empty object."
+        assert_eq!(
+            s["capabilities"]["urn:ietf:params:jmap:principals"],
+            json!({})
+        );
+        assert!(
+            s["capabilities"]
+                .get("urn:ietf:params:jmap:sharing")
+                .is_none()
+        );
+        // §1.5.2: principals:owner "does not appear in the JMAP Session
+        // capabilities".
+        assert!(
+            s["capabilities"]
+                .get("urn:ietf:params:jmap:principals:owner")
+                .is_none()
+        );
+        assert!(
+            s["primaryAccounts"]
+                .get("urn:ietf:params:jmap:principals:owner")
+                .is_none()
+        );
+        assert_eq!(
+            s["primaryAccounts"]["urn:ietf:params:jmap:principals"],
+            ACCOUNT_ID
+        );
+        let caps = &s["accounts"][ACCOUNT_ID]["accountCapabilities"];
+        // §1.5.1: the account value "MUST contain" currentUserPrincipalId.
+        assert_eq!(
+            caps["urn:ietf:params:jmap:principals"],
+            json!({ "currentUserPrincipalId": PRINCIPAL_ID })
+        );
+        // §1.5.2: accountIdForPrincipal and principalId.
+        assert_eq!(
+            caps["urn:ietf:params:jmap:principals:owner"],
+            json!({ "accountIdForPrincipal": ACCOUNT_ID, "principalId": PRINCIPAL_ID })
+        );
+    }
+
     #[test]
     fn session_advertises_cid_capability_as_empty_object() {
         let s = session_json();

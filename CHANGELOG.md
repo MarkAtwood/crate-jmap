@@ -216,6 +216,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-testjig**: the Session advertises RFC 9670 Sharing as
+  `urn:ietf:params:jmap:principals` instead of the undefined
+  `urn:ietf:params:jmap:sharing`. The account's principals capability
+  carries `currentUserPrincipalId` (§1.5.1), and the account has
+  `urn:ietf:params:jmap:principals:owner` (§1.5.2). Both name a seeded
+  Principal for the jig's user (`testjig-principal`). (bd:JMAP-xkjt)
 - **jmap-calendars-types**, **jmap-calendars-server**: a BusyPeriod's
   `event` and `accountId` are now sent as `null` rather than omitted, as
   draft-ietf-jmap-calendars-34 §2.2 types them (`CalendarEvent|null`,

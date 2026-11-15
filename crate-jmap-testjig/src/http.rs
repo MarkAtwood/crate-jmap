@@ -554,9 +554,26 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     );
     jmap_filenode_server::register_filenode_handlers(dispatcher, Arc::clone(&filenode));
 
-    // Sharing (RFC 9670): Principal, Permission.
+    // Sharing (RFC 9670): Principal, ShareNotification.
     let sharing = Arc::new(
         jmap_sharing_server::memory::MemoryBackend::new_with_accounts(&[session::ACCOUNT_ID]),
+    );
+    // The user's own Principal, named by the Session's principals
+    // capabilities (RFC 9670 §1.5, §2).
+    sharing.seed_object(
+        &account,
+        "Principal",
+        &Id::from(session::PRINCIPAL_ID),
+        serde_json::json!({
+            "id": session::PRINCIPAL_ID,
+            "type": "individual",
+            "name": session::USERNAME,
+            "description": null,
+            "email": session::USERNAME,
+            "timeZone": null,
+            "capabilities": {},
+            "accounts": null
+        }),
     );
     jmap_sharing_server::register_sharing_handlers(dispatcher, Arc::clone(&sharing));
 
@@ -1039,7 +1056,7 @@ mod tests {
             ("Task/get", "urn:ietf:params:jmap:tasks"),
             ("ContactCard/get", "urn:ietf:params:jmap:contacts"),
             ("FileNode/get", "urn:ietf:params:jmap:filenode"),
-            ("Principal/get", "urn:ietf:params:jmap:sharing"),
+            ("Principal/get", "urn:ietf:params:jmap:principals"),
             ("Quota/get", "urn:ietf:params:jmap:quota"),
         ];
         for (method, capability) in probes {
@@ -1099,6 +1116,32 @@ mod tests {
         )
         .await;
         assert_eq!(resp["methodResponses"][0][1]["list"], json!([]), "{resp}");
+    }
+
+    /// RFC 9670 §1.5.1: `currentUserPrincipalId` names a Principal that
+    /// `Principal/get` returns from the account the Session points at.
+    #[tokio::test]
+    async fn current_user_principal_resolves() {
+        let s = session::session_json();
+        let account = s["primaryAccounts"]["urn:ietf:params:jmap:principals"].clone();
+        let pid = s["accounts"][account.as_str().unwrap()]["accountCapabilities"]
+            ["urn:ietf:params:jmap:principals"]["currentUserPrincipalId"]
+            .clone();
+        let body = serde_json::to_string(&json!({
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:principals"],
+            "methodCalls": [["Principal/get", {"accountId": account, "ids": [pid]}, "c1"]]
+        }))
+        .unwrap();
+        let (_, resp) = send(
+            router(AppState::new()),
+            http::Method::POST,
+            "/jmap",
+            Some(&body),
+        )
+        .await;
+        let list = &resp["methodResponses"][0][1]["list"];
+        assert_eq!(list[0]["id"], pid, "{resp}");
+        assert_eq!(list[0]["name"], session::USERNAME);
     }
 
     /// draft-atwood-jmap-updates-00 §5.2: with i18n and `language`, the

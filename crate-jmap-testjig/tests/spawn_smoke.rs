@@ -52,7 +52,7 @@ async fn spawn_in_process_serves_session_with_all_capabilities() {
         "urn:ietf:params:jmap:tasks",
         "urn:ietf:params:jmap:contacts",
         "urn:ietf:params:jmap:filenode",
-        "urn:ietf:params:jmap:sharing",
+        "urn:ietf:params:jmap:principals",
         "urn:ietf:params:jmap:metadata",
     ];
     for uri in expected {
