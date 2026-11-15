@@ -143,6 +143,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-tasks-server**: `Task/set` (create and update) and `Task/copy`
+  reject a Person `uri` in `checklists` (CheckItem `assignee`) or `comments`
+  (Comment `author`) that is not an RFC 3986 URI, with `invalidProperties`
+  naming the top-level property (draft-atwood-jmap-updates-00 §7.1).
 - **jmap-graph-server**: `GraphNode/set` checks `uri` against the full RFC
   3986 grammar (`jmap_types::uri::check_uri`) instead of a character-set
   check, so values such as a `[` inside a host name or a non-numeric port

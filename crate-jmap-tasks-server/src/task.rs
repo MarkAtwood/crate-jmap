@@ -280,6 +280,14 @@ pub async fn handle_task_set<B: TasksBackend>(
                 not_created.insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
+            if let Some(prop) = obj_val
+                .as_object()
+                .and_then(|o| o.iter().find(|(_, v)| has_bad_person_uri(v)))
+                .map(|(k, _)| k.clone())
+            {
+                not_created.insert(create_id, person_uri_error(&prop));
+                continue;
+            }
             // `Task.id` is optional, so the create parses without one and
             // `build` sets the id the backend mints.
             let mut task: Task = match serde_path_to_error::deserialize(obj_val) {
@@ -336,6 +344,10 @@ pub async fn handle_task_set<B: TasksBackend>(
 
             if let Err(err) = resolve_refs(&mut patch_val, TASK_ID_PROPERTIES, created_ids) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            if let Some(prop) = patch_val.as_object().and_then(bad_person_uri_in_patch) {
+                not_updated.insert(id_str, person_uri_error(&prop));
                 continue;
             }
 
@@ -530,6 +542,45 @@ pub async fn handle_task_set<B: TasksBackend>(
 /// is populated with a follow-up `Task/set` invocation when
 /// `onSuccessDestroyOriginal` is true (RFC 8620 §5.4); otherwise it is
 /// empty.
+/// `true` when `value` holds, at any depth, a Person object
+/// (draft-ietf-jmap-tasks §4.2.3 CheckItem `assignee`, §4.2.4 Comment
+/// `author`) whose `uri` is a string that is not an RFC 3986 URI
+/// (draft-atwood-jmap-updates-00 §7.1).
+fn has_bad_person_uri(value: &Value) -> bool {
+    match value {
+        Value::Object(m) => {
+            let bad_here = m.get("@type").and_then(Value::as_str) == Some("Person")
+                && m.get("uri")
+                    .and_then(Value::as_str)
+                    .is_some_and(|u| jmap_types::uri::check_uri(u).is_err());
+            bad_here || m.values().any(has_bad_person_uri)
+        }
+        Value::Array(a) => a.iter().any(has_bad_person_uri),
+        _ => false,
+    }
+}
+
+/// The top-level property of the first patch entry that writes a Person
+/// `uri` that is not an RFC 3986 URI: a value holding such a Person, or a
+/// pointer ending in `assignee/uri` or `author/uri` to a non-URI string.
+fn bad_person_uri_in_patch(patch: &serde_json::Map<String, Value>) -> Option<String> {
+    patch.iter().find_map(|(path, v)| {
+        let direct = (path.ends_with("/assignee/uri") || path.ends_with("/author/uri"))
+            && v.as_str()
+                .is_some_and(|u| jmap_types::uri::check_uri(u).is_err());
+        (direct || has_bad_person_uri(v)).then(|| path.split('/').next().unwrap_or(path).to_owned())
+    })
+}
+
+/// The `invalidProperties` SetError for a Person `uri` under `property`.
+fn person_uri_error(property: &str) -> Value {
+    json!({
+        "type": "invalidProperties",
+        "properties": [property],
+        "description": "a Person uri is not an RFC 3986 URI",
+    })
+}
+
 pub async fn handle_task_copy<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -710,6 +761,15 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 }
             }
             merged.remove("id");
+            // draft-atwood-jmap-updates-00 §7.1, as for Task/set create.
+            if let Some(prop) = merged
+                .iter()
+                .find(|(_, v)| has_bad_person_uri(v))
+                .map(|(k, _)| k.clone())
+            {
+                not_created.insert(create_id, person_uri_error(&prop));
+                continue;
+            }
 
             let task: Task = match serde_path_to_error::deserialize(Value::Object(merged)) {
                 Ok(t) => t,
