@@ -5,9 +5,9 @@ JMAP Blob Management method handlers for the `jmap-server` dispatcher:
 ([draft-ietf-jmap-blobext-03]), and `Blob/upload` ([RFC 9404]).
 
 **Status: surface fixed, handlers pending.** `BlobBackend`,
-`register_blob_handlers` and `BlobMode` are in place; the four handlers
-answer `serverFail` until their beads land (see `PLAN.md`), and the
-`memory` backend is not written yet.
+`register_blob_handlers`, `BlobMode` and the `memory` backend are in
+place; the four handlers answer `serverFail` until their beads land (see
+`PLAN.md`), and the memory backend's `convert` until JMAP-tna1.2.6.
 
 ## What it is
 
@@ -49,6 +49,14 @@ Advertise `urn:ietf:params:jmap:blob2` yourself: `{}` in the Session
   none, since any default would put wrong data on the wire.
 - `BlobMode::from_using` picks blob2, RFC 9404, or the forbidden mix of
   both (`invalidArguments`).
+- `memory::MemoryBackend` (feature `memory`) is the reference backend:
+  per-account blobs with ids `B1`, `B2`, ...; inline-only blobs stored as
+  bytes and blobs built from other blobs stored as chunk lists of leaf
+  blobs; `expires` one hour ahead (five minutes for `noPersist`, `null`
+  while referenced); touches honoured up to seven days; a stored sha-256 of
+  each whole blob. Feature `test-helpers` adds `advertise_for_test`,
+  `add_reference_for_test`, `hide_object_for_test`, `set_clock_for_test`
+  and `omit_no_persist_for_test`.
 
 ## Gotchas
 

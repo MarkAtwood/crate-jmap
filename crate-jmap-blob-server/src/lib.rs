@@ -33,6 +33,11 @@ mod backend;
 mod convert;
 mod get;
 mod lookup;
+/// In-memory reference implementation of [`BlobBackend`].
+///
+/// Gated behind `feature = "memory"`. Not production.
+#[cfg(feature = "memory")]
+pub mod memory;
 mod mode;
 mod order;
 mod range;

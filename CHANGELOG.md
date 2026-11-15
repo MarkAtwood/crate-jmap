@@ -214,6 +214,17 @@ wire behaviour that a conforming peer can observe.
   `QuotaCapability` and `JMAP_QUOTA_URI`, with `JmapObject` / `GetObject` /
   `QueryObject` impls (no `SetObject`: Quota is read-only). (bd:JMAP-1igi.1)
 
+- **jmap-blob-server**: `memory::MemoryBackend` (feature `memory`), the
+  reference `BlobBackend`. Accounts must be registered; blobs made only of
+  inline data are stored as bytes, blobs built from other blobs as chunk
+  lists of leaf blobs (which then cannot be destroyed while used:
+  `blobHasReference`); `expires` is one hour ahead, five minutes for
+  `noPersist`, and `null` while an object references the blob; a touch is
+  honoured up to seven days ahead; the whole-blob sha-256 is stored.
+  Feature `test-helpers` adds `advertise_for_test`,
+  `add_reference_for_test`, `hide_object_for_test`, `set_clock_for_test`
+  and `omit_no_persist_for_test`. Conversions follow in JMAP-tna1.2.6.
+  (bd:JMAP-tna1.2.5)
 - **jmap-blob-server**: the public surface for blobext-03. `BlobBackend`
   with the docs/design/blobext.md §6 hooks (`blob_capability`,
   `blob_info`, `read_blob_range`, `create_blob`, `touch_blob`,

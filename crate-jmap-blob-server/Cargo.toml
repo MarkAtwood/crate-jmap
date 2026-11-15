@@ -26,3 +26,9 @@ jmap-types = { workspace = true }
 jmap-blob-types = { workspace = true }
 jmap-server = { workspace = true }
 serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Path-only self-dep with `memory` and `test-helpers`, so integration tests
+# get the reference impl; cargo drops it on publish (JMAP-31o4).
+jmap-blob-server = { path = ".", features = ["memory", "test-helpers"] }
