@@ -51,6 +51,14 @@ are no types recognized by the client."
   `ChangesResult::updated_properties` to `["used"]` when only usage changed
   (§4.3).
 
+`name` and `description` are localizable (draft-atwood-jmap-updates-00
+§5.2). With `urn:ietf:params:jmap:i18n` in `using`, `/get` returns the
+stored values with `locale` and `localizations`, `language` selects a
+single-language view, and `/query` filters and sorts `name` by `language`;
+Accept-Language changes nothing. Without the capability, `description` is
+the one the request's Accept-Language selects (`JmapBackend::accept_language`
+on the caller context), as RFC 9425 §4.1 requires.
+
 A type is recognized when the "JMAP Data Types" registry
 (`jmap_types::data_types`) lists its capability in `using`. Override
 `QuotasBackend::recognized_types` for private types.

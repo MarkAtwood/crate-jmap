@@ -6,8 +6,13 @@
 //! Content-Language. It never lets Accept-Language change JMAP data: with
 //! `urn:ietf:params:jmap:i18n` in `using` only the `language` argument does
 //! that (§4.2.1), and the handlers never see the header.
+//!
+//! One gap follows: without the capability, RFC 9425 §4.1 selects the
+//! Quota `description` by Accept-Language, but the jig's caller context is
+//! `()`, so `JmapBackend::accept_language` is `None` and the base
+//! `description` is returned.
 
-use jmap_types::i18n::{LanguageRange, LanguageTag, lookup};
+use jmap_types::i18n::{LanguageTag, accept_language_ranges, lookup};
 
 /// A language the jig has titles for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -33,23 +38,7 @@ pub(crate) fn choose(accept_language: Option<&str>) -> Lang {
     let Some(value) = accept_language else {
         return Lang::En;
     };
-    let mut weighted: Vec<(u16, usize, LanguageRange)> = value
-        .split(',')
-        .enumerate()
-        .filter_map(|(i, item)| {
-            let mut parts = item.split(';');
-            let range = LanguageRange::parse(parts.next()?.trim()).ok()?;
-            let q = parts
-                .find_map(|p| p.trim().strip_prefix("q="))
-                .map_or(Some(1000), |q| {
-                    q.trim().parse::<f32>().ok().map(|f| (f * 1000.0) as u16)
-                })?;
-            (q > 0).then_some((q, i, range))
-        })
-        .collect();
-    // Highest quality first; ties keep their order in the header.
-    weighted.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
-    let ranges: Vec<LanguageRange> = weighted.into_iter().map(|(_, _, r)| r).collect();
+    let ranges = accept_language_ranges(value);
     let available: Vec<LanguageTag> = ["en", "de"]
         .iter()
         .filter_map(|t| LanguageTag::parse(t).ok())

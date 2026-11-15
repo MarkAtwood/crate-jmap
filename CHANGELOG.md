@@ -169,6 +169,22 @@ wire behaviour that a conforming peer can observe.
   draft-atwood-jmap chat, chat-mimi, graph, graph-edit, scene and vtc
   drafts. Shared by Blob/lookup, object history and Quota. (bd:JMAP-tna1.4)
 
+- **jmap-types**: `i18n::accept_language_ranges`, the language ranges of
+  an Accept-Language value in RFC 9110 §12.5.4 quality order (`q=0` and
+  malformed items dropped). jmap-testjig's own parser now uses it.
+  (bd:JMAP-cayv.11)
+- **jmap-quotas-types**, **jmap-quotas-server**, **jmap-quotas-client**:
+  Quota `name` and `description` are localizable
+  (draft-atwood-jmap-updates-00 §5.2). `Quota` gains `locale` and
+  `localizations`, and `LOCALIZABLE` lists both properties. With
+  `urn:ietf:params:jmap:i18n` in `using`, `Quota/get` returns the stored
+  values with `locale` and `localizations`, and `language` selects a view;
+  `Quota/query` and `/queryChanges` filter and sort `name` by `language`.
+  Without it, `description` is selected by Accept-Language
+  (`JmapBackend::accept_language`, RFC 9425 §4.1). The memory backend
+  supports i18n in every account. The testjig's Quota carries a German
+  `description`. (bd:JMAP-cayv.11)
+
 - **jmap-quotas** (umbrella, replaces the 0.0.1 placeholder): re-exports
   `jmap-quotas-types` as `types`, `jmap-quotas-client` as `client` (feature
   `client`) and `jmap-quotas-server` as `server` (feature `server`; `memory`

@@ -576,7 +576,11 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
             "scope": "account",
             "name": session::USERNAME,
             "description": "Storage for this account",
-            "types": ["Email", "CalendarEvent", "ContactCard", "FileNode"]
+            "types": ["Email", "CalendarEvent", "ContactCard", "FileNode"],
+            "locale": "en",
+            "localizations": {
+                "de": { "description": "Speicherplatz für dieses Konto" }
+            }
         }),
     );
     jmap_quotas_server::register_quotas_handlers(dispatcher, Arc::clone(&quotas));
@@ -1095,6 +1099,29 @@ mod tests {
         )
         .await;
         assert_eq!(resp["methodResponses"][0][1]["list"], json!([]), "{resp}");
+    }
+
+    /// draft-atwood-jmap-updates-00 §5.2: with i18n and `language`, the
+    /// Quota `description` comes in the chosen language.
+    #[tokio::test]
+    async fn post_jmap_quota_get_language_view() {
+        let body = serde_json::to_string(&json!({
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:quota",
+                      "urn:ietf:params:jmap:mail", "urn:ietf:params:jmap:i18n"],
+            "methodCalls": [["Quota/get", {"accountId": session::ACCOUNT_ID, "ids": ["quota-storage"],
+                             "language": ["de"]}, "c1"]]
+        }))
+        .unwrap();
+        let (_, resp) = send(
+            router(AppState::new()),
+            http::Method::POST,
+            "/jmap",
+            Some(&body),
+        )
+        .await;
+        let q = &resp["methodResponses"][0][1]["list"][0];
+        assert_eq!(q["description"], "Speicherplatz für dieses Konto", "{resp}");
+        assert_eq!(q["locale"], "de");
     }
 
     /// Oracle: bd:JMAP-cf7p.6 — a custom token configured via

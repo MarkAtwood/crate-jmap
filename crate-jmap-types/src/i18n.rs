@@ -375,6 +375,55 @@ impl<'de> Deserialize<'de> for LanguageRange {
     }
 }
 
+/// The language ranges of an `Accept-Language` field value (RFC 9110
+/// §12.5.4), most preferred first: ordered by quality value, ties kept in
+/// header order, with `q=0` ranges ("not acceptable") and malformed items
+/// left out. The result is a priority list for [`lookup`].
+///
+/// ```rust
+/// use jmap_types::i18n::accept_language_ranges;
+///
+/// let ranges = accept_language_ranges("fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5");
+/// let tags: Vec<&str> = ranges.iter().map(|r| r.as_str()).collect();
+/// assert_eq!(tags, ["fr-CH", "fr", "en", "de", "*"]);
+/// ```
+pub fn accept_language_ranges(value: &str) -> Vec<LanguageRange> {
+    let mut weighted: Vec<(u16, usize, LanguageRange)> = value
+        .split(',')
+        .enumerate()
+        .filter_map(|(i, item)| {
+            let mut parts = item.split(';');
+            let range = LanguageRange::parse(parts.next()?.trim()).ok()?;
+            // The parameter name is case-insensitive (RFC 9110 §12.4.2).
+            let q = match parts.find_map(|p| {
+                let p = p.trim();
+                (p.len() >= 2 && p[..2].eq_ignore_ascii_case("q=")).then(|| &p[2..])
+            }) {
+                None => 1000,
+                Some(q) => qvalue(q.trim())?,
+            };
+            (q > 0).then_some((q, i, range))
+        })
+        .collect();
+    weighted.sort_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+    weighted.into_iter().map(|(_, _, r)| r).collect()
+}
+
+/// An RFC 9110 §12.4.2 `qvalue` in thousandths: `0` to `1`, with at
+/// most three decimal places.
+fn qvalue(s: &str) -> Option<u16> {
+    let (int, frac) = s.split_once('.').unwrap_or((s, ""));
+    if frac.len() > 3 || !frac.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    let frac_val: u16 = format!("{frac:0<3}").parse().ok()?;
+    match int {
+        "0" => Some(frac_val),
+        "1" if frac_val == 0 => Some(1000),
+        _ => None,
+    }
+}
+
 /// RFC 4647 §3.4 Lookup: the tag in `available` that best matches the
 /// priority list `ranges`, or `None` when nothing matches and the
 /// default applies.
@@ -860,6 +909,24 @@ mod tests {
 
     fn tag(s: &str) -> LanguageTag {
         LanguageTag::parse(s).unwrap()
+    }
+
+    /// RFC 9110 §12.5.4 and §12.4.2: quality ordering, `q=0` excluded,
+    /// malformed qvalues and ranges dropped.
+    #[test]
+    fn accept_language_quality_order() {
+        let tags = |v: &str| -> Vec<String> {
+            accept_language_ranges(v)
+                .iter()
+                .map(|r| r.as_str().to_owned())
+                .collect()
+        };
+        assert_eq!(tags("da, en-gb;q=0.8, en;q=0.7"), ["da", "en-GB", "en"]);
+        assert_eq!(tags("en;q=0.5, de"), ["de", "en"]);
+        assert_eq!(tags("de;q=0, en"), ["en"]);
+        assert_eq!(tags("en;q=1.5, de;q=0.1234, fr;q=0.123"), ["fr"]);
+        assert_eq!(tags("a b, ;q=1, de;Q=0.5, en;q=0.6"), ["en", "de"]);
+        assert!(tags("").is_empty());
     }
 
     #[test]

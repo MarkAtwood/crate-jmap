@@ -31,13 +31,24 @@ pub enum QuotaProperty {
     SoftLimit,
     /// The `description` property (RFC 9425 §4.1).
     Description,
+    /// The `locale` property (draft-atwood-jmap-updates-00 §4.1).
+    Locale,
+    /// The `localizations` property (draft-atwood-jmap-updates-00 §4.1).
+    Localizations,
 }
 
 /// RFC 9425 §4: Quota supports `/get`, `/changes`, `/query` and
 /// `/queryChanges`, and no `/set`: every property is server-set.
+///
+/// draft-atwood-jmap-updates-00 §5.2: `name` and
+/// `description` are localizable.
 impl JmapObject for crate::Quota {
     const TYPE_NAME: &'static str = "Quota";
     type Property = QuotaProperty;
+    const LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty] = &[
+        jmap_types::i18n::LocalizableProperty::new("name", false),
+        jmap_types::i18n::LocalizableProperty::new("description", true),
+    ];
 }
 
 impl GetObject for crate::Quota {}

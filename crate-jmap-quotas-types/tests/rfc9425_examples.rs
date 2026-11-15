@@ -163,3 +163,21 @@ fn comparator_wire_form() {
         QuotaComparatorProperty::Other("hardLimit".into())
     );
 }
+
+/// draft-atwood-jmap-updates-00 §4.1, §5.2: `locale` and `localizations`
+/// round-trip, and Quota lists `name` and `description` as localizable.
+#[test]
+fn localizations_round_trip() {
+    use jmap_types::JmapObject;
+    let mut v = example();
+    v["locale"] = json!("en");
+    v["localizations"] = json!({ "de": { "name": "Bobs Konto", "description": null } });
+    let q: Quota = serde_json::from_value(v.clone()).unwrap();
+    assert_eq!(q.locale.as_ref().map(|t| t.as_str()), Some("en"));
+    assert_eq!(serde_json::to_value(&q).unwrap(), v);
+    let names: Vec<(&str, bool)> = Quota::LOCALIZABLE
+        .iter()
+        .map(|p| (p.name, p.nullable))
+        .collect();
+    assert_eq!(names, [("name", false), ("description", true)]);
+}

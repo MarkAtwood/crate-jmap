@@ -25,10 +25,12 @@ fn session(server: &MockServer, primary: bool) -> jmap_base_client::Session {
             "urn:ietf:params:jmap:core": {},
             "urn:ietf:params:jmap:quota": {},
             "urn:ietf:params:jmap:mail": {},
-            "urn:ietf:params:jmap:calendars": {}
+            "urn:ietf:params:jmap:calendars": {},
+            "urn:ietf:params:jmap:i18n": {}
         },
         "accounts": { ACC: { "name": "bob@example.com", "isPersonal": true,
-            "isReadOnly": false, "accountCapabilities": { "urn:ietf:params:jmap:quota": {} } } },
+            "isReadOnly": false, "accountCapabilities": { "urn:ietf:params:jmap:quota": {},
+            "urn:ietf:params:jmap:i18n": {} } } },
         "primaryAccounts": primary_accounts,
         "username": "bob@example.com",
         "apiUrl": format!("{}/api/", server.uri()),
@@ -105,6 +107,7 @@ async fn section_5_1_fetch_all() {
             "urn:ietf:params:jmap:core",
             "urn:ietf:params:jmap:quota",
             "urn:ietf:params:jmap:calendars",
+            "urn:ietf:params:jmap:i18n",
             "urn:ietf:params:jmap:mail"
         ])
     );
@@ -270,4 +273,41 @@ async fn errors_before_sending() {
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+/// draft-atwood-jmap-updates-00 §4.2, §5.2: `with_i18n` puts the
+/// capability in `using` and `language` on each call, and the Quota keeps
+/// the `locale` and `localizations` the server returns.
+#[tokio::test]
+async fn with_i18n_sends_language() {
+    let server = MockServer::start().await;
+    respond(
+        &server,
+        "Quota/get",
+        json!({
+            "accountId": ACC, "state": "1", "notFound": [],
+            "list": [{ "id": Q1, "resourceType": "octets", "used": 1, "hardLimit": 2,
+                       "scope": "account", "name": "Post", "types": ["Email"],
+                       "locale": "de", "localizations": null }]
+        }),
+    )
+    .await;
+    let de: Vec<jmap_types::i18n::LanguageRange> = vec!["de".parse().unwrap()];
+    let resp = client(&server, true)
+        .with_type_capabilities(["urn:ietf:params:jmap:mail"])
+        .with_i18n(Some(de))
+        .unwrap()
+        .quota_get(None)
+        .await
+        .unwrap();
+    assert_eq!(resp.list[0].locale.as_ref().map(|t| t.as_str()), Some("de"));
+    let req = sent(&server).await;
+    assert!(
+        req["using"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("urn:ietf:params:jmap:i18n")),
+        "{req}"
+    );
+    assert_eq!(req["methodCalls"][0][1]["language"], json!(["de"]));
 }

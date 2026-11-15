@@ -83,9 +83,22 @@ pub struct Quota {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub soft_limit: Option<u64>,
     /// "Arbitrary, free, human-readable description of this quota"
-    /// (optional; `String|null`), selected by Accept-Language.
+    /// (optional; `String|null`). Without `urn:ietf:params:jmap:i18n` in
+    /// `using`, the server selects it by Accept-Language (RFC 9425 §4.1).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The language of `name` and `description`
+    /// (draft-atwood-jmap-updates-00 §4.1); `None` when unknown or not
+    /// stored. Returned only to requests that use
+    /// `urn:ietf:params:jmap:i18n`; jmap-quotas-server shapes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<jmap_types::i18n::LanguageTag>,
+    /// `name` and `description` in other languages
+    /// (draft-atwood-jmap-updates-00 §4.1, §5.2). The server
+    /// sets them: both properties are server-set. A `null` localized
+    /// `description` means there is none in that language.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub localizations: Option<jmap_types::i18n::Localizations>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation

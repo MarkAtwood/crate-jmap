@@ -14,6 +14,10 @@
 //! [`set_used`]: crate::memory::MemoryBackend::set_used
 //! [`remove_quota`]: crate::memory::MemoryBackend::remove_quota
 //!
+//! Quotas may carry `locale` and `localizations` for `name` and
+//! `description` (draft-atwood-jmap-updates-00 §5.2); every account
+//! supports `urn:ietf:params:jmap:i18n`.
+//!
 //! `Quota/query` evaluates every RFC 9425 §4.4 condition. `name` matches
 //! case-insensitively (Unicode lowercase). It sorts by `name` and `used`,
 //! with no collation or `i;octet`, `i;ascii-casemap` or
@@ -35,6 +39,7 @@ use jmap_server::{
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
     limit_or_max, resolve_query_start,
 };
+use jmap_types::i18n::localized_value;
 use jmap_types::{Filter, Id, JmapError, Operator, State};
 use serde_json::Value;
 
@@ -302,6 +307,13 @@ impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
+    /// Every account supports `urn:ietf:params:jmap:i18n`: Quota `name`
+    /// and `description` are returned with the `locale` and
+    /// `localizations` the backend's owner stored.
+    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+        Some(jmap_server::I18nInfo::new())
+    }
+
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self.lock().contains_key(account_id))
     }
@@ -467,7 +479,16 @@ impl JmapBackend for MemoryBackend {
             };
             let mut matched = Vec::new();
             for v in acc.quotas.values() {
-                let q = quota_of(v).map_err(BackendQueryError::Other)?;
+                let mut q = quota_of(v).map_err(BackendQueryError::Other)?;
+                // draft-atwood-jmap-updates-00 §4.2.2: with `language`, the
+                // `name` condition and sort see the localized name.
+                if let Some(ranges) = params.language
+                    && let Some(Value::String(name)) = v
+                        .as_object()
+                        .and_then(|o| localized_value(o, "name", ranges))
+                {
+                    q.name = name;
+                }
                 if filter.as_ref().is_none_or(|f| filter_matches(f, &q)) {
                     matched.push(q);
                 }

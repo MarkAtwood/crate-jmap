@@ -18,13 +18,26 @@
 //! `unsupportedSort` and `anchorNotFound` (`/query`), and `serverFail`.
 
 use jmap_quotas_types::Quota;
-use jmap_server::HandlerOutput;
+use jmap_server::{HandlerOutput, uses_i18n};
 use jmap_types::JmapError;
+use jmap_types::i18n::{JMAP_I18N_URI, LanguageRange, accept_language_ranges, localized_value};
 use serde_json::{Value, json};
 
 use crate::QuotasBackend;
 
 /// Handle `Quota/get` (RFC 9425 §4.2; RFC 8620 §5.1).
+///
+/// `name` and `description` are localizable (draft-atwood-jmap-updates-00
+/// §5.2):
+///
+/// - with `urn:ietf:params:jmap:i18n` in `using`, `locale` and
+///   `localizations` are returned and `language` selects a view (§4.2.1);
+///   Accept-Language changes nothing;
+/// - without it, `description` is the one Accept-Language
+///   ([`JmapBackend::accept_language`](jmap_server::JmapBackend::accept_language))
+///   selects by RFC 4647 Lookup, falling back to the stored base value, as
+///   RFC 9425 §4.1 requires; `name` is the base value, and `locale`,
+///   `localizations` and `language` are not available.
 pub async fn handle_quota_get<B: QuotasBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -33,16 +46,43 @@ pub async fn handle_quota_get<B: QuotasBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     let recognized = backend.recognized_types(caller, using);
     let by_id = args.get("ids").is_some_and(|v| !v.is_null());
-    // `types` is needed to decide what to drop, so fetch it and strip it
-    // again when the client did not ask for it.
+
+    // RFC 9425 §4.1 selection by Accept-Language, only without i18n.
+    let ranges: Vec<LanguageRange> = if uses_i18n(using) {
+        Vec::new()
+    } else {
+        if args.get("language").is_some_and(|v| !v.is_null()) {
+            return Err(JmapError::invalid_arguments(
+                "language requires urn:ietf:params:jmap:i18n in using",
+            ));
+        }
+        B::accept_language(caller)
+            .map(accept_language_ranges)
+            .unwrap_or_default()
+    };
+    let by_accept_language = !ranges.is_empty();
+
+    // `types` is needed to decide what to drop, and `localizations` to
+    // select `description`; fetch them and strip them again.
     let mut strip_types = false;
-    if let Some(Value::Array(props)) = args.get_mut("properties")
-        && !props.iter().any(|p| p == "types")
-    {
-        props.push(json!("types"));
-        strip_types = true;
+    if let Some(Value::Array(props)) = args.get_mut("properties") {
+        if !props.iter().any(|p| p == "types") {
+            props.push(json!("types"));
+            strip_types = true;
+        }
+        if by_accept_language && props.iter().any(|p| p == "description") {
+            props.extend([json!("locale"), json!("localizations")]);
+        }
     }
-    let mut out = jmap_server::handle_get::<Quota, B>(backend, caller, args).await?;
+    let mut out = if by_accept_language {
+        // Read the stored localizations through the i18n path, which a
+        // `using` without the capability would strip.
+        let mut with_i18n = using.to_vec();
+        with_i18n.push(JMAP_I18N_URI.to_owned());
+        jmap_server::handle_get_with_metadata::<Quota, B>(backend, caller, args, &with_i18n).await?
+    } else {
+        jmap_server::handle_get_with_metadata::<Quota, B>(backend, caller, args, using).await?
+    };
 
     let mut hidden: Vec<Value> = Vec::new();
     if let Some(Value::Array(list)) = out.primary.get_mut("list") {
@@ -59,6 +99,13 @@ pub async fn handle_quota_get<B: QuotasBackend>(
                     obj.remove("types");
                 } else {
                     obj.insert("types".to_owned(), json!(visible));
+                }
+                if by_accept_language {
+                    if let Some(d) = localized_value(obj, "description", &ranges) {
+                        obj.insert("description".to_owned(), d);
+                    }
+                    obj.remove("locale");
+                    obj.remove("localizations");
                 }
             }
             true
@@ -100,6 +147,10 @@ pub async fn handle_quota_changes<B: QuotasBackend>(
 }
 
 /// Handle `Quota/query` (RFC 9425 §4.4; RFC 8620 §5.5).
+///
+/// With `urn:ietf:params:jmap:i18n` in `using`, `language` makes the
+/// `name` condition and sort use the localized `name`
+/// (draft-atwood-jmap-updates-00 §4.2.2); Accept-Language never does.
 pub async fn handle_quota_query<B: QuotasBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -107,7 +158,7 @@ pub async fn handle_quota_query<B: QuotasBackend>(
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let args = restrict_filter(args, &backend.recognized_types(caller, using));
-    jmap_server::handle_query::<Quota, B>(backend, caller, args).await
+    jmap_server::handle_query_with_i18n::<Quota, B>(backend, caller, args, using).await
 }
 
 /// Handle `Quota/queryChanges` (RFC 9425 §4.5; RFC 8620 §5.6).
@@ -121,7 +172,7 @@ pub async fn handle_quota_query_changes<B: QuotasBackend>(
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let args = restrict_filter(args, &backend.recognized_types(caller, using));
-    jmap_server::handle_query_changes::<Quota, B>(backend, caller, args).await
+    jmap_server::handle_query_changes_with_i18n::<Quota, B>(backend, caller, args, using).await
 }
 
 /// A filter no Quota matches: an `OR` of nothing (RFC 8620 §5.5: "at least

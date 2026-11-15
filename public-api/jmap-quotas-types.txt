@@ -32,6 +32,8 @@ pub fn jmap_quotas_types::QuotaComparatorProperty::deserialize<D: serde_core::de
 pub jmap_quotas_types::QuotaProperty::Description
 pub jmap_quotas_types::QuotaProperty::HardLimit
 pub jmap_quotas_types::QuotaProperty::Id
+pub jmap_quotas_types::QuotaProperty::Locale
+pub jmap_quotas_types::QuotaProperty::Localizations
 pub jmap_quotas_types::QuotaProperty::Name
 pub jmap_quotas_types::QuotaProperty::ResourceType
 pub jmap_quotas_types::QuotaProperty::Scope
@@ -107,6 +109,8 @@ pub jmap_quotas_types::Quota::description: core::option::Option<alloc::string::S
 pub jmap_quotas_types::Quota::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_quotas_types::Quota::hard_limit: u64
 pub jmap_quotas_types::Quota::id: jmap_types::id::Id
+pub jmap_quotas_types::Quota::locale: core::option::Option<jmap_types::i18n::LanguageTag>
+pub jmap_quotas_types::Quota::localizations: core::option::Option<jmap_types::i18n::Localizations>
 pub jmap_quotas_types::Quota::name: alloc::string::String
 pub jmap_quotas_types::Quota::resource_type: jmap_quotas_types::ResourceType
 pub jmap_quotas_types::Quota::scope: jmap_quotas_types::Scope
@@ -125,6 +129,7 @@ impl core::marker::StructuralPartialEq for jmap_quotas_types::Quota
 impl jmap_types::backend::GetObject for jmap_quotas_types::Quota
 impl jmap_types::backend::JmapObject for jmap_quotas_types::Quota
 pub type jmap_quotas_types::Quota::Property = jmap_quotas_types::QuotaProperty
+pub const jmap_quotas_types::Quota::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_quotas_types::Quota::TYPE_NAME: &'static str
 impl jmap_types::backend::QueryObject for jmap_quotas_types::Quota
 pub type jmap_quotas_types::Quota::Comparator = jmap_quotas_types::QuotaComparator
