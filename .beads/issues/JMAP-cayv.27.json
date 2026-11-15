@@ -1,0 +1,26 @@
+{
+  "id": "JMAP-cayv.27",
+  "title": "Email preview from mime-tree cut by characters, not graphemes",
+  "description": "draft-atwood-jmap-updates-00 §6.5: when a server shortens text such as the Email preview it SHOULD cut at an extended grapheme cluster boundary. mail-server parse.rs now does (JMAP-cayv.15), but jmap-mime copies MessagePreview from the external mime-tree crate (0.4, crates.io), which takes the first 256 decoded characters (mime-tree src/parse.rs:43) and can split a cluster; the cut cannot be repaired downstream because the text after it is gone. Options: ask mime-tree upstream for a grapheme-aware preview (or a longer raw preview that jmap-mime trims with jmap_types::text::truncate_graphemes_chars), or compute the preview in jmap-mime from the decoded text body. Audit: docs/design/updates.md §14.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-15T06:32:58.385826349Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-15T06:32:58.385826349Z",
+  "labels": [
+    "i18n",
+    "spec"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-cayv.27",
+      "depends_on_id": "JMAP-cayv",
+      "type": "parent-child",
+      "created_at": "2026-11-15T06:32:58.921726401Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

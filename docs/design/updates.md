@@ -335,3 +335,29 @@ names that comparison, which §7.1 allows.
 | filenode | capability `webTrashUrl`, `webUrlTemplate`, `webWriteUrlTemplate` | none (server-set Session data) | bead |
 | did | capability `didDocumentUri` | none (server-set) | bead |
 | jscontact / jscalendar (contacts, calendars servers) | Card/Event `uri` members (links, media, online services, etc.) | none (sloppy-Value fields) | bead |
+
+## 14. Text-handling audit (JMAP-cayv.15, 2026-11-15)
+
+Helpers: `jmap_types::text::{truncate_graphemes, truncate_graphemes_chars, check_display_text}`
+(icu_segmenter 2.2, pinned to the 2.2 release of the other icu_* crates; decision 29).
+
+- **Truncation (§6.5).** Code-point truncation replaced with grapheme-cluster truncation in
+  chat-server push snippets (octets), mail-server `maxBodyValueBytes` body values (octets) and the
+  Email `preview` built by mail-server `parse.rs` (RFC 8621 §4.1.4 "up to 256 characters"). The
+  `preview` that jmap-mime copies from the external `mime-tree` crate is cut there by characters, not
+  graphemes (follow-up bead). jmap-mime `encoded_words` splits header text into adjacent RFC 2047
+  encoded-words, which decoders concatenate, so it is not a shortening and is unchanged.
+- **Normalization (§6.3).** No server normalizes stored text. graph-server search and
+  metadata-server filters apply NFKD and simple case mapping only to compare (`i;unicode-casemap`);
+  Email keywords are lowercased because RFC 8621 requires it, and they are not display text.
+- **No meaning (§6.4).** Nothing found that branches on a display-text value.
+- **Collation (§6.6).** Where a reference backend both sorts and filters on a display-text property
+  the comparisons agree: Mailbox `name` sorts and filters by code points (`i;octet`, the only
+  collation `Mailbox/query` accepts). The memory Email backend sorts `subject`/`from`/`to` with
+  `i;octet` only and does not evaluate their text filters. metadata-server's text conditions use the
+  `i;unicode-casemap` collation draft-ietf-jmap-metadata names.
+- **Time zones (§6.7).** `timeZone` values (Principal, Calendar, JSCalendar, Task) are stored as
+  given; the calendars crate documents that it does not check them against the IANA database. No
+  change: the draft's SHOULD is on the values specifications and clients use.
+- **Display-text profile (§6.2).** `check_display_text` is offered, not enforced (gap G4). The
+  draft working copy's PRECIS FreeformClass latitude is left to deployments.

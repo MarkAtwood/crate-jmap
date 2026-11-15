@@ -109,6 +109,12 @@ wire behaviour that a conforming peer can observe.
 - **jmap-base-client**: `iri_to_uri` and `uri_to_iri` map between IRIs and
   URIs (RFC 3987 §3.1, §3.2): A-label hosts and percent-encoded UTF-8 on the
   way out, U-labels and decoded characters for display, with `IriError`.
+- **jmap-types**: `text` module: `truncate_graphemes` and
+  `truncate_graphemes_chars` shorten text at an extended grapheme cluster
+  boundary (UAX #29) within an octet or character limit, and
+  `check_display_text` checks the display-text profile of
+  draft-atwood-jmap-updates-00 §6.2 (offered, not enforced). New
+  dependency: `icu_segmenter` 2.2.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.
@@ -137,6 +143,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-server**: push message snippets, and **jmap-mail-server**:
+  `maxBodyValueBytes` body values and the Email `preview` built from raw
+  headers, are now cut at a grapheme cluster boundary
+  (draft-atwood-jmap-updates-00 §6.5) instead of a code point boundary, so
+  a combining sequence or emoji sequence is never split. They can be
+  slightly shorter than before.
 - **jmap-server**: `PushSubscription/set` rejects a `url` that is not an
   RFC 3986 URI (for example one with a space or a raw non-ASCII
   character) with `invalidProperties`, in addition to requiring

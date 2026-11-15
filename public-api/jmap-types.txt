@@ -175,6 +175,24 @@ pub fn jmap_types::problem::ProblemDetails::deserialize<__D>(__D) -> core::resul
 pub const jmap_types::problem::ABOUT_BLANK: &str
 pub const jmap_types::problem::JMAP_ERROR_URN_PREFIX: &str
 pub const jmap_types::problem::PROBLEM_JSON: &str
+pub mod jmap_types::text
+#[non_exhaustive] pub struct jmap_types::text::DisplayTextError
+pub jmap_types::text::DisplayTextError::ch: char
+pub jmap_types::text::DisplayTextError::index: usize
+impl core::clone::Clone for jmap_types::text::DisplayTextError
+pub fn jmap_types::text::DisplayTextError::clone(&self) -> jmap_types::text::DisplayTextError
+impl core::cmp::Eq for jmap_types::text::DisplayTextError
+impl core::cmp::PartialEq for jmap_types::text::DisplayTextError
+pub fn jmap_types::text::DisplayTextError::eq(&self, &jmap_types::text::DisplayTextError) -> bool
+impl core::error::Error for jmap_types::text::DisplayTextError
+impl core::fmt::Debug for jmap_types::text::DisplayTextError
+pub fn jmap_types::text::DisplayTextError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_types::text::DisplayTextError
+pub fn jmap_types::text::DisplayTextError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::text::DisplayTextError
+pub fn jmap_types::text::check_display_text(&str, bool) -> core::result::Result<(), jmap_types::text::DisplayTextError>
+pub fn jmap_types::text::truncate_graphemes(&str, usize) -> &str
+pub fn jmap_types::text::truncate_graphemes_chars(&str, usize) -> &str
 pub mod jmap_types::uri
 #[non_exhaustive] pub enum jmap_types::uri::UriError
 pub jmap_types::uri::UriError::Relative

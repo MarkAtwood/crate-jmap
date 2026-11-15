@@ -121,13 +121,9 @@ pub(crate) fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
 
     let trimmed = body_block.trim();
     if !trimmed.is_empty() {
-        let end = trimmed
-            .char_indices()
-            .take(256)
-            .last()
-            .map(|(i, c)| i + c.len_utf8())
-            .unwrap_or(trimmed.len());
-        parsed.preview = Some(trimmed[..end].to_owned());
+        // RFC 8621 §4.1.4: "up to 256 characters", cut at a grapheme
+        // cluster boundary (draft-atwood-jmap-updates-00 §6.5).
+        parsed.preview = Some(jmap_types::text::truncate_graphemes_chars(trimmed, 256).to_owned());
     }
 
     parsed
@@ -211,5 +207,36 @@ fn parse_address_list_via_mime_tree(s: &str) -> Vec<EmailAddress> {
             })
             .collect(),
         _ => Vec::new(),
+    }
+}
+
+#[cfg(test)]
+mod preview_tests {
+    use super::parse_rfc5322_headers;
+
+    /// RFC 8621 §4.1.4 `preview`: "up to 256 characters", cut at a grapheme
+    /// cluster boundary (draft-atwood-jmap-updates-00 §6.5): a combining
+    /// accent that would be character 256 takes its base letter with it.
+    #[test]
+    fn preview_cuts_at_grapheme_boundaries() {
+        // 255 + "e" = 256 characters; the accent is the 257th.
+        let body = format!("{}e\u{301}xyz", "a".repeat(255));
+        let msg = format!("Subject: t\r\n\r\n{body}");
+        let parsed = parse_rfc5322_headers(msg.as_bytes());
+        assert_eq!(parsed.preview.unwrap(), "a".repeat(255));
+        // Exactly 256 characters including the accent fit whole.
+        let body = format!("{}e\u{301}xyz", "a".repeat(254));
+        let msg = format!("Subject: t\r\n\r\n{body}");
+        let parsed = parse_rfc5322_headers(msg.as_bytes());
+        assert_eq!(
+            parsed.preview.unwrap(),
+            format!("{}e\u{301}", "a".repeat(254))
+        );
+        // Plain ASCII still gets all 256 characters.
+        let msg = format!("Subject: t\r\n\r\n{}", "b".repeat(300));
+        assert_eq!(
+            parse_rfc5322_headers(msg.as_bytes()).preview.unwrap().len(),
+            256
+        );
     }
 }

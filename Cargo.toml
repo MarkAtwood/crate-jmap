@@ -134,6 +134,10 @@ idna                   = "1"
 # as the transitive icu_* crates, so both steps use one Unicode version.
 icu_casemap            = { version = "2.2", default-features = false, features = ["compiled_data"] }
 icu_normalizer         = { version = "2.2", default-features = false, features = ["compiled_data"] }
+# ICU4X UAX #29 extended grapheme clusters for jmap-types text truncation
+# (draft-atwood-jmap-updates-00 §6.5, decision 29). Pinned to the 2.2
+# release of the icu_* crates above so the tree has one Unicode version.
+icu_segmenter          = { version = "~2.2", default-features = false, features = ["compiled_data"] }
 # Constant-time cryptographic primitives. Used for credential comparisons
 # (e.g. invite-code lookup in jmap-chat-server) to defeat byte-by-byte
 # timing oracles. Pure-Rust, RustCrypto-stack — matches the workspace's

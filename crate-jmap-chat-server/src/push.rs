@@ -690,16 +690,14 @@ fn rich_text(body: &str) -> Option<String> {
     Some(rich.spans.into_iter().map(|s| s.text).collect())
 }
 
-/// `body` without control characters, cut to at most `max_bytes` bytes on
-/// a UTF-8 character boundary.
+/// `body` without control characters, cut to at most `max_bytes` bytes at
+/// an extended grapheme cluster boundary (draft-atwood-jmap-updates-00
+/// §6.5), so a push preview never ends in half an emoji or a bare base
+/// letter.
 fn snippet(body: &str, max_bytes: u64) -> String {
-    let mut text: String = body.chars().filter(|c| !c.is_control()).collect();
-    let mut end = usize::try_from(max_bytes).map_or(text.len(), |max| max.min(text.len()));
-    while !text.is_char_boundary(end) {
-        end -= 1;
-    }
-    text.truncate(end);
-    text
+    let text: String = body.chars().filter(|c| !c.is_control()).collect();
+    let max = usize::try_from(max_bytes).unwrap_or(usize::MAX);
+    jmap_types::text::truncate_graphemes(&text, max).to_owned()
 }
 
 /// The `senderDisplayName` chain from draft-atwood-jmap-chat-push-00
@@ -720,4 +718,24 @@ fn sender_display_name(kind: &ChatKind, item: &PushItem<'_>) -> String {
 /// An `invalidProperties` SetError naming `property`.
 fn invalid(property: String) -> SetError {
     SetError::new(SetErrorType::InvalidProperties).with_properties([property])
+}
+
+#[cfg(test)]
+mod snippet_tests {
+    use super::snippet;
+
+    /// draft-atwood-jmap-updates-00 §6.5: a shortened push preview is cut at
+    /// an extended grapheme cluster boundary (UAX #29), within the octet cap.
+    #[test]
+    fn snippet_cuts_at_grapheme_boundaries() {
+        // "e" + U+0301 is one 3-octet cluster: a 2-octet cap must not keep
+        // the bare "e".
+        assert_eq!(snippet("ae\u{301}", 2), "a");
+        // Woman technologist (ZWJ sequence, 11 octets) is all or nothing.
+        let tech = "\u{1F469}\u{200D}\u{1F4BB}";
+        assert_eq!(snippet(&format!("x{tech}"), 11), "x");
+        assert_eq!(snippet(&format!("x{tech}"), 12), format!("x{tech}"));
+        // Control characters are still removed first.
+        assert_eq!(snippet("a\nb", 10), "ab");
+    }
 }
