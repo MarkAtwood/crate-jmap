@@ -933,6 +933,8 @@ pub fn jmap_mail_types::MailCapability::deserialize<__D>(__D) -> core::result::R
 pub jmap_mail_types::Mailbox::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_mail_types::Mailbox::id: jmap_types::id::Id
 pub jmap_mail_types::Mailbox::is_subscribed: bool
+pub jmap_mail_types::Mailbox::locale: core::option::Option<jmap_types::i18n::LanguageTag>
+pub jmap_mail_types::Mailbox::localizations: core::option::Option<jmap_types::i18n::Localizations>
 pub jmap_mail_types::Mailbox::metadata: core::option::Option<serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
 pub jmap_mail_types::Mailbox::my_rights: jmap_mail_types::MailboxRights
 pub jmap_mail_types::Mailbox::name: alloc::string::String
@@ -957,6 +959,7 @@ impl core::marker::StructuralPartialEq for jmap_mail_types::Mailbox
 impl jmap_types::backend::GetObject for jmap_mail_types::Mailbox
 impl jmap_types::backend::JmapObject for jmap_mail_types::Mailbox
 pub type jmap_mail_types::Mailbox::Property = jmap_mail_types::MailboxProperty
+pub const jmap_mail_types::Mailbox::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_mail_types::Mailbox::TYPE_NAME: &'static str
 impl jmap_types::backend::QueryObject for jmap_mail_types::Mailbox
 pub type jmap_mail_types::Mailbox::Comparator = jmap_mail_types::MailboxComparator

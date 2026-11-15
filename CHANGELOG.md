@@ -48,6 +48,16 @@ wire behaviour that a conforming peer can observe.
   record the language in `queryState` and answer a mismatch with
   `cannotCalculateChanges`. `handle_query` and `handle_query_changes` reject
   a non-null `language` with `invalidArguments`.
+- **jmap-mail-types**, **jmap-mail-server**: Mailbox `name` is
+  localizable (draft-atwood-jmap-updates-00 §5.1). `Mailbox` gains
+  `locale` and `localizations`, and `JmapObject::LOCALIZABLE` lists
+  `name`. `Mailbox/get`, `/query`, `/queryChanges` and `/set` handle
+  `urn:ietf:params:jmap:i18n`: the `language` view, sort and filter on the
+  localized name, the language in `queryState`, and the `/set` checks.
+  Sibling-name uniqueness stays on base names. The memory backend supports
+  localizations in every account (at most 32 per Mailbox) and prunes stale
+  translations on rename. Identity and VacationResponse are deliberately
+  not localizable.
 - **jmap-types**: `i18n::localized_value`, the value a localizable property
   has in the `/get` view for a `language`, for backends that sort and
   filter.

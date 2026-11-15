@@ -654,16 +654,29 @@ impl MemoryBackend {
         position: i64,
         anchor: Option<&Id>,
         anchor_offset: i64,
+        language: Option<&[jmap_types::i18n::LanguageRange]>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
-        let (mut matching, state_n): (Vec<Mailbox>, u64) = {
+        // draft-atwood-jmap-updates-00 §4.2.2: with `language`, filter and
+        // sort on `name` compare the name the `/get` view would show.
+        let (mut matching, state_n): (Vec<(Mailbox, String)>, u64) = {
             let inner = self.inner.lock().unwrap();
-            let mailboxes: Vec<Mailbox> = inner
+            let mailboxes: Vec<(Mailbox, String)> = inner
                 .objects_ref("Mailbox", account_id.as_ref())
                 .map(|map| {
                     map.values()
-                        .filter_map(|val| Mailbox::deserialize(val).ok())
-                        .filter(|m| {
-                            filter.is_none_or(|f| f.matches(&|c| mailbox_matches_condition(m, c)))
+                        .filter_map(|val| {
+                            let m = Mailbox::deserialize(val).ok()?;
+                            let name = language
+                                .zip(val.as_object())
+                                .and_then(|(l, o)| jmap_types::i18n::localized_value(o, "name", l))
+                                .and_then(|v| v.as_str().map(str::to_owned))
+                                .unwrap_or_else(|| m.name.clone());
+                            Some((m, name))
+                        })
+                        .filter(|(m, name)| {
+                            filter.is_none_or(|f| {
+                                f.matches(&|c| mailbox_matches_condition(m, name, c))
+                            })
                         })
                         .collect()
                 })
@@ -675,14 +688,14 @@ impl MemoryBackend {
         // Sort by client comparators with id tiebreak for stable pagination.
         // `Other` properties are pre-rejected by the handler; treat any leftover
         // as Equal so we never panic on a comparator slipping through.
-        matching.sort_by(|a, b| {
+        matching.sort_by(|(a, a_name), (b, b_name)| {
             let mut ord = std::cmp::Ordering::Equal;
             for c in sort {
                 if ord != std::cmp::Ordering::Equal {
                     break;
                 }
                 let cmp = match c.property {
-                    MailboxComparatorProperty::Name => a.name.cmp(&b.name),
+                    MailboxComparatorProperty::Name => a_name.cmp(b_name),
                     MailboxComparatorProperty::SortOrder => a.sort_order.cmp(&b.sort_order),
                     _ => std::cmp::Ordering::Equal,
                 };
@@ -695,7 +708,7 @@ impl MemoryBackend {
             }
         });
 
-        let all_ids: Vec<Id> = matching.into_iter().map(|m| m.id).collect();
+        let all_ids: Vec<Id> = matching.into_iter().map(|(m, _)| m.id).collect();
         let total = all_ids.len();
         // RFC 8620 §5.5 position / anchor / anchorOffset.
         let start = resolve_query_start(&all_ids, position, anchor, anchor_offset)
@@ -721,7 +734,10 @@ impl MemoryBackend {
 /// Returns `true` if the mailbox passes every property of the condition.
 /// Roles compare by wire string so that `MailboxRole::Other("inbox")` still
 /// matches `MailboxRole::Inbox`.
-fn mailbox_matches_condition(m: &Mailbox, f: &MailboxFilterCondition) -> bool {
+///
+/// `name` is the Mailbox name to compare: the base `name`, or the localized
+/// one under a `language` (draft-atwood-jmap-updates-00 §4.2.2).
+fn mailbox_matches_condition(m: &Mailbox, name: &str, f: &MailboxFilterCondition) -> bool {
     // parentId and role are three-way: absent (None) = no filter;
     // explicit null (Some(None)) = the mailbox's value must be null;
     // a value (Some(Some(v))) = the mailbox's value must equal v.
@@ -732,7 +748,7 @@ fn mailbox_matches_condition(m: &Mailbox, f: &MailboxFilterCondition) -> bool {
     }
 
     if let Some(ref name_substr) = f.name
-        && !m.name.contains(name_substr.as_str())
+        && !name.contains(name_substr.as_str())
     {
         return false;
     }
@@ -1089,9 +1105,20 @@ fn retype<A: serde::Serialize, B: serde::de::DeserializeOwned>(
 // JmapBackend impl (read-side)
 // ---------------------------------------------------------------------------
 
+/// The most localizations the memory backend stores per object
+/// (draft-atwood-jmap-updates-00 §4.1 MAY).
+const MAX_LOCALIZATIONS: usize = 32;
+
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
+
+    /// Every account supports localizations
+    /// (draft-atwood-jmap-updates-00), with at most 32 localizations per
+    /// Mailbox.
+    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+        Some(jmap_server::I18nInfo::new().with_max_localizations(Some(MAX_LOCALIZATIONS)))
+    }
 
     /// The info set by [`MemoryBackend::with_metadata_info`], the same for
     /// every account.
@@ -1318,6 +1345,7 @@ impl JmapBackend for MemoryBackend {
             position,
             anchor,
             anchor_offset,
+            language,
             ..
         } = params;
         // Collect and sort IDs outside the lock for deterministic ordering.
@@ -1364,6 +1392,7 @@ impl JmapBackend for MemoryBackend {
                     position,
                     anchor,
                     anchor_offset,
+                    language,
                 )
                 .await;
         }
@@ -1538,6 +1567,7 @@ impl JmapBackend for MemoryBackend {
             sort,
             max_changes,
             up_to_id,
+            language,
             ..
         } = params;
         // Step 1: Validate since_query_state by parsing it as a u64 counter.
@@ -1563,7 +1593,10 @@ impl JmapBackend for MemoryBackend {
             .query_objects::<O>(
                 _caller,
                 account_id,
-                QueryParams::new().filter(filter).sort(sort),
+                QueryParams::new()
+                    .filter(filter)
+                    .sort(sort)
+                    .language(language),
             )
             .await
             .map_err(|e| match e {
@@ -1774,6 +1807,7 @@ impl MailBackend for MemoryBackend {
         // `apply_patch_object`, so an invalidPatch leaves the stored object
         // unchanged.
         let mut updated_props = None;
+        let mut echo = None;
         if let serde_json::Value::Object(base) = existing
             && let serde_json::Value::Object(patch_map) = patch_val
         {
@@ -1817,6 +1851,17 @@ impl MailBackend for MemoryBackend {
             // The value-dependent patch errors (missing parent, path through
             // an array or a Binary value) land here, after rule 3 and before rule 4 (-05 §3.2).
             apply_patch_object(&mut patched, &patch_map).map_err(invalid_patch)?;
+            // draft-atwood-jmap-updates-00 §4.1: check `locale` and
+            // `localizations` on the patched object and prune translations
+            // of a renamed base value, in this same update. A no-op for
+            // types without localizable properties.
+            let pruned = jmap_server::localized_update::<O>(
+                &before,
+                &mut patched,
+                &jmap_types::PatchObject::from_map(patch_map.clone()),
+                Some(MAX_LOCALIZATIONS),
+            )
+            .map_err(BackendSetError::SetError)?;
             if let Some(info) = &metadata_info {
                 // -05 §3.2: "In an update, null is equivalent to {}"; the
                 // patch removed the property instead.
@@ -1839,8 +1884,13 @@ impl MailBackend for MemoryBackend {
             // A null or wrong-typed value on a required property must
             // not reach storage, or every later /get fails to decode it.
             let patched = serde_json::Value::Object(patched);
-            if O::deserialize(&patched).is_err() {
+            let Ok(decoded) = O::deserialize(&patched) else {
                 return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
+            };
+            // `localized_update` contract: return the object when pruning
+            // removed anything, so the handler echoes `localizations`.
+            if pruned {
+                echo = Some(decoded);
             }
             inner
                 .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1858,7 +1908,9 @@ impl MailBackend for MemoryBackend {
                 updated_props,
             });
 
-        Ok(None) // MemoryBackend does not echo server-modified fields
+        // MemoryBackend echoes the object only after pruning stale
+        // localizations (draft-atwood-jmap-updates-00 §4.1).
+        Ok(echo)
     }
 
     // -----------------------------------------------------------------------

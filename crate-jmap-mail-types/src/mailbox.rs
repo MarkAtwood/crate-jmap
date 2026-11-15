@@ -166,6 +166,16 @@ pub struct Mailbox {
     /// handling as `metadata`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub private_metadata: Option<serde_json::Map<String, serde_json::Value>>,
+    /// The language of `name` (draft-atwood-jmap-updates-00 §4.1); `None`
+    /// when unknown or not stored. Returned only to requests that use
+    /// `urn:ietf:params:jmap:i18n`; jmap-mail-server shapes it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub locale: Option<jmap_types::i18n::LanguageTag>,
+    /// `name` in other languages (draft-atwood-jmap-updates-00 §4.1, §5.1).
+    /// Sibling-name uniqueness applies to the base `name` only, so two
+    /// siblings may share a localized name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub localizations: Option<jmap_types::i18n::Localizations>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -207,6 +217,8 @@ impl Mailbox {
             role: None,
             metadata: None,
             private_metadata: None,
+            locale: None,
+            localizations: None,
             extra: serde_json::Map::new(),
         }
     }

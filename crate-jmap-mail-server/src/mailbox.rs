@@ -47,9 +47,10 @@ use crate::helpers::{
     serialize_value,
 };
 use jmap_server::{
-    HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg,
-    check_read_only_patch, filter_arg, limit_or_max, reject_server_set, resolve_query_start,
-    server_fail_from_backend,
+    HandlerOutput, I18nProjection, I18nSet, QueryChangesParams, QueryParams,
+    backend_set_error_value, bool_arg, check_read_only_patch, filter_arg, limit_or_max,
+    localized_query_state, reject_server_set, resolve_query_start, server_fail_from_backend,
+    unwrap_query_state,
 };
 use jmap_server::{SetError, SetErrorType};
 
@@ -70,6 +71,13 @@ use jmap_server::{SetError, SetErrorType};
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
 /// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
 /// §3.1).
+///
+/// `name` is localizable (draft-atwood-jmap-updates-00 §5.1): with
+/// `urn:ietf:params:jmap:i18n` in `using` and
+/// [`JmapBackend::i18n_info`](jmap_server::JmapBackend::i18n_info) `Some`,
+/// `locale` and `localizations` are returned, and a `language` argument
+/// returns each Mailbox's single-language view
+/// ([`jmap_server::I18nProjection`]).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_get<B: MailBackend>(
@@ -114,10 +122,21 @@ pub async fn handle_mailbox_get<B: MailBackend>(
             .metadata_info::<Mailbox>(caller, &account_id)
             .as_ref(),
     )?;
+    let i18n = I18nProjection::from_args::<Mailbox>(
+        &mut args,
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
+    let backend_properties = i18n.backend_properties(properties.as_deref());
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Mailbox>(caller, &account_id, ids_slice, properties.as_deref())
+        .get_objects::<Mailbox>(
+            caller,
+            &account_id,
+            ids_slice,
+            backend_properties.as_deref(),
+        )
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
@@ -135,7 +154,12 @@ pub async fn handle_mailbox_get<B: MailBackend>(
     let list_json: Vec<Value> = list
         .iter()
         .map(|obj| {
-            let val = serialize_value(obj)?;
+            let mut val = serialize_value(obj)?;
+            // Before the properties filter: the language view reads
+            // `localizations` even when the client did not ask for it.
+            if let Value::Object(m) = &mut val {
+                i18n.apply(m);
+            }
             let mut out = match &prop_set {
                 Some(set) => filter_properties(&val, set),
                 None => val.clone(),
@@ -242,6 +266,14 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    // draft-atwood-jmap-updates-00 §4.2.2: sort and filter on `name`
+    // compare the localized value; the queryState records the language.
+    let i18n = I18nProjection::from_args::<Mailbox>(
+        &mut args,
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
+    let language = i18n.language();
 
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
@@ -344,11 +376,16 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             .query_objects::<Mailbox>(
                 caller,
                 &account_id,
-                QueryParams::new().filter(filter.as_ref()).sort(sort_slice),
+                QueryParams::new()
+                    .filter(filter.as_ref())
+                    .sort(sort_slice)
+                    .language(language),
             )
             .await
             .map_err(JmapError::from)?;
-        query_state_str = full.query_state.as_ref().to_owned();
+        query_state_str = localized_query_state(&full.query_state, language)
+            .as_ref()
+            .to_owned();
         let all_ids = full.ids;
         let total = all_ids.len() as u64;
         let start = resolve_query_start(&all_ids, position, Some(anchor_id), anchor_offset)?;
@@ -368,11 +405,14 @@ pub async fn handle_mailbox_query<B: MailBackend>(
                     .filter(filter.as_ref())
                     .sort(sort_slice)
                     .limit(limit)
-                    .position(position),
+                    .position(position)
+                    .language(language),
             )
             .await
             .map_err(JmapError::from)?;
-        query_state_str = result.query_state.as_ref().to_owned();
+        query_state_str = localized_query_state(&result.query_state, language)
+            .as_ref()
+            .to_owned();
         let total = result.total.unwrap_or(result.ids.len() as u64);
         let start = result.position;
         let page: Vec<String> = result
@@ -416,6 +456,11 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 /// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
 /// filter condition is `unsupportedFilter` (-05 §3).
 ///
+/// With `urn:ietf:params:jmap:i18n`, a `language` argument makes sort and
+/// filter on `name` compare the localized name
+/// (draft-atwood-jmap-updates-00 §4.2.2), passed to the backend as
+/// [`QueryParams::language`]; the `queryState` records it (§4.2.3).
+///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_mailbox_query_changes<B: MailBackend>(
     backend: &B,
@@ -432,10 +477,20 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
+    let i18n = I18nProjection::from_args::<Mailbox>(
+        &mut args,
+        using,
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
+    let language = i18n.language();
+
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
         None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
     };
+    // draft-atwood-jmap-updates-00 §4.2.3: a language other than the one
+    // the state was computed with is cannotCalculateChanges.
+    let since_query_state = unwrap_query_state(&since_query_state, language)?;
 
     let max_changes = jmap_server::parse_max_changes(args.get("maxChanges"))?;
 
@@ -473,7 +528,8 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
                 .filter(filter.as_ref())
                 .sort((!sort_values.is_empty()).then_some(sort_values.as_slice()))
                 .max_changes(max_changes)
-                .up_to_id(up_to_id.as_ref()),
+                .up_to_id(up_to_id.as_ref())
+                .language(language),
         )
         .await
         .map_err(JmapError::from)?;
@@ -493,8 +549,8 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
     // RFC 8620 §5.6: total MUST be omitted unless calculateTotal is true.
     let mut resp = json!({
         "accountId": account_id.as_ref(),
-        "oldQueryState": result.old_query_state.as_ref(),
-        "newQueryState": result.new_query_state.as_ref(),
+        "oldQueryState": localized_query_state(&result.old_query_state, language).as_ref(),
+        "newQueryState": localized_query_state(&result.new_query_state, language).as_ref(),
         "removed": removed,
         "added": added,
     });
@@ -606,6 +662,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+    // draft-atwood-jmap-updates-00 §3, §4.1: `locale` and `localizations`.
+    // The checks that need the patched object run in the backend
+    // (`jmap_server::localized_update`).
+    let i18n_set = I18nSet::new::<Mailbox>(using, backend.i18n_info(caller, &account_id).as_ref());
 
     // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.2). Reject
     // unbounded /set batches before touching the storage layer.
@@ -698,6 +758,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 continue;
             }
             let mut props = props.clone();
+            if let Value::Object(m) = &mut props
+                && let Err(err) = i18n_set.check_create(m)
+            {
+                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
+                continue;
+            }
             if let Err(err) = resolve_parent_ref(&mut props, &created_ids) {
                 not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
@@ -788,7 +854,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .await
                     {
                         Ok((id, obj)) => {
-                            let obj_val = jmap_server::serialize_value(&obj)?;
+                            let mut obj_val = jmap_server::serialize_value(&obj)?;
+                            i18n_set.echo(&mut obj_val);
                             created_ids.insert(Id::from(create_id.as_str()), id);
                             created.insert(create_id.clone(), obj_val);
                         }
@@ -881,8 +948,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // Returns the error value if `patch` writes metadata the request
         // may not write (draft-ietf-jmap-metadata-05 §3), or None if the
         // patch is clean. Used in both passes.
+        // The same for `locale` and `localizations` without the i18n
+        // capability (draft-atwood-jmap-updates-00 §3).
         let metadata_error = |patch: &PatchObject| -> Option<Value> {
             check_metadata_entry(patch.as_map(), false, using)
+                .and_then(|()| i18n_set.check_patch(patch.as_map()))
                 .err()
                 .map(|e| serde_json::Value::from(&*e))
         };
@@ -953,11 +1023,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 Ok(maybe_obj) => {
                     // RFC 8620 §5.3: if the backend modified server-set fields
                     // beyond the patch, echo them in the updated map entry.
-                    let entry = maybe_obj
+                    let mut entry = maybe_obj
                         .as_ref()
                         .map(jmap_server::serialize_value)
                         .transpose()?
                         .unwrap_or(Value::Null);
+                    i18n_set.echo(&mut entry);
                     updated.insert(id_str, entry);
                     if let Some(role) = current_role {
                         roles_successfully_vacated.insert(role);
@@ -1062,11 +1133,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 Ok(maybe_obj) => {
                     // RFC 8620 §5.3: if the backend modified server-set fields
                     // beyond the patch, echo them in the updated map entry.
-                    let entry = maybe_obj
+                    let mut entry = maybe_obj
                         .as_ref()
                         .map(jmap_server::serialize_value)
                         .transpose()?
                         .unwrap_or(Value::Null);
+                    i18n_set.echo(&mut entry);
                     updated.insert(id_str, entry);
                 }
                 Err(e) => {
@@ -1378,6 +1450,13 @@ fn build_mailbox_from_props(
         .transpose()?
         .unwrap_or_default();
 
+    // draft-atwood-jmap-updates-00 §4.1: already checked and case-folded by
+    // `I18nSet::check_create`, and absent unless the request may set them.
+    let locale: Option<jmap_types::i18n::LanguageTag> =
+        typed_prop(props, "locale").map_err(|e| serde_json::Value::from(&*e))?;
+    let localizations: Option<jmap_types::i18n::Localizations> =
+        typed_prop(props, "localizations").map_err(|e| serde_json::Value::from(&*e))?;
+
     Ok(move |id: &Id| {
         let mut mailbox = Mailbox::new(
             id.clone(),
@@ -1394,6 +1473,25 @@ fn build_mailbox_from_props(
         mailbox.role = role;
         mailbox.metadata = metadata;
         mailbox.private_metadata = private_metadata;
+        mailbox.locale = locale;
+        mailbox.localizations = localizations;
         mailbox
     })
+}
+
+/// `props[name]` decoded as `Option<T>`: absent and `null` are `None`.
+fn typed_prop<T: serde::de::DeserializeOwned>(
+    props: &Value,
+    name: &str,
+) -> Result<Option<T>, Box<SetError>> {
+    match props.get(name) {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => serde_json::from_value(v.clone()).map(Some).map_err(|e| {
+            Box::new(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties([name])
+                    .with_description(e.to_string()),
+            )
+        }),
+    }
 }

@@ -205,9 +205,17 @@ pub enum SieveScriptProperty {
 // JmapObject impls
 // ---------------------------------------------------------------------------
 
+/// draft-atwood-jmap-updates-00 §5.1: Mailbox `name` is localizable.
+///
+/// Identity and VacationResponse are deliberately NOT localizable (§5.1):
+/// an Identity `name` is the sender's own name as recipients see it, and a
+/// vacation reply would be chosen by each incoming message's language, not
+/// by a client's `language`. Do not add `LOCALIZABLE` to them.
 impl JmapObject for crate::Mailbox {
     const TYPE_NAME: &'static str = "Mailbox";
     type Property = MailboxProperty;
+    const LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty] =
+        &[jmap_types::i18n::LocalizableProperty::new("name", false)];
 }
 
 impl GetObject for crate::Mailbox {}
@@ -234,6 +242,8 @@ impl SetObject for crate::Mailbox {
         "isSubscribed",
         "metadata",
         "privateMetadata",
+        "locale",
+        "localizations",
     ];
     const IMMUTABLE: &'static [&'static str] = &[];
 }
@@ -463,6 +473,8 @@ mod tests {
             is_subscribed: true,
             metadata: Some(de(json!({"acme.example.com": {"memo": "m"}}))),
             private_metadata: Some(de(json!({"acme.example.com": {"memo": "p"}}))),
+            locale: Some(de(json!("en"))),
+            localizations: Some(de(json!({"de": {"name": "Posteingang"}}))),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
