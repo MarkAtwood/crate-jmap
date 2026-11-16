@@ -422,7 +422,7 @@ impl<'a> core::marker::Copy for jmap_server::SetScopeRequest<'a>
 pub struct jmap_server::SetSupport<C>
 impl<C> jmap_server::SetSupport<C>
 pub fn jmap_server::SetSupport<C>::data_type(&self) -> &'static str
-pub fn jmap_server::SetSupport<C>::new<O, B>(alloc::sync::Arc<B>) -> Self where O: jmap_types::backend::SetObject, B: jmap_server::ConditionalBackend<CallerCtx = C>
+pub fn jmap_server::SetSupport<C>::new<O, B>(alloc::sync::Arc<B>) -> Self where O: jmap_types::backend::SetObject, B: jmap_server::ConditionalBackend<CallerCtx = C>, C: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static
 impl<C> core::clone::Clone for jmap_server::SetSupport<C>
 pub fn jmap_server::SetSupport<C>::clone(&self) -> Self
 impl<C> core::fmt::Debug for jmap_server::SetSupport<C>

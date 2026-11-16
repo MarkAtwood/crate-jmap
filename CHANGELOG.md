@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: the dispatcher evaluates draft-ietf-jmap-conditional-02
+  on every Foo/set. Without `urn:ietf:params:jmap:conditional` in `using`, a
+  non-default `atomic` or `ifUnchangedBy` is `invalidArguments` and the
+  defaults (`false`, `null`, `{}`) are removed before the handler runs
+  (decision 2); this applies whether or not a crate opted in. With the URI
+  and an attached `SetSupport`, the call runs in the backend's scope: the
+  preconditions are read through the registered `Foo/get` (its guard must
+  pass, else `forbidden`) and checked per §3.1, with `ifInState` first,
+  unknown pointer names as `invalidArguments`, unreadable or hidden
+  properties as `forbidden` before any value is compared, and
+  `stateMismatch` (with `failed` when every failing key resolved)
+  otherwise. Under `atomic` a handler SetError or a commit rejection rolls
+  back and answers `atomicFailure`; a backend that cannot comply answers
+  `cannotApplyAtomically`. With the URI and no support, conditional
+  arguments are `invalidArguments`. (bd:JMAP-y1yu.3)
+
 - **jmap-server**: the draft-ietf-jmap-conditional-02 backend hooks and
   opt-in registration, ahead of the dispatcher evaluator. `ConditionalBackend`
   (a separate trait over `JmapBackend`; required `begin_set`, fail-open

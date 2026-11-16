@@ -813,7 +813,7 @@ fn nests_deeper_than(value: &Value, limit: usize) -> bool {
 
 /// Decode one RFC 6901 reference token: `~1` → `/`, then `~0` → `~`
 /// (RFC 6901 §4 order, so `~01` becomes `~1`, not `/`).
-fn decode_pointer_token(token: &str) -> Result<Cow<'_, str>, PatchPathError> {
+pub(crate) fn decode_pointer_token(token: &str) -> Result<Cow<'_, str>, PatchPathError> {
     if !token.contains('~') {
         return Ok(Cow::Borrowed(token));
     }

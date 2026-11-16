@@ -512,6 +512,21 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                 continue;
             };
 
+            // draft-ietf-jmap-conditional-02 (docs/design/conditional.md
+            // §5.2): every Foo/set call goes through the decision-2 check;
+            // one with conditional arguments runs under the evaluator.
+            let conditional = if method.ends_with("/set") {
+                match self.prepare_conditional(&method, &mut args, &request.using, &caller) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        method_responses.push(error_invocation(&call_id, e));
+                        continue;
+                    }
+                }
+            } else {
+                None
+            };
+
             let caller_clone = caller.clone();
             let method_clone = method.clone();
             let call_id_clone = call_id.clone();
@@ -523,13 +538,13 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             // Run in a spawned task for panic isolation.
             let result: Result<Result<HandlerOutput, JmapError>, tokio::task::JoinError> =
                 task::spawn(async move {
-                    handler
-                        .call(
-                            CallContext::new(method_clone, call_id_clone, args, caller_clone)
-                                .with_created_ids(created_ids_snapshot)
-                                .with_using(using),
-                        )
-                        .await
+                    let cx = CallContext::new(method_clone, call_id_clone, args, caller_clone)
+                        .with_created_ids(created_ids_snapshot)
+                        .with_using(using);
+                    match conditional {
+                        Some(prepared) => prepared.run(handler, cx).await,
+                        None => handler.call(cx).await,
+                    }
                 })
                 .await;
 
