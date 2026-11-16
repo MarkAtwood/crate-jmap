@@ -149,6 +149,25 @@ is allowed, and only when `may_eject_avatar` agrees; anything else is
 every condition, for a `withinRadius.radius` <= 0 or a `withinBounds`
 `max` below `min`.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_scene_conditional(dispatcher, backend)`, called after
+`register_scene_handlers`, attaches `SetSupport` to each registered `/set`
+(SceneAsset, SceneRegion, SceneObject, SceneAvatar) and skips the rest; it
+re-registers nothing, and a deployment that never calls it is unchanged
+(docs/design/DECISIONS.md decisions 1 and 17). Advertise
+`urn:ietf:params:jmap:conditional` only when `Dispatcher::conditional_ready()` is
+true.
+
+`SceneRegion/get` marks `invitedUserIds` unreadable for every caller who may not
+update the region (the list it blanks to `[]`, empty or not), so a precondition on
+it is `forbidden` (§9.1) and reveals nothing. `MemoryBackend`'s store is a
+`jmap_server::ScopedState`: an atomic rollback restores objects, states and
+derived counts. Under an atomic scope `maxAvatarsPerRegion` moves to the commit,
+which checks the final state, so an admin can eject one avatar and enter at the
+cap in one call; the one-record-per-user rule stays with the create, as records are
+never destroyed.
+
 ## Gotchas
 
 - `SceneBackend::may_modify_asset` defaults to `Ok(true)` (fail-open,

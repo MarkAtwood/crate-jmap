@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: conditional Scene Foo/set
+  (draft-ietf-jmap-conditional-02). `register_scene_conditional`, called
+  after `register_scene_handlers`, attaches `SetSupport` to the registered
+  SceneAsset, SceneRegion, SceneObject and SceneAvatar `/set` (decisions 1,
+  17). `SceneRegion/get` marks `invitedUserIds` unreadable for a caller who
+  may not update the region, so preconditions on it are `forbidden`; it
+  now asks `may_update_region` even for an empty list. The memory backend
+  keeps its store on `jmap_server::ScopedState` (feature `memory` now
+  enables `jmap-server/scoped-state`) and implements `ConditionalBackend`;
+  under an atomic scope `maxAvatarsPerRegion` moves to the commit. A
+  poisoned memory-backend lock is now taken instead of panicking.
+  (bd:JMAP-y1yu.15)
+
 - **jmap-vtc-server**: conditional VTC Foo/set
   (draft-ietf-jmap-conditional-02). `register_vtc_conditional`, called
   after `register_vtc_handlers`, attaches `SetSupport` to the registered

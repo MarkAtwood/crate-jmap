@@ -91,7 +91,6 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, MutexGuard};
 
 use jmap_scene_types::{
     AccessPolicy, SceneAsset, SceneAvatar, SceneCapability, SceneInteractionEvent, SceneObject,
@@ -101,7 +100,10 @@ use jmap_scene_types::{
     SceneAssetComparator, SceneAssetFilter, SceneAvatarComparator, SceneAvatarFilter,
     SceneObjectComparator, SceneObjectFilter, SceneRegionComparator, SceneRegionFilter,
 };
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
+use jmap_server::{
+    BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
+    SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
+};
 use jmap_types::{Id, State};
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -134,7 +136,9 @@ type Keyed<V> = HashMap<&'static str, HashMap<String, V>>;
 /// leaves for its caller to commit.
 type Admitted = (Vec<(Id, Change)>, Vec<Id>);
 
-#[derive(Default)]
+/// The store, behind a [`ScopedState`] so a conditional Foo/set can isolate
+/// and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// `type_name` → `account_id` → `id → stored object`.
     objects: Keyed<HashMap<Id, Value>>,
@@ -246,10 +250,16 @@ impl Inner {
     /// the lock: the steps of [`SceneBackend::create_object`] for a
     /// `SceneAvatar`. Returns the
     /// trait's error type unboxed, as `create_object` does.
+    ///
+    /// `defer`: an atomic conditional-02 scope is open on this task, so the
+    /// `maxAvatarsPerRegion` check is left to its commit
+    /// (`final_state_failures`). The one-record check is not: records are
+    /// never destroyed, so the final state cannot differ.
     fn enter(
         &mut self,
         account_id: &Id,
         avatar: SceneAvatar,
+        defer: bool,
     ) -> Result<Value, BackendSetError<MemoryError>> {
         // "When the user already has a SceneAvatar record in the same
         // region, whether present or departed, the server MUST NOT create a
@@ -264,7 +274,7 @@ impl Inner {
                     .with_existing_id(existing.id),
             )));
         }
-        let (mut changes, mut regions) = self.admit(account_id, &avatar)?;
+        let (mut changes, mut regions) = self.admit(account_id, &avatar, defer)?;
         let id = avatar.id.clone();
         let value = serde_json::to_value(&avatar)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize SceneAvatar", &e)))?;
@@ -287,6 +297,7 @@ impl Inner {
         &mut self,
         account_id: &Id,
         avatar: &SceneAvatar,
+        defer: bool,
     ) -> Result<Admitted, BackendSetError<MemoryError>> {
         let max = self
             .accounts
@@ -296,7 +307,7 @@ impl Inner {
             .all::<SceneAvatar>(account_id)
             .filter(|a| a.region_id == avatar.region_id && a.left_at.is_none())
             .count() as u64;
-        if max.is_some_and(|max| present >= max) {
+        if !defer && max.is_some_and(|max| present >= max) {
             return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::OverQuota)
                     .with_description("maxAvatarsPerRegion reached"),
@@ -376,20 +387,20 @@ impl Inner {
 #[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
 ///
 /// A clone copies no data. The original and the clone hold `Arc::clone`s
-/// of the same `Mutex`-guarded store and observe each other's mutations, so
+/// of the same [`ScopedState`]-guarded store and observe each other's mutations, so
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -400,9 +411,16 @@ impl MemoryBackend {
         Self::default()
     }
 
-    fn lock(&self) -> MutexGuard<'_, Inner> {
-        // A poisoned lock means a test already panicked mid-mutation.
-        self.inner.lock().expect("MemoryBackend lock poisoned")
+    /// The store, for setup and test helpers, which never run inside a
+    /// conditional Foo/set scope. A poisoned lock is taken anyway.
+    fn lock(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock_unscoped()
+    }
+
+    /// The store, for the backend methods: waits while another task's
+    /// conditional Foo/set scope is open (docs/design/conditional.md §7).
+    async fn locked(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock().await
     }
 
     /// Register `account_id` with the Scene capability object it
@@ -628,7 +646,11 @@ impl JmapBackend for MemoryBackend {
     type CallerCtx = String;
 
     async fn account_exists(&self, _caller: &String, account_id: &Id) -> Result<bool, MemoryError> {
-        Ok(self.lock().accounts.contains_key(account_id.as_ref()))
+        Ok(self
+            .locked()
+            .await
+            .accounts
+            .contains_key(account_id.as_ref()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -638,7 +660,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
-        let inner = self.lock();
+        let inner = self.locked().await;
         let map = inner.objects(O::TYPE_NAME, account_id);
         match ids {
             None => {
@@ -669,7 +691,10 @@ impl JmapBackend for MemoryBackend {
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         Ok(State::from(
-            self.lock().state(O::TYPE_NAME, account_id).to_string(),
+            self.locked()
+                .await
+                .state(O::TYPE_NAME, account_id)
+                .to_string(),
         ))
     }
 
@@ -681,7 +706,7 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
-        let inner = self.lock();
+        let inner = self.locked().await;
         let since: u64 = since_state
             .as_ref()
             .parse()
@@ -767,7 +792,7 @@ impl JmapBackend for MemoryBackend {
             ..
         } = params;
         let sort = sort.unwrap_or_default();
-        let inner = self.lock();
+        let inner = self.locked().await;
         let ids = if O::TYPE_NAME == SceneAsset::TYPE_NAME {
             let filter: Option<SceneAssetFilter> = filter.map(recode).transpose()?;
             let sort: Vec<SceneAssetComparator> = recode(&sort)?;
@@ -864,7 +889,8 @@ impl SceneBackend for MemoryBackend {
         _caller: &String,
         account_id: &Id,
     ) -> Result<SceneCapability, MemoryError> {
-        self.lock()
+        self.locked()
+            .await
             .accounts
             .get(account_id.as_ref())
             .cloned()
@@ -899,10 +925,10 @@ impl SceneBackend for MemoryBackend {
         let mut value = serde_json::to_value(build(&id)).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("serialize created object", &e))
         })?;
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         if O::TYPE_NAME == SceneAvatar::TYPE_NAME {
             let avatar: SceneAvatar = decode(&value).map_err(BackendSetError::Other)?;
-            let stored = inner.enter(account_id, avatar)?;
+            let stored = inner.enter(account_id, avatar, self.inner.deferring())?;
             return Ok((id, decode(&stored).map_err(BackendSetError::Other)?));
         }
         // "Account asset storage quota exceeded", checked under the lock.
@@ -973,7 +999,7 @@ impl SceneBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let mut current = inner
             .objects(O::TYPE_NAME, account_id)
             .and_then(|m| m.get(id))
@@ -1018,7 +1044,8 @@ impl SceneBackend for MemoryBackend {
                 (true, false) => return Err(refuse("the avatar is present")),
                 (true, true) => {
                     let avatar: SceneAvatar = decode(&current).map_err(BackendSetError::Other)?;
-                    (changes, regions) = inner.admit(account_id, &avatar)?;
+                    (changes, regions) =
+                        inner.admit(account_id, &avatar, self.inner.deferring())?;
                 }
                 (false, false) => {}
             }
@@ -1044,7 +1071,7 @@ impl SceneBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let map = inner.objects_mut(O::TYPE_NAME, account_id);
         if !map.contains_key(id) {
             return Err(not_found());
@@ -1108,7 +1135,7 @@ impl SceneBackend for MemoryBackend {
         asset: &SceneAsset,
     ) -> Result<bool, MemoryError> {
         // "Only the asset owner or an admin may modify asset metadata."
-        Ok(asset.owner_id == *caller || self.lock().admins.contains(caller))
+        Ok(asset.owner_id == *caller || self.locked().await.admins.contains(caller))
     }
 
     fn has_capability(&self, _caller: &String, account_id: &Id, uri: &str) -> bool {
@@ -1153,7 +1180,7 @@ impl SceneBackend for MemoryBackend {
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
         // "Only the owner or an admin may modify region properties."
-        Ok(region.owner_id == *caller || self.lock().admins.contains(caller))
+        Ok(region.owner_id == *caller || self.locked().await.admins.contains(caller))
     }
 
     async fn may_destroy_region(
@@ -1163,7 +1190,7 @@ impl SceneBackend for MemoryBackend {
         region: &SceneRegion,
     ) -> Result<bool, MemoryError> {
         // "Only the region owner or an admin may destroy a region."
-        Ok(region.owner_id == *caller || self.lock().admins.contains(caller))
+        Ok(region.owner_id == *caller || self.locked().await.admins.contains(caller))
     }
 
     async fn may_modify_object(
@@ -1174,7 +1201,7 @@ impl SceneBackend for MemoryBackend {
     ) -> Result<bool, MemoryError> {
         // "Only the object's `ownerId`, the region owner, or a
         // deployment-admin may modify another user's object."
-        let inner = self.lock();
+        let inner = self.locked().await;
         Ok(inner.admins.contains(caller)
             || object.owner_id.as_ref() == Some(caller)
             || inner.owns_region(caller, account_id, &object.region_id))
@@ -1206,7 +1233,10 @@ impl SceneBackend for MemoryBackend {
         account_id: &Id,
         region_id: &Id,
     ) -> Result<bool, MemoryError> {
-        Ok(self.lock().may_access(caller, account_id, region_id))
+        Ok(self
+            .locked()
+            .await
+            .may_access(caller, account_id, region_id))
     }
 
     async fn is_object_visible(
@@ -1245,7 +1275,7 @@ impl SceneBackend for MemoryBackend {
         _caller: &String,
         _account_id: &Id,
     ) -> Result<Vec<String>, MemoryError> {
-        Ok(self.lock().reserved_names.clone())
+        Ok(self.locked().await.reserved_names.clone())
     }
 
     async fn may_eject_avatar(
@@ -1255,7 +1285,7 @@ impl SceneBackend for MemoryBackend {
         avatar: &SceneAvatar,
     ) -> Result<bool, MemoryError> {
         // "Region owners and administrators MAY eject avatars".
-        let inner = self.lock();
+        let inner = self.locked().await;
         Ok(inner.admins.contains(caller)
             || inner.owns_region(caller, account_id, &avatar.region_id))
     }
@@ -1266,7 +1296,7 @@ impl SceneBackend for MemoryBackend {
         _account_id: &Id,
         event: &SceneInteractionEvent,
     ) -> Result<bool, MemoryError> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         if inner.rate_limited.contains(&event.user_id) {
             return Ok(false);
         }
@@ -1283,6 +1313,65 @@ impl SceneBackend for MemoryBackend {
         ]
         .contains(&O::TYPE_NAME)
     }
+}
+
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional Scene Foo/set (bd JMAP-y1yu.15): the whole store is one
+/// [`ScopedState`], so a scope isolates every account, and an atomic
+/// rollback restores objects, state strings, change logs, derived counts
+/// and queued deliveries together. Under an atomic scope the backend leaves
+/// `maxAvatarsPerRegion` to the commit, which checks the final state
+/// (`final_state_failures`).
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &String,
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self.inner.open(request, final_state_failures).await)
+    }
+}
+
+/// The avatar changes an atomic scope made that break a region-wide rule
+/// in the state it would commit (conditional-02 §4.2;
+/// draft-atwood-jmap-scene-00 §Entering a Region): more present avatars in
+/// a region than the account's `maxAvatarsPerRegion`, as `overQuota` on
+/// each present avatar the scope created or changed in that region.
+fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
+    let mut failures = Vec::new();
+    for (account, capability) in &after.accounts {
+        let account_id = Id::from(account.as_str());
+        let old: HashMap<Id, SceneAvatar> = before
+            .all::<SceneAvatar>(&account_id)
+            .map(|a| (a.id.clone(), a))
+            .collect();
+        let now: Vec<SceneAvatar> = after.all::<SceneAvatar>(&account_id).collect();
+        for a in &now {
+            let op = match old.get(&a.id) {
+                None => SetOp::Create(a.id.clone()),
+                Some(prev) if prev != a => SetOp::Update(a.id.clone()),
+                Some(_) => continue,
+            };
+            let Some(max) = capability.max_avatars_per_region else {
+                continue;
+            };
+            let present = now
+                .iter()
+                .filter(|b| b.region_id == a.region_id && b.left_at.is_none())
+                .count() as u64;
+            if a.left_at.is_none() && present > max {
+                failures.push(DeferredFailure::new(
+                    op,
+                    SetError::new(SetErrorType::OverQuota)
+                        .with_description("maxAvatarsPerRegion reached"),
+                ));
+            }
+        }
+    }
+    failures
 }
 
 #[cfg(test)]
@@ -1315,16 +1404,19 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        a.add_admin("u1");
+        let admin = |b: &MemoryBackend| b.inner.lock_unscoped().admins.contains("u1");
+        assert!(admin(&clone), "a clone sees the original's writes");
+        assert!(!admin(&fresh), "a fresh backend does not");
     }
 }
 

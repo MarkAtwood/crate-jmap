@@ -1,5 +1,7 @@
 //! Private helper utilities for the handler modules.
 
+use std::collections::{BTreeMap, BTreeSet};
+
 use jmap_types::{GetObject, Id, JmapError, JmapObject, State, UTCDate};
 use serde_json::{Map, Value, json};
 
@@ -253,16 +255,19 @@ pub(crate) trait Visible: GetObject + Send + Sync {
         account_id: &Id,
     ) -> impl std::future::Future<Output = Result<bool, B::Error>> + Send;
 
-    /// The record as `/get` returns it to a caller who may see it; by
-    /// default unchanged.
+    /// The record as `/get` returns it to a caller who may see it, and the
+    /// properties hidden from that caller (blanked here, so unreadable in
+    /// the draft-ietf-jmap-conditional-02 §9.1 sense); by default unchanged
+    /// and none.
     fn redact<B: SceneBackend>(
         self,
         backend: &B,
         caller: &B::CallerCtx,
         account_id: &Id,
-    ) -> impl std::future::Future<Output = Result<Self, B::Error>> + Send {
+    ) -> impl std::future::Future<Output = Result<(Self, &'static [&'static str]), B::Error>> + Send
+    {
         let _ = (backend, caller, account_id);
-        async { Ok(self) }
+        async { Ok((self, &[][..])) }
     }
 }
 
@@ -287,18 +292,21 @@ impl Visible for SceneRegion {
     /// `invitedUserIds`: "The server returns the list only to callers who
     /// may update the region; for every other caller, the server returns
     /// `[]`" (draft-atwood-jmap-scene-00 at 6bcd9d8, L457).
+    ///
+    /// The list is hidden from such a caller even when it is empty, so a
+    /// conditional-02 precondition on it is `forbidden` either way and its
+    /// answer reveals nothing.
     async fn redact<B: SceneBackend>(
         mut self,
         backend: &B,
         caller: &B::CallerCtx,
         account_id: &Id,
-    ) -> Result<Self, B::Error> {
-        if !self.invited_user_ids.is_empty()
-            && !backend.may_update_region(caller, account_id, &self).await?
-        {
-            self.invited_user_ids.clear();
+    ) -> Result<(Self, &'static [&'static str]), B::Error> {
+        if backend.may_update_region(caller, account_id, &self).await? {
+            return Ok((self, &[]));
         }
-        Ok(self)
+        self.invited_user_ids.clear();
+        Ok((self, &["invitedUserIds"]))
     }
 }
 
@@ -396,16 +404,23 @@ pub(crate) async fn handle_get_visible<O: Visible, B: SceneBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
     let mut list = Vec::with_capacity(fetched.len());
+    let mut unreadable: BTreeMap<Id, BTreeSet<String>> = BTreeMap::new();
     for o in fetched {
         if is_visible(backend, caller, &account_id, &o)
             .await
             .map_err(|e| server_fail_from_backend(&e))?
         {
-            list.push(
-                o.redact(backend, caller, &account_id)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?,
-            );
+            let (o, hidden) = o
+                .redact(backend, caller, &account_id)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+            if !hidden.is_empty() {
+                unreadable.insert(
+                    o.id().clone(),
+                    hidden.iter().map(|p| (*p).to_owned()).collect(),
+                );
+            }
+            list.push(o);
         }
     }
     // `notFound` in request order, so a hidden id cannot be told from a
@@ -437,7 +452,8 @@ pub(crate) async fn handle_get_visible<O: Visible, B: SceneBackend>(
         "state": state.as_ref(),
         "list": list_json,
         "notFound": not_found_json(&not_found),
-    })))
+    }))
+    .with_unreadable(unreadable))
 }
 
 /// The sortable part of a UTCDate: `YYYY-MM-DDTHH:MM:SS`.
