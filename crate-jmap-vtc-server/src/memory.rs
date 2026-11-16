@@ -42,9 +42,11 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Mutex, MutexGuard};
 
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
+use jmap_server::{
+    BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
+    SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
+};
 use jmap_types::{Id, State, UTCDate};
 use jmap_vtc_types::{
     CallRole, CallState, VtcCall, VtcCapability, VtcEvent, VtcLivestream, VtcParticipant,
@@ -81,7 +83,9 @@ enum Change {
 /// lookup borrows the `&str` account id instead of allocating a `String`.
 type Keyed<V> = HashMap<&'static str, HashMap<String, V>>;
 
-#[derive(Default)]
+/// The store, behind a [`ScopedState`] so a conditional Foo/set can isolate
+/// and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// `type_name` → `account_id` → `id → stored object`.
     objects: Keyed<HashMap<Id, Value>>,
@@ -111,6 +115,7 @@ impl Inner {
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
+        defer: bool,
     ) -> Result<Option<O>, BackendSetError<MemoryError>> {
         let mut current = self
             .objects(O::TYPE_NAME, account_id)
@@ -142,7 +147,7 @@ impl Inner {
         {
             Some(p) => {
                 let count = self
-                    .active_count_within_quota(account_id, &p)
+                    .active_count_within_quota(account_id, &p, defer)
                     .ok_or_else(over_quota)?;
                 Some((p.call_id, count))
             }
@@ -230,10 +235,14 @@ impl Inner {
     /// The `activeParticipantCount` of `candidate`'s call once `candidate`
     /// is stored, or `None` when that is a rise above the account's
     /// `maxParticipantsPerCall`.
+    ///
+    /// `defer`: an atomic conditional-02 scope is open on this task, so the
+    /// cap is left to its commit (`final_state_failures`).
     fn active_count_within_quota(
         &self,
         account_id: &Id,
         candidate: &VtcParticipant,
+        defer: bool,
     ) -> Option<u64> {
         let in_call = |p: &VtcParticipant| p.call_id == candidate.call_id && is_active(p);
         let before = self.participants(account_id).filter(in_call).count();
@@ -246,7 +255,7 @@ impl Inner {
             .accounts
             .get(account_id.as_ref())
             .and_then(|cap| cap.max_participants_per_call);
-        (after <= before || max.is_none_or(|m| after as u64 <= m)).then_some(after as u64)
+        (defer || after <= before || max.is_none_or(|m| after as u64 <= m)).then_some(after as u64)
     }
 
     /// Store `count` as `call_id`'s `activeParticipantCount`, advancing the
@@ -377,7 +386,7 @@ impl Inner {
 #[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -390,7 +399,7 @@ pub struct MemoryBackend {
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -401,9 +410,16 @@ impl MemoryBackend {
         Self::default()
     }
 
-    fn lock(&self) -> MutexGuard<'_, Inner> {
-        // A poisoned lock means a test already panicked mid-mutation.
-        self.inner.lock().expect("MemoryBackend lock poisoned")
+    /// The store, for setup and test helpers, which never run inside a
+    /// conditional Foo/set scope. A poisoned lock is taken anyway.
+    fn lock(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock_unscoped()
+    }
+
+    /// The store, for the backend methods: waits while another task's
+    /// conditional Foo/set scope is open (docs/design/conditional.md §7).
+    async fn locked(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock().await
     }
 
     /// Register `account_id` with the VTC capability object it advertises.
@@ -572,7 +588,11 @@ impl JmapBackend for MemoryBackend {
     type CallerCtx = String;
 
     async fn account_exists(&self, _caller: &String, account_id: &Id) -> Result<bool, MemoryError> {
-        Ok(self.lock().accounts.contains_key(account_id.as_ref()))
+        Ok(self
+            .locked()
+            .await
+            .accounts
+            .contains_key(account_id.as_ref()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -582,7 +602,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
-        self.lock().get::<O>(Some(caller), account_id, ids)
+        self.locked().await.get::<O>(Some(caller), account_id, ids)
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
@@ -591,7 +611,10 @@ impl JmapBackend for MemoryBackend {
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         Ok(State::from(
-            self.lock().state(O::TYPE_NAME, account_id).to_string(),
+            self.locked()
+                .await
+                .state(O::TYPE_NAME, account_id)
+                .to_string(),
         ))
     }
 
@@ -603,7 +626,7 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
-        let inner = self.lock();
+        let inner = self.locked().await;
         let since: u64 = since_state
             .as_ref()
             .parse()
@@ -701,7 +724,7 @@ impl JmapBackend for MemoryBackend {
             None => Value::Array(Vec::new()),
         };
 
-        let inner = self.lock();
+        let inner = self.locked().await;
         let mut ids: Vec<Id> = match O::TYPE_NAME {
             VtcCall::TYPE_NAME => {
                 let filter: Option<VtcCallFilter> = filter.as_ref().map(recode_as).transpose()?;
@@ -809,7 +832,8 @@ impl VtcBackend for MemoryBackend {
         _caller: &String,
         account_id: &Id,
     ) -> Result<VtcCapability, MemoryError> {
-        self.lock()
+        self.locked()
+            .await
             .accounts
             .get(account_id.as_ref())
             .cloned()
@@ -842,7 +866,7 @@ impl VtcBackend for MemoryBackend {
     {
         let id = Id::from(ulid::Ulid::new().to_string());
         let mut call = build(&id);
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         if !inner.accounts.contains_key(account_id.as_ref()) {
             return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::Forbidden,
@@ -952,7 +976,7 @@ impl VtcBackend for MemoryBackend {
         let value = serde_json::to_value(build(&id)).map_err(|e| {
             BackendSetError::Other(MemoryError::serde("serialize created object", &e))
         })?;
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         // "MUST return `invalidProperties` naming `callId` when the call is
         // not in state `"active"`", rechecked under the lock.
         if matches!(
@@ -978,8 +1002,10 @@ impl VtcBackend for MemoryBackend {
             .map_err(BackendSetError::Other)?;
         let active = match &participant {
             Some(p) => {
-                // §Reconnecting: one record per user per call.
-                if let Some(existing) = p.user_id.as_ref().and_then(|u| {
+                // §Reconnecting: one record per user per call. Under an
+                // atomic scope the commit checks it on the final state.
+                let defer = self.inner.deferring();
+                if let Some(existing) = p.user_id.as_ref().filter(|_| !defer).and_then(|u| {
                     inner
                         .participants(account_id)
                         .find(|q| q.call_id == p.call_id && q.user_id.as_ref() == Some(u))
@@ -989,7 +1015,7 @@ impl VtcBackend for MemoryBackend {
                     )));
                 }
                 let count = inner
-                    .active_count_within_quota(account_id, p)
+                    .active_count_within_quota(account_id, p, defer)
                     .ok_or_else(over_quota)?;
                 Some((p.call_id.clone(), count))
             }
@@ -1015,11 +1041,11 @@ impl VtcBackend for MemoryBackend {
         _account_id: &Id,
         event: VtcRecordingStateEvent,
     ) {
-        self.lock().recording_events.push(event);
+        self.locked().await.recording_events.push(event);
     }
 
     async fn deliver_event(&self, _caller: &String, _account_id: &Id, event: VtcEvent) {
-        self.lock().events.push(event);
+        self.locked().await.events.push(event);
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
@@ -1029,7 +1055,10 @@ impl VtcBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<MemoryError>> {
-        self.lock().update::<O>(account_id, id, patch)
+        let defer = self.inner.deferring();
+        self.locked()
+            .await
+            .update::<O>(account_id, id, patch, defer)
     }
 
     async fn update_object_if<O: StatefulObject + Send + Sync>(
@@ -1040,7 +1069,7 @@ impl VtcBackend for MemoryBackend {
         expected: &[O::State],
         patch: O::Patch,
     ) -> Result<Result<Option<O>, O::State>, BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let Some(value) = inner
             .objects(O::TYPE_NAME, account_id)
             .and_then(|m| m.get(id))
@@ -1051,7 +1080,8 @@ impl VtcBackend for MemoryBackend {
         if !expected.contains(stored.state()) {
             return Ok(Err(stored.state().clone()));
         }
-        inner.update::<O>(account_id, id, patch).map(Ok)
+        let defer = self.inner.deferring();
+        inner.update::<O>(account_id, id, patch, defer).map(Ok)
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(
@@ -1060,7 +1090,7 @@ impl VtcBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let calls = inner.objects_mut(O::TYPE_NAME, account_id);
         let removed = calls.remove(id).ok_or_else(not_found)?;
         let mut changes = vec![(id.clone(), Change::Destroyed)];
@@ -1092,7 +1122,7 @@ impl VtcBackend for MemoryBackend {
     ) -> Result<bool, MemoryError> {
         // "The call initiator receives `"moderator"` by default".
         Ok(*caller == call.initiator_id
-            || self.lock().participants(account_id).any(|p| {
+            || self.locked().await.participants(account_id).any(|p| {
                 p.call_id == call.id
                     && p.user_id.as_ref() == Some(caller)
                     && p.role == CallRole::Moderator
@@ -1117,7 +1147,7 @@ impl VtcBackend for MemoryBackend {
         account_id: &Id,
         ids: Option<&[Id]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
-        self.lock().get::<O>(None, account_id, ids)
+        self.locked().await.get::<O>(None, account_id, ids)
     }
 
     async fn is_user_blocked(&self, caller: &String, user_id: &str) -> Result<bool, MemoryError> {
@@ -1130,6 +1160,83 @@ impl VtcBackend for MemoryBackend {
     fn supports_type<O: JmapObject>(&self, _caller: &String, _account_id: &Id) -> bool {
         true
     }
+}
+
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional VTC Foo/set (bd JMAP-y1yu.14): the whole store is one
+/// [`ScopedState`], so a scope isolates every account, and an atomic
+/// rollback restores objects, state strings, change logs and derived
+/// counts, and drops the queued [`VtcBackend::deliver_event`] and
+/// recording-state events, so no event announces a change that never
+/// happened (§4.3). Under an atomic scope the backend leaves "one
+/// participant record per user per call" and `maxParticipantsPerCall` to
+/// the commit, which checks the final state (`final_state_failures`).
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &String,
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self.inner.open(request, final_state_failures).await)
+    }
+}
+
+/// The participant changes an atomic scope made that break a call-wide
+/// rule in the state it would commit (conditional-02 §4.2):
+///
+/// - two VTCParticipant records for one user in one call (§Reconnecting):
+///   `alreadyExists` with `existingId` on the create;
+/// - more active participants in a call than the account's
+///   `maxParticipantsPerCall`: `overQuota` on each active participant the
+///   scope created or changed in that call.
+fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
+    let mut failures: Vec<DeferredFailure> = Vec::new();
+    for (account, capability) in &after.accounts {
+        let account_id = Id::from(account.as_str());
+        let old: HashMap<Id, VtcParticipant> = before
+            .participants(&account_id)
+            .map(|p| (p.id.clone(), p))
+            .collect();
+        let now: Vec<VtcParticipant> = after.participants(&account_id).collect();
+        let changed = |p: &VtcParticipant| match old.get(&p.id) {
+            None => Some(SetOp::Create(p.id.clone())),
+            Some(prev) if prev != p => Some(SetOp::Update(p.id.clone())),
+            Some(_) => None,
+        };
+        for p in &now {
+            let Some(op) = changed(p) else { continue };
+            if let (SetOp::Create(_), Some(user)) = (&op, &p.user_id)
+                && let Some(existing) = now.iter().find(|q| {
+                    q.id != p.id && q.call_id == p.call_id && q.user_id.as_ref() == Some(user)
+                })
+            {
+                failures.push(DeferredFailure::new(
+                    op,
+                    SetError::new(SetErrorType::AlreadyExists)
+                        .with_existing_id(existing.id.clone()),
+                ));
+                continue;
+            }
+            let Some(max) = capability.max_participants_per_call else {
+                continue;
+            };
+            let active = now
+                .iter()
+                .filter(|q| q.call_id == p.call_id && is_active(q))
+                .count() as u64;
+            if is_active(p) && active > max {
+                failures.push(DeferredFailure::new(
+                    op,
+                    SetError::new(SetErrorType::OverQuota)
+                        .with_description("the call has reached maxParticipantsPerCall"),
+                ));
+            }
+        }
+    }
+    failures
 }
 
 #[cfg(test)]
@@ -1162,16 +1269,24 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        a.block("u1", "u2");
+        let blocked = |b: &MemoryBackend| {
+            b.inner
+                .lock_unscoped()
+                .blocked
+                .contains(&("u1".to_owned(), "u2".to_owned()))
+        };
+        assert!(blocked(&clone), "a clone sees the original's writes");
+        assert!(!blocked(&fresh), "a fresh backend does not");
     }
 }
 

@@ -52,7 +52,10 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, JmapHandler,
+    RegistrationError, SetSupport,
+};
 
 mod backend;
 mod call;
@@ -164,5 +167,58 @@ where
     reg!(
         "VTCLivestream/queryChanges",
         handle_vtc_livestream_query_changes
+    );
+}
+
+/// Opt this crate's registered Foo/set methods in to
+/// draft-ietf-jmap-conditional-02 (`ifUnchangedBy` and `atomic`;
+/// docs/design/DECISIONS.md decisions 1 and 17).
+///
+/// Call after [`register_vtc_handlers`]. Attaches [`SetSupport`] to each
+/// of `VTCCall/set`, `VTCParticipant/set`, `VTCRecording/set`, `VTCLivestream/set` that is registered, and skips the rest; no handler is
+/// re-registered.
+///
+/// The dispatcher reads preconditions through each type's `/get` and runs
+/// each call in the scope `backend` opens
+/// ([`ConditionalBackend::begin_set`]).
+/// Under `atomic` that scope must hold back `deliver_event` deliveries until
+/// commit and check participant rules on the final state; the memory
+/// backend does.
+/// Advertise `urn:ietf:params:jmap:conditional` only once
+/// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
+pub fn register_vtc_conditional<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
+where
+    B: VtcBackend + ConditionalBackend + 'static,
+{
+    fn attach<C: Clone + Send + 'static>(
+        dispatcher: &mut Dispatcher<C>,
+        method: &str,
+        support: SetSupport<C>,
+    ) {
+        match dispatcher.attach_set_support(method, support) {
+            Ok(()) | Err(RegistrationError::NotRegistered(_)) => {}
+            Err(e) => unreachable!("{method} pairs with its own data type: {e}"),
+        }
+    }
+    use jmap_vtc_types::{VtcCall, VtcLivestream, VtcParticipant, VtcRecording};
+    attach(
+        dispatcher,
+        "VTCCall/set",
+        SetSupport::new::<VtcCall, B>(Arc::clone(&backend)),
+    );
+    attach(
+        dispatcher,
+        "VTCParticipant/set",
+        SetSupport::new::<VtcParticipant, B>(Arc::clone(&backend)),
+    );
+    attach(
+        dispatcher,
+        "VTCRecording/set",
+        SetSupport::new::<VtcRecording, B>(Arc::clone(&backend)),
+    );
+    attach(
+        dispatcher,
+        "VTCLivestream/set",
+        SetSupport::new::<VtcLivestream, B>(Arc::clone(&backend)),
     );
 }

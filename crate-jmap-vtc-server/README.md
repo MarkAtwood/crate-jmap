@@ -88,6 +88,25 @@ and `overQuota` atomically.
 The backend trait is not object-safe (generic methods); every public type
 is `#[non_exhaustive]`.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_vtc_conditional(dispatcher, backend)`, called after
+`register_vtc_handlers`, attaches `SetSupport` to each registered `/set`
+(VTCCall, VTCParticipant, VTCRecording, VTCLivestream) and skips the rest; it
+re-registers nothing, and a deployment that never calls it is unchanged
+(docs/design/DECISIONS.md decisions 1 and 17). Advertise
+`urn:ietf:params:jmap:conditional` only when `Dispatcher::conditional_ready()` is
+true.
+
+`VTCLivestream/get` marks the `streamKey` and `streamUri` it blanks for a
+non-moderator as unreadable, so a precondition on either is `forbidden` (§9.1)
+rather than compared with the blank. `MemoryBackend`'s store is a
+`jmap_server::ScopedState`: an atomic rollback restores objects, states and
+derived counts and drops queued `deliver_event` events. Under an atomic scope the
+"one participant record per user per call" rule and `maxParticipantsPerCall` move
+to the commit, which checks the final state, so a moderator can kick one
+participant and admit another in one call at the cap.
+
 ## Gotchas
 
 - `VtcBackend::is_moderator` defaults to `Ok(true)` (fail-open,

@@ -20,7 +20,7 @@
 //! "MAY accept" such a create. A deployment with a key-holding bridge
 //! registers its own `VTCRecording/set` / `VTCLivestream/set` handler.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use jmap_types::{GetObject, Id, JmapError, PatchObject, SetObject};
 use jmap_vtc_types::VtcMediaComparator;
@@ -159,6 +159,10 @@ pub async fn handle_vtc_livestream_get<B: VtcBackend>(
         .ok_or_else(|| JmapError::server_fail("VTCLivestream/get response has no accountId"))?;
 
     let mut moderator_on: HashMap<String, bool> = HashMap::new();
+    // draft-ietf-jmap-conditional-02 §9.1: the blanked stream config is
+    // unreadable, so a precondition on it is `forbidden`, never compared
+    // with the blank.
+    let mut unreadable: BTreeMap<Id, BTreeSet<String>> = BTreeMap::new();
     if let Some(Value::Array(list)) = out.primary.get_mut("list") {
         for item in list.iter_mut().filter_map(Value::as_object_mut) {
             let call_id = item
@@ -184,13 +188,20 @@ pub async fn handle_vtc_livestream_get<B: VtcBackend>(
                         *v = json!("");
                     }
                 }
+                if let Some(id) = item.get("id").and_then(Value::as_str) {
+                    // Id::from: the id of this handler's own /get response.
+                    unreadable.insert(
+                        Id::from(id),
+                        BTreeSet::from(["streamKey".to_owned(), "streamUri".to_owned()]),
+                    );
+                }
             }
             if strip_call_id {
                 item.remove("callId");
             }
         }
     }
-    Ok(out)
+    Ok(out.with_unreadable(unreadable))
 }
 
 /// Handle `VTCLivestream/changes` (draft-atwood-jmap-vtc-00

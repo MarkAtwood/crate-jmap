@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: conditional VTC Foo/set
+  (draft-ietf-jmap-conditional-02). `register_vtc_conditional`, called
+  after `register_vtc_handlers`, attaches `SetSupport` to the registered
+  VTCCall, VTCParticipant, VTCRecording and VTCLivestream `/set` (decisions
+  1, 17). `VTCLivestream/get` marks the blanked `streamKey`/`streamUri` of
+  a non-moderator unreadable, so preconditions on them are `forbidden`. The
+  memory backend keeps its store on `jmap_server::ScopedState` (feature
+  `memory` now enables `jmap-server/scoped-state`) and implements
+  `ConditionalBackend`: an atomic rollback drops queued events, and under
+  an atomic scope the one-record-per-user and `maxParticipantsPerCall`
+  checks move to the commit. A poisoned memory-backend lock is now taken
+  instead of panicking. (bd:JMAP-y1yu.14)
+
 - **jmap-sharing-server**: conditional sharing Foo/set
   (draft-ietf-jmap-conditional-02). `register_sharing_conditional`, called
   after `register_sharing_handlers`, attaches `SetSupport` to the
