@@ -132,6 +132,12 @@ pub struct JmapError {
     /// (the `limit` key there is the `tooManyChanges` count).
     #[serde(skip)]
     pub limit_name: Option<String>,
+    /// Other properties of the error object (RFC 8620 §3.6.2: "Other
+    /// properties may be present"), such as draft-ietf-jmap-conditional-02
+    /// §3.3 `failed` and the §4.2 `atomicFailure` maps. Kept on decode
+    /// and written flat beside `type`.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl JmapError {
@@ -142,6 +148,7 @@ impl JmapError {
             description: Some(desc.into()),
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -152,6 +159,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -162,6 +170,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -172,6 +181,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -182,6 +192,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -192,6 +203,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -202,6 +214,7 @@ impl JmapError {
             description: Some(desc.into()),
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -212,6 +225,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -222,6 +236,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -232,6 +247,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -242,6 +258,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -252,6 +269,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -264,6 +282,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -274,6 +293,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -286,6 +306,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -296,6 +317,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -306,6 +328,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -316,6 +339,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -326,6 +350,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -336,6 +361,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -349,6 +375,7 @@ impl JmapError {
             description: None,
             limit: Some(limit),
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -361,6 +388,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -373,6 +401,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -391,6 +420,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: Some(limit_name.into()),
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -411,6 +441,7 @@ impl JmapError {
             description: Some(uri.into()),
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -425,6 +456,7 @@ impl JmapError {
             description: None,
             limit: None,
             limit_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -752,5 +784,39 @@ mod tests {
         assert_eq!(inv[0], "error");
         assert_eq!(inv[1]["type"], "unknownMethod");
         assert_eq!(inv[2], "c3");
+    }
+
+    /// RFC 8620 §3.6.2 "Other properties may be present": a decoded error
+    /// keeps them in `extra` and writes them back.
+    #[test]
+    fn unknown_properties_round_trip() {
+        let wire = serde_json::json!({
+            "type": "urn:example:custom",
+            "description": "d",
+            "detail": {"n": 1},
+            "ids": ["a"]
+        });
+        let e: JmapError = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(e.description.as_deref(), Some("d"));
+        assert_eq!(e.extra.len(), 2);
+        assert_eq!(e.extra["detail"], serde_json::json!({"n": 1}));
+        assert_eq!(serde_json::to_value(&e).unwrap(), wire);
+        // An error without extra properties writes none.
+        assert_eq!(
+            serde_json::to_value(JmapError::state_mismatch()).unwrap(),
+            serde_json::json!({"type": "stateMismatch"})
+        );
+    }
+
+    /// `JmapError` sits in every handler `Result`, so its size is watched:
+    /// `extra` is one `Map` rather than typed fields. A runtime check, not
+    /// a static assert: `serde_json/preserve_order` changes `Map`'s size.
+    #[test]
+    fn size_stays_small() {
+        // 88 bytes before `extra` was added (64-bit, measured 2026-11-15);
+        // `extra` may add one `Map` and nothing more.
+        let size = std::mem::size_of::<JmapError>();
+        let map = std::mem::size_of::<serde_json::Map<String, serde_json::Value>>();
+        assert!(size <= 88 + map, "JmapError is {size} bytes");
     }
 }

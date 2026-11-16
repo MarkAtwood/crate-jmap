@@ -21,6 +21,7 @@ spec requires.
 | `ResultReference` | §9 | Reference to a prior method's result |
 | `Argument<T>` | §9 | A method argument that is either a value or a `ResultReference` |
 | `JmapUri` | draft-atwood-jmap-object-uri-00 | `jmap:<type>:<accountId>:<objectId>` object reference |
+| `conditional::*` | draft-ietf-jmap-conditional-02 §2–§4 | `urn:ietf:params:jmap:conditional` capability, `IfUnchangedBy` and `ConditionalSetArgs`, `AtomicFailure`, the `atomicFailure` and `cannotApplyAtomically` codes, and `JmapError` constructors and readers for `stateMismatch` `failed` and the `atomicFailure` maps (kept in `JmapError::extra`) |
 | `i18n::*` | draft-atwood-jmap-updates-00 §3–§4 | `urn:ietf:params:jmap:i18n` capability, `LanguageTag` (RFC 5646), `LanguageRange` and `lookup` (RFC 4647), `Localizations`, and the `/set` check, pruning and `/get` view helpers |
 
 The `query` module also re-exports the generic filter algebra used across the
@@ -237,6 +238,7 @@ jmap-types          ← this crate
 - [RFC 6901] — JSON Pointer (used in `ResultReference.path`)
 - [RFC 5646], [RFC 4647] — language tags and Lookup (`i18n` module)
 - draft-atwood-jmap-updates-00 — localized display text (`i18n` module)
+- draft-ietf-jmap-conditional-02 — conditional and atomic Foo/set (`conditional` module)
 
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 7807]: https://www.rfc-editor.org/rfc/rfc7807

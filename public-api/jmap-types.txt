@@ -1,4 +1,64 @@
 pub mod jmap_types
+pub mod jmap_types::conditional
+#[non_exhaustive] pub struct jmap_types::conditional::AtomicFailure
+pub jmap_types::conditional::AtomicFailure::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_types::conditional::AtomicFailure::not_created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::SetError>>
+pub jmap_types::conditional::AtomicFailure::not_destroyed: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::SetError>>
+pub jmap_types::conditional::AtomicFailure::not_updated: core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::SetError>>
+impl jmap_types::conditional::AtomicFailure
+pub fn jmap_types::conditional::AtomicFailure::not_restored(&self) -> core::option::Option<alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::SetError>>
+pub fn jmap_types::conditional::AtomicFailure::with_not_restored(self, alloc::collections::btree::map::BTreeMap<jmap_types::Id, jmap_types::SetError>) -> Self
+impl core::clone::Clone for jmap_types::conditional::AtomicFailure
+pub fn jmap_types::conditional::AtomicFailure::clone(&self) -> jmap_types::conditional::AtomicFailure
+impl core::cmp::PartialEq for jmap_types::conditional::AtomicFailure
+pub fn jmap_types::conditional::AtomicFailure::eq(&self, &jmap_types::conditional::AtomicFailure) -> bool
+impl core::default::Default for jmap_types::conditional::AtomicFailure
+pub fn jmap_types::conditional::AtomicFailure::default() -> jmap_types::conditional::AtomicFailure
+impl core::fmt::Debug for jmap_types::conditional::AtomicFailure
+pub fn jmap_types::conditional::AtomicFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::conditional::AtomicFailure
+impl serde_core::ser::Serialize for jmap_types::conditional::AtomicFailure
+pub fn jmap_types::conditional::AtomicFailure::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::conditional::AtomicFailure
+pub fn jmap_types::conditional::AtomicFailure::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::conditional::ConditionalCapability
+pub jmap_types::conditional::ConditionalCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl core::clone::Clone for jmap_types::conditional::ConditionalCapability
+pub fn jmap_types::conditional::ConditionalCapability::clone(&self) -> jmap_types::conditional::ConditionalCapability
+impl core::cmp::Eq for jmap_types::conditional::ConditionalCapability
+impl core::cmp::PartialEq for jmap_types::conditional::ConditionalCapability
+pub fn jmap_types::conditional::ConditionalCapability::eq(&self, &jmap_types::conditional::ConditionalCapability) -> bool
+impl core::default::Default for jmap_types::conditional::ConditionalCapability
+pub fn jmap_types::conditional::ConditionalCapability::default() -> jmap_types::conditional::ConditionalCapability
+impl core::fmt::Debug for jmap_types::conditional::ConditionalCapability
+pub fn jmap_types::conditional::ConditionalCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::conditional::ConditionalCapability
+impl serde_core::ser::Serialize for jmap_types::conditional::ConditionalCapability
+pub fn jmap_types::conditional::ConditionalCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::conditional::ConditionalCapability
+pub fn jmap_types::conditional::ConditionalCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_types::conditional::ConditionalSetArgs
+pub jmap_types::conditional::ConditionalSetArgs::atomic: bool
+pub jmap_types::conditional::ConditionalSetArgs::if_unchanged_by: jmap_types::conditional::IfUnchangedBy
+impl jmap_types::conditional::ConditionalSetArgs
+pub fn jmap_types::conditional::ConditionalSetArgs::is_default(&self) -> bool
+impl core::clone::Clone for jmap_types::conditional::ConditionalSetArgs
+pub fn jmap_types::conditional::ConditionalSetArgs::clone(&self) -> jmap_types::conditional::ConditionalSetArgs
+impl core::cmp::PartialEq for jmap_types::conditional::ConditionalSetArgs
+pub fn jmap_types::conditional::ConditionalSetArgs::eq(&self, &jmap_types::conditional::ConditionalSetArgs) -> bool
+impl core::default::Default for jmap_types::conditional::ConditionalSetArgs
+pub fn jmap_types::conditional::ConditionalSetArgs::default() -> jmap_types::conditional::ConditionalSetArgs
+impl core::fmt::Debug for jmap_types::conditional::ConditionalSetArgs
+pub fn jmap_types::conditional::ConditionalSetArgs::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_types::conditional::ConditionalSetArgs
+impl serde_core::ser::Serialize for jmap_types::conditional::ConditionalSetArgs
+pub fn jmap_types::conditional::ConditionalSetArgs::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::conditional::ConditionalSetArgs
+pub fn jmap_types::conditional::ConditionalSetArgs::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_types::conditional::ATOMIC_FAILURE: &str
+pub const jmap_types::conditional::CANNOT_APPLY_ATOMICALLY: &str
+pub const jmap_types::conditional::JMAP_CONDITIONAL_URI: &str
+pub type jmap_types::conditional::IfUnchangedBy = alloc::collections::btree::map::BTreeMap<alloc::string::String, core::option::Option<jmap_types::PatchObject>>
 pub mod jmap_types::data_types
 #[non_exhaustive] pub struct jmap_types::data_types::DataTypeEntry
 pub jmap_types::data_types::DataTypeEntry::can_reference_blobs: bool
@@ -591,6 +651,7 @@ pub fn jmap_types::Invocation::deserialize<D: serde_core::de::Deserializer<'de>>
 #[non_exhaustive] pub struct jmap_types::JmapError
 pub jmap_types::JmapError::description: core::option::Option<alloc::string::String>
 pub jmap_types::JmapError::error_type: jmap_types::MethodErrorType
+pub jmap_types::JmapError::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_types::JmapError::limit: core::option::Option<u64>
 pub jmap_types::JmapError::limit_name: core::option::Option<alloc::string::String>
 impl jmap_types::JmapError
@@ -620,6 +681,12 @@ pub fn jmap_types::JmapError::unknown_capability_with_detail(impl core::convert:
 pub fn jmap_types::JmapError::unknown_method() -> Self
 pub fn jmap_types::JmapError::unsupported_filter() -> Self
 pub fn jmap_types::JmapError::unsupported_sort() -> Self
+impl jmap_types::JmapError
+pub fn jmap_types::JmapError::atomic_failure(jmap_types::conditional::AtomicFailure) -> Self
+pub fn jmap_types::JmapError::atomic_failure_details(&self) -> core::option::Option<jmap_types::conditional::AtomicFailure>
+pub fn jmap_types::JmapError::cannot_apply_atomically() -> Self
+pub fn jmap_types::JmapError::failed(&self) -> core::option::Option<alloc::vec::Vec<jmap_types::Id>>
+pub fn jmap_types::JmapError::state_mismatch_failed(alloc::vec::Vec<jmap_types::Id>) -> Self
 impl core::clone::Clone for jmap_types::JmapError
 pub fn jmap_types::JmapError::clone(&self) -> jmap_types::JmapError
 impl core::cmp::Eq for jmap_types::JmapError

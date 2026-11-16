@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: `conditional` module, the draft-ietf-jmap-conditional-02
+  wire types: `JMAP_CONDITIONAL_URI`, `ConditionalCapability`,
+  `IfUnchangedBy`, `ConditionalSetArgs`, `AtomicFailure`, and the
+  `ATOMIC_FAILURE` and `CANNOT_APPLY_ATOMICALLY` codes (extension codes,
+  decoding to `MethodErrorType::Other`). `JmapError` gains
+  `state_mismatch_failed`, `atomic_failure` and `cannot_apply_atomically`
+  constructors and the `failed` and `atomic_failure_details` readers.
+  `JmapError` also gains `extra`, which keeps an error's other properties
+  (RFC 8620 §3.6.2) on decode and writes them flat beside `type`, so a
+  decoded error now re-serializes them instead of dropping them. The
+  struct is `#[non_exhaustive]`, so the field is additive. (bd:JMAP-y1yu.1)
+
 - **jmap-types**: new `i18n` module for draft-atwood-jmap-updates-00
   localized display text: `JMAP_I18N_URI`, `I18nCapability` and
   `I18nAccountCapability` (both `{}`); `LanguageTag` (RFC 5646
