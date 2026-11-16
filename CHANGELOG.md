@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-base-client**: conditional Foo/set on the client
+  (draft-ietf-jmap-conditional-02; decision 8). `SetCall`, a generic
+  `Foo/set` for any type with `ifUnchangedBy`/`atomic` and object-history
+  `restore`; `JmapClient::set_call`, which adds the conditional URI to
+  `using` only when those options are set; `ConditionalError` for
+  `stateMismatch` (with `failed`), `atomicFailure` and
+  `cannotApplyAtomically`; `Session::supports_conditional()`.
+  (bd:JMAP-y1yu.6)
+
 - **jmap-chat-mimi-server**: conditional KeyPackage/set
   (draft-ietf-jmap-conditional-02). `register_mimi_conditional`, called
   after `register_mimi_handlers`, attaches `SetSupport` to the registered

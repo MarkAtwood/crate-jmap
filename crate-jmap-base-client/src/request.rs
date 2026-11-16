@@ -593,6 +593,15 @@ impl Session {
         self.capabilities.contains_key("urn:ietf:params:jmap:cid")
     }
 
+    /// Whether the server advertises `urn:ietf:params:jmap:conditional`
+    /// (draft-ietf-jmap-conditional-02 §2.1): every Foo/set it offers takes
+    /// `ifUnchangedBy` and `atomic`. Check it before sending a
+    /// [`SetCall`](crate::SetCall) with conditional options.
+    pub fn supports_conditional(&self) -> bool {
+        self.capabilities
+            .contains_key(jmap_types::conditional::JMAP_CONDITIONAL_URI)
+    }
+
     /// Returns the parsed session-level [`DidCapability`] for the JMAP
     /// Decentralized Identifiers extension, if advertised
     /// (draft-atwood-jmap-did-00 §Session-Level Capability Object).

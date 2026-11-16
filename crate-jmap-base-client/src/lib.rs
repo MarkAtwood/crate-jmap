@@ -66,6 +66,7 @@
 mod auth;
 mod blob;
 mod client;
+mod conditional;
 mod error;
 mod i18n;
 mod iri;
@@ -88,6 +89,7 @@ pub use client::{
     ClientConfig, CloseAfter, JmapClient, SseReconnectPolicy, SubscribeEventsSessionParams,
     extract_response, method_error_details,
 };
+pub use conditional::{ConditionalError, SetCall};
 pub use error::{
     ClientError, HttpError, HttpErrorKind, InvalidHeaderValueError, ParseCategory, ParseError,
     SerializeError, WebSocketError, WebSocketErrorKind, to_args,

@@ -309,6 +309,32 @@ Match on a borrowed frame (`match &frame`) if you need `frame.request_id()`
 inside the arms. It returns the RFC 8887 `requestId` of a `Response` or
 `RequestError`, which is the `id` passed to `send_request`.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`SetCall` is a generic `Foo/set` for any data type with the conditional options
+(`ifUnchangedBy`, `atomic`) and object-history `restore`; `JmapClient::set_call`
+sends it, adding `urn:ietf:params:jmap:conditional` to `using` only when the
+conditional options are set. Check `Session::supports_conditional()` first.
+`ConditionalError::from_method_error` reads `stateMismatch` (with `failed`),
+`atomicFailure` and `cannotApplyAtomically` from a `ClientError::MethodError`.
+
+```rust,ignore
+use jmap_base_client::{ClientError, ConditionalError, SetCall};
+
+let mut call = SetCall::default();
+call.account_id = Some(account_id);
+call.conditional.if_unchanged_by.insert("f42".into(), Some(expected_patch));
+call.update.insert(file_id, patch);
+match client.set_call::<SetResponse<PartialObject>>(&session, "FileNode/set",
+        &["urn:ietf:params:jmap:filenode"], &call).await {
+    Err(ClientError::MethodError(e)) => match ConditionalError::from_method_error(&e) {
+        Some(ConditionalError::StateMismatch { failed }) => { /* refetch and retry */ }
+        _ => {}
+    },
+    other => { /* ... */ }
+}
+```
+
 ### Runnable example
 
 A runnable end-to-end demo lives in [`examples/session_fetch.rs`](examples/session_fetch.rs):

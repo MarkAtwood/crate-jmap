@@ -52,6 +52,20 @@ impl core::hash::Hash for jmap_base_client::CloseAfter
 pub fn jmap_base_client::CloseAfter::hash<__H: core::hash::Hasher>(&self, &mut __H)
 impl core::marker::Copy for jmap_base_client::CloseAfter
 impl core::marker::StructuralPartialEq for jmap_base_client::CloseAfter
+#[non_exhaustive] pub enum jmap_base_client::ConditionalError
+pub jmap_base_client::ConditionalError::AtomicFailure(jmap_types::conditional::AtomicFailure)
+pub jmap_base_client::ConditionalError::CannotApplyAtomically
+pub jmap_base_client::ConditionalError::StateMismatch
+pub jmap_base_client::ConditionalError::StateMismatch::failed: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+impl jmap_base_client::ConditionalError
+pub fn jmap_base_client::ConditionalError::from_method_error(&jmap_types::error::JmapError) -> core::option::Option<Self>
+impl core::clone::Clone for jmap_base_client::ConditionalError
+pub fn jmap_base_client::ConditionalError::clone(&self) -> jmap_base_client::ConditionalError
+impl core::cmp::PartialEq for jmap_base_client::ConditionalError
+pub fn jmap_base_client::ConditionalError::eq(&self, &jmap_base_client::ConditionalError) -> bool
+impl core::fmt::Debug for jmap_base_client::ConditionalError
+pub fn jmap_base_client::ConditionalError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::ConditionalError
 #[non_exhaustive] pub enum jmap_base_client::HttpErrorKind
 pub jmap_base_client::HttpErrorKind::Builder
 pub jmap_base_client::HttpErrorKind::Connect
@@ -398,6 +412,8 @@ impl jmap_base_client::JmapClient
 pub fn jmap_base_client::JmapClient::new(impl jmap_base_client::TransportConfig, impl jmap_base_client::AuthProvider + 'static, &str, jmap_base_client::ClientConfig) -> core::result::Result<Self, jmap_base_client::ClientError>
 pub fn jmap_base_client::JmapClient::new_plain(impl jmap_base_client::AuthProvider + 'static, &str, jmap_base_client::ClientConfig) -> core::result::Result<Self, jmap_base_client::ClientError>
 pub fn jmap_base_client::JmapClient::new_with_shared_auth(impl jmap_base_client::TransportConfig, alloc::sync::Arc<dyn jmap_base_client::AuthProvider>, &str, jmap_base_client::ClientConfig) -> core::result::Result<Self, jmap_base_client::ClientError>
+impl jmap_base_client::JmapClient
+pub async fn jmap_base_client::JmapClient::set_call<R: serde_core::de::DeserializeOwned>(&self, &jmap_base_client::Session, &str, &[&str], &jmap_base_client::SetCall) -> core::result::Result<R, jmap_base_client::ClientError>
 impl core::clone::Clone for jmap_base_client::JmapClient
 pub fn jmap_base_client::JmapClient::clone(&self) -> jmap_base_client::JmapClient
 impl core::fmt::Debug for jmap_base_client::JmapClient
@@ -536,6 +552,7 @@ pub fn jmap_base_client::Session::did_capability(&self) -> core::result::Result<
 pub fn jmap_base_client::Session::extension_capability<T>(&self, &str) -> core::result::Result<core::option::Option<T>, jmap_base_client::ClientError> where T: serde_core::de::DeserializeOwned
 pub fn jmap_base_client::Session::primary_account_id(&self, &str) -> core::option::Option<&jmap_types::id::Id>
 pub fn jmap_base_client::Session::supports_cid(&self) -> bool
+pub fn jmap_base_client::Session::supports_conditional(&self) -> bool
 pub fn jmap_base_client::Session::websocket_capability(&self) -> core::result::Result<core::option::Option<jmap_base_client::WebSocketCapability>, jmap_base_client::ClientError>
 impl core::clone::Clone for jmap_base_client::Session
 pub fn jmap_base_client::Session::clone(&self) -> jmap_base_client::Session
@@ -547,6 +564,27 @@ pub fn jmap_base_client::Session::fmt(&self, &mut core::fmt::Formatter<'_>) -> c
 impl core::marker::StructuralPartialEq for jmap_base_client::Session
 impl<'de> serde_core::de::Deserialize<'de> for jmap_base_client::Session
 pub fn jmap_base_client::Session::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_base_client::SetCall
+pub jmap_base_client::SetCall::account_id: core::option::Option<jmap_types::id::Id>
+pub jmap_base_client::SetCall::conditional: jmap_types::conditional::ConditionalSetArgs
+pub jmap_base_client::SetCall::create: alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::map::Map<alloc::string::String, serde_json::value::Value>>
+pub jmap_base_client::SetCall::destroy: alloc::vec::Vec<jmap_types::id::Id>
+pub jmap_base_client::SetCall::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_base_client::SetCall::if_in_state: core::option::Option<alloc::string::String>
+pub jmap_base_client::SetCall::restore: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, core::option::Option<jmap_types::patch::PatchObject>>
+pub jmap_base_client::SetCall::update: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::patch::PatchObject>
+impl jmap_base_client::SetCall
+pub fn jmap_base_client::SetCall::to_arguments(&self) -> core::result::Result<serde_json::value::Value, jmap_base_client::ClientError>
+pub fn jmap_base_client::SetCall::using(&self, &[&str]) -> alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for jmap_base_client::SetCall
+pub fn jmap_base_client::SetCall::clone(&self) -> jmap_base_client::SetCall
+impl core::cmp::PartialEq for jmap_base_client::SetCall
+pub fn jmap_base_client::SetCall::eq(&self, &jmap_base_client::SetCall) -> bool
+impl core::default::Default for jmap_base_client::SetCall
+pub fn jmap_base_client::SetCall::default() -> jmap_base_client::SetCall
+impl core::fmt::Debug for jmap_base_client::SetCall
+pub fn jmap_base_client::SetCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::SetCall
 #[non_exhaustive] pub struct jmap_base_client::SseFrame
 pub jmap_base_client::SseFrame::event: jmap_base_client::SseEvent
 pub jmap_base_client::SseFrame::id: core::option::Option<alloc::string::String>
