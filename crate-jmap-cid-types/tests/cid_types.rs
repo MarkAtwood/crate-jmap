@@ -188,12 +188,15 @@ fn from_cidv1_rejects_impossible_base32_lengths() {
 }
 
 // ---------------------------------------------------------------------------
-// Base64 conversion for RFC 9404 `digest:sha-256`
+// Base64 conversion for blobext-03 `digest:sha-256`
 //
 // draft-atwood-jmap-cid-00 L181-188: the `sha256` field "uses lowercase hex
 // encoding rather than base64. Clients MAY use both mechanisms to
 // cross-validate results, provided they convert encodings before comparing".
-// RFC 9404 §4.1: `digest:<algorithm>` is "The base64 encoding of the digest".
+// draft-ietf-jmap-blobext-03 §5: `digest:<algorithm>` is "The
+// base64-encoded digest of the octets in the selected range" (RFC 9404
+// §4.1, which it would obsolete, said the same). The vectors below are
+// RFC 9404 §4.1's example values.
 //
 // Oracle: base64 strings copied verbatim from the RFC examples; each hex
 // form was computed independently with `openssl dgst -sha256` over the

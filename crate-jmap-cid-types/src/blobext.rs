@@ -1,13 +1,16 @@
-//! Base64 conversion for [`Sha256`], for comparison with the RFC 9404
-//! (JMAP Blob Management Extensions) `digest:sha-256` property.
+//! Base64 conversion for [`Sha256`], for comparison with the
+//! draft-ietf-jmap-blobext-03 (JMAP Blob Management Extensions)
+//! `digest:sha-256` property.
 //!
 //! draft-atwood-jmap-cid-00 §Relationship to JMAP Blob Management
 //! Extensions says the CID `sha256` field "uses lowercase hex encoding
 //! rather than base64", and that clients may cross-validate the two
-//! "provided they convert encodings before comparing". RFC 9404 §4.1
-//! defines `digest:<algorithm>` as "The base64 encoding of the digest",
-//! with base64 as specified in RFC 4648: the §4 alphabet with `=`
-//! padding. A 32-byte SHA-256 digest is always 44 base64 characters.
+//! "provided they convert encodings before comparing". blobext-03 §5
+//! (Blob/get) defines `digest:<algorithm>` as "The base64-encoded digest
+//! of the octets in the selected range", with base64 as specified in
+//! RFC 4648: the §4 alphabet with `=` padding. A 32-byte SHA-256 digest
+//! is always 44 base64 characters. (RFC 9404 §4.1, which blobext-03
+//! would obsolete, defined the same encoding.)
 //!
 //! The reverse path accepts only canonical padded base64. Missing
 //! padding, the §5 URL-safe alphabet, embedded whitespace and non-zero
@@ -54,12 +57,12 @@ impl std::error::Error for Sha256Base64Error {}
 
 impl Sha256 {
     /// The digest as padded RFC 4648 §4 base64, the encoding of the
-    /// RFC 9404 `digest:sha-256` property.
+    /// blobext-03 §5 `digest:sha-256` property.
     pub fn to_base64(&self) -> String {
         STANDARD.encode(self.to_bytes())
     }
 
-    /// Parse a padded RFC 4648 §4 base64 digest, such as an RFC 9404
+    /// Parse a padded RFC 4648 §4 base64 digest, such as a blobext-03 §5
     /// `digest:sha-256` value, into its [`Sha256`].
     pub fn from_base64(s: &str) -> Result<Self, Sha256Base64Error> {
         let bytes = STANDARD

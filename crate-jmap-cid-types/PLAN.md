@@ -43,7 +43,7 @@ The wire-format types defined by draft-atwood-jmap-cid-00:
   `jmap-filenode-types` revision).
 - Not a SHA-256 hash *implementation* — content-hash computation is
   a server-side concern. This crate carries the wire shape only.
-- Not a base64 digest binding for RFC 9404 `Blob/get`
+- Not a base64 digest binding for draft-ietf-jmap-blobext-03 `Blob/get`
   `digest:sha-256` requests. CID and BLOBEXT are deliberately
   separate mechanisms with different encodings (lowercase hex vs.
   base64) and different access patterns (unconditional at upload

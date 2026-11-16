@@ -87,8 +87,8 @@ binary CID. The reverse direction accepts only multibase `b`, CID
 version 1, codec `raw` and `sha2-256`; anything else is a
 `CidV1Error`.
 
-Convert a digest to and from the padded base64 used by the RFC 9404
-`Blob/get` `digest:sha-256` property, so the two can be compared
+Convert a digest to and from the padded base64 used by the
+[draft-ietf-jmap-blobext-03] §5 `Blob/get` `digest:sha-256` property, so the two can be compared
 ("convert encodings before comparing", draft §Relationship to JMAP
 Blob Management Extensions):
 
@@ -132,7 +132,7 @@ decodes to 32 bytes; anything else is a `Sha256Base64Error`.
 - Runtime dependencies limited to `serde`, `serde_json`
   (the latter for the `CidCapability.extra` Map<String, Value>
   surface per workspace extras-preservation policy) and `base64`
-  (for the RFC 9404 digest encoding).
+  (for the blobext-03 digest encoding).
 
 ## Gotchas
 
@@ -143,7 +143,7 @@ decodes to 32 bytes; anything else is a `Sha256Base64Error`.
   upload-response `sha256` field; `Session::supports_cid()` is the
   helper that checks the capability map. This crate is the
   wire-shape source of truth; the binding lives one layer up.
-- CID and the RFC 9404 BLOBEXT `Blob/get` `digest:sha-256` request
+- CID and the blobext-03 `Blob/get` `digest:sha-256` request
   are deliberately separate mechanisms with different encodings
   (lowercase hex vs base64) and different access patterns
   (unconditional at upload vs on-demand via `Blob/get`). See the
@@ -155,10 +155,13 @@ decodes to 32 bytes; anything else is a `Sha256Base64Error`.
   for `Sha256` and the `urn:ietf:params:jmap:cid` capability)
 - [RFC 8620] — JMAP Core (Blob upload §6.1 is the binding point)
 - [RFC 4648] — base32 alphabet used by the CIDv1 string form and
-  base64 alphabet used by the RFC 9404 digest form
-- [RFC 9404] — JMAP Blob Management Extensions (`digest:sha-256`)
+  base64 alphabet used by the blobext-03 digest form
+- [draft-ietf-jmap-blobext-03] — JMAP Blob Management Extensions
+  (`digest:sha-256`, §5); it would obsolete [RFC 9404], which defined
+  the same encoding in §4.1
 
 [draft-atwood-jmap-cid-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 9404]: https://www.rfc-editor.org/rfc/rfc9404
+[draft-ietf-jmap-blobext-03]: https://datatracker.ietf.org/doc/draft-ietf-jmap-blobext/
 [RFC 4648]: https://www.rfc-editor.org/rfc/rfc4648

@@ -49,7 +49,8 @@
 //!   §Mapping to CIDv1 appendix. [`CidV1Error`] reports a rejected
 //!   reverse conversion.
 //! - [`Sha256::to_base64`] and [`Sha256::from_base64`] — the padded
-//!   base64 form used by the RFC 9404 `digest:sha-256` property, so a
+//!   base64 form used by the draft-ietf-jmap-blobext-03 §5
+//!   `digest:sha-256` property, so a
 //!   client can "convert encodings before comparing" (draft
 //!   §Relationship to JMAP Blob Management Extensions).
 //!   [`Sha256Base64Error`] reports a rejected parse.
