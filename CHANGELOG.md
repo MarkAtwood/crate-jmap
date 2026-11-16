@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `register_push_subscription_conditional`, the
+  draft-ietf-jmap-conditional-02 opt-in for `PushSubscription/set`, called
+  after `register_push_subscription_handlers` (decisions 1, 16, 17). It
+  attaches `SetSupport` to the registered method without re-registering
+  it, so backend extension validation runs inside the scope; the scope has
+  no account. Preconditions on `url` or `keys` are `forbidden`, and
+  `ifInState` stays ignored. (bd:JMAP-y1yu.5)
+
 - **jmap-server**: the PushSubscription extension seam
   (draft-ietf-jmap-emailpush-05 §4; docs/design/emailpush.md §5.1). New
   defaulted `PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES`

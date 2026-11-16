@@ -83,7 +83,7 @@ pub use parse::{
 };
 pub use push::{
     MAX_PUSH_EXPIRY_SECS, PushSubscriptionBackend, StoredPushSubscription, is_deliverable,
-    register_push_subscription_handlers, state_change_for,
+    register_push_subscription_conditional, register_push_subscription_handlers, state_change_for,
 };
 pub use response::{RequestError, error_invocation, error_status, problem_response, request_error};
 #[cfg(feature = "scoped-state")]

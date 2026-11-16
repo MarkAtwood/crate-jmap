@@ -32,7 +32,10 @@ use crate::helpers::{
     optional_arg, reject_server_set, serialize_value, signed_seconds_since_epoch,
     utc_date_from_epoch_seconds,
 };
-use crate::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, HandlerOutput, JmapHandler};
+use crate::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, HandlerOutput,
+    JmapHandler, RegistrationError, SetSupport,
+};
 
 /// The properties that `PushSubscription/get` never returns and rejects
 /// with `forbidden` when requested (RFC 8620 §7.2.1).
@@ -273,6 +276,38 @@ pub fn register_push_subscription_handlers<B>(
         },
     ));
     dispatcher.register("PushSubscription/set", handler);
+}
+
+/// Opt `PushSubscription/set` in to draft-ietf-jmap-conditional-02
+/// (`ifUnchangedBy` and `atomic`), after
+/// [`register_push_subscription_handlers`] (docs/design/DECISIONS.md
+/// decisions 1, 16 and 17).
+///
+/// Attaches [`SetSupport`] for [`PushSubscription`] to the registered
+/// `PushSubscription/set`; it does not re-register it, so extension
+/// validation in the backend's create and update keeps running, inside the
+/// scope `backend` opens ([`ConditionalBackend::begin_set`]). The scope has
+/// no account ([`SetScopeRequest::account_id`](crate::SetScopeRequest) is
+/// `None`): key it by the caller's credentials. The dispatcher reads
+/// preconditions through `PushSubscription/get`, so a pointer to `url` or
+/// `keys` is `forbidden` (conditional-02 §9.1), and `ifInState` stays
+/// ignored (RFC 8620 §7.2.2; `/get` has no `state`).
+///
+/// # Errors
+///
+/// [`RegistrationError::NotRegistered`] when `PushSubscription/set` is
+/// not registered yet.
+pub fn register_push_subscription_conditional<B>(
+    dispatcher: &mut Dispatcher<B::CallerCtx>,
+    backend: Arc<B>,
+) -> Result<(), RegistrationError>
+where
+    B: PushSubscriptionBackend + ConditionalBackend + 'static,
+{
+    dispatcher.attach_set_support(
+        "PushSubscription/set",
+        SetSupport::new::<PushSubscription, B>(backend),
+    )
 }
 
 /// `PushSubscription/get` (RFC 8620 §7.2.1).
