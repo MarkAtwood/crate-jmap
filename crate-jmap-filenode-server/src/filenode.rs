@@ -855,6 +855,24 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    filenode_set(backend, caller, created_ids, args, using, false).await
+}
+
+/// [`handle_filenode_set`]; with `atomic` (an atomic Foo/set,
+/// draft-ietf-jmap-conditional-02 §4, from
+/// [`jmap_server::CallContext::atomic`]) a sibling-name collision with
+/// `onExists` null and a move under the node's own subtree are left to the
+/// backend's final-state check at commit, so a swap through a temporary
+/// conflict commits (§4.2, example 5.8). A case-insensitive request keeps
+/// its name checks here.
+pub(crate) async fn filenode_set<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
+    args: Value,
+    using: &[String],
+    atomic: bool,
+) -> Result<HandlerOutput, JmapError> {
     ensure_filenode_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
     // RFC 8620 §3.6.2 accountNotFound, as in the canonical
@@ -909,6 +927,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
     );
+    let defer_tree_checks = atomic && case_folding == crate::CaseFolding::Sensitive;
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -1175,6 +1194,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 match found {
                     Ok(Some(existing_id)) => {
                         match on_exists {
+                            // Under atomic the final state decides (conditional-02 §4.2).
+                            OnExists::Reject if defer_tree_checks => {}
                             OnExists::Reject => {
                                 // -20 §3.2.3: "alreadyExists" is for a collision "with a
                                 // discoverable sibling"; one the user cannot discover is
@@ -1594,7 +1615,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 continue;
                             }
                         };
-                    if descendant_ids.iter().any(|did| did == &new_parent_id) {
+                    // Deferred under atomic: a later move in this call may
+                    // take the parent out from under the node (§4.2).
+                    if !defer_tree_checks && descendant_ids.iter().any(|did| did == &new_parent_id)
+                    {
                         not_updated.insert(
                             id_str,
                             json!({
@@ -1702,6 +1726,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     }
                     Ok(None) => {}
                     Ok(Some(existing_id)) => match on_exists {
+                        // Under atomic the final state decides (conditional-02 §4.2).
+                        OnExists::Reject if defer_tree_checks => {}
                         OnExists::Reject => {
                             // "alreadyExists" only for a discoverable
                             // sibling; otherwise "forbidden", without its id.

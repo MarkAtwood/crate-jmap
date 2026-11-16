@@ -13,7 +13,7 @@
 //!    with one line of code, without standing up a database.
 //!
 //! It is **not** suitable for production: all state is held in `HashMap`s
-//! behind a `std::sync::Mutex`, persistence is not implemented, and a number
+//! behind one [`jmap_server::ScopedState`], persistence is not implemented, and a number
 //! of draft-ietf-jmap-filenode edge cases are simplified (see source comments).
 //!
 //! # Feature flag and API stability
@@ -35,19 +35,20 @@
 //!
 //! # Concurrency
 //!
-//! `std::sync::Mutex` is used for simplicity. The `await_holding_lock`
-//! clippy lint is enabled module-wide and enforces that no lock guard
-//! is held across an `.await`. If a future change requires holding a
-//! guard across `.await`, switch to `tokio::sync::Mutex` rather than
-//! disabling the lint.
+//! The store is a [`jmap_server::ScopedState`]: a `std::sync::Mutex` behind
+//! a gate that a draft-ietf-jmap-conditional-02 FileNode/set scope holds
+//! (`MemoryBackend`'s `ConditionalBackend` impl). Async backend methods
+//! take `lock().await`, which waits while another task's scope is open;
+//! sync setup and seeding helpers take `lock_unscoped()`. With no scope
+//! open the gate is free. The `await_holding_lock` clippy lint is enabled
+//! module-wide and enforces that no lock guard is held across an
+//! `.await`.
 //!
-//! Every `lock()` in this module ends in a bare `.unwrap()` on purpose.
-//! `Mutex::lock` fails only when another thread panicked while holding the
-//! guard, so the state behind it may be half-updated; that panic is
-//! already a bug in this module, and there is no consistent state to
-//! recover. Panicking again surfaces it instead of serving corrupt data.
-//! The crate's tests never poison the lock. A production backend that must
-//! survive a poisoned lock should implement the trait with its own locking
+//! `ScopedState` takes a poisoned mutex anyway, so a panic while holding
+//! the guard (already a bug in this module) does not panic every later
+//! call; an atomic scope that panicked is rolled back to its snapshot.
+//! The crate's tests never poison the lock. A production backend should
+//! implement the trait with its own locking
 //! rather than copy this pattern.
 //!
 //! # Tracking
@@ -60,7 +61,6 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{BTreeSet, HashMap};
-use std::sync::{Arc, Mutex};
 
 use crate::FileNodeBackend;
 use jmap_cid_types::Sha256;
@@ -79,7 +79,9 @@ use jmap_server::{
     SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
-    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, DeferredFailure, PatchPathError, ScopedState, SetOp,
+    SetScope, SetScopeRequest, apply_patch_object, check_patch_paths, limit_or_max,
+    resolve_query_start,
 };
 use jmap_types::{Filter, Id, JmapError, Operator, State};
 
@@ -207,6 +209,7 @@ impl ChangeEntry {
 // Per-account storage
 // ---------------------------------------------------------------------------
 
+#[derive(Clone)]
 struct AccountStore {
     nodes: HashMap<Id, FileNode>,
     /// Monotonically increasing state counter.  Starts at 0 (no changes yet).
@@ -281,6 +284,7 @@ impl AccountStore {
 // Shared state
 // ---------------------------------------------------------------------------
 
+#[derive(Clone)]
 struct MemoryState {
     accounts: HashMap<String, AccountStore>,
     /// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo of
@@ -311,7 +315,7 @@ impl MemoryState {
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<MemoryState>>,
+    inner: ScopedState<MemoryState>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -324,7 +328,7 @@ pub struct MemoryBackend {
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -339,11 +343,11 @@ impl MemoryBackend {
     /// Create a new, empty `MemoryBackend`.
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(MemoryState {
+            inner: ScopedState::new(MemoryState {
                 accounts: HashMap::new(),
                 metadata_info: None,
                 max_file_node_depth: None,
-            })),
+            }),
         }
     }
 
@@ -372,8 +376,7 @@ impl MemoryBackend {
              (RFC 8620 §1.2, bd:JMAP-dx0s)"
         );
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .accounts
             .entry(account_id.as_ref().to_owned())
             .or_insert_with(AccountStore::new);
@@ -418,7 +421,7 @@ impl MemoryBackend {
             !info.supports_private,
             "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
         );
-        self.inner.lock().unwrap().metadata_info = Some(info);
+        self.inner.lock_unscoped().metadata_info = Some(info);
         self
     }
 
@@ -427,7 +430,7 @@ impl MemoryBackend {
     /// handlers enforce. Without this call there is no limit (`null`).
     #[must_use]
     pub fn with_max_file_node_depth(self, max: u64) -> Self {
-        self.inner.lock().unwrap().max_file_node_depth = Some(max);
+        self.inner.lock_unscoped().max_file_node_depth = Some(max);
         self
     }
 
@@ -475,7 +478,7 @@ impl MemoryBackend {
     /// the setup mistake at the seed call site rather than as a
     /// confusing "fixture vanished" later (bd:JMAP-510h.42).
     pub fn seed_node(&self, account_id: &Id, node: FileNode) {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock_unscoped();
         let store = guard
             .accounts
             .get_mut(account_id.as_ref())
@@ -554,7 +557,7 @@ impl MemoryBackend {
     /// Panics if `account_id` is not registered, as [`Self::seed_node`]
     /// does.
     pub fn seed_blob_sha256(&self, account_id: &str, blob_id: &str, digest: Sha256) {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock_unscoped();
         let store = guard.accounts.get_mut(account_id).unwrap_or_else(|| {
             panic!(
                 "seed_blob_sha256: account_id {account_id:?} is not registered. \
@@ -583,14 +586,14 @@ impl JmapBackend for MemoryBackend {
         if O::TYPE_NAME != FileNode::TYPE_NAME {
             return None;
         }
-        self.inner.lock().unwrap().metadata_info.clone()
+        self.inner.lock_unscoped().metadata_info.clone()
     }
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         Ok(self
             .inner
             .lock()
-            .unwrap()
+            .await
             .accounts
             .contains_key(account_id.as_ref()))
     }
@@ -608,7 +611,7 @@ impl JmapBackend for MemoryBackend {
             return Ok((vec![], vec![]));
         }
 
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => return Ok((vec![], vec![])),
@@ -661,7 +664,7 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => return Ok(State::from("0")),
@@ -689,7 +692,7 @@ impl JmapBackend for MemoryBackend {
             .parse()
             .map_err(|_| BackendChangesError::CannotCalculate)?;
 
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => {
@@ -806,7 +809,7 @@ impl JmapBackend for MemoryBackend {
                 .map_err(|e| MemoryError::serde("parse sort", &e))?,
         };
         check_sort(&sort).map_err(BackendQueryError::Method)?;
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => {
@@ -890,7 +893,7 @@ impl JmapBackend for MemoryBackend {
         let QueryChangesParams {
             since_query_state, ..
         } = params;
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => {
@@ -1002,7 +1005,7 @@ impl MemoryBackend {
     /// [`FileNodeBackend::copy_object`]. `supplied` is the `/copy` create
     /// object whose metadata is validated (-05 §3.4); `None` validates the
     /// stored node itself, as a `FileNode/set` create does.
-    fn store_created<O: SetObject>(
+    async fn store_created<O: SetObject>(
         &self,
         account_id: &Id,
         build: impl FnOnce(&Id) -> Result<O, BackendSetError<MemoryError>>,
@@ -1015,7 +1018,7 @@ impl MemoryBackend {
             ))));
         }
 
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock().await;
         let metadata_info = guard.metadata_info.clone();
         let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::InvalidProperties)))
@@ -1075,6 +1078,7 @@ impl FileNodeBackend for MemoryBackend {
         F: FnOnce(&Id) -> O + Send,
     {
         self.store_created(account_id, |id| Ok(build(id)), None)
+            .await
     }
 
     async fn copy_object<O: SetObject + Send + Sync>(
@@ -1088,6 +1092,7 @@ impl FileNodeBackend for MemoryBackend {
         // -05 §3.4: the create object's metadata follows the Foo/set create
         // rules; the copied values are not revalidated.
         self.store_created(to_account_id, |id| with_id(&obj, id), Some(create))
+            .await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
@@ -1127,7 +1132,7 @@ impl FileNodeBackend for MemoryBackend {
                 .map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
         }
 
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock().await;
         let metadata_info = guard.metadata_info.clone();
         // -05 §3.2 rule 1: "If the user cannot read the related object,
         // reject with "notFound"" comes before "forbidden". Here only a
@@ -1281,7 +1286,7 @@ impl FileNodeBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        let mut guard = self.inner.lock().unwrap();
+        let mut guard = self.inner.lock().await;
         let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
         })?;
@@ -1315,7 +1320,7 @@ impl FileNodeBackend for MemoryBackend {
         account_id: &Id,
         ids: &[Id],
     ) -> Result<Vec<FileNode>, Self::Error> {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => return Ok(vec![]),
@@ -1359,7 +1364,7 @@ impl FileNodeBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<Vec<Id>, Self::Error> {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => return Ok(vec![]),
@@ -1428,7 +1433,7 @@ impl FileNodeBackend for MemoryBackend {
         Ok(self
             .inner
             .lock()
-            .unwrap()
+            .await
             .get_or_err(account_id)
             .and_then(|store| store.blob_sha256.get(blob_id).cloned()))
     }
@@ -1440,14 +1445,14 @@ impl FileNodeBackend for MemoryBackend {
         Ok(self
             .inner
             .lock()
-            .unwrap()
+            .await
             .get_or_err(account_id)
             .is_some_and(|store| !store.blob_sha256.is_empty()))
     }
 
     /// The limit set by [`MemoryBackend::with_max_file_node_depth`].
     fn max_file_node_depth(&self, _caller: &(), _account_id: &Id) -> Option<u64> {
-        self.inner.lock().unwrap().max_file_node_depth
+        self.inner.lock_unscoped().max_file_node_depth
     }
 
     /// [`crate::CaseFolding::Insensitive`] compares under
@@ -1461,7 +1466,7 @@ impl FileNodeBackend for MemoryBackend {
         name: &str,
         folding: crate::CaseFolding,
     ) -> Result<Option<Id>, Self::Error> {
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
             None => return Ok(None),
@@ -1490,7 +1495,7 @@ impl FileNodeBackend for MemoryBackend {
         folding: crate::CaseFolding,
     ) -> Result<Option<String>, Self::Error> {
         let fold = |s: &str| fold_name(s, folding).into_owned();
-        let guard = self.inner.lock().unwrap();
+        let guard = self.inner.lock().await;
         let taken: std::collections::HashSet<String> = guard
             .get_or_err(account_id)
             .map(|store| {
@@ -2054,6 +2059,107 @@ fn date_on_or_after(node_date: Option<&jmap_types::UTCDate>, bound: &jmap_types:
     }
 }
 
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional FileNode/set (bd JMAP-y1yu.8): the whole store is one
+/// [`ScopedState`], so a scope isolates every account, and an atomic
+/// rollback restores nodes, state strings, change logs and the id counter
+/// together. Commit checks the tree constraints the handler leaves to it
+/// under `atomic` against the final state (`final_state_failures`).
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &(),
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self.inner.open(request, final_state_failures).await)
+    }
+}
+
+/// The changes an atomic scope made that break a FileNode tree constraint
+/// in the state it would commit (conditional-02 §4.2;
+/// draft-ietf-jmap-filenode-20 §3.1.1, §3.2.3):
+///
+/// - two siblings with one name (`alreadyExists`, with `existingId`);
+///   names compare exactly, because the handler keeps its own checks for a
+///   case-insensitive request;
+/// - a `parentId` chain that loops (`invalidProperties`);
+/// - a node whose parent the scope destroyed (`nodeHasChildren`, on that
+///   destroy), or whose parent does not exist (`invalidProperties`).
+///
+/// Only nodes the scope created or changed are reported, at most once
+/// each.
+fn final_state_failures(before: &MemoryState, after: &MemoryState) -> Vec<DeferredFailure> {
+    let mut failures: Vec<DeferredFailure> = Vec::new();
+    for (account, store) in &after.accounts {
+        let old = before.accounts.get(account).map(|s| &s.nodes);
+        let nodes = &store.nodes;
+        for (id, node) in nodes {
+            let op = match old.and_then(|o| o.get(id)) {
+                None => SetOp::Create(id.clone()),
+                Some(prev) if prev != node => SetOp::Update(id.clone()),
+                Some(_) => continue,
+            };
+            let clash = nodes.iter().find(|(other, n)| {
+                *other != id && n.parent_id == node.parent_id && n.name == node.name
+            });
+            let failure = if let Some((existing, _)) = clash {
+                DeferredFailure::new(
+                    op,
+                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing.clone()),
+                )
+            } else if parent_chain_loops(nodes, id) {
+                DeferredFailure::new(
+                    op,
+                    SetError::new(SetErrorType::InvalidProperties).with_properties(["parentId"]),
+                )
+            } else if let Some(parent) = node.parent_id.as_ref().filter(|p| !nodes.contains_key(*p))
+            {
+                if old.is_some_and(|o| o.contains_key(parent)) {
+                    DeferredFailure::new(
+                        SetOp::Destroy(parent.clone()),
+                        SetError::new(SetErrorType::from("nodeHasChildren")),
+                    )
+                } else {
+                    DeferredFailure::new(
+                        op,
+                        SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(["parentId"]),
+                    )
+                }
+            } else {
+                continue;
+            };
+            if !failures.iter().any(|f| f.op == failure.op) {
+                failures.push(failure);
+            }
+        }
+    }
+    failures
+}
+
+/// Whether following `parentId` from `start` comes back to `start`.
+fn parent_chain_loops(nodes: &HashMap<Id, FileNode>, start: &Id) -> bool {
+    let mut at = start;
+    // A chain without a loop through `start` ends within `len` steps.
+    for _ in 0..nodes.len() {
+        let Some((parent, _)) = nodes
+            .get(at)
+            .and_then(|n| n.parent_id.as_ref())
+            .and_then(|p| nodes.get_key_value(p))
+        else {
+            return false;
+        };
+        if parent == start {
+            return true;
+        }
+        at = parent;
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2515,16 +2621,21 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
+    use jmap_types::Id;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        let a = a.with_account(&Id::from("acc"));
+        let known = |b: &MemoryBackend| b.inner.lock_unscoped().accounts.contains_key("acc");
+        assert!(known(&clone), "a clone sees the original's writes");
+        assert!(!known(&fresh), "a fresh backend does not");
+        drop(a);
     }
 }
 

@@ -14,6 +14,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: conditional FileNode/set
+  (draft-ietf-jmap-conditional-02). `register_filenode_conditional`,
+  called after `register_filenode_handlers`, attaches `SetSupport` to the
+  registered FileNode/set (decisions 1, 17); `register_filenode_handlers`
+  and `handle_filenode_set` are unchanged. Under `atomic` the registered
+  handler leaves sibling-name collisions (with `onExists` null) and moves
+  under a node's own subtree to the commit, so name swaps (example 5.8)
+  succeed. The memory backend keeps its store on `jmap_server::ScopedState`
+  (feature `memory` now enables `jmap-server/scoped-state`) and implements
+  `ConditionalBackend`; its commit rejects duplicate sibling names, parent
+  loops, missing parents and children of a destroyed parent as
+  `atomicFailure`. Examples 5.1 and 5.3 to 5.9 are integration tests. A
+  poisoned memory-backend lock is now taken instead of panicking.
+  (bd:JMAP-y1yu.8)
+
 - **jmap-mail-server**: conditional mail Foo/set
   (draft-ietf-jmap-conditional-02). `register_mail_conditional`, called
   after the registration fns, attaches `SetSupport` to each registered

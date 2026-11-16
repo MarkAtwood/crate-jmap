@@ -314,7 +314,15 @@ computed; that create or update fails with `serverFail`.
 
 ### FileNode/set — onExists collision handling
 
-When a new node's name collides with an existing sibling (detected via `find_sibling_by_name`):
+When a create, or an update that renames or moves a node, would give it a
+sibling's name (detected via `find_sibling_by_name`; a node matching its own
+new name under case folding is not a collision):
+
+Uniqueness is judged on the result of the whole `/set` (draft-ietf-jmap-filenode-20
+§3.2.3): if the sibling is in this call's `destroy` list, that destroy runs first and
+the destroy phase reports its outcome, so a client can destroy a node and create or
+rename its replacement in one method. A destroy that fails leaves the name taken.
+Swapping two names by update alone needs `atomic` (below).
 
 - `onExists` absent or `null` — the create fails with `alreadyExists`, and the response
   includes `existingId` pointing to the conflicting node. If the user cannot discover
@@ -328,7 +336,7 @@ When a new node's name collides with an existing sibling (detected via `find_sib
   descendant, gives `forbidden` (§5). Nothing is destroyed until every check passes;
   then descendants and the node are destroyed and listed in `destroyed`, and the new
   node is created. The same applies to `FileNode/copy` in the destination account.
-- `onExists: "rename"` — the handler iterates through suffixed names (`name-1`, `name-2`, …)
+- `onExists: "rename"` — the new name goes into the `created` or `updated` entry; the handler iterates through suffixed names (`name-1`, `name-2`, …)
   up to 100 attempts until a unique name is found. Beyond 100 attempts, `serverFail` is returned.
 - Any other value, including `"newest"` and `"unchanged"` (removed in
   draft-ietf-jmap-filenode-19), is rejected with `invalidArguments`.
@@ -347,6 +355,25 @@ destroyed first; all destroyed IDs (node and all descendants) appear in the `/se
 When a `FileNode/set update` changes `parentId`, the handler calls `get_descendant_ids` on
 the node being moved. If the proposed new `parentId` is contained in the descendant set,
 the move would create a cycle and is rejected with `invalidProperties: ["parentId"]`.
+
+### Conditional FileNode/set (draft-ietf-jmap-conditional-02)
+
+`register_filenode_conditional(dispatcher, backend)`, called after
+`register_filenode_handlers`, attaches `SetSupport` to the registered `FileNode/set`
+(docs/design/DECISIONS.md decisions 1 and 17); a deployment that never calls it is
+unchanged. Advertise `urn:ietf:params:jmap:conditional` only when
+`Dispatcher::conditional_ready()` is true.
+
+The dispatcher evaluates `ifUnchangedBy` through `FileNode/get` and runs the call
+inside the backend's `ConditionalBackend::begin_set` scope. Under `atomic` the
+registered handler leaves sibling-name collisions with `onExists` null, and moves
+under the node's own subtree, to that scope's commit, which checks the final state;
+a case-insensitive request keeps its name checks in the handler. `MemoryBackend`'s
+store is a `jmap_server::ScopedState`: rollback restores nodes, states, change logs
+and the id counter, and commit rejects duplicate sibling names (`alreadyExists`),
+parent loops and missing parents (`invalidProperties`), and children of a destroyed
+parent (`nodeHasChildren` on the destroy). Examples 5.1 and 5.3 to 5.9 of the draft
+run as integration tests.
 
 ### FileNode/get — fetchParents expansion
 

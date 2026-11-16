@@ -38,7 +38,10 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, JmapHandler,
+    RegistrationError, SetSupport,
+};
 
 mod backend;
 mod filenode;
@@ -143,8 +146,8 @@ where
     reg!(
         "FileNode/set",
         backend,
-        |b, _ci, a, ctx, created_ids, using| {
-            handle_filenode_set(&*b, &ctx, &created_ids, a, &using).await
+        |b, _ci, a, ctx, created_ids, using, atomic| {
+            filenode::filenode_set(&*b, &ctx, &created_ids, a, &using, atomic).await
         }
     );
     reg!("FileNode/copy", backend, |b, ci, a, ctx, using| {
@@ -156,6 +159,37 @@ where
     reg!("FileNode/queryChanges", backend, |b, _ci, a, ctx, using| {
         handle_filenode_query_changes(&*b, &ctx, a, &using).await
     });
+}
+
+/// Opt `FileNode/set` in to draft-ietf-jmap-conditional-02 (`ifUnchangedBy`
+/// and `atomic`), after [`register_filenode_handlers`] (docs/design/
+/// DECISIONS.md decisions 1 and 17).
+///
+/// Attaches [`SetSupport`] for `FileNode` to the registered `FileNode/set`;
+/// it re-registers nothing. The dispatcher then reads preconditions through
+/// `FileNode/get` and runs the call in the scope `backend` opens
+/// ([`ConditionalBackend::begin_set`]). Under `atomic` the registered
+/// handler leaves sibling-name collisions (with `onExists` null) and moves
+/// under a node's own subtree to that scope's commit, which must check them
+/// against the final state; the memory backend does. Advertise
+/// `urn:ietf:params:jmap:conditional` only once
+/// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
+///
+/// # Errors
+///
+/// [`RegistrationError::NotRegistered`] when `FileNode/set` is not
+/// registered yet.
+pub fn register_filenode_conditional<B>(
+    dispatcher: &mut Dispatcher<B::CallerCtx>,
+    backend: Arc<B>,
+) -> Result<(), RegistrationError>
+where
+    B: FileNodeBackend + ConditionalBackend + 'static,
+{
+    dispatcher.attach_set_support(
+        "FileNode/set",
+        SetSupport::new::<jmap_filenode_types::FileNode, B>(backend),
+    )
 }
 
 // ---------------------------------------------------------------------------
