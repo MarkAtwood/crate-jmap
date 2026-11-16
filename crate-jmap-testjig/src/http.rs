@@ -288,7 +288,15 @@ pub fn router(state: AppState) -> Router {
 /// state's advertised address; this handler simply serialises it with
 /// `application/json` Content-Type.
 async fn get_session(AxumState(state): AxumState<AppState>) -> Response {
-    let body = serde_json::to_string(&session::session_json_for(state.session_addr))
+    let mut session = session::session_json_for(state.session_addr);
+    // draft-ietf-jmap-conditional-02 §2.1: the capability covers every
+    // Foo/set, so it is advertised only when the dispatcher has
+    // conditional support for all of them.
+    if state.inner.dispatcher.conditional_ready() {
+        session["capabilities"][jmap_types::conditional::JMAP_CONDITIONAL_URI] =
+            serde_json::json!({});
+    }
+    let body = serde_json::to_string(&session)
         .expect("session_json builds only JSON-safe primitives — Serialize is infallible");
     let mut resp = Response::new(Body::from(body));
     resp.headers_mut().insert(
@@ -610,7 +618,24 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     // the mail and filenode memory stores, so no Email or FileNode
     // references a blob here and Blob/lookup finds nothing.
     let blob = Arc::new(jmap_blob_server::memory::MemoryBackend::new().with_account(&account));
-    jmap_blob_server::register_blob_handlers(dispatcher, blob);
+    jmap_blob_server::register_blob_handlers(dispatcher, Arc::clone(&blob));
+
+    // draft-ietf-jmap-conditional-02: opt every registered Foo/set in
+    // (docs/design/DECISIONS.md decisions 1 and 17), so the dispatcher is
+    // `conditional_ready()` and the Session may advertise the capability
+    // (`get_session`). Each memory backend keeps its own ScopeGate: no
+    // backend here calls another, so a scope never holds one gate while
+    // waiting for a second, and separate gates cannot deadlock.
+    jmap_mail_server::register_mail_conditional(dispatcher, Arc::clone(&mail));
+    jmap_chat_server::register_chat_conditional(dispatcher, Arc::clone(&chat));
+    jmap_calendars_server::register_calendars_conditional(dispatcher, Arc::clone(&calendars));
+    jmap_tasks_server::register_tasks_conditional(dispatcher, Arc::clone(&tasks));
+    jmap_contacts_server::register_contacts_conditional(dispatcher, Arc::clone(&contacts));
+    jmap_filenode_server::register_filenode_conditional(dispatcher, Arc::clone(&filenode))
+        .expect("FileNode/set is registered above");
+    jmap_sharing_server::register_sharing_conditional(dispatcher, Arc::clone(&sharing));
+    jmap_blob_server::register_blob_conditional(dispatcher, blob)
+        .expect("Blob/set is registered above");
 
     // Metadata (draft-ietf-jmap-metadata-05): metadata is now per-type
     // properties on listed data types, not a standalone object.
@@ -865,6 +890,20 @@ mod tests {
     /// Oracle: RFC 8620 §2 — `GET /.well-known/jmap` returns a
     /// well-formed Session object as `application/json` when the
     /// caller authenticates correctly.
+    /// Every Foo/set the jig registers has conditional support, so the
+    /// Session may advertise `urn:ietf:params:jmap:conditional`
+    /// (draft-ietf-jmap-conditional-02 §2.1; bd JMAP-y1yu.19).
+    #[test]
+    fn jig_dispatcher_is_conditional_ready() {
+        let state = AppState::new();
+        assert!(
+            state.inner.dispatcher.conditional_gaps().is_empty(),
+            "{:?}",
+            state.inner.dispatcher.conditional_gaps()
+        );
+        assert!(state.inner.dispatcher.conditional_ready());
+    }
+
     #[tokio::test]
     async fn get_session_returns_session_json_at_200() {
         let state = AppState::new();

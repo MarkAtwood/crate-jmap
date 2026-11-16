@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-testjig**: conditional Foo/set over HTTP
+  (draft-ietf-jmap-conditional-02). Every registered extension, blob
+  included, calls its `register_<x>_conditional` opt-in; the Session
+  advertises `urn:ietf:params:jmap:conditional` when the dispatcher is
+  `conditional_ready()`. (bd:JMAP-y1yu.19)
+
 - **jmap-filenode-client**: `SessionClient::filenode_set_conditional`, a
   `FileNode/set` taking a base-client `SetCall`, so FileNode clients can
   send `ifUnchangedBy` and `atomic` (draft-ietf-jmap-conditional-02;

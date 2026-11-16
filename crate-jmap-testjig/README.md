@@ -173,8 +173,16 @@ synchronously (e.g. before spawning a second jig on the same port).
   against the `Authorization` header (or `?token=...` query on
   EventSource/WebSocket where header injection is impossible). No
   identity scope beyond "the one test user".
-- State lives in `HashMap`s behind `std::sync::Mutex`. Process exit
-  → state gone. No persistence layer, no recovery path.
+- State lives in `HashMap`s behind each backend's
+  `jmap_server::ScopedState`. Process exit → state gone. No persistence
+  layer, no recovery path.
+- Conditional Foo/set (draft-ietf-jmap-conditional-02): every registered
+  extension also calls its `register_<x>_conditional` opt-in, so the
+  dispatcher is `conditional_ready()` and the Session advertises
+  `urn:ietf:params:jmap:conditional` (only then). `ifUnchangedBy` and
+  `atomic` work on every Foo/set over HTTP; without the URI in `using`, a
+  non-default one is `invalidArguments`. Each backend keeps its own scope
+  gate: no backend calls another, so separate gates cannot deadlock.
 
 ## Architectural posture
 
