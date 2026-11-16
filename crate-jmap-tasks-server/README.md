@@ -283,6 +283,24 @@ tasks, `task_list_has_tasks` is called. If it returns `true`, the destroy is rej
 `taskListHasTask`. When `onDestroyRemoveTasks: true`, the handler cascades the destroy to
 all tasks in the list before destroying the list itself.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_tasks_conditional(dispatcher, backend)`, called after
+`register_tasks_handlers`, attaches `SetSupport` to each registered `/set`
+(TaskList, Task, TaskNotification) and skips the rest; it re-registers nothing,
+and a deployment that never calls it is unchanged (docs/design/DECISIONS.md
+decisions 1 and 17). Advertise `urn:ietf:params:jmap:conditional` only when
+`Dispatcher::conditional_ready()` is true.
+
+The dispatcher evaluates `ifUnchangedBy` through each type's `/get` and runs the
+call inside the backend's `ConditionalBackend::begin_set` scope, which must roll
+back `onDestroyRemoveTasks` cascades under `atomic`. `MemoryBackend`'s store is a
+`jmap_server::ScopedState`; its commit checks nothing extra, because
+`taskListHasTask` is judged within one TaskList/set, draft-ietf-jmap-tasks-06 sets
+no uniqueness rule for `role`, and there are no cross-object caps. A deployment
+that hides a Task's `chatId` reports it from `hidden_properties`, with
+`jmap_chat_tasks_server::task_hidden_properties`.
+
 ## CallerCtx
 
 `register_tasks_handlers` registers each method as a `ClosureHandler`

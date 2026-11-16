@@ -33,8 +33,8 @@
 
 #![forbid(unsafe_code)]
 
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::{BTreeMap, HashMap};
 
 use jmap_chat_server::ChatBackend;
 use jmap_chat_types::{
@@ -410,6 +410,51 @@ pub async fn redact_task_chat_ids<C: ChatBackend>(
         }
     }
     Ok(())
+}
+
+/// For each of `tasks` (Tasks of `account_id`) whose `chatId` the reader
+/// `caller` may not view, as [`ChatBackend::may_view_chat`] decides, the
+/// Task's id mapped to `["chatId"]`.
+///
+/// This is the draft-ietf-jmap-conditional-02 §9.1 counterpart of
+/// [`redact_task_chat_ids`], with the same decision: a deployment that
+/// hides `chatId` from such readers returns this from its
+/// `ConditionalBackend::hidden_properties` for `"Task"`, so an
+/// `ifUnchangedBy` precondition on `chatId` is answered `forbidden` without
+/// comparing the value (otherwise its answer would reveal the hidden
+/// `chatId`). Read `tasks` with a server context, unredacted, so their
+/// `chatId` is there to check.
+///
+/// `may_view_chat` is asked once per distinct `chatId`; Tasks without one,
+/// or without an id, are left out.
+///
+/// # Errors
+///
+/// Returns the Chat backend's error from `may_view_chat`.
+pub async fn task_hidden_properties<C: ChatBackend>(
+    chat: &C,
+    caller: &C::CallerCtx,
+    account_id: &Id,
+    tasks: &[Task],
+) -> Result<BTreeMap<Id, Vec<String>>, C::Error> {
+    let mut viewable: HashMap<Id, bool> = HashMap::new();
+    let mut hidden = BTreeMap::new();
+    for task in tasks {
+        let (Some(id), Ok(Some(chat_id))) = (&task.id, task_chat_id(&task.extra)) else {
+            continue;
+        };
+        let may_view = match viewable.entry(chat_id) {
+            Entry::Occupied(known) => *known.get(),
+            Entry::Vacant(slot) => {
+                let may_view = chat.may_view_chat(caller, account_id, slot.key()).await?;
+                *slot.insert(may_view)
+            }
+        };
+        if !may_view {
+            hidden.insert(id.clone(), vec![TASK_CHAT_ID_PROPERTY.to_owned()]);
+        }
+    }
+    Ok(hidden)
 }
 
 /// A patch setting `property` to `null`.

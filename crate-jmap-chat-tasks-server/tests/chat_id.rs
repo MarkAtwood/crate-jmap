@@ -411,3 +411,221 @@ impl ChatBackend for ViewGate {
             .await
     }
 }
+
+// ---- conditional-02 §9.1: task_hidden_properties (bd JMAP-y1yu.11) --------
+
+/// The ids `task_hidden_properties` hides `chatId` for: Tasks whose Chat
+/// the reader may not view, asking `may_view_chat` once per Chat.
+#[tokio::test]
+async fn hidden_properties_name_chat_id_of_unviewable_chats() {
+    let gate = ViewGate::new(&["C-secret"], false);
+    let tasks = [
+        task("T1", json!({"chatId": "C-secret"})),
+        task("T2", json!({"chatId": "C-open"})),
+        task("T3", json!({})),
+        task("T4", json!({"chatId": "C-secret"})),
+    ];
+    let hidden =
+        jmap_chat_tasks_server::task_hidden_properties(&gate, &(), &Id::from(ACCOUNT), &tasks)
+            .await
+            .expect("hook answers");
+    assert_eq!(
+        serde_json::to_value(&hidden).unwrap(),
+        json!({"T1": ["chatId"], "T4": ["chatId"]})
+    );
+    assert_eq!(
+        gate.calls.load(Ordering::SeqCst),
+        2,
+        "once per distinct Chat"
+    );
+
+    let failing = ViewGate::new(&[], true);
+    assert!(
+        jmap_chat_tasks_server::task_hidden_properties(&failing, &(), &Id::from(ACCOUNT), &tasks)
+            .await
+            .is_err()
+    );
+}
+
+/// A deployment hiding `chatId`: Task/get redacts it, and its
+/// `ConditionalBackend::hidden_properties` reports it.
+struct Deployment {
+    tasks: std::sync::Arc<jmap_tasks_server::memory::MemoryBackend>,
+    chat: ViewGate,
+}
+
+type TasksError = jmap_tasks_server::memory::MemoryError;
+
+impl JmapBackend for Deployment {
+    type Error = TasksError;
+    type CallerCtx = ();
+
+    async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, TasksError> {
+        self.tasks.account_exists(caller, account_id).await
+    }
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[String]>,
+    ) -> Result<(Vec<O>, Vec<Id>), TasksError> {
+        self.tasks
+            .get_objects::<O>(caller, account_id, ids, properties)
+            .await
+    }
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+    ) -> Result<State, TasksError> {
+        self.tasks.get_state::<O>(caller, account_id).await
+    }
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        params: jmap_server::ChangesParams<'_>,
+    ) -> Result<ChangesResult, BackendChangesError<TasksError>> {
+        self.tasks
+            .get_changes::<O>(caller, account_id, params)
+            .await
+    }
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        params: QueryParams<'_, O>,
+    ) -> Result<QueryResult, BackendQueryError<TasksError>> {
+        self.tasks
+            .query_objects::<O>(caller, account_id, params)
+            .await
+    }
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        params: QueryChangesParams<'_, O>,
+    ) -> Result<QueryChangesResult, BackendChangesError<TasksError>> {
+        self.tasks
+            .query_changes::<O>(caller, account_id, params)
+            .await
+    }
+}
+
+impl jmap_server::ConditionalBackend for Deployment {
+    async fn begin_set(
+        &self,
+        caller: &(),
+        request: jmap_server::SetScopeRequest<'_>,
+    ) -> Result<Box<dyn jmap_server::SetScope>, jmap_server::BeginSetError<TasksError>> {
+        self.tasks.begin_set(caller, request).await
+    }
+
+    async fn hidden_properties(
+        &self,
+        caller: &(),
+        account_id: Option<&Id>,
+        data_type: &str,
+        ids: &[Id],
+    ) -> Result<std::collections::BTreeMap<Id, Vec<String>>, TasksError> {
+        let (Some(account_id), "Task") = (account_id, data_type) else {
+            return Ok(Default::default());
+        };
+        // Read unredacted, with the server's context.
+        let (tasks, _) = self
+            .tasks
+            .get_objects::<Task>(caller, account_id, Some(ids), None)
+            .await?;
+        jmap_chat_tasks_server::task_hidden_properties(&self.chat, caller, account_id, &tasks)
+            .await
+            .map_err(|e| TasksError::new(e.to_string()))
+    }
+}
+
+/// §9.1 end to end: a `chatId` precondition from a reader who may not
+/// view the Chat is `forbidden` even when the value matches, though
+/// Task/get leaves `chatId` out for them; for a viewable Chat it is
+/// compared as usual.
+#[tokio::test]
+async fn chat_id_precondition_is_forbidden_for_a_reader_who_cannot_view_the_chat() {
+    use std::sync::Arc;
+
+    let tasks = Arc::new(jmap_tasks_server::memory::MemoryBackend::new());
+    let acc = Id::from(ACCOUNT);
+    tasks.register_account(&acc);
+    for (id, chat_id) in [("T1", "C-secret"), ("T2", "C-open")] {
+        tasks.seed_object(
+            &acc,
+            "Task",
+            &Id::from(id),
+            json!({"id": id, "@type": "Task", "uid": format!("{id}-uid"), "title": "Ship it",
+                   "chatId": chat_id}),
+        );
+    }
+    let deployment = Arc::new(Deployment {
+        tasks: Arc::clone(&tasks),
+        chat: ViewGate::new(&["C-secret"], false),
+    });
+
+    let mut d = jmap_server::Dispatcher::new();
+    jmap_tasks_server::register_tasks_handlers(&mut d, Arc::clone(&tasks));
+    // The deployment's Task/get redacts chatId (tasks L270).
+    let get: Arc<dyn jmap_server::JmapHandler<()>> = Arc::new(jmap_server::ClosureHandler::new(
+        Arc::clone(&deployment),
+        |dep: Arc<Deployment>, cx: jmap_server::CallContext<()>| {
+            Box::pin(async move {
+                let mut out =
+                    jmap_tasks_server::handle_task_get(&*dep.tasks, &(), cx.args, &cx.using)
+                        .await?;
+                let list = out.primary["list"].take();
+                let mut read: Vec<Task> = serde_json::from_value(list).unwrap();
+                redact_task_chat_ids(&dep.chat, &(), &Id::from(ACCOUNT), &mut read)
+                    .await
+                    .unwrap();
+                out.primary["list"] = serde_json::to_value(&read).unwrap();
+                Ok(out)
+            }) as jmap_server::HandlerFuture
+        },
+    ));
+    d.register("Task/get", get);
+    d.attach_set_support(
+        "Task/set",
+        jmap_server::SetSupport::new::<Task, Deployment>(Arc::clone(&deployment)),
+    )
+    .unwrap();
+
+    let set = |id: &str, chat_id: &str| {
+        json!({
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:tasks",
+                      "urn:ietf:params:jmap:conditional"],
+            "methodCalls": [["Task/set", {
+                "accountId": ACCOUNT,
+                "ifUnchangedBy": {id: {"chatId": chat_id}},
+                "update": {id: {"title": "Shipped"}}
+            }, "0"]]
+        })
+    };
+    let run = |req: Value| {
+        let d = &d;
+        async move {
+            let req: jmap_types::JmapRequest = serde_json::from_value(req).unwrap();
+            let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+            resp["methodResponses"][0].clone()
+        }
+    };
+
+    // The value matches, but the reader may not see it.
+    let r = run(set("T1", "C-secret")).await;
+    assert_eq!(r[0], "error", "{r}");
+    assert_eq!(r[1]["type"], "forbidden", "{r}");
+    // A viewable chatId is compared: match passes, mismatch fails.
+    let r = run(set("T2", "C-open")).await;
+    assert_eq!(r[0], "Task/set", "{r}");
+    let r = run(set("T2", "C-other")).await;
+    assert_eq!(
+        r[1],
+        json!({"type": "stateMismatch", "failed": ["T2"]}),
+        "{r}"
+    );
+}

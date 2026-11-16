@@ -38,7 +38,10 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, JmapHandler,
+    RegistrationError, SetSupport,
+};
 
 mod backend;
 mod helpers;
@@ -189,6 +192,49 @@ where
         backend,
         |b, _ci, a, ctx| handle_task_notification_query_changes(&*b, &ctx, a).await
     );
+}
+
+/// Opt this crate's registered Foo/set methods in to
+/// draft-ietf-jmap-conditional-02 (`ifUnchangedBy` and `atomic`;
+/// docs/design/DECISIONS.md decisions 1 and 17).
+///
+/// Call after [`register_tasks_handlers`]. Attaches [`SetSupport`] to each
+/// of `TaskList/set`, `Task/set` and `TaskNotification/set` that is
+/// registered, and skips the rest; no handler is re-registered.
+///
+/// The dispatcher reads preconditions through each type's `/get` and runs
+/// each call in the scope `backend` opens
+/// ([`ConditionalBackend::begin_set`]), which must roll back
+/// `onDestroyRemoveTasks` cascades under `atomic`. A deployment that hides
+/// a Task's `chatId` from some readers (draft-atwood-jmap-chat-tasks-00)
+/// reports it from [`ConditionalBackend::hidden_properties`], e.g. with
+/// `jmap_chat_tasks_server::task_hidden_properties`. Advertise
+/// `urn:ietf:params:jmap:conditional` only once
+/// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
+pub fn register_tasks_conditional<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
+where
+    B: TasksBackend + ConditionalBackend + 'static,
+{
+    fn attach<C: Clone + Send + 'static>(
+        dispatcher: &mut Dispatcher<C>,
+        method: &str,
+        support: SetSupport<C>,
+    ) {
+        match dispatcher.attach_set_support(method, support) {
+            Ok(()) | Err(RegistrationError::NotRegistered(_)) => {}
+            Err(e) => unreachable!("{method} pairs with its own data type: {e}"),
+        }
+    }
+    macro_rules! attach {
+        ($($t:ident),*) => {$(
+            attach(
+                dispatcher,
+                concat!(stringify!($t), "/set"),
+                SetSupport::new::<jmap_tasks_types::$t, B>(Arc::clone(&backend)),
+            );
+        )*};
+    }
+    attach!(TaskList, Task, TaskNotification);
 }
 
 // ---------------------------------------------------------------------------

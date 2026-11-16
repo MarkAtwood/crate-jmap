@@ -18,6 +18,7 @@ do not depend on each other; this crate depends on both.
 | `clear_task_chat_ids` | chat-tasks §Lifecycle: a destroyed Chat's Tasks lose `chatId` |
 | `check_task_chat_id` | chat-tasks §chatId: `null` clears; otherwise any valid `Id`, never looked up (the Chat may not exist yet); refused as `invalidProperties` naming `chatId` with `mayBackReferenceChat: false` |
 | `redact_task_chat_ids` | chat-tasks §Chat back-reference leakage MAY: hide `chatId` from a reader whose `ChatBackend::may_view_chat` is `false` |
+| `task_hidden_properties` | the same decision for draft-ietf-jmap-conditional-02 §9.1: the Tasks whose `chatId` is hidden from the reader, so a `chatId` precondition is `forbidden` rather than compared |
 
 ## What it's for
 
@@ -33,6 +34,7 @@ these functions:
 | `ChatBackend::on_chat_destroyed` | `clear_task_chat_ids` |
 | `TasksBackend::create_object::<Task>` and `update_object::<Task>`, for a `chatId` value | `check_task_chat_id` |
 | `JmapBackend::get_objects::<Task>`, on the Tasks returned to the reader | `redact_task_chat_ids` |
+| `ConditionalBackend::hidden_properties` for `"Task"`, on the Tasks read unredacted | `task_hidden_properties` |
 
 ## How to use
 
