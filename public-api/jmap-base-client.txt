@@ -252,6 +252,7 @@ pub fn jmap_base_client::BlobDownloadStream::poll_next(core::pin::Pin<&mut Self>
 pub jmap_base_client::BlobUploadResponse::account_id: jmap_types::id::Id
 pub jmap_base_client::BlobUploadResponse::blob_id: jmap_types::id::Id
 pub jmap_base_client::BlobUploadResponse::content_type: alloc::string::String
+pub jmap_base_client::BlobUploadResponse::expires: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_base_client::BlobUploadResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_base_client::BlobUploadResponse::sha256: core::option::Option<jmap_cid_types::digest::Sha256>
 pub jmap_base_client::BlobUploadResponse::size: u64

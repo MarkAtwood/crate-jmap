@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-base-client**: `BlobUploadResponse.expires: Option<UTCDate>`, the
+  expiry hint draft-ietf-jmap-blobext-03 uploads return (§2.1, §7); `null`
+  and an absent key both read as `None`. Additive on a
+  `#[non_exhaustive]` type. (bd:JMAP-tna1.6)
+
 - **jmap-blob-client**: the draft-ietf-jmap-blobext-03 client bindings
   (docs/design/blobext.md §8). `JmapBlobExt::with_blob_session` returns a
   `SessionClient` with `blob_set`/`blob_create`/`blob_touch`/`blob_destroy`,

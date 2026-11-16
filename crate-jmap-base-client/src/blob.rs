@@ -7,7 +7,7 @@ use std::task::{Context, Poll};
 
 use bytes::Bytes;
 use futures::{Stream, StreamExt};
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 use reqwest::header::{CONTENT_LENGTH, CONTENT_TYPE, HeaderValue};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -470,6 +470,17 @@ pub struct BlobUploadResponse {
     /// is tracked by bd:JMAP-noz7.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sha256: Option<jmap_cid_types::Sha256>,
+
+    /// When the server expects the blob to stop being available unless an
+    /// object references it (draft-ietf-jmap-blobext-03 §2.1, §7: uploads
+    /// return `expires`). A hint, not a guarantee: the server may collect
+    /// an unreferenced blob earlier or keep it longer.
+    ///
+    /// `None` both for `null` ("the server does not have a specific expiry
+    /// time for the blob") and for a server that does not send the key
+    /// (one without blobext-03); neither gives a time to act on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub expires: Option<UTCDate>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -1233,6 +1244,41 @@ mod tests {
         );
     }
 
+    /// draft-ietf-jmap-blobext-03 §2.1 and §7: an upload response carries
+    /// `expires` ("UTCDate|null"). A date parses; `null` and an absent key
+    /// (a server without blobext-03) both parse as `None`, and the key is
+    /// round-tripped only when set (bd JMAP-tna1.6).
+    #[test]
+    fn blob_upload_response_expires() {
+        let base = serde_json::json!({
+            "accountId": "a1", "blobId": "b1", "type": "text/plain", "size": 13
+        });
+        let with = |expires: serde_json::Value| {
+            let mut v = base.clone();
+            v["expires"] = expires;
+            serde_json::from_value::<BlobUploadResponse>(v).expect("must deserialize")
+        };
+        let dated = with(serde_json::json!("2026-11-17T10:00:00Z"));
+        assert_eq!(dated.expires, Some(UTCDate::from("2026-11-17T10:00:00Z")));
+        assert!(dated.extra.is_empty(), "expires is not an extra field");
+        assert_eq!(
+            serde_json::to_value(&dated).unwrap()["expires"],
+            "2026-11-17T10:00:00Z"
+        );
+
+        let null = with(serde_json::Value::Null);
+        assert_eq!(null.expires, None);
+        let absent: BlobUploadResponse = serde_json::from_value(base).unwrap();
+        assert_eq!(absent.expires, None);
+        assert!(
+            !serde_json::to_value(&absent)
+                .unwrap()
+                .as_object()
+                .unwrap()
+                .contains_key("expires")
+        );
+    }
+
     /// Serialize a BlobUploadResponse with `sha256: None` → the
     /// `sha256` key must be ABSENT from the wire output per
     /// `skip_serializing_if = "Option::is_none"`. This is the
@@ -1245,6 +1291,7 @@ mod tests {
             content_type: "text/plain".to_owned(),
             size: 0,
             sha256: None,
+            expires: None,
             extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&resp).expect("must serialize");
