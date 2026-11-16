@@ -510,6 +510,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-filenode-server**: FileNode/set checks that a `parentId` names a
+  node that exists and permits children (a Directory), on create and on
+  update; otherwise `invalidProperties` naming `parentId`
+  (draft-ietf-jmap-filenode-20 §3.1.1). Both used to be accepted, leaving
+  a node under a missing parent or under a File. (bd:JMAP-hy30)
+
 - **jmap-mail-server**: Mailbox/set updates check the tree (RFC 8621 §2).
   A rename or move that would give a Mailbox a sibling's name is
   `alreadyExists`, as on create, and a `parentId` that would make a loop is

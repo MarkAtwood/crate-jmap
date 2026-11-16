@@ -696,6 +696,41 @@ async fn report_files_rights<B: FileNodeBackend>(
     Ok(())
 }
 
+/// The SetError for a `parentId` naming `parent`, or `None` when it may be
+/// one.
+///
+/// draft-ietf-jmap-filenode-20 §3.1.1: "The parent MUST be a node whose
+/// @type permits children; of the types defined in this document, only
+/// "Directory" does. Setting parentId to any other node is an
+/// "invalidProperties" error." A parent the caller cannot discover reads
+/// as missing, so the answer does not reveal it.
+///
+/// # Errors
+///
+/// The backend's error when the parent cannot be read.
+async fn parent_problem<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    parent: &Id,
+) -> Result<Option<Value>, B::Error> {
+    let (nodes, _) = backend
+        .get_objects::<FileNode>(caller, account_id, Some(std::slice::from_ref(parent)), None)
+        .await?;
+    let description = match nodes.first() {
+        None => "the parent does not exist",
+        Some(node) if node.node_type != Some(NodeType::Directory) => {
+            "the parent's @type does not permit children"
+        }
+        Some(_) => return Ok(None),
+    };
+    Ok(Some(json!({
+        "type": "invalidProperties",
+        "properties": ["parentId"],
+        "description": description,
+    })))
+}
+
 /// Whether `node` has a `myRights` of its own: draft-ietf-jmap-filenode-20
 /// §5 "A node whose @type does not permit children has no myRights. The
 /// user's rights on it are those in its parent's myRights". Of the types
@@ -1136,6 +1171,21 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
                     Ok(false) => {}
                     Ok(true) => {
                         not_created.insert(create_id, max_depth_exceeded());
+                        continue;
+                    }
+                    Err(e) => {
+                        not_created.insert(create_id, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+            }
+
+            // -20 §3.1.1: the parent must exist and permit children.
+            if let Some(parent) = node.parent_id.as_ref() {
+                match parent_problem(backend, caller, &account_id, parent).await {
+                    Ok(None) => {}
+                    Ok(Some(err)) => {
+                        not_created.insert(create_id, err);
                         continue;
                     }
                     Err(e) => {
@@ -1606,6 +1656,19 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
                             }),
                         );
                         continue;
+                    }
+                    // -20 §3.1.1: the new parent must exist and permit
+                    // children.
+                    match parent_problem(backend, caller, &account_id, &new_parent_id).await {
+                        Ok(None) => {}
+                        Ok(Some(err)) => {
+                            not_updated.insert(id_str, err);
+                            continue;
+                        }
+                        Err(e) => {
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                            continue;
+                        }
                     }
                     let descendant_ids =
                         match backend.get_descendant_ids(caller, &account_id, &id).await {
