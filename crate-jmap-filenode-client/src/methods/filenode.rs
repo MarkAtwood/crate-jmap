@@ -398,6 +398,42 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
+    /// `FileNode/set` with the draft-ietf-jmap-conditional-02 options:
+    /// `ifUnchangedBy` and `atomic` (and object-history `restore`), as a
+    /// [`SetCall`](jmap_base_client::SetCall)
+    /// (docs/design/DECISIONS.md decision 8).
+    ///
+    /// `call.account_id` defaults to the session's primary FileNode
+    /// account. FileNode arguments such as `onExists` go in `call.extra`.
+    /// `using` is the FileNode capability plus
+    /// `urn:ietf:params:jmap:conditional` when the conditional options are
+    /// set; check [`Session::supports_conditional`](jmap_base_client::Session::supports_conditional)
+    /// first. [`filenode_set`](Self::filenode_set) is unchanged.
+    ///
+    /// # Errors
+    ///
+    /// As [`filenode_set`](Self::filenode_set);
+    /// [`ConditionalError::from_method_error`](jmap_base_client::ConditionalError::from_method_error)
+    /// reads `stateMismatch`, `atomicFailure` and `cannotApplyAtomically`
+    /// from a [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError).
+    pub async fn filenode_set_conditional(
+        &self,
+        mut call: jmap_base_client::SetCall,
+    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
+        if call.account_id.is_none() {
+            let (_, account_id) = self.session_parts()?;
+            call.account_id = Some(Id::from(account_id));
+        }
+        self.client
+            .set_call(
+                &self.session,
+                "FileNode/set",
+                &[jmap_filenode_types::JMAP_FILENODE_URI],
+                &call,
+            )
+            .await
+    }
+
     /// Copy FileNode objects from `params.from_account_id` into this account
     /// (draft-ietf-jmap-filenode-20 §3.2.4 — FileNode/copy).
     ///

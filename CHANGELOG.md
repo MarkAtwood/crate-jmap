@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-client**: `SessionClient::filenode_set_conditional`, a
+  `FileNode/set` taking a base-client `SetCall`, so FileNode clients can
+  send `ifUnchangedBy` and `atomic` (draft-ietf-jmap-conditional-02;
+  decision 8). `filenode_set` and `FileNodeSetParams` are unchanged.
+  (bd:JMAP-y1yu.18)
+
 - **jmap-base-client**: conditional Foo/set on the client
   (draft-ietf-jmap-conditional-02; decision 8). `SetCall`, a generic
   `Foo/set` for any type with `ifUnchangedBy`/`atomic` and object-history

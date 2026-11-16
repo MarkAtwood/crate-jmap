@@ -118,6 +118,17 @@ Passed as the `params` argument to `filenode_set` to set top-level `/set` argume
 All `Option` fields are `#[serde(skip_serializing_if = "Option::is_none")]` so `None` values are
 omitted from the wire request.
 
+## Conditional FileNode/set (draft-ietf-jmap-conditional-02)
+
+`filenode_set_conditional(call)` sends a `jmap_base_client::SetCall` as
+`FileNode/set` with `ifUnchangedBy` and `atomic` (and object-history `restore`);
+`call.account_id` defaults to the session's FileNode account and FileNode arguments
+such as `onExists` go in `call.extra`. It adds `urn:ietf:params:jmap:conditional`
+to `using` only when the conditional options are set; check
+`Session::supports_conditional()` first. Read `stateMismatch`, `atomicFailure` and
+`cannotApplyAtomically` with `jmap_base_client::ConditionalError`.
+`filenode_set` is unchanged.
+
 ## FileNodeOnExists
 
 Controls what happens when a new node's name collides with an existing sibling:
