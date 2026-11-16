@@ -41,7 +41,7 @@
 //! `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use jmap_filenode_types::{FileNode, FilesRights, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject};
@@ -930,6 +930,22 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     )
     .await?;
 
+    // Collect the full set of IDs being destroyed in this request before
+    // the creates, so the nodeHasChildren check can inspect it and a
+    // create or update can take the name of a node this call destroys
+    // (-20 §3.2.3).
+    let mut destroy_plan = DestroyPlan {
+        ids: if let Some(Value::Array(arr)) = args.get("destroy") {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(Id::from))
+                .collect()
+        } else {
+            HashSet::new()
+        },
+        cascade: on_destroy_remove_children,
+        early: HashMap::new(),
+    };
+
     // -----------------------------------------------------------------------
     // create
     // -----------------------------------------------------------------------
@@ -1123,16 +1139,40 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let parent_id_for_collision: Option<Id> = node.parent_id.clone();
 
             if !node_name.is_empty() {
-                match backend
-                    .find_sibling_by_name(
+                let find = || {
+                    backend.find_sibling_by_name(
                         caller,
                         &account_id,
                         parent_id_for_collision.as_ref(),
                         &node_name,
                         case_folding,
                     )
-                    .await
-                {
+                };
+                // -20 §3.2.3: uniqueness is judged on the result of the
+                // whole /set, so a sibling this call destroys gives up its
+                // name first.
+                let found = match find().await {
+                    Ok(Some(existing_id)) => {
+                        let before = destroyed_list.len();
+                        let freed = destroy_plan
+                            .take_name_from(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing_id,
+                                &mut destroyed_list,
+                            )
+                            .await;
+                        mutated |= destroyed_list.len() > before;
+                        if freed {
+                            find().await
+                        } else {
+                            Ok(Some(existing_id))
+                        }
+                    }
+                    other => other,
+                };
+                match found {
                     Ok(Some(existing_id)) => {
                         match on_exists {
                             OnExists::Reject => {
@@ -1384,6 +1424,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let renames_or_moves = ["name", "parentId"]
                 .iter()
                 .any(|p| patch.as_map().contains_key(*p));
+            // The stored node, when one of the checks below needed it.
+            let mut stored_node: Option<FileNode> = None;
             if !typed.is_empty()
                 || read_only_patched
                 || renames_or_moves
@@ -1411,6 +1453,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                             .is_some_and(|n| n.node_type.as_ref() == Some(&owner))
                     })
                 });
+                stored_node.clone_from(&stored);
                 // A missing node falls through so update_object reports
                 // notFound.
                 if let Some(node) = stored {
@@ -1603,6 +1646,156 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
+            // -20 §3.2.3: sibling-name uniqueness and onExists apply to an
+            // update that renames or moves the node, judged on the result of
+            // the whole /set like a create's.
+            let mut renamed_to: Option<String> = None;
+            if let Some(node) = stored_node.as_ref().filter(|_| renames_or_moves) {
+                let map = patch.as_map();
+                let new_name = match map.get("name") {
+                    Some(Value::String(name)) => name.clone(),
+                    _ => node.name.clone(),
+                };
+                let new_parent: Option<Id> = match map.get("parentId") {
+                    Some(Value::String(parent)) => Some(Id::from(parent.as_str())),
+                    Some(Value::Null) => None,
+                    _ => node.parent_id.clone(),
+                };
+                let find = || async {
+                    backend
+                        .find_sibling_by_name(
+                            caller,
+                            &account_id,
+                            new_parent.as_ref(),
+                            &new_name,
+                            case_folding,
+                        )
+                        .await
+                        // Under case folding the node can match itself.
+                        .map(|found| found.filter(|existing| *existing != id))
+                };
+                let found = match find().await {
+                    Ok(Some(existing_id)) => {
+                        let before = destroyed_list.len();
+                        let freed = destroy_plan
+                            .take_name_from(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing_id,
+                                &mut destroyed_list,
+                            )
+                            .await;
+                        mutated |= destroyed_list.len() > before;
+                        if freed {
+                            find().await
+                        } else {
+                            Ok(Some(existing_id))
+                        }
+                    }
+                    other => other,
+                };
+                match found {
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                    Ok(None) => {}
+                    Ok(Some(existing_id)) => match on_exists {
+                        OnExists::Reject => {
+                            // "alreadyExists" only for a discoverable
+                            // sibling; otherwise "forbidden", without its id.
+                            let err = match discoverable_sibling(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing_id,
+                            )
+                            .await
+                            {
+                                Ok(Some(_)) => {
+                                    json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
+                                }
+                                Ok(None) => undiscoverable_collision(),
+                                Err(e) => server_fail_value_from_backend(&e),
+                            };
+                            not_updated.insert(id_str, err);
+                            continue;
+                        }
+                        OnExists::Replace => {
+                            let existing = match discoverable_sibling(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing_id,
+                            )
+                            .await
+                            {
+                                Ok(Some(existing)) => existing,
+                                Ok(None) => {
+                                    not_updated.insert(id_str, undiscoverable_collision());
+                                    continue;
+                                }
+                                Err(e) => {
+                                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                                    continue;
+                                }
+                            };
+                            let mut replaced = Vec::new();
+                            let outcome = replace_existing(
+                                backend,
+                                caller,
+                                &account_id,
+                                &existing,
+                                on_destroy_remove_children,
+                                &mut replaced,
+                            )
+                            .await;
+                            mutated |= !replaced.is_empty();
+                            destroyed_list.extend(
+                                replaced
+                                    .into_iter()
+                                    .map(|id| Value::String(id.as_ref().to_owned())),
+                            );
+                            if let Err(err) = outcome {
+                                not_updated.insert(id_str, err);
+                                continue;
+                            }
+                        }
+                        OnExists::Rename => {
+                            match backend
+                                .find_unique_name(
+                                    caller,
+                                    &account_id,
+                                    new_parent.as_ref(),
+                                    &new_name,
+                                    case_folding,
+                                )
+                                .await
+                            {
+                                Ok(Some(candidate)) => {
+                                    patch
+                                        .as_map_mut()
+                                        .insert("name".to_owned(), json!(candidate));
+                                    renamed_to = Some(candidate);
+                                }
+                                Ok(None) => {
+                                    not_updated.insert(
+                                        id_str,
+                                        json!({ "type": "serverFail", "description": "backend found no unique name" }),
+                                    );
+                                    continue;
+                                }
+                                Err(e) => {
+                                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                                    continue;
+                                }
+                            }
+                        }
+                    },
+                }
+            }
+
             // draft-atwood-jmap-cid-00 §FileNode Extension: "When a
             // `FileNode/set` ({{JMAP-FILENODE}}) create or update changes
             // the associated blob, the server MUST update `sha256` to
@@ -1641,16 +1834,34 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
+                    let mut value = jmap_server::serialize_value(&obj)?;
+                    // -20 §3.2.3: "rename" MUST include the new name in the
+                    // "updated" entry.
+                    if let (Some(name), Value::Object(m)) = (renamed_to, &mut value) {
+                        m.insert("name".to_owned(), Value::String(name));
+                    }
+                    updated.insert(id_str, value);
                 }
                 // RFC 8620 §5.3: the updated entry carries any property
                 // "that changed that were not explicitly requested by the
-                // client"; a server-set sha256 is one.
+                // client"; a server-set sha256 is one, a "rename" name
+                // another.
                 Ok(None) => {
                     mutated = true;
+                    let mut changed = serde_json::Map::new();
+                    if let Some(digest) = new_sha256 {
+                        changed.insert("sha256".to_owned(), json!(digest));
+                    }
+                    if let Some(name) = renamed_to {
+                        changed.insert("name".to_owned(), Value::String(name));
+                    }
                     updated.insert(
                         id_str,
-                        new_sha256.map_or(Value::Null, |d| json!({ "sha256": d })),
+                        if changed.is_empty() {
+                            Value::Null
+                        } else {
+                            Value::Object(changed)
+                        },
                     );
                 }
                 Err(e) => {
@@ -1664,16 +1875,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     // destroy
     // -----------------------------------------------------------------------
 
-    // Collect the full set of IDs being destroyed in this request *before*
-    // consuming the array, so the nodeHasChildren check can inspect it.
-    let destroy_id_set: std::collections::HashSet<Id> =
-        if let Some(Value::Array(arr)) = args.get("destroy") {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(Id::from))
-                .collect()
-        } else {
-            std::collections::HashSet::new()
-        };
+    let DestroyPlan {
+        ids: destroy_id_set,
+        early: mut early_destroys,
+        ..
+    } = destroy_plan;
 
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
@@ -1700,106 +1906,33 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             };
 
-            let desc_ids = match backend.get_descendant_ids(caller, &account_id, &id).await {
-                Ok(desc_ids) => desc_ids,
-                Err(e) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-
-            // If onDestroyRemoveChildren is false, check whether all
-            // descendants are also in this destroy request.
-            // RFC §3.2.3: MUST NOT return nodeHasChildren if all descendants
-            // are also being destroyed in the same request.
-            //
-            // Partial-tree subtlety (bd:JMAP-510h.12): get_descendant_ids
-            // returns the TRANSITIVE descendant set. When a destroy set
-            // includes {A, B} where A is an ancestor of B and B has its
-            // own descendants C that are NOT in the set, both A and B
-            // report nodeHasChildren — A because its subtree contains
-            // the uncovered C, B because B's subtree contains the
-            // uncovered C. The error attribution is at every uncovered
-            // ancestor, not at the deepest uncovered descendant, but
-            // the overall verdict (no destroys happen) is correct and
-            // never falsely succeeds. Backends that want to attribute
-            // the error closer to the actual uncovered descendant can
-            // override this loop with their own ordering logic; the
-            // reference handler is intentionally simple.
-            if !on_destroy_remove_children
-                && !desc_ids.iter().all(|did| destroy_id_set.contains(did))
-            {
-                not_destroyed.insert(id_str, json!({ "type": "nodeHasChildren" }));
-                continue;
-            }
-
-            // draft-ietf-jmap-filenode-20 §5: no Directory with a role may
-            // go, whether named here or removed with its ancestor.
-            //
-            // Without the cascade every descendant is named in this destroy
-            // too (checked above), but a role Directory among them fails its
-            // own entry and survives. §3.2.3 judges nodeHasChildren on that
-            // final state, so the parent is refused with nodeHasChildren
-            // rather than destroyed first and its role child orphaned.
-            let cascade: &[Id] = if on_destroy_remove_children {
-                &desc_ids
-            } else {
-                &[]
-            };
-            let doomed: Vec<Id> = std::iter::once(id.clone())
-                .chain(desc_ids.iter().cloned())
-                .collect();
-            match first_with_role(backend, caller, &account_id, &doomed).await {
-                Ok(None) => {}
-                Ok(Some(role_dir)) if role_dir != id && !on_destroy_remove_children => {
-                    not_destroyed.insert(id_str, json!({ "type": "nodeHasChildren" }));
-                    continue;
-                }
-                Ok(Some(role_dir)) => {
-                    not_destroyed.insert(id_str, role_forbidden(&role_dir, "destroying"));
-                    continue;
-                }
-                Err(e) => {
-                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            }
-
-            // When onDestroyRemoveChildren=true, cascade to all descendants
-            // first, deepest first (`get_descendant_ids` lists each id after
-            // its parent).
-            let mut cascade_failed = false;
-            for desc_id in cascade.iter().rev() {
-                match backend
-                    .destroy_object::<FileNode>(caller, &account_id, desc_id)
-                    .await
-                {
-                    Ok(()) => {
-                        mutated = true;
-                        destroyed_list.push(Value::String(desc_id.as_ref().to_owned()));
-                    }
-                    Err(e) => {
-                        not_destroyed.insert(id_str.clone(), backend_set_error_value(e));
-                        cascade_failed = true;
-                        break;
+            // A create or update that took this node's name already ran
+            // this destroy (-20 §3.2.3); report that outcome once.
+            if let Some(outcome) = early_destroys.remove(&id) {
+                match outcome {
+                    Ok(()) => {}
+                    Err(err) => {
+                        not_destroyed.insert(id_str, err);
                     }
                 }
-            }
-            if cascade_failed {
                 continue;
             }
-
-            match backend
-                .destroy_object::<FileNode>(caller, &account_id, &id)
-                .await
-            {
-                Ok(()) => {
-                    mutated = true;
-                    destroyed_list.push(Value::String(id_str));
-                }
-                Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
-                }
+            let (gone, outcome) = destroy_one(
+                backend,
+                caller,
+                &account_id,
+                &id,
+                &destroy_id_set,
+                on_destroy_remove_children,
+            )
+            .await;
+            mutated |= !gone.is_empty();
+            destroyed_list.extend(
+                gone.into_iter()
+                    .map(|g| Value::String(g.as_ref().to_owned())),
+            );
+            if let Err(err) = outcome {
+                not_destroyed.insert(id_str, err);
             }
         }
     }
@@ -1820,6 +1953,160 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         },
     )
     .await
+}
+
+/// The `destroy` list of one FileNode/set, and the destroys a create or
+/// update already ran to take a destroyed node's name (-20 §3.2.3).
+struct DestroyPlan {
+    /// Every id in `destroy`.
+    ids: HashSet<Id>,
+    /// `onDestroyRemoveChildren`.
+    cascade: bool,
+    /// The outcome of each destroy already run, by id.
+    early: HashMap<Id, Result<(), Value>>,
+}
+
+impl DestroyPlan {
+    /// If this call destroys `existing`, destroy it now, appending what was
+    /// destroyed to `destroyed_list`; whether `existing` is gone.
+    ///
+    /// The destroy phase later reports the recorded outcome instead of
+    /// running it again. A failed destroy leaves the name taken, so the
+    /// create or update collides as it would against the final state.
+    async fn take_name_from<B: FileNodeBackend>(
+        &mut self,
+        backend: &B,
+        caller: &B::CallerCtx,
+        account_id: &Id,
+        existing: &Id,
+        destroyed_list: &mut Vec<Value>,
+    ) -> bool {
+        if !self.ids.contains(existing) {
+            return false;
+        }
+        if let Some(outcome) = self.early.get(existing) {
+            return outcome.is_ok();
+        }
+        let (gone, outcome) = destroy_one(
+            backend,
+            caller,
+            account_id,
+            existing,
+            &self.ids,
+            self.cascade,
+        )
+        .await;
+        for g in &gone {
+            // A listed descendant removed by the cascade is done too.
+            if self.ids.contains(g) {
+                self.early.insert(g.clone(), Ok(()));
+            }
+        }
+        destroyed_list.extend(
+            gone.into_iter()
+                .map(|g| Value::String(g.as_ref().to_owned())),
+        );
+        let freed = outcome.is_ok();
+        self.early.insert(existing.clone(), outcome);
+        freed
+    }
+}
+
+/// Destroy `id` as one entry of a FileNode/set `destroy` (-20 §3.2.3),
+/// with its descendants when `on_destroy_remove_children`; every id in
+/// `destroy_id_set` is destroyed by the same call.
+///
+/// Returns the ids destroyed, deepest first and `id` last (a cascade that
+/// fails part-way still reports what it destroyed), and the SetError for
+/// `id` if it was not destroyed.
+async fn destroy_one<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    destroy_id_set: &HashSet<Id>,
+    on_destroy_remove_children: bool,
+) -> (Vec<Id>, Result<(), Value>) {
+    let mut destroyed = Vec::new();
+    let desc_ids = match backend.get_descendant_ids(caller, account_id, id).await {
+        Ok(desc_ids) => desc_ids,
+        Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
+    };
+
+    // If onDestroyRemoveChildren is false, check whether all
+    // descendants are also in this destroy request.
+    // RFC §3.2.3: MUST NOT return nodeHasChildren if all descendants
+    // are also being destroyed in the same request.
+    //
+    // Partial-tree subtlety (bd:JMAP-510h.12): get_descendant_ids
+    // returns the TRANSITIVE descendant set. When a destroy set
+    // includes {A, B} where A is an ancestor of B and B has its
+    // own descendants C that are NOT in the set, both A and B
+    // report nodeHasChildren — A because its subtree contains
+    // the uncovered C, B because B's subtree contains the
+    // uncovered C. The error attribution is at every uncovered
+    // ancestor, not at the deepest uncovered descendant, but
+    // the overall verdict (no destroys happen) is correct and
+    // never falsely succeeds. Backends that want to attribute
+    // the error closer to the actual uncovered descendant can
+    // override this loop with their own ordering logic; the
+    // reference handler is intentionally simple.
+    if !on_destroy_remove_children && !desc_ids.iter().all(|did| destroy_id_set.contains(did)) {
+        return (destroyed, Err(json!({ "type": "nodeHasChildren" })));
+    }
+
+    // draft-ietf-jmap-filenode-20 §5: no Directory with a role may
+    // go, whether named here or removed with its ancestor.
+    //
+    // Without the cascade every descendant is named in this destroy
+    // too (checked above), but a role Directory among them fails its
+    // own entry and survives. §3.2.3 judges nodeHasChildren on that
+    // final state, so the parent is refused with nodeHasChildren
+    // rather than destroyed first and its role child orphaned.
+    let cascade: &[Id] = if on_destroy_remove_children {
+        &desc_ids
+    } else {
+        &[]
+    };
+    let doomed: Vec<Id> = std::iter::once(id.clone())
+        .chain(desc_ids.iter().cloned())
+        .collect();
+    match first_with_role(backend, caller, account_id, &doomed).await {
+        Ok(None) => {}
+        Ok(Some(role_dir)) if role_dir != *id && !on_destroy_remove_children => {
+            return (destroyed, Err(json!({ "type": "nodeHasChildren" })));
+        }
+        Ok(Some(role_dir)) => {
+            return (destroyed, Err(role_forbidden(&role_dir, "destroying")));
+        }
+        Err(e) => {
+            return (destroyed, Err(server_fail_value_from_backend(&e)));
+        }
+    }
+
+    // When onDestroyRemoveChildren=true, cascade to all descendants
+    // first, deepest first (`get_descendant_ids` lists each id after
+    // its parent).
+    for desc_id in cascade.iter().rev() {
+        match backend
+            .destroy_object::<FileNode>(caller, account_id, desc_id)
+            .await
+        {
+            Ok(()) => destroyed.push(desc_id.clone()),
+            Err(e) => return (destroyed, Err(backend_set_error_value(e))),
+        }
+    }
+
+    match backend
+        .destroy_object::<FileNode>(caller, account_id, id)
+        .await
+    {
+        Ok(()) => {
+            destroyed.push(id.clone());
+            (destroyed, Ok(()))
+        }
+        Err(e) => (destroyed, Err(backend_set_error_value(e))),
+    }
 }
 
 // ---------------------------------------------------------------------------

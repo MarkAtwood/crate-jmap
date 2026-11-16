@@ -430,6 +430,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-filenode-server**: FileNode/set checks sibling-name uniqueness
+  on update as well as create (draft-ietf-jmap-filenode-20 §3.1.1,
+  §3.2.3). An update that renames or moves a node onto a sibling's name is
+  `alreadyExists` with `existingId` (or `forbidden` for a sibling the user
+  cannot discover), and `onExists` `"replace"` and `"rename"` apply to it,
+  with a rename's new name in the `updated` entry. Uniqueness is judged on
+  the result of the whole /set: when a create or update collides with a
+  node the same call destroys, that destroy runs first, so destroying a
+  node and creating or renaming its replacement in one method succeeds; a
+  destroy that fails leaves the name taken. Swapping two names by update
+  alone still needs `atomic` (conditional-02 §5.8). (bd:JMAP-6xas)
+
 - **BREAKING** **jmap-mail-server**, **jmap-chat-server**,
   **jmap-calendars-server**, **jmap-tasks-server**,
   **jmap-contacts-server**, **jmap-sharing-server** (`memory` feature): no
