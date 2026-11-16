@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-server**: conditional KeyPackage/set
+  (draft-ietf-jmap-conditional-02). `register_mimi_conditional`, called
+  after `register_mimi_handlers`, attaches `SetSupport` to the registered
+  KeyPackage/set (decisions 1, 17). The memory backend keeps its store on
+  `jmap_server::ScopedState` (feature `memory` now enables
+  `jmap-server/scoped-state`) and implements `ConditionalBackend`: an
+  atomic rollback drops queued hub requests, and under an atomic scope the
+  KeyPackageRef-reuse and `maxKeyPackages` checks move to the commit. A
+  poisoned memory-backend lock is now taken instead of panicking.
+  (bd:JMAP-y1yu.17)
+
 - **jmap-graph-server**: conditional graph Foo/set
   (draft-ietf-jmap-conditional-02). `register_graph_conditional`, called
   after `register_graph_handlers` and/or `register_graph_edit_handlers`,

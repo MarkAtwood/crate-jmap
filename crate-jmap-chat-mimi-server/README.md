@@ -116,6 +116,21 @@ returns `may_update_room_chat`, `may_create_room_message` and
 `may_create_message` and `may_update_message` hooks, passing
 `&chat.extra`.
 
+### Conditional KeyPackage/set (draft-ietf-jmap-conditional-02)
+
+`register_mimi_conditional(dispatcher, backend)`, called after
+`register_mimi_handlers`, attaches `SetSupport` to the registered `KeyPackage/set`;
+it re-registers nothing, and a deployment that never calls it is unchanged
+(docs/design/DECISIONS.md decisions 1 and 17). Advertise
+`urn:ietf:params:jmap:conditional` only when `Dispatcher::conditional_ready()` is
+true.
+
+`MemoryBackend`'s store (no openmls storage) is a `jmap_server::ScopedState`: an
+atomic rollback restores records, states and bindings and drops queued hub
+requests. Under an atomic scope the KeyPackageRef-reuse and `maxKeyPackages` checks
+move to the commit, which checks the final state, so replacing a KeyPackage at the
+cap, or re-uploading one while destroying its record, succeeds in one call.
+
 ## Gotchas
 
 - MSRV 1.91, set by `openmls` 0.9.2.

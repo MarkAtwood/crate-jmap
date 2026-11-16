@@ -458,3 +458,186 @@ async fn set_non_string_destroy_element_does_not_echo_value() {
     assert!(desc.contains("got object"), "{desc}");
     assert!(!desc.contains("CANARY"), "{desc}");
 }
+
+// ---- draft-ietf-jmap-conditional-02 (bd JMAP-y1yu.17) ---------------------
+//
+// Oracles: conditional-02 §3.1 and §4.2; L204 `maxKeyPackages` is
+// `overQuota`; a KeyPackageRef "stored or handed out" is
+// `invalidProperties` naming `keyPackage`.
+
+mod conditional {
+    use std::sync::Arc;
+
+    use jmap_chat_mimi_server::{register_mimi_conditional, register_mimi_handlers};
+    use jmap_server::Dispatcher;
+    use jmap_types::{JmapRequest, State};
+    use openmls_rust_crypto::RustCrypto;
+    use serde_json::{Value, json};
+
+    use super::{ALICE, alice_backend, b64, basic, key_package, signer};
+    use jmap_chat_mimi_server::memory::MemoryBackend;
+
+    fn dispatcher(b: &Arc<MemoryBackend<RustCrypto>>) -> Dispatcher<()> {
+        let mut d = Dispatcher::new();
+        register_mimi_handlers(&mut d, Arc::clone(b));
+        register_mimi_conditional(&mut d, Arc::clone(b));
+        d
+    }
+
+    async fn set(d: &Dispatcher<()>, mut args: Value) -> (String, Value) {
+        args["accountId"] = json!("a1");
+        let req: JmapRequest = serde_json::from_value(json!({
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat:mimi",
+                      "urn:ietf:params:jmap:conditional"],
+            "methodCalls": [["KeyPackage/set", args, "0"]]
+        }))
+        .unwrap();
+        let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+        let inv = &resp["methodResponses"][0];
+        (inv[0].as_str().unwrap().to_owned(), inv[1].clone())
+    }
+
+    fn fresh() -> String {
+        b64(&key_package(basic(ALICE), &signer(), false))
+    }
+
+    async fn stored(d: &Dispatcher<()>) -> String {
+        let (_, r) = set(d, json!({"create": {"k": {"keyPackage": fresh()}}})).await;
+        r["created"]["k"]["id"]
+            .as_str()
+            .expect("created")
+            .to_owned()
+    }
+
+    #[tokio::test]
+    async fn precondition_on_a_key_package() {
+        let b = Arc::new(alice_backend(10));
+        let d = dispatcher(&b);
+        let id = stored(&d).await;
+        let destroy_if = |last_resort: bool| json!({"ifUnchangedBy": {&id: {"lastResort": last_resort}}, "destroy": [&id]});
+        let (name, r) = set(&d, destroy_if(true)).await;
+        assert_eq!(
+            (name.as_str(), r),
+            (
+                "error",
+                json!({"type": "stateMismatch", "failed": [id.clone()]})
+            )
+        );
+        let (name, r) = set(&d, destroy_if(false)).await;
+        assert_eq!(name, "KeyPackage/set", "{r}");
+        assert_eq!(r["destroyed"], json!([id]));
+    }
+
+    /// An atomic failure stores nothing and queues no hub request.
+    #[tokio::test]
+    async fn atomic_failure_rolls_back() {
+        let b = Arc::new(alice_backend(10));
+        let d = dispatcher(&b);
+        let (name, r) = set(
+            &d,
+            json!({"atomic": true, "create": {
+                "ok": {"keyPackage": fresh()},
+                "bad": {"keyPackage": "not a key package"}
+            }}),
+        )
+        .await;
+        assert_eq!(name, "error", "{r}");
+        assert_eq!(r["type"], "atomicFailure", "{r}");
+        assert!(super::get_all(&b, "a1").await.is_empty());
+        assert!(b.hub_requests().is_empty());
+    }
+
+    /// `maxKeyPackages` met only by the final state: at the cap of one,
+    /// replacing the stored KeyPackage needs `atomic`, since creates run
+    /// before destroys; over the cap it is rejected at commit.
+    #[tokio::test]
+    async fn max_key_packages_on_final_state() {
+        let replace = |old: &str, atomic: bool| json!({"atomic": atomic, "create": {"new": {"keyPackage": fresh()}}, "destroy": [old]});
+        let b = Arc::new(alice_backend(1));
+        let d = dispatcher(&b);
+        let old = stored(&d).await;
+        let (_, r) = set(&d, replace(&old, false)).await;
+        assert_eq!(r["notCreated"]["new"]["type"], "overQuota", "{r}");
+
+        let b = Arc::new(alice_backend(1));
+        let d = dispatcher(&b);
+        let old = stored(&d).await;
+        let (name, r) = set(&d, replace(&old, true)).await;
+        assert_eq!(name, "KeyPackage/set", "{r}");
+        assert!(r["created"].get("new").is_some(), "{r}");
+        assert_eq!(r["destroyed"], json!([old]));
+
+        let (name, r) = set(
+            &d,
+            json!({"atomic": true, "create": {"more": {"keyPackage": fresh()}}}),
+        )
+        .await;
+        assert_eq!(name, "error", "{r}");
+        assert_eq!(r["notCreated"]["more"]["type"], "overQuota", "{r}");
+    }
+
+    /// One KeyPackage uploaded twice in one atomic call: the commit sees
+    /// the KeyPackageRef twice and rejects it.
+    #[tokio::test]
+    async fn reused_key_package_ref_on_final_state() {
+        let b = Arc::new(alice_backend(10));
+        let d = dispatcher(&b);
+        let kp = fresh();
+        let (name, r) = set(
+            &d,
+            json!({"atomic": true, "create": {"a": {"keyPackage": &kp}, "b": {"keyPackage": &kp}}}),
+        )
+        .await;
+        assert_eq!(name, "error", "{r}");
+        assert_eq!(r["type"], "atomicFailure", "{r}");
+        let failed = r["notCreated"].as_object().expect("notCreated");
+        assert!(!failed.is_empty(), "{r}");
+        for e in failed.values() {
+            assert_eq!(e["properties"], json!(["keyPackage"]), "{r}");
+        }
+        assert!(super::get_all(&b, "a1").await.is_empty());
+    }
+
+    /// A destroyed KeyPackage's ref is no longer "stored", so re-uploading
+    /// the same KeyPackage while destroying the old record succeeds, but
+    /// only under `atomic`: creates run before destroys.
+    #[tokio::test]
+    async fn reupload_while_destroying_needs_atomic() {
+        let reupload = |kp: &str, old: &str, atomic: bool| json!({"atomic": atomic, "create": {"again": {"keyPackage": kp}}, "destroy": [old]});
+        let kp = fresh();
+        let b = Arc::new(alice_backend(10));
+        let d = dispatcher(&b);
+        let (_, r) = set(&d, json!({"create": {"k": {"keyPackage": &kp}}})).await;
+        let old = r["created"]["k"]["id"]
+            .as_str()
+            .expect("created")
+            .to_owned();
+        let (_, r) = set(&d, reupload(&kp, &old, false)).await;
+        assert_eq!(
+            r["notCreated"]["again"]["properties"],
+            json!(["keyPackage"]),
+            "{r}"
+        );
+
+        let b = Arc::new(alice_backend(10));
+        let d = dispatcher(&b);
+        let (_, r) = set(&d, json!({"create": {"k": {"keyPackage": &kp}}})).await;
+        let old = r["created"]["k"]["id"]
+            .as_str()
+            .expect("created")
+            .to_owned();
+        let (name, r) = set(&d, reupload(&kp, &old, true)).await;
+        assert_eq!(name, "KeyPackage/set", "{r}");
+        assert!(r["created"].get("again").is_some(), "{r}");
+    }
+
+    #[test]
+    fn ready_after_handlers_and_conditional() {
+        let b = Arc::new(alice_backend(10));
+        let mut d: Dispatcher<()> = Dispatcher::new();
+        register_mimi_handlers(&mut d, Arc::clone(&b));
+        assert_eq!(d.conditional_gaps(), ["KeyPackage/set"]);
+        register_mimi_conditional(&mut d, b);
+        assert!(d.conditional_ready());
+    }
+}

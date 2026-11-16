@@ -62,7 +62,7 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 
 use jmap_chat_mimi_types::{
     ClientKeyMaterial, KeyMaterialClientCode, KeyPackage, MIMI_FANOUT_BODY_TYPE, MimiCapability,
@@ -71,6 +71,10 @@ use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
     SetError, SetErrorType,
+};
+use jmap_server::{
+    BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
+    SetScopeRequest,
 };
 use jmap_types::{Id, JmapError, State};
 use openmls::prelude::OpenMlsCrypto;
@@ -85,17 +89,20 @@ use crate::{
 };
 
 /// One stored KeyPackage record and the signature key of its client.
+#[derive(Clone)]
 struct Record {
     key_package: KeyPackage,
     signature_key: Vec<u8>,
 }
 
 /// A room this server hosts.
+#[derive(Clone)]
 struct Room {
     group_id: Vec<u8>,
 }
 
 /// A Chat bound, or once bound, to a room.
+#[derive(Clone)]
 struct RoomChat {
     account: String,
     room_id: String,
@@ -118,12 +125,15 @@ impl RoomChat {
 }
 
 /// The account a signature key is bound to, and its client's `clientUri`.
+#[derive(Clone)]
 struct Binding {
     account: String,
     client_uri: String,
 }
 
-#[derive(Default)]
+/// The store, behind a [`ScopedState`] so a conditional KeyPackage/set
+/// can isolate and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// Registered accounts and their MIMI capability object.
     accounts: HashMap<String, MimiCapability>,
@@ -238,18 +248,18 @@ impl Inner {
 /// A fully in-memory implementation of [`MimiBackend`] over the MLS
 /// crypto provider `C`.
 ///
-/// `Clone` is a cheap `Arc` clone: every clone shares the same state.
+/// `Clone` is a cheap handle clone: every clone shares the same state.
 #[non_exhaustive]
 pub struct MemoryBackend<C> {
     crypto: Arc<C>,
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             crypto: Arc::clone(&self.crypto),
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -259,13 +269,20 @@ impl<C> MemoryBackend<C> {
     pub fn new(crypto: C) -> Self {
         Self {
             crypto: Arc::new(crypto),
-            inner: Arc::default(),
+            inner: ScopedState::default(),
         }
     }
 
-    fn lock(&self) -> MutexGuard<'_, Inner> {
-        // A poisoned lock means a test already panicked mid-mutation.
-        self.inner.lock().expect("MemoryBackend lock poisoned")
+    /// The store, for setup and test helpers, which never run inside a
+    /// conditional Foo/set scope. A poisoned lock is taken anyway.
+    fn lock(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock_unscoped()
+    }
+
+    /// The store, for the backend methods: waits while another task's
+    /// conditional Foo/set scope is open (docs/design/conditional.md §7).
+    async fn locked(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock().await
     }
 
     /// Register `account_id` with the MIMI capability object it advertises.
@@ -385,7 +402,11 @@ impl<C: Send + Sync + 'static> JmapBackend for MemoryBackend<C> {
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
-        Ok(self.lock().accounts.contains_key(account_id.as_ref()))
+        Ok(self
+            .locked()
+            .await
+            .accounts
+            .contains_key(account_id.as_ref()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -395,7 +416,7 @@ impl<C: Send + Sync + 'static> JmapBackend for MemoryBackend<C> {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
-        let inner = self.lock();
+        let inner = self.locked().await;
         let records = inner
             .records
             .get(account_id.as_ref())
@@ -433,7 +454,9 @@ impl<C: Send + Sync + 'static> JmapBackend for MemoryBackend<C> {
         _caller: &(),
         account_id: &Id,
     ) -> Result<State, MemoryError> {
-        Ok(State::from(self.lock().state(account_id).to_string()))
+        Ok(State::from(
+            self.locked().await.state(account_id).to_string(),
+        ))
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
@@ -476,7 +499,8 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         _caller: &(),
         account_id: &Id,
     ) -> Result<MimiCapability, MemoryError> {
-        self.lock()
+        self.locked()
+            .await
             .accounts
             .get(account_id.as_ref())
             .cloned()
@@ -490,8 +514,12 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         key_package: NewKeyPackage,
         max_key_packages: u64,
     ) -> Result<Id, BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let account = account_id.as_ref();
+        // Under an atomic conditional-02 scope the KeyPackageRef and
+        // maxKeyPackages checks run on the final state at commit
+        // (`final_state_failures`).
+        let defer = self.inner.deferring();
 
         if inner
             .bindings
@@ -500,14 +528,15 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         {
             return Err(signature_key_bound_elsewhere().into());
         }
-        if inner
-            .records
-            .values()
-            .flat_map(HashMap::values)
-            .any(|r| r.key_package.key_package_ref == key_package.key_package_ref)
-            || inner
-                .handed_out
-                .contains_key(key_package.key_package_ref.as_str())
+        if !defer
+            && (inner
+                .records
+                .values()
+                .flat_map(HashMap::values)
+                .any(|r| r.key_package.key_package_ref == key_package.key_package_ref)
+                || inner
+                    .handed_out
+                    .contains_key(key_package.key_package_ref.as_str()))
         {
             return Err(key_package_ref_in_use().into());
         }
@@ -523,7 +552,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
             })
             .map(|(id, _)| id.clone());
         let stored = records.map_or(0, HashMap::len) - usize::from(replaced.is_some());
-        if stored as u64 >= max_key_packages {
+        if !defer && stored as u64 >= max_key_packages {
             return Err(key_package_over_quota().into());
         }
 
@@ -572,7 +601,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         account_id: &Id,
         requirements: &KeyMaterialRequirements,
     ) -> Result<Vec<ClientKeyMaterial>, MemoryError> {
-        let mut guard = self.lock();
+        let mut guard = self.locked().await;
         let inner = &mut *guard;
         let account = account_id.as_ref();
         let mut clients: Vec<(&Vec<u8>, &Binding)> = inner
@@ -635,7 +664,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         account_id: &Id,
         room: NewRoom,
     ) -> Result<Result<Id, JmapError>, MemoryError> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         if !inner
             .bindings
             .get(&room.signature_key)
@@ -665,7 +694,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         hub_uri: &str,
         fanout: &Fanout,
     ) -> Result<(), MemoryError> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let chats: Vec<Id> = match &fanout.recipients {
             FanoutRecipients::Room => inner
                 .room_chats
@@ -730,7 +759,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         account_id: &Id,
         room_id: &str,
     ) -> Result<bool, MemoryError> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let Some(id) = inner.room_chat_id(account_id.as_ref(), room_id) else {
             return Ok(false);
         };
@@ -759,7 +788,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         room_id: &str,
         target_user: &str,
     ) -> Result<Option<Id>, MemoryError> {
-        let inner = self.lock();
+        let inner = self.locked().await;
         if !inner.rooms.contains_key(room_id) {
             return Ok(None);
         }
@@ -778,7 +807,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         endpoint: &MimiEndpoint,
         body: &[u8],
     ) -> Result<Result<HubReply, HubUnavailable>, MemoryError> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         inner.hub_requests.push(HubRequest {
             account_id: account_id.clone(),
             room_id: room_id.to_owned(),
@@ -794,7 +823,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let removed = inner
             .records
             .get_mut(account_id.as_ref())
@@ -805,6 +834,66 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
         inner.bump(account_id);
         Ok(())
     }
+}
+
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional KeyPackage/set (bd JMAP-y1yu.17): the whole store is one
+/// [`ScopedState`] (it holds no openmls storage), so a scope isolates every
+/// account, and an atomic rollback restores records, states, bindings and
+/// the queued hub requests together, so no hub request goes out for a
+/// change that never happened (§4.3). Under an atomic scope the
+/// KeyPackageRef and `maxKeyPackages` checks move to the commit, which
+/// checks the final state (`final_state_failures`).
+impl<C: Send + Sync + 'static> ConditionalBackend for MemoryBackend<C>
+where
+    MemoryBackend<C>: JmapBackend<CallerCtx = (), Error = MemoryError>,
+{
+    async fn begin_set(
+        &self,
+        _caller: &(),
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self.inner.open(request, final_state_failures).await)
+    }
+}
+
+/// The KeyPackage creates of an atomic scope that break an account-wide
+/// rule in the state it would commit (conditional-02 §4.2;
+/// draft-atwood-jmap-chat-mimi-00 §KeyPackage/set): a KeyPackageRef held
+/// by another stored record or already handed out
+/// ([`key_package_ref_in_use`]), or more records than the account's
+/// `maxKeyPackages` ([`key_package_over_quota`]).
+fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
+    let mut failures = Vec::new();
+    for (account, records) in &after.records {
+        let old = before.records.get(account);
+        let max = after.accounts.get(account).map(|c| c.max_key_packages);
+        let over = max.is_some_and(|m| records.len() as u64 > m);
+        for (id, record) in records {
+            if old.is_some_and(|o| o.contains_key(id)) {
+                continue;
+            }
+            let reference = &record.key_package.key_package_ref;
+            let reused = after
+                .records
+                .values()
+                .flat_map(|r| r.iter())
+                .any(|(other, r)| other != id && r.key_package.key_package_ref == *reference)
+                || after.handed_out.contains_key(reference.as_str());
+            let error = if reused {
+                key_package_ref_in_use()
+            } else if over {
+                key_package_over_quota()
+            } else {
+                continue;
+            };
+            failures.push(DeferredFailure::new(SetOp::Create(id.clone()), error));
+        }
+    }
+    failures
 }
 
 #[cfg(test)]
