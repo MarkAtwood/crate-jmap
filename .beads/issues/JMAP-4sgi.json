@@ -2,11 +2,15 @@
   "id": "JMAP-4sgi",
   "title": "calendars-server memory: onSuccessSetIsDefault changes no visible state",
   "description": "Found during JMAP-y1yu.10 (2026-11-16). MemoryBackend::set_default_calendar (and likely set_default_participant_identity) only moves AccountAux::default_calendar. Calendar/set with onSuccessSetIsDefault: \"cal2\" answers updated {cal2: {isDefault: true}} but newState is unchanged and Calendar/get still returns isDefault false for every Calendar: the pointer is never reflected in the stored objects or /get, and the Calendar state is not bumped. draft-ietf-jmap-calendars-34 §4.3: the server sets isDefault true on the new default and false on the previous one, a change clients see in Calendar/get and /changes. Fix: update both stored objects' isDefault (or derive isDefault from the pointer in get_objects) and record the change in the change log/state; same for ParticipantIdentity (§3.3). Tests: /set then /get shows exactly one default; /changes lists both ids.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
+  "assignee": "Mark Atwood",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-16T04:46:39.766793053Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-16T04:46:39.766793053Z"
+  "updated_at": "2026-11-16T05:21:55.653291844Z",
+  "started_at": "2026-11-16T05:18:27.054674658Z",
+  "closed_at": "2026-11-16T05:21:55.653291844Z",
+  "close_reason": "move_default updates stored isDefault, state and change log"
 }

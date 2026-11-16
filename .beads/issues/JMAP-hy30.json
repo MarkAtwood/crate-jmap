@@ -2,11 +2,15 @@
   "id": "JMAP-hy30",
   "title": "filenode-server: FileNode/set update accepts a parentId naming no node",
   "description": "Found during JMAP-y1yu.8 (2026-11-16). draft-ietf-jmap-filenode-20 §3.1.1: 'The parent MUST be a node whose @type permits children'. handle_filenode_set's update path checks self-parent, cycles and maxFileNodeDepth for a new parentId but not that the parent exists (or permits children): {\"update\": {\"d3\": {\"parentId\": \"nope\"}}} succeeds and leaves d3 dangling (and invisible to tree walks). Under atomic the memory backend's commit check (final_state_failures) rejects a dangling parent with invalidProperties [parentId]; the non-atomic path does not. Fix in the update path: fetch the new parent, invalidProperties [parentId] when it is missing or its @type has no children (check how create validates parentId and reuse it), plus tests.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
+  "assignee": "Mark Atwood",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-16T03:45:17.084025485Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-16T03:45:17.084025485Z"
+  "updated_at": "2026-11-16T05:18:26.561479042Z",
+  "started_at": "2026-11-16T05:16:45.086795203Z",
+  "closed_at": "2026-11-16T05:18:26.561479042Z",
+  "close_reason": "parent_problem on create and update"
 }

@@ -2,11 +2,15 @@
   "id": "JMAP-h4ht",
   "title": "mail-server: Mailbox/set update skips name+parent uniqueness and parentId loop checks",
   "description": "Found during JMAP-y1yu.7 (2026-11-16). RFC 8621 §2: mailboxes form a tree (parentId must not loop) and two mailboxes may not share a name under one parent (alreadyExists). handle_mailbox_set checks name+parent only on create (src/mailbox.rs create loop) and role on create and update; an update that renames m2 to m1's name under the same parent, or sets m1.parentId=m2 and m2.parentId=m1, is accepted in the non-atomic path. Under atomic (conditional-02) the memory backend's commit check (final_state_failures in src/memory/mod.rs) catches both, so the gap is the non-atomic handler/backend path. Fix: check the patched object against the store in update (handler or MemoryBackend::update_object), with tests for rename-collision and two-node loop; consider reusing mailbox_failures.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
+  "assignee": "Mark Atwood",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-16T03:11:30.627150023Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-16T03:11:30.627150023Z"
+  "updated_at": "2026-11-16T05:16:44.379344647Z",
+  "started_at": "2026-11-16T05:15:19.356641Z",
+  "closed_at": "2026-11-16T05:16:44.379344647Z",
+  "close_reason": "tree_conflict on Mailbox updates: alreadyExists / invalidProperties parentId"
 }
