@@ -25,7 +25,9 @@ wire behaviour that a conforming peer can observe.
   &after)` first, rejecting with its `DeferredFailure`s. `with_gate()`
   shares one gate across backends; `deferring()` tells per-object methods
   to leave cross-object checks to commit. With no scope opened, `lock()`
-  never waits. (bd:JMAP-y1yu.4)
+  never waits. `lock()` takes the value before releasing the gate, so
+  an unscoped write cannot land inside a scope that opens in between and
+  be lost when it rolls back. (bd:JMAP-y1yu.4)
 
 - **jmap-server**: the dispatcher evaluates draft-ietf-jmap-conditional-02
   on every Foo/set. Without `urn:ietf:params:jmap:conditional` in `using`, a

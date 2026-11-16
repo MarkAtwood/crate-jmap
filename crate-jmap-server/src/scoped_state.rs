@@ -182,10 +182,13 @@ impl<T> ScopedState<T> {
     /// taken anyway: the value is plain data.
     pub async fn lock(&self) -> ScopedGuard<'_, T> {
         if self.gate.owned_by_current().is_none() {
-            // Wait for any open scope to end. Releasing the gate before
-            // taking the value is safe: a scope opening next takes the
-            // value's mutex to snapshot it, so it waits for this guard.
-            drop(self.gate.lock.lock().await);
+            // Wait for any open scope to end, and take the value before
+            // releasing the gate: released first, a scope could open and
+            // snapshot in between, and this guard's writes would then land
+            // inside that scope (and be lost if it rolls back). Taken
+            // first, a scope opening next waits for this guard to snapshot.
+            let _gate = self.gate.lock.lock().await;
+            return self.lock_unscoped();
         }
         self.lock_unscoped()
     }
@@ -409,6 +412,42 @@ mod tests {
         assert_eq!(after.names["a"], "one");
         assert_eq!(after.names["b"], "outside");
         assert_eq!(after.log, ["a", "b"]);
+    }
+
+    /// Unscoped writes racing scopes that roll back are never lost: an
+    /// unscoped `lock` holds the gate until it has the value, so no scope
+    /// can snapshot between the two and restore over the write.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn unscoped_writes_racing_rolled_back_scopes_are_kept() {
+        const WRITES: u64 = 2000;
+        let state = ScopedState::new(0_u64);
+        let writers: Vec<_> = (0..2)
+            .map(|_| {
+                let state = state.clone();
+                tokio::spawn(async move {
+                    for _ in 0..WRITES {
+                        *state.lock().await += 1;
+                        tokio::task::yield_now().await;
+                    }
+                })
+            })
+            .collect();
+        let scoper = {
+            let state = state.clone();
+            tokio::spawn(async move {
+                for _ in 0..WRITES {
+                    let req = request(SetMode::Atomic);
+                    let scope = state.open(req, |_: &u64, _: &u64| Vec::new()).await;
+                    in_set_scope(req.scope, async { *state.lock().await += 1_000_000 }).await;
+                    scope.rollback().await;
+                }
+            })
+        };
+        for w in writers {
+            w.await.unwrap();
+        }
+        scoper.await.unwrap();
+        assert_eq!(*state.lock_unscoped(), 2 * WRITES);
     }
 
     #[test]
