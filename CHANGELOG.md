@@ -510,6 +510,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-calendars-server** (memory): `onSuccessSetIsDefault` now changes
+  the stored objects: the new default reads `isDefault: true` and the
+  previous one `false` in `Calendar/get` and `ParticipantIdentity/get`, the
+  state moves, and `/changes` lists both. It used to move only an internal
+  pointer, so the response said the default changed but nothing did.
+  (bd:JMAP-4sgi)
+
 - **jmap-filenode-server**: FileNode/set checks that a `parentId` names a
   node that exists and permits children (a Directory), on create and on
   update; otherwise `invalidProperties` naming `parentId`

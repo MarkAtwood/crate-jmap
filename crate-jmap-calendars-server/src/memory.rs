@@ -350,6 +350,43 @@ impl Inner {
             .or_default()
     }
 
+    /// Make `new` the default `type_name` object of `account_id` in the
+    /// stored objects too: `isDefault` true on it and false on `previous`,
+    /// recorded as one update so `/changes` and the state string see the
+    /// swap (draft-ietf-jmap-calendars-34 §3.3, §4.3). Nothing when `new`
+    /// already was the default.
+    fn move_default(
+        &mut self,
+        type_name: &'static str,
+        account_id: &str,
+        new: &Id,
+        previous: Option<&Id>,
+    ) {
+        if previous == Some(new) {
+            return;
+        }
+        let mut changed = Vec::new();
+        let objects = self.objects_mut(type_name, account_id);
+        for (id, value) in [(new, true)]
+            .into_iter()
+            .chain(previous.map(|p| (p, false)))
+        {
+            if let Some(serde_json::Value::Object(o)) = objects.get_mut(id) {
+                o.insert("isDefault".to_owned(), serde_json::Value::Bool(value));
+                changed.push(id.clone());
+            }
+        }
+        let new_state = self.bump_state(type_name, account_id);
+        self.change_log_mut(type_name, account_id)
+            .push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: changed,
+                destroyed: vec![],
+                updated_props: Some(BTreeSet::from(["isDefault".to_owned()])),
+            });
+    }
+
     fn aux_mut(&mut self, account_id: &str) -> &mut AccountAux {
         self.aux.entry(account_id.to_owned()).or_default()
     }
@@ -1812,6 +1849,12 @@ impl CalendarsBackend for MemoryBackend {
             .aux_ref(account_id.as_ref())
             .and_then(|a| a.default_calendar.clone());
         inner.aux_mut(account_id.as_ref()).default_calendar = Some(calendar_id.clone());
+        inner.move_default(
+            "Calendar",
+            account_id.as_ref(),
+            calendar_id,
+            previous.as_ref(),
+        );
 
         Ok(SetDefaultResult::new(Some(calendar_id.clone()), previous))
     }
@@ -1840,6 +1883,12 @@ impl CalendarsBackend for MemoryBackend {
         inner
             .aux_mut(account_id.as_ref())
             .default_participant_identity = Some(identity_id.clone());
+        inner.move_default(
+            "ParticipantIdentity",
+            account_id.as_ref(),
+            identity_id,
+            previous.as_ref(),
+        );
 
         Ok(SetDefaultResult::new(Some(identity_id.clone()), previous))
     }
