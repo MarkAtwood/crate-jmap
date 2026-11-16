@@ -11,6 +11,12 @@ keywords = ["jmap", "rfc8620", "server", "dispatcher"]
 categories = ["network-programming", "web-programming::http-server"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
+[features]
+# ScopedState and ScopeGate: the gated, snapshotting state the in-repo
+# memory backends use to implement ConditionalBackend::begin_set
+# (docs/design/conditional.md §7). Demonstration quality.
+scoped-state = ["tokio/sync"]
+
 [dependencies]
 jmap-types = { workspace = true }
 jmap-metadata-types = { workspace = true }

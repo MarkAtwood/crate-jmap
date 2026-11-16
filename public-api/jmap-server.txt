@@ -385,6 +385,35 @@ impl core::fmt::Debug for jmap_server::RequestError
 pub fn jmap_server::RequestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_server::RequestError
 pub fn jmap_server::RequestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_server::ScopeGate
+impl jmap_server::ScopeGate
+pub fn jmap_server::ScopeGate::new() -> alloc::sync::Arc<Self>
+impl core::fmt::Debug for jmap_server::ScopeGate
+pub fn jmap_server::ScopeGate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_server::ScopedGuard<'a, T>(_)
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_server::ScopedGuard<'_, T>
+pub fn jmap_server::ScopedGuard<'_, T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> core::ops::deref::Deref for jmap_server::ScopedGuard<'_, T>
+pub type jmap_server::ScopedGuard<'_, T>::Target = T
+pub fn jmap_server::ScopedGuard<'_, T>::deref(&self) -> &T
+impl<T> core::ops::deref::DerefMut for jmap_server::ScopedGuard<'_, T>
+pub fn jmap_server::ScopedGuard<'_, T>::deref_mut(&mut self) -> &mut T
+pub struct jmap_server::ScopedState<T>
+impl<T: core::clone::Clone + core::marker::Send + 'static> jmap_server::ScopedState<T>
+pub async fn jmap_server::ScopedState<T>::open<V>(&self, jmap_server::SetScopeRequest<'_>, V) -> alloc::boxed::Box<dyn jmap_server::SetScope> where V: core::ops::function::FnOnce(&T, &T) -> alloc::vec::Vec<jmap_server::DeferredFailure> + core::marker::Send + 'static
+impl<T> jmap_server::ScopedState<T>
+pub fn jmap_server::ScopedState<T>::deferring(&self) -> bool
+pub fn jmap_server::ScopedState<T>::gate(&self) -> &alloc::sync::Arc<jmap_server::ScopeGate>
+pub async fn jmap_server::ScopedState<T>::lock(&self) -> jmap_server::ScopedGuard<'_, T>
+pub fn jmap_server::ScopedState<T>::lock_unscoped(&self) -> jmap_server::ScopedGuard<'_, T>
+pub fn jmap_server::ScopedState<T>::new(T) -> Self
+pub fn jmap_server::ScopedState<T>::with_gate(T, alloc::sync::Arc<jmap_server::ScopeGate>) -> Self
+impl<T: core::default::Default> core::default::Default for jmap_server::ScopedState<T>
+pub fn jmap_server::ScopedState<T>::default() -> Self
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_server::ScopedState<T>
+pub fn jmap_server::ScopedState<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> core::clone::Clone for jmap_server::ScopedState<T>
+pub fn jmap_server::ScopedState<T>::clone(&self) -> Self
 pub struct jmap_server::SetScopeId(_)
 impl jmap_server::SetScopeId
 pub fn jmap_server::SetScopeId::next() -> Self

@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: feature `scoped-state` adds `ScopedState<T>`,
+  `ScopeGate` and `ScopedGuard`, the demonstration-quality state the
+  in-repo memory backends will use for `ConditionalBackend::begin_set`
+  (docs/design/conditional.md §7). `lock().await` waits while another
+  task's scope holds the gate (reads too) and passes for the scope's own
+  task; `lock_unscoped()` serves sync and seeding code. `open(request,
+  validate)` takes the gate and, for `Atomic`, snapshots the value:
+  rollback or drop restores it, and commit runs `validate(&before,
+  &after)` first, rejecting with its `DeferredFailure`s. `with_gate()`
+  shares one gate across backends; `deferring()` tells per-object methods
+  to leave cross-object checks to commit. With no scope opened, `lock()`
+  never waits. (bd:JMAP-y1yu.4)
+
 - **jmap-server**: the dispatcher evaluates draft-ietf-jmap-conditional-02
   on every Foo/set. Without `urn:ietf:params:jmap:conditional` in `using`, a
   non-default `atomic` or `ifUnchangedBy` is `invalidArguments` and the

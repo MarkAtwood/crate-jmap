@@ -74,6 +74,8 @@ pub use i18n::{
 mod parse;
 mod push;
 mod response;
+#[cfg(feature = "scoped-state")]
+mod scoped_state;
 
 pub use parse::{check_known_capabilities, parse_request, parse_request_bytes, resolve_args};
 pub use push::{
@@ -81,6 +83,8 @@ pub use push::{
     register_push_subscription_handlers, state_change_for,
 };
 pub use response::{RequestError, error_invocation, error_status, problem_response, request_error};
+#[cfg(feature = "scoped-state")]
+pub use scoped_state::{ScopeGate, ScopedGuard, ScopedState};
 
 use std::{
     collections::{BTreeMap, BTreeSet, HashMap},
