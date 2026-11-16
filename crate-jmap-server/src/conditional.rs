@@ -881,23 +881,8 @@ async fn check_preconditions<C: Clone + Send + Sync + 'static>(
         .collect();
     let object = |id: &Option<Id>| id.as_ref().and_then(|id| list.get(id.as_ref()).copied());
 
-    // Rule 4: every pointer names a property of the type. Foo/get's own
-    // objects admit open-ended names (`header:*`, `digest:*`).
-    for (key, _, pre) in &resolved {
-        for pointer in pre.iter().flat_map(Map::keys) {
-            let name = top_level(pointer);
-            let known =
-                prepared.support.is_property(&name) || list.values().any(|o| o.contains_key(&name));
-            if !known {
-                return Err(invalid(format!(
-                    "ifUnchangedBy/{key}: {name} is not a {data_type} property"
-                )));
-            }
-        }
-    }
-
-    // §9.1: readability before any value, so `forbidden` never depends on
-    // one. Invisible objects are left to step 8 (stateMismatch).
+    // §9.1 needs the properties hidden from this caller; read them first,
+    // because rule 4 counts them as known.
     let visible: Vec<Id> = resolved
         .iter()
         .filter(|(_, id, pre)| pre.is_some() && object(id).is_some())
@@ -912,6 +897,32 @@ async fn check_preconditions<C: Clone + Send + Sync + 'static>(
             .hidden_properties(&cx.caller, account_id, data_type, &visible)
             .await?
     };
+
+    // Rule 4: every pointer names a property of the type. Foo/get's own
+    // objects admit open-ended names (`header:*`, `digest:*`), and so do
+    // the names hidden from this caller: an extension property Foo/get
+    // leaves out for them (a Task `chatId` the caller may not view) is
+    // still a property, which §9.1 answers with `forbidden`.
+    let marked = |name: &str| {
+        got.unreadable.values().any(|s| s.contains(name))
+            || hidden.values().any(|v| v.iter().any(|h| h == name))
+    };
+    for (key, _, pre) in &resolved {
+        for pointer in pre.iter().flat_map(Map::keys) {
+            let name = top_level(pointer);
+            let known = prepared.support.is_property(&name)
+                || list.values().any(|o| o.contains_key(&name))
+                || marked(&name);
+            if !known {
+                return Err(invalid(format!(
+                    "ifUnchangedBy/{key}: {name} is not a {data_type} property"
+                )));
+            }
+        }
+    }
+
+    // §9.1: readability before any value, so `forbidden` never depends on
+    // one. Invisible objects are left to step 8 (stateMismatch).
     for (key, id, pre) in &resolved {
         let (Some(id), Some(patch)) = (id, pre) else {
             continue;

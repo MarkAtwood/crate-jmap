@@ -652,6 +652,29 @@ async fn invisible_unreadable_and_guarded() {
     assert_eq!(r.1["type"], "invalidArguments");
     store.lock().unwrap().hidden.clear();
 
+    // An extension property Probe/get leaves out for this caller, named in
+    // no property list, is still a property: hidden, it is forbidden, not
+    // an unknown name (a Task `chatId` the caller may not view).
+    store
+        .lock()
+        .unwrap()
+        .hidden
+        .insert(Id::from("p1"), vec!["secret".to_owned()]);
+    let r = set(&d, true, json!({"ifUnchangedBy": {"p1": {"secret": "x"}}})).await;
+    assert_error(&r, json!({"type": "forbidden"}));
+    store.lock().unwrap().hidden.clear();
+    store
+        .lock()
+        .unwrap()
+        .unreadable
+        .insert(Id::from("p1"), BTreeSet::from(["secret".to_owned()]));
+    let r = set(&d, true, json!({"ifUnchangedBy": {"p1": {"secret/x": 1}}})).await;
+    assert_error(&r, json!({"type": "forbidden"}));
+    store.lock().unwrap().unreadable.clear();
+    // Unmarked, the same name is unknown.
+    let r = set(&d, true, json!({"ifUnchangedBy": {"p1": {"secret": "x"}}})).await;
+    assert_eq!(r.1["type"], "invalidArguments");
+
     // A guard refusing Probe/get refuses the preconditions.
     let mut guarded = dispatcher(&store, false);
     guarded.set_guard(|method, _| {

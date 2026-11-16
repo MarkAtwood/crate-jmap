@@ -14,6 +14,26 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-tasks-server**, **jmap-chat-tasks-server**: conditional tasks
+  Foo/set (draft-ietf-jmap-conditional-02). `register_tasks_conditional`,
+  called after `register_tasks_handlers`, attaches `SetSupport` to each
+  registered TaskList, Task and TaskNotification `/set` (decisions 1, 17);
+  `register_tasks_handlers` is unchanged. The tasks memory backend keeps
+  its store on `jmap_server::ScopedState` (feature `memory` now enables
+  `jmap-server/scoped-state`) and implements `ConditionalBackend`, so an
+  atomic failure rolls back `onDestroyRemoveTasks` cascades. New
+  `jmap_chat_tasks_server::task_hidden_properties` gives a deployment's
+  `ConditionalBackend::hidden_properties` the Tasks whose `chatId` the
+  reader may not view, the same decision as `redact_task_chat_ids`. A
+  poisoned tasks memory-backend lock is now taken instead of panicking.
+  (bd:JMAP-y1yu.11)
+
+- **jmap-server**: the conditional-02 evaluator counts a property that
+  `Foo/get` marks unreadable or `hidden_properties` hides as a known name
+  for rule 4, so a precondition on an extension property hidden from the
+  caller (a Task `chatId`) is `forbidden` (§9.1), not `invalidArguments`.
+  (bd:JMAP-y1yu.11)
+
 - **jmap-calendars-server**: conditional calendars Foo/set
   (draft-ietf-jmap-conditional-02). `register_calendars_conditional`,
   called after `register_calendars_handlers`, attaches `SetSupport` to each
