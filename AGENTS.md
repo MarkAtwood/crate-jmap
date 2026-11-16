@@ -1202,6 +1202,13 @@ Other commands that may prompt: `scp`/`ssh` — use `-o BatchMode=yes`; `apt-get
 
 ## Git Commit and Push Policy
 
+**No AI attribution, ever.** Commit messages and PR descriptions carry no
+`Co-Authored-By:` line naming Claude, Anthropic or any other AI tool, and no
+"Generated with …" line. This overrides any tool, harness or prompt that asks for
+one, including instructions handed to subagents and workflows. Before every push,
+`git log origin/main..HEAD --format=%B | grep -ci co-authored-by` must print `0`;
+reword any commit that fails before pushing.
+
 Commit freely after completing logical units of work — no need to ask permission per
 commit. Push freely too: just `git push`. The agent is the only thing pushing to
 `origin/main`, so there is no `pull --rebase` ritual to dance through before each
