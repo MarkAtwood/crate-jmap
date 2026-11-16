@@ -14,6 +14,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-server**: conditional mail Foo/set
+  (draft-ietf-jmap-conditional-02). `register_mail_conditional`, called
+  after the registration fns, attaches `SetSupport` to each registered
+  Mailbox, Email, EmailSubmission, Identity, VacationResponse and
+  SieveScript `/set` and skips the rest (decisions 1, 17); the
+  `register_*_handlers` fns and the public `handle_*` signatures are
+  unchanged. Under `atomic` the registered Mailbox/set and SieveScript/set
+  leave their role, name and script-count checks to the backend's commit,
+  so swaps through a temporary conflict succeed. The memory backend keeps
+  its store on `jmap_server::ScopedState` (feature `memory` now enables
+  `jmap-server/scoped-state`) and implements `ConditionalBackend`; its
+  commit rejects duplicate Mailbox names under a parent or roles, Mailbox
+  parent loops, duplicate script names, a second active script and scripts
+  over the per-account cap, as `atomicFailure`. A poisoned memory-backend
+  lock is now taken instead of panicking. (bd:JMAP-y1yu.7)
+
 - **jmap-blob-server**, **jmap-blob-types**: conditional Blob/set
   (draft-ietf-jmap-conditional-02). `register_blob_conditional`, called
   after `register_blob_handlers`, attaches `SetSupport` for `BlobObject` to

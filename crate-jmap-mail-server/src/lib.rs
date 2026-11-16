@@ -52,7 +52,11 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_mail_types::{Email, EmailSubmission, Identity, Mailbox, VacationResponse};
+use jmap_server::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, JmapHandler,
+    RegistrationError, SetSupport,
+};
 
 mod backend;
 mod email;
@@ -201,8 +205,8 @@ where
     reg!(
         "Mailbox/set",
         backend,
-        |b, _ci, a, ctx, created_ids, using| {
-            handle_mailbox_set(&*b, &ctx, &created_ids, a, &using).await
+        |b, _ci, a, ctx, created_ids, using, atomic| {
+            mailbox::mailbox_set(&*b, &ctx, &created_ids, a, &using, atomic).await
         }
     );
 
@@ -388,7 +392,7 @@ where
     B: MailBackend + sieve::SieveBackend + 'static,
 {
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
@@ -397,6 +401,7 @@ where
                         call_id: $ci,
                         args: $a,
                         caller: $ctx,
+                        $($field,)*
                         ..
                     } = cx;
                     Box::pin(async move { $body }) as HandlerFuture
@@ -409,8 +414,8 @@ where
     reg!("SieveScript/get", backend, |b, _ci, a, ctx| {
         sieve::handle_sieve_get(&*b, &ctx, a).await
     });
-    reg!("SieveScript/set", backend, |b, _ci, a, ctx| {
-        sieve::handle_sieve_set(&*b, &ctx, a).await
+    reg!("SieveScript/set", backend, |b, _ci, a, ctx, atomic| {
+        sieve::sieve_set(&*b, &ctx, a, atomic).await
     });
     reg!("SieveScript/query", backend, |b, _ci, a, ctx| {
         sieve::handle_sieve_query(&*b, &ctx, a).await
@@ -418,4 +423,77 @@ where
     reg!("SieveScript/validate", backend, |b, _ci, a, ctx| {
         sieve::handle_sieve_validate(&*b, &ctx, a).await
     });
+}
+
+// ---------------------------------------------------------------------------
+// register_mail_conditional — draft-ietf-jmap-conditional-02 opt-in
+// ---------------------------------------------------------------------------
+
+/// Opt this crate's registered Foo/set methods in to
+/// draft-ietf-jmap-conditional-02 (`ifUnchangedBy` and `atomic`;
+/// docs/design/DECISIONS.md decisions 1 and 17).
+///
+/// Call after [`register_mail_handlers`] (and `register_sieve_handlers`,
+/// if used). Attaches [`SetSupport`] to each of `Mailbox/set`, `Email/set`,
+/// `EmailSubmission/set`, `Identity/set`, `VacationResponse/set` and
+/// `SieveScript/set` that is registered, and skips the rest, so one call
+/// covers every registration combination. No handler is re-registered.
+///
+/// The dispatcher then reads preconditions through each type's `/get` and
+/// runs each call in the scope `backend` opens
+/// ([`ConditionalBackend::begin_set`]). Under `atomic`, the `Mailbox/set`
+/// and `SieveScript/set` handlers registered here leave their
+/// cross-object checks (role and name uniqueness, script count) to that
+/// scope's commit, which must check them against the final state; the
+/// memory backend does. An `EmailSubmission/set`'s implicit `Email/set`
+/// (`onSuccessUpdateEmail`, `onSuccessDestroyEmail`) runs inside the same
+/// scope.
+///
+/// Advertise `urn:ietf:params:jmap:conditional` only once
+/// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
+pub fn register_mail_conditional<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
+where
+    B: MailBackend + ConditionalBackend + 'static,
+{
+    fn attach<C: Clone + Send + 'static>(
+        dispatcher: &mut Dispatcher<C>,
+        method: &str,
+        support: SetSupport<C>,
+    ) {
+        match dispatcher.attach_set_support(method, support) {
+            Ok(()) | Err(RegistrationError::NotRegistered(_)) => {}
+            Err(e) => unreachable!("{method} pairs with its own data type: {e}"),
+        }
+    }
+    attach(
+        dispatcher,
+        "Mailbox/set",
+        SetSupport::new::<Mailbox, B>(Arc::clone(&backend)),
+    );
+    attach(
+        dispatcher,
+        "Email/set",
+        SetSupport::new::<Email, B>(Arc::clone(&backend)),
+    );
+    attach(
+        dispatcher,
+        "EmailSubmission/set",
+        SetSupport::new::<EmailSubmission, B>(Arc::clone(&backend)),
+    );
+    attach(
+        dispatcher,
+        "Identity/set",
+        SetSupport::new::<Identity, B>(Arc::clone(&backend)),
+    );
+    attach(
+        dispatcher,
+        "VacationResponse/set",
+        SetSupport::new::<VacationResponse, B>(Arc::clone(&backend)),
+    );
+    #[cfg(feature = "sieve")]
+    attach(
+        dispatcher,
+        "SieveScript/set",
+        SetSupport::new::<jmap_mail_types::SieveScript, B>(Arc::clone(&backend)),
+    );
 }

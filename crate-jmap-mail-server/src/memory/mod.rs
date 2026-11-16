@@ -14,7 +14,7 @@
 //!    with one line of code, without standing up a database.
 //!
 //! It is **not** suitable for production: all state is held in `HashMap`s
-//! behind a `std::sync::Mutex`, persistence is not implemented, and a number
+//! behind one [`jmap_server::ScopedState`], persistence is not implemented, and a number
 //! of RFC 8621 edge cases are simplified (see source comments).
 //!
 //! # Feature flag and API stability
@@ -51,19 +51,20 @@
 //!
 //! # Concurrency
 //!
-//! `std::sync::Mutex` is used for simplicity. The `await_holding_lock`
-//! clippy lint is enabled module-wide and enforces that no lock guard
-//! is held across an `.await`. If a future change requires holding a
-//! guard across `.await`, switch to `tokio::sync::Mutex` rather than
-//! disabling the lint.
+//! The store is a [`jmap_server::ScopedState`]: a `std::sync::Mutex` behind
+//! a gate that a draft-ietf-jmap-conditional-02 Foo/set scope holds
+//! (`MemoryBackend`'s `ConditionalBackend` impl). Async backend methods
+//! take `lock().await`, which waits while another task's scope is open;
+//! sync setup and seeding helpers take `lock_unscoped()`. With no scope
+//! open the gate is free. The `await_holding_lock` clippy lint is enabled
+//! module-wide and enforces that no lock guard is held across an
+//! `.await`.
 //!
-//! Every `lock()` in this module ends in a bare `.unwrap()` on purpose.
-//! `Mutex::lock` fails only when another thread panicked while holding the
-//! guard, so the state behind it may be half-updated; that panic is
-//! already a bug in this module, and there is no consistent state to
-//! recover. Panicking again surfaces it instead of serving corrupt data.
-//! The crate's tests never poison the lock. A production backend that must
-//! survive a poisoned lock should implement the trait with its own locking
+//! `ScopedState` takes a poisoned mutex anyway, so a panic while holding
+//! the guard (already a bug in this module) does not panic every later
+//! call; an atomic scope that panicked is rolled back to its snapshot.
+//! The crate's tests never poison the lock. A production backend should
+//! implement the trait with its own locking
 //! rather than copy this pattern.
 //!
 //! # Tracking
@@ -78,7 +79,6 @@
 pub mod seed;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
-use std::sync::{Arc, Mutex};
 
 use crate::MailBackend;
 use jmap_mail_types::{
@@ -100,7 +100,9 @@ use jmap_server::{
     QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
-    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, DeferredFailure, PatchPathError, ScopedState, SetOp,
+    SetScope, SetScopeRequest, apply_patch_object, check_patch_paths, limit_or_max,
+    resolve_query_start,
 };
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
@@ -124,8 +126,9 @@ struct ChangeEntry {
     updated_props: Option<BTreeSet<String>>,
 }
 
-/// Shared inner state, behind Arc<Mutex>.
-#[derive(Default)]
+/// Shared inner state, behind a [`ScopedState`] so a conditional Foo/set
+/// can isolate and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// `type_name` → `account_id` → `id → serialized object`
     objects: HashMap<&'static str, HashMap<String, HashMap<Id, serde_json::Value>>>,
@@ -438,7 +441,7 @@ enum IdFate {
 #[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -451,7 +454,7 @@ pub struct MemoryBackend {
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -502,8 +505,7 @@ impl MemoryBackend {
             "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
         );
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .metadata_info
             .insert(type_name, info);
         self
@@ -511,7 +513,7 @@ impl MemoryBackend {
 
     /// Store a blob so that [`import_email`](MemoryBackend::import_email) can find it.
     pub fn store_blob(&self, blob_id: &Id, bytes: Vec<u8>) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.blobs.insert(blob_id.clone(), bytes);
     }
 
@@ -533,7 +535,7 @@ impl MemoryBackend {
             "register_account: account_id must not be the empty string \
              (RFC 8620 §1.2, bd:JMAP-dx0s)"
         );
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
     }
 
@@ -606,7 +608,7 @@ impl MemoryBackend {
              `id` argument {id:?}"
         );
         let account = account_id.as_ref();
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         if type_name == Email::TYPE_NAME
             && let Some(msg_ids) = value.get("messageId").and_then(serde_json::Value::as_array)
         {
@@ -644,7 +646,7 @@ impl MemoryBackend {
     #[cfg(feature = "sieve")]
     #[doc(hidden)]
     pub fn set_max_sieve_script_bytes(&self, limit: u64) {
-        self.inner.lock().unwrap().max_sieve_script_limit = Some(limit);
+        self.inner.lock_unscoped().max_sieve_script_limit = Some(limit);
     }
 
     /// **Test-only**: set the maximum per-account Sieve script count for
@@ -666,7 +668,7 @@ impl MemoryBackend {
     #[cfg(feature = "sieve")]
     #[doc(hidden)]
     pub fn set_max_sieve_scripts_per_account(&self, limit: usize) {
-        self.inner.lock().unwrap().max_sieve_scripts_limit = Some(limit);
+        self.inner.lock_unscoped().max_sieve_scripts_limit = Some(limit);
     }
 
     /// Reference impl of `Mailbox/query` filter+sort+paginate (RFC 8621 §2.3).
@@ -695,7 +697,7 @@ impl MemoryBackend {
         // draft-atwood-jmap-updates-00 §4.2.2: with `language`, filter and
         // sort on `name` compare the name the `/get` view would show.
         let (mut matching, state_n): (Vec<(Mailbox, String)>, u64) = {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.lock().await;
             let mailboxes: Vec<(Mailbox, String)> = inner
                 .objects_ref("Mailbox", account_id.as_ref())
                 .map(|map| {
@@ -1164,15 +1166,14 @@ impl JmapBackend for MemoryBackend {
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .metadata_info
             .get(O::TYPE_NAME)
             .cloned()
     }
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
@@ -1187,7 +1188,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let store = match inner.objects_ref(O::TYPE_NAME, account_id.as_ref()) {
             Some(s) => s,
             None => return Ok((vec![], ids.map(|s| s.to_vec()).unwrap_or_default())),
@@ -1229,7 +1230,7 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
         Ok(State::from(n.to_string()))
     }
@@ -1262,7 +1263,7 @@ impl JmapBackend for MemoryBackend {
 
         // Snapshot relevant change log entries under a brief lock, then release.
         let (relevant, has_more, new_state) = {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.lock().await;
             let log = inner
                 .change_log
                 .get(O::TYPE_NAME)
@@ -1403,7 +1404,7 @@ impl JmapBackend for MemoryBackend {
         let metadata_info = self
             .inner
             .lock()
-            .unwrap()
+            .await
             .metadata_info
             .get(O::TYPE_NAME)
             .cloned();
@@ -1477,7 +1478,7 @@ impl JmapBackend for MemoryBackend {
 
         // Collect the matching ids, then sort them under the same lock.
         let (all_ids, state_n) = {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.lock().await;
             let mut ids: Vec<Id> = if let Some(ref ef) = email_filter {
                 // Apply email filter: deserialize each stored object and check.
                 inner
@@ -1735,7 +1736,7 @@ impl MailBackend for MemoryBackend {
             BackendSetError::Other(MemoryError::serde("deserialize after create", &e))
         })?;
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account(account_id.as_ref())?;
         if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
             check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
@@ -1786,7 +1787,7 @@ impl MailBackend for MemoryBackend {
         let val = serde_json::to_value(&email)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account(account_id.as_ref())?;
         check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.blobs.insert(blob_id, message);
@@ -1800,7 +1801,7 @@ impl MailBackend for MemoryBackend {
         _account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
-        Ok(self.inner.lock().unwrap().blobs.get(blob_id).cloned())
+        Ok(self.inner.lock().await.blobs.get(blob_id).cloned())
     }
 
     // -----------------------------------------------------------------------
@@ -1829,7 +1830,7 @@ impl MailBackend for MemoryBackend {
             check_patch_paths(patch_map).map_err(invalid_patch)?;
         }
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
         // draft-ietf-jmap-metadata-05 §3.2 rule 1: "If the user cannot read
         // the related object, reject with "notFound"" comes before
@@ -1962,7 +1963,7 @@ impl MailBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
         store.remove(id).ok_or_else(|| {
@@ -1995,7 +1996,7 @@ impl MailBackend for MemoryBackend {
         received_at: Option<&UTCDate>,
     ) -> Result<(Id, Email), BackendSetError<Self::Error>> {
         let bytes = {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.lock().await;
             inner.blobs.get(blob_id).cloned().ok_or_else(|| {
                 BackendSetError::SetError(Box::new(SetError::new(SetErrorType::BlobNotFound)))
             })?
@@ -2026,7 +2027,7 @@ impl MailBackend for MemoryBackend {
         // would allow two concurrent imports of the same Message-ID to both pass
         // the duplicate check before either inserts, resulting in duplicates.
         let (email, email_id) = {
-            let mut inner = self.inner.lock().unwrap();
+            let mut inner = self.inner.lock().await;
             inner.require_account(account_id.as_ref())?;
 
             // Check for duplicate Message-ID (RFC 8621 §4.8).
@@ -2083,7 +2084,7 @@ impl MailBackend for MemoryBackend {
         if message_ids.is_empty() {
             return Ok(None);
         }
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let store = match inner.objects_ref("Email", account_id.as_ref()) {
             Some(s) => s,
             None => return Ok(None),
@@ -2113,7 +2114,7 @@ impl MailBackend for MemoryBackend {
         _account_id: &Id,
         blob_id: &Id,
     ) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(inner.blobs.contains_key(blob_id))
     }
 
@@ -2124,7 +2125,7 @@ impl MailBackend for MemoryBackend {
         blob_id: &Id,
     ) -> Result<Email, Self::Error> {
         let bytes = {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.lock().await;
             inner
                 .blobs
                 .get(blob_id)
@@ -2138,7 +2139,7 @@ impl MailBackend for MemoryBackend {
         let email_id = Id::from(format!("parse-{blob_id}"));
         // Assign a thread id based on account state but do not store the thread.
         let thread_id = {
-            let inner = self.inner.lock().unwrap();
+            let inner = self.inner.lock().await;
             assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references)
         };
 
@@ -2190,7 +2191,7 @@ impl MailBackend for MemoryBackend {
             BackendSetError::Other(MemoryError::serde("deserialize copied object", &e))
         })?;
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account(to_account_id.as_ref())?;
         if O::TYPE_NAME == Email::TYPE_NAME {
             check_metadata_create(&inner, O::TYPE_NAME, to_account_id.as_ref(), create, &val)?;
@@ -2232,7 +2233,7 @@ impl MailBackend for MemoryBackend {
         let subject_needle = filter.and_then(|f| f.subject.as_deref());
         let body_needle = filter.and_then(|f| f.body.as_deref());
 
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let store = inner.objects_ref("Email", account_id.as_ref());
 
         let mut snippets = Vec::new();
@@ -2278,7 +2279,7 @@ impl MailBackend for MemoryBackend {
         account_id: &Id,
         email_ids: &[Id],
     ) -> Vec<(Id, Option<BackendSetError<Self::Error>>)> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         let account_str = account_id.to_string();
         let mut results = Vec::with_capacity(email_ids.len());
         for id in email_ids {
@@ -3179,7 +3180,7 @@ impl MdnBackend for MemoryBackend {
             // Step 6: store the blob.
             let blob_id = jmap_types::Id::from(uuid::Uuid::new_v4().to_string());
             {
-                let mut inner = self.inner.lock().unwrap();
+                let mut inner = self.inner.lock().await;
                 inner.blobs.insert(blob_id, mdn_blob.into_bytes());
             }
 
@@ -3305,14 +3306,17 @@ impl MdnBackend for MemoryBackend {
                     };
 
                     // Correlate original_message_id → for_email_id via message_id_index.
-                    let for_email_id = original_message_id.as_ref().and_then(|msg_id| {
-                        let inner = self.inner.lock().unwrap();
-                        inner
-                            .message_id_index
-                            .get(account_id.as_ref())
-                            .and_then(|idx| idx.get(msg_id))
-                            .cloned()
-                    });
+                    let for_email_id = match original_message_id.as_ref() {
+                        Some(msg_id) => {
+                            let inner = self.inner.lock().await;
+                            inner
+                                .message_id_index
+                                .get(account_id.as_ref())
+                                .and_then(|idx| idx.get(msg_id))
+                                .cloned()
+                        }
+                        None => None,
+                    };
 
                     // Build the Mdn via JSON round-trip (Mdn is #[non_exhaustive]
                     // and cannot be constructed with struct literal syntax outside
@@ -3433,7 +3437,7 @@ impl SieveBackend for MemoryBackend {
         _caller: &(),
         _account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<u64>, Self::Error>> + Send {
-        let limit = self.inner.lock().unwrap().max_sieve_script_limit;
+        let limit = self.inner.lock_unscoped().max_sieve_script_limit;
         async move { Ok(limit) }
     }
 
@@ -3442,7 +3446,7 @@ impl SieveBackend for MemoryBackend {
         _caller: &(),
         _account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<usize, Self::Error>> + Send {
-        let limit = self.inner.lock().unwrap().max_sieve_scripts_limit;
+        let limit = self.inner.lock_unscoped().max_sieve_scripts_limit;
         async move { Ok(limit.unwrap_or(100)) }
     }
 
@@ -3463,6 +3467,154 @@ impl SieveBackend for MemoryBackend {
         };
         async move { Ok(verdict) }
     }
+}
+
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional Foo/set (bd JMAP-y1yu.7): the whole store is one
+/// [`ScopedState`], so a scope isolates every type in every account, and
+/// an atomic rollback restores objects, state strings, change logs and the
+/// side tables together. Commit checks the cross-object constraints the
+/// handlers leave to it under `atomic` against the final state
+/// (`final_state_failures`). Nothing here has an external effect to
+/// defer: EmailSubmission/set only records submissions.
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &(),
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self.inner.open(request, final_state_failures).await)
+    }
+}
+
+/// The changes an atomic scope made that break a cross-object constraint
+/// in the state it would commit (conditional-02 §4.2):
+///
+/// - Mailbox (RFC 8621 §2): two mailboxes with one name under one parent
+///   (`alreadyExists`), two with one role, or a `parentId` chain that
+///   loops (`invalidProperties`);
+/// - SieveScript (RFC 9661 §2): two scripts with one name
+///   (`alreadyExists`), more than one active script
+///   (`invalidProperties`), or more scripts than the per-account cap
+///   (`overQuota`, on the creates).
+///
+/// Only objects the scope created or changed are reported, at most once
+/// each.
+fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
+    let mut failures = Vec::new();
+    for (account, mailboxes) in after.objects.get(Mailbox::TYPE_NAME).into_iter().flatten() {
+        let old = before.objects_ref(Mailbox::TYPE_NAME, account);
+        failures.extend(mailbox_failures(old, mailboxes));
+    }
+    #[cfg(feature = "sieve")]
+    {
+        let cap = after.max_sieve_scripts_limit.unwrap_or(100);
+        let sieve = jmap_mail_types::SieveScript::TYPE_NAME;
+        for (account, scripts) in after.objects.get(sieve).into_iter().flatten() {
+            let old = before.objects_ref(sieve, account);
+            failures.extend(sieve_failures(old, scripts, cap));
+        }
+    }
+    failures
+}
+
+type Objects = HashMap<Id, serde_json::Value>;
+
+/// The objects of `after` that `before` lacks or holds differently, as
+/// the change that made them.
+fn changed<'a>(
+    before: Option<&'a Objects>,
+    after: &'a Objects,
+) -> impl Iterator<Item = (SetOp, &'a Id, &'a serde_json::Value)> {
+    after
+        .iter()
+        .filter_map(move |(id, obj)| match before.and_then(|b| b.get(id)) {
+            None => Some((SetOp::Create(id.clone()), id, obj)),
+            Some(old) if old != obj => Some((SetOp::Update(id.clone()), id, obj)),
+            Some(_) => None,
+        })
+}
+
+fn str_prop<'a>(obj: &'a serde_json::Value, name: &str) -> Option<&'a str> {
+    obj.get(name).and_then(serde_json::Value::as_str)
+}
+
+fn invalid_properties(property: &str) -> SetError {
+    SetError::new(SetErrorType::InvalidProperties).with_properties([property])
+}
+
+fn mailbox_failures(before: Option<&Objects>, after: &Objects) -> Vec<DeferredFailure> {
+    changed(before, after)
+        .filter_map(|(op, id, m)| {
+            let others = || after.iter().filter(|(other, _)| *other != id);
+            let (name, parent) = (str_prop(m, "name"), str_prop(m, "parentId"));
+            let error = if others()
+                .any(|(_, o)| str_prop(o, "name") == name && str_prop(o, "parentId") == parent)
+            {
+                SetError::new(SetErrorType::AlreadyExists)
+            } else if let Some(role) = str_prop(m, "role")
+                && others().any(|(_, o)| str_prop(o, "role") == Some(role))
+            {
+                invalid_properties("role")
+            } else if parent_chain_loops(after, id) {
+                invalid_properties("parentId")
+            } else {
+                return None;
+            };
+            Some(DeferredFailure::new(op, error))
+        })
+        .collect()
+}
+
+/// Whether following `parentId` from `start` comes back to `start`.
+fn parent_chain_loops(mailboxes: &Objects, start: &Id) -> bool {
+    let mut at = start;
+    // A chain without a loop through `start` ends within `len` steps.
+    for _ in 0..mailboxes.len() {
+        let Some(parent) = mailboxes
+            .get(at)
+            .and_then(|m| str_prop(m, "parentId"))
+            .and_then(|p| mailboxes.get_key_value(p))
+        else {
+            return false;
+        };
+        if parent.0 == start {
+            return true;
+        }
+        at = parent.0;
+    }
+    false
+}
+
+#[cfg(feature = "sieve")]
+fn sieve_failures(before: Option<&Objects>, after: &Objects, cap: usize) -> Vec<DeferredFailure> {
+    let active = after
+        .values()
+        .filter(|s| s.get("isActive") == Some(&serde_json::Value::Bool(true)))
+        .count();
+    let over_cap = after.len() > cap;
+    changed(before, after)
+        .filter_map(|(op, id, s)| {
+            let name = str_prop(s, "name");
+            let error = if name.is_some()
+                && after
+                    .iter()
+                    .any(|(other, o)| other != id && str_prop(o, "name") == name)
+            {
+                SetError::new(SetErrorType::AlreadyExists)
+            } else if active > 1 && s.get("isActive") == Some(&serde_json::Value::Bool(true)) {
+                invalid_properties("isActive")
+            } else if over_cap && matches!(op, SetOp::Create(_)) {
+                SetError::new(SetErrorType::OverQuota)
+            } else {
+                return None;
+            };
+            Some(DeferredFailure::new(op, error))
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -3531,8 +3683,7 @@ mod tests {
         let stored = serde_json::json!({ "id": "e1", "mailboxIds": { "m1": true } });
         backend
             .inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .objects_mut(Email::TYPE_NAME, account.as_ref())
             .insert(id.clone(), stored.clone());
 
@@ -3552,8 +3703,7 @@ mod tests {
         );
         let after = backend
             .inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .objects_mut(Email::TYPE_NAME, account.as_ref())
             .get(&id)
             .cloned();
@@ -3644,7 +3794,7 @@ mod tests {
             "subject": "Out of office"
         });
         let state_before = {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             inner
                 .objects_mut(VacationResponse::TYPE_NAME, account.as_ref())
                 .insert(Id::from("singleton"), stored.clone());
@@ -3661,7 +3811,7 @@ mod tests {
         assert_eq!(id.as_ref(), "singleton");
         assert!(obj.is_enabled);
         assert_eq!(obj.subject.as_deref(), Some("Out of office"));
-        let mut inner = backend.inner.lock().unwrap();
+        let mut inner = backend.inner.lock_unscoped();
         assert_eq!(
             inner.current_state(VacationResponse::TYPE_NAME, account.as_ref()),
             state_before
@@ -3766,16 +3916,20 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
+    use jmap_types::Id;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        a.register_account(&Id::from("acc"));
+        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        assert!(known(&clone), "a clone sees the original's writes");
+        assert!(!known(&fresh), "a fresh backend does not");
     }
 }
 
@@ -3960,7 +4114,7 @@ mod email_sort_tests {
             }),
         ];
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             let map = inner.objects_mut(Email::TYPE_NAME, account.as_ref());
             for e in emails {
                 map.insert(Id::from(e["id"].as_str().unwrap()), e);

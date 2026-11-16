@@ -373,14 +373,16 @@ reference impl.
 
 ### Registration
 
-This crate exposes three entry points; each is independent and may be called
-in any order on the same dispatcher:
+This crate exposes three registration entry points, each independent and
+callable in any order on the same dispatcher, plus the conditional opt-in
+(below), which runs after them:
 
 | Function | Cargo feature | Methods registered | Backend trait |
 |---|---|---|---|
 | `register_mail_handlers` | always available | 26 RFC 8621 methods (see [Registered methods](#registered-methods)) | `MailBackend` |
 | `register_mdn_handlers` | `mdn` (RFC 9007) | `MDN/send`, `MDN/parse` | `MailBackend + MdnBackend` |
 | `register_sieve_handlers` | `sieve` (RFC 9661) | `SieveScript/get`, `set`, `query`, `validate` | `MailBackend + SieveBackend` |
+| `register_mail_conditional` | always available | none; opts the registered `/set` methods in to conditional-02 | `MailBackend + ConditionalBackend` |
 
 All three use `ClosureHandler` (provided by `jmap-server`) to wrap each
 handler function and `Arc<B>` into a `JmapHandler<B::CallerCtx>` and register it
@@ -400,6 +402,33 @@ constants are re-exported from `jmap_mail_types`:
 - `JMAP_MDN_URI = "urn:ietf:params:jmap:mdn"` (when `mdn` is enabled)
 - `JMAP_SIEVE_SCRIPTS_URI = "urn:ietf:params:jmap:sieve"` (when `sieve` is
   enabled)
+
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_mail_conditional(dispatcher, backend)`, called after the
+registration fns, attaches `SetSupport` to each registered mail `/set`
+(`Mailbox`, `Email`, `EmailSubmission`, `Identity`, `VacationResponse`, and
+`SieveScript` when `register_sieve_handlers` ran) and skips the rest; it
+re-registers nothing, and a deployment that never calls it is unchanged
+(docs/design/DECISIONS.md decisions 1 and 17). Call it again after
+registering more handlers. Advertise `urn:ietf:params:jmap:conditional`
+only when `Dispatcher::conditional_ready()` is true.
+
+The dispatcher evaluates `ifUnchangedBy` through each type's `/get` and
+runs the call inside the backend's `ConditionalBackend::begin_set` scope.
+Under `atomic`, the `Mailbox/set` handler skips its role and name+parent
+uniqueness pre-checks and `SieveScript/set` its name and script-count
+checks, so a swap through a temporary conflict commits; the backend's scope
+must check them against the final state at commit. `MemoryBackend` does:
+its store is a `jmap_server::ScopedState`, rollback restores objects, state
+strings and change logs, and commit rejects duplicate Mailbox names or
+roles, Mailbox parent loops, duplicate script names, a second active
+script, and scripts over the per-account cap. An `EmailSubmission/set`'s
+implicit `Email/set` runs inside the same scope.
+
+The public `handle_mailbox_set` and `handle_sieve_set` keep their
+signatures and always run the pre-checks; only the registered handlers see
+`CallContext::atomic`.
 
 ### Handler structure
 

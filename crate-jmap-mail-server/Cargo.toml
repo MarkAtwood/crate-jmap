@@ -19,7 +19,7 @@ sieve = ["jmap-mail-types/sieve"]
 # Not production — intended as a reference impl, integration-test harness, and
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0.
-memory = ["dep:uuid", "dep:jmap-metadata-server"]
+memory = ["dep:uuid", "dep:jmap-metadata-server", "jmap-server/scoped-state"]
 
 [dependencies]
 jmap-types = { workspace = true }

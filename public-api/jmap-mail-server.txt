@@ -110,6 +110,8 @@ pub fn jmap_mail_server::memory::MemoryBackend::i18n_info(&self, &(), &jmap_type
 pub fn jmap_mail_server::memory::MemoryBackend::metadata_info<O: jmap_types::backend::JmapObject>(&self, &(), &jmap_types::id::Id) -> core::option::Option<jmap_metadata_types::capability::DataTypeMetadataInfo>
 pub async fn jmap_mail_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
 pub async fn jmap_mail_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>
+impl jmap_server::conditional::ConditionalBackend for jmap_mail_server::memory::MemoryBackend
+pub async fn jmap_mail_server::memory::MemoryBackend::begin_set(&self, &(), jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_mail_server::memory::MemoryError>>
 #[non_exhaustive] pub struct jmap_mail_server::memory::MemoryError
 impl jmap_mail_server::memory::MemoryError
 pub fn jmap_mail_server::memory::MemoryError::description(&self) -> &str
@@ -195,6 +197,7 @@ pub async fn jmap_mail_server::handle_thread_changes<B: jmap_mail_server::MailBa
 pub async fn jmap_mail_server::handle_thread_get<B: jmap_mail_server::MailBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_mail_server::handle_vacation_get<B: jmap_mail_server::MailBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_mail_server::handle_vacation_set<B: jmap_mail_server::MailBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
+pub fn jmap_mail_server::register_mail_conditional<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_mail_server::MailBackend + jmap_server::conditional::ConditionalBackend + 'static
 pub fn jmap_mail_server::register_mail_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_mail_server::MailBackend + 'static
 pub fn jmap_mail_server::register_mdn_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_mail_server::MailBackend + jmap_mail_server::mdn::MdnBackend + 'static
 pub fn jmap_mail_server::register_sieve_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_mail_server::MailBackend + jmap_mail_server::SieveBackend + 'static

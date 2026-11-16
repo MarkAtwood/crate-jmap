@@ -338,6 +338,21 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    sieve_set(backend, caller, args, false).await
+}
+
+/// [`handle_sieve_set`]; with `atomic` (an atomic Foo/set,
+/// draft-ietf-jmap-conditional-02 §4, from
+/// [`jmap_server::CallContext::atomic`]) the script-count (`overQuota`)
+/// and name-uniqueness checks are left to the backend's final-state check
+/// at commit (§4.2), so a destroy that makes room for a create in the same
+/// call succeeds.
+pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    atomic: bool,
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: Parse request args.
     let (account_id, mut args) = extract_account_id(args)?;
 
@@ -528,8 +543,8 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 not_created.insert(creation_id, serde_json::Value::from(&err));
                 continue;
             }
-            // R7: overQuota check.
-            if all_scripts_before_create.len() + successful_creates >= max_scripts {
+            // R7: overQuota check (deferred to commit when atomic).
+            if !atomic && all_scripts_before_create.len() + successful_creates >= max_scripts {
                 not_created.insert(
                     creation_id,
                     serde_json::Value::from(&SetError::new(SetErrorType::OverQuota)),
@@ -573,7 +588,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 // Intra-call duplicate: another create in this same request already
                 // succeeded with this name (we don't have the new id yet, so omit
                 // existingId — the spec only requires it for DB-level collisions).
-                if names_created_this_call.contains(name_str.as_str()) {
+                if !atomic && names_created_this_call.contains(name_str.as_str()) {
                     not_created.insert(
                         creation_id,
                         serde_json::Value::from(
@@ -585,10 +600,12 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     continue;
                 }
 
-                // R7 + R6: uniqueness check using the pre-fetched all_scripts list.
-                if let Some(existing) = all_scripts_before_create
-                    .iter()
-                    .find(|s| s.name.as_deref() == Some(name_str.as_str()))
+                // R7 + R6: uniqueness check using the pre-fetched all_scripts
+                // list (deferred to commit when atomic).
+                if !atomic
+                    && let Some(existing) = all_scripts_before_create
+                        .iter()
+                        .find(|s| s.name.as_deref() == Some(name_str.as_str()))
                 {
                     not_created.insert(
                         creation_id,
@@ -733,10 +750,12 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     continue;
                 }
 
-                // R6: uniqueness check — exclude the script being updated.
-                if let Some(existing) = all_scripts_for_update
-                    .iter()
-                    .find(|s| s.name.as_deref() == Some(name_str) && s.id != id)
+                // R6: uniqueness check — exclude the script being updated
+                // (deferred to commit when atomic).
+                if !atomic
+                    && let Some(existing) = all_scripts_for_update
+                        .iter()
+                        .find(|s| s.name.as_deref() == Some(name_str) && s.id != id)
                 {
                     not_updated.insert(
                         id_str,

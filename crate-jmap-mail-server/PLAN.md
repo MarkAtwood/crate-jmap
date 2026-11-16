@@ -246,6 +246,18 @@ One function registers all 26 method handlers with the caller's
 `jmap-server::Dispatcher<C>`. The backend is wrapped in `Arc<B>` and cloned
 into each handler closure — same pattern as jmap-chat-server.
 
+### 10. Conditional Foo/set is a separate opt-in (draft-ietf-jmap-conditional-02)
+
+`register_mail_conditional` attaches `SetSupport` to each registered mail
+`/set` after the registration fns (docs/design/conditional.md §5.1;
+DECISIONS.md decisions 1 and 17). The dispatcher evaluates preconditions
+and owns the scope; the handlers only learn `atomic` (through the
+registration closures, not the public `handle_*` signatures) and then
+leave cross-object checks (Mailbox role and name+parent, SieveScript name
+and count) to the backend's commit, which checks the final state. The
+memory backend keeps its store on `ScopedState` for isolation and
+rollback (bd JMAP-y1yu.7).
+
 ## Planned Public API
 
 ```rust

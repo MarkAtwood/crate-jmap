@@ -654,6 +654,23 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    mailbox_set(backend, caller, created_ids, args, using, false).await
+}
+
+/// [`handle_mailbox_set`]; with `atomic` (an atomic Foo/set,
+/// draft-ietf-jmap-conditional-02 §4, from
+/// [`jmap_server::CallContext::atomic`]) the role and name+parent
+/// uniqueness checks are left to the backend's final-state check at
+/// commit, so a swap that passes through a duplicate still succeeds
+/// (§4.2).
+pub(crate) async fn mailbox_set<B: MailBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
+    args: Value,
+    using: &[String],
+    atomic: bool,
+) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -780,8 +797,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 continue;
             }
 
-            // Role uniqueness check.
-            if let Some(role_val) = props.get("role").filter(|v| !v.is_null())
+            // Role uniqueness check (deferred to commit when atomic).
+            if !atomic
+                && let Some(role_val) = props.get("role").filter(|v| !v.is_null())
                 && let Some(role_str) = role_val.as_str()
             {
                 // Exclude roles that are being vacated by an update in this
@@ -816,7 +834,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // The check also covers mailboxes created earlier in this same
             // request: `created` already holds successfully-created entries
             // whose serialised form includes the assigned name and parentId.
-            if let Some(proposed_name) = props.get("name").and_then(|v| v.as_str()) {
+            if !atomic && let Some(proposed_name) = props.get("name").and_then(|v| v.as_str()) {
                 // Normalise the proposed parentId: absent/null → None, string → Some(str).
                 let proposed_parent: Option<&str> = match props.get("parentId") {
                     Some(serde_json::Value::String(s)) => Some(s.as_str()),
@@ -1094,9 +1112,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // Role uniqueness: check against pre-request state minus
             // roles freed by successful pass-1 vacates, plus any role
             // already claimed by an earlier update in this pass, plus
-            // any role claimed by the create loop.
+            // any role claimed by the create loop. Deferred to commit when
+            // atomic.
             let obj = patch.as_map();
-            if let Some(role_val) = obj.get("role").filter(|v| !v.is_null())
+            if !atomic
+                && let Some(role_val) = obj.get("role").filter(|v| !v.is_null())
                 && let Some(role_str) = role_val.as_str()
             {
                 // Exclude the mailbox being updated (id) — it may
