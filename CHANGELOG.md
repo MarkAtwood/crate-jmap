@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: the PushSubscription extension seam
+  (draft-ietf-jmap-emailpush-05 §4; docs/design/emailpush.md §5.1). New
+  defaulted `PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES`
+  gates extension properties on a capability in `using`: without it,
+  `PushSubscription/get` leaves the property out and rejects it in
+  `properties` (`invalidArguments`), and `PushSubscription/set` rejects a
+  create or patch that touches it (`invalidProperties`); with it, an absent
+  property reads as `null`. Extension validation stays in the backend's
+  `create_push_subscription`/`update_push_subscription` (decision 16), as
+  their rustdoc now says. `filter_nests_deeper_than` and
+  `MAX_FILTER_DEPTH` are public, for filters stored inside extension
+  properties. (bd:JMAP-r44n.6)
+
 - **jmap-filenode-server**: conditional FileNode/set
   (draft-ietf-jmap-conditional-02). `register_filenode_conditional`,
   called after `register_filenode_handlers`, attaches `SetSupport` to the
@@ -444,6 +457,12 @@ wire behaviour that a conforming peer can observe.
   (bd:JMAP-tna1.2.1)
 
 ### Changed
+
+- **jmap-server**: `PushSubscription/set` now echoes extension properties
+  the backend stored differently from what the client sent: in `created`,
+  and in `updated` (compared with the stored object plus the patch), as
+  RFC 8620 §5.3 requires for server-changed values. A backend that stores
+  extension properties as sent sees no change. (bd:JMAP-r44n.6)
 
 - **jmap-filenode-server**: FileNode/set checks sibling-name uniqueness
   on update as well as create (draft-ietf-jmap-filenode-20 §3.1.1,

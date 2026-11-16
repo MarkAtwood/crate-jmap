@@ -468,6 +468,7 @@ impl core::fmt::Debug for jmap_server::StoredPushSubscription
 pub fn jmap_server::StoredPushSubscription::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_server::StoredPushSubscription
 pub const jmap_server::CREATE_ID_PLACEHOLDER: &str
+pub const jmap_server::MAX_FILTER_DEPTH: usize
 pub const jmap_server::MAX_PUSH_EXPIRY_SECS: i64
 pub const jmap_server::SERVER_FAIL_INTERNAL_DESC: &str
 pub trait jmap_server::ConditionalBackend: jmap_server::JmapBackend
@@ -493,6 +494,7 @@ pub fn jmap_server::JmapHandler::call(&self, jmap_server::CallContext<CallerCtx>
 impl<B: core::marker::Send + core::marker::Sync + 'static, C: core::clone::Clone + core::marker::Send + 'static> jmap_server::JmapHandler<C> for jmap_server::ClosureHandler<B, C>
 pub fn jmap_server::ClosureHandler<B, C>::call(&self, jmap_server::CallContext<C>) -> jmap_server::HandlerFuture
 pub trait jmap_server::PushSubscriptionBackend: jmap_server::JmapBackend
+pub const jmap_server::PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES: &'static [(&'static str, &'static str)]
 pub const jmap_server::PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES: &'static [&'static str]
 pub fn jmap_server::PushSubscriptionBackend::create_push_subscription(&self, &Self::CallerCtx, jmap_types::push::PushSubscription) -> impl core::future::future::Future<Output = core::result::Result<jmap_server::StoredPushSubscription, jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::PushSubscriptionBackend::destroy_push_subscription(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
@@ -516,6 +518,7 @@ pub fn jmap_server::error_invocation(&str, jmap_types::error::JmapError) -> jmap
 pub fn jmap_server::error_status(&jmap_types::error::JmapError) -> http::status::StatusCode
 pub fn jmap_server::extract_account_id(serde_json::value::Value) -> core::result::Result<(jmap_types::id::Id, serde_json::map::Map<alloc::string::String, serde_json::value::Value>), jmap_types::error::JmapError>
 pub fn jmap_server::filter_arg<T>(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<core::option::Option<T>, jmap_types::error::JmapError> where T: serde_core::de::DeserializeOwned
+pub fn jmap_server::filter_nests_deeper_than(&serde_json::value::Value, usize) -> bool
 pub async fn jmap_server::handle_changes<O: jmap_types::backend::JmapObject, B: jmap_server::JmapBackend>(&B, &<B as jmap_server::JmapBackend>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_server::handle_get<O: jmap_types::backend::GetObject, B: jmap_server::JmapBackend>(&B, &<B as jmap_server::JmapBackend>::CallerCtx, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_server::handle_get_with_metadata<O: jmap_types::backend::GetObject, B: jmap_server::JmapBackend>(&B, &<B as jmap_server::JmapBackend>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>

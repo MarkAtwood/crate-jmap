@@ -144,6 +144,22 @@ pub trait PushSubscriptionBackend: JmapBackend {
     /// §7.2 property nor listed here.
     const PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES: &'static [&'static str] = &[];
 
+    /// Extension properties that exist only for a request whose `using`
+    /// holds a capability, as `(property, capability URI)` pairs (e.g.
+    /// `("emailPush", "urn:ietf:params:jmap:emailpush")`,
+    /// draft-ietf-jmap-emailpush-05 §4: "To get or set the emailPush
+    /// property, the client MUST include" the capability in `using`).
+    ///
+    /// A gated property is a valid `PushSubscription/get` property name;
+    /// it need not also be in
+    /// [`PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES`](Self::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES).
+    /// Without its capability in `using`, `/get` leaves it out of every
+    /// object and rejects it in `properties` with `invalidArguments`, and
+    /// `/set` rejects a create that sends it, or a patch whose first path
+    /// segment names it, with `invalidProperties`. With the capability, an
+    /// absent gated property reads as `null` in `/get` and in `created`.
+    const PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES: &'static [(&'static str, &'static str)] = &[];
+
     /// Return every push subscription created with the credentials that
     /// `caller` identifies, and no others.
     ///
@@ -176,8 +192,21 @@ pub trait PushSubscriptionBackend: JmapBackend {
     ///   consumer's delivery path.
     ///
     /// The backend may shorten `expires`. In `created` the handler echoes
-    /// the returned `id` and `expires`, plus every property the client did
-    /// not send.
+    /// the returned `id` and `expires`, every property the client did not
+    /// send, and every extension property stored with a value other than
+    /// the one sent.
+    ///
+    /// # Extension properties
+    ///
+    /// The backend validates and normalizes the extension properties in
+    /// `new.extra` before storing them, and returns a SetError
+    /// ([`BackendSetError::SetError`]) to reject the create; the handler
+    /// checks only the `using` gate
+    /// ([`PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES`](Self::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES)).
+    /// An EmailPush backend MUST call
+    /// `jmap_mail_server::emailpush::check_email_push_change`; a chatPush
+    /// backend calls `validate_chat_push`. Validating here, in the same call
+    /// as the store, keeps it inside a conditional-02 scope.
     fn create_push_subscription(
         &self,
         caller: &Self::CallerCtx,
@@ -189,9 +218,13 @@ pub trait PushSubscriptionBackend: JmapBackend {
     ///
     /// `sub` is the stored subscription with the client's patch applied and
     /// validated. Return `notFound` if no subscription of the caller has
-    /// that id. The backend may shorten `expires`. The handler reports a
-    /// returned `expires` that differs from the one the client asked for in
-    /// `updated`.
+    /// that id. The backend may shorten `expires`. The handler reports, in
+    /// `updated`, a returned `expires` that differs from the one the client
+    /// asked for and every extension property stored with a value other
+    /// than the patched one.
+    ///
+    /// Validate and normalize extension properties as for
+    /// [`create_push_subscription`](Self::create_push_subscription).
     fn update_push_subscription(
         &self,
         caller: &Self::CallerCtx,
@@ -224,8 +257,9 @@ pub fn register_push_subscription_handlers<B>(
     let handler: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
         Arc::clone(&backend),
         |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
-            Box::pin(async move { handle_push_subscription_get(&*b, &cx.caller, cx.args).await })
-                as HandlerFuture
+            Box::pin(async move {
+                handle_push_subscription_get(&*b, &cx.caller, cx.args, &cx.using).await
+            }) as HandlerFuture
         },
     ));
     dispatcher.register("PushSubscription/get", handler);
@@ -233,8 +267,9 @@ pub fn register_push_subscription_handlers<B>(
     let handler: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
         backend,
         |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
-            Box::pin(async move { handle_push_subscription_set(&*b, &cx.caller, cx.args).await })
-                as HandlerFuture
+            Box::pin(async move {
+                handle_push_subscription_set(&*b, &cx.caller, cx.args, &cx.using).await
+            }) as HandlerFuture
         },
     ));
     dispatcher.register("PushSubscription/set", handler);
@@ -250,6 +285,7 @@ async fn handle_push_subscription_get<B: PushSubscriptionBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("arguments must be an object"));
@@ -271,9 +307,14 @@ async fn handle_push_subscription_get<B: PushSubscriptionBackend>(
     }
     // RFC 8620 §5.1 (rfc8620.txt:1609-1611): "If an invalid property is
     // requested, the call MUST be rejected with an "invalidArguments" error."
+    // A gated property without its capability is not a property of this
+    // request (draft-ietf-jmap-emailpush-05 §4).
     if let Some(bad) = properties.iter().flatten().find(|p| {
-        !RFC_PROPERTIES.contains(&p.as_str())
-            && !B::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES.contains(&p.as_str())
+        let p = p.as_str();
+        gated_off::<B>(p, using)
+            || !RFC_PROPERTIES.contains(&p)
+                && !B::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES.contains(&p)
+                && !is_gated::<B>(p)
     }) {
         return Err(JmapError::invalid_arguments(format!(
             "unknown PushSubscription property: {bad}"
@@ -310,6 +351,9 @@ async fn handle_push_subscription_get<B: PushSubscriptionBackend>(
             sub.url = None;
             sub.keys = None;
             let mut value = serialize_value(&sub)?;
+            if let Value::Object(obj) = &mut value {
+                apply_gates::<B>(obj, using);
+            }
             if let (Some(props), Value::Object(obj)) = (&properties, &mut value) {
                 // RFC 8620 §5.1 (rfc8620.txt:1608-1609): "The id property of
                 // the object is *always* returned, even if not explicitly
@@ -340,6 +384,7 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("arguments must be an object"));
@@ -376,10 +421,11 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
     let mut created = Map::new();
     let mut not_created = Map::new();
     for (creation_id, obj) in create.unwrap_or_default() {
-        let sent: HashSet<String> = obj
-            .as_object()
-            .map(|fields| fields.keys().cloned().collect())
-            .unwrap_or_default();
+        let sent: Map<String, Value> = obj.as_object().cloned().unwrap_or_default();
+        if let Some(p) = sent.keys().find(|p| gated_off::<B>(p, using)) {
+            not_created.insert(creation_id, invalid_property(p));
+            continue;
+        }
         let new = match validate_create(obj) {
             Ok(new) => new,
             Err(err) => {
@@ -389,7 +435,17 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
         };
         match backend.create_push_subscription(caller, new).await {
             Ok(stored) => {
-                created.insert(creation_id, created_value(&stored.subscription, &sent));
+                let mut value = created_value(&stored.subscription, &sent);
+                if let Value::Object(obj) = &mut value {
+                    // Absent gated properties read as null (their default);
+                    // a sent one is echoed only if stored differently.
+                    for (p, _) in B::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES {
+                        if !gated_off::<B>(p, using) && !sent.contains_key(*p) {
+                            obj.entry(*p).or_insert(Value::Null);
+                        }
+                    }
+                }
+                created.insert(creation_id, value);
             }
             Err(e) => {
                 not_created.insert(creation_id, backend_set_error_value(e));
@@ -404,7 +460,7 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
             let current = stored
                 .iter()
                 .find(|s| s.subscription.id.as_ref().map(AsRef::as_ref) == Some(id.as_str()));
-            match update_one(backend, caller, current, patch).await {
+            match update_one::<B>(backend, caller, current, patch, using).await {
                 Ok(changed) => {
                     updated.insert(id, changed);
                 }
@@ -444,7 +500,10 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
 }
 
 /// The `created` entry for `sub`: every property the client did not send,
-/// plus `id` and `expires`, which the server always sets.
+/// plus `id` and `expires`, which the server always sets, and every
+/// extension property the backend stored with a value other than the one
+/// sent (RFC 8620 §5.3: properties "set to a default by the server", and a
+/// backend that normalizes, e.g. fills an EmailPush default, sets one).
 ///
 /// RFC 8620 §5.3 (rfc8620.txt:2034-2039): "created" holds "any properties
 /// of the created Foo object that were not sent by the client. This
@@ -452,7 +511,7 @@ async fn handle_push_subscription_set<B: PushSubscriptionBackend>(
 /// types) and any properties that were omitted by the client and thus set
 /// to a default by the server." `url` is always sent, so the url is never
 /// echoed, and `keys` is echoed only when it was omitted (and so is null).
-fn created_value(sub: &PushSubscription, sent: &HashSet<String>) -> Value {
+fn created_value(sub: &PushSubscription, sent: &Map<String, Value>) -> Value {
     let mut props = Map::new();
     props.insert("id".to_owned(), json!(sub.id));
     props.insert("deviceClientId".to_owned(), json!(sub.device_client_id));
@@ -461,8 +520,23 @@ fn created_value(sub: &PushSubscription, sent: &HashSet<String>) -> Value {
     props.insert("verificationCode".to_owned(), json!(sub.verification_code));
     props.insert("expires".to_owned(), json!(sub.expires));
     props.insert("types".to_owned(), json!(sub.types));
-    props.extend(sub.extra.clone());
-    props.retain(|k, _| k == "id" || k == "expires" || !sent.contains(k));
+    props.retain(|k, _| k == "id" || k == "expires" || !sent.contains_key(k));
+    for (k, v) in &sub.extra {
+        if sent.get(k) != Some(v) {
+            props.insert(k.clone(), v.clone());
+        }
+    }
+    // A sent extension property the backend dropped is now null.
+    for k in sent.keys() {
+        if !RFC_PROPERTIES.contains(&k.as_str())
+            && !PRIVATE_PROPERTIES.contains(&k.as_str())
+            && k != "verificationCode"
+            && !sub.extra.contains_key(k)
+            && !sent[k].is_null()
+        {
+            props.insert(k.clone(), Value::Null);
+        }
+    }
     Value::Object(props)
 }
 
@@ -514,7 +588,18 @@ async fn update_one<B: PushSubscriptionBackend>(
     caller: &B::CallerCtx,
     current: Option<&StoredPushSubscription>,
     patch: Value,
+    using: &[String],
 ) -> Result<Value, Value> {
+    // draft-ietf-jmap-emailpush-05 §4: without its capability a gated
+    // property cannot be set; checked before the other validation.
+    if let Value::Object(patch) = &patch
+        && let Some(p) = patch
+            .keys()
+            .map(|k| k.split('/').next().unwrap_or(k))
+            .find(|p| gated_off::<B>(p, using))
+    {
+        return Err(invalid_property(p));
+    }
     let Some(current) = current else {
         return Err(Value::from(&SetError::new(SetErrorType::NotFound)));
     };
@@ -567,6 +652,7 @@ async fn update_one<B: PushSubscriptionBackend>(
     // proposed new expiry time to enforce server-defined limits. Extending
     // the lifetime does not require the subscription to be verified again."
     let requested_expires = patched.expires.clone();
+    let requested_extra = patched.extra.clone();
     if requested_expires != old.expires {
         patched.expires = Some(limit_expires(requested_expires.as_ref())?);
     }
@@ -576,12 +662,57 @@ async fn update_one<B: PushSubscriptionBackend>(
         .await
         .map_err(backend_set_error_value)?;
     // RFC 8620 §5.3 (rfc8620.txt:2048-2051): "updated" holds "any property
-    // that changed in a way *not* explicitly requested by the PatchObject".
-    Ok(if stored.expires == requested_expires {
+    // that changed in a way *not* explicitly requested by the PatchObject":
+    // a shortened `expires`, and extension properties the backend stored
+    // other than as patched.
+    let mut changed = Map::new();
+    if stored.expires != requested_expires {
+        changed.insert("expires".to_owned(), json!(stored.expires));
+    }
+    for (k, v) in &stored.extra {
+        if requested_extra.get(k) != Some(v) {
+            changed.insert(k.clone(), v.clone());
+        }
+    }
+    for k in requested_extra.keys() {
+        if !stored.extra.contains_key(k) {
+            changed.insert(k.clone(), Value::Null);
+        }
+    }
+    Ok(if changed.is_empty() {
         Value::Null
     } else {
-        json!({ "expires": stored.expires })
+        Value::Object(changed)
     })
+}
+
+/// Whether `property` is gated on a capability
+/// ([`PushSubscriptionBackend::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES`]).
+fn is_gated<B: PushSubscriptionBackend>(property: &str) -> bool {
+    B::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES
+        .iter()
+        .any(|(p, _)| *p == property)
+}
+
+/// Whether `property` is gated on a capability that `using` lacks, so it
+/// does not exist for this request.
+fn gated_off<B: PushSubscriptionBackend>(property: &str, using: &[String]) -> bool {
+    B::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES
+        .iter()
+        .any(|(p, uri)| *p == property && !using.iter().any(|u| u == uri))
+}
+
+/// Remove the gated properties `using` lacks the capability for from a
+/// `/get` object, and show the others as `null` when absent (their
+/// default).
+fn apply_gates<B: PushSubscriptionBackend>(obj: &mut Map<String, Value>, using: &[String]) {
+    for (p, _) in B::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES {
+        if gated_off::<B>(p, using) {
+            obj.remove(*p);
+        } else {
+            obj.entry(*p).or_insert(Value::Null);
+        }
+    }
 }
 
 /// `requested`, or `None`'s default, limited to [`MAX_PUSH_EXPIRY_SECS`]

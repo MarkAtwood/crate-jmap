@@ -77,7 +77,10 @@ mod response;
 #[cfg(feature = "scoped-state")]
 mod scoped_state;
 
-pub use parse::{check_known_capabilities, parse_request, parse_request_bytes, resolve_args};
+pub use parse::{
+    MAX_FILTER_DEPTH, check_known_capabilities, filter_nests_deeper_than, parse_request,
+    parse_request_bytes, resolve_args,
+};
 pub use push::{
     MAX_PUSH_EXPIRY_SECS, PushSubscriptionBackend, StoredPushSubscription, is_deliverable,
     register_push_subscription_handlers, state_change_for,

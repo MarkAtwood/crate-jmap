@@ -253,8 +253,8 @@ pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<
 /// `*-server` validators and reference backends) recurses once per
 /// `conditions` array, so this cap bounds their stack use without each
 /// carrying its own (bd:JMAP-xmvz). It matches the ~32-level JSON-depth
-/// contract on [`parse_request`] and [`MAX_JSON_POINTER_DEPTH`].
-const MAX_FILTER_DEPTH: usize = 32;
+/// contract on [`parse_request`] and `MAX_JSON_POINTER_DEPTH`.
+pub const MAX_FILTER_DEPTH: usize = 32;
 
 /// Reject a call whose `filter` argument nests FilterOperator `conditions`
 /// more than [`MAX_FILTER_DEPTH`] levels deep. A bare FilterCondition is
@@ -268,7 +268,7 @@ const MAX_FILTER_DEPTH: usize = 32;
 /// search." (RFC 8620 §5.5, rfc8620.txt:2626-2629).
 pub(crate) fn check_filter_depth(args: &Value) -> Result<(), JmapError> {
     match args.get("filter") {
-        Some(filter) if nests_deeper_than(filter, MAX_FILTER_DEPTH) => {
+        Some(filter) if filter_nests_deeper_than(filter, MAX_FILTER_DEPTH) => {
             let mut err = JmapError::unsupported_filter();
             err.description = Some(format!(
                 "filter: FilterOperator nesting exceeds {MAX_FILTER_DEPTH} levels"
@@ -279,12 +279,22 @@ pub(crate) fn check_filter_depth(args: &Value) -> Result<(), JmapError> {
     }
 }
 
-/// `true` if `filter` has more than `levels` nested `conditions` arrays.
+/// `true` if `filter` (an RFC 8620 §5.5 FilterOperator or
+/// FilterCondition) has more than `levels` nested `conditions` arrays. A
+/// bare FilterCondition is depth 0; each enclosing operator adds one.
 /// Recurses at most `levels + 1` times.
-fn nests_deeper_than(filter: &Value, levels: usize) -> bool {
+///
+/// The dispatcher checks a top-level `filter` argument against
+/// [`MAX_FILTER_DEPTH`] itself; use this for a filter stored elsewhere, such
+/// as one inside a PushSubscription extension property, which is walked
+/// again at every delivery.
+pub fn filter_nests_deeper_than(filter: &Value, levels: usize) -> bool {
     match filter.get("conditions") {
         Some(Value::Array(children)) => {
-            levels == 0 || children.iter().any(|c| nests_deeper_than(c, levels - 1))
+            levels == 0
+                || children
+                    .iter()
+                    .any(|c| filter_nests_deeper_than(c, levels - 1))
         }
         _ => false,
     }
