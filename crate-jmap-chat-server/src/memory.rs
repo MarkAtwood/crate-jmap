@@ -78,7 +78,8 @@ use jmap_server::{
     QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
-    MergePatchError, PatchPathError, PushSubscriptionBackend, StoredPushSubscription,
+    BeginSetError, ConditionalBackend, DeferredFailure, MergePatchError, PatchPathError,
+    PushSubscriptionBackend, ScopedState, SetOp, SetScope, SetScopeRequest, StoredPushSubscription,
     apply_patch_object, check_patch_paths, json_merge_patch, limit_or_max, now_utc_string,
     resolve_query_start,
 };
@@ -142,8 +143,9 @@ impl ChangeEntry {
     }
 }
 
-/// Shared inner state, behind Arc<Mutex>.
-#[derive(Default)]
+/// Shared inner state, behind a [`ScopedState`] so a conditional Foo/set
+/// can isolate and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// `type_name` → `account_id` → `id → serialized object`
     objects: HashMap<&'static str, HashMap<String, HashMap<Id, serde_json::Value>>>,
@@ -204,7 +206,10 @@ struct Inner {
     /// Set via [`MemoryBackend::set_space_everyone_permissions`].
     space_everyone_permissions: HashMap<String, HashSet<ChatPermission>>,
     /// Source of every id this backend assigns; see [`Inner::mint_id`].
-    ids: ulid::Generator,
+    /// Shared, not snapshotted: an atomic rollback keeps the generator
+    /// moving forward, so ids stay increasing (rolled-back ids are
+    /// skipped).
+    ids: Arc<Mutex<ulid::Generator>>,
     /// `type_name` → the draft-ietf-jmap-metadata-05 §1.2.1
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
@@ -235,6 +240,8 @@ impl Inner {
     fn mint_id(&mut self) -> Id {
         let ulid = self
             .ids
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
             .generate()
             .expect("80 random ULID bits cannot overflow within one millisecond in practice");
         Id::from(ulid.to_string())
@@ -355,7 +362,7 @@ impl Inner {
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -368,7 +375,7 @@ pub struct MemoryBackend {
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -376,10 +383,10 @@ impl Clone for MemoryBackend {
 impl Default for MemoryBackend {
     fn default() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(Inner {
+            inner: ScopedState::new(Inner {
                 everyone_permissions: HashSet::from([ChatPermission::View, ChatPermission::Send]),
                 ..Inner::default()
-            })),
+            }),
         }
     }
 }
@@ -433,8 +440,7 @@ impl MemoryBackend {
             "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
         );
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .metadata_info
             .insert(type_name, info);
         self
@@ -446,7 +452,7 @@ impl MemoryBackend {
     /// are stored; this backend keeps one set for every Space without its
     /// own set from [`set_space_everyone_permissions`](Self::set_space_everyone_permissions).
     pub fn set_everyone_permissions(&self, permissions: HashSet<ChatPermission>) {
-        self.inner.lock().unwrap().everyone_permissions = permissions;
+        self.inner.lock_unscoped().everyone_permissions = permissions;
     }
 
     /// Set the permissions of the implicit `@everyone` role in Space
@@ -458,8 +464,7 @@ impl MemoryBackend {
         permissions: HashSet<ChatPermission>,
     ) {
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .space_everyone_permissions
             .insert(space_id.to_string(), permissions);
     }
@@ -482,7 +487,7 @@ impl MemoryBackend {
             "register_account: account_id must not be the empty string \
              (RFC 8620 §1.2, bd:JMAP-dx0s)"
         );
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
     }
 
@@ -552,7 +557,7 @@ impl MemoryBackend {
              `id` argument {id:?}"
         );
         let account = account_id.as_ref();
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
 
         // Seeding is fixture setup: it registers the account (explicitly,
         // since `objects_mut` no longer does, bd:JMAP-ayoz.36).
@@ -587,7 +592,7 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn set_retains_edit_history_for_test(&self, retain: bool) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.retains_edit_history = retain;
     }
 
@@ -602,7 +607,7 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn set_maintains_unread_count_for_test(&self, value: bool) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.maintains_unread_count = value;
     }
 
@@ -622,12 +627,14 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn set_protect_last_admin_for_test(&self, value: bool) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.protect_last_admin = value;
     }
 
-    fn record_lifecycle_event(&self, event: LifecycleEvent) {
-        self.inner.lock().unwrap().lifecycle_events.push(event);
+    /// Queue `event` in the store, so an atomic rollback drops it with the
+    /// change that caused it; waits like any backend write.
+    async fn record_lifecycle_event(&self, event: LifecycleEvent) {
+        self.inner.lock().await.lifecycle_events.push(event);
     }
 
     /// Test-only: drain the lifecycle callbacks received so far
@@ -637,7 +644,7 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn take_lifecycle_events_for_test(&self) -> Vec<LifecycleEvent> {
-        std::mem::take(&mut self.inner.lock().unwrap().lifecycle_events)
+        std::mem::take(&mut self.inner.lock_unscoped().lifecycle_events)
     }
 
     /// Test-only: drain the [`ChatBackend::on_outbound_event`] events
@@ -645,7 +652,7 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn take_outbound_events_for_test(&self) -> Vec<crate::OutboundEvent> {
-        std::mem::take(&mut self.inner.lock().unwrap().outbound_events)
+        std::mem::take(&mut self.inner.lock_unscoped().outbound_events)
     }
 
     /// Test-only: set the list returned by
@@ -656,7 +663,7 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn set_space_extension_properties_for_test(&self, keys: &'static [&'static str]) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.space_extension_properties = keys;
     }
 
@@ -668,7 +675,7 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn set_owner_user_id_for_test(&self, account_id: &Id, owner_user_id: &str) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner
             .owner_user_ids
             .insert(account_id.as_ref().to_owned(), owner_user_id.to_owned());
@@ -691,7 +698,7 @@ impl MemoryBackend {
         account_id: &Id,
         cap: Option<ChatPushCapability>,
     ) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         match cap {
             Some(cap) => inner.chat_push_caps.insert(account_id.clone(), cap),
             None => inner.chat_push_caps.remove(account_id),
@@ -711,7 +718,7 @@ impl MemoryBackend {
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn set_limits_for_test(&self, limits: Option<ChatLimits>) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.limits_override = limits;
     }
 
@@ -729,7 +736,7 @@ impl MemoryBackend {
         blob_id: &str,
         blob: Option<AttachmentBlob>,
     ) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         let key = (account_id.to_owned(), Id::from(blob_id));
         match blob {
             Some(b) => inner.attachment_blobs.insert(key, b),
@@ -755,7 +762,7 @@ impl MemoryBackend {
         id: &str,
         value: serde_json::Value,
     ) {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         // Fixture setup registers the account, as `seed_object` does;
         // `objects_mut` no longer does (bd:JMAP-ayoz.36).
         inner.known_accounts.insert(account_id.to_owned());
@@ -773,7 +780,7 @@ impl MemoryBackend {
     /// Panics if the Space has no categories or does not exist.
     #[doc(hidden)]
     pub fn first_category_id(&self, space_id: &Id) -> Id {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock_unscoped();
         // Walk every account looking for this space id. Integration
         // tests use a single account "a1" so the iteration is trivial.
         for map in inner
@@ -807,7 +814,7 @@ impl MemoryBackend {
     /// Panics if the Chat does not exist.
     #[doc(hidden)]
     pub fn peek_chat(&self, chat_id: &Id) -> serde_json::Value {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock_unscoped();
         for map in inner
             .objects
             .get("Chat")
@@ -890,15 +897,14 @@ impl JmapBackend for MemoryBackend {
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .metadata_info
             .get(O::TYPE_NAME)
             .cloned()
     }
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
@@ -909,7 +915,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let map = inner.objects_ref(O::TYPE_NAME, account_id.as_ref());
 
         match ids {
@@ -958,7 +964,7 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
         Ok(State::from(n.to_string()))
     }
@@ -978,7 +984,7 @@ impl JmapBackend for MemoryBackend {
         } else {
             MetadataOnlyChanges::Report
         };
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
 
         let since_n: u64 = since_state
             .as_ref()
@@ -1113,7 +1119,7 @@ impl JmapBackend for MemoryBackend {
             anchor_offset,
             ..
         } = params;
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
 
         // Serialize the generic filter to a serde_json::Value so we can
         // inspect it for type-specific filter keys; O is generic here, so
@@ -1313,13 +1319,14 @@ impl ChatBackend for MemoryBackend {
         O: SetObject + Send + Sync,
         F: FnOnce(&Id) -> O + Send,
     {
-        let server_id = self.inner.lock().unwrap().mint_id();
+        let server_id = self.inner.lock().await.mint_id();
         let stored_obj = build(&server_id);
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
-        let mut inner = self.inner.lock().unwrap();
-        insert_created(&mut inner, O::TYPE_NAME, account_id, &server_id, val)?;
+        let mut inner = self.inner.lock().await;
+        let defer = self.inner.deferring();
+        insert_created(&mut inner, O::TYPE_NAME, account_id, &server_id, val, defer)?;
         Ok((server_id, stored_obj))
     }
 
@@ -1337,12 +1344,13 @@ impl ChatBackend for MemoryBackend {
     where
         F: FnOnce(&Id) -> jmap_chat_types::Message + Send,
     {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         let server_id = inner.mint_id();
         let message = build(&server_id);
         let val = serde_json::to_value(&message)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
-        insert_created(&mut inner, "Message", account_id, &server_id, val)?;
+        let defer = self.inner.deferring();
+        insert_created(&mut inner, "Message", account_id, &server_id, val, defer)?;
         inner
             .outbound_events
             .push(crate::OutboundEvent::NewMessage {
@@ -1360,12 +1368,13 @@ impl ChatBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
         let (current, changed) = patched_copy::<O>(&mut inner, account_id.as_ref(), id, &patch)?;
 
         // `CustomEmoji` uniqueness contract on `update_object`.
         if O::TYPE_NAME == "CustomEmoji"
+            && !self.inner.deferring()
             && emoji_name_holder(&inner, account_id, &current, Some(id)).is_some()
         {
             return Err(BackendSetError::SetError(Box::new(
@@ -1407,7 +1416,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
 
         // draft-atwood-jmap-chat-00 §Destroying a Space (jmap-chat-spec
@@ -1516,7 +1525,7 @@ impl ChatBackend for MemoryBackend {
         invite_id: &Id,
         joined_at: &jmap_types::UTCDate,
     ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         let acct = account_id.as_ref();
 
         let Some(stored) = inner
@@ -1588,7 +1597,7 @@ impl ChatBackend for MemoryBackend {
     /// override knob and read from their own per-account
     /// configuration.
     fn limits(&self, _caller: &(), _account_id: &Id) -> ChatLimits {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock_unscoped();
         inner.limits_override.unwrap_or_default()
     }
 
@@ -1601,7 +1610,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Result<Option<AttachmentBlob>, SetError>, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(Ok(inner
             .attachment_blobs
             .get(&(account_id.as_ref().to_owned(), blob_id.clone()))
@@ -1618,7 +1627,7 @@ impl ChatBackend for MemoryBackend {
     /// default; the reference backend opts out so existing demo tests
     /// don't have to seed admin memberships.
     fn protect_last_admin(&self, _caller: &(), _account_id: &Id) -> bool {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock_unscoped();
         inner.protect_last_admin
     }
 
@@ -1630,8 +1639,7 @@ impl ChatBackend for MemoryBackend {
         _account_id: &Id,
         chat_id: &Id,
     ) -> impl std::future::Future<Output = ()> + Send {
-        self.record_lifecycle_event(LifecycleEvent::ChatDestroyed(chat_id.clone()));
-        async {}
+        self.record_lifecycle_event(LifecycleEvent::ChatDestroyed(chat_id.clone()))
     }
 
     /// Records the call for
@@ -1642,8 +1650,7 @@ impl ChatBackend for MemoryBackend {
         _account_id: &Id,
         space_id: &Id,
     ) -> impl std::future::Future<Output = ()> + Send {
-        self.record_lifecycle_event(LifecycleEvent::SpaceDestroyed(space_id.clone()));
-        async {}
+        self.record_lifecycle_event(LifecycleEvent::SpaceDestroyed(space_id.clone()))
     }
 
     /// Records the call for
@@ -1654,8 +1661,7 @@ impl ChatBackend for MemoryBackend {
         _account_id: &Id,
         ban: &jmap_chat_types::SpaceBan,
     ) -> impl std::future::Future<Output = ()> + Send {
-        self.record_lifecycle_event(LifecycleEvent::SpaceBanCreated(ban.clone()));
-        async {}
+        self.record_lifecycle_event(LifecycleEvent::SpaceBanCreated(ban.clone()))
     }
 
     /// Records the event for
@@ -1666,12 +1672,12 @@ impl ChatBackend for MemoryBackend {
         _account_id: &Id,
         event: &crate::OutboundEvent,
     ) -> impl std::future::Future<Output = ()> + Send {
-        self.inner
-            .lock()
-            .unwrap()
-            .outbound_events
-            .push(event.clone());
-        async {}
+        let event = event.clone();
+        async move {
+            // Queued in the store: an atomic rollback drops it, so nothing
+            // goes out for a change that never happened (§4.3).
+            self.inner.lock().await.outbound_events.push(event);
+        }
     }
 
     /// Reference implementation of
@@ -1683,7 +1689,7 @@ impl ChatBackend for MemoryBackend {
         _caller: &(),
         _account_id: &Id,
     ) -> &'static [&'static str] {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock_unscoped();
         inner.space_extension_properties
     }
 
@@ -1739,7 +1745,7 @@ impl ChatBackend for MemoryBackend {
         space_id: &Id,
         ops: Vec<SpacePatchOp>,
     ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         apply_space_patch_impl(&mut inner, account_id, space_id, ops)
     }
 
@@ -1761,7 +1767,7 @@ impl ChatBackend for MemoryBackend {
         patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
         let patch_map = space_metadata_patch_to_map(patch).map_err(BackendSetError::Other)?;
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         apply_space_metadata_patch_impl(&mut inner, account_id, space_id, patch_map)
     }
 
@@ -1774,12 +1780,12 @@ impl ChatBackend for MemoryBackend {
     ///
     /// Spec: draft-atwood-jmap-chat-00 commit `0783fc4`.
     fn retains_edit_history(&self) -> bool {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock_unscoped();
         inner.retains_edit_history
     }
 
     fn maintains_unread_count(&self) -> bool {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock_unscoped();
         inner.maintains_unread_count
     }
 
@@ -1793,7 +1799,7 @@ impl ChatBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
     ) -> Result<Option<String>, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(inner.owner_user_ids.get(account_id.as_ref()).cloned())
     }
 
@@ -1808,7 +1814,7 @@ impl ChatBackend for MemoryBackend {
         Ok(self
             .inner
             .lock()
-            .unwrap()
+            .await
             .everyone_for(space.id.as_ref())
             .clone())
     }
@@ -1851,7 +1857,7 @@ impl ChatBackend for MemoryBackend {
         space_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let space_exists = inner
             .objects_ref("Space", account_id.as_ref())
             .is_some_and(|m| m.contains_key(space_id));
@@ -1890,7 +1896,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let Some(chat) = inner
             .objects_ref("Chat", account_id.as_ref())
             .and_then(|m| m.get(chat_id))
@@ -1936,7 +1942,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(owner_may_view_chat(&inner, account_id, chat_id))
     }
 
@@ -1959,7 +1965,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let Some(chat) = inner
             .objects_ref("Chat", account_id.as_ref())
             .and_then(|m| m.get(chat_id))
@@ -1995,7 +2001,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         space_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let Some(space) = inner
             .objects_ref("Space", account_id.as_ref())
             .and_then(|m| m.get(space_id))
@@ -2031,7 +2037,7 @@ impl ChatBackend for MemoryBackend {
         if created_by == Some(account_id) {
             return Ok(Ok(()));
         }
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let Some(space) = inner
             .objects_ref("Space", account_id.as_ref())
             .and_then(|m| m.get(space_id))
@@ -2066,7 +2072,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         invite: &jmap_chat_types::SpaceInvite,
     ) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let Some(space) = inner
             .objects_ref("Space", account_id.as_ref())
             .and_then(|m| m.get(&invite.space_id))
@@ -2096,7 +2102,7 @@ impl ChatBackend for MemoryBackend {
         if ban.user_id == *account_id {
             return Ok(true);
         }
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let Some(space) = inner
             .objects_ref("Space", account_id.as_ref())
             .and_then(|m| m.get(&ban.space_id))
@@ -2148,7 +2154,7 @@ impl ChatBackend for MemoryBackend {
         account_id: &Id,
         message_id: &Id,
     ) -> Result<(), Self::Error> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
 
         if hard_delete_message(&mut inner, account_id.as_ref(), message_id) {
             let new_state = inner.bump_state("Message", account_id.as_ref());
@@ -2179,7 +2185,7 @@ impl ChatBackend for MemoryBackend {
         message_id: &Id,
         patch: jmap_types::PatchObject,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         let acct = account_id.as_ref();
         patched_copy::<jmap_chat_types::Message>(&mut inner, acct, message_id, &patch)?;
         hard_delete_message(&mut inner, acct, message_id);
@@ -2216,7 +2222,7 @@ impl PushSubscriptionBackend for MemoryBackend {
         &self,
         _caller: &(),
     ) -> Result<Vec<StoredPushSubscription>, MemoryError> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(inner
             .push_subscriptions
             .values()
@@ -2239,9 +2245,12 @@ impl PushSubscriptionBackend for MemoryBackend {
         mut new: PushSubscription,
     ) -> Result<StoredPushSubscription, BackendSetError<MemoryError>> {
         let expected_code = random_base64url_code();
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         validate_chat_push(&new.extra, &inner.chat_push_caps).map_err(BackendSetError::SetError)?;
-        if inner.push_subscriptions.len() >= MAX_PUSH_SUBSCRIPTIONS {
+        // Under an atomic scope the cap is checked on the final state at
+        // commit, so a create and a destroy in one call can replace a
+        // subscription at the cap.
+        if !self.inner.deferring() && inner.push_subscriptions.len() >= MAX_PUSH_SUBSCRIPTIONS {
             return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::OverQuota).with_description(format!(
                     "at most {MAX_PUSH_SUBSCRIPTIONS} push subscriptions per user"
@@ -2265,7 +2274,7 @@ impl PushSubscriptionBackend for MemoryBackend {
         _caller: &(),
         sub: PushSubscription,
     ) -> Result<PushSubscription, BackendSetError<MemoryError>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         validate_chat_push(&sub.extra, &inner.chat_push_caps).map_err(BackendSetError::SetError)?;
         let stored = sub
             .id
@@ -2283,7 +2292,7 @@ impl PushSubscriptionBackend for MemoryBackend {
         _caller: &(),
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner
             .push_subscriptions
             .remove(id)
@@ -2498,12 +2507,19 @@ impl Inner {
 /// per-type create contracts, inserts `val` under `server_id`, advances
 /// the state and records the change, all under the caller's lock. On
 /// `Err` nothing is changed.
+///
+/// `defer`: an atomic conditional-02 scope is open on this task
+/// ([`ScopedState::deferring`]), so the CustomEmoji name check is left to
+/// its commit (`final_state_failures`). The ChatContact identity check is
+/// not: an identity cannot be given up within one call (ChatContact
+/// destroy is refused), so the final state could not differ.
 fn insert_created(
     inner: &mut Inner,
     type_name: &'static str,
     account_id: &Id,
     server_id: &Id,
     val: serde_json::Value,
+    defer: bool,
 ) -> Result<(), BackendSetError<MemoryError>> {
     check_metadata_create(inner, type_name, &val)?;
 
@@ -2526,6 +2542,7 @@ fn insert_created(
 
     // `CustomEmoji` uniqueness contract on create.
     if type_name == "CustomEmoji"
+        && !defer
         && let Some(existing) = emoji_name_holder(inner, account_id, &val, None)
     {
         return Err(BackendSetError::SetError(Box::new(
@@ -5714,6 +5731,81 @@ impl crate::testkit::ConformanceBackend for MemoryBackend {
     }
 }
 
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional chat Foo/set (bd JMAP-y1yu.9): the whole store is one
+/// [`ScopedState`], so a scope isolates every type in every account, and an
+/// atomic rollback restores objects, state strings, change logs, push
+/// subscriptions and the queued lifecycle and outbound events, so nothing
+/// is announced for a change that never happened (§4.3). Under an atomic
+/// scope the backend leaves its cross-object checks (CustomEmoji names, the
+/// push subscription cap) to the commit,
+/// which checks the final state (`final_state_failures`).
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &(),
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self.inner.open(request, final_state_failures).await)
+    }
+}
+
+/// The changes an atomic scope made that break a cross-object constraint
+/// in the state it would commit (conditional-02 §4.2):
+///
+/// - two CustomEmoji with one `name` in one scope (account-wide or one
+///   Space): `alreadyExists` with `existingId` on a create,
+///   `invalidProperties` `name` on an update, as outside a scope;
+/// - more than [`MAX_PUSH_SUBSCRIPTIONS`] push subscriptions:
+///   `overQuota` on the creates.
+///
+/// Only objects the scope created or changed are reported, once each.
+fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
+    let mut failures = Vec::new();
+    let scope = |e: &serde_json::Value| e.get("spaceId").filter(|v| !v.is_null()).cloned();
+    {
+        let (type_name, property) = ("CustomEmoji", "name");
+        for (account, objects) in after.objects.get(type_name).into_iter().flatten() {
+            let old = before.objects_ref(type_name, account);
+            for (id, obj) in objects {
+                let op = match old.and_then(|o| o.get(id)) {
+                    None => SetOp::Create(id.clone()),
+                    Some(prev) if prev != obj => SetOp::Update(id.clone()),
+                    Some(_) => continue,
+                };
+                let clash = objects.iter().find(|(other, o)| {
+                    *other != id && o.get(property) == obj.get(property) && scope(o) == scope(obj)
+                });
+                if let Some((existing, _)) = clash {
+                    let error = match op {
+                        SetOp::Create(_) => SetError::new(SetErrorType::AlreadyExists)
+                            .with_existing_id(existing.clone()),
+                        _ => SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties([property]),
+                    };
+                    failures.push(DeferredFailure::new(op, error));
+                }
+            }
+        }
+    }
+    if after.push_subscriptions.len() > MAX_PUSH_SUBSCRIPTIONS {
+        for id in after.push_subscriptions.keys() {
+            if !before.push_subscriptions.contains_key(id) {
+                failures.push(DeferredFailure::new(
+                    SetOp::Create(id.clone()),
+                    SetError::new(SetErrorType::OverQuota).with_description(format!(
+                        "at most {MAX_PUSH_SUBSCRIPTIONS} push subscriptions per user"
+                    )),
+                ));
+            }
+        }
+    }
+    failures
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -5731,7 +5823,7 @@ mod tests {
         let backend = MemoryBackend::new();
         let id = |s: &str| Id::from(s);
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             let log = inner.change_log_mut(ChatContact::TYPE_NAME, "acc1");
             log.push(ChangeEntry {
                 new_state: 1,
@@ -5780,7 +5872,7 @@ mod tests {
         let backend = MemoryBackend::new();
         let id = |s: &str| Id::from(s);
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             let log = inner.change_log_mut(jmap_chat_types::Message::TYPE_NAME, "acc1");
             log.push(ChangeEntry {
                 new_state: 1,
@@ -5973,16 +6065,20 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
+    use jmap_types::Id;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        a.register_account(&Id::from("acc"));
+        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        assert!(known(&clone), "a clone sees the original's writes");
+        assert!(!known(&fresh), "a fresh backend does not");
     }
 }
 
@@ -6086,7 +6182,7 @@ mod max_changes_tests {
     /// each creating the listed ids.
     fn with_creates(states: &[&[&str]]) -> MemoryBackend {
         let backend = MemoryBackend::new();
-        let mut inner = backend.inner.lock().unwrap();
+        let mut inner = backend.inner.lock_unscoped();
         for ids in states {
             let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
             inner

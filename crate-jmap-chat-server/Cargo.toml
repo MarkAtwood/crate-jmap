@@ -21,7 +21,12 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 # Enabling `memory` pulls in `getrandom` so the reference
 # `generate_invite_code` impl can satisfy the CSPRNG contract documented on
 # the `ChatBackend::generate_invite_code` trait method (bd:JMAP-sc1b.93).
-memory = ["dep:getrandom", "dep:ulid", "dep:jmap-metadata-server"]
+memory = [
+    "dep:getrandom",
+    "dep:ulid",
+    "dep:jmap-metadata-server",
+    "jmap-server/scoped-state",
+]
 # Test-only seams on MemoryBackend (the `*_for_test` methods): seeding and
 # policy knobs for integration tests, here and in sibling crates. Not part of
 # any supported API surface. Integration tests enable it via the self

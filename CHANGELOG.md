@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: conditional chat Foo/set
+  (draft-ietf-jmap-conditional-02). `register_chat_conditional`, called
+  after `register_chat_handlers`, attaches `SetSupport` to each registered
+  chat `/set` and skips the rest (decisions 1, 17);
+  `register_chat_handlers` is unchanged. The memory backend keeps its store
+  on `jmap_server::ScopedState` (feature `memory` now enables
+  `jmap-server/scoped-state`) and implements `ConditionalBackend`: an
+  atomic rollback also drops queued lifecycle and outbound federation
+  events, and under an atomic scope the CustomEmoji name check and the push
+  subscription cap move to the commit, which checks the final state. The
+  lifecycle and outbound callbacks now take the gated lock. A poisoned
+  memory-backend lock is now taken instead of panicking. (bd:JMAP-y1yu.9)
+
 - **jmap-server**: `register_push_subscription_conditional`, the
   draft-ietf-jmap-conditional-02 opt-in for `PushSubscription/set`, called
   after `register_push_subscription_handlers` (decisions 1, 16, 17). It

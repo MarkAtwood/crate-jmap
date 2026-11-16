@@ -415,6 +415,29 @@ accepts either an `inviteCode` or a `spaceId` (for public spaces).
 backend implements push, then returns immediately. The wire response carries no payload
 beyond the standard invocation envelope.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_chat_conditional(dispatcher, backend)`, called after
+`register_chat_handlers`, attaches `SetSupport` to each registered chat `/set`
+(Chat, Message, Space, ChatContact, ReadPosition, SpaceInvite, SpaceBan,
+CustomEmoji, PresenceStatus) and skips the rest; it re-registers nothing, and a
+deployment that never calls it is unchanged (docs/design/DECISIONS.md decisions 1
+and 17). For `PushSubscription/set` call
+`jmap_server::register_push_subscription_conditional` too. Advertise
+`urn:ietf:params:jmap:conditional` only when `Dispatcher::conditional_ready()` is
+true.
+
+The dispatcher evaluates `ifUnchangedBy` through each type's `/get` and runs the
+call inside the backend's `ConditionalBackend::begin_set` scope. `MemoryBackend`'s
+store is a `jmap_server::ScopedState`: an atomic rollback restores objects, state
+strings, change logs and push subscriptions, and drops the queued lifecycle and
+outbound federation events, so nothing is announced for a change that never
+happened (§4.3). Under an atomic scope it leaves the CustomEmoji name check and the
+push subscription cap to the commit, which checks the final state: an emoji name
+swap, or replacing a subscription at the cap, succeeds. Per-object caps (group
+members, Space roles and categories) already see their own final state and are
+unchanged.
+
 ## CallerCtx
 
 `register_chat_handlers` registers each method as a `ClosureHandler`
