@@ -13,7 +13,7 @@
 //!    with one line of code, without standing up a database.
 //!
 //! It is **not** suitable for production: all state is held in `HashMap`s
-//! behind a `std::sync::Mutex`, persistence is not implemented, and a number
+//! behind one [`jmap_server::ScopedState`], persistence is not implemented, and a number
 //! of RFC 9610 edge cases are simplified (see source comments).
 //!
 //! # Feature flag and API stability
@@ -35,19 +35,20 @@
 //!
 //! # Concurrency
 //!
-//! `std::sync::Mutex` is used for simplicity. The `await_holding_lock`
-//! clippy lint is enabled module-wide and enforces that no lock guard
-//! is held across an `.await`. If a future change requires holding a
-//! guard across `.await`, switch to `tokio::sync::Mutex` rather than
-//! disabling the lint.
+//! The store is a [`jmap_server::ScopedState`]: a `std::sync::Mutex` behind
+//! a gate that a draft-ietf-jmap-conditional-02 Foo/set scope holds
+//! (`MemoryBackend`'s `ConditionalBackend` impl). Async backend methods
+//! take `lock().await`, which waits while another task's scope is open;
+//! sync setup and seeding helpers take `lock_unscoped()`. With no scope
+//! open the gate is free. The `await_holding_lock` clippy lint is enabled
+//! module-wide and enforces that no lock guard is held across an
+//! `.await`.
 //!
-//! Every `lock()` in this module ends in a bare `.unwrap()` on purpose.
-//! `Mutex::lock` fails only when another thread panicked while holding the
-//! guard, so the state behind it may be half-updated; that panic is
-//! already a bug in this module, and there is no consistent state to
-//! recover. Panicking again surfaces it instead of serving corrupt data.
-//! The crate's tests never poison the lock. A production backend that must
-//! survive a poisoned lock should implement the trait with its own locking
+//! `ScopedState` takes a poisoned mutex anyway, so a panic while holding
+//! the guard (already a bug in this module) does not panic every later
+//! call; an atomic scope that panicked is rolled back to its snapshot.
+//! The crate's tests never poison the lock. A production backend should
+//! implement the trait with its own locking
 //! rather than copy this pattern.
 //!
 //! # Tracking
@@ -62,7 +63,6 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::sync::{Arc, Mutex};
 
 use crate::ContactsBackend;
 use jmap_contacts_types::{
@@ -80,7 +80,8 @@ use jmap_server::{
     QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
-    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, PatchPathError, ScopedState, SetScope, SetScopeRequest,
+    apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
 };
 use jmap_types::{Id, JmapError, State};
 
@@ -208,8 +209,9 @@ struct AccountAux {
     address_book_card_counts: HashMap<Id, u32>,
 }
 
-/// Shared inner state, behind Arc<Mutex>.
-#[derive(Default)]
+/// Shared inner state, behind a [`ScopedState`] so a conditional Foo/set
+/// can isolate and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// `type_name` → `account_id` → `id → serialized object`
     objects: HashMap<&'static str, HashMap<String, HashMap<Id, serde_json::Value>>>,
@@ -423,7 +425,7 @@ impl Inner {
 #[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -436,7 +438,7 @@ pub struct MemoryBackend {
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -504,8 +506,7 @@ impl MemoryBackend {
             "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
         );
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .metadata_info
             .insert(type_name, info);
         self
@@ -534,7 +535,7 @@ impl MemoryBackend {
             "register_account: account_id must not be the empty string \
              (bd:JMAP-qz9v.17)"
         );
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         inner.aux.entry(account_id.as_ref().to_owned()).or_default();
     }
@@ -599,7 +600,7 @@ impl MemoryBackend {
              `id` argument {id:?}"
         );
         let account_id = account_id.as_ref();
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.known_accounts.insert(account_id.to_owned());
         inner
             .objects_mut(type_name, account_id)
@@ -642,15 +643,14 @@ impl JmapBackend for MemoryBackend {
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         self.inner
-            .lock()
-            .unwrap()
+            .lock_unscoped()
             .metadata_info
             .get(O::TYPE_NAME)
             .cloned()
     }
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
@@ -661,7 +661,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let map = inner.objects_ref(O::TYPE_NAME, account_id.as_ref());
 
         match ids {
@@ -709,7 +709,7 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
         Ok(State::from(n.to_string()))
     }
@@ -729,7 +729,7 @@ impl JmapBackend for MemoryBackend {
         } else {
             MetadataOnlyChanges::Report
         };
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
 
         let since_n: u64 = since_state
             .as_ref()
@@ -848,7 +848,7 @@ impl JmapBackend for MemoryBackend {
             anchor_offset,
             ..
         } = params;
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
 
         // Filter + sort dispatch.
         //
@@ -1008,7 +1008,7 @@ impl JmapBackend for MemoryBackend {
             )
             .await?;
 
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let new_query_state = State::from(
             inner
                 .current_state(O::TYPE_NAME, account_id.as_ref())
@@ -1068,7 +1068,7 @@ impl ContactsBackend for MemoryBackend {
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.require_account(account_id.as_ref())?;
 
@@ -1156,7 +1156,7 @@ impl ContactsBackend for MemoryBackend {
                 .map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
         }
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
 
         // -05 §3.2 rule 1: "If the user cannot read the related object,
@@ -1377,7 +1377,7 @@ impl ContactsBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
 
         let removed = inner
@@ -1430,7 +1430,7 @@ impl ContactsBackend for MemoryBackend {
         obj: O,
         create: &serde_json::Value,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
 
         if !inner.known_accounts.contains(from_account_id.as_ref()) {
             return Err(BackendSetError::SetError(Box::new(SetError::new(
@@ -1492,7 +1492,7 @@ impl ContactsBackend for MemoryBackend {
         account_id: &Id,
         address_book_id: &Id,
     ) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         // bd:JMAP-ic0j.74 — `address_book_card_counts` entries are
         // deleted when the count reaches 0, so `contains_key` is a
         // valid "has any ContactCards?" test without needing to read
@@ -2190,6 +2190,29 @@ fn compare_contact_cards_by_property(
 // regression does not silently reintroduce the bug.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional Foo/set (bd JMAP-y1yu.12): the whole store is one [`ScopedState`],
+/// so a scope isolates every type in every account, and an atomic rollback
+/// restores objects, state strings, change logs and the default AddressBook, `onDestroyRemoveContents` cascades included, together.
+///
+/// Commit checks nothing beyond what the handlers already check (see the
+/// crate README's conditional section).
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &(),
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self
+            .inner
+            .open(request, |_: &Inner, _: &Inner| Vec::new())
+            .await)
+    }
+}
+
 #[cfg(test)]
 mod query_filter_tests {
     use super::*;
@@ -2643,7 +2666,7 @@ mod address_book_card_counts_tests {
     use super::*;
 
     fn count(backend: &MemoryBackend, account_id: &str, address_book_id: &str) -> u32 {
-        let inner = backend.inner.lock().unwrap();
+        let inner = backend.inner.lock_unscoped();
         inner
             .aux_ref(account_id)
             .and_then(|a| a.address_book_card_counts.get(&Id::from(address_book_id)))
@@ -2652,7 +2675,7 @@ mod address_book_card_counts_tests {
     }
 
     fn has_key(backend: &MemoryBackend, account_id: &str, address_book_id: &str) -> bool {
-        let inner = backend.inner.lock().unwrap();
+        let inner = backend.inner.lock_unscoped();
         inner.aux_ref(account_id).is_some_and(|a| {
             a.address_book_card_counts
                 .contains_key(&Id::from(address_book_id))
@@ -2847,7 +2870,7 @@ mod address_book_card_counts_tests {
             .unwrap();
 
         // Cross-check against the from-scratch oracle.
-        let mut inner = backend.inner.lock().unwrap();
+        let mut inner = backend.inner.lock_unscoped();
         let incremental = inner
             .aux_ref("acc1")
             .unwrap()
@@ -2943,14 +2966,14 @@ mod address_book_card_counts_tests {
 
         // First, pretend a card in book1 already exists.
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             inner.apply_contact_card_index_delta("acc1", None, Some(&old));
         }
         assert_eq!(count(&backend, "acc1", "book1"), 1);
 
         // Now apply the swap.
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             inner.apply_contact_card_index_delta("acc1", Some(&old), Some(&new));
         }
         assert!(!has_key(&backend, "acc1", "book1"));
@@ -2966,7 +2989,7 @@ mod address_book_card_counts_tests {
 
         // Establish baseline.
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             inner.apply_contact_card_index_delta("acc1", None, Some(&v));
         }
         assert_eq!(count(&backend, "acc1", "book1"), 1);
@@ -2974,7 +2997,7 @@ mod address_book_card_counts_tests {
 
         // Apply old==new; nothing should change.
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             inner.apply_contact_card_index_delta("acc1", Some(&v), Some(&v));
         }
         assert_eq!(count(&backend, "acc1", "book1"), 1);
@@ -2993,14 +3016,14 @@ mod address_book_card_counts_tests {
         let with_ids = serde_json::json!({"addressBookIds": {"book1": true}});
 
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             // bare -> with_ids: incr book1 only
             inner.apply_contact_card_index_delta("acc1", Some(&bare), Some(&with_ids));
         }
         assert_eq!(count(&backend, "acc1", "book1"), 1);
 
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             // with_ids -> bare: decr book1 to 0, remove
             inner.apply_contact_card_index_delta("acc1", Some(&with_ids), Some(&bare));
         }
@@ -3136,16 +3159,20 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
+    use jmap_types::Id;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        a.register_account(&Id::from("acc"));
+        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        assert!(known(&clone), "a clone sees the original's writes");
+        assert!(!known(&fresh), "a fresh backend does not");
     }
 }
 
@@ -3160,7 +3187,7 @@ mod max_changes_tests {
     /// each creating the listed ids.
     fn with_creates(states: &[&[&str]]) -> MemoryBackend {
         let backend = MemoryBackend::new();
-        let mut inner = backend.inner.lock().unwrap();
+        let mut inner = backend.inner.lock_unscoped();
         for ids in states {
             let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
             inner

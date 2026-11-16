@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-contacts-server**: conditional contacts Foo/set
+  (draft-ietf-jmap-conditional-02). `register_contacts_conditional`,
+  called after `register_contacts_handlers`, attaches `SetSupport` to the
+  registered AddressBook and ContactCard `/set` (decisions 1, 17). The
+  memory backend keeps its store on `jmap_server::ScopedState` (feature
+  `memory` now enables `jmap-server/scoped-state`) and implements
+  `ConditionalBackend`, so an atomic failure rolls back
+  `onDestroyRemoveContents` cascades. A poisoned memory-backend lock is now
+  taken instead of panicking. (bd:JMAP-y1yu.12)
+
 - **jmap-tasks-server**, **jmap-chat-tasks-server**: conditional tasks
   Foo/set (draft-ietf-jmap-conditional-02). `register_tasks_conditional`,
   called after `register_tasks_handlers`, attaches `SetSupport` to each

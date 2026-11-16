@@ -313,6 +313,22 @@ request. Patches follow RFC 8620 §5.3 JSON Pointer semantics:
 The patched card is then passed to `copy_object` for storage in the
 destination account.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_contacts_conditional(dispatcher, backend)`, called after
+`register_contacts_handlers`, attaches `SetSupport` to each registered `/set`
+(AddressBook, ContactCard) and skips the rest; it re-registers nothing, and a
+deployment that never calls it is unchanged (docs/design/DECISIONS.md decisions 1
+and 17). Advertise `urn:ietf:params:jmap:conditional` only when
+`Dispatcher::conditional_ready()` is true.
+
+The dispatcher evaluates `ifUnchangedBy` through each type's `/get` and runs the
+call inside the backend's `ConditionalBackend::begin_set` scope, which must roll
+back `onDestroyRemoveContents` cascades and default changes under `atomic`.
+`MemoryBackend`'s store is a `jmap_server::ScopedState`; its commit checks nothing
+extra, because one default AddressBook holds by construction (setting one clears
+the others) and there are no cross-object caps.
+
 ## Capability URI
 
 Include this in your Session object's `capabilities` map when the contacts
