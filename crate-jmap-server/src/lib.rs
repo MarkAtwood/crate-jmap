@@ -33,6 +33,7 @@ pub use jmap_types::{
 };
 
 mod backend;
+mod conditional;
 mod handlers;
 mod helpers;
 mod i18n;
@@ -42,6 +43,11 @@ pub use backend::{
     ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
     QueryObject, QueryParams, QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject,
     backend_set_error_value,
+};
+pub use conditional::{
+    BeginSetError, CommitError, CommitFuture, ConditionalBackend, DeferredFailure,
+    RegistrationError, RollbackFuture, SetMode, SetOp, SetScope, SetScopeId, SetScopeRequest,
+    SetSupport, current_set_scope, serialized_writes_scope,
 };
 pub use handlers::{
     SERVER_FAIL_INTERNAL_DESC, changes_error_from_backend, handle_changes, handle_get,
@@ -77,7 +83,7 @@ pub use push::{
 pub use response::{RequestError, error_invocation, error_status, problem_response, request_error};
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     fmt,
     future::Future,
     pin::Pin,
@@ -103,6 +109,12 @@ pub struct HandlerOutput {
     /// empty. RFC 8621 §7.5 `EmailSubmission/set` uses it for the implicit
     /// `Email/set` response for `onSuccessUpdateEmail`.
     pub extra_invocations: Vec<Invocation>,
+    /// Per object id, the top-level properties this `/get` response blanked
+    /// or left out because the caller may not read them. Never written to
+    /// the wire: the dispatcher's draft-ietf-jmap-conditional-02
+    /// evaluator answers a precondition on one of them `forbidden` (§9.1).
+    /// Empty for most handlers.
+    pub unreadable: BTreeMap<Id, BTreeSet<String>>,
 }
 
 impl HandlerOutput {
@@ -111,12 +123,20 @@ impl HandlerOutput {
         Self {
             primary,
             extra_invocations: Vec::new(),
+            unreadable: BTreeMap::new(),
         }
     }
 
     /// Set the invocations to append after the primary response.
     pub fn with_extra(mut self, extra_invocations: Vec<Invocation>) -> Self {
         self.extra_invocations = extra_invocations;
+        self
+    }
+
+    /// Set [`HandlerOutput::unreadable`]: the properties a `/get` response
+    /// withheld from the caller, by object id.
+    pub fn with_unreadable(mut self, unreadable: BTreeMap<Id, BTreeSet<String>>) -> Self {
+        self.unreadable = unreadable;
         self
     }
 }
@@ -167,6 +187,11 @@ pub struct CallContext<CallerCtx> {
     /// draft-ietf-jmap-metadata-05 §3 extends `Foo/changes` only for
     /// requests whose `using` includes `urn:ietf:params:jmap:metadata`.
     pub using: Vec<String>,
+    /// The call is an atomic Foo/set (draft-ietf-jmap-conditional-02 §4):
+    /// the dispatcher removed the `atomic` argument and will commit all of
+    /// the method's changes or none. A handler need not act on it; it is
+    /// there for handlers that can fail fast.
+    pub atomic: bool,
 }
 
 impl<CallerCtx> CallContext<CallerCtx> {
@@ -184,6 +209,7 @@ impl<CallerCtx> CallContext<CallerCtx> {
             caller,
             created_ids: BTreeMap::new(),
             using: Vec::new(),
+            atomic: false,
         }
     }
 
@@ -197,6 +223,12 @@ impl<CallerCtx> CallContext<CallerCtx> {
     /// Set [`CallContext::using`]; [`CallContext::new`] leaves it empty.
     pub fn with_using(mut self, using: Vec<String>) -> Self {
         self.using = using;
+        self
+    }
+
+    /// Set [`CallContext::atomic`]; [`CallContext::new`] leaves it false.
+    pub fn with_atomic(mut self, atomic: bool) -> Self {
+        self.atomic = atomic;
         self
     }
 }
@@ -270,6 +302,8 @@ fn extract_created_ids_into(primary: &Value, sink: &mut BTreeMap<Id, Id>) {
 pub struct Dispatcher<CallerCtx> {
     handlers: HashMap<String, Arc<dyn JmapHandler<CallerCtx>>>,
     guard: Option<MethodGuard<CallerCtx>>,
+    /// Conditional-02 support attached per Foo/set method name.
+    set_support: HashMap<String, SetSupport<CallerCtx>>,
 }
 
 type MethodGuard<CallerCtx> = Box<dyn Fn(&str, &CallerCtx) -> Result<(), JmapError> + Send + Sync>;
@@ -301,6 +335,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
         Self {
             handlers: HashMap::new(),
             guard: None,
+            set_support: HashMap::new(),
         }
     }
 
@@ -339,12 +374,18 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     ///
     /// Using `Arc` rather than `Box` allows the same handler instance to be
     /// shared across multiple method name registrations (via `Arc::clone`).
+    ///
+    /// Drops any conditional support attached to `method`
+    /// ([`Dispatcher::attach_set_support`]): the new handler must opt in
+    /// again.
     pub fn register(
         &mut self,
         method: impl Into<String>,
         handler: Arc<dyn JmapHandler<CallerCtx>>,
     ) {
-        self.handlers.insert(method.into(), handler);
+        let method = method.into();
+        self.set_support.remove(&method);
+        self.handlers.insert(method, handler);
     }
 
     /// Register a handler for the given method name, returning an error
@@ -496,6 +537,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                 Ok(Ok(HandlerOutput {
                     primary: primary_value,
                     extra_invocations,
+                    ..
                 })) => {
                     // Accumulate createdIds from every /set response: RFC 8620
                     // §5.3 says the server "MUST keep a simple map for the
@@ -600,6 +642,7 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
         f.debug_struct("Dispatcher")
             .field("methods", &self.handlers.keys())
             .field("guard", &self.guard.is_some())
+            .field("set_support", &self.set_support.keys())
             .finish()
     }
 }

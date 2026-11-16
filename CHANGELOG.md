@@ -14,6 +14,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: the draft-ietf-jmap-conditional-02 backend hooks and
+  opt-in registration, ahead of the dispatcher evaluator. `ConditionalBackend`
+  (a separate trait over `JmapBackend`; required `begin_set`, fail-open
+  `hidden_properties`) opens a `SetScope` per Foo/set call, `Isolated` or
+  `Atomic`, which commits (possibly `CommitError::Rejected` with
+  `DeferredFailure`s) or rolls back, and must roll back when dropped.
+  `current_set_scope()` names the running call's scope;
+  `serialized_writes_scope` serves backends that already serialize writes
+  per account (it refuses `Atomic`). `Dispatcher::attach_set_support`
+  attaches a `SetSupport` to a registered Foo/set, `register` of that method
+  drops it, and `conditional_gaps` / `conditional_ready` tell a deployment
+  whether it may advertise the capability. `CallContext` gains `atomic`, and
+  `HandlerOutput` gains a never-serialized `unreadable` map. No existing
+  registration fn or trait bound changes. (bd:JMAP-y1yu.2)
+
 - **jmap-types**: `conditional` module, the draft-ietf-jmap-conditional-02
   wire types: `JMAP_CONDITIONAL_URI`, `ConditionalCapability`,
   `IfUnchangedBy`, `ConditionalSetArgs`, `AtomicFailure`, and the

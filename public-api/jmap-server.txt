@@ -60,6 +60,20 @@ impl<E> core::convert::From<alloc::boxed::Box<jmap_types::set_error::SetError>> 
 pub fn jmap_server::BackendSetError<E>::from(alloc::boxed::Box<jmap_types::set_error::SetError>) -> Self
 impl<E> core::convert::From<jmap_types::set_error::SetError> for jmap_server::BackendSetError<E>
 pub fn jmap_server::BackendSetError<E>::from(jmap_types::set_error::SetError) -> Self
+#[non_exhaustive] pub enum jmap_server::BeginSetError<E>
+pub jmap_server::BeginSetError::CannotApplyAtomically
+pub jmap_server::BeginSetError::Other(E)
+impl<E: core::fmt::Debug> core::fmt::Debug for jmap_server::BeginSetError<E>
+pub fn jmap_server::BeginSetError<E>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_server::CommitError
+pub jmap_server::CommitError::Other(alloc::boxed::Box<(dyn core::error::Error + core::marker::Send + core::marker::Sync)>)
+pub jmap_server::CommitError::Rejected(alloc::vec::Vec<jmap_server::DeferredFailure>)
+impl core::error::Error for jmap_server::CommitError
+pub fn jmap_server::CommitError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_server::CommitError
+pub fn jmap_server::CommitError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_server::CommitError
+pub fn jmap_server::CommitError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub enum jmap_server::MergePatchError
 pub jmap_server::MergePatchError::DepthExceeded
 impl core::clone::Clone for jmap_server::MergePatchError
@@ -92,6 +106,48 @@ pub fn jmap_server::PatchPathError::fmt(&self, &mut core::fmt::Formatter<'_>) ->
 impl core::fmt::Display for jmap_server::PatchPathError
 pub fn jmap_server::PatchPathError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_server::PatchPathError
+#[non_exhaustive] pub enum jmap_server::RegistrationError
+pub jmap_server::RegistrationError::DataTypeMismatch
+pub jmap_server::RegistrationError::DataTypeMismatch::data_type: &'static str
+pub jmap_server::RegistrationError::DataTypeMismatch::method: alloc::string::String
+pub jmap_server::RegistrationError::NotASetMethod(alloc::string::String)
+pub jmap_server::RegistrationError::NotRegistered(alloc::string::String)
+impl core::clone::Clone for jmap_server::RegistrationError
+pub fn jmap_server::RegistrationError::clone(&self) -> jmap_server::RegistrationError
+impl core::cmp::Eq for jmap_server::RegistrationError
+impl core::cmp::PartialEq for jmap_server::RegistrationError
+pub fn jmap_server::RegistrationError::eq(&self, &jmap_server::RegistrationError) -> bool
+impl core::error::Error for jmap_server::RegistrationError
+impl core::fmt::Debug for jmap_server::RegistrationError
+pub fn jmap_server::RegistrationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_server::RegistrationError
+pub fn jmap_server::RegistrationError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_server::RegistrationError
+#[non_exhaustive] pub enum jmap_server::SetMode
+pub jmap_server::SetMode::Atomic
+pub jmap_server::SetMode::Isolated
+impl core::clone::Clone for jmap_server::SetMode
+pub fn jmap_server::SetMode::clone(&self) -> jmap_server::SetMode
+impl core::cmp::Eq for jmap_server::SetMode
+impl core::cmp::PartialEq for jmap_server::SetMode
+pub fn jmap_server::SetMode::eq(&self, &jmap_server::SetMode) -> bool
+impl core::fmt::Debug for jmap_server::SetMode
+pub fn jmap_server::SetMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_server::SetMode
+impl core::marker::StructuralPartialEq for jmap_server::SetMode
+#[non_exhaustive] pub enum jmap_server::SetOp
+pub jmap_server::SetOp::Create(jmap_types::id::Id)
+pub jmap_server::SetOp::Destroy(jmap_types::id::Id)
+pub jmap_server::SetOp::Restore(jmap_types::id::Id)
+pub jmap_server::SetOp::Update(jmap_types::id::Id)
+impl core::clone::Clone for jmap_server::SetOp
+pub fn jmap_server::SetOp::clone(&self) -> jmap_server::SetOp
+impl core::cmp::Eq for jmap_server::SetOp
+impl core::cmp::PartialEq for jmap_server::SetOp
+pub fn jmap_server::SetOp::eq(&self, &jmap_server::SetOp) -> bool
+impl core::fmt::Debug for jmap_server::SetOp
+pub fn jmap_server::SetOp::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_server::SetOp
 #[non_exhaustive] pub struct jmap_server::AddedItem
 pub jmap_server::AddedItem::id: jmap_types::id::Id
 pub jmap_server::AddedItem::index: u64
@@ -101,6 +157,7 @@ impl core::fmt::Debug for jmap_server::AddedItem
 pub fn jmap_server::AddedItem::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct jmap_server::CallContext<CallerCtx>
 pub jmap_server::CallContext::args: serde_json::value::Value
+pub jmap_server::CallContext::atomic: bool
 pub jmap_server::CallContext::call_id: alloc::string::String
 pub jmap_server::CallContext::caller: CallerCtx
 pub jmap_server::CallContext::created_ids: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>
@@ -108,6 +165,7 @@ pub jmap_server::CallContext::method: alloc::string::String
 pub jmap_server::CallContext::using: alloc::vec::Vec<alloc::string::String>
 impl<CallerCtx> jmap_server::CallContext<CallerCtx>
 pub fn jmap_server::CallContext<CallerCtx>::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, serde_json::value::Value, CallerCtx) -> Self
+pub fn jmap_server::CallContext<CallerCtx>::with_atomic(self, bool) -> Self
 pub fn jmap_server::CallContext<CallerCtx>::with_created_ids(self, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>) -> Self
 pub fn jmap_server::CallContext<CallerCtx>::with_using(self, alloc::vec::Vec<alloc::string::String>) -> Self
 impl<CallerCtx: core::clone::Clone> core::clone::Clone for jmap_server::CallContext<CallerCtx>
@@ -147,7 +205,23 @@ impl<B: core::marker::Send + core::marker::Sync + 'static, C: core::clone::Clone
 pub fn jmap_server::ClosureHandler<B, C>::new<F>(alloc::sync::Arc<B>, F) -> Self where F: core::ops::function::Fn(alloc::sync::Arc<B>, jmap_server::CallContext<C>) -> jmap_server::HandlerFuture + core::marker::Send + core::marker::Sync + 'static
 impl<B: core::marker::Send + core::marker::Sync + 'static, C: core::clone::Clone + core::marker::Send + 'static> jmap_server::JmapHandler<C> for jmap_server::ClosureHandler<B, C>
 pub fn jmap_server::ClosureHandler<B, C>::call(&self, jmap_server::CallContext<C>) -> jmap_server::HandlerFuture
+#[non_exhaustive] pub struct jmap_server::DeferredFailure
+pub jmap_server::DeferredFailure::error: jmap_types::set_error::SetError
+pub jmap_server::DeferredFailure::op: jmap_server::SetOp
+impl jmap_server::DeferredFailure
+pub fn jmap_server::DeferredFailure::new(jmap_server::SetOp, jmap_types::set_error::SetError) -> Self
+impl core::clone::Clone for jmap_server::DeferredFailure
+pub fn jmap_server::DeferredFailure::clone(&self) -> jmap_server::DeferredFailure
+impl core::cmp::PartialEq for jmap_server::DeferredFailure
+pub fn jmap_server::DeferredFailure::eq(&self, &jmap_server::DeferredFailure) -> bool
+impl core::fmt::Debug for jmap_server::DeferredFailure
+pub fn jmap_server::DeferredFailure::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_server::DeferredFailure
 pub struct jmap_server::Dispatcher<CallerCtx>
+impl<C: core::clone::Clone + core::marker::Send + 'static> jmap_server::Dispatcher<C>
+pub fn jmap_server::Dispatcher<C>::attach_set_support(&mut self, &str, jmap_server::SetSupport<C>) -> core::result::Result<(), jmap_server::RegistrationError>
+pub fn jmap_server::Dispatcher<C>::conditional_gaps(&self) -> alloc::vec::Vec<alloc::string::String>
+pub fn jmap_server::Dispatcher<C>::conditional_ready(&self) -> bool
 impl<CallerCtx: core::clone::Clone + core::marker::Send + 'static> jmap_server::Dispatcher<CallerCtx>
 pub async fn jmap_server::Dispatcher<CallerCtx>::dispatch(&self, jmap_types::wire::JmapRequest, CallerCtx, jmap_types::id::State) -> jmap_types::wire::JmapResponse
 pub fn jmap_server::Dispatcher<CallerCtx>::new() -> Self
@@ -174,9 +248,11 @@ impl core::marker::StructuralPartialEq for jmap_server::DuplicateMethodError
 #[non_exhaustive] pub struct jmap_server::HandlerOutput
 pub jmap_server::HandlerOutput::extra_invocations: alloc::vec::Vec<jmap_types::wire::Invocation>
 pub jmap_server::HandlerOutput::primary: serde_json::value::Value
+pub jmap_server::HandlerOutput::unreadable: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::collections::btree::set::BTreeSet<alloc::string::String>>
 impl jmap_server::HandlerOutput
 pub fn jmap_server::HandlerOutput::new(serde_json::value::Value) -> Self
 pub fn jmap_server::HandlerOutput::with_extra(self, alloc::vec::Vec<jmap_types::wire::Invocation>) -> Self
+pub fn jmap_server::HandlerOutput::with_unreadable(self, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::collections::btree::set::BTreeSet<alloc::string::String>>) -> Self
 impl core::clone::Clone for jmap_server::HandlerOutput
 pub fn jmap_server::HandlerOutput::clone(&self) -> jmap_server::HandlerOutput
 impl core::cmp::PartialEq for jmap_server::HandlerOutput
@@ -309,6 +385,48 @@ impl core::fmt::Debug for jmap_server::RequestError
 pub fn jmap_server::RequestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_server::RequestError
 pub fn jmap_server::RequestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_server::SetScopeId(_)
+impl jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::next() -> Self
+impl core::clone::Clone for jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::clone(&self) -> jmap_server::SetScopeId
+impl core::cmp::Eq for jmap_server::SetScopeId
+impl core::cmp::Ord for jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::cmp(&self, &jmap_server::SetScopeId) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::eq(&self, &jmap_server::SetScopeId) -> bool
+impl core::cmp::PartialOrd for jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::partial_cmp(&self, &jmap_server::SetScopeId) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_server::SetScopeId
+pub fn jmap_server::SetScopeId::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_server::SetScopeId
+impl core::marker::StructuralPartialEq for jmap_server::SetScopeId
+#[non_exhaustive] pub struct jmap_server::SetScopeRequest<'a>
+pub jmap_server::SetScopeRequest::account_id: core::option::Option<&'a jmap_types::id::Id>
+pub jmap_server::SetScopeRequest::args: &'a serde_json::value::Value
+pub jmap_server::SetScopeRequest::data_type: &'a str
+pub jmap_server::SetScopeRequest::method: &'a str
+pub jmap_server::SetScopeRequest::mode: jmap_server::SetMode
+pub jmap_server::SetScopeRequest::scope: jmap_server::SetScopeId
+impl<'a> jmap_server::SetScopeRequest<'a>
+pub fn jmap_server::SetScopeRequest<'a>::new(&'a str, &'a str, core::option::Option<&'a jmap_types::id::Id>, jmap_server::SetMode, &'a serde_json::value::Value) -> Self
+impl<'a> core::clone::Clone for jmap_server::SetScopeRequest<'a>
+pub fn jmap_server::SetScopeRequest<'a>::clone(&self) -> jmap_server::SetScopeRequest<'a>
+impl<'a> core::fmt::Debug for jmap_server::SetScopeRequest<'a>
+pub fn jmap_server::SetScopeRequest<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<'a> core::marker::Copy for jmap_server::SetScopeRequest<'a>
+pub struct jmap_server::SetSupport<C>
+impl<C> jmap_server::SetSupport<C>
+pub fn jmap_server::SetSupport<C>::data_type(&self) -> &'static str
+pub fn jmap_server::SetSupport<C>::new<O, B>(alloc::sync::Arc<B>) -> Self where O: jmap_types::backend::SetObject, B: jmap_server::ConditionalBackend<CallerCtx = C>
+impl<C> core::clone::Clone for jmap_server::SetSupport<C>
+pub fn jmap_server::SetSupport<C>::clone(&self) -> Self
+impl<C> core::fmt::Debug for jmap_server::SetSupport<C>
+pub fn jmap_server::SetSupport<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct jmap_server::StoredPushSubscription
 pub jmap_server::StoredPushSubscription::expected_code: alloc::string::String
 pub jmap_server::StoredPushSubscription::subscription: jmap_types::push::PushSubscription
@@ -323,6 +441,9 @@ impl core::marker::StructuralPartialEq for jmap_server::StoredPushSubscription
 pub const jmap_server::CREATE_ID_PLACEHOLDER: &str
 pub const jmap_server::MAX_PUSH_EXPIRY_SECS: i64
 pub const jmap_server::SERVER_FAIL_INTERNAL_DESC: &str
+pub trait jmap_server::ConditionalBackend: jmap_server::JmapBackend
+pub fn jmap_server::ConditionalBackend::begin_set(&self, &Self::CallerCtx, jmap_server::SetScopeRequest<'_>) -> impl core::future::future::Future<Output = core::result::Result<alloc::boxed::Box<dyn jmap_server::SetScope>, jmap_server::BeginSetError<Self::Error>>> + core::marker::Send
+pub fn jmap_server::ConditionalBackend::hidden_properties(&self, &Self::CallerCtx, core::option::Option<&jmap_types::id::Id>, &str, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<alloc::string::String>>, Self::Error>> + core::marker::Send
 pub trait jmap_server::JmapBackend: core::marker::Send + core::marker::Sync + 'static
 pub type jmap_server::JmapBackend::CallerCtx: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static
 pub type jmap_server::JmapBackend::Error: core::error::Error + core::marker::Send + core::marker::Sync + 'static
@@ -348,6 +469,9 @@ pub fn jmap_server::PushSubscriptionBackend::create_push_subscription(&self, &Se
 pub fn jmap_server::PushSubscriptionBackend::destroy_push_subscription(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::PushSubscriptionBackend::list_push_subscriptions(&self, &Self::CallerCtx) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_server::StoredPushSubscription>, Self::Error>> + core::marker::Send
 pub fn jmap_server::PushSubscriptionBackend::update_push_subscription(&self, &Self::CallerCtx, jmap_types::push::PushSubscription) -> impl core::future::future::Future<Output = core::result::Result<jmap_types::push::PushSubscription, jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
+pub trait jmap_server::SetScope: core::marker::Send
+pub fn jmap_server::SetScope::commit(alloc::boxed::Box<Self>) -> jmap_server::CommitFuture
+pub fn jmap_server::SetScope::rollback(alloc::boxed::Box<Self>) -> jmap_server::RollbackFuture
 pub fn jmap_server::apply_jmap_patch(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &str, serde_json::value::Value) -> core::result::Result<(), jmap_server::PatchPathError>
 pub fn jmap_server::apply_patch_object(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(), jmap_server::PatchPathError>
 pub fn jmap_server::backend_set_error_value<E: core::fmt::Display>(jmap_server::BackendSetError<E>) -> serde_json::value::Value
@@ -356,6 +480,7 @@ pub fn jmap_server::changes_error_from_backend<E: core::error::Error>(jmap_serve
 pub fn jmap_server::check_known_capabilities<S: core::convert::AsRef<str>>(&jmap_types::wire::JmapRequest, &[S]) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_server::check_patch_paths(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<(), jmap_server::PatchPathError>
 pub async fn jmap_server::check_read_only_patch<B, O>(&B, &<B as jmap_server::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<bool, serde_json::value::Value> where B: jmap_server::JmapBackend, O: jmap_types::backend::GetObject + jmap_types::backend::SetObject + serde_core::ser::Serialize + core::marker::Send + core::marker::Sync
+pub fn jmap_server::current_set_scope() -> core::option::Option<jmap_server::SetScopeId>
 pub fn jmap_server::enforce_max_objects_in_get(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, u64) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_server::enforce_max_objects_in_set(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>, u64) -> core::result::Result<(), jmap_types::error::JmapError>
 pub fn jmap_server::error_invocation(&str, jmap_types::error::JmapError) -> jmap_types::wire::Invocation
@@ -398,6 +523,7 @@ pub fn jmap_server::resolve_creation_ref(&str, &alloc::collections::btree::map::
 pub fn jmap_server::resolve_query_offset(i64, usize) -> usize
 pub fn jmap_server::resolve_query_start(&[jmap_types::id::Id], i64, core::option::Option<&jmap_types::id::Id>, i64) -> core::result::Result<usize, jmap_types::error::JmapError>
 pub fn jmap_server::serialize_value<T: serde_core::ser::Serialize>(T) -> core::result::Result<serde_json::value::Value, jmap_types::error::JmapError>
+pub fn jmap_server::serialized_writes_scope<E>(jmap_server::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::SetScope>, jmap_server::BeginSetError<E>>
 pub fn jmap_server::server_fail_from_backend<E: core::fmt::Display + ?core::marker::Sized>(&E) -> jmap_types::error::JmapError
 pub fn jmap_server::server_fail_value_from_backend<E: core::fmt::Display + ?core::marker::Sized>(&E) -> serde_json::value::Value
 pub fn jmap_server::state_change_for(&jmap_types::push::PushSubscription, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::id::State>>) -> core::option::Option<jmap_types::push::StateChange>
@@ -408,4 +534,6 @@ pub fn jmap_server::uses_i18n(&[alloc::string::String]) -> bool
 pub fn jmap_server::uses_metadata(&[alloc::string::String]) -> bool
 pub fn jmap_server::utc_date_from_epoch_seconds(i64) -> core::option::Option<jmap_types::id::UTCDate>
 pub type jmap_server::BackendCallFn<B, C> = (dyn core::ops::function::Fn(alloc::sync::Arc<B>, jmap_server::CallContext<C>) -> jmap_server::HandlerFuture + core::marker::Send + core::marker::Sync + 'static)
+pub type jmap_server::CommitFuture = core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<(), jmap_server::CommitError>> + core::marker::Send)>>
 pub type jmap_server::HandlerFuture = core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>> + core::marker::Send)>>
+pub type jmap_server::RollbackFuture = core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = ()> + core::marker::Send)>>
