@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-sharing-server**: conditional sharing Foo/set
+  (draft-ietf-jmap-conditional-02). `register_sharing_conditional`, called
+  after `register_sharing_handlers`, attaches `SetSupport` to the
+  registered Principal and ShareNotification `/set` (decisions 1, 17). The
+  memory backend keeps its store on `jmap_server::ScopedState` (feature
+  `memory` now enables `jmap-server/scoped-state`) and implements
+  `ConditionalBackend`. A poisoned memory-backend lock is now taken instead
+  of panicking. (bd:JMAP-y1yu.13)
+
 - **jmap-contacts-server**: conditional contacts Foo/set
   (draft-ietf-jmap-conditional-02). `register_contacts_conditional`,
   called after `register_contacts_handlers`, attaches `SetSupport` to the

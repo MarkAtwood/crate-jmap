@@ -13,7 +13,7 @@
 //!    with one line of code, without standing up a database.
 //!
 //! It is **not** suitable for production: all state is held in `HashMap`s
-//! behind a `std::sync::Mutex`, persistence is not implemented, and a number
+//! behind one [`jmap_server::ScopedState`], persistence is not implemented, and a number
 //! of RFC 9670 edge cases are simplified (see source comments).
 //!
 //! # Feature flag and API stability
@@ -35,19 +35,20 @@
 //!
 //! # Concurrency
 //!
-//! `std::sync::Mutex` is used for simplicity. The `await_holding_lock`
-//! clippy lint is enabled module-wide and enforces that no lock guard
-//! is held across an `.await`. If a future change requires holding a
-//! guard across `.await`, switch to `tokio::sync::Mutex` rather than
-//! disabling the lint.
+//! The store is a [`jmap_server::ScopedState`]: a `std::sync::Mutex` behind
+//! a gate that a draft-ietf-jmap-conditional-02 Foo/set scope holds
+//! (`MemoryBackend`'s `ConditionalBackend` impl). Async backend methods
+//! take `lock().await`, which waits while another task's scope is open;
+//! sync setup and seeding helpers take `lock_unscoped()`. With no scope
+//! open the gate is free. The `await_holding_lock` clippy lint is enabled
+//! module-wide and enforces that no lock guard is held across an
+//! `.await`.
 //!
-//! Every `lock()` in this module ends in a bare `.unwrap()` on purpose.
-//! `Mutex::lock` fails only when another thread panicked while holding the
-//! guard, so the state behind it may be half-updated; that panic is
-//! already a bug in this module, and there is no consistent state to
-//! recover. Panicking again surfaces it instead of serving corrupt data.
-//! The crate's tests never poison the lock. A production backend that must
-//! survive a poisoned lock should implement the trait with its own locking
+//! `ScopedState` takes a poisoned mutex anyway, so a panic while holding
+//! the guard (already a bug in this module) does not panic every later
+//! call; an atomic scope that panicked is rolled back to its snapshot.
+//! The crate's tests never poison the lock. A production backend should
+//! implement the trait with its own locking
 //! rather than copy this pattern.
 //!
 //! # Tracking
@@ -60,7 +61,6 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{BTreeSet, HashMap, HashSet};
-use std::sync::{Arc, Mutex};
 
 use crate::SharingBackend;
 use jmap_metadata_server::{
@@ -75,7 +75,8 @@ use jmap_server::{
     QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
-    PatchPathError, apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, PatchPathError, ScopedState, SetScope, SetScopeRequest,
+    apply_patch_object, check_patch_paths, limit_or_max, resolve_query_start,
 };
 use jmap_sharing_types::{Principal, PrincipalFilter};
 use jmap_types::{Filter, Id, JmapError, Operator, State};
@@ -112,8 +113,9 @@ impl ChangeEntry {
     }
 }
 
-/// Shared inner state, behind Arc<Mutex>.
-#[derive(Default)]
+/// Shared inner state, behind a [`ScopedState`] so a conditional Foo/set
+/// can isolate and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// `type_name` → `account_id` → `id → serialized object`
     objects: HashMap<&'static str, HashMap<String, HashMap<Id, serde_json::Value>>>,
@@ -219,10 +221,10 @@ enum IdFate {
 ///
 /// # Clone semantics — shared state, not independent copies
 ///
-/// The manual [`Clone`] impl is a cheap [`Arc`] clone:
+/// The manual [`Clone`] impl is a cheap handle clone:
 /// `b1.clone()` produces a second handle to the **same** shared state
-/// behind a [`Mutex`]. Mutating through one clone is visible through every
-/// other clone. This is the workspace pattern for `Arc<Mutex<_>>`-backed
+/// behind one [`ScopedState`]. Mutating through one clone is visible
+/// through every other clone. This is the workspace pattern for the
 /// reference impls and matches the canonical `jmap-mail-server`.
 ///
 /// To build an independent backend (e.g. for parameterized tests that need
@@ -231,7 +233,7 @@ enum IdFate {
 #[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -244,7 +246,7 @@ pub struct MemoryBackend {
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -280,7 +282,7 @@ impl MemoryBackend {
             "register_account: account_id must not be the empty string \
              (RFC 8620 §1.2, bd:JMAP-dx0s)"
         );
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
     }
 
@@ -340,7 +342,7 @@ impl MemoryBackend {
             !info.supports_private,
             "MemoryBackend does not support privateMetadata (supportsPrivate must be false)"
         );
-        self.inner.lock().unwrap().metadata_info = Some(info);
+        self.inner.lock_unscoped().metadata_info = Some(info);
         self
     }
 
@@ -390,7 +392,7 @@ impl MemoryBackend {
              `id` argument {id:?}"
         );
         let account = account_id.as_ref();
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock_unscoped();
         inner.known_accounts.insert(account.to_owned());
         inner
             .objects_mut(type_name, account)
@@ -517,11 +519,11 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
-        metadata_info_for::<O>(&self.inner.lock().unwrap()).cloned()
+        metadata_info_for::<O>(&self.inner.lock_unscoped()).cloned()
     }
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
@@ -532,7 +534,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let map = inner.objects_ref(O::TYPE_NAME, account_id.as_ref());
 
         match ids {
@@ -580,7 +582,7 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
         let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
         Ok(State::from(n.to_string()))
     }
@@ -600,7 +602,7 @@ impl JmapBackend for MemoryBackend {
         } else {
             MetadataOnlyChanges::Report
         };
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
 
         let since_n: u64 = since_state
             .as_ref()
@@ -758,7 +760,7 @@ impl JmapBackend for MemoryBackend {
         if sort.is_some_and(|s| !s.is_empty()) {
             return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
         }
-        let inner = self.inner.lock().unwrap();
+        let inner = self.inner.lock().await;
 
         // draft-ietf-jmap-metadata-05 §3.6 on Principal: validate the
         // `metadata*` conditions, then evaluate the filter. Any other
@@ -945,7 +947,7 @@ impl SharingBackend for MemoryBackend {
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
 
         if let Some(obj) = val.as_object() {
             check_metadata_create(metadata_info_for::<O>(&inner), obj)?;
@@ -1007,7 +1009,7 @@ impl SharingBackend for MemoryBackend {
                 .map_err(|e: PatchPathError| invalid_patch(e.to_string()))?;
         }
 
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
         let metadata_info = metadata_info_for::<O>(&inner).cloned();
 
         // -05 §3.2 rule 1: "If the user cannot read the related object,
@@ -1133,7 +1135,7 @@ impl SharingBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
+        let mut inner = self.inner.lock().await;
 
         // Backend-canonical re-check (AGENTS.md "Caller identity" /
         // "Permission enforcement: backend canonical"). See `update_object`
@@ -1379,6 +1381,29 @@ fn metadata_matches(
 // Tests
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional Foo/set (bd JMAP-y1yu.13): the whole store is one [`ScopedState`],
+/// so a scope isolates every type in every account, and an atomic rollback
+/// restores Principals, ShareNotifications, state strings and change logs together.
+///
+/// Commit checks nothing beyond what the handlers already check (see the
+/// crate README's conditional section).
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &(),
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self
+            .inner
+            .open(request, |_: &Inner, _: &Inner| Vec::new())
+            .await)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1442,7 +1467,7 @@ mod tests {
         let recycled = Id::from("recycled");
 
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             let log = inner.change_log_mut(Principal::TYPE_NAME, "acc1");
             log.push(ChangeEntry {
                 new_state: 1,
@@ -1546,7 +1571,7 @@ mod tests {
         let ephemeral = Id::from("ephemeral");
 
         {
-            let mut inner = backend.inner.lock().unwrap();
+            let mut inner = backend.inner.lock_unscoped();
             let log = inner.change_log_mut(Principal::TYPE_NAME, "acc1");
             log.push(ChangeEntry {
                 new_state: 1,
@@ -1623,16 +1648,20 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
+    use jmap_types::Id;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        a.register_account(&Id::from("acc"));
+        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        assert!(known(&clone), "a clone sees the original's writes");
+        assert!(!known(&fresh), "a fresh backend does not");
     }
 }
 
@@ -1736,7 +1765,7 @@ mod max_changes_tests {
     /// each creating the listed ids.
     fn with_creates(states: &[&[&str]]) -> MemoryBackend {
         let backend = MemoryBackend::new();
-        let mut inner = backend.inner.lock().unwrap();
+        let mut inner = backend.inner.lock_unscoped();
         for ids in states {
             let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
             inner

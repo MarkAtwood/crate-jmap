@@ -241,6 +241,21 @@ This argument is not applicable to JMAP Sharing. Neither `Principal` nor
 `ShareNotification` defines an `onSuccessSetIsDefault` argument. There is no
 single-default invariant to enforce.
 
+## Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_sharing_conditional(dispatcher, backend)`, called after
+`register_sharing_handlers`, attaches `SetSupport` to each registered `/set`
+(Principal, ShareNotification) and skips the rest; it re-registers nothing, and a
+deployment that never calls it is unchanged (docs/design/DECISIONS.md decisions 1
+and 17). Advertise `urn:ietf:params:jmap:conditional` only when
+`Dispatcher::conditional_ready()` is true.
+
+The dispatcher evaluates `ifUnchangedBy` through each type's `/get` (nested
+pointers such as `capabilities/<uri>/<right>` compare only that value) and runs the
+call inside the backend's `ConditionalBackend::begin_set` scope. `MemoryBackend`'s
+store is a `jmap_server::ScopedState`; its commit checks nothing extra, as the
+crate has no cross-object rules or caps.
+
 ## Capability URIs
 
 ```rust
