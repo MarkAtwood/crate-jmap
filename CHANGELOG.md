@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-server**: conditional graph Foo/set
+  (draft-ietf-jmap-conditional-02). `register_graph_conditional`, called
+  after `register_graph_handlers` and/or `register_graph_edit_handlers`,
+  attaches `SetSupport` to each registered Graph, GraphNode, GraphEdge and
+  GraphNodeOp `/set` (decisions 1, 17). The memory backend keeps its store
+  on `jmap_server::ScopedState` (feature `memory` now enables
+  `jmap-server/scoped-state`) and implements `ConditionalBackend`, so an
+  atomic failure undoes edge cascades and leaves a node's op `seq`
+  unchanged. A poisoned memory-backend lock is now taken instead of
+  panicking. (bd:JMAP-y1yu.16)
+
 - **jmap-scene-server**: conditional Scene Foo/set
   (draft-ietf-jmap-conditional-02). `register_scene_conditional`, called
   after `register_scene_handlers`, attaches `SetSupport` to the registered

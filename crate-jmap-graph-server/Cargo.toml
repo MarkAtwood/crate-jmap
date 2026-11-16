@@ -17,7 +17,7 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0. Mirrors the canonical
 # jmap-mail-server `memory` feature (JMAP-hwdv.1).
-memory = ["dep:ulid"]
+memory = ["dep:ulid", "jmap-server/scoped-state"]
 
 [dependencies]
 # Validates and sizes base64url op and cursor `data`

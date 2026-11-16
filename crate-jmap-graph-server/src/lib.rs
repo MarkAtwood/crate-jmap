@@ -87,7 +87,10 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, JmapHandler,
+    RegistrationError, SetSupport,
+};
 
 mod backend;
 mod edge;
@@ -196,6 +199,49 @@ where
     reg!("GraphEdge/set", handle_graph_edge_set, ids);
     reg!("GraphEdge/query", handle_graph_edge_query);
     reg!("GraphEdge/queryChanges", handle_graph_edge_query_changes);
+}
+
+/// Opt this crate's registered Foo/set methods in to
+/// draft-ietf-jmap-conditional-02 (`ifUnchangedBy` and `atomic`;
+/// docs/design/DECISIONS.md decisions 1 and 17).
+///
+/// Call after [`register_graph_handlers`]. Attaches [`SetSupport`] to each
+/// of `Graph/set`, `GraphNode/set`, `GraphEdge/set`, `GraphNodeOp/set` that is registered, and skips the rest; no handler is
+/// re-registered.
+///
+/// The dispatcher reads preconditions through each type's `/get` and runs
+/// each call in the scope `backend` opens
+/// ([`ConditionalBackend::begin_set`]).
+/// Covers `GraphNodeOp/set` when [`register_graph_edit_handlers`] ran;
+/// call this again after registering more handlers. Under `atomic` the
+/// scope must roll back cascades and a node's op `seq`; the memory backend
+/// does.
+/// Advertise `urn:ietf:params:jmap:conditional` only once
+/// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
+pub fn register_graph_conditional<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
+where
+    B: GraphBackend + ConditionalBackend + 'static,
+{
+    fn attach<C: Clone + Send + 'static>(
+        dispatcher: &mut Dispatcher<C>,
+        method: &str,
+        support: SetSupport<C>,
+    ) {
+        match dispatcher.attach_set_support(method, support) {
+            Ok(()) | Err(RegistrationError::NotRegistered(_)) => {}
+            Err(e) => unreachable!("{method} pairs with its own data type: {e}"),
+        }
+    }
+    macro_rules! attach {
+        ($($t:ident),*) => {$(
+            attach(
+                dispatcher,
+                concat!(stringify!($t), "/set"),
+                SetSupport::new::<jmap_graph_types::$t, B>(Arc::clone(&backend)),
+            );
+        )*};
+    }
+    attach!(Graph, GraphNode, GraphEdge, GraphNodeOp);
 }
 
 /// Register the draft-atwood-jmap-graph-edit-00 method handlers with

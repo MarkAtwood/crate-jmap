@@ -66,7 +66,6 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{HashMap, HashSet, VecDeque};
-use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime};
 
 use jmap_graph_types::{CandidateKind, Expression, GraphSearchCapability};
@@ -78,7 +77,10 @@ use jmap_graph_types::{
     GraphNodeComparator, GraphNodeFilterCondition,
 };
 use jmap_graph_types::{GraphCursorEvent, GraphNodeOpFilterCondition};
-use jmap_server::{apply_patch_object, limit_or_max, resolve_query_start};
+use jmap_server::{
+    BeginSetError, ConditionalBackend, ScopedGuard, ScopedState, SetScope, SetScopeRequest,
+    apply_patch_object, limit_or_max, resolve_query_start,
+};
 use jmap_types::{Id, JmapError, State};
 use serde::Deserialize;
 use serde::Serialize;
@@ -110,6 +112,7 @@ enum Change {
 type Keyed<V> = HashMap<&'static str, HashMap<String, V>>;
 
 /// A registered account.
+#[derive(Clone)]
 struct Account {
     owner: Id,
     capability: GraphCapability,
@@ -120,14 +123,16 @@ struct Account {
 
 /// One node's edit log: its head, how far it is compacted, and the
 /// `(seq, op id, sequenced at)` of each op still held, oldest first.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct OpLog {
     head: u64,
     compacted_through: u64,
     held: VecDeque<(u64, Id, SystemTime)>,
 }
 
-#[derive(Default)]
+/// The store, behind a [`ScopedState`] so a conditional Foo/set can isolate
+/// and roll it back (docs/design/conditional.md §7).
+#[derive(Default, Clone)]
 struct Inner {
     /// `type_name` → `account_id` → `id → stored object`.
     objects: Keyed<HashMap<Id, Value>>,
@@ -374,7 +379,7 @@ impl Inner {
 #[derive(Default)]
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -387,7 +392,7 @@ pub struct MemoryBackend {
 impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
-            inner: Arc::clone(&self.inner),
+            inner: self.inner.clone(),
         }
     }
 }
@@ -398,9 +403,16 @@ impl MemoryBackend {
         Self::default()
     }
 
-    fn lock(&self) -> MutexGuard<'_, Inner> {
-        // A poisoned lock means a test already panicked mid-mutation.
-        self.inner.lock().expect("MemoryBackend lock poisoned")
+    /// The store, for setup and test helpers, which never run inside a
+    /// conditional Foo/set scope. A poisoned lock is taken anyway.
+    fn lock(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock_unscoped()
+    }
+
+    /// The store, for the backend methods: waits while another task's
+    /// conditional Foo/set scope is open (docs/design/conditional.md §7).
+    async fn locked(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock().await
     }
 
     /// Register `account_id`, owned by Principal `owner`, with the Graph
@@ -650,7 +662,11 @@ impl JmapBackend for MemoryBackend {
     }
 
     async fn account_exists(&self, _caller: &Id, account_id: &Id) -> Result<bool, MemoryError> {
-        Ok(self.lock().accounts.contains_key(account_id.as_ref()))
+        Ok(self
+            .locked()
+            .await
+            .accounts
+            .contains_key(account_id.as_ref()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -660,7 +676,7 @@ impl JmapBackend for MemoryBackend {
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
-        let inner = self.lock();
+        let inner = self.locked().await;
         let shown = |v: &Value| {
             if O::TYPE_NAME == Graph::TYPE_NAME {
                 decode(&inner.view(caller, account_id, v))
@@ -698,7 +714,10 @@ impl JmapBackend for MemoryBackend {
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         Ok(State::from(
-            self.lock().state(O::TYPE_NAME, account_id).to_string(),
+            self.locked()
+                .await
+                .state(O::TYPE_NAME, account_id)
+                .to_string(),
         ))
     }
 
@@ -716,7 +735,7 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
         let since_state = params.since_state;
         let max_changes = params.max_changes;
-        let inner = self.lock();
+        let inner = self.locked().await;
         let since: u64 = since_state
             .as_ref()
             .parse()
@@ -802,7 +821,7 @@ impl JmapBackend for MemoryBackend {
             ..
         } = params;
         let sort = sort.unwrap_or_default();
-        let inner = self.lock();
+        let inner = self.locked().await;
         let ids = if O::TYPE_NAME == Graph::TYPE_NAME {
             let filter: Option<GraphFilter> = filter.map(recode).transpose()?;
             let sort: Vec<GraphComparator> = recode(&sort)?;
@@ -907,7 +926,8 @@ impl GraphBackend for MemoryBackend {
         _caller: &Id,
         account_id: &Id,
     ) -> Result<GraphCapability, MemoryError> {
-        self.lock()
+        self.locked()
+            .await
             .accounts
             .get(account_id.as_ref())
             .map(|a| a.capability.clone())
@@ -927,7 +947,7 @@ impl GraphBackend for MemoryBackend {
     {
         let id = Id::from(ulid::Ulid::new().to_string());
         let mut value = serde_json::to_value(build(&id)).map_err(other)?;
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         if O::TYPE_NAME == Graph::TYPE_NAME {
             if !inner.is_owner(caller, account_id) {
                 return Err(set_error(
@@ -980,7 +1000,7 @@ impl GraphBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let mut current = inner
             .get(O::TYPE_NAME, account_id, id)
             .cloned()
@@ -1081,7 +1101,7 @@ impl GraphBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let current = inner
             .get(O::TYPE_NAME, account_id, id)
             .cloned()
@@ -1135,7 +1155,7 @@ impl GraphBackend for MemoryBackend {
         _caller: &Id,
         account_id: &Id,
     ) -> Result<Option<GraphEditCapability>, MemoryError> {
-        Ok(self.lock().edit(account_id).cloned())
+        Ok(self.locked().await.edit(account_id).cloned())
     }
 
     async fn graph_search_capability(
@@ -1156,7 +1176,7 @@ impl GraphBackend for MemoryBackend {
         account_id: &Id,
         node_id: &Id,
     ) -> Result<EditLog, MemoryError> {
-        Ok(self.lock().log(account_id, node_id))
+        Ok(self.locked().await.log(account_id, node_id))
     }
 
     async fn projected_graph_id(
@@ -1172,7 +1192,7 @@ impl GraphBackend for MemoryBackend {
     }
 
     async fn publish_cursor(&self, _caller: &Id, _account_id: &Id, event: &GraphCursorEvent) {
-        self.lock().cursors.push(event.clone());
+        self.locked().await.cursors.push(event.clone());
     }
 
     fn has_capability(&self, _caller: &Id, account_id: &Id, uri: &str) -> bool {
@@ -1240,6 +1260,33 @@ fn sequence(
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// ConditionalBackend (draft-ietf-jmap-conditional-02)
+// ---------------------------------------------------------------------------
+
+/// Conditional graph Foo/set (bd JMAP-y1yu.16): the whole store is one
+/// [`ScopedState`], so a scope isolates every account, and an atomic
+/// rollback restores objects, state strings, change logs, the per-node op
+/// logs (so a rolled-back `GraphNodeOp/set` leaves the node's `seq` where
+/// it was) and queued cursor events together, cascades included.
+///
+/// Commit checks nothing extra: a GraphNode destroy takes its edges with
+/// it, and edge endpoints are checked against the stored nodes when an
+/// edge is written, by GraphEdge/set, which changes no nodes; so no final
+/// state strands an edge.
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &Id,
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self
+            .inner
+            .open(request, |_: &Inner, _: &Inner| Vec::new())
+            .await)
+    }
+}
+
 #[cfg(test)]
 mod memory_error_tests {
     use super::MemoryError;
@@ -1270,16 +1317,25 @@ mod memory_error_tests {
 #[cfg(test)]
 mod clone_tests {
     use super::MemoryBackend;
-    use std::sync::Arc;
+    use jmap_types::Id;
 
     /// Oracle (bd:JMAP-q7k6): `MemoryBackend::clone` is a shared-state
-    /// `Arc` clone, never a deep copy, so a clone and its original hold
-    /// the same store while a fresh instance does not.
+    /// clone, never a deep copy, so a clone and its original hold the
+    /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
         let a = MemoryBackend::new();
-        assert!(Arc::ptr_eq(&a.inner, &a.clone().inner));
-        assert!(!Arc::ptr_eq(&a.inner, &MemoryBackend::new().inner));
+        let clone = a.clone();
+        let fresh = MemoryBackend::new();
+        a.block(&Id::from("u1"), &Id::from("u2"));
+        let blocked = |b: &MemoryBackend| {
+            b.inner
+                .lock_unscoped()
+                .blocked
+                .contains(&(Id::from("u1"), Id::from("u2")))
+        };
+        assert!(blocked(&clone), "a clone sees the original's writes");
+        assert!(!blocked(&fresh), "a fresh backend does not");
     }
 }
 

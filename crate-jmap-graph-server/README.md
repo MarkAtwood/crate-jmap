@@ -100,6 +100,22 @@ in the core `collationAlgorithms`.
   `GraphNodeOpEvent` and `GraphCursorEvent`; rights are checked at
   delivery, cursors skip the sender and recipients who blocked it.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_graph_conditional(dispatcher, backend)`, called after
+`register_graph_handlers` and/or `register_graph_edit_handlers`, attaches
+`SetSupport` to each registered `/set` (Graph, GraphNode, GraphEdge, GraphNodeOp)
+and skips the rest; it re-registers nothing, and a deployment that never calls it
+is unchanged (docs/design/DECISIONS.md decisions 1 and 17). Call it again after
+registering more handlers. Advertise `urn:ietf:params:jmap:conditional` only when
+`Dispatcher::conditional_ready()` is true.
+
+`MemoryBackend`'s store is a `jmap_server::ScopedState`: an atomic rollback
+restores objects, states, change logs and each node's op log, so a rolled-back
+`GraphNodeOp/set` leaves the node's `seq` unchanged, and undoes node-destroy edge
+cascades. Its commit checks nothing extra: a node destroy takes its edges with it
+and edge endpoints are checked when GraphEdge/set writes the edge.
+
 ## Gotchas
 
 - `#creationId` references across method calls (the draft's
