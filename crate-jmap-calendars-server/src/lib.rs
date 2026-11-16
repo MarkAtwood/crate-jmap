@@ -38,7 +38,10 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_server::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, JmapHandler,
+    RegistrationError, SetSupport,
+};
 
 mod backend;
 mod calendar;
@@ -271,6 +274,55 @@ where
     reg!("Principal/getAvailability", backend, |b, _ci, a, ctx| {
         handle_principal_get_availability(&*b, &ctx, a).await
     });
+}
+
+/// Opt this crate's registered Foo/set methods in to
+/// draft-ietf-jmap-conditional-02 (`ifUnchangedBy` and `atomic`;
+/// docs/design/DECISIONS.md decisions 1 and 17).
+///
+/// Call after [`register_calendars_handlers`]. Attaches [`SetSupport`] to
+/// each of `Calendar/set`, `CalendarEvent/set`,
+/// `CalendarEventNotification/set` and `ParticipantIdentity/set` that is
+/// registered, and skips the rest; no handler is re-registered.
+///
+/// The dispatcher reads preconditions through each type's `/get` and runs
+/// each call in the scope `backend` opens
+/// ([`ConditionalBackend::begin_set`]). Under `atomic` that scope must roll
+/// back cascades (`onDestroyRemoveEvents`) and default changes
+/// (`onSuccessSetIsDefault`), and hold iTIP scheduling messages
+/// (`sendSchedulingMessages`) until commit or refuse with
+/// `cannotApplyAtomically` (§4.3). Advertise
+/// `urn:ietf:params:jmap:conditional` only once
+/// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
+pub fn register_calendars_conditional<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
+where
+    B: CalendarsBackend + ConditionalBackend + 'static,
+{
+    fn attach<C: Clone + Send + 'static>(
+        dispatcher: &mut Dispatcher<C>,
+        method: &str,
+        support: SetSupport<C>,
+    ) {
+        match dispatcher.attach_set_support(method, support) {
+            Ok(()) | Err(RegistrationError::NotRegistered(_)) => {}
+            Err(e) => unreachable!("{method} pairs with its own data type: {e}"),
+        }
+    }
+    macro_rules! attach {
+        ($($t:ident),*) => {$(
+            attach(
+                dispatcher,
+                concat!(stringify!($t), "/set"),
+                SetSupport::new::<jmap_calendars_types::$t, B>(Arc::clone(&backend)),
+            );
+        )*};
+    }
+    attach!(
+        Calendar,
+        CalendarEvent,
+        CalendarEventNotification,
+        ParticipantIdentity
+    );
 }
 
 // ---------------------------------------------------------------------------

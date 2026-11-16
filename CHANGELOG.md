@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-calendars-server**: conditional calendars Foo/set
+  (draft-ietf-jmap-conditional-02). `register_calendars_conditional`,
+  called after `register_calendars_handlers`, attaches `SetSupport` to each
+  registered Calendar, CalendarEvent, CalendarEventNotification and
+  ParticipantIdentity `/set` (decisions 1, 17); `register_calendars_handlers`
+  is unchanged. The memory backend keeps its store on
+  `jmap_server::ScopedState` (feature `memory` now enables
+  `jmap-server/scoped-state`) and implements `ConditionalBackend`, so an
+  atomic failure rolls back `onDestroyRemoveEvents` cascades. A poisoned
+  memory-backend lock is now taken instead of panicking. (bd:JMAP-y1yu.10)
+
 - **jmap-chat-server**: conditional chat Foo/set
   (draft-ietf-jmap-conditional-02). `register_chat_conditional`, called
   after `register_chat_handlers`, attaches `SetSupport` to each registered

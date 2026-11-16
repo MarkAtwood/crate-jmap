@@ -455,6 +455,25 @@ is performed by the handler itself.
 delegates to `get_availability`. The handler returns a
 `BackendQueryError::Method` error to the client unchanged.
 
+### Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+`register_calendars_conditional(dispatcher, backend)`, called after
+`register_calendars_handlers`, attaches `SetSupport` to each registered `/set`
+(Calendar, CalendarEvent, CalendarEventNotification, ParticipantIdentity) and skips
+the rest; it re-registers nothing, and a deployment that never calls it is unchanged
+(docs/design/DECISIONS.md decisions 1 and 17). Advertise
+`urn:ietf:params:jmap:conditional` only when `Dispatcher::conditional_ready()` is
+true.
+
+The dispatcher evaluates `ifUnchangedBy` through each type's `/get` and runs the
+call inside the backend's `ConditionalBackend::begin_set` scope, which must roll
+back `onDestroyRemoveEvents` cascades and hold `sendSchedulingMessages` iTIP
+messages until commit (or refuse with `cannotApplyAtomically`). `MemoryBackend`'s
+store is a `jmap_server::ScopedState`; its commit checks nothing extra, because the
+default Calendar and ParticipantIdentity are single pointers, `calendarHasEvent` is
+judged within one Calendar/set, there are no cross-object caps, and it refuses
+scheduling messages outright.
+
 ## Gotchas
 
 - **`compute_utc_times` default returns `(None, None)`** — `utcStart` and
