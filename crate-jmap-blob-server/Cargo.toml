@@ -16,7 +16,9 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 # Not production — a reference impl, integration-test harness and
 # documentation example. Mirrors the canonical jmap-mail-server `memory`
 # feature (JMAP-hwdv.1).
-memory = []
+# Needs jmap-server's ScopedState for the memory ConditionalBackend
+# (conditional Blob/set, bd JMAP-tna1.2.12).
+memory = ["jmap-server/scoped-state"]
 # Test knobs on the memory backend (stub converter, deferred-result
 # failure, noPersist omission; docs/design/blobext.md §7).
 test-helpers = ["memory"]

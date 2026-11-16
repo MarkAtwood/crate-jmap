@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use jmap_types::{Id, PatchObject, SetError, State, UTCDate};
+use jmap_types::{Id, JmapObject, PatchObject, SetError, SetObject, State, UTCDate};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -129,6 +129,26 @@ impl BlobObject {
             extra: Map::new(),
         }
     }
+}
+
+/// `Blob` is a Foo/set type (blobext-03 §4), so Blob/set can opt in to
+/// draft-ietf-jmap-conditional-02 (docs/design/DECISIONS.md decisions 1
+/// and 17). `id` and `size` are server-set; `type` is given only on create
+/// and `expires` only through create and update.
+///
+/// Blob/get never returns `type` or `expires`, so an `ifUnchangedBy`
+/// pointer to either is `invalidArguments` (decision 19). Top-level
+/// `digest:<alg>` names are open-ended and come from Blob/get.
+impl JmapObject for BlobObject {
+    const TYPE_NAME: &'static str = "Blob";
+    type Property = ();
+}
+
+impl SetObject for BlobObject {
+    type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "size"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["type", "expires"];
+    const IMMUTABLE: &'static [&'static str] = &["type"];
 }
 
 /// An `updated` entry of `Blob/set` (blobext-03 §4): the server returns

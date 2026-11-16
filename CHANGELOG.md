@@ -14,6 +14,19 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-blob-server**, **jmap-blob-types**: conditional Blob/set
+  (draft-ietf-jmap-conditional-02). `register_blob_conditional`, called
+  after `register_blob_handlers`, attaches `SetSupport` for `BlobObject` to
+  the registered Blob/set (decisions 1, 17); `register_blob_handlers` is
+  unchanged. `BlobObject` implements `JmapObject` and `SetObject` (`id`,
+  `size` server-set; `type` immutable). The memory backend implements
+  `ConditionalBackend` with its store on `jmap_server::ScopedState`
+  (feature `memory` now enables `jmap-server/scoped-state`), so an atomic
+  Blob/set's created blobs, `noPersist` ones included, roll back.
+  Preconditions on `size`, `digest:<alg>`, `{}` and `null` work; pointers
+  to `type` or `expires` are `invalidArguments` (decision 19).
+  (bd:JMAP-tna1.2.12)
+
 - **jmap-server**: feature `scoped-state` adds `ScopedState<T>`,
   `ScopeGate` and `ScopedGuard`, the demonstration-quality state the
   in-repo memory backends will use for `ConditionalBackend::begin_set`

@@ -450,3 +450,18 @@ fn recipe_keys_match_key() {
         ]
     );
 }
+
+/// Every property `BlobObject` serializes is classified once, and the
+/// lists are the ones blobext-03 §4 gives (`id`, `size` server-set;
+/// `type` create-only), which the conditional evaluator relies on.
+#[test]
+fn blob_object_set_object_lists() {
+    use jmap_types::{JmapObject, SetObject, check_property_classification};
+    let mut blob = BlobObject::new(Id::from("B1"), Some("text/plain".to_owned()), Some(13));
+    blob.expires = Some(None);
+    assert_eq!(check_property_classification(&blob), Ok(()));
+    assert_eq!(BlobObject::TYPE_NAME, "Blob");
+    assert_eq!(BlobObject::SERVER_SET, ["id", "size"]);
+    assert_eq!(BlobObject::CLIENT_SETTABLE, ["type", "expires"]);
+    assert_eq!(BlobObject::IMMUTABLE, ["type"]);
+}

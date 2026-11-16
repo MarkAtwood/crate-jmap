@@ -26,7 +26,11 @@
 
 use std::sync::Arc;
 
-use jmap_server::{CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_blob_types::BlobObject;
+use jmap_server::{
+    CallContext, ClosureHandler, ConditionalBackend, Dispatcher, HandlerFuture, JmapHandler,
+    RegistrationError, SetSupport,
+};
 
 mod backend;
 mod convert;
@@ -95,4 +99,34 @@ where
     reg!("Blob/lookup", handle_blob_lookup);
     reg!("Blob/convert", handle_blob_convert);
     reg!("Blob/upload", handle_blob_upload);
+}
+
+/// Opt `Blob/set` in to draft-ietf-jmap-conditional-02 (`ifUnchangedBy`
+/// and `atomic`), after [`register_blob_handlers`] (docs/design/DECISIONS.md
+/// decisions 1 and 17).
+///
+/// Attaches [`SetSupport`] for [`BlobObject`] to the registered `Blob/set`;
+/// it does not re-register the handler. The dispatcher then reads
+/// preconditions through the registered `Blob/get` and runs the call in
+/// the scope `backend` opens ([`ConditionalBackend::begin_set`]), which
+/// must discard created blobs on an atomic rollback. Advertise
+/// `urn:ietf:params:jmap:conditional` only once
+/// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
+///
+/// Preconditions on `size`, `digest:<alg>`, `{}` and `null` work; Blob/get
+/// never returns `type` or `expires`, so a pointer to either is
+/// `invalidArguments` (decision 19).
+///
+/// # Errors
+///
+/// [`RegistrationError::NotRegistered`] when `Blob/set` is not registered
+/// yet.
+pub fn register_blob_conditional<B>(
+    dispatcher: &mut Dispatcher<B::CallerCtx>,
+    backend: Arc<B>,
+) -> Result<(), RegistrationError>
+where
+    B: BlobBackend + ConditionalBackend + 'static,
+{
+    dispatcher.attach_set_support("Blob/set", SetSupport::new::<BlobObject, B>(backend))
 }

@@ -49,13 +49,14 @@ mod convert;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::ops::Range;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::Arc;
 
 use jmap_blob_types::{BlobAccountCapability, BlobRef, DigestAlgorithm, Recipe, errors};
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesParams, ChangesResult,
-    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, utc_date_from_epoch_seconds,
+    BackendChangesError, BackendQueryError, BackendSetError, BeginSetError, ChangesParams,
+    ChangesResult, ConditionalBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, ScopedGuard, ScopedState, SetScope,
+    SetScopeRequest, utc_date_from_epoch_seconds,
 };
 use jmap_types::{Id, SetError, SetErrorType, State, UTCDate};
 
@@ -105,7 +106,7 @@ struct StoredBlob {
     sha256: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Account {
     capability: BlobAccountCapability,
     blobs: HashMap<Id, StoredBlob>,
@@ -233,7 +234,7 @@ fn to_usize(n: u64) -> Option<usize> {
     usize::try_from(n).ok()
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Inner {
     accounts: HashMap<Id, Account>,
     next_id: u64,
@@ -284,7 +285,7 @@ impl Inner {
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct MemoryBackend {
-    inner: Arc<Mutex<Inner>>,
+    inner: ScopedState<Inner>,
 }
 
 impl Default for MemoryBackend {
@@ -348,13 +349,13 @@ impl MemoryBackend {
     /// An empty backend with no accounts.
     pub fn new() -> Self {
         Self {
-            inner: Arc::new(Mutex::new(Inner {
+            inner: ScopedState::new(Inner {
                 accounts: HashMap::new(),
                 next_id: 0,
                 now: None,
                 omit_no_persist: false,
                 stub: None,
-            })),
+            }),
         }
     }
 
@@ -488,16 +489,24 @@ impl MemoryBackend {
         f(acc);
     }
 
-    fn lock(&self) -> MutexGuard<'_, Inner> {
-        // A poisoned lock only means another test thread panicked; the
-        // data is still usable for a reference backend.
-        self.inner
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
+    /// The state, for sync setup and test helpers, which never run inside
+    /// a Blob/set scope. A poisoned lock is taken anyway: the data is
+    /// still usable for a reference backend.
+    fn lock(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock_unscoped()
     }
 
-    fn info(&self, account_id: &Id, blob_id: &Id) -> Result<Option<BlobMeta>, MemoryError> {
-        let mut inner = self.lock();
+    /// The state, for the backend methods: waits while another task's
+    /// conditional Blob/set scope is open (docs/design/conditional.md §7).
+    async fn locked(&self) -> ScopedGuard<'_, Inner> {
+        self.inner.lock().await
+    }
+
+    fn info(
+        inner: &mut Inner,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Option<BlobMeta>, MemoryError> {
         let acc = inner
             .accounts
             .get_mut(account_id)
@@ -517,11 +526,10 @@ impl MemoryBackend {
     }
 
     fn create(
-        &self,
+        inner: &mut Inner,
         account_id: &Id,
         create: BlobCreate,
     ) -> Result<CreatedBlob, BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
         let now = inner.now();
         let omit = inner.omit_no_persist && create.no_persist;
         let Some(acc) = inner.accounts.get_mut(account_id) else {
@@ -632,12 +640,11 @@ impl MemoryBackend {
     }
 
     fn touch(
-        &self,
+        inner: &mut Inner,
         account_id: &Id,
         blob_id: &Id,
         requested: Option<UTCDate>,
     ) -> Result<TouchOutcome, BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
         let limit = inner.now() + MAX_TOUCH_SECS;
         let Some(acc) = inner.accounts.get_mut(account_id) else {
             return Err(BackendSetError::Other(unknown_account(account_id)));
@@ -664,8 +671,11 @@ impl MemoryBackend {
         }
     }
 
-    fn destroy(&self, account_id: &Id, blob_id: &Id) -> Result<(), BackendSetError<MemoryError>> {
-        let mut inner = self.lock();
+    fn destroy(
+        inner: &mut Inner,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<(), BackendSetError<MemoryError>> {
         let Some(acc) = inner.accounts.get_mut(account_id) else {
             return Err(BackendSetError::Other(unknown_account(account_id)));
         };
@@ -683,12 +693,11 @@ impl MemoryBackend {
     }
 
     fn references(
-        &self,
+        inner: &Inner,
         account_id: &Id,
         type_name: &str,
         blob_ids: &[Id],
     ) -> Result<BTreeMap<Id, Vec<Id>>, MemoryError> {
-        let inner = self.lock();
         let acc = inner
             .accounts
             .get(account_id)
@@ -751,11 +760,10 @@ fn literal(r: &BlobRef) -> Result<&Id, BackendSetError<MemoryError>> {
 
 impl MemoryBackend {
     fn convert_blob(
-        &self,
+        guard: &mut Inner,
         account_id: &Id,
         params: ConvertParams,
     ) -> Result<ConvertOutcome, BackendSetError<MemoryError>> {
-        let mut guard = self.lock();
         let now = guard.now();
         let omit = guard.omit_no_persist && params.no_persist;
         let stub = guard.stub.clone();
@@ -908,7 +916,7 @@ impl JmapBackend for MemoryBackend {
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
-        Ok(self.lock().accounts.contains_key(account_id))
+        Ok(self.locked().await.accounts.contains_key(account_id))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -964,7 +972,8 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
     ) -> Result<Option<BlobAccountCapability>, MemoryError> {
         Ok(self
-            .lock()
+            .locked()
+            .await
             .accounts
             .get(account_id)
             .map(|a| a.capability.clone()))
@@ -976,7 +985,7 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<BlobMeta>, MemoryError> {
-        self.info(account_id, blob_id)
+        Self::info(&mut *self.locked().await, account_id, blob_id)
     }
 
     async fn read_blob_range(
@@ -986,7 +995,7 @@ impl BlobBackend for MemoryBackend {
         blob_id: &Id,
         range: Range<u64>,
     ) -> Result<Option<Vec<u8>>, MemoryError> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let acc = inner
             .accounts
             .get_mut(account_id)
@@ -1006,7 +1015,7 @@ impl BlobBackend for MemoryBackend {
         if query.alg != DigestAlgorithm::Sha256 {
             return Ok(None);
         }
-        let inner = self.lock();
+        let inner = self.locked().await;
         Ok(inner
             .accounts
             .get(account_id)
@@ -1021,7 +1030,7 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Vec<ChunkRef>>, MemoryError> {
-        let mut inner = self.lock();
+        let mut inner = self.locked().await;
         let acc = inner
             .accounts
             .get_mut(account_id)
@@ -1043,7 +1052,7 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         create: BlobCreate,
     ) -> Result<CreatedBlob, BackendSetError<MemoryError>> {
-        self.create(account_id, create)
+        Self::create(&mut *self.locked().await, account_id, create)
     }
 
     async fn touch_blob(
@@ -1053,7 +1062,7 @@ impl BlobBackend for MemoryBackend {
         blob_id: &Id,
         requested: Option<UTCDate>,
     ) -> Result<TouchOutcome, BackendSetError<MemoryError>> {
-        self.touch(account_id, blob_id, requested)
+        Self::touch(&mut *self.locked().await, account_id, blob_id, requested)
     }
 
     async fn destroy_blob(
@@ -1062,7 +1071,7 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        self.destroy(account_id, blob_id)
+        Self::destroy(&mut *self.locked().await, account_id, blob_id)
     }
 
     async fn blob_references(
@@ -1072,7 +1081,7 @@ impl BlobBackend for MemoryBackend {
         type_name: &str,
         blob_ids: &[Id],
     ) -> Result<BTreeMap<Id, Vec<Id>>, MemoryError> {
-        self.references(account_id, type_name, blob_ids)
+        Self::references(&*self.locked().await, account_id, type_name, blob_ids)
     }
 
     async fn convert(
@@ -1081,6 +1090,24 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         params: ConvertParams,
     ) -> Result<ConvertOutcome, BackendSetError<MemoryError>> {
-        self.convert_blob(account_id, params)
+        Self::convert_blob(&mut *self.locked().await, account_id, params)
+    }
+}
+
+/// Conditional Blob/set (draft-ietf-jmap-conditional-02, bd JMAP-tna1.2.12):
+/// the whole store is one [`ScopedState`], so an atomic Blob/set's created
+/// blobs, `noPersist` ones included, and its `expires` updates and
+/// destroys are discarded on rollback. Blobs have no cross-object
+/// constraint to check at commit.
+impl ConditionalBackend for MemoryBackend {
+    async fn begin_set(
+        &self,
+        _caller: &(),
+        request: SetScopeRequest<'_>,
+    ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
+        Ok(self
+            .inner
+            .open(request, |_: &Inner, _: &Inner| Vec::new())
+            .await)
     }
 }

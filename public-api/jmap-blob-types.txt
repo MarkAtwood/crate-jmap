@@ -544,6 +544,14 @@ pub fn jmap_blob_types::BlobObject::eq(&self, &jmap_blob_types::BlobObject) -> b
 impl core::fmt::Debug for jmap_blob_types::BlobObject
 pub fn jmap_blob_types::BlobObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_blob_types::BlobObject
+impl jmap_types::backend::JmapObject for jmap_blob_types::BlobObject
+pub type jmap_blob_types::BlobObject::Property = ()
+pub const jmap_blob_types::BlobObject::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_blob_types::BlobObject
+pub type jmap_blob_types::BlobObject::Patch = jmap_types::patch::PatchObject
+pub const jmap_blob_types::BlobObject::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_blob_types::BlobObject::IMMUTABLE: &'static [&'static str]
+pub const jmap_blob_types::BlobObject::SERVER_SET: &'static [&'static str]
 impl serde_core::ser::Serialize for jmap_blob_types::BlobObject
 pub fn jmap_blob_types::BlobObject::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
 impl<'de> serde_core::de::Deserialize<'de> for jmap_blob_types::BlobObject
