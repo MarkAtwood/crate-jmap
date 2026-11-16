@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-blob-client**: the draft-ietf-jmap-blobext-03 client bindings
+  (docs/design/blobext.md §8). `JmapBlobExt::with_blob_session` returns a
+  `SessionClient` with `blob_set`/`blob_create`/`blob_touch`/`blob_destroy`,
+  `blob_get`, `blob_lookup` (adding each type's registry capability to
+  `using` and refusing types the Session lacks), `blob_convert`, and
+  `blob_account_id`, `for_account`, `blob_capability`, `upload_url`,
+  `preferred_digest_algorithm`, `lookup_type_names`, `verify_digest`.
+  `using` is core + `blob2`, never the RFC 9404 `blob`. (bd:JMAP-tna1.5)
+
 - **jmap-testjig**: conditional Foo/set over HTTP
   (draft-ietf-jmap-conditional-02). Every registered extension, blob
   included, calls its `register_<x>_conditional` opt-in; the Session

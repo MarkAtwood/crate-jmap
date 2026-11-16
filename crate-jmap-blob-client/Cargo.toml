@@ -11,7 +11,13 @@ keywords = ["jmap", "blob", "client", "rfc9404"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
-# Scaffold (bd JMAP-tna1.2.1): no dependencies yet. cargo warns on unused
-# ones (cargo::unused_dependencies), so each arrives with the bindings
-# (bead B12, docs/design/blobext.md §3): jmap-base-client, jmap-types,
-# jmap-blob-types; dev: tokio and wiremock.
+[dependencies]
+jmap-types = { workspace = true }
+jmap-blob-types = { workspace = true }
+jmap-base-client = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }

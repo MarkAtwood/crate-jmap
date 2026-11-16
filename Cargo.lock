@@ -1804,6 +1804,15 @@ dependencies = [
 [[package]]
 name = "jmap-blob-client"
 version = "0.5.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-blob-types",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
 
 [[package]]
 name = "jmap-blob-server"

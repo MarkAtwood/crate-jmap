@@ -1,1 +1,66 @@
 pub mod jmap_blob_client
+pub use jmap_blob_client::BlobAccountCapability
+pub use jmap_blob_client::BlobConvertResponse
+pub use jmap_blob_client::BlobCreateObject
+pub use jmap_blob_client::BlobGetResponse
+pub use jmap_blob_client::BlobLookupResponse
+pub use jmap_blob_client::BlobProperty
+pub use jmap_blob_client::BlobRef
+pub use jmap_blob_client::BlobSetResponse
+pub use jmap_blob_client::ClientError
+pub use jmap_blob_client::ConvertRequest
+pub use jmap_blob_client::DataSourceProperty
+pub use jmap_blob_client::DigestAlgorithm
+#[non_exhaustive] pub struct jmap_blob_client::BlobGetInput
+pub jmap_blob_client::BlobGetInput::data_source_properties: core::option::Option<alloc::vec::Vec<jmap_blob_types::get::DataSourceProperty>>
+pub jmap_blob_client::BlobGetInput::length: core::option::Option<u64>
+pub jmap_blob_client::BlobGetInput::offset: core::option::Option<u64>
+pub jmap_blob_client::BlobGetInput::properties: core::option::Option<alloc::vec::Vec<jmap_blob_types::get::BlobProperty>>
+impl core::clone::Clone for jmap_blob_client::BlobGetInput
+pub fn jmap_blob_client::BlobGetInput::clone(&self) -> jmap_blob_client::BlobGetInput
+impl core::cmp::PartialEq for jmap_blob_client::BlobGetInput
+pub fn jmap_blob_client::BlobGetInput::eq(&self, &jmap_blob_client::BlobGetInput) -> bool
+impl core::default::Default for jmap_blob_client::BlobGetInput
+pub fn jmap_blob_client::BlobGetInput::default() -> jmap_blob_client::BlobGetInput
+impl core::fmt::Debug for jmap_blob_client::BlobGetInput
+pub fn jmap_blob_client::BlobGetInput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_client::BlobGetInput
+#[non_exhaustive] pub struct jmap_blob_client::BlobSetInput
+pub jmap_blob_client::BlobSetInput::create: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_blob_types::set::BlobCreateObject>
+pub jmap_blob_client::BlobSetInput::destroy: alloc::vec::Vec<jmap_blob_types::blob_ref::BlobRef>
+pub jmap_blob_client::BlobSetInput::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_blob_client::BlobSetInput::if_in_state: core::option::Option<jmap_types::id::State>
+pub jmap_blob_client::BlobSetInput::update: alloc::collections::btree::map::BTreeMap<jmap_blob_types::blob_ref::BlobRef, jmap_types::patch::PatchObject>
+impl core::clone::Clone for jmap_blob_client::BlobSetInput
+pub fn jmap_blob_client::BlobSetInput::clone(&self) -> jmap_blob_client::BlobSetInput
+impl core::cmp::PartialEq for jmap_blob_client::BlobSetInput
+pub fn jmap_blob_client::BlobSetInput::eq(&self, &jmap_blob_client::BlobSetInput) -> bool
+impl core::default::Default for jmap_blob_client::BlobSetInput
+pub fn jmap_blob_client::BlobSetInput::default() -> jmap_blob_client::BlobSetInput
+impl core::fmt::Debug for jmap_blob_client::BlobSetInput
+pub fn jmap_blob_client::BlobSetInput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_blob_client::BlobSetInput
+pub struct jmap_blob_client::SessionClient
+impl jmap_blob_client::SessionClient
+pub fn jmap_blob_client::SessionClient::blob_account_id(&self) -> core::result::Result<jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_blob_client::SessionClient::blob_capability(&self) -> core::result::Result<core::option::Option<jmap_blob_types::capability::BlobAccountCapability>, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::SessionClient::blob_convert(&self, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_blob_types::convert::ConvertRequest>) -> core::result::Result<jmap_blob_types::convert::BlobConvertResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::SessionClient::blob_create(&self, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_blob_types::set::BlobCreateObject>) -> core::result::Result<jmap_blob_types::set::BlobSetResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::SessionClient::blob_destroy(&self, alloc::vec::Vec<jmap_blob_types::blob_ref::BlobRef>) -> core::result::Result<jmap_blob_types::set::BlobSetResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::SessionClient::blob_get(&self, alloc::vec::Vec<jmap_blob_types::blob_ref::BlobRef>, jmap_blob_client::BlobGetInput) -> core::result::Result<jmap_blob_types::get::BlobGetResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::SessionClient::blob_lookup(&self, alloc::vec::Vec<jmap_types::id::Id>, alloc::vec::Vec<alloc::string::String>, &[&str]) -> core::result::Result<jmap_blob_types::lookup::BlobLookupResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::SessionClient::blob_set(&self, jmap_blob_client::BlobSetInput) -> core::result::Result<jmap_blob_types::set::BlobSetResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::SessionClient::blob_touch(&self, alloc::vec::Vec<jmap_blob_types::blob_ref::BlobRef>, core::option::Option<jmap_types::id::UTCDate>) -> core::result::Result<jmap_blob_types::set::BlobSetResponse, jmap_base_client::error::ClientError>
+pub fn jmap_blob_client::SessionClient::for_account(self, jmap_types::id::Id) -> Self
+pub fn jmap_blob_client::SessionClient::lookup_type_names(&self) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, jmap_base_client::error::ClientError>
+pub fn jmap_blob_client::SessionClient::preferred_digest_algorithm(&self, &[jmap_blob_types::digest::DigestAlgorithm]) -> core::result::Result<core::option::Option<jmap_blob_types::digest::DigestAlgorithm>, jmap_base_client::error::ClientError>
+pub fn jmap_blob_client::SessionClient::upload_url(&self) -> core::result::Result<jmap_base_client::request::JmapUrlTemplate, jmap_base_client::error::ClientError>
+pub fn jmap_blob_client::SessionClient::verify_digest(&jmap_blob_types::digest::DigestAlgorithm, &[u8], &str) -> core::option::Option<bool>
+impl core::clone::Clone for jmap_blob_client::SessionClient
+pub fn jmap_blob_client::SessionClient::clone(&self) -> jmap_blob_client::SessionClient
+impl core::fmt::Debug for jmap_blob_client::SessionClient
+pub fn jmap_blob_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_blob_client::JmapBlobExt: jmap_blob_client::sealed::Sealed
+pub fn jmap_blob_client::JmapBlobExt::with_blob_session(&self, jmap_base_client::request::Session) -> jmap_blob_client::SessionClient
+impl jmap_blob_client::JmapBlobExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_blob_session(&self, jmap_base_client::request::Session) -> jmap_blob_client::SessionClient
