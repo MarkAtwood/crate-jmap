@@ -76,8 +76,8 @@ crates, never in a support crate.
 | `crate-jmap-jscontact-types/` | `jmap-jscontact-types` | RFC 9553 JSContact typed sub-types — shared foundation, consumed by Contacts. No async, no JMAP dep |
 | `crate-jmap-mail-types/` | `jmap-mail-types` | RFC 8621 data types, no async |
 | `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
-| `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers |
-| `crate-jmap-base-client/` | `jmap-base-client` | RFC 8620 base client: auth, session, blob, SSE, WebSocket |
+| `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers; conditional-02 evaluator, `ConditionalBackend`, `ScopedState` (feature `scoped-state`) |
+| `crate-jmap-base-client/` | `jmap-base-client` | RFC 8620 base client: auth, session, blob, SSE, WebSocket; conditional `SetCall` |
 | `crate-jmap-mime/` | `jmap-mime` | MIME adapter: mime-tree → jmap-mail-types, and the RFC 5322 / MIME writer for Email/set create (greenfield) |
 | `crate-jmap-mail-server/` | `jmap-mail-server` | RFC 8621 method handlers (greenfield) |
 | `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
@@ -947,6 +947,48 @@ optional extras while the base operation still works
 request (`onSuccessSetIsDefault`). Its rustdoc MUST say that backends
 override it for real semantics. Permission and policy hooks are a
 separate category and stay fail-open (bd:JMAP-bghk).
+
+## Conditional Foo/set (draft-ietf-jmap-conditional-02)
+
+Design: `docs/design/conditional.md`; decisions 1, 2, 7, 8, 16, 17 in
+`docs/design/DECISIONS.md`.
+
+- **The dispatcher evaluates.** `jmap-server` reads `ifUnchangedBy` through
+  the type's registered `Foo/get` (its guard applies), checks rules 1-5 and
+  §9.1, and runs the handler inside the backend's scope; under `atomic` a
+  handler SetError or a commit rejection rolls back and answers
+  `atomicFailure`. Handlers contain no precondition or rollback code.
+- **Opt-in per crate (decisions 1, 17).** Each server crate has
+  `register_<x>_conditional(dispatcher, backend)`, called after
+  `register_<x>_handlers` (or `_with_history`): it attaches `SetSupport` to
+  every registered `/set` of the crate and skips the rest; it never
+  re-registers a handler. `register_push_subscription_conditional` covers
+  `PushSubscription/set`. A server advertises
+  `urn:ietf:params:jmap:conditional` only when
+  `Dispatcher::conditional_ready()` is true.
+- **Every deployment (decision 2).** Without the URI in `using`, a
+  non-default `atomic` or `ifUnchangedBy` is `invalidArguments`, opted in
+  or not; the defaults are stripped before the handler runs.
+- **Backend hook.** `ConditionalBackend::begin_set` is required (no default:
+  a no-op scope would answer success for a write §3.2 requires to fail; see
+  the section above); `serialized_writes_scope` serves backends that already
+  serialize writes. `hidden_properties` is a fail-open permission hook.
+  Under `atomic` the scope defers irreversible effects (pushes, federation,
+  iTIP) to commit or refuses with `cannotApplyAtomically`.
+- **Memory backends** keep their store on `jmap_server::ScopedState`: async
+  methods take `lock().await` (gated), sync setup helpers
+  `lock_unscoped()`; side-effect queues live in the store so rollback drops
+  them. A cross-object check (unique names, caps, cycles) that a swap or
+  replace may pass through is skipped while `ScopedState::deferring()` (or
+  the handler's `CallContext::atomic`) and re-checked on the final state in
+  the scope's `validate`. Defer only checks whose outcome the final state
+  can change; a test must show the deferral matters.
+- **Unreadable properties.** A `/get` that blanks or drops a property per
+  caller marks it with `HandlerOutput::with_unreadable`, so a precondition
+  on it is `forbidden` whatever its value (§9.1).
+- **Client.** `jmap-base-client` `SetCall` + `JmapClient::set_call` +
+  `ConditionalError`; typed clients add a `*_set_conditional` only as a new
+  function (decision 8; `jmap-filenode-client` has one).
 
 ## Public API constraints
 

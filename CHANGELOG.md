@@ -598,6 +598,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server** (wire behaviour, every deployment): a `*/set` with
+  `atomic: true` or a non-empty `ifUnchangedBy` and no
+  `urn:ietf:params:jmap:conditional` in `using` now fails with
+  `invalidArguments` instead of having those arguments ignored; `atomic:
+  false`, `ifUnchangedBy: {}` and `null` are accepted and removed before
+  the handler runs (draft-ietf-jmap-conditional-02; decision 2).
+  (bd:JMAP-y1yu.3)
+- **jmap-types**: a decoded `JmapError` keeps properties beyond `type`,
+  `description` and the modelled ones in `extra`, so a decoded error that
+  carried such properties no longer compares equal to a bare constructor.
+  (bd:JMAP-y1yu.1)
+
 - **jmap-calendars-server** (memory): `onSuccessSetIsDefault` now changes
   the stored objects: the new default reads `isDefault: true` and the
   previous one `false` in `Calendar/get` and `ParticipantIdentity/get`, the

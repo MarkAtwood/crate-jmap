@@ -12,6 +12,10 @@ backend-agnostic library crates. Covers:
 - The JMAP Contacts ([RFC 9610]), Calendars ([draft-ietf-jmap-calendars]),
   Tasks ([draft-ietf-jmap-tasks]), and FileNode ([draft-ietf-jmap-filenode])
   extensions.
+- Conditional and atomic `Foo/set` ([draft-ietf-jmap-conditional]):
+  `ifUnchangedBy` preconditions and `atomic` evaluated by the `jmap-server`
+  dispatcher for every server crate that opts in with its
+  `register_<x>_conditional`, and `SetCall` on the client.
 - The JMAP Object Metadata extension ([draft-ietf-jmap-metadata]), the
   workspace-recommended IETF-track path for vendor data that must be queryable.
 - The JMAP Content Identifier extension ([draft-atwood-jmap-cid]) for blob
@@ -74,8 +78,8 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 | Crate | Spec | Role |
 |---|---|---|
 | `jmap-types` | [RFC 8620] | `Id`, `State`, `JmapError`, `JmapRequest/Response`, `ResultReference`, `Argument<T>` |
-| `jmap-server` | [RFC 8620] | `Dispatcher`, ResultReference resolution, generic `/get` `/changes` `/query` `/queryChanges` handlers |
-| `jmap-base-client` | [RFC 8620], [RFC 8887] | Auth, session fetch, blob upload/download, SSE stream, WebSocket |
+| `jmap-server` | [RFC 8620], [draft-ietf-jmap-conditional] | `Dispatcher`, ResultReference resolution, generic `/get` `/changes` `/query` `/queryChanges` handlers; conditional `Foo/set` evaluation, `ConditionalBackend`, `ScopedState` |
+| `jmap-base-client` | [RFC 8620], [RFC 8887], [draft-ietf-jmap-conditional] | Auth, session fetch, blob upload/download, SSE stream, WebSocket; generic `SetCall` with conditional options |
 
 ### Shared sub-types
 
@@ -465,6 +469,7 @@ jmap-testjig  (publish = false; depends on every server crate plus axum
 [draft-ietf-jmap-calendars]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
 [draft-ietf-jmap-tasks]: https://datatracker.ietf.org/doc/draft-ietf-jmap-tasks/
 [draft-ietf-jmap-filenode]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-conditional]: https://datatracker.ietf.org/doc/draft-ietf-jmap-conditional/
 [draft-ietf-jmap-blobext]: https://datatracker.ietf.org/doc/draft-ietf-jmap-blobext/
 [draft-ietf-jmap-essential]: https://datatracker.ietf.org/doc/draft-ietf-jmap-essential/
 [draft-ietf-jmap-metadata]: https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/
