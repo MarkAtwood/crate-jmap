@@ -510,6 +510,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server**: Mailbox/set updates check the tree (RFC 8621 §2).
+  A rename or move that would give a Mailbox a sibling's name is
+  `alreadyExists`, as on create, and a `parentId` that would make a loop is
+  `invalidProperties` naming `parentId`; both are judged against the
+  Mailboxes as they are, earlier changes of the call included. Both used
+  to succeed. (bd:JMAP-h4ht)
+
 - **jmap-server**: `PushSubscription/set` now echoes extension properties
   the backend stored differently from what the client sent: in `created`,
   and in `updated` (compared with the stored object plus the patch), as

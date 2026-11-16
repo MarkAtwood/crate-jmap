@@ -1034,6 +1034,13 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                 .and_then(|m| m.role.as_ref())
                 .map(|r| r.to_wire_str().to_owned());
 
+            if !atomic
+                && let Some(err) = tree_conflict(backend, caller, &account_id, &id, &patch).await?
+            {
+                not_updated.insert(id_str, err);
+                continue;
+            }
+
             match backend
                 .update_object::<Mailbox>(caller, &account_id, &id, patch)
                 .await
@@ -1144,6 +1151,13 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                     continue;
                 }
                 roles_claimed_this_request.insert(role_str.to_owned());
+            }
+
+            if !atomic
+                && let Some(err) = tree_conflict(backend, caller, &account_id, &id, &patch).await?
+            {
+                not_updated.insert(id_str, err);
+                continue;
             }
 
             match backend
@@ -1360,6 +1374,74 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// The SetError for an update of Mailbox `id` by `patch` that breaks the
+/// tree, judged against the Mailboxes as they are now (earlier changes of
+/// this call included), or `None`.
+///
+/// RFC 8621 §2: a rename or move must not give the Mailbox the name of a
+/// sibling under its (new) parent, which the create path also refuses with
+/// `alreadyExists`; and `parentId` "MUST NOT be a loop" (`invalidProperties`
+/// naming `parentId`). A patch touching neither property, or naming a
+/// Mailbox that does not exist (the backend reports `notFound`), passes.
+///
+/// # Errors
+///
+/// `serverFail` when the Mailboxes cannot be read.
+async fn tree_conflict<B: MailBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    id: &Id,
+    patch: &PatchObject,
+) -> Result<Option<Value>, JmapError> {
+    let map = patch.as_map();
+    if !map.contains_key("name") && !map.contains_key("parentId") {
+        return Ok(None);
+    }
+    let (all, _) = backend
+        .get_objects::<Mailbox>(caller, account_id, None, None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let Some(me) = all.iter().find(|m| m.id == *id) else {
+        return Ok(None);
+    };
+    let name = match map.get("name") {
+        Some(Value::String(name)) => name.as_str(),
+        _ => me.name.as_str(),
+    };
+    let parent: Option<Id> = match map.get("parentId") {
+        Some(Value::String(p)) => Some(Id::from(p.as_str())),
+        Some(Value::Null) => None,
+        _ => me.parent_id.clone(),
+    };
+    if all
+        .iter()
+        .any(|m| m.id != *id && m.name == name && m.parent_id == parent)
+    {
+        return Ok(Some(Value::from(&SetError::new(
+            SetErrorType::AlreadyExists,
+        ))));
+    }
+    // Walk up from the new parent; reaching `id` closes a loop. A chain
+    // longer than the number of Mailboxes already loops elsewhere.
+    let mut at = parent;
+    for _ in 0..=all.len() {
+        let Some(step) = at else {
+            return Ok(None);
+        };
+        if step == *id {
+            return Ok(Some(Value::from(
+                &SetError::new(SetErrorType::InvalidProperties).with_properties(["parentId"]),
+            )));
+        }
+        at = all
+            .iter()
+            .find(|m| m.id == step)
+            .and_then(|m| m.parent_id.clone());
+    }
+    Ok(None)
+}
 
 /// Returns `true` if `role_str` is already held by some mailbox in `all`,
 /// taking into account roles known to be vacated by the current request.
