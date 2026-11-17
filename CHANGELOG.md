@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-blob**: the umbrella crate, replacing the 0.0.1 placeholder. It
+  re-exports `jmap-blob-types` as `types` (always), `jmap-blob-client` as
+  `client` (`client` feature) and `jmap-blob-server` as `server` (`server`;
+  `memory` adds its reference backend), and keeps 0.0.1's `CAPABILITY`
+  (`urn:ietf:params:jmap:blob`, RFC 9404). It now describes
+  draft-ietf-jmap-blobext-03 with RFC 9404 legacy support. (bd:JMAP-tna1.10)
+
 - **jmap-server**: `check_blob_ids`, an `invalidProperties` check that
   every blobId under named keys (or patch paths) of a `/set` create or
   patch is an Id (RFC 8620 §1.2), naming the top-level property that holds
