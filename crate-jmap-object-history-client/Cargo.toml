@@ -1,0 +1,14 @@
+[package]
+name = "jmap-object-history-client"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Object History client — extension trait over jmap-base-client (draft-ietf-jmap-object-history)"
+keywords = ["jmap", "history", "undelete", "client"]
+categories = ["network-programming", "asynchronous", "api-bindings"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]

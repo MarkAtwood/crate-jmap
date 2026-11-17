@@ -1,0 +1,14 @@
+[package]
+name = "jmap-object-history-server"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Object History helpers for server backends: version selection, retention and change folding (draft-ietf-jmap-object-history)"
+keywords = ["jmap", "history", "undelete", "server"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]

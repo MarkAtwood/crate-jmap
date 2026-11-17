@@ -2357,6 +2357,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-object-history-client"
+version = "0.5.0"
+
+[[package]]
+name = "jmap-object-history-server"
+version = "0.5.0"
+
+[[package]]
+name = "jmap-object-history-types"
+version = "0.5.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-peer-auth"
 version = "0.5.0"
 dependencies = [

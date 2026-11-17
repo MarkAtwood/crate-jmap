@@ -1,0 +1,142 @@
+pub mod jmap_object_history_types
+#[non_exhaustive] pub struct jmap_object_history_types::DestroyedQueryArguments
+pub jmap_object_history_types::DestroyedQueryArguments::destroyed_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_types::DestroyedQueryArguments::destroyed_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_types::DestroyedQueryArguments::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_object_history_types::DestroyedQueryArguments::only_destroyed: bool
+impl jmap_object_history_types::DestroyedQueryArguments
+pub fn jmap_object_history_types::DestroyedQueryArguments::new() -> Self
+impl core::clone::Clone for jmap_object_history_types::DestroyedQueryArguments
+pub fn jmap_object_history_types::DestroyedQueryArguments::clone(&self) -> jmap_object_history_types::DestroyedQueryArguments
+impl core::cmp::Eq for jmap_object_history_types::DestroyedQueryArguments
+impl core::cmp::PartialEq for jmap_object_history_types::DestroyedQueryArguments
+pub fn jmap_object_history_types::DestroyedQueryArguments::eq(&self, &jmap_object_history_types::DestroyedQueryArguments) -> bool
+impl core::default::Default for jmap_object_history_types::DestroyedQueryArguments
+pub fn jmap_object_history_types::DestroyedQueryArguments::default() -> jmap_object_history_types::DestroyedQueryArguments
+impl core::fmt::Debug for jmap_object_history_types::DestroyedQueryArguments
+pub fn jmap_object_history_types::DestroyedQueryArguments::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_types::DestroyedQueryArguments
+impl serde_core::ser::Serialize for jmap_object_history_types::DestroyedQueryArguments
+pub fn jmap_object_history_types::DestroyedQueryArguments::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_object_history_types::DestroyedQueryArguments
+pub fn jmap_object_history_types::DestroyedQueryArguments::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_object_history_types::HistoryEntry<T>
+pub jmap_object_history_types::HistoryEntry::object: T
+pub jmap_object_history_types::HistoryEntry::object_history: jmap_object_history_types::ObjectHistoryInfo
+impl<T> jmap_object_history_types::HistoryEntry<T>
+pub fn jmap_object_history_types::HistoryEntry<T>::new(T, jmap_object_history_types::ObjectHistoryInfo) -> Self
+impl<'de, T> serde_core::de::Deserialize<'de> for jmap_object_history_types::HistoryEntry<T> where T: serde_core::de::Deserialize<'de>
+pub fn jmap_object_history_types::HistoryEntry<T>::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl<T: core::clone::Clone> core::clone::Clone for jmap_object_history_types::HistoryEntry<T>
+pub fn jmap_object_history_types::HistoryEntry<T>::clone(&self) -> jmap_object_history_types::HistoryEntry<T>
+impl<T: core::cmp::PartialEq> core::cmp::PartialEq for jmap_object_history_types::HistoryEntry<T>
+pub fn jmap_object_history_types::HistoryEntry<T>::eq(&self, &jmap_object_history_types::HistoryEntry<T>) -> bool
+impl<T: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_object_history_types::HistoryEntry<T>
+impl<T: core::fmt::Debug> core::fmt::Debug for jmap_object_history_types::HistoryEntry<T>
+pub fn jmap_object_history_types::HistoryEntry<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<T> serde_core::ser::Serialize for jmap_object_history_types::HistoryEntry<T> where T: serde_core::ser::Serialize
+pub fn jmap_object_history_types::HistoryEntry<T>::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+#[non_exhaustive] pub struct jmap_object_history_types::HistoryGetArguments
+pub jmap_object_history_types::HistoryGetArguments::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_object_history_types::HistoryGetArguments::history_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_types::HistoryGetArguments::history_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_types::HistoryGetArguments::history_limit: core::option::Option<u64>
+pub jmap_object_history_types::HistoryGetArguments::history_skip: u64
+pub jmap_object_history_types::HistoryGetArguments::include_destroyed: bool
+pub jmap_object_history_types::HistoryGetArguments::include_replaced: bool
+impl jmap_object_history_types::HistoryGetArguments
+pub fn jmap_object_history_types::HistoryGetArguments::new() -> Self
+impl core::clone::Clone for jmap_object_history_types::HistoryGetArguments
+pub fn jmap_object_history_types::HistoryGetArguments::clone(&self) -> jmap_object_history_types::HistoryGetArguments
+impl core::cmp::Eq for jmap_object_history_types::HistoryGetArguments
+impl core::cmp::PartialEq for jmap_object_history_types::HistoryGetArguments
+pub fn jmap_object_history_types::HistoryGetArguments::eq(&self, &jmap_object_history_types::HistoryGetArguments) -> bool
+impl core::default::Default for jmap_object_history_types::HistoryGetArguments
+pub fn jmap_object_history_types::HistoryGetArguments::default() -> jmap_object_history_types::HistoryGetArguments
+impl core::fmt::Debug for jmap_object_history_types::HistoryGetArguments
+pub fn jmap_object_history_types::HistoryGetArguments::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_types::HistoryGetArguments
+impl serde_core::ser::Serialize for jmap_object_history_types::HistoryGetArguments
+pub fn jmap_object_history_types::HistoryGetArguments::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_object_history_types::HistoryGetArguments
+pub fn jmap_object_history_types::HistoryGetArguments::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_object_history_types::ObjectHistoryAccountCapability
+pub jmap_object_history_types::ObjectHistoryAccountCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_object_history_types::ObjectHistoryAccountCapability::max_history_duration: core::option::Option<u64>
+pub jmap_object_history_types::ObjectHistoryAccountCapability::supported_types: alloc::vec::Vec<alloc::string::String>
+impl jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::supports<O: jmap_types::backend::JmapObject>(&self) -> bool
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::supports_type(&self, &str) -> bool
+impl core::clone::Clone for jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::clone(&self) -> jmap_object_history_types::ObjectHistoryAccountCapability
+impl core::cmp::Eq for jmap_object_history_types::ObjectHistoryAccountCapability
+impl core::cmp::PartialEq for jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::eq(&self, &jmap_object_history_types::ObjectHistoryAccountCapability) -> bool
+impl core::fmt::Debug for jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_types::ObjectHistoryAccountCapability
+impl serde_core::ser::Serialize for jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_object_history_types::ObjectHistoryCapability
+pub jmap_object_history_types::ObjectHistoryCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_object_history_types::ObjectHistoryCapability
+pub fn jmap_object_history_types::ObjectHistoryCapability::new() -> Self
+impl core::clone::Clone for jmap_object_history_types::ObjectHistoryCapability
+pub fn jmap_object_history_types::ObjectHistoryCapability::clone(&self) -> jmap_object_history_types::ObjectHistoryCapability
+impl core::cmp::PartialEq for jmap_object_history_types::ObjectHistoryCapability
+pub fn jmap_object_history_types::ObjectHistoryCapability::eq(&self, &jmap_object_history_types::ObjectHistoryCapability) -> bool
+impl core::default::Default for jmap_object_history_types::ObjectHistoryCapability
+pub fn jmap_object_history_types::ObjectHistoryCapability::default() -> jmap_object_history_types::ObjectHistoryCapability
+impl core::fmt::Debug for jmap_object_history_types::ObjectHistoryCapability
+pub fn jmap_object_history_types::ObjectHistoryCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_types::ObjectHistoryCapability
+impl serde_core::ser::Serialize for jmap_object_history_types::ObjectHistoryCapability
+pub fn jmap_object_history_types::ObjectHistoryCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_object_history_types::ObjectHistoryCapability
+pub fn jmap_object_history_types::ObjectHistoryCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_object_history_types::ObjectHistoryInfo
+pub jmap_object_history_types::ObjectHistoryInfo::expires: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_types::ObjectHistoryInfo::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_object_history_types::ObjectHistoryInfo::has_older: bool
+pub jmap_object_history_types::ObjectHistoryInfo::replaced: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_types::ObjectHistoryInfo::version: u64
+impl jmap_object_history_types::ObjectHistoryInfo
+pub fn jmap_object_history_types::ObjectHistoryInfo::live(u64, bool) -> Self
+pub fn jmap_object_history_types::ObjectHistoryInfo::replaced(u64, jmap_types::id::UTCDate, bool, core::option::Option<jmap_types::id::UTCDate>) -> Self
+impl core::clone::Clone for jmap_object_history_types::ObjectHistoryInfo
+pub fn jmap_object_history_types::ObjectHistoryInfo::clone(&self) -> jmap_object_history_types::ObjectHistoryInfo
+impl core::cmp::Eq for jmap_object_history_types::ObjectHistoryInfo
+impl core::cmp::PartialEq for jmap_object_history_types::ObjectHistoryInfo
+pub fn jmap_object_history_types::ObjectHistoryInfo::eq(&self, &jmap_object_history_types::ObjectHistoryInfo) -> bool
+impl core::fmt::Debug for jmap_object_history_types::ObjectHistoryInfo
+pub fn jmap_object_history_types::ObjectHistoryInfo::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_types::ObjectHistoryInfo
+impl serde_core::ser::Serialize for jmap_object_history_types::ObjectHistoryInfo
+pub fn jmap_object_history_types::ObjectHistoryInfo::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_object_history_types::ObjectHistoryInfo
+pub fn jmap_object_history_types::ObjectHistoryInfo::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_object_history_types::RestoreOutcome
+pub jmap_object_history_types::RestoreOutcome::not_restored: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::set_error::SetError>
+pub jmap_object_history_types::RestoreOutcome::restored: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, core::option::Option<jmap_types::methods::PartialObject>>
+impl jmap_object_history_types::RestoreOutcome
+pub fn jmap_object_history_types::RestoreOutcome::from_set_extra(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::result::Result<Self, serde_json::error::Error>
+pub fn jmap_object_history_types::RestoreOutcome::new() -> Self
+impl core::clone::Clone for jmap_object_history_types::RestoreOutcome
+pub fn jmap_object_history_types::RestoreOutcome::clone(&self) -> jmap_object_history_types::RestoreOutcome
+impl core::cmp::PartialEq for jmap_object_history_types::RestoreOutcome
+pub fn jmap_object_history_types::RestoreOutcome::eq(&self, &jmap_object_history_types::RestoreOutcome) -> bool
+impl core::default::Default for jmap_object_history_types::RestoreOutcome
+pub fn jmap_object_history_types::RestoreOutcome::default() -> jmap_object_history_types::RestoreOutcome
+impl core::fmt::Debug for jmap_object_history_types::RestoreOutcome
+pub fn jmap_object_history_types::RestoreOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_types::RestoreOutcome
+impl serde_core::ser::Serialize for jmap_object_history_types::RestoreOutcome
+pub fn jmap_object_history_types::RestoreOutcome::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_object_history_types::RestoreOutcome
+pub fn jmap_object_history_types::RestoreOutcome::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_object_history_types::JMAP_OBJECT_HISTORY_URI: &str
+pub const jmap_object_history_types::PENDING_HISTORY_REGISTRATION: &[&str]
+pub trait jmap_object_history_types::HistoryObject: jmap_types::backend::GetObject
+pub fn jmap_object_history_types::is_history_type(&str) -> bool

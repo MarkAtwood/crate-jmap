@@ -453,6 +453,56 @@ impl UTCDate {
     pub fn to_epoch_seconds(&self) -> Result<i64, ValidationError> {
         utcdate_to_epoch_seconds(&self.0)
     }
+
+    /// Compare the instants `self` and `other` denote.
+    ///
+    /// Whole seconds first, then the fractional seconds compared as
+    /// decimals, so `…:00.5Z` is later than `…:00Z` and `…:00.50Z` equals
+    /// `…:00.5Z`. Use this rather than string order (`"…00.5Z" <
+    /// "…00Z"`), [`to_epoch_seconds`](Self::to_epoch_seconds) (which
+    /// truncates fractions), or a conversion to a fixed precision (RFC 8620
+    /// §1.4 sets no limit on fractional digits).
+    ///
+    /// # Errors
+    ///
+    /// [`ValidationError`] when either value is not a valid RFC 8620 §1.4
+    /// `UTCDate` (one built with [`UTCDate::from`] is re-validated).
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::cmp::Ordering;
+    /// use jmap_types::UTCDate;
+    /// let whole = UTCDate::new_validated("2025-01-01T00:00:00Z").unwrap();
+    /// let half = UTCDate::new_validated("2025-01-01T00:00:00.5Z").unwrap();
+    /// assert_eq!(half.cmp_instant(&whole).unwrap(), Ordering::Greater);
+    /// ```
+    pub fn cmp_instant(&self, other: &UTCDate) -> Result<std::cmp::Ordering, ValidationError> {
+        let seconds = self.to_epoch_seconds()?.cmp(&other.to_epoch_seconds()?);
+        Ok(seconds.then_with(|| cmp_fraction(fraction(&self.0), fraction(&other.0))))
+    }
+}
+
+/// The fractional-second digits of a validated `UTCDate` (after `.`), or
+/// `""`.
+fn fraction(s: &str) -> &str {
+    s.get(19..s.len().saturating_sub(1))
+        .and_then(|f| f.strip_prefix('.'))
+        .unwrap_or("")
+}
+
+/// Compare two strings of decimal digits as fractions (`"5"` = 0.5), the
+/// shorter padded with zeros.
+fn cmp_fraction(a: &str, b: &str) -> std::cmp::Ordering {
+    let (a, b) = (a.as_bytes(), b.as_bytes());
+    (0..a.len().max(b.len()))
+        .map(|i| {
+            let x = a.get(i).copied().unwrap_or(b'0');
+            let y = b.get(i).copied().unwrap_or(b'0');
+            x.cmp(&y)
+        })
+        .find(|o| o.is_ne())
+        .unwrap_or(std::cmp::Ordering::Equal)
 }
 
 /// Number of days in `month` of `year`, accounting for proleptic Gregorian
@@ -533,6 +583,43 @@ impl State {
 
 #[cfg(test)]
 mod tests {
+
+    /// RFC 8620 §1.4: `time-secfrac` is a decimal fraction of a second, so
+    /// instants compare by seconds and then by that fraction's value, not
+    /// by string order or a truncated precision (bd JMAP-tna1.3.1).
+    #[test]
+    fn cmp_instant_compares_fractions_as_decimals() {
+        use std::cmp::Ordering::{Equal, Greater, Less};
+        let d = |s: &str| UTCDate::new_validated(s).unwrap();
+        let whole = d("2025-01-01T00:00:00Z");
+        assert_eq!(
+            d("2025-01-01T00:00:00.5Z").cmp_instant(&whole).unwrap(),
+            Greater
+        );
+        assert_eq!(
+            d("2025-01-01T00:00:00.0000000001Z")
+                .cmp_instant(&whole)
+                .unwrap(),
+            Greater
+        );
+        assert_eq!(
+            d("2025-01-01T00:00:00.5Z")
+                .cmp_instant(&d("2025-01-01T00:00:00.50Z"))
+                .unwrap(),
+            Equal
+        );
+        assert_eq!(
+            d("2025-01-01T00:00:00.09Z")
+                .cmp_instant(&d("2025-01-01T00:00:00.1Z"))
+                .unwrap(),
+            Less
+        );
+        assert_eq!(
+            d("2024-12-31T23:59:59.999Z").cmp_instant(&whole).unwrap(),
+            Less
+        );
+        assert!(UTCDate::from("nope").cmp_instant(&whole).is_err());
+    }
     use super::*;
 
     // Oracle: RFC 8620 §1.2 — Id is a plain JSON string, not a wrapped object.

@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-object-history-types** (new): draft-ietf-jmap-object-history-03
+  wire types: capability objects, `HistoryGetArguments`,
+  `DestroyedQueryArguments` (also on `Foo/queryChanges`, per the -04
+  editor's copy), `ObjectHistoryInfo`, `HistoryEntry<T>`,
+  `RestoreOutcome`, the `HistoryObject` marker and `is_history_type`
+  (registry "Supports History" plus the pending Task/TaskList).
+  `jmap-object-history-server` and `jmap-object-history-client` are
+  scaffolds. (bd:JMAP-tna1.3.1)
+- **jmap-types**: `UTCDate::cmp_instant` compares two instants exactly,
+  fractional seconds as decimals. (bd:JMAP-tna1.3.1)
 - **jmap-blob-server**: RFC 8620 §6.3 `Blob/copy`, registered by
   `register_blob_handlers` (`handle_blob_copy`). It is core, so it needs
   no blob capability; `blobIds` may be `#creationId` references;

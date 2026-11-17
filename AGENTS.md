@@ -121,6 +121,9 @@ crates, never in a support crate.
 | `crate-jmap-blob-server/` | `jmap-blob-server` | draft-ietf-jmap-blobext-03 `Blob/get`, `/set`, `/lookup`, `/convert` and RFC 9404 `Blob/upload` over `BlobBackend` (hooks per docs/design/blobext.md §6: required `blob_capability`, `blob_info`, `read_blob_range`, `create_blob`, `touch_blob`, `destroy_blob`, `blob_references`, `convert`; defaults for `stored_digest`, `digester` (built-in sha/sha-256/sha-512), `blob_chunks` (one whole-blob chunk), `image_data`, `lookup_type_capability` (`jmap_types::data_types` with Can Reference Blobs); no atomic hook), `register_blob_handlers`, `BlobMode::from_using` (blob2, RFC 9404, or both → `invalidArguments`). All five handlers are implemented; `Blob/upload` shares the Blob/set create pipeline and never omits an upload, so each reaches `createdIds`. `memory` reference backend: registered accounts only, ids `B<n>`, inline-only blobs as bytes and blob-built ones as leaf chunk lists (a chunk blob cannot be destroyed, `blobHasReference`), `expires` +1 h / +5 min `noPersist` / `null` while referenced, touch honoured up to 7 days else `Applied`, stored whole-blob sha-256, default capability per decision 13; `convert`: hand-rolled ustar `application/x-tar` archive (checked at convert time, generated on first read, `size` null until then; a failed generation removes the blob) and extract (archive's id/type/size, a new blob per file, `isIncomplete` on truncation, `unknownFormat` for non-tar), other recipes via the stub or `serverFail`; `test-helpers`: `advertise_for_test`, `add_reference_for_test`, `hide_object_for_test`, `set_clock_for_test`, `omit_no_persist_for_test`, `stub_converter_for_test`, `fail_deferred_for_test` |
 | `crate-jmap-blob-client/` | `jmap-blob-client` | draft-ietf-jmap-blobext-03 client over `jmap-base-client`: sealed `JmapBlobExt::with_blob_session` → `SessionClient` (`for_account`, `blob_account_id`, `blob_capability`, `upload_url`, `preferred_digest_algorithm`, `lookup_type_names`, `verify_digest`); `blob_set`/`blob_create`/`blob_touch`/`blob_destroy`, `blob_get`, `blob_lookup` (adds each type's registry capability to `using`), `blob_convert`; `using` is core + `blob2`, never RFC 9404 `blob`; conditional Blob/set via base-client `SetCall`. RFC 9404: `with_blob_legacy_session` → `LegacySessionClient` (`blob_upload`, 9404 `blob_get`, `blob_lookup` → `Rfc9404LookupResponse`; `using` core + `blob`, never `blob2`) |
 | `crate-jmap-blob/` | `jmap-blob` | Umbrella (replaces the 0.0.1 placeholder): re-exports `jmap-blob-types` (always), `-client` (`client`), `-server` (`server`; `memory` adds its reference backend), and keeps 0.0.1's `CAPABILITY` (the RFC 9404 URI). Copies `jmap-quotas`' shape |
+| `crate-jmap-object-history-types/` | `jmap-object-history-types` | draft-ietf-jmap-object-history-03 data types (with the -04 editor's copy queryChanges arguments, docs/design/object-history.md §2a): `JMAP_OBJECT_HISTORY_URI`, `ObjectHistoryCapability` (empty), `ObjectHistoryAccountCapability` (`maxHistoryDuration`/`supportedTypes` always written; no constructor), `HistoryGetArguments`, `DestroyedQueryArguments`, `ObjectHistoryInfo`, `HistoryEntry<T>` (flattened T, no own extra), `RestoreOutcome::from_set_extra`, `HistoryObject: GetObject` marker, `is_history_type` (registry "Supports History" or `PENDING_HISTORY_REGISTRATION` = Task, TaskList). No async; depends on `jmap-types`, serde |
+| `crate-jmap-object-history-server/` | `jmap-object-history-server` | Scaffold (bd JMAP-tna1.3.1): pure history helpers for reference backends (`select_versions`, `VersionLog`, retention, rights cut, `fold_restore`) arrive with JMAP-tna1.3.2 |
+| `crate-jmap-object-history-client/` | `jmap-object-history-client` | Scaffold (bd JMAP-tna1.3.1): history get, destroyed query and restore over `jmap-base-client` arrive with JMAP-tna1.3.12 |
 
 ## Dependency Tree
 
@@ -164,6 +167,14 @@ jmap-blob-types        — draft-ietf-jmap-blobext-03 / RFC 9404 data types: cap
     ├── jmap-blob-server   — Blob/* method handlers, BlobBackend trait (with
     │                        jmap-server).
     └── jmap-blob-client   — Blob/* client bindings (with jmap-base-client).
+
+jmap-object-history-types — draft-ietf-jmap-object-history-03 data types:
+                         capabilities, history arguments, objectHistory, restore
+                         results, HistoryObject marker. No async. Depends on
+                         jmap-types, serde and serde_json.
+    ├── jmap-object-history-server — pure history helpers for backends
+    │                        (scaffold).
+    └── jmap-object-history-client — history client bindings (scaffold).
 
 jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
                          (urn:ietf:params:jmap:cid) plus the Sha256 typed wire

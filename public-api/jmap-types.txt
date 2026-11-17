@@ -1043,10 +1043,11 @@ impl<'de> serde_core::de::Deserialize<'de> for jmap_types::StateChange
 pub fn jmap_types::StateChange::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 #[non_exhaustive] pub struct jmap_types::UTCDate(_)
 impl jmap_types::UTCDate
-pub fn jmap_types::UTCDate::into_inner(self) -> alloc::string::String
-impl jmap_types::UTCDate
+pub fn jmap_types::UTCDate::cmp_instant(&self, &jmap_types::UTCDate) -> core::result::Result<core::cmp::Ordering, jmap_types::ValidationError>
 pub fn jmap_types::UTCDate::new_validated(impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_types::ValidationError>
 pub fn jmap_types::UTCDate::to_epoch_seconds(&self) -> core::result::Result<i64, jmap_types::ValidationError>
+impl jmap_types::UTCDate
+pub fn jmap_types::UTCDate::into_inner(self) -> alloc::string::String
 impl core::borrow::Borrow<str> for jmap_types::UTCDate
 pub fn jmap_types::UTCDate::borrow(&self) -> &str
 impl core::clone::Clone for jmap_types::UTCDate
