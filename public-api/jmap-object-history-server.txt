@@ -1,1 +1,138 @@
 pub mod jmap_object_history_server
+#[non_exhaustive] pub enum jmap_object_history_server::ChangeEvent
+pub jmap_object_history_server::ChangeEvent::Created
+pub jmap_object_history_server::ChangeEvent::Destroyed
+pub jmap_object_history_server::ChangeEvent::Restored
+pub jmap_object_history_server::ChangeEvent::Updated
+impl core::clone::Clone for jmap_object_history_server::ChangeEvent
+pub fn jmap_object_history_server::ChangeEvent::clone(&self) -> jmap_object_history_server::ChangeEvent
+impl core::cmp::Eq for jmap_object_history_server::ChangeEvent
+impl core::cmp::PartialEq for jmap_object_history_server::ChangeEvent
+pub fn jmap_object_history_server::ChangeEvent::eq(&self, &jmap_object_history_server::ChangeEvent) -> bool
+impl core::fmt::Debug for jmap_object_history_server::ChangeEvent
+pub fn jmap_object_history_server::ChangeEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_object_history_server::ChangeEvent
+impl core::marker::StructuralPartialEq for jmap_object_history_server::ChangeEvent
+#[non_exhaustive] pub enum jmap_object_history_server::ChangeKind
+pub jmap_object_history_server::ChangeKind::Created
+pub jmap_object_history_server::ChangeKind::Destroyed
+pub jmap_object_history_server::ChangeKind::Updated
+impl core::clone::Clone for jmap_object_history_server::ChangeKind
+pub fn jmap_object_history_server::ChangeKind::clone(&self) -> jmap_object_history_server::ChangeKind
+impl core::cmp::Eq for jmap_object_history_server::ChangeKind
+impl core::cmp::PartialEq for jmap_object_history_server::ChangeKind
+pub fn jmap_object_history_server::ChangeKind::eq(&self, &jmap_object_history_server::ChangeKind) -> bool
+impl core::fmt::Debug for jmap_object_history_server::ChangeKind
+pub fn jmap_object_history_server::ChangeKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_object_history_server::ChangeKind
+impl core::marker::StructuralPartialEq for jmap_object_history_server::ChangeKind
+#[non_exhaustive] pub enum jmap_object_history_server::Selection<V>
+pub jmap_object_history_server::Selection::Entries(alloc::vec::Vec<(V, jmap_object_history_types::ObjectHistoryInfo)>)
+pub jmap_object_history_server::Selection::NotFound
+impl<V: core::clone::Clone> core::clone::Clone for jmap_object_history_server::Selection<V>
+pub fn jmap_object_history_server::Selection<V>::clone(&self) -> jmap_object_history_server::Selection<V>
+impl<V: core::cmp::Eq> core::cmp::Eq for jmap_object_history_server::Selection<V>
+impl<V: core::cmp::PartialEq> core::cmp::PartialEq for jmap_object_history_server::Selection<V>
+pub fn jmap_object_history_server::Selection<V>::eq(&self, &jmap_object_history_server::Selection<V>) -> bool
+impl<V: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_object_history_server::Selection<V>
+impl<V: core::fmt::Debug> core::fmt::Debug for jmap_object_history_server::Selection<V>
+pub fn jmap_object_history_server::Selection<V>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_object_history_server::DestroyedObject<V>
+pub jmap_object_history_server::DestroyedObject::destroyed_at: jmap_types::id::UTCDate
+pub jmap_object_history_server::DestroyedObject::destroyed_at_ms: i64
+pub jmap_object_history_server::DestroyedObject::id: jmap_types::id::Id
+pub jmap_object_history_server::DestroyedObject::snapshot: V
+impl<V: core::clone::Clone> core::clone::Clone for jmap_object_history_server::DestroyedObject<V>
+pub fn jmap_object_history_server::DestroyedObject<V>::clone(&self) -> jmap_object_history_server::DestroyedObject<V>
+impl<V: core::cmp::Eq> core::cmp::Eq for jmap_object_history_server::DestroyedObject<V>
+impl<V: core::cmp::PartialEq> core::cmp::PartialEq for jmap_object_history_server::DestroyedObject<V>
+pub fn jmap_object_history_server::DestroyedObject<V>::eq(&self, &jmap_object_history_server::DestroyedObject<V>) -> bool
+impl<V: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_object_history_server::DestroyedObject<V>
+impl<V: core::fmt::Debug> core::fmt::Debug for jmap_object_history_server::DestroyedObject<V>
+pub fn jmap_object_history_server::DestroyedObject<V>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_object_history_server::HistoryRetention
+pub jmap_object_history_server::HistoryRetention::max_duration: core::option::Option<core::time::Duration>
+pub jmap_object_history_server::HistoryRetention::max_versions_per_object: core::option::Option<usize>
+impl jmap_object_history_server::HistoryRetention
+pub fn jmap_object_history_server::HistoryRetention::max_duration(self, core::option::Option<core::time::Duration>) -> Self
+pub fn jmap_object_history_server::HistoryRetention::max_versions_per_object(self, core::option::Option<usize>) -> Self
+pub fn jmap_object_history_server::HistoryRetention::new() -> Self
+impl core::clone::Clone for jmap_object_history_server::HistoryRetention
+pub fn jmap_object_history_server::HistoryRetention::clone(&self) -> jmap_object_history_server::HistoryRetention
+impl core::cmp::Eq for jmap_object_history_server::HistoryRetention
+impl core::cmp::PartialEq for jmap_object_history_server::HistoryRetention
+pub fn jmap_object_history_server::HistoryRetention::eq(&self, &jmap_object_history_server::HistoryRetention) -> bool
+impl core::default::Default for jmap_object_history_server::HistoryRetention
+pub fn jmap_object_history_server::HistoryRetention::default() -> jmap_object_history_server::HistoryRetention
+impl core::fmt::Debug for jmap_object_history_server::HistoryRetention
+pub fn jmap_object_history_server::HistoryRetention::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_object_history_server::HistoryRetention
+impl core::marker::StructuralPartialEq for jmap_object_history_server::HistoryRetention
+#[non_exhaustive] pub struct jmap_object_history_server::HistorySelector
+pub jmap_object_history_server::HistorySelector::history_after: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_server::HistorySelector::history_before: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_server::HistorySelector::history_limit: core::option::Option<u64>
+pub jmap_object_history_server::HistorySelector::history_skip: u64
+pub jmap_object_history_server::HistorySelector::include_destroyed: bool
+pub jmap_object_history_server::HistorySelector::include_replaced: bool
+impl jmap_object_history_server::HistorySelector
+pub fn jmap_object_history_server::HistorySelector::any_history(&self) -> bool
+pub fn jmap_object_history_server::HistorySelector::from_arguments(&jmap_object_history_types::HistoryGetArguments) -> Self
+pub fn jmap_object_history_server::HistorySelector::history_after(self, core::option::Option<jmap_types::id::UTCDate>) -> Self
+pub fn jmap_object_history_server::HistorySelector::history_before(self, core::option::Option<jmap_types::id::UTCDate>) -> Self
+pub fn jmap_object_history_server::HistorySelector::history_limit(self, core::option::Option<u64>) -> Self
+pub fn jmap_object_history_server::HistorySelector::history_skip(self, u64) -> Self
+pub fn jmap_object_history_server::HistorySelector::include_destroyed(self, bool) -> Self
+pub fn jmap_object_history_server::HistorySelector::include_replaced(self, bool) -> Self
+pub fn jmap_object_history_server::HistorySelector::new() -> Self
+impl core::clone::Clone for jmap_object_history_server::HistorySelector
+pub fn jmap_object_history_server::HistorySelector::clone(&self) -> jmap_object_history_server::HistorySelector
+impl core::cmp::Eq for jmap_object_history_server::HistorySelector
+impl core::cmp::PartialEq for jmap_object_history_server::HistorySelector
+pub fn jmap_object_history_server::HistorySelector::eq(&self, &jmap_object_history_server::HistorySelector) -> bool
+impl core::default::Default for jmap_object_history_server::HistorySelector
+pub fn jmap_object_history_server::HistorySelector::default() -> jmap_object_history_server::HistorySelector
+impl core::fmt::Debug for jmap_object_history_server::HistorySelector
+pub fn jmap_object_history_server::HistorySelector::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_server::HistorySelector
+#[non_exhaustive] pub struct jmap_object_history_server::Version<V>
+pub jmap_object_history_server::Version::expires: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_server::Version::replaced: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_object_history_server::Version::snapshot: V
+pub jmap_object_history_server::Version::version: u64
+impl<V> jmap_object_history_server::Version<V>
+pub fn jmap_object_history_server::Version<V>::live(u64, V) -> Self
+pub fn jmap_object_history_server::Version<V>::replaced(u64, V, jmap_types::id::UTCDate, core::option::Option<jmap_types::id::UTCDate>) -> Self
+impl<V: core::clone::Clone> core::clone::Clone for jmap_object_history_server::Version<V>
+pub fn jmap_object_history_server::Version<V>::clone(&self) -> jmap_object_history_server::Version<V>
+impl<V: core::cmp::Eq> core::cmp::Eq for jmap_object_history_server::Version<V>
+impl<V: core::cmp::PartialEq> core::cmp::PartialEq for jmap_object_history_server::Version<V>
+pub fn jmap_object_history_server::Version<V>::eq(&self, &jmap_object_history_server::Version<V>) -> bool
+impl<V: core::cmp::PartialEq> core::marker::StructuralPartialEq for jmap_object_history_server::Version<V>
+impl<V: core::fmt::Debug> core::fmt::Debug for jmap_object_history_server::Version<V>
+pub fn jmap_object_history_server::Version<V>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_object_history_server::VersionLog<V>
+impl<V: core::clone::Clone> jmap_object_history_server::VersionLog<V>
+pub fn jmap_object_history_server::VersionLog<V>::destroyed_objects(&self, &str, &jmap_types::id::Id) -> alloc::vec::Vec<jmap_object_history_server::DestroyedObject<V>>
+pub fn jmap_object_history_server::VersionLog<V>::discard_version(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, u64) -> bool
+pub fn jmap_object_history_server::VersionLog<V>::final_version(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<&V>
+pub fn jmap_object_history_server::VersionLog<V>::is_destroyed(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub fn jmap_object_history_server::VersionLog<V>::new(jmap_object_history_server::HistoryRetention) -> Self
+pub fn jmap_object_history_server::VersionLog<V>::prune(&mut self, i64)
+pub fn jmap_object_history_server::VersionLog<V>::purge(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_object_history_server::VersionLog<V>::record_destroy(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, V, i64)
+pub fn jmap_object_history_server::VersionLog<V>::record_replace(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, V, i64)
+pub fn jmap_object_history_server::VersionLog<V>::restore(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<V>
+pub fn jmap_object_history_server::VersionLog<V>::retains(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub fn jmap_object_history_server::VersionLog<V>::retention(&self) -> jmap_object_history_server::HistoryRetention
+pub fn jmap_object_history_server::VersionLog<V>::select(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<V>, &jmap_object_history_server::HistorySelector, core::option::Option<i64>) -> core::result::Result<jmap_object_history_server::Selection<V>, jmap_types::id::ValidationError>
+impl<V: core::clone::Clone> core::clone::Clone for jmap_object_history_server::VersionLog<V>
+pub fn jmap_object_history_server::VersionLog<V>::clone(&self) -> jmap_object_history_server::VersionLog<V>
+impl<V: core::fmt::Debug> core::fmt::Debug for jmap_object_history_server::VersionLog<V>
+pub fn jmap_object_history_server::VersionLog<V>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<V> core::default::Default for jmap_object_history_server::VersionLog<V>
+pub fn jmap_object_history_server::VersionLog<V>::default() -> Self
+pub fn jmap_object_history_server::fold_restore(&[jmap_object_history_server::ChangeEvent]) -> core::option::Option<jmap_object_history_server::ChangeKind>
+pub fn jmap_object_history_server::millis_from_utc_date(&jmap_types::id::UTCDate) -> core::result::Result<i64, jmap_types::id::ValidationError>
+pub fn jmap_object_history_server::select_versions<V: core::clone::Clone>(&[jmap_object_history_server::Version<V>], bool, &jmap_object_history_server::HistorySelector) -> core::result::Result<jmap_object_history_server::Selection<V>, jmap_types::id::ValidationError>
+pub fn jmap_object_history_server::utc_date_from_millis(i64) -> jmap_types::id::UTCDate

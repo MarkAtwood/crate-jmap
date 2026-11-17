@@ -7,4 +7,4 @@ listed in the design note §2a.
 | Step | Bead | State |
 |---|---|---|
 | Scaffold: manifest, empty `lib.rs`, README | JMAP-tna1.3.1 | done |
-| `select_versions`, `VersionLog`, retention, rights cut, `fold_restore` | JMAP-tna1.3.2 | open |
+| `select_versions`, `VersionLog`, retention, rights cut, `fold_restore` | JMAP-tna1.3.2 | done |

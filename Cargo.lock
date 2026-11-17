@@ -2318,6 +2318,11 @@ version = "0.5.0"
 [[package]]
 name = "jmap-object-history-server"
 version = "0.5.0"
+dependencies = [
+ "jmap-object-history-types",
+ "jmap-types",
+ "serde_json",
+]
 
 [[package]]
 name = "jmap-object-history-types"

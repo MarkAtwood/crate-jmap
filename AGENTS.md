@@ -122,7 +122,7 @@ crates, never in a support crate.
 | `crate-jmap-blob-client/` | `jmap-blob-client` | draft-ietf-jmap-blobext-03 client over `jmap-base-client`: sealed `JmapBlobExt::with_blob_session` → `SessionClient` (`for_account`, `blob_account_id`, `blob_capability`, `upload_url`, `preferred_digest_algorithm`, `lookup_type_names`, `verify_digest`); `blob_set`/`blob_create`/`blob_touch`/`blob_destroy`, `blob_get`, `blob_lookup` (adds each type's registry capability to `using`), `blob_convert`; `using` is core + `blob2`, never RFC 9404 `blob`; conditional Blob/set via base-client `SetCall`. RFC 9404: `with_blob_legacy_session` → `LegacySessionClient` (`blob_upload`, 9404 `blob_get`, `blob_lookup` → `Rfc9404LookupResponse`; `using` core + `blob`, never `blob2`) |
 | `crate-jmap-blob/` | `jmap-blob` | Umbrella (replaces the 0.0.1 placeholder): re-exports `jmap-blob-types` (always), `-client` (`client`), `-server` (`server`; `memory` adds its reference backend), and keeps 0.0.1's `CAPABILITY` (the RFC 9404 URI). Copies `jmap-quotas`' shape |
 | `crate-jmap-object-history-types/` | `jmap-object-history-types` | draft-ietf-jmap-object-history-03 data types (with the -04 editor's copy queryChanges arguments, docs/design/object-history.md §2a): `JMAP_OBJECT_HISTORY_URI`, `ObjectHistoryCapability` (empty), `ObjectHistoryAccountCapability` (`maxHistoryDuration`/`supportedTypes` always written; no constructor), `HistoryGetArguments`, `DestroyedQueryArguments`, `ObjectHistoryInfo`, `HistoryEntry<T>` (flattened T, no own extra), `RestoreOutcome::from_set_extra`, `HistoryObject: GetObject` marker, `is_history_type` (registry "Supports History" or `PENDING_HISTORY_REGISTRATION` = Task, TaskList). No async; depends on `jmap-types`, serde |
-| `crate-jmap-object-history-server/` | `jmap-object-history-server` | Scaffold (bd JMAP-tna1.3.1): pure history helpers for reference backends (`select_versions`, `VersionLog`, retention, rights cut, `fold_restore`) arrive with JMAP-tna1.3.2 |
+| `crate-jmap-object-history-server/` | `jmap-object-history-server` | Pure history helpers for reference backends: `HistorySelector`/`select_versions` (§3), `VersionLog<V>` (`Clone`; injected ms clock, equal-ms collapse, `expires`, oldest-first `prune`, -04 newest-retained final version, `restore`, §8.2 rights cut, `destroyed_objects`, `retains` for id reuse), `HistoryRetention`, `fold_restore` (-04 §5.1 changes classification), ms⇄`UTCDate`. No async; depends on `jmap-object-history-types`, `jmap-types`, serde_json |
 | `crate-jmap-object-history-client/` | `jmap-object-history-client` | Scaffold (bd JMAP-tna1.3.1): history get, destroyed query and restore over `jmap-base-client` arrive with JMAP-tna1.3.12 |
 
 ## Dependency Tree
@@ -172,8 +172,8 @@ jmap-object-history-types — draft-ietf-jmap-object-history-03 data types:
                          capabilities, history arguments, objectHistory, restore
                          results, HistoryObject marker. No async. Depends on
                          jmap-types, serde and serde_json.
-    ├── jmap-object-history-server — pure history helpers for backends
-    │                        (scaffold).
+    ├── jmap-object-history-server — pure history helpers for backends:
+    │                        version selection, VersionLog, change fold.
     └── jmap-object-history-client — history client bindings (scaffold).
 
 jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
