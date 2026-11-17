@@ -304,6 +304,7 @@ pub fn jmap_graph_types::Graph::eq(&self, &jmap_graph_types::Graph) -> bool
 impl core::fmt::Debug for jmap_graph_types::Graph
 pub fn jmap_graph_types::Graph::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_graph_types::Graph
+impl jmap_object_history_types::HistoryObject for jmap_graph_types::Graph
 impl jmap_types::backend::GetObject for jmap_graph_types::Graph
 impl jmap_types::backend::JmapObject for jmap_graph_types::Graph
 pub type jmap_graph_types::Graph::Property = ()
@@ -392,6 +393,7 @@ pub fn jmap_graph_types::GraphEdge::eq(&self, &jmap_graph_types::GraphEdge) -> b
 impl core::fmt::Debug for jmap_graph_types::GraphEdge
 pub fn jmap_graph_types::GraphEdge::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_graph_types::GraphEdge
+impl jmap_object_history_types::HistoryObject for jmap_graph_types::GraphEdge
 impl jmap_types::backend::GetObject for jmap_graph_types::GraphEdge
 impl jmap_types::backend::JmapObject for jmap_graph_types::GraphEdge
 pub type jmap_graph_types::GraphEdge::Property = ()
@@ -538,6 +540,7 @@ pub fn jmap_graph_types::GraphNode::eq(&self, &jmap_graph_types::GraphNode) -> b
 impl core::fmt::Debug for jmap_graph_types::GraphNode
 pub fn jmap_graph_types::GraphNode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_graph_types::GraphNode
+impl jmap_object_history_types::HistoryObject for jmap_graph_types::GraphNode
 impl jmap_types::backend::GetObject for jmap_graph_types::GraphNode
 impl jmap_types::backend::JmapObject for jmap_graph_types::GraphNode
 pub type jmap_graph_types::GraphNode::Property = ()

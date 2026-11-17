@@ -65,6 +65,8 @@
 
 #![deny(clippy::await_holding_lock)]
 
+mod history;
+
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::time::{Duration, SystemTime};
 
@@ -77,6 +79,7 @@ use jmap_graph_types::{
     GraphNodeComparator, GraphNodeFilterCondition,
 };
 use jmap_graph_types::{GraphCursorEvent, GraphNodeOpFilterCondition};
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     BeginSetError, ConditionalBackend, ScopedGuard, ScopedState, SetScope, SetScopeRequest,
     apply_patch_object, limit_or_max, resolve_query_start,
@@ -105,6 +108,8 @@ enum Change {
     Created,
     Updated,
     Destroyed,
+    /// Restored from object history (draft-ietf-jmap-object-history §5.1).
+    Restored,
 }
 
 /// `type_name` → `account_id` → `V`. Nested rather than tuple-keyed so a
@@ -151,6 +156,9 @@ struct Inner {
     blocked: HashSet<(Id, Id)>,
     /// `(account id, capability URI)` pairs advertised as companions.
     advertised: HashSet<(Id, String)>,
+    /// Object history, once [`MemoryBackend::with_object_history`] turns it
+    /// on.
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 impl Inner {
@@ -298,8 +306,14 @@ impl Inner {
         if gone.is_empty() {
             return;
         }
+        let mut last = Vec::with_capacity(gone.len());
         for k in &gone {
-            map.remove(k);
+            if let Some(v) = map.remove(k) {
+                last.push((k.clone(), v));
+            }
+        }
+        for (k, v) in last {
+            self.record_destroy(type_name, account_id, &k, v);
         }
         self.commit(
             type_name,
@@ -790,6 +804,33 @@ impl JmapBackend for MemoryBackend {
                 None => net.push((id.clone(), *change)),
             }
         }
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for (_, id, change) in window().filter(|(s, _, _)| *s <= upto) {
+            events.entry(id.clone()).or_default().push(match change {
+                Change::Created => ChangeEvent::Created,
+                Change::Updated => ChangeEvent::Updated,
+                Change::Destroyed => ChangeEvent::Destroyed,
+                Change::Restored => ChangeEvent::Restored,
+            });
+        }
+        net.retain_mut(|(id, change)| {
+            let Some(list) = events
+                .get(id)
+                .filter(|l| l.contains(&ChangeEvent::Restored))
+            else {
+                return true;
+            };
+            match fold_restore(list) {
+                Some(ChangeKind::Created) => *change = Change::Created,
+                Some(ChangeKind::Destroyed) => *change = Change::Destroyed,
+                Some(_) => *change = Change::Updated,
+                None => return false,
+            }
+            true
+        });
         let bucket = |want: Change| -> Vec<Id> {
             net.iter()
                 .filter(|(_, c)| *c == want)
@@ -1083,6 +1124,9 @@ impl GraphBackend for MemoryBackend {
                 inner.subscriptions.remove(&(id.clone(), caller.clone()));
             }
             None => {}
+        }
+        if let Some(previous) = inner.get(O::TYPE_NAME, account_id, id).cloned() {
+            inner.record_replace(O::TYPE_NAME, account_id, id, previous);
         }
         inner
             .objects_mut(O::TYPE_NAME, account_id)

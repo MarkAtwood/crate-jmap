@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-server**: object history for Graph, GraphNode and
+  GraphEdge: `register_graph_handlers_with_history`; the memory backend's
+  `with_object_history` (cascades recorded, read access applied to every
+  version, edge restores needing current endpoints, a restored node's op
+  log restarting at `snapshotSeq`). **jmap-graph-types**: `HistoryObject`
+  for the three types. (bd:JMAP-tna1.3.19)
 - **jmap-chat-server**: object history for Chat, Message, Space,
   ChatContact, CustomEmoji, SpaceBan and SpaceInvite:
   `register_chat_handlers_with_history`; the memory backend's

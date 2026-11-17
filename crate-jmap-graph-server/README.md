@@ -116,6 +116,23 @@ restores objects, states, change logs and each node's op log, so a rolled-back
 cascades. Its commit checks nothing extra: a node destroy takes its edges with it
 and edge endpoints are checked when GraphEdge/set writes the edge.
 
+## Object history (draft-ietf-jmap-object-history-03)
+
+`register_graph_handlers_with_history(dispatcher, backend)`, for a backend
+that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_graph_handlers` and re-registers history-aware `/get`, `/set`,
+`/query` and `/queryChanges` of Graph, GraphNode and GraphEdge.
+GraphNodeOp keeps no history (decision 22). A restored GraphNode comes
+back at its final snapshot with an empty op log whose head is
+`snapshotSeq`; edits after the final snapshot are not recoverable. A
+GraphEdge restore with a destroyed endpoint is `invalidProperties`:
+restore the node in an earlier `GraphNode/set`. The memory backend's
+`with_object_history(capability, retention)` records the Graph and node
+cascades, shows history only to a caller who may read the Graph (a
+destroyed Graph's, to the owner only), and evaluates no filter or sort
+over destroyed objects. A retracted provenance record (a GraphNode,
+draft-atwood-jmap-graph-provenance-00) follows the same rule.
+
 ## Gotchas
 
 - `#creationId` references across method calls (the draft's

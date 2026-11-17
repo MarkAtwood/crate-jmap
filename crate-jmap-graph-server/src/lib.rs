@@ -97,6 +97,7 @@ mod edge;
 mod edit;
 mod graph;
 mod helpers;
+mod history;
 /// In-memory reference implementation of [`GraphBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production.
@@ -117,6 +118,7 @@ pub use graph::{
     handle_graph_changes, handle_graph_get, handle_graph_query, handle_graph_query_changes,
     handle_graph_set,
 };
+pub use history::register_graph_handlers_with_history;
 pub use node::{
     handle_graph_node_changes, handle_graph_node_get, handle_graph_node_query,
     handle_graph_node_query_changes, handle_graph_node_set,

@@ -20,6 +20,9 @@ impl JmapObject for Graph {
 }
 
 impl GetObject for Graph {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for Graph {}
 
 /// draft-atwood-jmap-graph-00 §Graph (lines 138-159): `id` is "immutable,
 /// server-set"; `created`, `updated` and `myRights` are "server-set".
@@ -42,6 +45,9 @@ impl JmapObject for GraphNode {
 }
 
 impl GetObject for GraphNode {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for GraphNode {}
 
 /// draft-atwood-jmap-graph-00 §GraphNode (lines 179-206): `id` is
 /// "immutable, server-set"; `created`, `updated`, `createdBy` and
@@ -66,6 +72,9 @@ impl JmapObject for GraphEdge {
 }
 
 impl GetObject for GraphEdge {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for GraphEdge {}
 
 /// draft-atwood-jmap-graph-00 §GraphEdge (lines 213-232): `id` is
 /// "immutable, server-set"; `graphId` is "immutable"; `created`,
@@ -197,5 +206,26 @@ mod tests {
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5, 14 and 22: Graph, GraphNode and GraphEdge have
+    /// history; GraphNodeOp does not.
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [
+            has::<crate::Graph>(),
+            has::<crate::GraphNode>(),
+            has::<crate::GraphEdge>(),
+        ] {
+            assert!(is_history_type(name), "{name}");
+        }
+        assert!(!is_history_type("GraphNodeOp"));
     }
 }

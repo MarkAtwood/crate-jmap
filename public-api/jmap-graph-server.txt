@@ -6,6 +6,9 @@ pub mod jmap_graph_server::memory
 #[non_exhaustive] pub struct jmap_graph_server::memory::MemoryBackend
 impl jmap_graph_server::memory::MemoryBackend
 pub fn jmap_graph_server::memory::MemoryBackend::new() -> Self
+impl jmap_graph_server::memory::MemoryBackend
+pub fn jmap_graph_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
+pub fn jmap_graph_server::memory::MemoryBackend::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self
 impl core::clone::Clone for jmap_graph_server::memory::MemoryBackend
 pub fn jmap_graph_server::memory::MemoryBackend::clone(&self) -> Self
 impl core::default::Default for jmap_graph_server::memory::MemoryBackend
@@ -35,6 +38,12 @@ pub async fn jmap_graph_server::memory::MemoryBackend::query_changes<O: jmap_typ
 pub async fn jmap_graph_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_graph_server::memory::MemoryError>>
 impl jmap_server::conditional::ConditionalBackend for jmap_graph_server::memory::MemoryBackend
 pub async fn jmap_graph_server::memory::MemoryBackend::begin_set(&self, &jmap_types::id::Id, jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_graph_server::memory::MemoryError>>
+impl jmap_server::history::ObjectHistoryBackend for jmap_graph_server::memory::MemoryBackend
+pub async fn jmap_graph_server::memory::MemoryBackend::get_object_history<O: jmap_object_history_types::HistoryObject>(&self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_server::history::HistoryGetParams<'_>) -> core::result::Result<jmap_server::history::HistoryGetResult<O>, jmap_server::backend::BackendQueryError<jmap_graph_server::memory::MemoryError>>
+pub fn jmap_graph_server::memory::MemoryBackend::object_history_capability(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<jmap_object_history_types::ObjectHistoryAccountCapability>
+pub async fn jmap_graph_server::memory::MemoryBackend::query_destroyed<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_server::history::DestroyedQueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_graph_server::memory::MemoryError>>
+pub async fn jmap_graph_server::memory::MemoryBackend::query_destroyed_changes<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_server::history::DestroyedQueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_graph_server::memory::MemoryError>>
+pub async fn jmap_graph_server::memory::MemoryBackend::restore_object<O: jmap_object_history_types::HistoryObject + jmap_types::backend::SetObject>(&self, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::patch::PatchObject>) -> core::result::Result<jmap_server::history::Restored<O>, jmap_server::backend::BackendSetError<jmap_graph_server::memory::MemoryError>>
 #[non_exhaustive] pub struct jmap_graph_server::memory::MemoryError
 impl jmap_graph_server::memory::MemoryError
 pub fn jmap_graph_server::memory::MemoryError::description(&self) -> &str
@@ -154,4 +163,5 @@ pub async fn jmap_graph_server::handle_graph_set<B: jmap_graph_server::GraphBack
 pub fn jmap_graph_server::register_graph_conditional<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_graph_server::GraphBackend + jmap_server::conditional::ConditionalBackend + 'static
 pub fn jmap_graph_server::register_graph_edit_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_graph_server::GraphBackend + 'static
 pub fn jmap_graph_server::register_graph_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_graph_server::GraphBackend + 'static
+pub fn jmap_graph_server::register_graph_handlers_with_history<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_graph_server::GraphBackend + jmap_server::history::ObjectHistoryBackend + 'static
 pub async fn jmap_graph_server::should_deliver<B: jmap_graph_server::GraphBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_graph_server::GraphEditSubscription, &jmap_graph_types::edit::GraphEditEvent) -> core::result::Result<bool, <B as jmap_server::backend::JmapBackend>::Error>

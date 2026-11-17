@@ -17,7 +17,7 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0. Mirrors the canonical
 # jmap-mail-server `memory` feature (JMAP-hwdv.1).
-memory = ["dep:ulid", "jmap-server/scoped-state"]
+memory = ["dep:ulid", "dep:jmap-object-history-server", "jmap-server/scoped-state"]
 
 [dependencies]
 # Validates and sizes base64url op and cursor `data`
@@ -33,6 +33,8 @@ jmap-server = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 ulid = { version = "1", optional = true }
+jmap-object-history-server = { workspace = true, optional = true }
+jmap-object-history-types = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

@@ -2210,6 +2210,8 @@ dependencies = [
  "icu_normalizer",
  "jmap-graph-server",
  "jmap-graph-types",
+ "jmap-object-history-server",
+ "jmap-object-history-types",
  "jmap-server",
  "jmap-types",
  "serde",
@@ -2222,6 +2224,7 @@ dependencies = [
 name = "jmap-graph-types"
 version = "0.5.0"
 dependencies = [
+ "jmap-object-history-types",
  "jmap-types",
  "serde",
  "serde_json",
