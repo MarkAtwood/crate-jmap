@@ -41,8 +41,11 @@
 
 #![deny(clippy::await_holding_lock)]
 
+mod history;
+
 use std::collections::{HashMap, HashSet};
 
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
     SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
@@ -77,6 +80,8 @@ enum Change {
     Created,
     Updated,
     Destroyed,
+    /// Restored from object history (draft-ietf-jmap-object-history §5.1).
+    Restored,
 }
 
 /// `type_name` → `account_id` → `V`. Nested rather than tuple-keyed so a
@@ -105,6 +110,9 @@ struct Inner {
     blocked: HashSet<(String, String)>,
     /// `(userId, call id)` pairs whose call the user may not access.
     denied: HashSet<(String, String)>,
+    /// Object history, once `MemoryBackend::with_object_history` turns it
+    /// on.
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 impl Inner {
@@ -122,6 +130,7 @@ impl Inner {
             .and_then(|m| m.get(id))
             .cloned()
             .ok_or_else(not_found)?;
+        let previous = current.clone();
 
         let patch = serde_json::to_value(&patch)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize patch", &e)))?;
@@ -161,6 +170,7 @@ impl Inner {
             .flatten()
             .filter(|c| c.state == CallState::Ended)
             .and_then(|c| c.parent_call_id);
+        self.record_replace(O::TYPE_NAME, account_id, id, previous);
         let calls = self.objects_mut(O::TYPE_NAME, account_id);
         if let Some(parent_id) = &ended_child
             && let Some(Value::Array(rooms)) = calls
@@ -681,6 +691,33 @@ impl JmapBackend for MemoryBackend {
                 None => net.push((id.clone(), *change)),
             }
         }
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for (_, id, change) in window().filter(|(s, _, _)| *s <= upto) {
+            events.entry(id.clone()).or_default().push(match change {
+                Change::Created => ChangeEvent::Created,
+                Change::Updated => ChangeEvent::Updated,
+                Change::Destroyed => ChangeEvent::Destroyed,
+                Change::Restored => ChangeEvent::Restored,
+            });
+        }
+        net.retain_mut(|(id, change)| {
+            let Some(list) = events
+                .get(id)
+                .filter(|l| l.contains(&ChangeEvent::Restored))
+            else {
+                return true;
+            };
+            match fold_restore(list) {
+                Some(ChangeKind::Created) => *change = Change::Created,
+                Some(ChangeKind::Destroyed) => *change = Change::Destroyed,
+                Some(_) => *change = Change::Updated,
+                None => return false,
+            }
+            true
+        });
         let bucket = |want: Change| -> Vec<Id> {
             net.iter()
                 .filter(|(_, c)| *c == want)
@@ -1093,6 +1130,7 @@ impl VtcBackend for MemoryBackend {
         let mut inner = self.locked().await;
         let calls = inner.objects_mut(O::TYPE_NAME, account_id);
         let removed = calls.remove(id).ok_or_else(not_found)?;
+        let last = removed.clone();
         let mut changes = vec![(id.clone(), Change::Destroyed)];
         // A destroyed breakout room leaves its parent's breakoutRoomIds.
         let parent_id = (O::TYPE_NAME == VtcCall::TYPE_NAME)
@@ -1107,6 +1145,7 @@ impl VtcBackend for MemoryBackend {
             rooms.retain(|r| r.as_str() != Some(id.as_ref()));
             changes.push((parent_id.clone(), Change::Updated));
         }
+        inner.record_destroy(O::TYPE_NAME, account_id, id, last);
         inner.commit(O::TYPE_NAME, account_id, changes);
         if let Some(parent_id) = parent_id {
             inner.clear_breakout_assignments(account_id, &parent_id, id);

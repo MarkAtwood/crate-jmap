@@ -61,6 +61,7 @@ mod backend;
 mod call;
 mod ephemeral;
 mod helpers;
+mod history;
 mod media;
 /// In-memory reference implementation of [`VtcBackend`].
 ///
@@ -76,6 +77,7 @@ pub use call::{
     handle_vtc_call_query, handle_vtc_call_query_changes, handle_vtc_call_set,
 };
 pub use ephemeral::{CallScope, VtcEphemeralSubscription, VtcStreamFilter, should_deliver};
+pub use history::register_vtc_handlers_with_history;
 pub use media::{
     handle_vtc_livestream_changes, handle_vtc_livestream_get, handle_vtc_livestream_query,
     handle_vtc_livestream_query_changes, handle_vtc_livestream_set, handle_vtc_recording_changes,

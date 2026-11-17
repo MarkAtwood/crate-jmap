@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: object history for VTCCall, VTCRecording and
+  VTCLivestream: `register_vtc_handlers_with_history` (the
+  `streamKey`/`streamUri` blanking applied to every livestream version);
+  the memory backend's `with_object_history`. **jmap-vtc-types**:
+  `HistoryObject` for the three types. (bd:JMAP-tna1.3.21)
 - **jmap-scene-server**: object history for SceneAsset, SceneRegion and
   SceneObject: `register_scene_handlers_with_history` (region access,
   visibility and `invitedUserIds` redaction applied to every entry); the

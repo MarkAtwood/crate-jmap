@@ -18,6 +18,9 @@ impl JmapObject for VtcCall {
 }
 
 impl GetObject for VtcCall {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for VtcCall {}
 
 /// draft-atwood-jmap-vtc-00 §VTCCall Object Fields (lines 393-474): `id`,
 /// `createdAt` and `initiatorId` are "immutable, server-set"; `accountId`,
@@ -119,6 +122,9 @@ impl JmapObject for VtcRecording {
 }
 
 impl GetObject for VtcRecording {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for VtcRecording {}
 
 /// draft-atwood-jmap-vtc-00 §VTCRecording (lines 512-539): `id` is
 /// "immutable, server-set"; `startedAt`, `stoppedAt`, `initiatedBy`,
@@ -151,6 +157,9 @@ impl JmapObject for VtcLivestream {
 }
 
 impl GetObject for VtcLivestream {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for VtcLivestream {}
 
 /// draft-atwood-jmap-vtc-00 §VTCLivestream (lines 546-567): `id` is
 /// "immutable, server-set"; `startedAt` and `stoppedAt` are "server-set";
@@ -280,5 +289,26 @@ mod tests {
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5, 14 and 22: VTCCall, VTCRecording and VTCLivestream have
+    /// history; VTCParticipant does not.
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [
+            has::<crate::VtcCall>(),
+            has::<crate::VtcRecording>(),
+            has::<crate::VtcLivestream>(),
+        ] {
+            assert!(is_history_type(name), "{name}");
+        }
+        assert!(!is_history_type("VTCParticipant"));
     }
 }

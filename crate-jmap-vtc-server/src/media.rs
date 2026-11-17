@@ -138,8 +138,28 @@ pub async fn handle_vtc_recording_query_changes<B: VtcBackend>(
 pub async fn handle_vtc_livestream_get<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    mut args: Value,
+    args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    livestream_get_with(backend, caller, args, |a| {
+        jmap_server::handle_get::<VtcLivestream, B>(backend, caller, a)
+    })
+    .await
+}
+
+/// The body of [`handle_vtc_livestream_get`] around `get`, the `/get` that
+/// produces the list: the plain one, or a history `/get` whose every
+/// version is redacted the same way (draft-ietf-jmap-object-history §8.2).
+pub(crate) async fn livestream_get_with<B, F, Fut>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    mut args: Value,
+    get: F,
+) -> Result<HandlerOutput, JmapError>
+where
+    B: VtcBackend,
+    F: FnOnce(Value) -> Fut,
+    Fut: std::future::Future<Output = Result<HandlerOutput, JmapError>>,
+{
     // The redaction needs each item's `callId`; fetch it when the caller's
     // `properties` leaves it out, and drop it again afterwards.
     let mut strip_call_id = false;
@@ -150,7 +170,7 @@ pub async fn handle_vtc_livestream_get<B: VtcBackend>(
         strip_call_id = true;
     }
 
-    let mut out = jmap_server::handle_get::<VtcLivestream, B>(backend, caller, args).await?;
+    let mut out = get(args).await?;
     let account_id = out
         .primary
         .get("accountId")

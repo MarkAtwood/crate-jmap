@@ -594,6 +594,7 @@ pub fn jmap_vtc_types::VtcCall::eq(&self, &jmap_vtc_types::VtcCall) -> bool
 impl core::fmt::Debug for jmap_vtc_types::VtcCall
 pub fn jmap_vtc_types::VtcCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcCall
+impl jmap_object_history_types::HistoryObject for jmap_vtc_types::VtcCall
 impl jmap_types::backend::GetObject for jmap_vtc_types::VtcCall
 impl jmap_types::backend::JmapObject for jmap_vtc_types::VtcCall
 pub type jmap_vtc_types::VtcCall::Property = ()
@@ -824,6 +825,7 @@ pub fn jmap_vtc_types::VtcLivestream::eq(&self, &jmap_vtc_types::VtcLivestream) 
 impl core::fmt::Debug for jmap_vtc_types::VtcLivestream
 pub fn jmap_vtc_types::VtcLivestream::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcLivestream
+impl jmap_object_history_types::HistoryObject for jmap_vtc_types::VtcLivestream
 impl jmap_types::backend::GetObject for jmap_vtc_types::VtcLivestream
 impl jmap_types::backend::JmapObject for jmap_vtc_types::VtcLivestream
 pub type jmap_vtc_types::VtcLivestream::Property = ()
@@ -1034,6 +1036,7 @@ pub fn jmap_vtc_types::VtcRecording::eq(&self, &jmap_vtc_types::VtcRecording) ->
 impl core::fmt::Debug for jmap_vtc_types::VtcRecording
 pub fn jmap_vtc_types::VtcRecording::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_types::VtcRecording
+impl jmap_object_history_types::HistoryObject for jmap_vtc_types::VtcRecording
 impl jmap_types::backend::GetObject for jmap_vtc_types::VtcRecording
 impl jmap_types::backend::JmapObject for jmap_vtc_types::VtcRecording
 pub type jmap_vtc_types::VtcRecording::Property = ()

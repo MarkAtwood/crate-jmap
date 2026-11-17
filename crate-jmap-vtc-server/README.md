@@ -107,6 +107,20 @@ derived counts and drops queued `deliver_event` events. Under an atomic scope th
 to the commit, which checks the final state, so a moderator can kick one
 participant and admit another in one call at the cap.
 
+## Object history (draft-ietf-jmap-object-history-03)
+
+`register_vtc_handlers_with_history(dispatcher, backend)`, for a backend
+that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_vtc_handlers` and re-registers history-aware `/get`, `/set`,
+`/query` and `/queryChanges` of VTCCall, VTCRecording and VTCLivestream.
+VTCParticipant keeps no history (decision 22). Every VTCLivestream version
+gets the same `streamKey`/`streamUri` blanking as the current one for a
+non-moderator (§8.2). A restored recording or livestream needs a current
+call; a restored breakout room, its parent call. History reads emit no VTC
+events; a restore emits what an update would. The memory backend's
+`with_object_history(capability, retention)` keeps the versions and
+evaluates no filter or sort over destroyed objects.
+
 ## Gotchas
 
 - `VtcBackend::is_moderator` defaults to `Ok(true)` (fail-open,

@@ -4,6 +4,9 @@ pub mod jmap_vtc_server::memory
 #[non_exhaustive] pub struct jmap_vtc_server::memory::MemoryBackend
 impl jmap_vtc_server::memory::MemoryBackend
 pub fn jmap_vtc_server::memory::MemoryBackend::new() -> Self
+impl jmap_vtc_server::memory::MemoryBackend
+pub fn jmap_vtc_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
+pub fn jmap_vtc_server::memory::MemoryBackend::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self
 impl core::clone::Clone for jmap_vtc_server::memory::MemoryBackend
 pub fn jmap_vtc_server::memory::MemoryBackend::clone(&self) -> Self
 impl core::default::Default for jmap_vtc_server::memory::MemoryBackend
@@ -19,6 +22,12 @@ pub async fn jmap_vtc_server::memory::MemoryBackend::query_changes<O: jmap_types
 pub async fn jmap_vtc_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_vtc_server::memory::MemoryError>>
 impl jmap_server::conditional::ConditionalBackend for jmap_vtc_server::memory::MemoryBackend
 pub async fn jmap_vtc_server::memory::MemoryBackend::begin_set(&self, &alloc::string::String, jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_vtc_server::memory::MemoryError>>
+impl jmap_server::history::ObjectHistoryBackend for jmap_vtc_server::memory::MemoryBackend
+pub async fn jmap_vtc_server::memory::MemoryBackend::get_object_history<O: jmap_object_history_types::HistoryObject>(&self, &alloc::string::String, &jmap_types::id::Id, jmap_server::history::HistoryGetParams<'_>) -> core::result::Result<jmap_server::history::HistoryGetResult<O>, jmap_server::backend::BackendQueryError<jmap_vtc_server::memory::MemoryError>>
+pub fn jmap_vtc_server::memory::MemoryBackend::object_history_capability(&self, &alloc::string::String, &jmap_types::id::Id) -> core::option::Option<jmap_object_history_types::ObjectHistoryAccountCapability>
+pub async fn jmap_vtc_server::memory::MemoryBackend::query_destroyed<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &alloc::string::String, &jmap_types::id::Id, jmap_server::history::DestroyedQueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::query_destroyed_changes<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &alloc::string::String, &jmap_types::id::Id, jmap_server::history::DestroyedQueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_vtc_server::memory::MemoryError>>
+pub async fn jmap_vtc_server::memory::MemoryBackend::restore_object<O: jmap_object_history_types::HistoryObject + jmap_types::backend::SetObject>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::patch::PatchObject>) -> core::result::Result<jmap_server::history::Restored<O>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
 impl jmap_vtc_server::VtcBackend for jmap_vtc_server::memory::MemoryBackend
 pub async fn jmap_vtc_server::memory::MemoryBackend::active_call_count(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<u64, jmap_vtc_server::memory::MemoryError>
 pub async fn jmap_vtc_server::memory::MemoryBackend::caller_user_id(&self, &alloc::string::String, &jmap_types::id::Id) -> core::result::Result<alloc::string::String, jmap_vtc_server::memory::MemoryError>
@@ -164,4 +173,5 @@ pub async fn jmap_vtc_server::handle_vtc_recording_query_changes<B: jmap_vtc_ser
 pub async fn jmap_vtc_server::handle_vtc_recording_set<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, serde_json::value::Value) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub fn jmap_vtc_server::register_vtc_conditional<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_vtc_server::VtcBackend + jmap_server::conditional::ConditionalBackend + 'static
 pub fn jmap_vtc_server::register_vtc_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_vtc_server::VtcBackend + 'static
+pub fn jmap_vtc_server::register_vtc_handlers_with_history<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_vtc_server::VtcBackend + jmap_server::history::ObjectHistoryBackend + 'static
 pub async fn jmap_vtc_server::should_deliver<B: jmap_vtc_server::VtcBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_vtc_server::VtcEphemeralSubscription, &jmap_vtc_types::event::VtcEvent) -> core::result::Result<bool, <B as jmap_server::backend::JmapBackend>::Error>
