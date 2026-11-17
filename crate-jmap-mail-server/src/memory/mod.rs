@@ -162,7 +162,7 @@ struct Inner {
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
     /// Object history, once [`MemoryBackend::with_object_history`] turns it
     /// on.
-    history: Option<history::History>,
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 impl ChangeEntry {

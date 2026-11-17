@@ -2,7 +2,7 @@
 //! with the -04 editor's copy changes; docs/design/object-history.md §7).
 //!
 //! Off until [`MemoryBackend::with_object_history`]. Replaced and destroyed
-//! versions live in a `jmap_object_history_server::VersionLog` inside the
+//! versions live in a `jmap_object_history_server::HistoryStore` inside the
 //! scoped state, so a conditional rollback discards them with the rest.
 
 use std::collections::HashMap;
@@ -11,12 +11,8 @@ use jmap_mail_types::{
     Email, EmailComparator, EmailFilter, Mailbox, MailboxComparator, MailboxComparatorProperty,
     MailboxFilter,
 };
-use jmap_object_history_server::{
-    HistoryRetention, HistorySelector, Selection, VersionLog, millis_from_utc_date,
-};
-use jmap_object_history_types::{
-    HistoryEntry, HistoryObject, ObjectHistoryAccountCapability, is_history_type,
-};
+use jmap_object_history_server::{HistoryRetention, HistoryStore};
+use jmap_object_history_types::{HistoryEntry, HistoryObject, ObjectHistoryAccountCapability};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError,
     DestroyedQueryChangesParams, DestroyedQueryParams, HistoryGetParams, HistoryGetResult,
@@ -32,55 +28,6 @@ use super::{
     mailbox_matches_condition, retype, sort_email_ids,
 };
 
-/// The memory backend's history state.
-#[derive(Clone, Debug)]
-pub(super) struct History {
-    capability: ObjectHistoryAccountCapability,
-    pub(super) log: VersionLog<Value>,
-    /// Fixed clock in milliseconds, or `None` for the system clock.
-    clock_ms: Option<i64>,
-    /// (type, account) → the §8.2 conservative cut: when the rights of
-    /// the objects' containers last changed.
-    rights_changed_ms: HashMap<(String, String), i64>,
-    /// (type, account) → changes to its set of destroyed objects:
-    /// (sequence, id), for destroyed `queryChanges`.
-    destroyed_changes: HashMap<(String, String), Vec<(u64, Id)>>,
-}
-
-impl History {
-    /// Whether `type_name` keeps history.
-    pub(super) fn records(&self, type_name: &str) -> bool {
-        self.capability.supports_type(type_name)
-    }
-
-    pub(super) fn now_ms(&self) -> i64 {
-        self.clock_ms.unwrap_or_else(|| {
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .ok()
-                .and_then(|d| i64::try_from(d.as_millis()).ok())
-                .unwrap_or(0)
-        })
-    }
-
-    /// Note that `id` entered or left the destroyed set of `type_name`.
-    fn destroyed_changed(&mut self, type_name: &str, account: &str, id: &Id) {
-        let entry = self
-            .destroyed_changes
-            .entry((type_name.to_owned(), account.to_owned()))
-            .or_default();
-        let seq = entry.last().map_or(1, |(s, _)| s + 1);
-        entry.push((seq, id.clone()));
-    }
-
-    fn destroyed_seq(&self, type_name: &str, account: &str) -> u64 {
-        self.destroyed_changes
-            .get(&(type_name.to_owned(), account.to_owned()))
-            .and_then(|v| v.last())
-            .map_or(0, |(s, _)| *s)
-    }
-}
-
 impl Inner {
     /// Record the update of `id` from `previous`, when the type keeps
     /// history.
@@ -91,11 +38,8 @@ impl Inner {
         id: &Id,
         previous: Value,
     ) {
-        if let Some(h) = self.history.as_mut()
-            && h.records(type_name)
-        {
-            let now = h.now_ms();
-            h.log.record_replace(type_name, account, id, previous, now);
+        if let Some(h) = self.history.as_mut() {
+            h.record_replace(type_name, account, id, previous);
         }
     }
 
@@ -108,12 +52,8 @@ impl Inner {
         id: &Id,
         last: Value,
     ) {
-        if let Some(h) = self.history.as_mut()
-            && h.records(type_name)
-        {
-            let now = h.now_ms();
-            h.log.record_destroy(type_name, account, id, last, now);
-            h.destroyed_changed(type_name, account.as_ref(), id);
+        if let Some(h) = self.history.as_mut() {
+            h.record_destroy(type_name, account, id, last);
         }
     }
 
@@ -122,13 +62,12 @@ impl Inner {
     pub(super) fn history_retains(&self, type_name: &str, account: &Id, id: &Id) -> bool {
         self.history
             .as_ref()
-            .is_some_and(|h| h.log.retains(type_name, account, id))
+            .is_some_and(|h| h.retains(type_name, account, id))
     }
 
     fn prune_history(&mut self) {
         if let Some(h) = self.history.as_mut() {
-            let now = h.now_ms();
-            h.log.prune(now);
+            h.prune();
         }
     }
 }
@@ -151,49 +90,33 @@ impl MemoryBackend {
         retention: HistoryRetention,
     ) -> Self {
         for t in &capability.supported_types {
-            assert!(is_history_type(t), "{t} does not support history");
             assert!(
                 SUPPORTED.contains(&t.as_str()),
                 "the memory backend keeps no history for {t}"
             );
         }
-        self.inner.lock_unscoped().history = Some(History {
-            capability,
-            log: VersionLog::new(retention),
-            clock_ms: None,
-            rights_changed_ms: HashMap::new(),
-            destroyed_changes: HashMap::new(),
-        });
+        self.inner.lock_unscoped().history = Some(HistoryStore::new(capability, retention));
         self
     }
 
     /// Fix the history clock at `ms` milliseconds since the epoch.
     pub fn set_history_clock_for_test(&self, ms: i64) {
         if let Some(h) = self.inner.lock_unscoped().history.as_mut() {
-            h.clock_ms = Some(ms);
+            h.set_clock(ms);
         }
     }
 
     /// Discard one version of an object, in any order (§3.1).
     pub fn discard_version_for_test(&self, type_name: &str, account: &Id, id: &Id, version: u64) {
-        let mut inner = self.inner.lock_unscoped();
-        if let Some(h) = inner.history.as_mut()
-            && h.log.discard_version(type_name, account, id, version)
-            && !h.log.retains(type_name, account, id)
-        {
-            h.destroyed_changed(type_name, account.as_ref(), id);
+        if let Some(h) = self.inner.lock_unscoped().history.as_mut() {
+            h.discard_version(type_name, account, id, version);
         }
     }
 
     /// Discard every version of an object: the §8.3 administrative purge.
     pub fn purge_object_history(&self, type_name: &str, account: &Id, id: &Id) {
-        let mut inner = self.inner.lock_unscoped();
-        if let Some(h) = inner.history.as_mut() {
-            let was_destroyed = h.log.is_destroyed(type_name, account, id);
-            h.log.purge(type_name, account, id);
-            if was_destroyed {
-                h.destroyed_changed(type_name, account.as_ref(), id);
-            }
+        if let Some(h) = self.inner.lock_unscoped().history.as_mut() {
+            h.purge(type_name, account, id);
         }
     }
 
@@ -201,8 +124,7 @@ impl MemoryBackend {
     /// before `ms`, and objects destroyed before it, are hidden.
     pub fn set_rights_changed_at_for_test(&self, type_name: &str, account: &Id, ms: i64) {
         if let Some(h) = self.inner.lock_unscoped().history.as_mut() {
-            h.rights_changed_ms
-                .insert((type_name.to_owned(), account.as_ref().to_owned()), ms);
+            h.set_rights_changed(type_name, account, ms);
         }
     }
 }
@@ -229,18 +151,8 @@ fn serde_fail(e: &serde_json::Error) -> MemoryError {
     MemoryError::serde("history snapshot", e)
 }
 
-/// The window of a destroyed query, as it appears in its state.
-fn window(after: Option<&UTCDate>, before: Option<&UTCDate>) -> String {
-    format!(
-        "{}~{}",
-        after.map_or("", |d| d.as_ref()),
-        before.map_or("", |d| d.as_ref())
-    )
-}
-
-/// `dq|<window>|<seq>`: a destroyed query's state (decision 25).
-fn destroyed_state(window: &str, seq: u64) -> State {
-    State::from(format!("dq|{window}|{seq}"))
+fn bad_date(e: &jmap_types::ValidationError) -> jmap_types::JmapError {
+    jmap_types::JmapError::invalid_arguments(e.to_string())
 }
 
 impl Inner {
@@ -257,23 +169,10 @@ impl Inner {
         let Some(h) = self.history.as_ref() else {
             return Ok(Vec::new());
         };
-        let bound = |d: Option<&UTCDate>| {
-            d.map(millis_from_utc_date).transpose().map_err(|e| {
-                BackendQueryError::Method(jmap_types::JmapError::invalid_arguments(e.to_string()))
-            })
-        };
-        let (after, before) = (bound(after)?, bound(before)?);
-        let cut = h
-            .rights_changed_ms
-            .get(&(O::TYPE_NAME.to_owned(), account.as_ref().to_owned()))
-            .copied();
         let mut rows: Vec<(i64, Id, Value)> = h
-            .log
-            .destroyed_objects(O::TYPE_NAME, account)
+            .destroyed(O::TYPE_NAME, account, after, before)
+            .map_err(|e| BackendQueryError::Method(bad_date(&e)))?
             .into_iter()
-            .filter(|d| after.is_none_or(|a| d.destroyed_at_ms > a))
-            .filter(|d| before.is_none_or(|b| d.destroyed_at_ms < b))
-            .filter(|d| cut.is_none_or(|c| d.destroyed_at_ms >= c))
             .map(|d| (d.destroyed_at_ms, d.id, d.snapshot))
             .collect();
         if O::TYPE_NAME == Mailbox::TYPE_NAME {
@@ -531,7 +430,7 @@ impl ObjectHistoryBackend for MemoryBackend {
         if !inner.known_accounts.contains(account_id.as_ref()) {
             return None;
         }
-        inner.history.as_ref().map(|h| h.capability.clone())
+        inner.history.as_ref().map(|h| h.capability().clone())
     }
 
     async fn get_object_history<O: HistoryObject>(
@@ -552,55 +451,14 @@ impl ObjectHistoryBackend for MemoryBackend {
                 params.ids.map(<[Id]>::to_vec).unwrap_or_default(),
             ));
         };
-        let ids: Vec<Id> = match params.ids {
-            Some(ids) => ids.to_vec(),
-            None => {
-                let mut all: Vec<Id> = live.keys().cloned().collect();
-                if params.arguments.include_destroyed {
-                    all.extend(
-                        h.log
-                            .destroyed_objects(O::TYPE_NAME, account_id)
-                            .into_iter()
-                            .map(|d| d.id),
-                    );
-                }
-                all.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                all
-            }
-        };
-        let selector = HistorySelector::from_arguments(params.arguments);
-        let cut = h
-            .rights_changed_ms
-            .get(&(O::TYPE_NAME.to_owned(), account_id.as_ref().to_owned()))
-            .copied();
-        let mut entries = Vec::new();
-        let mut not_found = Vec::new();
-        for id in ids {
-            let selection = h
-                .log
-                .select(
-                    O::TYPE_NAME,
-                    account_id,
-                    &id,
-                    live.get(&id).cloned(),
-                    &selector,
-                    cut,
-                )
-                .map_err(|e| {
-                    BackendQueryError::Method(jmap_types::JmapError::invalid_arguments(
-                        e.to_string(),
-                    ))
-                })?;
-            match selection {
-                Selection::Entries(list) => {
-                    for (snapshot, info) in list {
-                        let object = O::deserialize(&snapshot)
-                            .map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
-                        entries.push(HistoryEntry::new(object, info));
-                    }
-                }
-                _ => not_found.push(id),
-            }
+        let (rows, not_found) = h
+            .select(O::TYPE_NAME, account_id, params.ids, live, params.arguments)
+            .map_err(|e| BackendQueryError::Method(bad_date(&e)))?;
+        let mut entries = Vec::with_capacity(rows.len());
+        for (snapshot, info) in rows {
+            let object =
+                O::deserialize(&snapshot).map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
+            entries.push(HistoryEntry::new(object, info));
         }
         Ok(HistoryGetResult::new(entries, not_found))
     }
@@ -628,18 +486,19 @@ impl ObjectHistoryBackend for MemoryBackend {
             .take(limit_or_max(q.limit))
             .cloned()
             .collect();
-        let seq = inner
-            .history
-            .as_ref()
-            .map_or(0, |h| h.destroyed_seq(O::TYPE_NAME, account_id.as_ref()));
+        let state = inner.history.as_ref().map_or_else(String::new, |h| {
+            h.destroyed_query_state(
+                O::TYPE_NAME,
+                account_id,
+                params.destroyed_after,
+                params.destroyed_before,
+            )
+        });
         Ok(QueryResult::new(
             ids,
             start as u64,
             Some(all.len() as u64),
-            destroyed_state(
-                &window(params.destroyed_after, params.destroyed_before),
-                seq,
-            ),
+            State::from(state),
             true,
         ))
     }
@@ -653,16 +512,6 @@ impl ObjectHistoryBackend for MemoryBackend {
         let mut inner = self.inner.lock().await;
         inner.prune_history();
         let q = &params.query_changes;
-        let window = window(params.destroyed_after, params.destroyed_before);
-        // `dq|<window>|<seq>`; anything else, or another window, cannot be
-        // calculated (decision 25).
-        let since = q.since_query_state.as_ref();
-        let since_seq: u64 = since
-            .strip_prefix("dq|")
-            .and_then(|rest| rest.rsplit_once('|'))
-            .filter(|(w, _)| *w == window)
-            .and_then(|(_, n)| n.parse().ok())
-            .ok_or(BackendChangesError::CannotCalculate)?;
         let all = inner
             .destroyed_results::<O>(
                 account_id,
@@ -678,19 +527,23 @@ impl ObjectHistoryBackend for MemoryBackend {
         let Some(h) = inner.history.as_ref() else {
             return Err(BackendChangesError::CannotCalculate);
         };
-        let seq = h.destroyed_seq(O::TYPE_NAME, account_id.as_ref());
-        let mut changed: Vec<Id> = h
-            .destroyed_changes
-            .get(&(O::TYPE_NAME.to_owned(), account_id.as_ref().to_owned()))
-            .map(|v| {
-                v.iter()
-                    .filter(|(s, _)| *s > since_seq)
-                    .map(|(_, id)| id.clone())
-                    .collect()
-            })
-            .unwrap_or_default();
-        changed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-        changed.dedup();
+        // A state of another kind or window cannot be calculated (decision
+        // 25).
+        let changed = h
+            .destroyed_changes_since(
+                O::TYPE_NAME,
+                account_id,
+                q.since_query_state.as_ref(),
+                params.destroyed_after,
+                params.destroyed_before,
+            )
+            .ok_or(BackendChangesError::CannotCalculate)?;
+        let new_state = h.destroyed_query_state(
+            O::TYPE_NAME,
+            account_id,
+            params.destroyed_after,
+            params.destroyed_before,
+        );
         if let Some(max) = q.max_changes
             && changed.len() as u64 > max
         {
@@ -706,7 +559,7 @@ impl ObjectHistoryBackend for MemoryBackend {
             .collect();
         Ok(QueryChangesResult::new(
             q.since_query_state.clone(),
-            destroyed_state(&window, seq),
+            State::from(new_state),
             Some(all.len() as u64),
             changed,
             added,
@@ -732,7 +585,7 @@ impl ObjectHistoryBackend for MemoryBackend {
         let Some(Value::Object(final_version)) = inner
             .history
             .as_ref()
-            .and_then(|h| h.log.final_version(O::TYPE_NAME, account_id, id))
+            .and_then(|h| h.final_version(O::TYPE_NAME, account_id, id))
             .cloned()
         else {
             return Err(not_found());
@@ -762,8 +615,7 @@ impl ObjectHistoryBackend for MemoryBackend {
             ));
         };
         if let Some(h) = inner.history.as_mut() {
-            h.log.restore(O::TYPE_NAME, account_id, id);
-            h.destroyed_changed(O::TYPE_NAME, account_id.as_ref(), id);
+            h.restore(O::TYPE_NAME, account_id, id);
         }
         if O::TYPE_NAME == Email::TYPE_NAME {
             inner.rejoin_thread(account_id, &value);

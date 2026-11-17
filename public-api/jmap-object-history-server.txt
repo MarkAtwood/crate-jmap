@@ -95,6 +95,30 @@ pub fn jmap_object_history_server::HistorySelector::default() -> jmap_object_his
 impl core::fmt::Debug for jmap_object_history_server::HistorySelector
 pub fn jmap_object_history_server::HistorySelector::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_object_history_server::HistorySelector
+pub struct jmap_object_history_server::HistoryStore
+impl jmap_object_history_server::HistoryStore
+pub fn jmap_object_history_server::HistoryStore::capability(&self) -> &jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_server::HistoryStore::destroyed(&self, &str, &jmap_types::id::Id, core::option::Option<&jmap_types::id::UTCDate>, core::option::Option<&jmap_types::id::UTCDate>) -> core::result::Result<alloc::vec::Vec<jmap_object_history_server::DestroyedObject<serde_json::value::Value>>, jmap_types::id::ValidationError>
+pub fn jmap_object_history_server::HistoryStore::destroyed_changes_since(&self, &str, &jmap_types::id::Id, &str, core::option::Option<&jmap_types::id::UTCDate>, core::option::Option<&jmap_types::id::UTCDate>) -> core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub fn jmap_object_history_server::HistoryStore::destroyed_query_state(&self, &str, &jmap_types::id::Id, core::option::Option<&jmap_types::id::UTCDate>, core::option::Option<&jmap_types::id::UTCDate>) -> alloc::string::String
+pub fn jmap_object_history_server::HistoryStore::discard_version(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, u64) -> bool
+pub fn jmap_object_history_server::HistoryStore::final_version(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<&serde_json::value::Value>
+pub fn jmap_object_history_server::HistoryStore::new(jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::HistoryRetention) -> Self
+pub fn jmap_object_history_server::HistoryStore::now_ms(&self) -> i64
+pub fn jmap_object_history_server::HistoryStore::prune(&mut self)
+pub fn jmap_object_history_server::HistoryStore::purge(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_object_history_server::HistoryStore::record_destroy(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, serde_json::value::Value)
+pub fn jmap_object_history_server::HistoryStore::record_replace(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, serde_json::value::Value)
+pub fn jmap_object_history_server::HistoryStore::records(&self, &str) -> bool
+pub fn jmap_object_history_server::HistoryStore::restore(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub fn jmap_object_history_server::HistoryStore::retains(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub fn jmap_object_history_server::HistoryStore::select(&self, &str, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, &std::collections::hash::map::HashMap<jmap_types::id::Id, serde_json::value::Value>, &jmap_object_history_types::HistoryGetArguments) -> core::result::Result<jmap_object_history_server::SelectedHistory, jmap_types::id::ValidationError>
+pub fn jmap_object_history_server::HistoryStore::set_clock(&mut self, i64)
+pub fn jmap_object_history_server::HistoryStore::set_rights_changed(&mut self, &str, &jmap_types::id::Id, i64)
+impl core::clone::Clone for jmap_object_history_server::HistoryStore
+pub fn jmap_object_history_server::HistoryStore::clone(&self) -> jmap_object_history_server::HistoryStore
+impl core::fmt::Debug for jmap_object_history_server::HistoryStore
+pub fn jmap_object_history_server::HistoryStore::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 #[non_exhaustive] pub struct jmap_object_history_server::Version<V>
 pub jmap_object_history_server::Version::expires: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_object_history_server::Version::replaced: core::option::Option<jmap_types::id::UTCDate>
@@ -136,3 +160,4 @@ pub fn jmap_object_history_server::fold_restore(&[jmap_object_history_server::Ch
 pub fn jmap_object_history_server::millis_from_utc_date(&jmap_types::id::UTCDate) -> core::result::Result<i64, jmap_types::id::ValidationError>
 pub fn jmap_object_history_server::select_versions<V: core::clone::Clone>(&[jmap_object_history_server::Version<V>], bool, &jmap_object_history_server::HistorySelector) -> core::result::Result<jmap_object_history_server::Selection<V>, jmap_types::id::ValidationError>
 pub fn jmap_object_history_server::utc_date_from_millis(i64) -> jmap_types::id::UTCDate
+pub type jmap_object_history_server::SelectedHistory = (alloc::vec::Vec<(serde_json::value::Value, jmap_object_history_types::ObjectHistoryInfo)>, alloc::vec::Vec<jmap_types::id::Id>)

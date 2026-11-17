@@ -56,8 +56,9 @@ wire behaviour that a conforming peer can observe.
   backends: `select_versions` (§3 selection), `VersionLog` (retention,
   `expires`, equal-millisecond collapse, oldest-first pruning, the -04
   rule that the newest retained version is final, restore, §8.2 rights
-  cut) and `fold_restore` (-04 §5.1 `Foo/changes` classification).
-  (bd:JMAP-tna1.3.2)
+  cut) and `fold_restore` (-04 §5.1 `Foo/changes` classification);
+  `HistoryStore` bundles them with the destroyed-query state and changes
+  for JSON-storing reference backends. (bd:JMAP-tna1.3.2)
 - **jmap-object-history-types** (new): draft-ietf-jmap-object-history-03
   wire types: capability objects, `HistoryGetArguments`,
   `DestroyedQueryArguments` (also on `Foo/queryChanges`, per the -04

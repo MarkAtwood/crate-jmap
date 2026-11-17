@@ -11,6 +11,7 @@ up in `Foo/changes`. Pure and synchronous.
 |---|---|
 | `HistorySelector`, `select_versions`, `Version`, `Selection` | §3 selection: flags, strict `historyAfter`/`historyBefore`, `historySkip` from the newest (live counts), `historyLimit` keeps the newest, `notFound` only when nothing is left after the skip; §3.1 `hasOlder` |
 | `VersionLog<V>`, `HistoryRetention`, `DestroyedObject` | §3.1 version numbers, distinct `replaced` (equal-millisecond collapse), `expires`; §2.1 retention, oldest first (decision 24); -04 §3.1 newest retained version is final; §5.1 restore continues the history; §8.2 rights cut |
+| `HistoryStore` | everything above for a reference backend storing objects as JSON: capability, injectable clock, rights cut, destroyed listings, destroyed-query states (`dq|<window>|<seq>`, decision 25) and their changes |
 | `fold_restore`, `ChangeEvent`, `ChangeKind` | -04 §5.1 `Foo/changes` for a restored id |
 | `utc_date_from_millis`, `millis_from_utc_date` | RFC 8620 §1.4, millisecond precision (§3.1 SHOULD NOT exceed it) |
 

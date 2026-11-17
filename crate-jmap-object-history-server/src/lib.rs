@@ -11,6 +11,8 @@
 //! - [`VersionLog`] and [`HistoryRetention`]: replaced and destroyed
 //!   versions with retention, `expires`, the equal-millisecond collapse,
 //!   the §8.2 rights cut and restore (§3.1, §5.1).
+//! - [`HistoryStore`]: all of the above for a reference backend that
+//!   stores objects as JSON, with the destroyed-query state and changes.
 //! - [`fold_restore`]: where `Foo/changes` reports a restored id (-04
 //!   §5.1).
 //! - [`utc_date_from_millis`] and [`millis_from_utc_date`]: the log's
@@ -42,9 +44,11 @@
 mod fold;
 mod log;
 mod select;
+mod store;
 mod time;
 
 pub use fold::{ChangeEvent, ChangeKind, fold_restore};
 pub use log::{DestroyedObject, HistoryRetention, VersionLog};
 pub use select::{HistorySelector, Selection, Version, select_versions};
+pub use store::{HistoryStore, SelectedHistory};
 pub use time::{millis_from_utc_date, utc_date_from_millis};
