@@ -1,4 +1,6 @@
 <!--
+SUPERSEDED 2026-11-17 (bd:JMAP-tna1.3.27): the object-history -04 editor's copy (dd077663, 2026-11-15) adopts these
+changes; see docs/design/object-history.md §2a. Kept for the record.
 DRAFT, not filed.
 Target: the same issue cross-filed on both drafts, each copy linking the other:
   - https://github.com/brong/draft-gondwana-jmap-conditional (source draft-ietf-jmap-conditional.mkd, editor's copy at -02, commit 4c6d2c01)

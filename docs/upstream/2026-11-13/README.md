@@ -4,8 +4,8 @@ Implementation findings from designing crate-jmap support for object-history-03,
 
 | Draft | Goes to | Status | crate-jmap decisions |
 |---|---|---|---|
-| [object-history.md](object-history.md) | GitHub issue, https://github.com/brong/draft-gondwana-jmap-object-history | draft, not filed | 6(a), 6(c), 6(d) |
-| [conditional-object-history.md](conditional-object-history.md) | GitHub issue cross-filed on https://github.com/brong/draft-gondwana-jmap-conditional and https://github.com/brong/draft-gondwana-jmap-object-history | draft, not filed | 6(b) |
+| [object-history.md](object-history.md) | GitHub issue, https://github.com/brong/draft-gondwana-jmap-object-history | superseded: the -04 editor's copy (dd077663) settles all three; do not file | 6(a), 6(c), 6(d) |
+| [conditional-object-history.md](conditional-object-history.md) | GitHub issue cross-filed on https://github.com/brong/draft-gondwana-jmap-conditional and https://github.com/brong/draft-gondwana-jmap-object-history | superseded on the object-history side: -04 §5.1 puts restores in `atomic`; check conditional-03 before filing the conditional copy | 6(b) |
 | [emailpush.md](emailpush.md) | GitHub issue, https://github.com/jmapio/jmap | draft, not filed | 9, 10 |
 | [blobext.md](blobext.md) | GitHub issue, https://github.com/brong/draft-gondwana-jmap-blobext | draft, not filed | 15 (gaps (a)-(h)), 21(i), 19(2) |
 | [rfc9404-erratum-lookup.md](rfc9404-erratum-lookup.md) | RFC Editor errata report (RFC 9404 §4.3.1), Technical | draft, not filed | 21(ii) |

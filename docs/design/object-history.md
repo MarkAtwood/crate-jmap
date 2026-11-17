@@ -1,6 +1,8 @@
 # Design: draft-ietf-jmap-object-history-03 in crate-jmap (bd:JMAP-tna1.3)
 
-Spec: `~/PROJECT/IETF/specs/draft-ietf-jmap-object-history-03.xml` (posted 2026-11-02).
+Spec: `~/PROJECT/IETF/specs/draft-ietf-jmap-object-history-03.xml` (posted 2026-11-02), with the
+normative changes of the -04 editor's copy (github.com/brong/draft-gondwana-jmap-object-history, commit
+dd077663, 2026-11-15; not yet posted) listed in §2a, which win where they differ (bd JMAP-tna1.3.27).
 
 Status: final. Mark's decisions of 2026-11-13 are recorded in `docs/design/DECISIONS.md`.
 This note applies decisions 5 (type scope), 6 (spec-gap stopgaps), 14 (shared data-type
@@ -32,6 +34,31 @@ ephemeral, presence or notification types, by analogy with CalendarEventNotifica
 EmailDelivery "No", and KeyPackage (chat-mimi), "No" (decision 22). Task and TaskList history
 registrations come from Mark's own updated Tasks draft (decision 23, JMAP-jkl8.9).
 
+## 2a. The -04 editor's copy (bd JMAP-tna1.3.27)
+
+Diffed from -03 at dd077663 (2026-11-15, "Address Mark Atwood's implementation findings on -03", after
+c4a87bda). Section numbers are unchanged. The implementation follows -04 in each case below; the rest of this
+note has been updated to match, and each changed place says "(-04)".
+
+| -04 | Change | Effect here |
+|---|---|---|
+| §3.1 | "The final version of a destroyed object is the most recent version of it that the server retains." If the version current at destruction was discarded, an older retained one is the final version and its `replaced` is used as the destruction time | Replaces decisions 6(d) and 24's "treat as gone" fallback: a destroyed object stays while any version is retained; backends still SHOULD prune oldest first (decision 24), so the stand-in case arises only from out-of-order discards; `select_versions`, `query_destroyed` (destruction time and window) and `restore_object` use the newest retained version |
+| §4 | `Foo/queryChanges` accepts `onlyDestroyed`, `destroyedAfter`, `destroyedBefore` (URI in `using`); the client "MUST pass the same values that it passed to Foo/query"; `invalidArguments` in the same cases as `Foo/query` | Replaces decision 6(c): queryChanges routes by the arguments. Destroyed `queryState`s still carry the kind and window (decision 25), so a live state sent with `onlyDestroyed` (or the reverse, or another window) is `cannotCalculateChanges`. The decision-18 dispatcher check covers `*/queryChanges` too |
+| §5.1 | Restores of same-type objects that refer to each other MUST be ordered so the referenced one is restored first, "as for creates" | Generalises the tree-type parent-first order (Mailbox, FileNode) to any same-type reference in the restore map |
+| §5.1 | The patch MAY include a server-set property only with the final version's value, else `invalidProperties`; "a client can send a whole version of the object as the patch" | As `apply_restore_patch` already does |
+| §5.1 | A restore "MUST NOT change a property ... in a way that it could not when updating"; an immutable property keeps its value ("if no other Email is in that Thread, the Thread exists again with the same id"); a server that cannot MUST reject, `forbidden` | Replaces "server-set values kept unless impossible": Email keeps `threadId` and the Thread is recreated under its old id; a restore that would need a new immutable value is `forbidden`. Mutable server-set values (modification times, counts) may change and are returned in `restored` |
+| §5.1 | A restore from an older final version whose values no longer make a valid object ⇒ `invalidProperties` | `restore_object` contract |
+| §5.1 | Each restore counts toward `maxObjectsInSet`; `requestTooLarge` covers the total | Decision 6(a) is now normative |
+| §5.1 | `atomic` (conditional) includes restores; a failed restore causes `atomicFailure`, which MAY carry `notRestored`; constraints are checked against the state after all changes; `ifUnchangedBy` is evaluated before any restore, so a restored object "does not exist" for it | Decision 6(b) is now normative, plus the end-state constraint rule |
+| §5.1 | `Foo/changes` compares `sinceState` with the new state "as if the object had never been destroyed": in both ⇒ `updated`; only new ⇒ `created`; only at `sinceState` ⇒ `destroyed`; in neither ⇒ SHOULD NOT report (MAY as created-and-destroyed) | Replaces "never `destroyed`": `fold_restore` classifies by existence at the two states |
+| §5.2 | A missing container is restored "in an earlier method call in the same request or in an earlier request", not the same call | Cross-type only (an Email's Mailbox); same-type ordering is the §5.1 rule above |
+| §5.3 | Example: `restored: {"email42": null}` because no server-set property changed | Unchanged test oracle |
+
+-04 also cites conditional-03 and blobext-04 (both dated 2026-11-15), which this note has not been checked
+against. The upstream drafts in `docs/upstream/2026-11-13/object-history.md` and
+`conditional-object-history.md` are superseded: -04 adopts option (a) for queryChanges, the stand-in final
+version for a discarded one, and the restore counting and `atomic` text.
+
 ## 2. Spec coverage
 
 Section numbers are from -03. "OHT" = jmap-object-history-types, "OHS" = jmap-object-history-server, "srv" =
@@ -43,7 +70,7 @@ backends for reference).
 | 2.1 | Session `capabilities` value "MUST be an empty object" | OHT `ObjectHistoryCapability` (empty + `extra`); consumer Session builder; testjig test |
 | 2.1 | Account value "MUST contain" `maxHistoryDuration: "UnsignedInt\|null"` and `supportedTypes: "String[]"` | OHT `ObjectHistoryAccountCapability` (both always serialized); Bk `object_history_capability` |
 | 2.1 | In any `accountCapabilities` ⇒ "MUST also include the property in the "capabilities" property" | consumer Session builder (testjig is the reference + test); documented on the OHT type |
-| 2.1 | Retention best effort, "MAY discard versions sooner"; "MAY retain history for only some objects" | Bk doc; OHS `VersionLog` retention. Discarding the final version of a destroyed object discards the object: no older version stands in for it (decision 6(d)) |
+| 2.1 | Retention best effort, "MAY discard versions sooner"; "MAY retain history for only some objects" | Bk doc; OHS `VersionLog` retention. When the version current at destruction is discarded, the newest retained version is the final version and its `replaced` the destruction time (-04 §3.1; replaces decision 6(d)) |
 | 2.1 | Clients "MUST ignore type names they do not recognise" | client `supports::<O>()` is a string lookup only |
 | 3 | `includeReplaced`, `includeDestroyed`, `historyAfter`, `historyBefore`, `historySkip`, `historyLimit` | srv `HistoryGetRequest::parse` |
 | 3 | Same-id entries "MUST be ordered by objectHistory.version (ascending)"; ids MAY interleave | Bk contract; srv stable-sorts each id's entries by `version` |
@@ -53,7 +80,7 @@ backends for reference).
 | 3 | Both flags false ⇒ the four history* arguments are ignored | srv: decides the path from the two flags first and never parses the other four on the plain path |
 | 3 | `ids: null` with `includeDestroyed` returns every retained destroyed object | Bk; memory |
 | 3 | `maxObjectsInGet` / `requestTooLarge` count ids, not entries | srv: existing `enforce_max_objects_in_get` on `ids`, unchanged |
-| 3 | No version left after flags, after/before and skip ⇒ `notFound` (`historyLimit` is not in that list) | OHS `select_versions`; Bk. A destroyed object whose final version was discarded is `notFound` too (decision 6(d)) |
+| 3 | No version left after flags, after/before and skip ⇒ `notFound` (`historyLimit` is not in that list) | OHS `select_versions`; Bk. A destroyed object stays while any version is retained (-04 §3.1) |
 | 3.1 | `objectHistory: ObjectHistoryInfo {version, replaced, hasOlder, expires}` | OHT `ObjectHistoryInfo` |
 | 3.1 | Live version highest `version`, `replaced: null`, `expires: null`; `replaced` distinct per object; SHOULD NOT exceed ms precision; version numbers SHOULD be consistent across requests | OHS `VersionLog` (ms clock, collapses equal-ms versions, stable numbering); Bk doc |
 | 3.1 | `objectHistory` returned "if and only if" a flag is true, whatever `properties` says; MAY be listed in `properties` | srv strips it from `properties` before the backend and per-type validators, then `attach_object_history`; `/set` rejects it as a stored property (§7.3/7.4 row) so the plain path can never emit it |
@@ -66,19 +93,19 @@ backends for reference).
 | 4 | filter and sort apply to the final version; unsupported ones are `unsupportedFilter` / `unsupportedSort` | Bk returns `BackendQueryError::Method` |
 | 4 | Null or empty sort ⇒ by destruction time, most recent first | Bk; memory |
 | 4 | Arguments for current objects only (`collapseThreads`, …) are ignored | per-crate handlers (Email `collapseThreads`, CalendarEvent `expandRecurrences`) |
-| 4 | `Foo/queryChanges` "works as for any other query": leaves on restore or discard, enters on destroy; MAY `cannotCalculateChanges` | -03 adds no queryChanges arguments (spec gap). Stopgap: a destroyed query's `queryState` encodes the query kind, and srv routes `Foo/queryChanges` by `sinceQueryState` through Bk `query_destroyed_changes` (decision 6(c); §5) |
+| 4 | `Foo/queryChanges` "works as for any other query": leaves on restore or discard, enters on destroy; MAY `cannotCalculateChanges` | -04: queryChanges takes the three arguments with the Foo/query values; srv routes `onlyDestroyed: true` to Bk `query_destroyed_changes`, and a state of the other kind is `cannotCalculateChanges` (§2a, §5) |
 | 5 | Restoring an earlier version of a live object is an ordinary update | N/A (existing `/set`) |
 | 5.1 | `restore: "Id[PatchObject\|null]\|null"`; empty PatchObject ≡ null | srv `RestoreRequest::parse` |
 | 5.1 | `restored: "Id[Foo\|null]\|null"` (diff against the final version with the patch applied, or null); `notRestored: "Id[SetError]\|null"` | srv `restored_diff` + `append_restore_results` |
 | 5.1 | Non-null `restore` on an unsupported type ⇒ "MUST reject the call with an "invalidArguments" error" | srv |
 | 5.1 | Restores run "before any create, update, or destroy in the same call" | srv `run_restore_phase`, first stage of every history-aware `/set` |
-| 5.1 | Final values + patch; patch follows update rules; server-set values kept unless impossible, new values returned in `restored` | Bk `restore_object`; srv `apply_restore_patch`, or the type's own update-patch parser through `RestoreHooks` (no current user: Space needed it, but a destroyed Space is purged and never restored, decision 22) |
+| 5.1 | Final values + patch; patch follows update rules (server-set only with the same value, -04); a restore changes nothing an update could not (immutable values kept, else `forbidden`, -04); changed mutable server-set values returned in `restored`; same-type references restored first (-04) | Bk `restore_object`; srv `apply_restore_patch`, or the type's own update-patch parser through `RestoreHooks` (no current user: Space needed it, but a destroyed Space is purged and never restored, decision 22) |
 | 5.1 | History continues; destroyed versions become previous versions | Bk; OHS `VersionLog::restore` |
 | 5.1 | SetErrors `notFound` (incl. a current id), `invalidPatch`, `invalidProperties`, `forbidden`, `overQuota`, or any update/create error | srv (shape errors); Bk (the rest) |
-| 5.1 | RFC 8620 `maxObjectsInSet` names only create, update and destroy (spec gap) | Stopgap: restore entries count toward it (decision 6(a)); srv `enforce_max_objects_in_set_with_restore` |
+| 5.1 | Restore entries count toward `maxObjectsInSet` (-04; was the decision 6(a) stopgap) | srv `enforce_max_objects_in_set_with_restore` |
 | 5.1 | "MUST NOT reuse the id of a destroyed object for which it retains any history, other than by restoring" | Bk contract on every id-minting path; memory: uuid (mail, contacts, calendars), monotonic `node-N` (filenode), each private crate's minting audited in its bead; test-helper insert-with-id paths refuse logged ids |
-| 5.1 | `Foo/changes`: restored id in `updated` if it existed at `sinceState`, else `created`; never `destroyed` | Bk contract on `get_changes`; OHS `fold_restore` for memory change logs |
-| 5.2 | Email keeps `blobId`; SieveScript comes back inactive (activate with `onSuccessActivateScript`); missing container fails as an update would; conflicts use the normal error (`alreadyExists`) | mail-server Email/SieveScript beads; filenode `parentId`/name; parent-first restore order (§5) |
+| 5.1 | `Foo/changes` compares existence at `sinceState` and now: both ⇒ `updated`, new only ⇒ `created`, `sinceState` only ⇒ `destroyed`, neither ⇒ not reported (-04) | Bk contract on `get_changes`; OHS `fold_restore` for memory change logs |
+| 5.2 | Email keeps `blobId` and `threadId` (-04); SieveScript comes back inactive (activate with `onSuccessActivateScript`); missing container fails as an update would; conflicts use the normal error (`alreadyExists`) | mail-server Email/SieveScript beads; filenode `parentId`/name; parent-first restore order (§5) |
 | 6 | Non-normative | N/A |
 | 7.1 | Capability URI | OHT `JMAP_OBJECT_HISTORY_URI` |
 | 7.2 | "Supports History" column; default "No" for registrations without a value | The shared data-type registry in `jmap-types` carries the column (decision 14). `impl HistoryObject` exactly for the decision-5 types: the registry's "Yes" rows (Table 1, plus Mark's drafts once H14 adds their lines), and Task/TaskList on OHT's documented pending list until Mark's updated Tasks draft registers them with "Supports History: Yes" (decisions 5, 23; JMAP-jkl8.9, then bead H24). Never for a "No" or excluded type. A test in each type crate checks the impls against the registry |
@@ -265,14 +292,15 @@ CalendarEvent, FileNode, Task, Chat, Message, Space, ChatContact, CustomEmoji, G
 SceneRegion, SceneObject, VTCCall, VTCRecording and VTCLivestream. Identity, VacationResponse, AddressBook, Calendar,
 ParticipantIdentity, TaskList, SpaceBan and SpaceInvite have none.
 
-**Foo/queryChanges.** -03 adds no queryChanges arguments, and a spec-following client sends only `sinceQueryState`,
-`filter` and `sort`. So the destroyed query is identified by its state, not by arguments: every `queryState` that
-`query_destroyed` mints encodes the query kind (decision 6(c)). `handle_query_changes_with_history`
-first calls `query_destroyed_changes`. `Ok(None)` ("not a state minted by `query_destroyed`") falls through to the plain
-handler, and `Ok(Some(r))` or an error is the answer. `onlyDestroyed`/`destroyed*` sent to queryChanges are ignored.
-This is a stopgap, raised upstream (decision 6(c); bead H22). The existing memory `query_changes` derives the query state from the type state. If the
-destroyed state were routed there, it would answer with live changes, which is wrong data. That is why this method has
-no default (§6).
+**Foo/queryChanges.** -04 §4 adds `onlyDestroyed`, `destroyedAfter` and `destroyedBefore` to `Foo/queryChanges`,
+with the values the client passed to `Foo/query`, rejected with `invalidArguments` in the same cases. So
+`handle_query_changes_with_history` parses them with `DestroyedQueryRequest::parse`, the same as `/query`. With
+`onlyDestroyed` false or absent it delegates to the plain handler. Otherwise it calls `query_destroyed_changes`
+with the window. Every `queryState` that `query_destroyed` mints still encodes the query kind and window, so a state
+of the other kind or window is `cannotCalculateChanges` rather than wrong data (§6). The existing memory
+`query_changes` derives the query state from the type state, so a destroyed state sent without `onlyDestroyed`
+reaches it and, being unknown to it, is `cannotCalculateChanges` too. (-04; this replaces the decision 6(c)
+stopgap, which routed by state alone.)
 
 **Foo/set.** `run_restore_phase::<O,B>(backend, caller, account, restore_arg, created_ids, using, hooks) ->
 RestoreAccumulators { restored, not_restored, mutated }`. It runs after the `ifInState` check and before create; conditional's
@@ -283,21 +311,23 @@ that is not a valid `Id` ⇒ `notFound` (§5.1: "not the id of a destroyed objec
 false, using)`) run through `hooks: &dyn RestoreHooks`, which also lets a type supply its own update-patch parser
 instead of `apply_restore_patch`, for a type whose updates are not plain PatchObjects (Space's structural `SpacePatchOp` was the case, but a destroyed Space is purged and never restored, decision 22). **Order:** for tree types (Mailbox, FileNode) the phase fetches the final versions of the
 restore keys (`get_object_history`, `include_destroyed`) and processes a parent before a child whose final `parentId` is
-another restore key. Without that, §5.2 "restore that object first, in the same call" fails for a subtree. Then
+another restore key. -04 §5.1 makes this a MUST for any same-type reference ("as for creates"): a type whose
+objects refer to others of the same type supplies the reference through `RestoreHooks`, and a cycle among restore
+keys fails those entries with `invalidProperties`, as a create cycle does. Then
 `restore_object`. On `Ok(Restored{stored, baseline})`, `restored[id] = restored_diff(baseline, stored)` (top-level
 properties whose values differ, or `null`). On `Err`, `backend_set_error_value`. `append_restore_results(&mut
 out.primary, acc)` adds `"restored"` and `"notRestored"` (`null` when empty) whenever the URI is in `using` (§5.1 "The
 response has the following additional properties"). `mutated` feeds the crate's `finalize_set_response`, and `oldState` is
 the value read before the phase. Later create, update and destroy see the restored object (§5.1 "so these can refer to a
 restored object"). Count: `enforce_max_objects_in_set_with_restore` = create + update + destroy + restore entries
-(decision 6(a)), used only by the history path. The foundation `enforce_max_objects_in_set` stays as it is.
+(-04 §5.1, was decision 6(a)), used only by the history path. The foundation `enforce_max_objects_in_set` stays as it is.
 
 **Helpers (in srv, because they need `apply_patch_object`).** `apply_restore_patch::<O>(final_json, patch) -> Result<Map,
 SetError>` applies all or nothing. A changed `SERVER_SET` or `IMMUTABLE` value ⇒ `invalidProperties`, and an identical
 value is allowed (as `check_read_only_patch` does for update). Also `restored_diff`.
 
-**Dispatcher check (decision 18).** Like conditional's decision 2, one dispatcher check runs on `*/get`, `*/query`
-and `*/set` for every deployment, whatever the registration: without the object-history URI in `using`,
+**Dispatcher check (decision 18).** Like conditional's decision 2, one dispatcher check runs on `*/get`, `*/query`,
+`*/queryChanges` (-04) and `*/set` for every deployment, whatever the registration: without the object-history URI in `using`,
 `includeReplaced: true`, `includeDestroyed: true`, `onlyDestroyed: true`, a non-null `destroyedAfter` or
 `destroyedBefore`, or a non-empty `restore` ⇒ method `invalidArguments`, and the handler is not called. `false`,
 `null` and empty values are accepted and removed. A deployment without history therefore no longer returns live data
@@ -306,7 +336,7 @@ for `includeDestroyed: true` or drops a `restore` silently. No crate or draft us
 
 **Error mapping.** Argument shape, unsupported type, a supplied `destroyed*` without `onlyDestroyed`, a non-object `restore`,
 and a history argument sent without the URI (decision 18) ⇒ method `invalidArguments`. Too many ids ⇒ `requestTooLarge`
-(existing). Too many set entries including restores ⇒ `requestTooLarge` with description `maxObjectsInSet` (decision 6(a)).
+(existing). Too many set entries including restores ⇒ `requestTooLarge` with description `maxObjectsInSet` (-04 §5.1).
 `BackendQueryError::Method` passes through (`unsupportedFilter`, `unsupportedSort`, `anchorNotFound`).
 `BackendChangesError::CannotCalculate` ⇒ `cannotCalculateChanges`. A backend `Other` ⇒ redacted `serverFail`
 (`server_fail_from_backend`). Per-id restore errors go into `notRestored` through `backend_set_error_value`, which redacts
@@ -343,17 +373,17 @@ conditional-02 too, naming `register_<x>_handlers_with_history` as its model, so
 | Method | Contract | Default? |
 |---|---|---|
 | `object_history_capability(&self, caller, account_id) -> Option<ObjectHistoryAccountCapability>` (sync, like `metadata_info`) | What the Session advertises. `None` = no history in this account. Handlers gate on `supported_types`. Listing a type for which `is_history_type` is false is a contract violation (debug-asserted in the memory backends) | **No.** Implementing the trait means stating it. A `None` default would make the trait a silent no-op |
-| `get_object_history<O: HistoryObject>(&self, caller, account_id, HistoryGetParams<'_>) -> Result<HistoryGetResult<O>, BackendQueryError<E>>` | §3 selection exactly: flags, strict after/before, skip from newest (live counts), limit newest, `notFound` only when nothing remains after skip. With `include_destroyed` false a destroyed id is `notFound`; with `include_replaced` false a live id gets only its live version. Ascending `version` per id; live highest with `replaced: null, expires: null`; `replaced` distinct per object. `hasOlder` counts retained older versions whether returned or not (MAY be false). A destroyed object whose final version was discarded is gone: `notFound`, even if older versions remain (decision 6(d)). Never a version whose blob is gone; blobs of returned versions downloadable. §8.2 (never a version unreadable when current; hide destroyed objects unreadable at destruction). Supported type without retained history ⇒ live version only. `ids: None` + `include_destroyed` ⇒ also every retained destroyed object. Type rules from Mark's drafts (§2: Message, retracted provenance records) | **No.** A default would answer "no history" or wrong `notFound` |
-| `query_destroyed<O: HistoryObject + QueryObject>(&self, caller, account_id, DestroyedQueryParams<'_, O>) -> Result<QueryResult, BackendQueryError<E>>` | Over retained destroyed objects only (restored ones and those whose final version was discarded excluded, decision 6(d)). filter and sort on the final version. `destroyed_after`/`_before` strict on the final `replaced`. Empty sort ⇒ destruction time descending. Anchor and position as `query_objects`. Unsupported filter or sort ⇒ `Method(unsupportedFilter/unsupportedSort)`. §8.2 visibility. The returned `query_state` MUST encode that it is a destroyed query, so `query_destroyed_changes` recognises it (decision 6(c)) | **No.** A default would claim "nothing was destroyed" |
-| `query_destroyed_changes<O: HistoryObject + QueryObject>(&self, caller, account_id, QueryChangesParams<'_, O>) -> Result<Option<QueryChangesResult>, BackendChangesError<E>>` | `Ok(None)` iff `since_query_state` does not encode a destroyed query (decision 6(c)). Otherwise destroy ⇒ added, restore or discard ⇒ removed, or `Err(CannotCalculate)` (§4 MAY), in which case `query_destroyed` should report `can_calculate_changes: false` | **No.** An `Ok(None)` default sends destroyed states into the live `query_changes`, which is wrong data. A backend that cannot track writes `Ok(Some(..))` → `Err(CannotCalculate)` for its own states |
-| `restore_object<O: HistoryObject + SetObject>(&self, caller, account_id, id, patch: Option<PatchObject>) -> Result<Restored<O>, BackendSetError<E>>` | Atomically: write access (`forbidden`). `notFound` unless `id` is a destroyed object with retained history whose final version is still retained (a current id ⇒ `notFound`; final version discarded ⇒ `notFound`, decision 6(d)). Start from the final version (decision 6(d)) and apply the patch with `apply_restore_patch` or the type's own patch parser (`invalidPatch`/`invalidProperties`). Validate as an update: references to missing objects ⇒ `invalidProperties` naming the property; conflicts ⇒ the normal error (`alreadyExists` etc.). Keep server-set values unless impossible (e.g. new `threadId`, recomputed Mailbox counts). Email keeps `blobId`; SieveScript inactive. Quota counts the restored object (`overQuota`). Harmful content ⇒ `forbidden`. Store under the old id, continue its history, advance `get_state::<O>` and record the change so `get_changes` reports `updated` if the id existed at `sinceState`, else `created`, never `destroyed`. Side effects on other types (Thread, Mailbox counts) advance their states. Inside a conditional scope the write is part of the scope (`SetOp::Restore`, decision 6(b)). Returns `Restored { stored, baseline }` (baseline = final version with the patch applied) | **No.** It is a write with spec semantics |
+| `get_object_history<O: HistoryObject>(&self, caller, account_id, HistoryGetParams<'_>) -> Result<HistoryGetResult<O>, BackendQueryError<E>>` | §3 selection exactly: flags, strict after/before, skip from newest (live counts), limit newest, `notFound` only when nothing remains after skip. With `include_destroyed` false a destroyed id is `notFound`; with `include_replaced` false a live id gets only its live version. Ascending `version` per id; live highest with `replaced: null, expires: null`; `replaced` distinct per object. `hasOlder` counts retained older versions whether returned or not (MAY be false). The final version of a destroyed object is the newest retained one, whose `replaced` stands for the destruction time when the version current at destruction was discarded (-04 §3.1). Never a version whose blob is gone; blobs of returned versions downloadable. §8.2 (never a version unreadable when current; hide destroyed objects unreadable at destruction). Supported type without retained history ⇒ live version only. `ids: None` + `include_destroyed` ⇒ also every retained destroyed object. Type rules from Mark's drafts (§2: Message, retracted provenance records) | **No.** A default would answer "no history" or wrong `notFound` |
+| `query_destroyed<O: HistoryObject + QueryObject>(&self, caller, account_id, DestroyedQueryParams<'_, O>) -> Result<QueryResult, BackendQueryError<E>>` | Over destroyed objects with any retained version (restored ones excluded). filter and sort on the final version (the newest retained, -04 §3.1). `destroyed_after`/`_before` strict on the final `replaced`. Empty sort ⇒ destruction time descending. Anchor and position as `query_objects`. Unsupported filter or sort ⇒ `Method(unsupportedFilter/unsupportedSort)`. §8.2 visibility. The returned `query_state` MUST encode that it is a destroyed query and its window, so `query_destroyed_changes` recognises it and the plain `query_changes` never takes it for a live state | **No.** A default would claim "nothing was destroyed" |
+| `query_destroyed_changes<O: HistoryObject + QueryObject>(&self, caller, account_id, DestroyedQueryChangesParams<'_, O>) -> Result<QueryChangesResult, BackendChangesError<E>>` | Called only for `onlyDestroyed: true` (-04 §4), with the window. `since_query_state` not minted by `query_destroyed` for the same window ⇒ `Err(CannotCalculate)`. Otherwise destroy ⇒ added, restore or discard ⇒ removed, or `Err(CannotCalculate)` (§4 MAY), in which case `query_destroyed` should report `can_calculate_changes: false` | **No.** A default would claim nothing changed. A backend that cannot track writes `Err(CannotCalculate)` |
+| `restore_object<O: HistoryObject + SetObject>(&self, caller, account_id, id, patch: Option<PatchObject>) -> Result<Restored<O>, BackendSetError<E>>` | Atomically: write access (`forbidden`). `notFound` unless `id` is a destroyed object with any retained version (a current id ⇒ `notFound`). Start from the final version, the newest retained (-04 §3.1), and apply the patch with `apply_restore_patch` or the type's own patch parser (`invalidPatch`/`invalidProperties`); values that no longer make a valid object ⇒ `invalidProperties` (-04). Validate as an update: references to missing objects ⇒ `invalidProperties` naming the property; conflicts ⇒ the normal error (`alreadyExists` etc.). Change nothing an update could not (-04 §5.1): immutable values are kept (Email `threadId`, recreating the Thread under its old id when it is gone) and a restore that cannot keep one ⇒ `forbidden`; mutable server-set values an update would change (counts, modification times) may change and are returned in `restored`. Email keeps `blobId`; SieveScript inactive. Quota counts the restored object (`overQuota`). Harmful content ⇒ `forbidden`. Store under the old id, continue its history, advance `get_state::<O>` and record the change so `get_changes` classifies the id by existence at `sinceState` and now (-04 §5.1: `updated`, `created`, `destroyed`, or not reported). Side effects on other types (Thread, Mailbox counts) advance their states. Inside a conditional scope the write is part of the scope (`SetOp::Restore`, -04 §5.1; was decision 6(b)), and uniqueness constraints are checked against the end state of the whole call. Returns `Restored { stored, baseline }` (baseline = final version with the patch applied) | **No.** It is a write with spec semantics |
 
 Contracts added to **existing** methods (doc only, in each crate that opts in):
 - Every id-minting path (`create_object`, `create_email`, `import_email`, `copy_object`, Task/copy, and so on) MUST NOT mint an id that
   belongs to a destroyed object with retained history (§5.1).
 - `update_object`, `destroy_object`, server cascades and other protocols record versions. This is a storage concern, and the
   doc states the §3 "counts as destroyed" rule.
-- `get_changes`: the restore classification above. A restored id is never metadata-only (`updatedProperties` is null for it).
+- `get_changes`: the restore classification above (-04). A restored id is never metadata-only (`updatedProperties` is null for it).
 - The blobext hooks (tna1.2: `destroy_blob` / `blobHasReference`, `Blob/lookup` for both blob2 and the legacy RFC 9404
   capability, GC) consider current objects only (decision 11).
 - Message (chat): deleting (`deletedAt` set) or hard-deleting a Message purges its versions (§2, decision 22).
@@ -372,7 +402,8 @@ OHS provides the reusable parts, and each opted-in crate's `MemoryBackend` wires
 - `VersionLog<V = serde_json::Value>` keyed by (type name, account, id): `Vec<Version{version, snapshot, replaced_ms}>`
   plus `destroyed_at`. The live version stays in the existing store. Methods: `record_replace`, `record_destroy`, `restore(id) ->
   final`, `prune(now)` and `select(id, &HistorySelector, live)`. `prune` discards oldest first, so the final version of a
-  destroyed object goes last, and when it goes the whole destroyed object goes with it (decision 6(d)).
+  destroyed object goes last, and the object goes with its last version. A backend that discards the version current
+  at destruction first (`discard_version_for_test`) leaves the newest retained one as the final version (-04 §3.1).
   Equal-millisecond versions are collapsed (§3.1). `expires = replaced + max_duration`. The clock is
   injected (`now: i64` ms), so tests are deterministic. `VersionLog` is `Clone` and lives in each memory backend's
   `Inner`, so a conditional rollback discards versions written by a rolled-back restore (conditional note §7).
@@ -384,16 +415,17 @@ OHS provides the reusable parts, and each opted-in crate's `MemoryBackend` wires
   Versions replaced before it are not returned, and destroyed objects whose container's rights changed after destruction
   are hidden.
 - `query_destroyed` reuses each crate's existing `query` match/compare functions over final snapshots, with the default sort
-  by destruction time descending. Destroyed query states carry a private kind prefix (decision 6(c)), and `query_destroyed_changes` answers from a
+  by destruction time descending. Destroyed query states carry a private kind-and-window prefix (§5), and `query_destroyed_changes` answers from a
   per-account destroyed/restored log, so the §4.1 example gets `canCalculateChanges: true`.
-- Change log: each crate's private `ChangeType` gains `Restored`, and its `IdFate` fold calls OHS `fold_restore`: destroyed
-  and then restored in the window ⇒ `updated`; created in the window or destroyed before it ⇒ `created`. There is no shared
+- Change log: each crate's private `ChangeType` gains `Restored`, and its `IdFate` fold calls OHS `fold_restore`, which
+  classifies by existence at `sinceState` and now (-04 §5.1): both ⇒ `updated`; now only ⇒ `created`; `sinceState`
+  only ⇒ `destroyed`; neither ⇒ not reported. There is no shared
   `ChangeKind` today, and the mail canonical keeps these private.
 - Email (mail memory): the blob store keeps blobs referenced by retained versions alive. Destroying a blob drops the versions
   that reference it, and every version of an Email shares its `blobId`. `Blob/lookup` sees current Emails only.
   Blob-referencing private types (Chat, Message, Space, CustomEmoji, GraphNode, SceneAsset, SceneObject, VTCRecording;
   registry "Can Reference Blobs: Yes", decision 14) follow the same rule: a version whose blob is gone is not returned, and
-  if that was the final version of a destroyed object, the object is gone (decision 6(d)).
+  the newest version still retained becomes the final version, and the object goes when none is left (-04 §3.1).
 - Chat memory purges Message versions on delete or hard delete, and every version of a Space and its contents on Space
   destroy (§2, decision 22). Graph memory restores a destroyed GraphNode at its final `blobId`/`snapshotSeq` with an
   empty op log whose head is `snapshotSeq` (§2, decision 22).
@@ -431,10 +463,10 @@ OHS provides the reusable parts, and each opted-in crate's `MemoryBackend` wires
   and 5, evaluated by the dispatcher before the handler) → restore → create → update → destroy. A destroyed object "does
   not exist" for `ifUnchangedBy`, so `{"x": null}` holds and `{"x": {}}` fails before a restore of `x`. `ifUnchangedBy`
   compares the plain `Foo/get` representation, never `objectHistory`.
-- `atomic` (decision 6(b)): conditional §4 binds `atomic` to "every creation, update, and destroy", and `atomicFailure`
-  "MAY carry `notCreated`, `notUpdated`, and `notDestroyed`". Restores are not named in either draft. Stopgap: `atomic`
-  covers restores, and `atomicFailure` carries `notRestored` (in `AtomicFailure.extra`, typed accessor
-  `not_restored()`); raised on both drafts (bead H22). The restore phase runs inside the handler, so inside the scope;
+- `atomic`: object-history -04 §5.1 puts restores in the single unit, and a failed restore causes `atomicFailure`,
+  which MAY carry `notRestored` (in `AtomicFailure.extra`, typed accessor `not_restored()`); this was the decision
+  6(b) stopgap. Constraints such as name uniqueness are checked against the end state, so a restore may depend on an
+  update or destroy in the same call that frees its name. The restore phase runs inside the handler, so inside the scope;
   deferred failures map through `SetOp::Restore`. A backend that cannot restore inside the transaction ⇒
   `cannotApplyAtomically`. Both error codes are `&str` consts (`ATOMIC_FAILURE`, `CANNOT_APPLY_ATOMICALLY`) in
   `jmap-types`' conditional module, not `MethodErrorType` variants (decision 7).
@@ -448,8 +480,8 @@ OHS provides the reusable parts, and each opted-in crate's `MemoryBackend` wires
 `matchedIds` and `blobHasReference` count current objects only (§3.1), for blob2 and for the legacy RFC 9404
 `urn:ietf:params:jmap:blob` Blob/lookup that blobext serves (decision 11). The blobext design states the same thing. A blob
 that only history references may be destroyed through `Blob/set`. Afterwards, versions referencing it are not returned. For an
-Email that means every version, so the object leaves `includeDestroyed`, `onlyDestroyed` and `restore` (`notFound`,
-decision 6(d)). History `expires` and Blob `expires` are independent. A blob of a returned version must pass the consumer's
+Email that means every version, so the object leaves `includeDestroyed`, `onlyDestroyed` and `restore` (`notFound`): no version is left
+(-04 §3.1). History `expires` and Blob `expires` are independent. A blob of a returned version must pass the consumer's
 download access check (Bk contract). The data-type registry (decision 14) lives in `jmap-types` and is shared: blobext reads
 "Can Reference Blobs", this extension reads "Supports History" (bead blobext:B1 creates it; H15 sets Mark's drafts' values).
 
@@ -521,7 +553,7 @@ registrations go in Mark's own updated Tasks draft (decision 23, JMAP-jkl8.9), n
   non-empty `restore`) now fails with `invalidArguments` instead of being ignored (decision 18). Otherwise none for
   deployments using the plain register functions. With `_with_history`: `/set` responses carry `restored` and
   `notRestored` whenever the URI is in `using`; `objectHistory` in create/update ⇒ `invalidProperties`; restores count
-  toward `maxObjectsInSet` (decision 6(a)).
+  toward `maxObjectsInSet` (-04 §5.1).
 
 ## 10. Test plan
 
@@ -542,28 +574,30 @@ an injected clock and go through the dispatcher.
   `historyAfter` (equal excluded, live kept); `historyBefore` drops live; "historySkip: 20 … any id with 20 or fewer matching
   entries is returned in notFound"; live counts as one skipped entry; `historyLimit` keeps the newest; `historyLimit: 0`
   puts the id in neither list (literal reading); `hasOlder` true for an unreturned older version; equal-ms collapse;
-  `fold_restore` cases; `prune` discards oldest first and drops a destroyed object with its final version (decision 6(d)).
+  `fold_restore` cases; `prune` discards oldest first and drops a destroyed object with its last version; with the version current at destruction discarded, the newest retained one is the final version and its `replaced` the destruction time (-04 §3.1).
 - **srv contract tests (mock backend):** flags false ⇒ `historyLimit: "x"` ignored, not rejected; a flag on an unsupported
   type ⇒ `invalidArguments`; `objectHistory` in `properties` with no flag ⇒ no error and not returned; returned with a flag
   even when missing from `properties`; `maxObjectsInGet` counts ids; `destroyedAfter` without `onlyDestroyed` ⇒
-  `invalidArguments`; `destroyedAfter: null` alone is fine; destroyed queryChanges routed by state kind and a live state
-  falls through (decision 6(c)); `restore: {"x": {}}` ≡
+  `invalidArguments`; `destroyedAfter: null` alone is fine; queryChanges with `onlyDestroyed` goes to `query_destroyed_changes`, without it
+  to the plain handler, and a state of the other kind or window is `cannotCalculateChanges` (-04 §4); `restore: {"x": {}}` ≡
   `null`; non-object patch ⇒ `invalidPatch`; non-object `restore` ⇒ `invalidArguments`; restore on an unsupported type ⇒
   `invalidArguments`; restore runs before an update of the same id; `oldState` is from before the restore;
   `restored`/`notRestored` present (null) whenever the URI is in `using`, absent from plain handlers; `objectHistory` in a create ⇒
-  `invalidProperties`; create + update + destroy + restore one over `maxObjectsInSet` ⇒ `requestTooLarge` (decision 6(a));
+  `invalidProperties`; create + update + destroy + restore one over `maxObjectsInSet` ⇒ `requestTooLarge` (-04 §5.1);
   backend `Other` redacted; `object_history_gaps` lists a method re-registered plain after `_with_history`.
 - **Dispatcher check (decision 18, H23):** without the URI, `includeDestroyed: true`, `includeReplaced: true`,
   `onlyDestroyed: true`, `destroyedBefore: "…"` and `restore: {"x": null}` ⇒ `invalidArguments` with the handler not
   called, under plain and `_with_history` registration alike; `includeDestroyed: false`, `destroyedAfter: null` and
   `restore: {}` reach the handler without the key; with the URI the check does nothing.
-- **Per-crate (memory):** restored id in `/changes` is `updated` (existed at `sinceState`) or `created`, never `destroyed`;
-  the id is never reused; restoring a current id ⇒ `notFound`; a destroyed object whose final version was discarded ⇒
-  `notFound` for get, absent from `onlyDestroyed`, `notFound` for restore, even with older versions left (decision 6(d));
-  restoring something that references a destroyed container ⇒
-  `invalidProperties`, and it succeeds once the container is restored earlier in the request; Mailbox/FileNode parent+child
-  in one `restore` map succeed in either key order; Email keeps `blobId` and `threadId`, and a vanished Thread gives a new
-  `threadId` in `restored`; SieveScript comes back inactive and a name clash ⇒ `alreadyExists`; FileNode name clash ⇒
+- **Per-crate (memory):** a restored id in `/changes` is `updated` when it existed at `sinceState`, `created` when
+  it did not, `destroyed` when restored before `sinceState` and destroyed again after, and absent when destroyed at
+  `sinceState` and restored and destroyed again after (-04 §5.1); the id is never reused; restoring a current id ⇒
+  `notFound`; with the version current at destruction discarded and an older one retained, get returns the older one
+  as the final version, `onlyDestroyed` orders and windows it by that version's `replaced`, and restore takes its
+  values (-04 §3.1); restoring something that references a destroyed container ⇒
+  `invalidProperties`, and it succeeds once the container is restored in an earlier call (-04 §5.2); Mailbox/FileNode parent+child
+  in one `restore` map succeed in either key order (-04 §5.1); Email keeps `blobId` and `threadId`, and when its Thread
+  is gone the Thread exists again under the same id and `restored` is `null` (-04 §5.1); SieveScript comes back inactive and a name clash ⇒ `alreadyExists`; FileNode name clash ⇒
   `alreadyExists`; `onlyDestroyed` default order is destruction time descending; cascade destroys appear in
   `includeDestroyed`; the §8.2 cut hides versions from before a rights change.
 - **Decision-5 crates (memory):** Task/copy never mints a logged id; `onDestroyRemoveTasks` cascade appears in
@@ -589,8 +623,8 @@ an injected clock and go through the dispatcher.
 | D1 | Decision: confirm the private-type history list. Closed: resolved by decision 22 | none | S | none |
 | D2 | Decision: history arguments without the URI, handler-only or dispatcher-wide. Closed: resolved by decision 18 (dispatcher-wide, bead H23) | none | S | none |
 | H1 | object-history-types + scaffold: wire types, `HistoryObject`, `PENDING_HISTORY_REGISTRATION`, `is_history_type` over the jmap-types registry (decision 14), `UTCDate::cmp_instant`; empty OHS and client crates; workspace `members` + `[workspace.dependencies]` for all three; root AGENTS crate-map and dependency-tree rows for all three | new OHT; OHS/client stubs; jmap-types `id.rs`; root Cargo.toml, AGENTS.md | M | blobext:B1 |
-| H2 | object-history-server: `select_versions`, `VersionLog` (Clone, oldest-first prune, decision 6(d)), retention, rights cut, `fold_restore` | OHS only | M | H1 |
-| H3 | jmap-server `history.rs`: trait, params, parsing, generic get/query/queryChanges wrappers (state-kind routing, decision 6(c)), restore phase + `RestoreHooks`, envelope, `apply_restore_patch`, `enforce_max_objects_in_set_with_restore` (decision 6(a)), `register_history_aware` + `object_history_gaps` | jmap-server (`history.rs`, dispatcher mark, one `lib.rs` export line) | L | H1 |
+| H2 | object-history-server: `select_versions`, `VersionLog` (Clone, oldest-first prune, newest retained is final, -04), retention, rights cut, `fold_restore` | OHS only | M | H1 |
+| H3 | jmap-server `history.rs`: trait, params, parsing, generic get/query/queryChanges wrappers (queryChanges takes the destroyed arguments, -04), restore phase + `RestoreHooks` (same-type restore order, -04), envelope, `apply_restore_patch`, `enforce_max_objects_in_set_with_restore` (-04), `register_history_aware` + `object_history_gaps` | jmap-server (`history.rs`, dispatcher mark, one `lib.rs` export line) | L | H1 |
 | H4 | mail-server canonical: `*_set_impl` split for Mailbox/Identity/VacationResponse, history Mailbox/Identity/VacationResponse handlers, `register_mail_handlers_with_history`, memory `ObjectHistoryBackend` (VersionLog in `Inner`, change fold); AGENTS.md object-history pattern section | mail-types `backend.rs`, mail-server, AGENTS.md | L | H2, H3 |
 | H5 | mail-server Email: history get (body values per version), onlyDestroyed query + state-routed queryChanges, restore (blob/thread), memory blob retention, cascade recording | mail-server | L | H4 |
 | H6 | mail-server SieveScript history (feature `sieve`), `register_sieve_handlers_with_history` | mail-server | S | H5 (same `lib.rs`/`memory/mod.rs`) |
@@ -610,7 +644,7 @@ an injected clock and go through the dispatcher.
 | H20 | testjig: chat `_with_history` registration and Message history end to end | jmap-testjig | S | H11, H16 |
 | H21 (follow-up) | upstream: ask the Tasks authors to register Task/TaskList "Supports History: Yes". Closed: superseded by decision 23 (Mark's own Tasks draft, JMAP-jkl8.9) | none | S | none |
 | H22 (follow-up) | upstream: draft the decision-6 stopgap messages/issues for the object-history and conditional authors | none (drafted text) | S | none |
-| H23 | jmap-server: dispatcher check for history arguments without the URI on `*/get`, `*/query`, `*/set` (decision 18) | jmap-server (dispatcher, tests) | S | H3 |
+| H23 | jmap-server: dispatcher check for history arguments without the URI on `*/get`, `*/query`, `*/queryChanges` (-04), `*/set` (decision 18) | jmap-server (dispatcher, tests) | S | H3 |
 | H24 (follow-up, P3) | Task/TaskList history from Mark's Tasks draft registrations: registry rows, drop `PENDING_HISTORY_REGISTRATION` (decision 23) | OHT, jmap-types registry | S | H1, blobext:B1, JMAP-jkl8.9 |
 
 Parallelism: H2 ∥ H3 ∥ H10 after H1. H1 owns every shared manifest edit, so they touch disjoint crates. H7–H9, H13 and
@@ -631,4 +665,5 @@ history arguments without the URI (decision 18: one dispatcher check, bead H23);
 after a Space destroy (decision 22: purged with the Space); restoring an edited GraphNode (decision 22: final snapshot,
 empty op log); the conditional registration shape (decision 17: the `register_<x>_conditional` attach call).
 
-Remaining: none.
+Remaining: whether to keep following the -04 editor's copy over posted -03 where they differ (§2a). This note
+assumes yes, since -04 is the authors' answer to the decision-6 stopgaps.

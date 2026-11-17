@@ -1,4 +1,6 @@
 <!--
+SUPERSEDED 2026-11-17 (bd:JMAP-tna1.3.27): the object-history -04 editor's copy (dd077663, 2026-11-15) adopts these
+changes; see docs/design/object-history.md §2a. Kept for the record.
 DRAFT, not filed.
 Target: GitHub issue on https://github.com/brong/draft-gondwana-jmap-object-history
 (the -03 "Changes" section names this repo; confirmed read-only with gh: issues enabled, no existing issues,
