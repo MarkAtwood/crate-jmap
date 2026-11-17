@@ -2457,6 +2457,8 @@ dependencies = [
 name = "jmap-scene-server"
 version = "0.5.0"
 dependencies = [
+ "jmap-object-history-server",
+ "jmap-object-history-types",
  "jmap-scene-server",
  "jmap-scene-types",
  "jmap-server",
@@ -2471,6 +2473,7 @@ dependencies = [
 name = "jmap-scene-types"
 version = "0.5.0"
 dependencies = [
+ "jmap-object-history-types",
  "jmap-types",
  "serde",
  "serde_json",
@@ -2661,6 +2664,8 @@ dependencies = [
 name = "jmap-vtc-server"
 version = "0.5.0"
 dependencies = [
+ "jmap-object-history-server",
+ "jmap-object-history-types",
  "jmap-server",
  "jmap-types",
  "jmap-vtc-server",
@@ -2675,6 +2680,7 @@ dependencies = [
 name = "jmap-vtc-types"
 version = "0.5.0"
 dependencies = [
+ "jmap-object-history-types",
  "jmap-types",
  "serde",
  "serde_json",

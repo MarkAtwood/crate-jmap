@@ -112,6 +112,7 @@ mod avatar;
 mod backend;
 mod ephemeral;
 mod helpers;
+mod history;
 mod interact;
 /// In-memory reference implementation of [`SceneBackend`].
 ///
@@ -137,6 +138,7 @@ pub use ephemeral::{
     RegionScope, SceneEphemeralSubscription, SceneStreamFilter, should_deliver,
     validate_interaction,
 };
+pub use history::register_scene_handlers_with_history;
 pub use interact::handle_scene_object_interact;
 pub use object::{
     handle_scene_object_changes, handle_scene_object_get, handle_scene_object_query,

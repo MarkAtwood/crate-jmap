@@ -18,6 +18,9 @@ impl JmapObject for SceneAsset {
 }
 
 impl GetObject for SceneAsset {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for SceneAsset {}
 
 /// draft-atwood-jmap-scene-00 §SceneAsset (lines 269-296): `id`, `ownerId`
 /// and `createdAt` are "immutable, server-set"; `accountId` and `size` are
@@ -42,6 +45,9 @@ impl JmapObject for SceneRegion {
 }
 
 impl GetObject for SceneRegion {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for SceneRegion {}
 
 /// draft-atwood-jmap-scene-00 §SceneRegion Object Fields (lines 321-481):
 /// `id`, `ownerId` and `createdAt` are "immutable, server-set";
@@ -89,6 +95,9 @@ impl JmapObject for SceneObject {
 }
 
 impl GetObject for SceneObject {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for SceneObject {}
 
 /// draft-atwood-jmap-scene-00 §SceneObject Object Fields (lines 529-577):
 /// `id` and `createdAt` are "immutable, server-set"; `ownerId` and
@@ -262,5 +271,26 @@ mod tests {
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5, 14 and 22: SceneAsset, SceneRegion and SceneObject have
+    /// history; SceneAvatar does not.
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [
+            has::<crate::SceneAsset>(),
+            has::<crate::SceneRegion>(),
+            has::<crate::SceneObject>(),
+        ] {
+            assert!(is_history_type(name), "{name}");
+        }
+        assert!(!is_history_type("SceneAvatar"));
     }
 }

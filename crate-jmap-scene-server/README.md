@@ -168,6 +168,22 @@ which checks the final state, so an admin can eject one avatar and enter at the
 cap in one call; the one-record-per-user rule stays with the create, as records are
 never destroyed.
 
+## Object history (draft-ietf-jmap-object-history-03)
+
+`register_scene_handlers_with_history(dispatcher, backend)`, for a backend
+that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_scene_handlers` and re-registers history-aware `/get`, `/set`,
+`/query` and `/queryChanges` of SceneAsset, SceneRegion and SceneObject.
+SceneAvatar keeps no history (decision 22). SceneRegion and SceneObject
+history entries pass the same region-access and visibility checks as
+current objects, and `invitedUserIds` is emptied for a caller who may not
+update the region (§8.2); a destroyed query leaves out ids the caller may
+not see and omits `total`. SceneObject restores run parent first and need
+a current region. `SceneObject/interact` is not a `/set` and is
+unchanged. The memory backend's `with_object_history(capability,
+retention)` records region and object cascades and evaluates no filter or
+sort over destroyed objects.
+
 ## Gotchas
 
 - `SceneBackend::may_modify_asset` defaults to `Ok(true)` (fail-open,

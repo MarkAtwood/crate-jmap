@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-scene-server**: object history for SceneAsset, SceneRegion and
+  SceneObject: `register_scene_handlers_with_history` (region access,
+  visibility and `invitedUserIds` redaction applied to every entry); the
+  memory backend's `with_object_history`. **jmap-scene-types**:
+  `HistoryObject` for the three types. (bd:JMAP-tna1.3.20)
 - **jmap-graph-server**: object history for Graph, GraphNode and
   GraphEdge: `register_graph_handlers_with_history`; the memory backend's
   `with_object_history` (cascades recorded, read access applied to every

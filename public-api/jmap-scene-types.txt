@@ -352,6 +352,7 @@ pub fn jmap_scene_types::SceneAsset::eq(&self, &jmap_scene_types::SceneAsset) ->
 impl core::fmt::Debug for jmap_scene_types::SceneAsset
 pub fn jmap_scene_types::SceneAsset::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_scene_types::SceneAsset
+impl jmap_object_history_types::HistoryObject for jmap_scene_types::SceneAsset
 impl jmap_types::backend::GetObject for jmap_scene_types::SceneAsset
 impl jmap_types::backend::JmapObject for jmap_scene_types::SceneAsset
 pub type jmap_scene_types::SceneAsset::Property = ()
@@ -605,6 +606,7 @@ pub fn jmap_scene_types::SceneObject::eq(&self, &jmap_scene_types::SceneObject) 
 impl core::fmt::Debug for jmap_scene_types::SceneObject
 pub fn jmap_scene_types::SceneObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_scene_types::SceneObject
+impl jmap_object_history_types::HistoryObject for jmap_scene_types::SceneObject
 impl jmap_types::backend::GetObject for jmap_scene_types::SceneObject
 impl jmap_types::backend::JmapObject for jmap_scene_types::SceneObject
 pub type jmap_scene_types::SceneObject::Property = ()
@@ -749,6 +751,7 @@ pub fn jmap_scene_types::SceneRegion::eq(&self, &jmap_scene_types::SceneRegion) 
 impl core::fmt::Debug for jmap_scene_types::SceneRegion
 pub fn jmap_scene_types::SceneRegion::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_scene_types::SceneRegion
+impl jmap_object_history_types::HistoryObject for jmap_scene_types::SceneRegion
 impl jmap_types::backend::GetObject for jmap_scene_types::SceneRegion
 impl jmap_types::backend::JmapObject for jmap_scene_types::SceneRegion
 pub type jmap_scene_types::SceneRegion::Property = ()
