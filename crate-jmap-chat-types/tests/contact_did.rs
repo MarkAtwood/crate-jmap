@@ -72,3 +72,39 @@ fn contact_with_non_did_value_is_rejected() {
     });
     assert!(serde_json::from_value::<ChatContact>(wire).is_err());
 }
+
+/// `didChangedAt` (draft-atwood-jmap-chat-did-00 §DID changes, jmap-chat-spec
+/// 1018d37): "`didChangedAt` (UTCDate, optional): Server-set. The time the
+/// server last saw the DID bound to this ChatContact change". The JSON is
+/// written by hand from that definition. It round-trips typed, not in
+/// `extra`, and is omitted when absent.
+#[test]
+fn did_changed_at_round_trips_typed() {
+    let wire = json!({
+        "id": "ct1",
+        "identity": "mimi://example.com/u/alice",
+        "login": "alice",
+        "firstSeenAt": "2026-01-01T00:00:00Z",
+        "lastSeenAt": "2026-04-01T00:00:00Z",
+        "blocked": false,
+        "did": "did:example:123456789abcdefghi",
+        "didChangedAt": "2026-11-17T12:00:00Z"
+    });
+    let c: ChatContact = serde_json::from_value(wire.clone()).expect("deserialize ChatContact");
+    assert_eq!(
+        c.did_changed_at.as_ref().map(|d| d.as_ref()),
+        Some("2026-11-17T12:00:00Z")
+    );
+    assert!(
+        c.extra.is_empty(),
+        "didChangedAt must not land in extra: {:?}",
+        c.extra
+    );
+    assert_eq!(serde_json::to_value(&c).expect("serialize"), wire);
+
+    let mut without = wire.clone();
+    without.as_object_mut().unwrap().remove("didChangedAt");
+    let c: ChatContact = serde_json::from_value(without.clone()).expect("deserialize");
+    assert_eq!(c.did_changed_at, None);
+    assert_eq!(serde_json::to_value(&c).expect("serialize"), without);
+}

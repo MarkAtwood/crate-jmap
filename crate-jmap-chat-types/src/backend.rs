@@ -480,7 +480,8 @@ impl GetObject for crate::ChatContact {}
 /// "immutable, server-set"; `login`, `firstSeenAt`, `lastSeenAt`,
 /// `presence`, `lastActiveAt`, `statusText` and `statusEmoji` are
 /// "server-set"; `identity` is "immutable". draft-atwood-jmap-chat-did-00
-/// §Optional did field: `did` "is server-set". §ChatContact/set: "`create`
+/// §Optional did field: `did` "is server-set", and §DID changes:
+/// `didChangedAt` is "Server-set". §ChatContact/set: "`create`
 /// accepts only `identity`" and "`update` supports: `blocked`,
 /// `displayName`", so `endpoints` is server-set here.
 impl SetObject for crate::ChatContact {
@@ -495,6 +496,7 @@ impl SetObject for crate::ChatContact {
         "statusText",
         "statusEmoji",
         "did",
+        "didChangedAt",
         "endpoints",
     ];
     const CLIENT_SETTABLE: &'static [&'static str] = &["identity", "displayName", "blocked"];
@@ -736,6 +738,7 @@ mod tests {
             status_emoji: Some("e".into()),
             endpoints: Some(vec![]),
             did: Some(de(json!("did:web:example.com"))),
+            did_changed_at: Some(date()),
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));

@@ -1057,6 +1057,7 @@ pub fn jmap_chat_types::ChatCapability::deserialize<__D>(__D) -> core::result::R
 #[non_exhaustive] pub struct jmap_chat_types::ChatContact
 pub jmap_chat_types::ChatContact::blocked: bool
 pub jmap_chat_types::ChatContact::did: core::option::Option<jmap_did_types::did::Did>
+pub jmap_chat_types::ChatContact::did_changed_at: core::option::Option<jmap_types::id::UTCDate>
 pub jmap_chat_types::ChatContact::display_name: core::option::Option<alloc::string::String>
 pub jmap_chat_types::ChatContact::endpoints: core::option::Option<alloc::vec::Vec<jmap_chat_types::Endpoint>>
 pub jmap_chat_types::ChatContact::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>

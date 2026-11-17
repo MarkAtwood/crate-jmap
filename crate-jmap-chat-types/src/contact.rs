@@ -152,6 +152,16 @@ pub struct ChatContact {
     /// that is not a valid DID fails to deserialize.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub did: Option<Did>,
+    /// The `didChangedAt` property (draft-atwood-jmap-chat-did-00 §DID
+    /// changes).
+    ///
+    /// Server-set. The time the server last saw the DID bound to this
+    /// ChatContact change: a different [`did`](Self::did), or `did` added
+    /// or removed. Absent if it has never changed. A client MAY tell the
+    /// user when it changes, since the contact may now be someone else;
+    /// the server cannot tell a legitimate new DID from a takeover.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub did_changed_at: Option<UTCDate>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -186,6 +196,7 @@ impl ChatContact {
             status_emoji: None,
             endpoints: None,
             did: None,
+            did_changed_at: None,
             extra: serde_json::Map::new(),
         }
     }
@@ -346,6 +357,7 @@ mod tests {
             status_emoji: None,
             endpoints: None,
             did: None,
+            did_changed_at: None,
             extra: serde_json::Map::new(),
         };
 
@@ -391,6 +403,7 @@ mod tests {
             status_emoji: None,
             endpoints: None,
             did: None,
+            did_changed_at: None,
             extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&c).expect("serialize ChatContact");
