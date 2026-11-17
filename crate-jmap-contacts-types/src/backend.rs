@@ -123,6 +123,8 @@ impl JmapObject for crate::AddressBook {
 }
 
 impl GetObject for crate::AddressBook {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::AddressBook {}
 
 /// RFC 9610 §2 (rfc9610.txt:167, 191, 221): `id` is "(immutable;
 /// server-set)"; `isDefault` and `myRights` are "(server-set)".
@@ -158,6 +160,8 @@ impl JmapObject for crate::ContactCard {
 }
 
 impl GetObject for crate::ContactCard {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::ContactCard {}
 
 /// RFC 9610 §3 (rfc9610.txt:305): `id` is "(immutable; server-set)".
 /// `addressBookIds` and the RFC 9553 Card properties carry neither
@@ -291,5 +295,21 @@ mod tests {
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5 and 14: the contacts types with "Supports History: Yes"
+    /// implement `HistoryObject`.
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [has::<crate::AddressBook>(), has::<crate::ContactCard>()] {
+            assert!(is_history_type(name), "{name}");
+        }
     }
 }

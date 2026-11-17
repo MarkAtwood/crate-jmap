@@ -329,6 +329,21 @@ back `onDestroyRemoveContents` cascades and default changes under `atomic`.
 extra, because one default AddressBook holds by construction (setting one clears
 the others) and there are no cross-object caps.
 
+### Object history (draft-ietf-jmap-object-history-03)
+
+`register_contacts_handlers_with_history(dispatcher, backend)`, for a
+backend that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_contacts_handlers` and re-registers the history-aware
+AddressBook `/get`, `/set` and ContactCard `/get`, `/set`, `/query`,
+`/queryChanges` (the jmap-mail-server pattern: each wraps the unchanged
+plain handler). `MemoryBackend::with_object_history(capability,
+retention)` turns history on, with the same test knobs as the mail
+backend. It records `onDestroyRemoveContents` cascades; a restored card
+needs a current AddressBook in `addressBookIds`; a restored AddressBook
+that was the default is not while another is (RFC 9610 §2). Destroyed
+ContactCard queries filter and sort like `ContactCard/query`, most
+recently destroyed first by default.
+
 ## Capability URI
 
 Include this in your Session object's `capabilities` map when the contacts

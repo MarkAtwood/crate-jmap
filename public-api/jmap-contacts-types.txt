@@ -144,6 +144,7 @@ pub fn jmap_contacts_types::AddressBook::eq(&self, &jmap_contacts_types::Address
 impl core::fmt::Debug for jmap_contacts_types::AddressBook
 pub fn jmap_contacts_types::AddressBook::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_contacts_types::AddressBook
+impl jmap_object_history_types::HistoryObject for jmap_contacts_types::AddressBook
 impl jmap_types::backend::GetObject for jmap_contacts_types::AddressBook
 impl jmap_types::backend::JmapObject for jmap_contacts_types::AddressBook
 pub type jmap_contacts_types::AddressBook::Property = jmap_contacts_types::AddressBookProperty
@@ -239,6 +240,7 @@ impl core::default::Default for jmap_contacts_types::ContactCard
 pub fn jmap_contacts_types::ContactCard::default() -> jmap_contacts_types::ContactCard
 impl core::fmt::Debug for jmap_contacts_types::ContactCard
 pub fn jmap_contacts_types::ContactCard::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_object_history_types::HistoryObject for jmap_contacts_types::ContactCard
 impl jmap_types::backend::GetObject for jmap_contacts_types::ContactCard
 impl jmap_types::backend::JmapObject for jmap_contacts_types::ContactCard
 pub type jmap_contacts_types::ContactCard::Property = jmap_contacts_types::ContactCardProperty

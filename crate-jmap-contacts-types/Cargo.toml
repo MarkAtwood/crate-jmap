@@ -15,5 +15,6 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 jmap-types = { workspace = true }
 jmap-jscontact-types = { workspace = true }
 jmap-metadata-types = { workspace = true }
+jmap-object-history-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

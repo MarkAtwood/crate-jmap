@@ -62,6 +62,8 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod history;
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::ContactsBackend;
@@ -74,6 +76,7 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
@@ -157,6 +160,9 @@ struct ChangeEntry {
     created: Vec<Id>,
     updated: Vec<Id>,
     destroyed: Vec<Id>,
+    /// Ids restored from object history (draft-ietf-jmap-object-history
+    /// §5.1).
+    restored: Vec<Id>,
     /// The top-level properties this change altered on every id in
     /// `updated`, or `None` when not known. Feeds
     /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
@@ -227,6 +233,9 @@ struct Inner {
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+    /// Object history, once [`MemoryBackend::with_object_history`] turns it
+    /// on.
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 impl Inner {
@@ -761,7 +770,9 @@ impl JmapBackend for MemoryBackend {
             let mut ids = 0u64;
             if let Some(cut) = relevant.iter().position(|e| {
                 if !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()) {
-                    ids += (e.created.len() + e.updated.len() + e.destroyed.len()) as u64;
+                    ids +=
+                        (e.created.len() + e.updated.len() + e.destroyed.len() + e.restored.len())
+                            as u64;
                 }
                 ids > max
             }) {
@@ -810,6 +821,41 @@ impl JmapBackend for MemoryBackend {
                 if !was_created_in_window && !destroyed.contains(id) {
                     destroyed.push(id.clone());
                 }
+            }
+        }
+
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for entry in &relevant {
+            for (ids, event) in [
+                (&entry.created, ChangeEvent::Created),
+                (&entry.updated, ChangeEvent::Updated),
+                (&entry.destroyed, ChangeEvent::Destroyed),
+                (&entry.restored, ChangeEvent::Restored),
+            ] {
+                for id in ids {
+                    events.entry(id.clone()).or_default().push(event);
+                }
+            }
+        }
+        for (id, list) in &events {
+            if !list.contains(&ChangeEvent::Restored) {
+                continue;
+            }
+            created.retain(|c| c != id);
+            updated.retain(|u| u != id);
+            destroyed.retain(|d| d != id);
+            match fold_restore(list) {
+                Some(ChangeKind::Created) => created.push(id.clone()),
+                Some(ChangeKind::Destroyed) => destroyed.push(id.clone()),
+                Some(_) => {
+                    updated.push(id.clone());
+                    // A restore is never metadata-only.
+                    window_props.record(id.as_ref(), None);
+                }
+                None => {}
             }
         }
 
@@ -1069,6 +1115,8 @@ impl ContactsBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().await;
+        // Object history §5.1: a fresh v4 UUID never reuses a destroyed id.
+        debug_assert!(!inner.history_retains(O::TYPE_NAME, account_id, &server_id));
         check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         inner.require_account(account_id.as_ref())?;
 
@@ -1127,6 +1175,7 @@ impl ContactsBackend for MemoryBackend {
                 // (bd:JMAP-qz9v.5) surface in `updated` for AddressBook/changes.
                 updated: demoted_ids,
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
 
@@ -1335,6 +1384,7 @@ impl ContactsBackend for MemoryBackend {
                 Some(&current),
             );
         }
+        inner.record_replace(O::TYPE_NAME, account_id, id, old_value.clone());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), current);
@@ -1351,6 +1401,7 @@ impl ContactsBackend for MemoryBackend {
             created: vec![],
             updated: vec![id.clone()],
             destroyed: vec![],
+            restored: vec![],
             updated_props: Some(updated_props),
         });
         if !demoted_ids.is_empty() {
@@ -1359,6 +1410,7 @@ impl ContactsBackend for MemoryBackend {
                 created: vec![],
                 updated: demoted_ids,
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: Some(BTreeSet::from(["isDefault".to_owned()])),
             });
         }
@@ -1386,6 +1438,7 @@ impl ContactsBackend for MemoryBackend {
 
         match removed {
             Some(old_value) => {
+                inner.record_destroy(O::TYPE_NAME, account_id, id, old_value.clone());
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1394,6 +1447,7 @@ impl ContactsBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        restored: vec![],
                         updated_props: None,
                     });
                 // bd:JMAP-ic0j.74 — for ContactCard, feed the removed
@@ -1480,6 +1534,7 @@ impl ContactsBackend for MemoryBackend {
                 created: vec![new_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
 
@@ -3197,6 +3252,7 @@ mod max_changes_tests {
                     created: ids.iter().map(|s| Id::from(*s)).collect(),
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 });
         }

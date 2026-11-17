@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-contacts-server**: object history for AddressBook and
+  ContactCard: `register_contacts_handlers_with_history` and the
+  `handle_*_with_history` handlers; the memory backend's
+  `with_object_history` (cascades recorded, destroyed ContactCard
+  queries, restore checking `addressBookIds` and the single default
+  AddressBook) and test knobs. **jmap-contacts-types**: `HistoryObject`
+  for both types. (bd:JMAP-tna1.3.9)
 - **jmap-mail-server** (feature `sieve`): SieveScript object history:
   `register_sieve_handlers_with_history` and `handle_sieve_get_with_history`,
   `handle_sieve_query_with_history` (destroyed scripts through the

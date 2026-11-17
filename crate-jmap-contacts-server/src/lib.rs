@@ -47,6 +47,7 @@ mod addressbook;
 mod backend;
 mod card;
 mod helpers;
+mod history;
 /// In-memory reference implementation of [`ContactsBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production. See [`memory`] for
@@ -61,6 +62,12 @@ pub use backend::ContactsBackend;
 pub use card::{
     handle_contact_card_changes, handle_contact_card_copy, handle_contact_card_get,
     handle_contact_card_query, handle_contact_card_query_changes, handle_contact_card_set,
+};
+pub use history::{
+    handle_address_book_get_with_history, handle_address_book_set_with_history,
+    handle_contact_card_get_with_history, handle_contact_card_query_changes_with_history,
+    handle_contact_card_query_with_history, handle_contact_card_set_with_history,
+    register_contacts_handlers_with_history,
 };
 pub use jmap_contacts_types::{AddressBookProperty, ContactCardProperty};
 
