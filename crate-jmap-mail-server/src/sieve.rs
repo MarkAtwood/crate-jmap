@@ -361,6 +361,10 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
 ) -> Result<HandlerOutput, JmapError> {
     // Step 1: Parse request args.
     let (account_id, mut args) = extract_account_id(args)?;
+    // RFC 8620 §5.3: update keys and destroy ids may name records created
+    // by earlier calls; this call's own creates resolve after the create
+    // phase below.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &serde_json::Map::new());
 
     // Step 2: Verify account exists.
     if !backend
@@ -676,6 +680,7 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
         }
     }
 
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
     // Step 6: Process updates.
     if let Some(Value::Object(update_map)) = args.remove("update") {
         // For name uniqueness checks on update, fetch current scripts once.

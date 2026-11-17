@@ -1392,6 +1392,58 @@ pub fn resolve_blob_ref<'a>(raw: &'a str, created_ids: &BTreeMap<Id, Id>) -> Cow
     Cow::Borrowed(raw)
 }
 
+/// Rewrite the `update` keys and `destroy` entries of `/set` arguments that
+/// are `#creationId` references (RFC 8620 §5.3) to the ids they name.
+///
+/// RFC 8620 §5.3 has a server order a call's creates "before their creation
+/// ids are referenced by another create/update/destroy in the same call",
+/// so an update or destroy may name a record created earlier in the
+/// request by its creation id. A reference resolves first against
+/// `created`, the call's own `created` map so far (creation id → object
+/// with an `id`), then against `created_ids`, the request's map
+/// ([`crate::CallContext::created_ids`]). An unknown reference is left as
+/// sent, so the handler rejects it as it rejects any other id that is not
+/// an Id; responses then key a resolved entry by the real id.
+///
+/// Call it at handler entry with an empty `created`, and again after the
+/// create phase with the call's `created`, before updates and destroys run.
+pub fn resolve_set_id_refs(
+    args: &mut Map<String, Value>,
+    created_ids: &BTreeMap<Id, Id>,
+    created: &Map<String, Value>,
+) {
+    let resolve = |raw: &str| -> Option<String> {
+        let cid = raw.strip_prefix('#')?;
+        created
+            .get(cid)
+            .and_then(|obj| obj.get("id"))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .or_else(|| {
+                created_ids
+                    .get(&Id::from(cid))
+                    .map(|id| id.as_ref().to_owned())
+            })
+    };
+    if let Some(Value::Object(update)) = args.get_mut("update")
+        && update.keys().any(|k| resolve(k).is_some())
+    {
+        *update = std::mem::take(update)
+            .into_iter()
+            .map(|(k, v)| (resolve(&k).unwrap_or(k), v))
+            .collect();
+    }
+    if let Some(Value::Array(destroy)) = args.get_mut("destroy") {
+        for v in destroy {
+            if let Value::String(raw) = v
+                && let Some(id) = resolve(raw)
+            {
+                *raw = id;
+            }
+        }
+    }
+}
+
 /// Rewrite every blobId reference in a `/set` create object or update
 /// patch through [`resolve_blob_ref`], before the handler parses it.
 ///
@@ -1749,7 +1801,8 @@ mod tests {
         now_utc_string, parse_max_changes, parse_wire_id, query_anchor_args,
         reject_did_bearing_properties, reject_read_only_patch, reject_server_set, resolve_blob_ref,
         resolve_blob_refs, resolve_creation_ref, resolve_query_offset, resolve_query_start,
-        signed_seconds_since_epoch, utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
+        resolve_set_id_refs, signed_seconds_since_epoch, utc_date_from_epoch_millis,
+        utc_date_from_epoch_seconds,
     };
     use jmap_types::{Id, PushSubscription, UTCDate};
     use serde_json::json;
@@ -1890,6 +1943,32 @@ mod tests {
                 "parts": [{"blobId": "G1"}, {"blobId": "#nope"}],
                 "iconBlobId": "G1",
                 "parentId": "#b1"
+            })
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — creates happen "before their creation ids
+    /// are referenced by another create/update/destroy in the same call",
+    /// so update keys and destroy ids may be creation ids, from this call
+    /// or an earlier one. Unknown references and literals stay as sent.
+    #[test]
+    fn resolve_set_id_refs_rewrites_update_keys_and_destroy_ids() {
+        let earlier = std::collections::BTreeMap::from([(Id::from("e"), Id::from("E1"))]);
+        let created = serde_json::json!({"c": {"id": "C1"}});
+        let mut args = serde_json::json!({
+            "update": {"#e": {"a": 1}, "#c": {"b": 2}, "#nope": {}, "lit": {}},
+            "destroy": ["#e", "#c", "#nope", "lit"]
+        });
+        resolve_set_id_refs(
+            args.as_object_mut().expect("object"),
+            &earlier,
+            created.as_object().expect("object"),
+        );
+        assert_eq!(
+            args,
+            serde_json::json!({
+                "update": {"E1": {"a": 1}, "C1": {"b": 2}, "#nope": {}, "lit": {}},
+                "destroy": ["E1", "C1", "#nope", "lit"]
             })
         );
     }

@@ -100,6 +100,21 @@ map with the two `jmap_server` helpers:
   empty map. Tests: each crate's `tests/blob_creation_refs.rs`, with a
   stand-in `Blob/upload` as call 0.
 
+## `#creationId` update keys and destroy ids (canonical; bd:JMAP-tna1.14)
+
+RFC 8620 §5.3 orders a call's creates "before their creation ids are
+referenced by another create/update/destroy in the same call"; a destroy
+carries only ids, so update keys and destroy ids may be creation ids.
+Every `/set` handler calls `jmap_server::resolve_set_id_refs(&mut args,
+created_ids, &created)` twice: at entry with an empty `created` (earlier
+calls), and right before the update phase with the call's `created` map
+(same-call creates). Resolved entries are reported under the real id;
+an unknown reference is left as sent and keeps today's error
+(`invalidProperties` naming `id`). `/get` `ids` are **not** resolved:
+RFC 8620 §3.3 limits substitution to "a create/update", and
+back-references are the spec's mechanism there. Siblings: bd:JMAP-tna1.16.
+Tests: `tests/set_id_refs.rs`.
+
 ## Permission enforcement: backend canonical
 
 Per the workspace AGENTS.md "Caller identity (foundation seam)"

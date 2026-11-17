@@ -438,6 +438,10 @@ pub async fn handle_submission_set<B: MailBackend>(
     call_id: &str,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+    // RFC 8620 §5.3: update keys and destroy ids may name records created
+    // by earlier calls; this call's own creates resolve after the create
+    // phase below.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &serde_json::Map::new());
     if !backend
         .account_exists(caller, &account_id)
         .await
@@ -558,6 +562,7 @@ pub async fn handle_submission_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {

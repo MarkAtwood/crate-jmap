@@ -557,6 +557,7 @@ pub fn jmap_server::resolve_blob_refs(&mut serde_json::value::Value, &[&str], &a
 pub fn jmap_server::resolve_creation_ref(&str, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>) -> core::option::Option<jmap_types::id::Id>
 pub fn jmap_server::resolve_query_offset(i64, usize) -> usize
 pub fn jmap_server::resolve_query_start(&[jmap_types::id::Id], i64, core::option::Option<&jmap_types::id::Id>, i64) -> core::result::Result<usize, jmap_types::error::JmapError>
+pub fn jmap_server::resolve_set_id_refs(&mut serde_json::map::Map<alloc::string::String, serde_json::value::Value>, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>)
 pub fn jmap_server::serialize_value<T: serde_core::ser::Serialize>(T) -> core::result::Result<serde_json::value::Value, jmap_types::error::JmapError>
 pub fn jmap_server::serialized_writes_scope<E>(jmap_server::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::SetScope>, jmap_server::BeginSetError<E>>
 pub fn jmap_server::server_fail_from_backend<E: core::fmt::Display + ?core::marker::Sized>(&E) -> jmap_types::error::JmapError
