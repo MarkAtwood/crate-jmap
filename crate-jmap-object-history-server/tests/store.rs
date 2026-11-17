@@ -134,3 +134,36 @@ fn select_reads_live_objects_and_prune_reports_discards() {
         "a discarded object leaves the destroyed query"
     );
 }
+
+#[test]
+fn purge_where_drops_matching_histories() {
+    let a = Id::from("a");
+    let mut s = store(HistoryRetention::new());
+    s.record_destroy(
+        "ContactCard",
+        &a,
+        &Id::from("c1"),
+        json!({"id": "c1", "book": "x"}),
+    );
+    s.record_replace(
+        "ContactCard",
+        &a,
+        &Id::from("c2"),
+        json!({"id": "c2", "book": "x"}),
+    );
+    s.record_destroy(
+        "ContactCard",
+        &a,
+        &Id::from("c3"),
+        json!({"id": "c3", "book": "y"}),
+    );
+    let since = s.destroyed_query_state("ContactCard", &a, None, None);
+    s.purge_where("ContactCard", &a, |v| v["book"] == "x");
+    assert!(!s.retains("ContactCard", &a, &Id::from("c1")));
+    assert!(!s.retains("ContactCard", &a, &Id::from("c2")));
+    assert!(s.retains("ContactCard", &a, &Id::from("c3")));
+    assert_eq!(
+        s.destroyed_changes_since("ContactCard", &a, &since, None, None),
+        Some(ids(&["c1"]))
+    );
+}

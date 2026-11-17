@@ -346,6 +346,29 @@ impl<V: Clone> VersionLog<V> {
         found
     }
 
+    /// Discard every version of each `type_name` object of `account_id`
+    /// whose newest retained version satisfies `pred`, and return their
+    /// ids. For a type rule such as chat-00's Space destroy, which
+    /// "hard-deletes all records" of the Space.
+    pub fn purge_where(
+        &mut self,
+        type_name: &str,
+        account_id: &Id,
+        mut pred: impl FnMut(&V) -> bool,
+    ) -> Vec<Id> {
+        let mut gone = Vec::new();
+        self.objects.retain(|(t, a, id), log| {
+            let hit = t == type_name
+                && a == account_id
+                && log.replaced.last().is_some_and(|v| pred(&v.snapshot));
+            if hit {
+                gone.push(id.clone());
+            }
+            !hit
+        });
+        gone
+    }
+
     /// Discard every version of the object (the §8.3 administrative
     /// purge). A destroyed object is then gone for good.
     pub fn purge(&mut self, type_name: &str, account_id: &Id, id: &Id) {

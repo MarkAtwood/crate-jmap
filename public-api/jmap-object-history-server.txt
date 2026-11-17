@@ -107,6 +107,7 @@ pub fn jmap_object_history_server::HistoryStore::new(jmap_object_history_types::
 pub fn jmap_object_history_server::HistoryStore::now_ms(&self) -> i64
 pub fn jmap_object_history_server::HistoryStore::prune(&mut self)
 pub fn jmap_object_history_server::HistoryStore::purge(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_object_history_server::HistoryStore::purge_where(&mut self, &str, &jmap_types::id::Id, impl core::ops::function::FnMut(&serde_json::value::Value) -> bool)
 pub fn jmap_object_history_server::HistoryStore::record_destroy(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, serde_json::value::Value)
 pub fn jmap_object_history_server::HistoryStore::record_replace(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, serde_json::value::Value)
 pub fn jmap_object_history_server::HistoryStore::records(&self, &str) -> bool
@@ -144,6 +145,7 @@ pub fn jmap_object_history_server::VersionLog<V>::is_destroyed(&self, &str, &jma
 pub fn jmap_object_history_server::VersionLog<V>::new(jmap_object_history_server::HistoryRetention) -> Self
 pub fn jmap_object_history_server::VersionLog<V>::prune(&mut self, i64)
 pub fn jmap_object_history_server::VersionLog<V>::purge(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_object_history_server::VersionLog<V>::purge_where(&mut self, &str, &jmap_types::id::Id, impl core::ops::function::FnMut(&V) -> bool) -> alloc::vec::Vec<jmap_types::id::Id>
 pub fn jmap_object_history_server::VersionLog<V>::record_destroy(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, V, i64)
 pub fn jmap_object_history_server::VersionLog<V>::record_replace(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id, V, i64)
 pub fn jmap_object_history_server::VersionLog<V>::restore(&mut self, &str, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<V>

@@ -71,7 +71,7 @@ dependencies are listed separately):
 | `jmap-web-push` | 2 | `jmap-types` | (none) |
 | `jmap-base-client` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-types` | (none) |
 | `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
-| `jmap-chat-types` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-types` | (none) |
+| `jmap-chat-types` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-contacts-types` | 3 | `jmap-jscontact-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-did-resolver` | 3 | `jmap-did-types`, `jmap-types` | (none) |
 | `jmap-filenode-types` | 3 | `jmap-cid-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
@@ -87,7 +87,7 @@ dependencies are listed separately):
 | `jmap-chat-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-chat-types`, `jmap-types` | `jmap-metadata-types` |
 | `jmap-chat-federation-types` | 4 | `jmap-chat-types`, `jmap-cid-types`, `jmap-types` | `jmap-base-client` |
 | `jmap-chat-mimi-types` | 4 | `jmap-types` | `jmap-chat-types` |
-| `jmap-chat-server` | 4 | `jmap-chat-types`, `jmap-did-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-server` | 4 | `jmap-chat-types`, `jmap-did-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-object-history-server`, `jmap-object-history-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-contacts-client` | 4 | `jmap-base-client`, `jmap-contacts-types`, `jmap-types` | (none) |
 | `jmap-contacts-server` | 4 | `jmap-contacts-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-object-history-server`, `jmap-object-history-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-filenode-client` | 4 | `jmap-base-client`, `jmap-filenode-types`, `jmap-types` | (none) |

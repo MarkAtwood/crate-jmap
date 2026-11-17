@@ -1003,6 +1003,7 @@ pub fn jmap_chat_types::Chat::fmt(&self, &mut core::fmt::Formatter<'_>) -> core:
 impl core::marker::StructuralPartialEq for jmap_chat_types::Chat
 impl jmap_chat_types::Chat
 pub fn jmap_chat_types::Chat::serialize<__S>(&jmap_chat_types::Chat, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::Chat
 impl jmap_types::backend::GetObject for jmap_chat_types::Chat
 impl jmap_types::backend::JmapObject for jmap_chat_types::Chat
 pub type jmap_chat_types::Chat::Property = jmap_chat_types::ChatProperty
@@ -1080,6 +1081,7 @@ pub fn jmap_chat_types::ChatContact::eq(&self, &jmap_chat_types::ChatContact) ->
 impl core::fmt::Debug for jmap_chat_types::ChatContact
 pub fn jmap_chat_types::ChatContact::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_types::ChatContact
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::ChatContact
 impl jmap_types::backend::GetObject for jmap_chat_types::ChatContact
 impl jmap_types::backend::JmapObject for jmap_chat_types::ChatContact
 pub type jmap_chat_types::ChatContact::Property = jmap_chat_types::ChatContactProperty
@@ -1375,6 +1377,7 @@ pub fn jmap_chat_types::CustomEmoji::eq(&self, &jmap_chat_types::CustomEmoji) ->
 impl core::fmt::Debug for jmap_chat_types::CustomEmoji
 pub fn jmap_chat_types::CustomEmoji::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_types::CustomEmoji
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::CustomEmoji
 impl jmap_types::backend::GetObject for jmap_chat_types::CustomEmoji
 impl jmap_types::backend::JmapObject for jmap_chat_types::CustomEmoji
 pub type jmap_chat_types::CustomEmoji::Property = jmap_chat_types::CustomEmojiProperty
@@ -1556,6 +1559,7 @@ pub fn jmap_chat_types::Message::eq(&self, &jmap_chat_types::Message) -> bool
 impl core::fmt::Debug for jmap_chat_types::Message
 pub fn jmap_chat_types::Message::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_types::Message
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::Message
 impl jmap_types::backend::GetObject for jmap_chat_types::Message
 impl jmap_types::backend::JmapObject for jmap_chat_types::Message
 pub type jmap_chat_types::Message::Property = jmap_chat_types::MessageProperty
@@ -1793,6 +1797,7 @@ pub fn jmap_chat_types::Space::eq(&self, &jmap_chat_types::Space) -> bool
 impl core::fmt::Debug for jmap_chat_types::Space
 pub fn jmap_chat_types::Space::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_types::Space
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::Space
 impl jmap_types::backend::GetObject for jmap_chat_types::Space
 impl jmap_types::backend::JmapObject for jmap_chat_types::Space
 pub type jmap_chat_types::Space::Property = jmap_chat_types::SpaceProperty
@@ -1827,6 +1832,7 @@ pub fn jmap_chat_types::SpaceBan::eq(&self, &jmap_chat_types::SpaceBan) -> bool
 impl core::fmt::Debug for jmap_chat_types::SpaceBan
 pub fn jmap_chat_types::SpaceBan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceBan
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::SpaceBan
 impl jmap_types::backend::GetObject for jmap_chat_types::SpaceBan
 impl jmap_types::backend::JmapObject for jmap_chat_types::SpaceBan
 pub type jmap_chat_types::SpaceBan::Property = jmap_chat_types::SpaceBanProperty
@@ -1885,6 +1891,7 @@ pub fn jmap_chat_types::SpaceInvite::eq(&self, &jmap_chat_types::SpaceInvite) ->
 impl core::fmt::Debug for jmap_chat_types::SpaceInvite
 pub fn jmap_chat_types::SpaceInvite::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_chat_types::SpaceInvite
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::SpaceInvite
 impl jmap_types::backend::GetObject for jmap_chat_types::SpaceInvite
 impl jmap_types::backend::JmapObject for jmap_chat_types::SpaceInvite
 pub type jmap_chat_types::SpaceInvite::Property = jmap_chat_types::SpaceInviteProperty

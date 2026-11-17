@@ -28,6 +28,7 @@ calls these functions from its trait methods:
 | Backend method | Call |
 |---|---|
 | `FileNodeBackend::create_object::<FileNode>`, before the insert | `check_root_create` and `check_space_create` |
+| `ObjectHistoryBackend::restore_object::<FileNode>`, before the restore (draft-ietf-jmap-object-history §5.1 allows "any of the errors that can be returned by an update or create") | `check_root_create` and `check_space_create` |
 | `FileNodeBackend::update_object::<FileNode>`, before the write | `check_space_update` |
 | `FileNodeBackend::destroy_object::<FileNode>`, before the removal | `check_space_destroy` |
 | `FileNodeBackend::files_rights` | return `space_files_rights`; `FileNode/get` reports it as `myRights`, and `FileNode/set` and `FileNode/copy` report it in each `created` entry |

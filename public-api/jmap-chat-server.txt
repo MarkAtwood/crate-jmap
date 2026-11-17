@@ -9,6 +9,12 @@ pub use jmap_chat_server::SpaceProperty
 pub mod jmap_chat_server::memory
 #[non_exhaustive] pub struct jmap_chat_server::memory::MemoryBackend
 impl jmap_chat_server::memory::MemoryBackend
+pub fn jmap_chat_server::memory::MemoryBackend::discard_version_for_test(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id, u64)
+pub fn jmap_chat_server::memory::MemoryBackend::purge_object_history(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_chat_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
+pub fn jmap_chat_server::memory::MemoryBackend::set_rights_changed_at_for_test(&self, &str, &jmap_types::id::Id, i64)
+pub fn jmap_chat_server::memory::MemoryBackend::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self
+impl jmap_chat_server::memory::MemoryBackend
 pub fn jmap_chat_server::memory::MemoryBackend::new() -> Self
 pub fn jmap_chat_server::memory::MemoryBackend::seed_object(&self, &jmap_types::id::Id, &'static str, &jmap_types::id::Id, serde_json::value::Value)
 pub fn jmap_chat_server::memory::MemoryBackend::set_everyone_permissions(&self, std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>)
@@ -76,6 +82,12 @@ pub async fn jmap_chat_server::memory::MemoryBackend::query_changes<O: jmap_type
 pub async fn jmap_chat_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>
 impl jmap_server::conditional::ConditionalBackend for jmap_chat_server::memory::MemoryBackend
 pub async fn jmap_chat_server::memory::MemoryBackend::begin_set(&self, &(), jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_chat_server::memory::MemoryError>>
+impl jmap_server::history::ObjectHistoryBackend for jmap_chat_server::memory::MemoryBackend
+pub async fn jmap_chat_server::memory::MemoryBackend::get_object_history<O: jmap_object_history_types::HistoryObject>(&self, &(), &jmap_types::id::Id, jmap_server::history::HistoryGetParams<'_>) -> core::result::Result<jmap_server::history::HistoryGetResult<O>, jmap_server::backend::BackendQueryError<jmap_chat_server::memory::MemoryError>>
+pub fn jmap_chat_server::memory::MemoryBackend::object_history_capability(&self, &(), &jmap_types::id::Id) -> core::option::Option<jmap_object_history_types::ObjectHistoryAccountCapability>
+pub async fn jmap_chat_server::memory::MemoryBackend::query_destroyed<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &(), &jmap_types::id::Id, jmap_server::history::DestroyedQueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_chat_server::memory::MemoryError>>
+pub async fn jmap_chat_server::memory::MemoryBackend::query_destroyed_changes<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &(), &jmap_types::id::Id, jmap_server::history::DestroyedQueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_chat_server::memory::MemoryError>>
+pub async fn jmap_chat_server::memory::MemoryBackend::restore_object<O: jmap_object_history_types::HistoryObject + jmap_types::backend::SetObject>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::patch::PatchObject>) -> core::result::Result<jmap_server::history::Restored<O>, jmap_server::backend::BackendSetError<jmap_chat_server::memory::MemoryError>>
 impl jmap_server::push::PushSubscriptionBackend for jmap_chat_server::memory::MemoryBackend
 pub const jmap_chat_server::memory::MemoryBackend::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES: &'static [&'static str]
 pub async fn jmap_chat_server::memory::MemoryBackend::create_push_subscription(&self, &(), jmap_types::push::PushSubscription) -> core::result::Result<jmap_server::push::StoredPushSubscription, jmap_server::backend::BackendSetError<jmap_chat_server::memory::MemoryError>>
@@ -621,6 +633,7 @@ pub async fn jmap_chat_server::owner_unread_count<B: jmap_chat_server::ChatBacke
 pub async fn jmap_chat_server::project_presence<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::ephemeral::ChatPresenceEvent) -> core::result::Result<core::option::Option<jmap_chat_types::ephemeral::ChatPresenceEvent>, <B as jmap_server::backend::JmapBackend>::Error>
 pub fn jmap_chat_server::register_chat_conditional<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_chat_server::ChatBackend + jmap_server::conditional::ConditionalBackend + 'static
 pub fn jmap_chat_server::register_chat_handlers<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_chat_server::ChatBackend + 'static
+pub fn jmap_chat_server::register_chat_handlers_with_history<B>(&mut jmap_server::Dispatcher<<B as jmap_server::backend::JmapBackend>::CallerCtx>, alloc::sync::Arc<B>) where B: jmap_chat_server::ChatBackend + jmap_server::history::ObjectHistoryBackend + 'static
 pub fn jmap_chat_server::required_permissions_for_op(&jmap_chat_types::space_set::SpacePatchOp) -> jmap_chat_server::RequiredPermissions
 pub fn jmap_chat_server::resolve_channel_permissions(std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>, &str, &str, &std::collections::hash::set::HashSet<&str>, &[jmap_chat_types::chat::ChannelPermission]) -> std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>
 pub async fn jmap_chat_server::should_deliver_typing<B: jmap_chat_server::ChatBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::ephemeral::ChatTypingEvent) -> core::result::Result<bool, <B as jmap_server::backend::JmapBackend>::Error>

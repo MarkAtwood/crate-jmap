@@ -286,6 +286,9 @@ impl JmapObject for crate::Chat {
 }
 
 impl GetObject for crate::Chat {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for crate::Chat {}
 
 /// draft-atwood-jmap-chat-00 §Chat Object Fields (lines 580-664): `id` and
 /// `createdAt` are "immutable, server-set"; `closedAt`, `lastMessageAt`,
@@ -349,6 +352,9 @@ impl JmapObject for crate::Message {
 }
 
 impl GetObject for crate::Message {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for crate::Message {}
 
 /// draft-atwood-jmap-chat-00 §Message Object Fields (lines 683-777): `id`,
 /// `senderMsgId`, `senderId` and `receivedAt` are "immutable,
@@ -428,6 +434,9 @@ impl JmapObject for crate::Space {
 }
 
 impl GetObject for crate::Space {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for crate::Space {}
 
 /// draft-atwood-jmap-chat-00 §Space (lines 868-904): `id` and `createdAt`
 /// are "immutable, server-set"; `memberCount` and `closedAt` are
@@ -475,6 +484,9 @@ impl JmapObject for crate::ChatContact {
 }
 
 impl GetObject for crate::ChatContact {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for crate::ChatContact {}
 
 /// draft-atwood-jmap-chat-00 §ChatContact (lines 506-539): `id` is
 /// "immutable, server-set"; `login`, `firstSeenAt`, `lastSeenAt`,
@@ -531,6 +543,9 @@ impl JmapObject for crate::CustomEmoji {
 }
 
 impl GetObject for crate::CustomEmoji {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for crate::CustomEmoji {}
 
 /// draft-atwood-jmap-chat-00 §CustomEmoji (lines 917-932): `id`,
 /// `createdBy` and `createdAt` are "immutable, server-set".
@@ -554,6 +569,9 @@ impl JmapObject for crate::SpaceInvite {
 }
 
 impl GetObject for crate::SpaceInvite {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for crate::SpaceInvite {}
 
 /// draft-atwood-jmap-chat-00 §SpaceInvite (lines 939-963): `id`, `code`,
 /// `createdBy` and `createdAt` are "immutable, server-set"; `uses` is
@@ -572,6 +590,9 @@ impl JmapObject for crate::SpaceBan {
 }
 
 impl GetObject for crate::SpaceBan {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2;
+/// docs/design/DECISIONS.md decision 22).
+impl jmap_object_history_types::HistoryObject for crate::SpaceBan {}
 
 /// draft-atwood-jmap-chat-00 §SpaceBan (lines 970-988): `id`, `bannedBy`
 /// and `createdAt` are "immutable, server-set"; `spaceId` and `userId` are
@@ -815,5 +836,33 @@ mod tests {
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5, 14 and 22: the seven chat-00 types with "Supports
+    /// History: Yes" implement `HistoryObject`; ReadPosition and
+    /// PresenceStatus do not.
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [
+            has::<crate::Chat>(),
+            has::<crate::Message>(),
+            has::<crate::Space>(),
+            has::<crate::ChatContact>(),
+            has::<crate::CustomEmoji>(),
+            has::<crate::SpaceInvite>(),
+            has::<crate::SpaceBan>(),
+        ] {
+            assert!(is_history_type(name), "{name}");
+        }
+        for name in ["ReadPosition", "PresenceStatus"] {
+            assert!(!is_history_type(name), "{name}");
+        }
     }
 }

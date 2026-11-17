@@ -25,6 +25,7 @@ memory = [
     "dep:getrandom",
     "dep:ulid",
     "dep:jmap-metadata-server",
+    "dep:jmap-object-history-server",
     "jmap-server/scoped-state",
 ]
 # Test-only seams on MemoryBackend (the `*_for_test` methods): seeding and
@@ -67,6 +68,8 @@ getrandom = { workspace = true, optional = true }
 ulid = { version = "1", optional = true }
 # draft-ietf-jmap-metadata-05 helpers the MemoryBackend wires in (JMAP-s4kp.2).
 jmap-metadata-server = { workspace = true, optional = true }
+jmap-object-history-server = { workspace = true, optional = true }
+jmap-object-history-types = { workspace = true }
 # Multi-thread runtime for the `testkit` conformance suite, so its
 # concurrency tests race on real threads.
 tokio = { workspace = true, optional = true, features = ["rt", "rt-multi-thread"] }

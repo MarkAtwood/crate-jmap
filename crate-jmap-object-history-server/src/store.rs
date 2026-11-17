@@ -194,6 +194,23 @@ impl HistoryStore {
         }
     }
 
+    /// Discard all history of each `type_name` object whose newest
+    /// retained version satisfies `pred` (a type rule that hard-deletes
+    /// records with their history); destroyed ones leave the destroyed set.
+    pub fn purge_where(&mut self, type_name: &str, account: &Id, pred: impl FnMut(&Value) -> bool) {
+        let destroyed: Vec<Id> = self
+            .log
+            .destroyed_objects(type_name, account)
+            .into_iter()
+            .map(|d| d.id)
+            .collect();
+        for id in self.log.purge_where(type_name, account, pred) {
+            if destroyed.contains(&id) {
+                self.destroyed_changed(type_name, account, &id);
+            }
+        }
+    }
+
     /// The §3 selection: for each of `ids` (or, for `None`, every live id
     /// and, with `includeDestroyed`, every destroyed one), the selected
     /// (snapshot, objectHistory) pairs, and the ids not found. `live` is

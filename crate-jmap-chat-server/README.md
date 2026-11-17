@@ -461,6 +461,27 @@ To use this:
 Backends that don't need an auth identity use `type CallerCtx = ();` and a
 `Dispatcher<()>`. Both shapes register the same way.
 
+## Object history (draft-ietf-jmap-object-history-03)
+
+`register_chat_handlers_with_history(dispatcher, backend)`, for a backend
+that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_chat_handlers` and re-registers history-aware `/get` and `/set`
+of Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan and
+SpaceInvite and `/query`, `/queryChanges` of the first five (each wraps
+the unchanged plain handler). ReadPosition and PresenceStatus keep no
+history, so the dispatcher refuses history arguments for them
+(docs/design/DECISIONS.md decision 22).
+
+Two chat-00 rules (decision 22), which a backend follows and the memory
+backend implements: a Message's versions are purged when it is deleted
+(`deletedAt`) or hard-deleted (destroy, expiry, burn on read), so a
+Message is never a destroyed object; and a Space destroy purges the
+history of the Space and of everything in it, so a Space restore is
+always `notFound`. `MemoryBackend::with_object_history(capability,
+retention)` turns history on; a restore needs the referenced Space to
+exist and a CustomEmoji name to be free; destroyed queries take no filter
+or sort here.
+
 ## Gotchas
 
 - **Direct chat deduplication is eventually consistent.** The `Chat/set` create handler uses optimistic create-then-validate to detect duplicate Direct chats. Under concurrent load two clients may both successfully create the same Direct chat; the loser's write is rolled back and it receives `alreadyExists`, but the duplicate briefly exists. Backends can eliminate this window by enforcing uniqueness atomically in `create_object`.

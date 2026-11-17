@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: object history for Chat, Message, Space,
+  ChatContact, CustomEmoji, SpaceBan and SpaceInvite:
+  `register_chat_handlers_with_history`; the memory backend's
+  `with_object_history`, which purges a Message's versions on delete or
+  hard delete and a Space's whole history on its destroy (chat-00,
+  decision 22). **jmap-chat-types**: `HistoryObject` for the seven types.
+  **jmap-object-history-server**: `VersionLog::purge_where` and
+  `HistoryStore::purge_where`. (bd:JMAP-tna1.3.18)
 - **jmap-tasks-server**: object history for TaskList and Task (ahead of
   their registration, decision 23): `register_tasks_handlers_with_history`
   and the `handle_*_with_history` handlers; the memory backend's

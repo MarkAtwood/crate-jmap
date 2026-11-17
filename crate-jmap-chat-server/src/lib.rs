@@ -76,6 +76,7 @@ mod emoji;
 mod ephemeral;
 mod expiry;
 mod helpers;
+mod history;
 mod invite;
 /// In-memory reference implementation of [`ChatBackend`].
 ///
@@ -114,6 +115,7 @@ pub use ephemeral::{
     CompanionStreams, EphemeralSubscription, IdScope, project_presence, should_deliver_typing,
 };
 pub use expiry::sweep_expired;
+pub use history::register_chat_handlers_with_history;
 pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
 pub use jmap_chat_types::{
     ChatContactProperty, ChatProperty, MessageProperty, ReadPositionProperty, SpaceProperty,

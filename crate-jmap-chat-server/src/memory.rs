@@ -59,6 +59,8 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod history;
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
@@ -72,6 +74,7 @@ use jmap_metadata_server::{
     changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
 };
 use jmap_metadata_types::DataTypeMetadataInfo;
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
@@ -129,6 +132,9 @@ struct ChangeEntry {
     /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
     /// `updatedProperties`.
     updated_props: Option<BTreeSet<String>>,
+    /// Ids restored from object history (draft-ietf-jmap-object-history
+    /// §5.1).
+    restored: Vec<Id>,
 }
 
 impl ChangeEntry {
@@ -214,6 +220,9 @@ struct Inner {
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+    /// Object history, once `MemoryBackend::with_object_history` turns it
+    /// on.
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 /// One lifecycle callback received by the [`MemoryBackend`], as
@@ -1017,7 +1026,9 @@ impl JmapBackend for MemoryBackend {
             let mut ids = 0u64;
             if let Some(cut) = relevant.iter().position(|e| {
                 if !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()) {
-                    ids += (e.created.len() + e.updated.len() + e.destroyed.len()) as u64;
+                    ids +=
+                        (e.created.len() + e.updated.len() + e.destroyed.len() + e.restored.len())
+                            as u64;
                 }
                 ids > max
             }) {
@@ -1075,6 +1086,44 @@ impl JmapBackend for MemoryBackend {
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
         let mut destroyed: Vec<Id> = Vec::new();
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for entry in &relevant {
+            for (ids, event) in [
+                (&entry.created, ChangeEvent::Created),
+                (&entry.updated, ChangeEvent::Updated),
+                (&entry.destroyed, ChangeEvent::Destroyed),
+                (&entry.restored, ChangeEvent::Restored),
+            ] {
+                for id in ids {
+                    events.entry(id.clone()).or_default().push(event);
+                }
+            }
+        }
+        for (id, list) in &events {
+            if !list.contains(&ChangeEvent::Restored) {
+                continue;
+            }
+            let fate = match fold_restore(list) {
+                Some(ChangeKind::Created) => IdFate::Created,
+                Some(ChangeKind::Destroyed) => IdFate::Destroyed,
+                Some(_) => {
+                    // A restore is never metadata-only.
+                    window_props.record(id.as_ref(), None);
+                    IdFate::Updated
+                }
+                None => {
+                    fates.remove(id);
+                    continue;
+                }
+            };
+            if fates.insert(id.clone(), fate).is_none() {
+                order.push(id.clone());
+            }
+        }
+
         // `fates.remove` emits each id once and skips ids omitted above.
         for id in order {
             match fates.remove(&id) {
@@ -1392,6 +1441,18 @@ impl ChatBackend for MemoryBackend {
         } else {
             Vec::new()
         };
+        // Object history: a Message deleted with `deletedAt` loses its
+        // versions (chat-00 §Message, decision 22); anything else records
+        // the version this update replaces.
+        let previous = inner
+            .objects_ref(O::TYPE_NAME, account_id.as_ref())
+            .and_then(|m| m.get(id))
+            .cloned();
+        if O::TYPE_NAME == "Message" && current.get("deletedAt").is_some_and(|v| !v.is_null()) {
+            inner.purge_message_history(account_id, id);
+        } else if let (Some(h), Some(previous)) = (inner.history.as_mut(), previous) {
+            h.record_replace(O::TYPE_NAME, account_id, id, previous);
+        }
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1403,6 +1464,7 @@ impl ChatBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: Some(changed),
             });
         record_thread_count_changes(&mut inner, account_id.as_ref(), unread_changed);
@@ -1440,13 +1502,37 @@ impl ChatBackend for MemoryBackend {
             }
         }
 
+        // The Space's Chats, before the cascade removes them.
+        let space_chats: Vec<Id> = if O::TYPE_NAME == "Space" {
+            inner
+                .objects_ref("Chat", account_id.as_ref())
+                .map(|chats| {
+                    chats
+                        .iter()
+                        .filter(|(_, c)| {
+                            c.get("spaceId").and_then(|v| v.as_str()) == Some(id.as_ref())
+                        })
+                        .map(|(k, _)| k.clone())
+                        .collect()
+                })
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         let removed = if O::TYPE_NAME == "Message" {
+            // Purges the Message's history (chat-00 §Message).
             hard_delete_message(&mut inner, account_id.as_ref(), id)
         } else {
-            inner
+            let last = inner
                 .objects_mut(O::TYPE_NAME, account_id.as_ref())
-                .remove(id)
-                .is_some()
+                .remove(id);
+            if let Some(last) = &last
+                && O::TYPE_NAME != "Space"
+                && let Some(h) = inner.history.as_mut()
+            {
+                h.record_destroy(O::TYPE_NAME, account_id, id, last.clone());
+            }
+            last.is_some()
         };
 
         if !removed {
@@ -1462,10 +1548,12 @@ impl ChatBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![id.clone()],
+                restored: vec![],
                 updated_props: None,
             });
         if O::TYPE_NAME == "Space" {
             destroy_space_channels(&mut inner, account_id.as_ref(), id);
+            inner.purge_space_history(account_id, id, &space_chats);
         }
         if O::TYPE_NAME == "Chat" {
             destroy_read_positions(&mut inner, account_id.as_ref(), std::slice::from_ref(id));
@@ -1583,6 +1671,7 @@ impl ChatBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
         }
@@ -2165,6 +2254,7 @@ impl ChatBackend for MemoryBackend {
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![message_id.clone()],
+                    restored: vec![],
                     updated_props: None,
                 });
         }
@@ -2195,6 +2285,7 @@ impl ChatBackend for MemoryBackend {
             created: vec![],
             updated: vec![],
             destroyed: vec![message_id.clone()],
+            restored: vec![],
             updated_props: None,
         });
         Ok(())
@@ -2567,6 +2658,7 @@ fn insert_created(
             created: vec![server_id.clone()],
             updated: vec![],
             destroyed: vec![],
+            restored: vec![],
             updated_props: None,
         });
     record_thread_count_changes(
@@ -2608,6 +2700,9 @@ fn check_metadata_create(
 /// `replyTo` parent's `replyCount` change; the caller records the
 /// `Message` destroy. Returns whether the Message existed.
 fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
+    // chat-00 §Message (decision 22): a hard-deleted Message keeps no
+    // versions, whatever removed it (destroy, expiry, burn on read).
+    inner.purge_message_history(&Id::from(account_id), id);
     let Some(msg) = inner.objects_mut("Message", account_id).remove(id) else {
         return false;
     };
@@ -2632,6 +2727,7 @@ fn hard_delete_message(inner: &mut Inner, account_id: &str, id: &Id) -> bool {
             created: vec![],
             updated: vec![chat_id],
             destroyed: vec![],
+            restored: vec![],
             updated_props: None,
         });
     }
@@ -2715,6 +2811,7 @@ fn record_thread_count_changes(inner: &mut Inner, account_id: &str, ids: Vec<Id>
             created: vec![],
             updated: ids,
             destroyed: vec![],
+            restored: vec![],
             updated_props: None,
         });
 }
@@ -2759,6 +2856,7 @@ fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
         created: vec![],
         updated: vec![],
         destroyed: chat_ids,
+        restored: vec![],
         updated_props: None,
     });
     if !message_ids.is_empty() {
@@ -2770,6 +2868,7 @@ fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
                 created: vec![],
                 updated: vec![],
                 destroyed: message_ids,
+                restored: vec![],
                 updated_props: None,
             });
     }
@@ -2971,6 +3070,7 @@ fn apply_space_patch_impl(
                 created: vec![],
                 updated: vec![space_id.clone()],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
     }
@@ -2999,6 +3099,7 @@ fn apply_space_patch_impl(
                 created: chats_created,
                 updated,
                 destroyed: chats_destroyed,
+                restored: vec![],
                 updated_props: None,
             });
     }
@@ -3012,6 +3113,7 @@ fn apply_space_patch_impl(
                 created: vec![],
                 updated: vec![],
                 destroyed: messages_destroyed,
+                restored: vec![],
                 updated_props: None,
             });
     }
@@ -3147,6 +3249,7 @@ fn apply_space_metadata_patch_impl(
             created: vec![],
             updated: vec![space_id.clone()],
             destroyed: vec![],
+            restored: vec![],
             updated_props: None,
         });
 
@@ -5600,6 +5703,7 @@ fn destroy_read_positions(inner: &mut Inner, account_id: &str, chat_ids: &[Id]) 
             created: vec![],
             updated: vec![],
             destroyed: doomed,
+            restored: vec![],
             updated_props: None,
         });
 }
@@ -5830,6 +5934,7 @@ mod tests {
                 created: vec![id("eph"), id("fresh")],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
             log.push(ChangeEntry {
@@ -5837,6 +5942,7 @@ mod tests {
                 created: vec![],
                 updated: vec![id("fresh"), id("old"), id("doomed")],
                 destroyed: vec![id("eph")],
+                restored: vec![],
                 updated_props: None,
             });
             log.push(ChangeEntry {
@@ -5844,6 +5950,7 @@ mod tests {
                 created: vec![],
                 updated: vec![id("old")],
                 destroyed: vec![id("doomed"), id("gone")],
+                restored: vec![],
                 updated_props: None,
             });
         }
@@ -5879,6 +5986,7 @@ mod tests {
                 created: vec![id("burnt"), id("kept")],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
             log.push(ChangeEntry {
@@ -5886,6 +5994,7 @@ mod tests {
                 created: vec![],
                 updated: vec![id("burnt")],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
             log.push(ChangeEntry {
@@ -5893,6 +6002,7 @@ mod tests {
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![id("burnt")],
+                restored: vec![],
                 updated_props: None,
             });
         }
@@ -6192,6 +6302,7 @@ mod max_changes_tests {
                     created: ids.iter().map(|s| Id::from(*s)).collect(),
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 });
         }
