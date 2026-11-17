@@ -177,6 +177,23 @@ compares a new `verificationCode` in constant time, and limits `expires` to
 verification code, enforces the per-user cap, and may reject a create by
 policy with its own `SetError`, which reaches the response verbatim.
 
+The `history` module serves draft-ietf-jmap-object-history-03 (with the
+-04 editor's copy changes, `docs/design/object-history.md` §2a) for data
+types that opt in. `ObjectHistoryBackend: JmapBackend` has five required
+hooks: `object_history_capability`, `get_object_history`,
+`query_destroyed`, `query_destroyed_changes` and `restore_object`.
+`handle_get_with_history`, `handle_query_with_history` and
+`handle_query_changes_with_history` fall through to the plain handlers
+when no history argument is set. A data-type crate's history-aware
+`Foo/set` calls `parse_restore_argument`,
+`enforce_max_objects_in_set_with_restore` and `run_restore_phase` (with
+its `RestoreHooks`, e.g. `ParentRestoreHooks("parentId")` for
+referenced-first order) before its create stage, and
+`append_restore_results` at the end; `apply_restore_patch` and
+`restored_diff` help backends. `Dispatcher::register_history_aware` marks a
+method, and `Dispatcher::object_history_gaps` lists the methods of
+advertised types that are not history-aware.
+
 `is_deliverable` and `state_change_for` tell the consumer's delivery code
 whether it may push to a subscription, and what `StateChange` to send.
 Sending the pushes, and the SSRF, rate-limit, credential-revocation and
@@ -218,6 +235,11 @@ and the typed access paths a real server would consume.
 - **`CallerCtx` is cloned per method call.** `Dispatcher::dispatch` performs one `Clone` of the `CallerCtx` value per method in the batch, plus two `String` clones for the method name and call_id (bd:JMAP-jfia.8). Heavy `CallerCtx` values — auth profiles, permission vectors, session tokens, anything embedding more than a pointer or a small POD — should be wrapped in `Arc<T>` so the per-call clone is a pointer bump rather than a deep copy. A 16-call batch over a non-`Arc`-wrapped `CallerCtx` pays 16 deep clones.
 - **`sortAsTree` and `filterAsTree` are RFC 8621-specific.** Those two args are defined by RFC 8621 §5 for `Email/query`, not by the base protocol. The generic `handle_query` handler in this crate has no knowledge of them and per RFC 8620 §3.6 silently ignores unknown args. Tree-mode traversal, when needed, must be implemented in a domain-specific handler (see `handle_email_query` in jmap-mail-server).
 - **Filter / sort are delegated to the backend.** `handle_query` parses `filter` and `sort` from method args into the backend trait's `O::Filter` and `O::Comparator` types and passes them through to [`JmapBackend::query_objects`]. The handler does no in-process re-filtering or re-sorting. The backend MUST push filter and sort into indexed storage — that contract is documented on `JmapBackend::query_objects` and a backend that ignores it degenerates to O(n) per page.
+- **History arguments are parsed by the history handlers only.** Without
+  `urn:ietf:params:jmap:object-history` in `using`, they reject a true
+  flag, `onlyDestroyed`, a non-null window or a non-empty `restore` with
+  `invalidArguments`; the plain handlers ignore them until the
+  dispatcher-wide check (bd JMAP-tna1.3.25) lands.
 - **Single-process only.** The dispatcher holds no shared state between requests and is safe to use concurrently; however, there is no built-in clustering support. State consistency across multiple processes is the backend's responsibility.
 
 ## References

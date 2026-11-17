@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: object history (draft-ietf-jmap-object-history-03 with
+  the -04 editor's copy changes): the `ObjectHistoryBackend` trait (five
+  required hooks), `handle_get_with_history`, `handle_query_with_history`
+  and `handle_query_changes_with_history` (onlyDestroyed and its window on
+  queryChanges, per -04), the restore stage for a data type's `Foo/set`
+  (`parse_restore_argument`, `run_restore_phase` with `RestoreHooks` and
+  referenced-first order, `apply_restore_patch`, `restored_diff`,
+  `append_restore_results`, `enforce_max_objects_in_set_with_restore`),
+  and `Dispatcher::register_history_aware` / `object_history_gaps`. A
+  plain `register` clears the history-aware mark. No change for
+  deployments that do not opt in. (bd:JMAP-tna1.3.3)
 - **jmap-object-history-server**: pure helpers for history-keeping
   backends: `select_versions` (§3 selection), `VersionLog` (retention,
   `expires`, equal-millisecond collapse, oldest-first pruning, the -04

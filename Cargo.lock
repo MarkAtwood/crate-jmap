@@ -2479,6 +2479,7 @@ dependencies = [
  "criterion",
  "http",
  "jmap-metadata-types",
+ "jmap-object-history-types",
  "jmap-types",
  "serde",
  "serde_json",

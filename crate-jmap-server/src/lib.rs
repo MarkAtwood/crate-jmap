@@ -36,6 +36,7 @@ mod backend;
 mod conditional;
 mod handlers;
 mod helpers;
+mod history;
 mod i18n;
 
 pub use backend::{
@@ -65,6 +66,16 @@ pub use helpers::{
     reject_server_set, resolve_blob_ref, resolve_blob_refs, resolve_creation_ref,
     resolve_query_offset, resolve_query_start, resolve_set_id_refs, serialize_value,
     strip_read_only_patch, take_bool_arg, uses_metadata, utc_date_from_epoch_seconds,
+};
+pub use history::{
+    DestroyedQueryChangesParams, DestroyedQueryParams, HistoryGetParams, HistoryGetResult,
+    NoRestoreHooks, OBJECT_HISTORY_PROPERTY, ObjectHistoryBackend, ParentRestoreHooks,
+    RestoreAccumulators, RestoreHooks, Restored, append_restore_results, apply_restore_patch,
+    attach_object_history, enforce_max_objects_in_set_with_restore, handle_get_with_history,
+    handle_query_changes_with_history, handle_query_with_history, names_object_history,
+    object_history_set_error, parse_destroyed_query_arguments, parse_history_get_arguments,
+    parse_restore_argument, require_history_support, restored_diff, run_restore_phase,
+    strip_object_history_property,
 };
 pub use i18n::{
     I18nInfo, I18nProjection, I18nSet, localized_query_state, localized_update, unwrap_query_state,
@@ -311,6 +322,8 @@ pub struct Dispatcher<CallerCtx> {
     guard: Option<MethodGuard<CallerCtx>>,
     /// Conditional-02 support attached per Foo/set method name.
     set_support: HashMap<String, SetSupport<CallerCtx>>,
+    /// Methods registered through [`Dispatcher::register_history_aware`].
+    history_aware: BTreeSet<String>,
 }
 
 type MethodGuard<CallerCtx> = Box<dyn Fn(&str, &CallerCtx) -> Result<(), JmapError> + Send + Sync>;
@@ -343,6 +356,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             handlers: HashMap::new(),
             guard: None,
             set_support: HashMap::new(),
+            history_aware: BTreeSet::new(),
         }
     }
 
@@ -383,8 +397,9 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     /// shared across multiple method name registrations (via `Arc::clone`).
     ///
     /// Drops any conditional support attached to `method`
-    /// ([`Dispatcher::attach_set_support`]): the new handler must opt in
-    /// again.
+    /// ([`Dispatcher::attach_set_support`]) and any history-aware mark
+    /// ([`Dispatcher::register_history_aware`]): the new handler must opt
+    /// in again.
     pub fn register(
         &mut self,
         method: impl Into<String>,
@@ -392,6 +407,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     ) {
         let method = method.into();
         self.set_support.remove(&method);
+        self.history_aware.remove(&method);
         self.handlers.insert(method, handler);
     }
 

@@ -76,7 +76,7 @@ crates, never in a support crate.
 | `crate-jmap-jscontact-types/` | `jmap-jscontact-types` | RFC 9553 JSContact typed sub-types — shared foundation, consumed by Contacts. No async, no JMAP dep |
 | `crate-jmap-mail-types/` | `jmap-mail-types` | RFC 8621 data types, no async |
 | `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
-| `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers; conditional-02 evaluator, `ConditionalBackend`, `ScopedState` (feature `scoped-state`) |
+| `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers; conditional-02 evaluator, `ConditionalBackend`, `ScopedState` (feature `scoped-state`); object-history `history` module (`ObjectHistoryBackend`, history get/query/queryChanges handlers, `run_restore_phase`, `register_history_aware`/`object_history_gaps`) |
 | `crate-jmap-base-client/` | `jmap-base-client` | RFC 8620 base client: auth, session, blob, SSE, WebSocket; conditional `SetCall` |
 | `crate-jmap-mime/` | `jmap-mime` | MIME adapter: mime-tree → jmap-mail-types, and the RFC 5322 / MIME writer for Email/set create (greenfield) |
 | `crate-jmap-mail-server/` | `jmap-mail-server` | RFC 8621 method handlers (greenfield) |

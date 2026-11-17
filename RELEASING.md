@@ -40,10 +40,10 @@ below). A crate's own self-dev-dependency is not an ordering edge.
 | Layer | Crates |
 |---|---|
 | 1 | `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-client`, `jmap-metadata-types`, `jmap-object-history-client`, `jmap-types` |
-| 2 | `jmap-blob-types`, `jmap-contacts-types`, `jmap-did-types`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-jscalendar-types`, `jmap-mail-types`, `jmap-metadata-server`, `jmap-object-history-types`, `jmap-quotas-types`, `jmap-scene-types`, `jmap-server`, `jmap-sharing-types`, `jmap-vtc-types`, `jmap-web-push` |
-| 3 | `jmap-base-client`, `jmap-blob-server`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-server`, `jmap-did-resolver`, `jmap-filenode-server`, `jmap-graph-server`, `jmap-mime`, `jmap-object-history-server`, `jmap-peer-auth`, `jmap-quotas-server`, `jmap-scene-server`, `jmap-sharing-server`, `jmap-tasks-types`, `jmap-vtc-server` |
-| 4 | `jmap-blob-client`, `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-scene-server`, `jmap-chat-server`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-graph-client`, `jmap-mail-client`, `jmap-mail-server`, `jmap-peer-auth-io`, `jmap-quotas-client`, `jmap-scene-client`, `jmap-scene-vtc-server`, `jmap-sharing-client`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client` |
-| 5 | `jmap-blob`, `jmap-chat-calendars-server`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-graph-projection-server`, `jmap-quotas` |
+| 2 | `jmap-blob-types`, `jmap-contacts-types`, `jmap-did-types`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-jscalendar-types`, `jmap-mail-types`, `jmap-metadata-server`, `jmap-object-history-types`, `jmap-quotas-types`, `jmap-scene-types`, `jmap-sharing-types`, `jmap-vtc-types`, `jmap-web-push` |
+| 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-did-resolver`, `jmap-mime`, `jmap-object-history-server`, `jmap-peer-auth`, `jmap-server`, `jmap-tasks-types` |
+| 4 | `jmap-blob-client`, `jmap-blob-server`, `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-server`, `jmap-contacts-client`, `jmap-contacts-server`, `jmap-filenode-client`, `jmap-filenode-server`, `jmap-graph-client`, `jmap-graph-server`, `jmap-mail-client`, `jmap-mail-server`, `jmap-peer-auth-io`, `jmap-quotas-client`, `jmap-quotas-server`, `jmap-scene-client`, `jmap-scene-server`, `jmap-sharing-client`, `jmap-sharing-server`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client`, `jmap-vtc-server` |
+| 5 | `jmap-blob`, `jmap-chat-calendars-server`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-scene-server`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-graph-projection-server`, `jmap-quotas`, `jmap-scene-vtc-server` |
 
 Crates within the same layer have no dependencies on each other. Direct
 `jmap-*` edges per crate (dev-dependencies that are not also normal
@@ -68,57 +68,57 @@ dependencies are listed separately):
 | `jmap-object-history-types` | 2 | `jmap-types` | (none) |
 | `jmap-quotas-types` | 2 | `jmap-types` | (none) |
 | `jmap-scene-types` | 2 | `jmap-types` | (none) |
-| `jmap-server` | 2 | `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-sharing-types` | 2 | `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-vtc-types` | 2 | `jmap-types` | (none) |
 | `jmap-web-push` | 2 | `jmap-types` | (none) |
 | `jmap-base-client` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-types` | (none) |
-| `jmap-blob-server` | 3 | `jmap-blob-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-chat-types` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-types` | (none) |
-| `jmap-contacts-server` | 3 | `jmap-contacts-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-did-resolver` | 3 | `jmap-did-types`, `jmap-types` | (none) |
-| `jmap-filenode-server` | 3 | `jmap-cid-types`, `jmap-filenode-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
-| `jmap-graph-server` | 3 | `jmap-graph-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-mime` | 3 | `jmap-mail-types`, `jmap-types` | (none) |
 | `jmap-object-history-server` | 3 | `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-peer-auth` | 3 | `jmap-did-types` | (none) |
-| `jmap-quotas-server` | 3 | `jmap-quotas-types`, `jmap-server`, `jmap-types` | (none) |
-| `jmap-scene-server` | 3 | `jmap-scene-types`, `jmap-server`, `jmap-types` | (none) |
-| `jmap-sharing-server` | 3 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-sharing-types`, `jmap-types` | (none) |
+| `jmap-server` | 3 | `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-tasks-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-types` | (none) |
-| `jmap-vtc-server` | 3 | `jmap-server`, `jmap-types`, `jmap-vtc-types` | (none) |
 | `jmap-blob-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-types` | (none) |
+| `jmap-blob-server` | 4 | `jmap-blob-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-calendars-client` | 4 | `jmap-base-client`, `jmap-calendars-types`, `jmap-types` | `jmap-metadata-types` |
 | `jmap-calendars-server` | 4 | `jmap-calendars-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-chat-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-chat-types`, `jmap-types` | `jmap-metadata-types` |
 | `jmap-chat-federation-types` | 4 | `jmap-chat-types`, `jmap-cid-types`, `jmap-types` | `jmap-base-client` |
 | `jmap-chat-mimi-types` | 4 | `jmap-types` | `jmap-chat-types` |
-| `jmap-chat-scene-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types` | (none) |
 | `jmap-chat-server` | 4 | `jmap-chat-types`, `jmap-did-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-contacts-client` | 4 | `jmap-base-client`, `jmap-contacts-types`, `jmap-types` | (none) |
+| `jmap-contacts-server` | 4 | `jmap-contacts-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-filenode-client` | 4 | `jmap-base-client`, `jmap-filenode-types`, `jmap-types` | (none) |
+| `jmap-filenode-server` | 4 | `jmap-cid-types`, `jmap-filenode-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-graph-client` | 4 | `jmap-base-client`, `jmap-graph-types`, `jmap-types` | (none) |
+| `jmap-graph-server` | 4 | `jmap-graph-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-mail-client` | 4 | `jmap-base-client`, `jmap-mail-types`, `jmap-types` | `jmap-metadata-types` |
 | `jmap-mail-server` | 4 | `jmap-mail-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-mime`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-peer-auth-io` | 4 | `jmap-peer-auth` | (none) |
 | `jmap-quotas-client` | 4 | `jmap-base-client`, `jmap-quotas-types`, `jmap-types` | (none) |
+| `jmap-quotas-server` | 4 | `jmap-quotas-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-scene-client` | 4 | `jmap-base-client`, `jmap-cid-types`, `jmap-scene-types`, `jmap-types` | (none) |
-| `jmap-scene-vtc-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-server`, `jmap-types`, `jmap-vtc-types` | `jmap-vtc-server` |
+| `jmap-scene-server` | 4 | `jmap-scene-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-sharing-client` | 4 | `jmap-base-client`, `jmap-sharing-types`, `jmap-types` | (none) |
+| `jmap-sharing-server` | 4 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-sharing-types`, `jmap-types` | (none) |
 | `jmap-tasks-client` | 4 | `jmap-base-client`, `jmap-tasks-types`, `jmap-types` | (none) |
 | `jmap-tasks-server` | 4 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-tasks-types`, `jmap-types` | (none) |
 | `jmap-vtc-client` | 4 | `jmap-base-client`, `jmap-types`, `jmap-vtc-types` | (none) |
+| `jmap-vtc-server` | 4 | `jmap-server`, `jmap-types`, `jmap-vtc-types` | (none) |
 | `jmap-blob` | 5 | `jmap-blob-client`, `jmap-blob-server`, `jmap-blob-types` | (none) |
 | `jmap-chat-calendars-server` | 5 | `jmap-calendars-server`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-server`, `jmap-types` | `jmap-chat-server` |
 | `jmap-chat-federation-server` | 5 | `jmap-chat-federation-types`, `jmap-chat-server`, `jmap-chat-types`, `jmap-cid-types`, `jmap-peer-auth`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-chat-filenode-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-filenode-server`, `jmap-filenode-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-chat-mimi-client` | 5 | `jmap-base-client`, `jmap-chat-mimi-types`, `jmap-types` | (none) |
 | `jmap-chat-mimi-server` | 5 | `jmap-chat-mimi-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-chat-scene-server` | 5 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types` | (none) |
 | `jmap-chat-tasks-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-server`, `jmap-tasks-server`, `jmap-tasks-types`, `jmap-types` | (none) |
 | `jmap-chat-vtc-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-server`, `jmap-types`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
 | `jmap-graph-projection-server` | 5 | `jmap-contacts-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-server`, `jmap-types` | `jmap-mail-server` |
 | `jmap-quotas` | 5 | `jmap-quotas-client`, `jmap-quotas-server`, `jmap-quotas-types` | (none) |
+| `jmap-scene-vtc-server` | 5 | `jmap-scene-server`, `jmap-scene-types`, `jmap-server`, `jmap-types`, `jmap-vtc-types` | `jmap-vtc-server` |
 
 To recheck after a manifest change, list each publishable crate's
 `jmap-*` edges:
