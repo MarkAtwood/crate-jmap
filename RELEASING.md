@@ -88,7 +88,7 @@ dependencies are listed separately):
 | `jmap-blob-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-types` | (none) |
 | `jmap-calendars-client` | 4 | `jmap-base-client`, `jmap-calendars-types`, `jmap-types` | `jmap-metadata-types` |
 | `jmap-calendars-server` | 4 | `jmap-calendars-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
-| `jmap-chat-client` | 4 | `jmap-base-client`, `jmap-chat-types`, `jmap-types` | `jmap-metadata-types` |
+| `jmap-chat-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-chat-types`, `jmap-types` | `jmap-metadata-types` |
 | `jmap-chat-federation-types` | 4 | `jmap-chat-types`, `jmap-cid-types`, `jmap-types` | `jmap-base-client` |
 | `jmap-chat-mimi-types` | 4 | `jmap-types` | `jmap-chat-types` |
 | `jmap-chat-scene-server` | 4 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types` | (none) |

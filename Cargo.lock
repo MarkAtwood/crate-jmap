@@ -1912,6 +1912,7 @@ dependencies = [
  "chrono",
  "futures",
  "jmap-base-client",
+ "jmap-blob-types",
  "jmap-chat-types",
  "jmap-metadata-types",
  "jmap-types",

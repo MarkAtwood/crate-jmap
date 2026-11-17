@@ -577,6 +577,11 @@ impl SessionClient {
         ))
     }
 
+    /// The account named with [`Self::for_account`], if any.
+    pub(crate) fn explicit_account_id(&self) -> Option<&jmap_types::Id> {
+        self.account_id.as_ref()
+    }
+
     /// The JMAP API URL from the bound session.
     pub(crate) fn api_url(&self) -> &str {
         self.session.api_url.as_str()

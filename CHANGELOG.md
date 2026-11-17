@@ -638,6 +638,24 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-client**: `SessionClient::blob_lookup` takes
+  `type_names: &[&str]` instead of `Option<&[&str]>`, and always sends
+  `typeNames` as an array: draft-ietf-jmap-blobext-03 §6 makes it a
+  required `String[]`, so the old `None` (`"typeNames": null`) was not
+  valid. (bd:JMAP-tna1.1)
+- **BREAKING** **jmap-chat-client**: `BlobLookupResponse.not_found` is
+  gone; blobext-03 §6 has no `notFound` (an unknown blob is listed with
+  empty `matchedIds`). A server that still sends it lands in `extra`.
+  (bd:JMAP-tna1.1)
+- **jmap-chat-client**: `blob_lookup` and `blob_convert` target the
+  session's `urn:ietf:params:jmap:blob2` primary account (or the one
+  named with `for_account`), not the chat account, via the new
+  `SessionClient::blob_account_id`; a session without one is
+  `InvalidSession`. `blob_lookup`'s `using` adds
+  `urn:ietf:params:jmap:chat`, so `"Message"` is not `unknownDataType`.
+  `BlobObject` gains `expires`, `isIncomplete`, `description` and
+  `entries` (blobext-03 §7, §8, §8.4); `size: null` still parses. Docs
+  cite blobext-03. (bd:JMAP-tna1.1)
 - **jmap-server** (wire behaviour, every deployment): a `*/set` with
   `atomic: true` or a non-empty `ifUnchangedBy` and no
   `urn:ietf:params:jmap:conditional` in `using` now fails with

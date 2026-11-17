@@ -10,10 +10,9 @@
 //! # async fn example(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
 //! let session = client.fetch_session().await?;
 //! let sc = client.with_chat_session(session);
-//! // Look up previously-uploaded blobs by their content-addressed hashes.
-//! // Pass `type_names: None` to accept any MIME type.
-//! let blob_ids = [Id::from("sha256-...")];
-//! let resolved = sc.blob_lookup(&blob_ids, None).await?;
+//! // Which Messages reference these blobs (draft-ietf-jmap-blobext-03 §6)?
+//! let blob_ids = [Id::from("B1")];
+//! let resolved = sc.blob_lookup(&blob_ids, &["Message"]).await?;
 //! # let _ = resolved;
 //! # Ok(())
 //! # }

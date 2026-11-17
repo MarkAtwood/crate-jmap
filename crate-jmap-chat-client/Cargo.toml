@@ -14,6 +14,7 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 [dependencies]
 jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
+jmap-blob-types = { workspace = true }
 jmap-base-client = { workspace = true }
 ulid = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

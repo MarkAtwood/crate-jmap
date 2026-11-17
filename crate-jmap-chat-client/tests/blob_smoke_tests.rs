@@ -1,9 +1,10 @@
 //! Wiremock smoke tests for `Blob/*` method paths in jmap-chat-client.
 //!
 //! The Blob extension is cross-protocol JMAP under
-//! `urn:ietf:params:jmap:blob2` — distinct from
-//! `urn:ietf:params:jmap:chat` — so the wire `using` array MUST switch
-//! to USING_BLOB (core + blob2) when these methods are called.
+//! `urn:ietf:params:jmap:blob2`, with its own primary account. Both calls
+//! name blob2 and target that account (here [`BLOB_ACCOUNT`], not the chat
+//! account); Blob/lookup also names the chat capability so `"Message"` is a
+//! known type name (blobext-03 §6 `unknownDataType`).
 //!
 //! `blob_convert` follows the standard RFC 8620 §5.3 `/set`-shaped
 //! `create` pattern keyed by the CALL_ID constant
@@ -11,8 +12,10 @@
 //! `BlobObject` lands at `response.created[CALL_ID]`.
 //!
 //! Spec oracles:
-//!   - draft-ietf-jmap-blobext-01 §4 (BlobObject), §6 (Blob/lookup),
-//!     §8 (Blob/convert), §8.1 (ImageConvertRecipe)
+//!   - draft-ietf-jmap-blobext-03 §2.1 (the blob2 primary account), §4
+//!     (BlobObject), §6 (Blob/lookup: required `typeNames: String[]`, no
+//!     `notFound`), §7 (`expires`), §8 (Blob/convert, `isIncomplete`,
+//!     `description`), §8.1 (ImageConvertRecipe)
 
 #[path = "helpers.rs"]
 mod helpers;
@@ -23,135 +26,144 @@ use jmap_types::Id;
 use serde_json::json;
 use wiremock::MockServer;
 
-/// `Blob/lookup` with non-empty `blob_ids` and explicit `type_names`
-/// must thread both through the wire (`ids` and `typeNames` keys), and
-/// MUST declare the blob2 capability — NOT the chat capability — in
-/// `using`. Pins USING_BLOB for the Blob/* family (one assertion per
-/// method-family per workspace convention).
+/// The blob2 primary account, distinct from the chat one.
+const BLOB_ACCOUNT: &str = "Ablob";
+
+/// [`helpers::make_session`]'s shape plus a blob2 capability whose
+/// primary account is [`BLOB_ACCOUNT`] (RFC 8620 §2; blobext-03 §2.1).
+fn make_blob_client(server: &MockServer) -> jmap_chat_client::SessionClient {
+    use jmap_chat_client::JmapChatExt;
+    let uri = server.uri();
+    let session = json!({
+        "capabilities": {
+            "urn:ietf:params:jmap:core": {},
+            "urn:ietf:params:jmap:chat": {},
+            "urn:ietf:params:jmap:blob2": {}
+        },
+        "accounts": {
+            TEST_ACCOUNT_ID: {
+                "name": "john@example.com", "isPersonal": true, "isReadOnly": false,
+                "accountCapabilities": {"urn:ietf:params:jmap:chat": {}}
+            },
+            BLOB_ACCOUNT: {
+                "name": "blobs", "isPersonal": true, "isReadOnly": false,
+                "accountCapabilities": {"urn:ietf:params:jmap:blob2": {
+                    "maxSizeBlobSet": null, "maxDataSources": 64,
+                    "supportedTypeNames": ["Message"],
+                    "supportedDigestAlgorithms": ["sha-256"]
+                }}
+            }
+        },
+        "primaryAccounts": {
+            "urn:ietf:params:jmap:chat": TEST_ACCOUNT_ID,
+            "urn:ietf:params:jmap:blob2": BLOB_ACCOUNT
+        },
+        "username": "john@example.com",
+        "apiUrl": format!("{uri}/api/"),
+        "downloadUrl": format!("{uri}/dl/{{accountId}}/{{blobId}}/{{name}}?accept={{type}}"),
+        "uploadUrl": format!("{uri}/ul/{{accountId}}/"),
+        "eventSourceUrl": format!("{uri}/sse/?types={{types}}&closeafter={{closeafter}}&ping={{ping}}"),
+        "state": "s1"
+    });
+    jmap_base_client::JmapClient::new(
+        jmap_base_client::DefaultTransport,
+        jmap_base_client::NoneAuth,
+        &uri,
+        jmap_base_client::ClientConfig::default(),
+    )
+    .expect("client")
+    .with_chat_session(serde_json::from_value(session).expect("session"))
+}
+
+/// `Blob/lookup` threads `ids` and `typeNames`, targets the blob2 primary
+/// account, and names core, blob2 and chat in `using`. A `notFound` in the
+/// response is not part of -03 §6 and lands in `extra`.
 #[tokio::test]
-async fn blob_lookup_threads_ids_and_declares_blob2_capability() {
+async fn blob_lookup_threads_ids_and_declares_blob2_and_chat() {
     let server = MockServer::start().await;
     let resp_body = jmap_response(
         "Blob/lookup",
         json!({
-            "accountId": TEST_ACCOUNT_ID,
+            "accountId": BLOB_ACCOUNT,
             "list": [
-                {
-                    "id": "B1",
-                    "matchedIds": {
-                        "Message": ["msg-100", "msg-101"]
-                    }
-                },
-                {
-                    "id": "B2",
-                    "matchedIds": {}
-                }
+                {"id": "B1", "matchedIds": {"Message": ["msg-100", "msg-101"]}},
+                {"id": "B2", "matchedIds": {}}
             ],
             "notFound": ["B3"]
         }),
     );
     mock_jmap_post(&server, resp_body).await;
 
-    let sc = helpers::make_client(&server);
-    let blob_ids = [Id::from("B1"), Id::from("B2"), Id::from("B3")];
-    let type_names = ["Message"];
+    let sc = make_blob_client(&server);
+    let blob_ids = [Id::from("B1"), Id::from("B2")];
     let resp = sc
-        .blob_lookup(&blob_ids, Some(&type_names))
+        .blob_lookup(&blob_ids, &["Message"])
         .await
         .expect("blob_lookup: must succeed");
 
-    assert_eq!(
-        resp.account_id.as_ref(),
-        TEST_ACCOUNT_ID,
-        "accountId mismatch"
-    );
+    assert_eq!(resp.account_id.as_ref(), BLOB_ACCOUNT);
     assert_eq!(resp.list.len(), 2, "list must have 2 entries");
-    assert_eq!(resp.not_found.len(), 1, "not_found must have 1 entry");
-    assert_eq!(
-        resp.not_found[0].as_ref(),
-        "B3",
-        "not_found content mismatch"
-    );
-    let entry_b1 = &resp.list[0];
-    assert_eq!(entry_b1.id.as_ref(), "B1", "B1 id mismatch");
-    let matched = entry_b1
+    let matched = resp.list[0]
         .matched_ids
         .get("Message")
         .expect("Message key must be present");
-    assert_eq!(matched.len(), 2, "B1 matched Messages count");
     assert_eq!(matched[0].as_ref(), "msg-100", "matched[0]");
+    assert_eq!(resp.extra.get("notFound"), Some(&json!(["B3"])));
 
     let body = recorded_body(&server).await;
     let args = &body["methodCalls"][0][1];
     assert_eq!(
         args["accountId"],
-        json!(TEST_ACCOUNT_ID),
-        "accountId mismatch"
+        json!(BLOB_ACCOUNT),
+        "blob2 primary account"
     );
-    assert_eq!(
-        args["ids"],
-        json!(["B1", "B2", "B3"]),
-        "ids must thread verbatim"
-    );
-    assert_eq!(
-        args["typeNames"],
-        json!(["Message"]),
-        "typeNames must thread verbatim"
-    );
-    // RFC 8620 §3.3 + draft-ietf-jmap-blobext-01 — declare blob2, NOT
-    // chat. A regression that mistakenly used USING_CHAT here would
-    // produce 'unknown method' against a spec-compliant server.
+    assert_ne!(BLOB_ACCOUNT, TEST_ACCOUNT_ID);
+    assert_eq!(args["ids"], json!(["B1", "B2"]));
+    assert_eq!(args["typeNames"], json!(["Message"]));
     assert_eq!(
         body["using"],
-        json!(["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:blob2"]),
-        "Blob/* using must equal USING_BLOB exactly (core + blob2)"
+        json!([
+            "urn:ietf:params:jmap:core",
+            "urn:ietf:params:jmap:blob2",
+            "urn:ietf:params:jmap:chat"
+        ])
     );
 }
 
-/// `Blob/lookup` with `type_names: None` must emit `typeNames: null`
-/// on the wire so the server queries all registered types
-/// (draft-ietf-jmap-blobext-01 §6 — null is the canonical "all types"
-/// form). The empty-ids guard is the only client-side validation
-/// (blob.rs:152-155).
+/// -03 §6 makes `typeNames` a required `String[]`: an empty list is sent as
+/// `[]`, never `null`. Empty `blob_ids` is rejected before sending, and a
+/// session with no blob2 primary account is `InvalidSession`.
 #[tokio::test]
-async fn blob_lookup_type_names_none_sends_null_and_empty_ids_rejected() {
+async fn blob_lookup_type_names_is_always_an_array_and_guards_hold() {
     let server = MockServer::start().await;
     let resp_body = jmap_response(
         "Blob/lookup",
-        json!({
-            "accountId": TEST_ACCOUNT_ID,
-            "list": [],
-            "notFound": ["B-missing"]
-        }),
+        json!({"accountId": BLOB_ACCOUNT, "list": [{"id": "B1", "matchedIds": {}}]}),
     );
     mock_jmap_post(&server, resp_body).await;
 
-    let sc = helpers::make_client(&server);
-    let blob_ids = [Id::from("B-missing")];
+    let sc = make_blob_client(&server);
     let _ = sc
-        .blob_lookup(&blob_ids, None)
+        .blob_lookup(&[Id::from("B1")], &[])
         .await
         .expect("blob_lookup: must succeed");
-
     let args = recorded_args(&server).await;
-    assert_eq!(
-        args["typeNames"],
-        json!(null),
-        "typeNames must be JSON null when caller passes None"
-    );
+    assert_eq!(args["typeNames"], json!([]));
 
-    // Empty-ids guard.
     let empty: [Id; 0] = [];
-    let err = sc
-        .blob_lookup(&empty, None)
-        .await
-        .expect_err("must reject empty blob_ids");
-    match err {
-        jmap_base_client::ClientError::InvalidArgument(msg) => {
+    match sc.blob_lookup(&empty, &["Message"]).await {
+        Err(jmap_base_client::ClientError::InvalidArgument(msg)) => {
             assert!(msg.contains("blob_ids may not be empty"), "got: {msg:?}");
         }
         other => panic!("expected InvalidArgument, got {other:?}"),
     }
+
+    // helpers::make_client's session has no blob2 primary account.
+    let chat_only = helpers::make_client(&server);
+    assert!(matches!(
+        chat_only.blob_lookup(&[Id::from("B1")], &["Message"]).await,
+        Err(jmap_base_client::ClientError::InvalidSession(_))
+    ));
 }
 
 /// `Blob/convert` must serialise an `ImageConvertRecipe` keyed by the
@@ -166,12 +178,13 @@ async fn blob_convert_serialises_recipe_and_decodes_blob_object() {
     let resp_body = jmap_response(
         "Blob/convert",
         json!({
-            "accountId": TEST_ACCOUNT_ID,
+            "accountId": BLOB_ACCOUNT,
             "created": {
                 "r1": {
                     "id": "B-thumb",
                     "type": "image/webp",
-                    "size": 4096
+                    "size": 4096,
+                    "expires": "2026-11-17T12:00:00Z"
                 }
             },
             "notCreated": {}
@@ -179,7 +192,7 @@ async fn blob_convert_serialises_recipe_and_decodes_blob_object() {
     );
     mock_jmap_post(&server, resp_body).await;
 
-    let sc = helpers::make_client(&server);
+    let sc = make_blob_client(&server);
     let from_blob = Id::from("B-original");
     let resp = sc
         .blob_convert(&from_blob, "image/webp", Some(200), Some(150))
@@ -202,13 +215,18 @@ async fn blob_convert_serialises_recipe_and_decodes_blob_object() {
         "content_type mismatch"
     );
     assert_eq!(new_blob.size, Some(4096), "size mismatch");
+    assert_eq!(
+        new_blob.expires.as_ref().map(AsRef::as_ref),
+        Some("2026-11-17T12:00:00Z")
+    );
+    assert!(!new_blob.is_incomplete);
 
     let body = recorded_body(&server).await;
     let args = &body["methodCalls"][0][1];
     assert_eq!(
         args["accountId"],
-        json!(TEST_ACCOUNT_ID),
-        "accountId mismatch"
+        json!(BLOB_ACCOUNT),
+        "blob2 primary account"
     );
     // The create map is keyed by CALL_ID and carries an imageConvert
     // recipe.
@@ -226,7 +244,7 @@ async fn blob_convert_serialises_recipe_and_decodes_blob_object() {
     assert_eq!(recipe["width"], json!(200), "imageConvert.width mismatch");
     assert_eq!(recipe["height"], json!(150), "imageConvert.height mismatch");
 
-    // RFC 8620 §3.3 + draft-ietf-jmap-blobext-01 §8 — declare blob2.
+    // RFC 8620 §3.3 + draft-ietf-jmap-blobext-03 §8 — declare blob2.
     assert_eq!(
         body["using"],
         json!(["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:blob2"]),
@@ -245,12 +263,15 @@ async fn blob_convert_omits_dimensions_when_none_and_rejects_empty_type() {
     let resp_body = jmap_response(
         "Blob/convert",
         json!({
-            "accountId": TEST_ACCOUNT_ID,
+            "accountId": BLOB_ACCOUNT,
             "created": {
                 "r1": {
                     "id": "B-converted",
                     "type": "image/png",
-                    "size": null
+                    "size": null,
+                    "expires": null,
+                    "isIncomplete": true,
+                    "description": "truncated source"
                 }
             },
             "notCreated": {}
@@ -258,12 +279,19 @@ async fn blob_convert_omits_dimensions_when_none_and_rejects_empty_type() {
     );
     mock_jmap_post(&server, resp_body).await;
 
-    let sc = helpers::make_client(&server);
+    let sc = make_blob_client(&server);
     let from_blob = Id::from("B-original");
-    let _ = sc
+    let resp = sc
         .blob_convert(&from_blob, "image/png", None, None)
         .await
         .expect("blob_convert: must succeed");
+    // -03 §4: `size: null` (deferred) parses; §7 `expires: null`; §8 the
+    // partial-conversion fields.
+    let obj = &resp.created.expect("created")[CALL_ID];
+    assert_eq!(obj.size, None);
+    assert_eq!(obj.expires, None);
+    assert!(obj.is_incomplete);
+    assert_eq!(obj.description.as_deref(), Some("truncated source"));
 
     let args = recorded_args(&server).await;
     let recipe = &args["create"][CALL_ID]["imageConvert"];
