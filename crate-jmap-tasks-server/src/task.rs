@@ -329,6 +329,8 @@ pub async fn handle_task_set<B: TasksBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch_val) in update_map {
             // isDraft immutability (draft-tasks-06 §4 isDraft paragraph) is

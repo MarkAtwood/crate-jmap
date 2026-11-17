@@ -270,6 +270,8 @@ pub async fn handle_key_package_set<B: MimiBackend>(
         }
     }
 
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
         let forbidden = serde_json::Value::from(
             &SetError::new(SetErrorType::Forbidden)

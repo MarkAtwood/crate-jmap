@@ -122,3 +122,35 @@ async fn unknown_task_list_reference_is_invalid_properties() {
     assert_eq!(err["type"], "invalidProperties", "{}", args(&resp, 0));
     assert_eq!(err["properties"], json!(["taskListId"]), "{err}");
 }
+
+/// RFC 8620 §5.3: creates happen "before their creation ids are referenced
+/// by another create/update/destroy in the same call", so update keys and
+/// destroy ids may be creation ids, from an earlier call (`#a`, `#b`) or
+/// this one (`#c`); the response names each by its real id
+/// (bd:JMAP-tna1.16).
+#[tokio::test]
+async fn update_keys_and_destroy_ids_resolve_creations() {
+    let obj = json!({"name": "Home", "isSubscribed": true});
+    let resp = dispatch(json!([
+            ["TaskList/set", {"accountId": ACCOUNT, "create": {"a": obj.clone(), "b": obj.clone()}}, "0"],
+            ["TaskList/set", {"accountId": ACCOUNT,
+                "create": {"c": obj},
+                "update": {"#a": {"name": "Away"}, "#c": {"name": "Away"}},
+                "destroy": ["#b"]
+            }, "1"]
+        ]))
+    .await;
+    let id = |i: usize, key: &str| {
+        resp.method_responses[i].arguments["created"][key]["id"]
+            .as_str()
+            .unwrap_or_else(|| panic!("created {key}: {:?}", resp.method_responses[i]))
+            .to_owned()
+    };
+    let (a, b, c) = (id(0, "a"), id(0, "b"), id(1, "c"));
+    let set = &resp.method_responses[1].arguments;
+    assert!(set["updated"].get(&a).is_some(), "{set}");
+    assert!(set["updated"].get(&c).is_some(), "{set}");
+    assert_eq!(set["destroyed"], json!([b]), "{set}");
+    assert!(set["notUpdated"].is_null(), "{set}");
+    assert!(set["notDestroyed"].is_null(), "{set}");
+}

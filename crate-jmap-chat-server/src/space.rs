@@ -1243,6 +1243,8 @@ pub async fn handle_space_set<B: ChatBackend>(
     // the limits are scoped to the account, not the Space.
     let space_limits = backend.limits(caller, &account_id);
 
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {

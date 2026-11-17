@@ -574,6 +574,8 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
             };
         }
     }
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {

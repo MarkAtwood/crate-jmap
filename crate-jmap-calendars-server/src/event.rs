@@ -661,6 +661,8 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     }
 
     let mut updates: Vec<(Id, PatchObject)> = Vec::new();
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch_val) in update_map {
             // §5.9: patch cannot contain both utcStart and start, or both

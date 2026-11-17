@@ -189,33 +189,12 @@ pub async fn handle_identity_changes<B: MailBackend>(
 /// maps).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
-///
-/// An update key or destroy id that is a `#creationId` needs the request's
-/// creation ids, which this function does not take:
-/// [`register_mail_handlers`](crate::register_mail_handlers) resolves them
-/// (RFC 8620 §5.3).
 pub async fn handle_identity_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    identity_set(backend, caller, &std::collections::BTreeMap::new(), args).await
-}
-
-/// [`handle_identity_set`], with `#creationId` update keys and destroy ids
-/// resolved against `created_ids` ([`jmap_server::CallContext::created_ids`])
-/// and this call's creates (RFC 8620 §5.3).
-pub(crate) async fn identity_set<B: MailBackend>(
-    backend: &B,
-    caller: &B::CallerCtx,
-    created_ids: &std::collections::BTreeMap<Id, Id>,
-    args: Value,
-) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
-    // RFC 8620 §5.3: update keys and destroy ids may name records created
-    // by earlier calls; this call's own creates resolve after the create
-    // phase below.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &serde_json::Map::new());
 
     if !backend
         .account_exists(caller, &account_id)
@@ -374,7 +353,7 @@ pub(crate) async fn identity_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {

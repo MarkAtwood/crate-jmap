@@ -17,7 +17,10 @@ wire behaviour that a conforming peer can observe.
 - **jmap-server**: `resolve_set_id_refs`, which rewrites `/set` `update`
   keys and `destroy` entries that are `#creationId` references (RFC 8620
   §5.3) from this call's creates or the request's, leaving unknown ones as
-  sent. (bd:JMAP-tna1.14)
+  sent. `Dispatcher::dispatch` now applies it to every `*/set` call
+  before the handler, so update keys and destroy ids that name an earlier
+  call's creation resolve in every extension server; an unknown reference
+  keeps the handler's error. (bd:JMAP-tna1.14, bd:JMAP-tna1.16)
 
 - **jmap-server**: `resolve_blob_ref` and `resolve_blob_refs`, which
   resolve a `#creationId` blob reference (RFC 8620 §5.3;
@@ -1092,15 +1095,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
-- **jmap-mail-server**: a `/set` update key or destroy id may be a
-  `#creationId` naming a record created earlier in the request or earlier
-  in the same call (RFC 8620 §5.3), in Mailbox/set, Email/set,
-  Identity/set, EmailSubmission/set and SieveScript/set; `updated`,
-  `notUpdated`, `destroyed` and `notDestroyed` report it under the real
-  id. An unknown reference keeps its `invalidProperties` error.
-  `handle_identity_set` is unchanged and resolves only through
-  `register_mail_handlers`. `/get` ids are not resolved: RFC 8620 §3.3
-  limits substitution to create and update. (bd:JMAP-tna1.14)
+- **jmap-mail-server**, **jmap-calendars-server**, **jmap-chat-server**,
+  **jmap-chat-mimi-server**, **jmap-contacts-server**,
+  **jmap-filenode-server**, **jmap-graph-server**, **jmap-scene-server**,
+  **jmap-sharing-server**, **jmap-tasks-server**, **jmap-vtc-server**: a
+  `/set` update key or destroy id may be a `#creationId` naming a record
+  created earlier in the request or earlier in the same call (RFC 8620
+  §5.3); `updated`, `notUpdated`, `destroyed` and `notDestroyed` report it
+  under the real id. An unknown reference keeps its `invalidProperties`
+  error. CalendarEvent/set and FileNode/set plan destroys before creates,
+  so there a destroy resolves only earlier calls' creations. `/get` ids
+  are not resolved: RFC 8620 §3.3 limits substitution to create and
+  update. (bd:JMAP-tna1.14, bd:JMAP-tna1.16)
 - **jmap-filenode-server**, **jmap-scene-server**, **jmap-chat-server**,
   **jmap-contacts-server**, **jmap-calendars-server**: a blobId may be a
   `#creationId` naming a blob created earlier in the request, as in

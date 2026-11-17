@@ -1401,19 +1401,36 @@ pub fn resolve_blob_ref<'a>(raw: &'a str, created_ids: &BTreeMap<Id, Id>) -> Cow
 /// request by its creation id. A reference resolves first against
 /// `created`, the call's own `created` map so far (creation id → object
 /// with an `id`), then against `created_ids`, the request's map
-/// ([`crate::CallContext::created_ids`]). An unknown reference is left as
-/// sent, so the handler rejects it as it rejects any other id that is not
-/// an Id; responses then key a resolved entry by the real id.
+/// ([`crate::CallContext::created_ids`]). A reference that names a create
+/// still in `args`'s own `create` map, and not yet in `created`, is left
+/// for the pass after the create phase: this call's create wins over an
+/// earlier call's use of the same creation id. An unknown reference is
+/// left as sent, so the handler rejects it as it rejects any other id that
+/// is not an Id; responses then key a resolved entry by the real id.
 ///
-/// Call it at handler entry with an empty `created`, and again after the
-/// create phase with the call's `created`, before updates and destroys run.
+/// [`Dispatcher::dispatch`](crate::Dispatcher::dispatch) runs it on every
+/// `*/set` call before the handler, with an empty `created`, so earlier
+/// calls' creations always resolve. A handler calls it again after its
+/// create phase with the call's `created`, before updates and destroys
+/// run, for references to its own creates.
 pub fn resolve_set_id_refs(
     args: &mut Map<String, Value>,
     created_ids: &BTreeMap<Id, Id>,
     created: &Map<String, Value>,
 ) {
+    let pending: BTreeSet<String> = match args.get("create") {
+        Some(Value::Object(create)) => create
+            .keys()
+            .filter(|k| !created.contains_key(*k))
+            .cloned()
+            .collect(),
+        _ => BTreeSet::new(),
+    };
     let resolve = |raw: &str| -> Option<String> {
         let cid = raw.strip_prefix('#')?;
+        if pending.contains(cid) {
+            return None;
+        }
         created
             .get(cid)
             .and_then(|obj| obj.get("id"))
@@ -1971,6 +1988,26 @@ mod tests {
                 "destroy": ["E1", "C1", "#nope", "lit"]
             })
         );
+    }
+
+    /// A creation id this call is about to create shadows an earlier
+    /// call's: before the create phase it stays as sent.
+    #[test]
+    fn resolve_set_id_refs_leaves_this_calls_pending_creates() {
+        let earlier = std::collections::BTreeMap::from([(Id::from("x"), Id::from("OLD"))]);
+        let mut args = serde_json::json!({
+            "create": {"x": {}},
+            "update": {"#x": {}},
+            "destroy": ["#x"]
+        });
+        let map = args.as_object_mut().expect("object");
+        resolve_set_id_refs(map, &earlier, &serde_json::Map::new());
+        assert_eq!(map["update"], serde_json::json!({"#x": {}}));
+        assert_eq!(map["destroy"], serde_json::json!(["#x"]));
+        let created = serde_json::json!({"x": {"id": "NEW"}});
+        resolve_set_id_refs(map, &earlier, created.as_object().expect("object"));
+        assert_eq!(map["update"], serde_json::json!({"NEW": {}}));
+        assert_eq!(map["destroy"], serde_json::json!(["NEW"]));
     }
 
     /// RFC 8620 §1.2: 1 to 255 octets from `A-Za-z0-9`, `-` and `_`.

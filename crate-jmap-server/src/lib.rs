@@ -523,6 +523,12 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             // §5.2): every Foo/set call goes through the decision-2 check;
             // one with conditional arguments runs under the evaluator.
             let conditional = if method.ends_with("/set") {
+                // RFC 8620 §5.3: an update key or destroy id may name a
+                // record an earlier call created; the handler resolves
+                // references to its own creates after its create phase.
+                if let Value::Object(map) = &mut args {
+                    resolve_set_id_refs(map, &created_ids, &serde_json::Map::new());
+                }
                 match self.prepare_conditional(&method, &mut args, &request.using, &caller) {
                     Ok(c) => c,
                     Err(e) => {
@@ -1814,6 +1820,54 @@ mod tests {
                 json!({"accountId": "a1"})
             ))
         );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — creates happen "before their creation ids
+    /// are referenced by another create/update/destroy in the same call",
+    /// and the server substitutes ids "in later method calls". The
+    /// dispatcher hands every Foo/set handler update keys and destroy ids
+    /// that name earlier calls' creations already resolved; an unknown
+    /// reference, a non-/set method, and a creation id this call creates
+    /// itself stay as sent.
+    #[tokio::test]
+    async fn dispatch_resolves_set_update_keys_and_destroy_ids() {
+        struct DummyBackend;
+        let seen: Arc<Mutex<Vec<Value>>> = Arc::new(Mutex::new(Vec::new()));
+        let seen_clone = Arc::clone(&seen);
+        let handler = ClosureHandler::new(
+            Arc::new(DummyBackend),
+            move |_b: Arc<DummyBackend>, cx: CallContext<()>| {
+                seen_clone.lock().unwrap().push(cx.args.clone());
+                Box::pin(async { Ok(HandlerOutput::new(json!({"created": {"k": {"id": "K1"}}}))) })
+                    as HandlerFuture
+            },
+        );
+        let handler: Arc<dyn JmapHandler<()>> = Arc::new(handler);
+        let mut d: Dispatcher<()> = Dispatcher::new();
+        d.register("Foo/set", Arc::clone(&handler));
+        d.register("Foo/other", handler);
+        let req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![
+                Invocation::new("Foo/set", json!({"create": {"k": {}}}), "c0"),
+                Invocation::new(
+                    "Foo/set",
+                    json!({"create": {"n": {}}, "update": {"#k": {}, "#n": {}, "#nope": {}},
+                           "destroy": ["#k", "#n", "#nope"]}),
+                    "c1",
+                ),
+                Invocation::new("Foo/other", json!({"update": {"#k": {}}}), "c2"),
+            ],
+            None,
+        );
+        d.dispatch(req, (), "s0".into()).await;
+        let seen = seen.lock().unwrap();
+        assert_eq!(
+            seen[1],
+            json!({"create": {"n": {}}, "update": {"K1": {}, "#n": {}, "#nope": {}},
+                   "destroy": ["K1", "#n", "#nope"]})
+        );
+        assert_eq!(seen[2], json!({"update": {"#k": {}}}));
     }
 
     /// Oracle: RFC 8620 §3.3 — the Request object's `using` is "The set

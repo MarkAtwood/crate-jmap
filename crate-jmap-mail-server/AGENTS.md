@@ -100,20 +100,30 @@ map with the two `jmap_server` helpers:
   empty map. Tests: each crate's `tests/blob_creation_refs.rs`, with a
   stand-in `Blob/upload` as call 0.
 
-## `#creationId` update keys and destroy ids (canonical; bd:JMAP-tna1.14)
+## `#creationId` update keys and destroy ids (canonical; bd:JMAP-tna1.14, tna1.16)
 
 RFC 8620 §5.3 orders a call's creates "before their creation ids are
 referenced by another create/update/destroy in the same call"; a destroy
 carries only ids, so update keys and destroy ids may be creation ids.
-Every `/set` handler calls `jmap_server::resolve_set_id_refs(&mut args,
-created_ids, &created)` twice: at entry with an empty `created` (earlier
-calls), and right before the update phase with the call's `created` map
-(same-call creates). Resolved entries are reported under the real id;
-an unknown reference is left as sent and keeps today's error
-(`invalidProperties` naming `id`). `/get` `ids` are **not** resolved:
-RFC 8620 §3.3 limits substitution to "a create/update", and
-back-references are the spec's mechanism there. Siblings: bd:JMAP-tna1.16.
-Tests: `tests/set_id_refs.rs`.
+
+- `Dispatcher::dispatch` runs `jmap_server::resolve_set_id_refs` on every
+  `*/set` call before the handler, so earlier calls' creations always
+  resolve; handlers need nothing for that case.
+- Each `/set` handler that accepts client creates calls
+  `jmap_server::resolve_set_id_refs(&mut args, created_ids, &created)`
+  right before its update phase (empty map when it has no
+  `created_ids`), so references to its **own** creates resolve too. A
+  create still pending in `args["create"]` shadows an earlier call's
+  creation id.
+- Resolved entries are reported under the real id; an unknown reference
+  is left as sent and keeps today's error (`invalidProperties` naming `id`).
+- A handler that plans destroys before creates (CalendarEvent/set,
+  FileNode/set) resolves only earlier calls' destroy references.
+- `/get` `ids` are **not** resolved: RFC 8620 §3.3 limits substitution to
+  "a create/update", and back-references are the spec's mechanism there.
+
+Tests: `tests/set_id_refs.rs` here; `update_keys_and_destroy_ids_resolve_creations`
+in each sibling's `tests/creation_refs.rs`.
 
 ## Permission enforcement: backend canonical
 

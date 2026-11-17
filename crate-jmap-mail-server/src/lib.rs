@@ -264,8 +264,8 @@ where
     reg!("Identity/changes", backend, |b, _ci, a, ctx| {
         handle_identity_changes(&*b, &ctx, a).await
     });
-    reg!("Identity/set", backend, |b, _ci, a, ctx, created_ids| {
-        identity::identity_set(&*b, &ctx, &created_ids, a).await
+    reg!("Identity/set", backend, |b, _ci, a, ctx| {
+        handle_identity_set(&*b, &ctx, a).await
     });
 
     // EmailSubmission
