@@ -1,0 +1,2 @@
+{"id":"01a1ea59-49b6-79e1-9529-45793971c15f","issue_id":"JMAP-yqyd","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-17T16:31:22.550648681Z"}
+{"id":"01a1ea59-6fc3-7161-a11a-e8dc613266a9","issue_id":"JMAP-yqyd","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"chrono removed from jmap-chat-client; cargo deny clean","created_at":"2026-11-17T16:31:32.291091976Z"}

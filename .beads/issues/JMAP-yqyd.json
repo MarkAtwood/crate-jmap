@@ -1,0 +1,14 @@
+{
+  "id": "JMAP-yqyd",
+  "title": "chat-client: drop chrono (RUSTSEC-2026-0543 unmaintained)",
+  "description": "cargo deny advisories fails on RUSTSEC-2026-0543 (chrono unmaintained); chrono's only user is jmap-chat-client (utils.rs receipt timestamps, message.rs default retry time, one smoke test). Replace with in-crate civil-date code over UTCDate::to_epoch_seconds.",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-17T16:31:22.508835597Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-17T16:31:32.114585691Z",
+  "closed_at": "2026-11-17T16:31:32.114585691Z",
+  "close_reason": "chrono removed from jmap-chat-client; cargo deny clean"
+}
