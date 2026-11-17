@@ -150,9 +150,13 @@ where
             filenode::filenode_set(&*b, &ctx, &created_ids, a, &using, atomic).await
         }
     );
-    reg!("FileNode/copy", backend, |b, ci, a, ctx, using| {
-        handle_filenode_copy(&*b, &ctx, a, &ci, &using).await
-    });
+    reg!(
+        "FileNode/copy",
+        backend,
+        |b, ci, a, ctx, created_ids, using| {
+            filenode::filenode_copy(&*b, &ctx, &created_ids, a, &ci, &using).await
+        }
+    );
     reg!("FileNode/query", backend, |b, _ci, a, ctx, using| {
         handle_filenode_query(&*b, &ctx, a, &using).await
     });

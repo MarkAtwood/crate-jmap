@@ -904,10 +904,14 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
-    args: Value,
+    mut args: Value,
     using: &[String],
     atomic: bool,
 ) -> Result<HandlerOutput, JmapError> {
+    // A blob is created by an earlier call (draft-ietf-jmap-blobext-03 §8),
+    // so blobIds resolve against the request's map, before this call's
+    // creates join it below.
+    jmap_server::resolve_blob_refs(&mut args, &["blobId"], created_ids);
     ensure_filenode_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
     // RFC 8620 §3.6.2 accountNotFound, as in the canonical
@@ -2283,6 +2287,24 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     call_id: &str,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    filenode_copy(backend, caller, &BTreeMap::new(), args, call_id, using).await
+}
+
+/// [`handle_filenode_copy`], with a `#creationId` `blobId` override in a
+/// create object resolved against `created_ids`
+/// ([`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3,
+/// draft-ietf-jmap-blobext-03 §8). An unknown reference fails as before.
+pub(crate) async fn filenode_copy<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
+    mut args: Value,
+    call_id: &str,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError> {
+    if let Some(create) = args.get_mut("create") {
+        jmap_server::resolve_blob_refs(create, &["blobId"], created_ids);
+    }
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::new_validated(s)
             .map_err(|e| JmapError::invalid_arguments(format!("fromAccountId: {e}")))?,

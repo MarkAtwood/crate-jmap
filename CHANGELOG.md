@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `resolve_blob_ref` and `resolve_blob_refs`, which
+  resolve a `#creationId` blob reference (RFC 8620 §5.3;
+  draft-ietf-jmap-blobext-03 §8) in one value, or under named keys and
+  patch paths at any depth of a `/set` argument object, leaving unknown
+  references unchanged for the method's own validation. (bd:JMAP-tna1.9)
+
 - **jmap-base-client**: `BlobUploadResponse.expires: Option<UTCDate>`, the
   expiry hint draft-ietf-jmap-blobext-03 uploads return (§2.1, §7); `null`
   and an absent key both read as `None`. Additive on a
@@ -1081,6 +1087,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-filenode-server**, **jmap-scene-server**, **jmap-chat-server**,
+  **jmap-contacts-server**, **jmap-calendars-server**: a blobId may be a
+  `#creationId` naming a blob created earlier in the request, as in
+  jmap-mail-server below. Resolved through the `register_*_handlers`
+  dispatch: FileNode/set and FileNode/copy `blobId`; SceneAsset/set
+  `blobId`; Chat `avatarBlobId`, Space `iconBlobId`, Message attachment
+  `blobId`/`thumbnailBlobId` and CustomEmoji `blobId`; a ContactCard Media
+  `blobId` (RFC 9610 §2) in ContactCard/set and /copy; a JSCalendar Link
+  `blobId` at any depth in CalendarEvent/set and /copy, and
+  CalendarEvent/parse `blobIds` (results keyed by the entry as sent). Patch
+  paths such as `media/p/blobId` resolve too. An unknown reference reaches
+  each method's existing checks unchanged. (bd:JMAP-tna1.9)
 - **jmap-mail-server**: a blobId may be a `#creationId` naming a blob
   created earlier in the request, such as by Blob/upload, Blob/set or
   Blob/convert (RFC 8620 §5.3; draft-ietf-jmap-blobext-03 §8). Through

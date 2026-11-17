@@ -217,9 +217,13 @@ where
             handle_calendar_event_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("CalendarEvent/copy", backend, |b, ci, a, ctx, using| {
-        handle_calendar_event_copy(&*b, &ctx, a, &ci, &using).await
-    });
+    reg!(
+        "CalendarEvent/copy",
+        backend,
+        |b, ci, a, ctx, created_ids, using| {
+            event::calendar_event_copy(&*b, &ctx, &created_ids, a, &ci, &using).await
+        }
+    );
     reg!("CalendarEvent/query", backend, |b, _ci, a, ctx, using| {
         handle_calendar_event_query(&*b, &ctx, a, &using).await
     });
@@ -228,9 +232,13 @@ where
         backend,
         |b, _ci, a, ctx, using| handle_calendar_event_query_changes(&*b, &ctx, a, &using).await
     );
-    reg!("CalendarEvent/parse", backend, |b, _ci, a, ctx| {
-        handle_calendar_event_parse(&*b, &ctx, a).await
-    });
+    reg!(
+        "CalendarEvent/parse",
+        backend,
+        |b, _ci, a, ctx, created_ids| {
+            event::calendar_event_parse(&*b, &ctx, &created_ids, a).await
+        }
+    );
 
     // CalendarEventNotification
     reg!(

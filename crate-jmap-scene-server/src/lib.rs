@@ -123,6 +123,7 @@ mod push;
 pub mod query;
 mod region;
 
+use asset::scene_asset_set;
 pub use asset::{
     GLTF_BINARY, handle_scene_asset_changes, handle_scene_asset_get, handle_scene_asset_query,
     handle_scene_asset_query_changes, handle_scene_asset_set,
@@ -202,7 +203,7 @@ where
 
     reg!("SceneAsset/get", handle_scene_asset_get);
     reg!("SceneAsset/changes", handle_scene_asset_changes);
-    reg!("SceneAsset/set", handle_scene_asset_set);
+    reg!("SceneAsset/set", scene_asset_set, ids);
     reg!("SceneAsset/query", handle_scene_asset_query);
     reg!("SceneAsset/queryChanges", handle_scene_asset_query_changes);
     reg!("SceneRegion/get", handle_scene_region_get);

@@ -552,6 +552,8 @@ pub fn jmap_server::reject_read_only_patch<O: jmap_types::backend::SetObject>(&s
 pub fn jmap_server::reject_server_set<O: jmap_types::backend::SetObject>(&serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> core::option::Option<jmap_types::set_error::SetError>
 pub fn jmap_server::request_error(jmap_types::error::JmapError) -> jmap_server::RequestError
 pub fn jmap_server::resolve_args(&mut serde_json::value::Value, &[jmap_types::wire::Invocation]) -> core::result::Result<(), jmap_types::error::JmapError>
+pub fn jmap_server::resolve_blob_ref<'a>(&'a str, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>) -> alloc::borrow::Cow<'a, str>
+pub fn jmap_server::resolve_blob_refs(&mut serde_json::value::Value, &[&str], &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>)
 pub fn jmap_server::resolve_creation_ref(&str, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>) -> core::option::Option<jmap_types::id::Id>
 pub fn jmap_server::resolve_query_offset(i64, usize) -> usize
 pub fn jmap_server::resolve_query_start(&[jmap_types::id::Id], i64, core::option::Option<&jmap_types::id::Id>, i64) -> core::result::Result<usize, jmap_types::error::JmapError>

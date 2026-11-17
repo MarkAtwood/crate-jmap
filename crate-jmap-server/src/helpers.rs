@@ -1,7 +1,7 @@
 //! Shared helper utilities for JMAP method handlers.
 
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub use jmap_types::json_type_name;
 use jmap_types::{GetObject, Id, JmapError, SetObject, UTCDate};
@@ -1372,6 +1372,62 @@ pub fn resolve_creation_ref(
     }
 }
 
+/// A blobId-typed value with a `#creationId` reference (RFC 8620 §5.3)
+/// replaced by the id an earlier method call of the request created, such
+/// as a blob from `Blob/upload`, `Blob/set` or `Blob/convert`
+/// (draft-ietf-jmap-blobext-03 §8, "later method calls").
+///
+/// `created_ids` is the request's creation id map
+/// ([`crate::CallContext::created_ids`]). A literal, or a reference that
+/// matches no earlier creation, comes back unchanged, so the method's own
+/// blobId check rejects an unknown reference exactly as it rejects any
+/// other value that is not an Id.
+#[must_use]
+pub fn resolve_blob_ref<'a>(raw: &'a str, created_ids: &BTreeMap<Id, Id>) -> Cow<'a, str> {
+    if raw.starts_with('#')
+        && let Some(id) = resolve_creation_ref(raw, created_ids)
+    {
+        return Cow::Owned(id.as_ref().to_owned());
+    }
+    Cow::Borrowed(raw)
+}
+
+/// Rewrite every blobId reference in a `/set` create object or update
+/// patch through [`resolve_blob_ref`], before the handler parses it.
+///
+/// A string is rewritten when its object key is one of `keys` (such as
+/// `"blobId"`), or a patch path whose last segment is one (such as
+/// `"media/m1/blobId"`), at any depth. `blobIds`-style arrays are not
+/// walked. Unknown references and literals are left for the handler's
+/// own validation.
+///
+/// Pass the request's map, not one a handler grows with its own creates:
+/// a blob is created by an earlier call, never by a create of this one.
+pub fn resolve_blob_refs(value: &mut Value, keys: &[&str], created_ids: &BTreeMap<Id, Id>) {
+    match value {
+        Value::Object(map) => {
+            for (key, v) in map.iter_mut() {
+                let last = key.rsplit('/').next().unwrap_or(key);
+                if let Value::String(raw) = v
+                    && keys.contains(&last)
+                {
+                    if let Cow::Owned(id) = resolve_blob_ref(raw, created_ids) {
+                        *raw = id;
+                    }
+                } else {
+                    resolve_blob_refs(v, keys, created_ids);
+                }
+            }
+        }
+        Value::Array(items) => {
+            for v in items {
+                resolve_blob_refs(v, keys, created_ids);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// The `id` a `/set` create handler fills in before parsing the create
 /// object into its typed struct, whose `id` is required.
 ///
@@ -1691,8 +1747,8 @@ mod tests {
         apply_patch_object, civil_from_days, enforce_max_objects_in_set, extract_account_id,
         filter_arg, is_client_updatable, json_merge_patch, json_type_name, limit_or_max,
         now_utc_string, parse_max_changes, parse_wire_id, query_anchor_args,
-        reject_did_bearing_properties, reject_read_only_patch, reject_server_set,
-        resolve_creation_ref, resolve_query_offset, resolve_query_start,
+        reject_did_bearing_properties, reject_read_only_patch, reject_server_set, resolve_blob_ref,
+        resolve_blob_refs, resolve_creation_ref, resolve_query_offset, resolve_query_start,
         signed_seconds_since_epoch, utc_date_from_epoch_millis, utc_date_from_epoch_seconds,
     };
     use jmap_types::{Id, PushSubscription, UTCDate};
@@ -1800,6 +1856,42 @@ mod tests {
         );
         assert_eq!(resolve_creation_ref("k15", &created), Some(Id::from("k15")));
         assert_eq!(resolve_creation_ref("#k16", &created), None);
+    }
+
+    /// Oracle: RFC 8620 §5.3 (a `#` reference resolves to the id created
+    /// earlier in the request); draft-ietf-jmap-blobext-03 §8 (a blob
+    /// created earlier is named that way). Unknown references pass through.
+    #[test]
+    fn resolve_blob_ref_resolves_known_refs_only() {
+        let created = std::collections::BTreeMap::from([(Id::from("b1"), Id::from("G1"))]);
+        assert_eq!(resolve_blob_ref("#b1", &created), "G1");
+        assert_eq!(resolve_blob_ref("#b2", &created), "#b2");
+        assert_eq!(resolve_blob_ref("b1", &created), "b1");
+    }
+
+    /// RFC 9610 §2 Media `blobId` (nested in a map), a patch path ending in
+    /// `blobId`, a list of parts, and other keys left alone.
+    #[test]
+    fn resolve_blob_refs_walks_nested_values_and_patch_paths() {
+        let created = std::collections::BTreeMap::from([(Id::from("b1"), Id::from("G1"))]);
+        let mut v = serde_json::json!({
+            "media": {"m1": {"blobId": "#b1", "uri": "#b1"}},
+            "media/m2/blobId": "#b1",
+            "parts": [{"blobId": "#b1"}, {"blobId": "#nope"}],
+            "iconBlobId": "#b1",
+            "parentId": "#b1"
+        });
+        resolve_blob_refs(&mut v, &["blobId", "iconBlobId"], &created);
+        assert_eq!(
+            v,
+            serde_json::json!({
+                "media": {"m1": {"blobId": "G1", "uri": "#b1"}},
+                "media/m2/blobId": "G1",
+                "parts": [{"blobId": "G1"}, {"blobId": "#nope"}],
+                "iconBlobId": "G1",
+                "parentId": "#b1"
+            })
+        );
     }
 
     /// RFC 8620 §1.2: 1 to 255 octets from `A-Za-z0-9`, `-` and `_`.

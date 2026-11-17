@@ -184,9 +184,13 @@ where
             handle_contact_card_set(&*b, &ctx, &created_ids, a, &using).await
         }
     );
-    reg!("ContactCard/copy", backend, |b, ci, a, ctx, using| {
-        handle_contact_card_copy(&*b, &ctx, a, &ci, &using).await
-    });
+    reg!(
+        "ContactCard/copy",
+        backend,
+        |b, ci, a, ctx, created_ids, using| {
+            card::contact_card_copy(&*b, &ctx, &created_ids, a, &ci, &using).await
+        }
+    );
     reg!("ContactCard/query", backend, |b, _ci, a, ctx, using| {
         handle_contact_card_query(&*b, &ctx, a, &using).await
     });

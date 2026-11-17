@@ -149,11 +149,30 @@ fn prepare_query(mut args: Value) -> Result<Value, JmapError> {
 /// [`SceneBackend::blob_size`], applies `maxAssetSizeBytes` and hands the
 /// asset to [`SceneBackend::create_object`]. Update and destroy require
 /// [`SceneBackend::may_modify_asset`].
+///
+/// A `#creationId` `blobId` needs the request's creation ids, which this
+/// function does not take: [`register_scene_handlers`](crate::register_scene_handlers)
+/// resolves them (RFC 8620 §5.3).
 pub async fn handle_scene_asset_set<B: SceneBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    scene_asset_set(backend, caller, &std::collections::BTreeMap::new(), args).await
+}
+
+/// [`handle_scene_asset_set`], with a `#creationId` `blobId` naming a blob
+/// created earlier in the request resolved against `created_ids`
+/// ([`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3,
+/// draft-ietf-jmap-blobext-03 §8). An unknown reference is not a valid Id,
+/// as before: `invalidProperties` naming `blobId`.
+pub(crate) async fn scene_asset_set<B: SceneBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &std::collections::BTreeMap<jmap_types::Id, jmap_types::Id>,
+    mut args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    jmap_server::resolve_blob_refs(&mut args, &["blobId"], created_ids);
     ensure_scene_asset_supported(backend, caller, &args).await?;
     let (account_id, mut args) = extract_account_id(args)?;
 

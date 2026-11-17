@@ -1155,9 +1155,13 @@ pub async fn handle_message_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
-    args: Value,
+    mut args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    // A `#creationId` blob reference names a blob created earlier in the
+    // request (RFC 8620 §5.3; draft-ietf-jmap-blobext-03 §8); an unknown one
+    // is left for the Id checks below.
+    jmap_server::resolve_blob_refs(&mut args, &["blobId", "thumbnailBlobId"], created_ids);
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2 accountNotFound (bd:JMAP-fo38).

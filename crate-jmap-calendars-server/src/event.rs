@@ -492,9 +492,14 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
-    args: Value,
+    mut args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    // draft-ietf-jmap-calendars §5.3: a Link `blobId` may name a blob
+    // created earlier in the request (RFC 8620 §5.3;
+    // draft-ietf-jmap-blobext-03 §8); an unknown reference is left for the
+    // event's own validation.
+    jmap_server::resolve_blob_refs(&mut args, &["blobId"], created_ids);
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
@@ -938,6 +943,24 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     call_id: &str,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    calendar_event_copy(backend, caller, &BTreeMap::new(), args, call_id, using).await
+}
+
+/// [`handle_calendar_event_copy`], with a `#creationId` Link `blobId` in a
+/// create object's overrides resolved against `created_ids`
+/// ([`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3,
+/// draft-ietf-jmap-blobext-03 §8). An unknown reference fails as before.
+pub(crate) async fn calendar_event_copy<B: CalendarsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
+    mut args: Value,
+    call_id: &str,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError> {
+    if let Some(create) = args.get_mut("create") {
+        jmap_server::resolve_blob_refs(create, &["blobId"], created_ids);
+    }
     let (account_id, mut args) = extract_account_id(args)?;
     // The target account's per-event caps (§5.9), read once per call.
     let copy_limits = backend.limits(caller, &account_id);
@@ -1545,9 +1568,31 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
 /// `notParsable`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `#creationId` in `blobIds` needs the request's creation ids, which this
+/// function does not take: [`register_calendars_handlers`](crate::register_calendars_handlers)
+/// resolves them (RFC 8620 §5.3).
 pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    calendar_event_parse(backend, caller, &BTreeMap::new(), args).await
+}
+
+/// [`handle_calendar_event_parse`], resolving each `#creationId` in
+/// `blobIds` against `created_ids` ([`jmap_server::CallContext::created_ids`];
+/// RFC 8620 §5.3, draft-ietf-jmap-blobext-03 §8).
+///
+/// The response names a blob by the `blobIds` entry as sent, so a resolved
+/// reference keys `parsed` (or appears in `notParsable`/`notFound`) as
+/// `"#c1"` and the client can match it to its request. A reference that
+/// matches no earlier creation is not a valid Id, as before:
+/// `invalidArguments`.
+pub(crate) async fn calendar_event_parse<B: CalendarsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, args_map) = extract_account_id(args)?;
@@ -1565,11 +1610,24 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
     // any non-string entry with invalidArguments. Mirrors the canonical
     // mail-server pattern at crate-jmap-mail-server/src/email.rs:2193
     // (bd:JMAP-ic0j.46).
-    let blob_ids: Vec<Id> = match args_map.get("blobIds") {
+    let not_ids = || JmapError::invalid_arguments("blobIds must be an Id array");
+    let requested: Vec<String> = match args_map.get("blobIds") {
         None | Some(Value::Null) => Vec::new(),
-        Some(v) => serde_json::from_value(v.clone())
-            .map_err(|_| JmapError::invalid_arguments("blobIds must be an Id array"))?,
+        Some(v) => serde_json::from_value(v.clone()).map_err(|_| not_ids())?,
     };
+    // Resolved id → the entry as sent, to name each result.
+    let mut as_sent: BTreeMap<Id, String> = BTreeMap::new();
+    let blob_ids: Vec<Id> = requested
+        .into_iter()
+        .map(|raw| {
+            let id =
+                Id::new_validated(jmap_server::resolve_blob_ref(&raw, created_ids).into_owned())
+                    .map_err(|_| not_ids())?;
+            as_sent.entry(id.clone()).or_insert(raw);
+            Ok(id)
+        })
+        .collect::<Result<_, JmapError>>()?;
+    let name = |id: &Id| as_sent.get(id).cloned().unwrap_or_else(|| id.to_string());
 
     // properties is spec-typed `String[]`; mirror the same validation
     // shape as blobIds above.
@@ -1589,17 +1647,17 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
             let parsed_json: serde_json::Map<String, Value> = result
                 .parsed
                 .into_iter()
-                .map(|(id, events)| Ok((id.to_string(), jmap_server::serialize_value(&events)?)))
+                .map(|(id, events)| Ok((name(&id), jmap_server::serialize_value(&events)?)))
                 .collect::<Result<_, JmapError>>()?;
             let not_found_json: Vec<Value> = result
                 .not_found
                 .iter()
-                .map(|id| Value::String(id.to_string()))
+                .map(|id| Value::String(name(id)))
                 .collect();
             let not_parsable_json: Vec<Value> = result
                 .not_parsable
                 .iter()
-                .map(|id| Value::String(id.to_string()))
+                .map(|id| Value::String(name(id)))
                 .collect();
 
             Ok(HandlerOutput::new(json!({

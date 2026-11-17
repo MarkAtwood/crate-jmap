@@ -140,9 +140,13 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     created_ids: &BTreeMap<Id, Id>,
-    args: Value,
+    mut args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    // RFC 9610 §2: a Media `blobId` may name a blob created earlier in the
+    // request (RFC 8620 §5.3; draft-ietf-jmap-blobext-03 §8); an unknown
+    // reference is left for the backend's validation.
+    jmap_server::resolve_blob_refs(&mut args, &["blobId"], created_ids);
     let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
@@ -435,6 +439,24 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     call_id: &str,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    contact_card_copy(backend, caller, &BTreeMap::new(), args, call_id, using).await
+}
+
+/// [`handle_contact_card_copy`], with a `#creationId` Media `blobId` in a
+/// create object's overrides resolved against `created_ids`
+/// ([`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3,
+/// draft-ietf-jmap-blobext-03 §8). An unknown reference fails as before.
+pub(crate) async fn contact_card_copy<B: ContactsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
+    mut args: Value,
+    call_id: &str,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError> {
+    if let Some(create) = args.get_mut("create") {
+        jmap_server::resolve_blob_refs(create, &["blobId"], created_ids);
+    }
     let (to_account_id, mut args) = extract_account_id(args)?;
 
     let from_account_id = match args.get("fromAccountId").and_then(|v| v.as_str()) {

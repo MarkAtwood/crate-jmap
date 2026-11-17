@@ -62,9 +62,9 @@ pub use helpers::{
     now_utc_string, now_utc_string_checked, optional_arg, parse_max_changes, parse_wire_id,
     patch_values_as_object, query_anchor_args, reject_did_bearing_properties,
     reject_metadata_filter_arg, reject_metadata_filter_without_capability, reject_read_only_patch,
-    reject_server_set, resolve_creation_ref, resolve_query_offset, resolve_query_start,
-    serialize_value, strip_read_only_patch, take_bool_arg, uses_metadata,
-    utc_date_from_epoch_seconds,
+    reject_server_set, resolve_blob_ref, resolve_blob_refs, resolve_creation_ref,
+    resolve_query_offset, resolve_query_start, serialize_value, strip_read_only_patch,
+    take_bool_arg, uses_metadata, utc_date_from_epoch_seconds,
 };
 pub use i18n::{
     I18nInfo, I18nProjection, I18nSet, localized_query_state, localized_update, unwrap_query_state,

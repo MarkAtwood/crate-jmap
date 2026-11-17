@@ -49,7 +49,7 @@ use crate::helpers::{
     MetadataProjection, SetAccumulators, check_metadata_entry, create_metadata,
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
     finalize_set_response, not_found_json, reject_metadata_filter_without_capability,
-    resolve_blob_ref, resolve_body_blob_refs, resolve_ref, serialize_value, uses_metadata,
+    resolve_blob_ref, resolve_blob_refs, resolve_ref, serialize_value, uses_metadata,
 };
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg,
@@ -1262,7 +1262,7 @@ pub async fn handle_email_set<B: MailBackend>(
                 not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
-            resolve_body_blob_refs(&mut obj_val, created_ids);
+            resolve_blob_refs(&mut obj_val, &["blobId"], created_ids);
             let obj_val = &obj_val;
             // Validate: at least one mailboxId with value true is required (RFC 8621 §5.5.3).
             let mailbox_ids_ok = obj_val
