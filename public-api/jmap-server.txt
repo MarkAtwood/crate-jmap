@@ -596,7 +596,7 @@ pub fn jmap_server::PushSubscriptionBackend::create_push_subscription(&self, &Se
 pub fn jmap_server::PushSubscriptionBackend::destroy_push_subscription(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_server::PushSubscriptionBackend::list_push_subscriptions(&self, &Self::CallerCtx) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_server::StoredPushSubscription>, Self::Error>> + core::marker::Send
 pub fn jmap_server::PushSubscriptionBackend::update_push_subscription(&self, &Self::CallerCtx, jmap_types::push::PushSubscription) -> impl core::future::future::Future<Output = core::result::Result<jmap_types::push::PushSubscription, jmap_server::BackendSetError<Self::Error>>> + core::marker::Send
-pub trait jmap_server::RestoreHooks
+pub trait jmap_server::RestoreHooks: core::marker::Sync
 pub fn jmap_server::RestoreHooks::check_patch(&self, &jmap_types::id::Id, core::option::Option<&jmap_types::patch::PatchObject>) -> core::result::Result<(), alloc::boxed::Box<jmap_types::set_error::SetError>>
 pub fn jmap_server::RestoreHooks::same_type_references(&self, &serde_json::map::Map<alloc::string::String, serde_json::value::Value>) -> alloc::vec::Vec<jmap_types::id::Id>
 impl jmap_server::RestoreHooks for jmap_server::NoRestoreHooks

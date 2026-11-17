@@ -76,6 +76,7 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod history;
 pub mod seed;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
@@ -94,6 +95,7 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
@@ -119,6 +121,9 @@ struct ChangeEntry {
     created: Vec<Id>,
     updated: Vec<Id>,
     destroyed: Vec<Id>,
+    /// Ids restored from object history (draft-ietf-jmap-object-history
+    /// §5.1).
+    restored: Vec<Id>,
     /// The top-level properties this change altered on every id in
     /// `updated`, or `None` when not known. Feeds
     /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
@@ -155,6 +160,9 @@ struct Inner {
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+    /// Object history, once [`MemoryBackend::with_object_history`] turns it
+    /// on.
+    history: Option<history::History>,
 }
 
 impl ChangeEntry {
@@ -325,6 +333,7 @@ impl Inner {
             created: vec![email_id.clone()],
             updated: vec![],
             destroyed: vec![],
+            restored: vec![],
             updated_props: None,
         });
         let new_thread_state = self.bump_state("Thread", account);
@@ -338,6 +347,7 @@ impl Inner {
             created,
             updated,
             destroyed: vec![],
+            restored: vec![],
             updated_props: None,
         });
     }
@@ -1303,6 +1313,21 @@ impl JmapBackend for MemoryBackend {
         // RFC 8620 §5.6 ID deduplication across the window.
         let mut fates: HashMap<Id, IdFate> = HashMap::new();
         let mut window_props = ChangedProperties::new();
+        // Each id's changes in order, for ids restored from object history
+        // in the window (draft-ietf-jmap-object-history -04 §5.1).
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for entry in &relevant {
+            for (ids, event) in [
+                (&entry.created, ChangeEvent::Created),
+                (&entry.updated, ChangeEvent::Updated),
+                (&entry.destroyed, ChangeEvent::Destroyed),
+                (&entry.restored, ChangeEvent::Restored),
+            ] {
+                for id in ids {
+                    events.entry(id.clone()).or_default().push(event);
+                }
+            }
+        }
         for entry in &relevant {
             for id in &entry.created {
                 fates.insert(id.clone(), IdFate::Created);
@@ -1325,6 +1350,30 @@ impl JmapBackend for MemoryBackend {
                     Some(_) | None => {
                         fates.insert(id.clone(), IdFate::Destroyed);
                     }
+                }
+            }
+        }
+
+        // A restored id: compare sinceState with now "exactly as if the
+        // object had never been destroyed between them" (-04 §5.1).
+        for (id, list) in &events {
+            if !list.contains(&ChangeEvent::Restored) {
+                continue;
+            }
+            match fold_restore(list) {
+                Some(ChangeKind::Created) => {
+                    fates.insert(id.clone(), IdFate::Created);
+                }
+                Some(ChangeKind::Destroyed) => {
+                    fates.insert(id.clone(), IdFate::Destroyed);
+                }
+                Some(_) => {
+                    fates.insert(id.clone(), IdFate::Updated);
+                    // Never metadata-only.
+                    window_props.record(id.as_ref(), None);
+                }
+                None => {
+                    fates.remove(id);
                 }
             }
         }
@@ -1738,6 +1787,10 @@ impl MailBackend for MemoryBackend {
 
         let mut inner = self.inner.lock().await;
         inner.require_account(account_id.as_ref())?;
+        // Object history §5.1: never reuse the id of a destroyed object with
+        // retained history. A fresh v4 UUID cannot collide; the singleton
+        // VacationResponse is never destroyed.
+        debug_assert!(!inner.history_retains(O::TYPE_NAME, account_id, &id));
         if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
             check_metadata_create(&inner, O::TYPE_NAME, account_id.as_ref(), &val, &val)?;
         }
@@ -1760,6 +1813,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
 
@@ -1841,6 +1895,8 @@ impl MailBackend for MemoryBackend {
             .ok_or_else(|| {
                 BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
             })?;
+        // Object history: the version this update replaces.
+        let previous = existing.clone();
 
         // JMAP patch (RFC 8620 §5.3): keys are JSON Pointer paths (e.g.
         // "mailboxIds/abc123"), applied all-or-nothing by the shared
@@ -1932,6 +1988,7 @@ impl MailBackend for MemoryBackend {
             if pruned {
                 echo = Some(decoded);
             }
+            inner.record_replace(O::TYPE_NAME, account_id, id, previous);
             inner
                 .objects_mut(O::TYPE_NAME, account_id.as_ref())
                 .insert(id.clone(), patched);
@@ -1945,6 +2002,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props,
             });
 
@@ -1966,9 +2024,10 @@ impl MailBackend for MemoryBackend {
         let mut inner = self.inner.lock().await;
         inner.require_account_for_target(account_id.as_ref())?;
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
-        store.remove(id).ok_or_else(|| {
+        let removed = store.remove(id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
         })?;
+        inner.record_destroy(O::TYPE_NAME, account_id, id, removed);
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1977,6 +2036,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![],
                 destroyed: vec![id.clone()],
+                restored: vec![],
                 updated_props: None,
             });
         Ok(())
@@ -2212,6 +2272,7 @@ impl MailBackend for MemoryBackend {
                 created: vec![new_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
 
@@ -2298,6 +2359,7 @@ impl MailBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        restored: vec![],
                         updated_props: None,
                     });
                 None

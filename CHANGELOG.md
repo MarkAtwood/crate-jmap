@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-server**: object history for Mailbox, Identity and
+  VacationResponse: `register_mail_handlers_with_history` and the
+  `handle_*_with_history` handlers (Mailbox `/get`, `/set`, `/query`,
+  `/queryChanges`; Identity and VacationResponse `/get`, `/set`); the
+  memory backend's `with_object_history` (versions on every update and
+  destroy, onlyDestroyed queries and queryChanges, restore with the
+  Mailbox parent, name and role rules, -04 `/changes` classification)
+  and its test knobs. **jmap-mail-types**: `HistoryObject` for Mailbox,
+  Identity and VacationResponse. (bd:JMAP-tna1.3.4)
 - **jmap-server**: object history (draft-ietf-jmap-object-history-03 with
   the -04 editor's copy changes): the `ObjectHistoryBackend` trait (five
   required hooks), `handle_get_with_history`, `handle_query_with_history`

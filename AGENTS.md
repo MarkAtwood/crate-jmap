@@ -1002,6 +1002,43 @@ Design: `docs/design/conditional.md`; decisions 1, 2, 7, 8, 16, 17 in
   `ConditionalError`; typed clients add a `*_set_conditional` only as a new
   function (decision 8; `jmap-filenode-client` has one).
 
+
+## Object history (draft-ietf-jmap-object-history-03)
+
+Design: `docs/design/object-history.md` (follows the -04 editor's copy where
+it differs, §2a); decisions 1, 5, 14, 18, 22-25 in `docs/design/DECISIONS.md`.
+`jmap-mail-server` is the canonical opt-in (`src/history.rs`,
+`src/memory/history.rs`); sibling crates copy it.
+
+- **Separate trait, opt-in registration (decision 1).** A backend offers
+  history by implementing `jmap_server::ObjectHistoryBackend` (five required
+  hooks, no defaults). Each server crate adds `handle_<x>_<verb>_with_history`
+  wrappers and `register_<x>_handlers_with_history(dispatcher, backend)`, which
+  calls `register_<x>_handlers` and then re-registers the history types'
+  `/get`, `/set`, `/query`, `/queryChanges` through
+  `Dispatcher::register_history_aware`. Plain handlers, their signatures and
+  their bytes do not change. Call `register_<x>_conditional` after it.
+- **Wrap, do not move.** The wrappers are `jmap_server::history_get`,
+  `history_query`, `history_query_changes` and `history_set` around the
+  type's own plain handler, passed as a closure. `history_set` runs the
+  restore stage before the plain `/set` and fixes `oldState`; give it the
+  type's `RestoreHooks` (`ParentRestoreHooks("parentId")` for trees).
+- **Types.** `impl jmap_object_history_types::HistoryObject` in the `-types`
+  crate exactly for the types `is_history_type` accepts, with a test that
+  checks the impls against the registry.
+- **Every deployment (decision 18).** Without the URI in `using`, history
+  arguments asking for history are `invalidArguments` in the dispatcher; the
+  defaults are removed.
+- **Memory backends** keep a `jmap_object_history_server::VersionLog` in the
+  `ScopedState` store (so conditional rollback covers it), record every
+  update and destroy of a supported type, add a `restored` list to their
+  change-log entries and classify those ids with `fold_restore`, encode the
+  window in destroyed query states (decision 25), and expose
+  `with_object_history(capability, retention)` plus the test knobs
+  `set_history_clock_for_test`, `discard_version_for_test`,
+  `purge_object_history`, `set_rights_changed_at_for_test`. Advertise a type
+  only while `Dispatcher::object_history_gaps` is empty for it.
+
 ## Public API constraints
 
 Generation-time rules for every `pub` item (bd:JMAP-698j.2). They exist

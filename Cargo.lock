@@ -2255,6 +2255,8 @@ dependencies = [
  "jmap-metadata-server",
  "jmap-metadata-types",
  "jmap-mime",
+ "jmap-object-history-server",
+ "jmap-object-history-types",
  "jmap-server",
  "jmap-types",
  "mime-tree",
@@ -2269,6 +2271,7 @@ name = "jmap-mail-types"
 version = "0.5.0"
 dependencies = [
  "jmap-metadata-types",
+ "jmap-object-history-types",
  "jmap-types",
  "serde",
  "serde_json",

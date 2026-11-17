@@ -430,6 +430,25 @@ The public `handle_mailbox_set` and `handle_sieve_set` keep their
 signatures and always run the pre-checks; only the registered handlers see
 `CallContext::atomic`.
 
+### Object history (draft-ietf-jmap-object-history-03)
+
+`register_mail_handlers_with_history(dispatcher, backend)`, for a backend
+that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_mail_handlers` and re-registers the history-aware Mailbox
+`/get`, `/set`, `/query`, `/queryChanges`, Identity `/get`, `/set` and
+VacationResponse `/get`, `/set` (Email and SieveScript follow). Each
+`handle_*_with_history` wraps the plain handler, which runs unchanged when
+no history argument is set. Mailbox restores run parent first; a
+restored Mailbox's counts are zero; VacationResponse is never destroyed,
+so its restore is `notFound`.
+
+`MemoryBackend::with_object_history(capability, retention)` turns history
+on for the types the capability lists. Test knobs:
+`set_history_clock_for_test`, `discard_version_for_test`,
+`purge_object_history`, `set_rights_changed_at_for_test`. A destroyed
+Mailbox query filters and sorts like `Mailbox/query` and defaults to
+destruction time, most recent first.
+
 ### Handler structure
 
 Each handler function (e.g. `handle_email_get`, `handle_mailbox_set`) receives

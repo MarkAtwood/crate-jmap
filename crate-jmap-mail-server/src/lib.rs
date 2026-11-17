@@ -79,6 +79,7 @@ pub use sieve::SieveBackend;
 #[cfg(feature = "sieve")]
 pub use sieve::{handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate};
 mod helpers;
+mod history;
 mod identity;
 mod mailbox;
 mod parse;
@@ -91,6 +92,13 @@ pub use backend::MailBackend;
 pub use email::{
     handle_email_changes, handle_email_copy, handle_email_get, handle_email_import,
     handle_email_parse, handle_email_query, handle_email_query_changes, handle_email_set,
+};
+pub use history::{
+    handle_identity_get_with_history, handle_identity_set_with_history,
+    handle_mailbox_get_with_history, handle_mailbox_query_changes_with_history,
+    handle_mailbox_query_with_history, handle_mailbox_set_with_history,
+    handle_vacation_get_with_history, handle_vacation_set_with_history,
+    register_mail_handlers_with_history,
 };
 pub use identity::{handle_identity_changes, handle_identity_get, handle_identity_set};
 pub use jmap_mail_types::{

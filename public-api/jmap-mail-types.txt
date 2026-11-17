@@ -847,6 +847,7 @@ pub fn jmap_mail_types::Identity::eq(&self, &jmap_mail_types::Identity) -> bool
 impl core::fmt::Debug for jmap_mail_types::Identity
 pub fn jmap_mail_types::Identity::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mail_types::Identity
+impl jmap_object_history_types::HistoryObject for jmap_mail_types::Identity
 impl jmap_types::backend::GetObject for jmap_mail_types::Identity
 impl jmap_types::backend::JmapObject for jmap_mail_types::Identity
 pub type jmap_mail_types::Identity::Property = jmap_mail_types::IdentityProperty
@@ -956,6 +957,7 @@ pub fn jmap_mail_types::Mailbox::eq(&self, &jmap_mail_types::Mailbox) -> bool
 impl core::fmt::Debug for jmap_mail_types::Mailbox
 pub fn jmap_mail_types::Mailbox::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mail_types::Mailbox
+impl jmap_object_history_types::HistoryObject for jmap_mail_types::Mailbox
 impl jmap_types::backend::GetObject for jmap_mail_types::Mailbox
 impl jmap_types::backend::JmapObject for jmap_mail_types::Mailbox
 pub type jmap_mail_types::Mailbox::Property = jmap_mail_types::MailboxProperty
@@ -1339,6 +1341,7 @@ pub fn jmap_mail_types::VacationResponse::eq(&self, &jmap_mail_types::VacationRe
 impl core::fmt::Debug for jmap_mail_types::VacationResponse
 pub fn jmap_mail_types::VacationResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mail_types::VacationResponse
+impl jmap_object_history_types::HistoryObject for jmap_mail_types::VacationResponse
 impl jmap_types::backend::GetObject for jmap_mail_types::VacationResponse
 impl jmap_types::backend::JmapObject for jmap_mail_types::VacationResponse
 pub type jmap_mail_types::VacationResponse::Property = jmap_mail_types::VacationResponseProperty

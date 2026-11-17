@@ -974,7 +974,7 @@ where
 // ---------------------------------------------------------------------------
 
 /// Per-type hooks for [`run_restore_phase`].
-pub trait RestoreHooks {
+pub trait RestoreHooks: Sync {
     /// Check a restore entry's patch as the type checks an update patch
     /// (`#creationId` references, metadata entries, ...). The default
     /// accepts it.

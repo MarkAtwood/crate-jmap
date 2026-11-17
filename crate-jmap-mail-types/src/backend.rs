@@ -219,6 +219,8 @@ impl JmapObject for crate::Mailbox {
 }
 
 impl GetObject for crate::Mailbox {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::Mailbox {}
 
 /// RFC 8621 §2 (rfc8621.txt:487, 554, 567, 572, 577, 623): `id` is
 /// "(immutable; server-set)"; the four counts and `myRights` are
@@ -340,6 +342,8 @@ impl JmapObject for crate::Identity {
 }
 
 impl GetObject for crate::Identity {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::Identity {}
 
 /// RFC 8621 §6 (rfc8621.txt:3988, 3997, 4039): `id` is "(immutable;
 /// server-set)", `email` is "(immutable)", `mayDelete` is "(server-set)".
@@ -394,6 +398,8 @@ impl JmapObject for crate::VacationResponse {
 }
 
 impl GetObject for crate::VacationResponse {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::VacationResponse {}
 
 /// RFC 8621 §8 (rfc8621.txt:4801): `id` is "(immutable; server-set)"; the
 /// other properties carry no attribute.
@@ -440,6 +446,33 @@ mod tests {
     //! Each test builds a fully populated object with a struct literal, so a
     //! new field is a compile error here until it is set, then a
     //! classification failure until the `SetObject` lists name it.
+
+    /// Decision 5/14: exactly the registry's "Supports History: Yes" mail
+    /// types implement `HistoryObject` (Email and SieveScript arrive with
+    /// bd JMAP-tna1.3.5 and .8); "No" types never do.
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [
+            has::<crate::Mailbox>(),
+            has::<crate::Identity>(),
+            has::<crate::VacationResponse>(),
+        ] {
+            assert!(is_history_type(name), "{name}");
+        }
+        for name in [
+            "Thread",
+            "EmailSubmission",
+            "SearchSnippet",
+            "EmailDelivery",
+            "MDN",
+        ] {
+            assert!(!is_history_type(name), "{name}");
+        }
+    }
 
     use jmap_types::{Date, Id, UTCDate, check_property_classification};
     use serde_json::{Map, Value, json};
