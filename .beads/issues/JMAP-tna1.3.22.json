@@ -2,13 +2,15 @@
   "id": "JMAP-tna1.3.22",
   "title": "testjig: chat history registration and Message history end to end",
   "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H20. Crates: jmap-testjig. Size: S.\n\nDesign: docs/design/object-history.md §5 'Capability advertisement', §10 'Decision-5 crates'.\n\nSwitch testjig's chat registration (crate-jmap-testjig/src/http.rs) to register_chat_handlers_with_history, with memory with_object_history, and keep register_chat_conditional after it if present. Add the chat types to the advertised supportedTypes.\n\nAcceptance:\n- Over HTTP: Message/get includeReplaced returns the edit versions; after the Message is deleted it returns only the live tombstone and restore ⇒ notFound.\n- object_history_gaps is still empty.\n- The Session advertises the chat types.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:54.85318062Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T02:50:54.85318062Z",
+  "updated_at": "2026-11-17T19:29:53.219771966Z",
+  "closed_at": "2026-11-17T19:29:53.219771966Z",
+  "close_reason": "testjig registers and advertises object history; HTTP e2e tests pass",
   "labels": [
     "spec-sync"
   ],
