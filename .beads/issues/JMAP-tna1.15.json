@@ -3,13 +3,15 @@
   "title": "contacts/calendars servers: validate Media and Link blobId as an Id in create/update",
   "description": "Found during JMAP-tna1.9. RFC 9610 §2 types the Media 'blobId' as Id, but ContactCard/set stores any string: a create with media.p.blobId '#nope' (not a valid Id, RFC 8620 §1.2) is created and read back unchanged. The same likely holds for the blob's existence. Decide: invalidProperties naming 'media' (or the path) for a malformed blobId; whether to check existence via a backend hook (spec-method-defaults: no no-op default). Then update crate-jmap-contacts-server/tests/blob_creation_refs.rs unknown_blob_ref_is_left_unchanged, which pins today's behaviour.",
   "notes": "Also calendars-server: CalendarEvent/set stores a Link blobId '#nope' (top-level links and nested locations/*/links) though draft-ietf-jmap-calendars §5.3 / JSCalendar Link blobId is Id; crate-jmap-calendars-server/tests/blob_creation_refs.rs unknown_link_blob_ref_is_left_unchanged pins today's behaviour.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-17T03:37:55.837892866Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-17T03:40:06.6763146Z",
+  "updated_at": "2026-11-17T04:52:49.895199379Z",
+  "closed_at": "2026-11-17T04:52:49.895199379Z",
+  "close_reason": "check_blob_ids in jmap-server; ContactCard and CalendarEvent set/copy reject non-Id blobIds; existence left to backend",
   "labels": [
     "spec-sync"
   ],
