@@ -38,6 +38,8 @@ jmap-sharing-server = { workspace = true, features = ["memory"] }
 jmap-quotas-server = { workspace = true, features = ["memory"] }
 jmap-blob-server = { workspace = true, features = ["memory"] }
 jmap-types = { workspace = true }
+jmap-object-history-server = { workspace = true }
+jmap-object-history-types = { workspace = true }
 
 # Each *-types crate is pulled in alongside its *-server pair so the
 # SSE poller (slice bd:JMAP-cf7p.4) can name the [`JmapObject`]

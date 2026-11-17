@@ -524,43 +524,79 @@ struct ExtensionBackends {
 fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends {
     let account = Id::from(session::ACCOUNT_ID);
 
+    // draft-ietf-jmap-object-history-03: every backend with history-capable
+    // types keeps history for the types the Session advertises
+    // (`session::HISTORY_TYPES`), and registers the history-aware
+    // handlers; conditional support attaches to them below (decision 17).
+    let history = |backend: &str| session::object_history_capability(Some(backend));
+    let retention = || {
+        jmap_object_history_server::HistoryRetention::new().max_duration(Some(
+            std::time::Duration::from_secs(session::HISTORY_SECONDS),
+        ))
+    };
+
     // Mail (RFC 8621): Mailbox, Thread, Email, SearchSnippet,
     // Identity, EmailSubmission, VacationResponse.
-    let mail = Arc::new(jmap_mail_server::memory::MemoryBackend::new());
+    let mail = Arc::new(
+        jmap_mail_server::memory::MemoryBackend::new()
+            .with_object_history(history("mail"), retention()),
+    );
     mail.register_account(&account);
-    jmap_mail_server::register_mail_handlers(dispatcher, Arc::clone(&mail));
+    jmap_mail_server::register_mail_handlers_with_history(dispatcher, Arc::clone(&mail));
 
     // Chat (draft-atwood-jmap-chat-00): Chat, Message, Space,
     // SpaceBan, ChatContact, ReadPosition, CustomEmoji, SpaceInvite,
     // PresenceStatus.
-    let chat = Arc::new(jmap_chat_server::memory::MemoryBackend::new());
+    let chat = Arc::new(
+        jmap_chat_server::memory::MemoryBackend::new()
+            .with_object_history(history("chat"), retention()),
+    );
     chat.register_account(&account);
-    jmap_chat_server::register_chat_handlers(dispatcher, Arc::clone(&chat));
+    jmap_chat_server::register_chat_handlers_with_history(dispatcher, Arc::clone(&chat));
 
     // Calendars (draft-ietf-jmap-calendars): Calendar, CalendarEvent,
     // Participant, ParticipantIdentity.
-    let calendars = Arc::new(jmap_calendars_server::memory::MemoryBackend::new());
+    let calendars = Arc::new(
+        jmap_calendars_server::memory::MemoryBackend::new()
+            .with_object_history(history("calendars"), retention()),
+    );
     calendars.register_account(&account);
-    jmap_calendars_server::register_calendars_handlers(dispatcher, Arc::clone(&calendars));
+    jmap_calendars_server::register_calendars_handlers_with_history(
+        dispatcher,
+        Arc::clone(&calendars),
+    );
 
     // Tasks (draft-ietf-jmap-tasks): Task, TaskList.
-    let tasks = Arc::new(jmap_tasks_server::memory::MemoryBackend::new());
+    let tasks = Arc::new(
+        jmap_tasks_server::memory::MemoryBackend::new()
+            .with_object_history(history("tasks"), retention()),
+    );
     tasks.register_account(&account);
-    jmap_tasks_server::register_tasks_handlers(dispatcher, Arc::clone(&tasks));
+    jmap_tasks_server::register_tasks_handlers_with_history(dispatcher, Arc::clone(&tasks));
 
     // Contacts (draft-ietf-jmap-contacts): ContactCard, AddressBook.
-    let contacts = Arc::new(jmap_contacts_server::memory::MemoryBackend::new());
+    let contacts = Arc::new(
+        jmap_contacts_server::memory::MemoryBackend::new()
+            .with_object_history(history("contacts"), retention()),
+    );
     contacts.register_account(&account);
-    jmap_contacts_server::register_contacts_handlers(dispatcher, Arc::clone(&contacts));
+    jmap_contacts_server::register_contacts_handlers_with_history(
+        dispatcher,
+        Arc::clone(&contacts),
+    );
 
     // FileNode (draft-atwood-jmap-chat-filenode-00): FileNode tree.
     // Uses a builder shape — `with_account` consumes self and returns
     // the seeded backend, which we then wrap in an Arc.
     let filenode = Arc::new(
         jmap_filenode_server::memory::MemoryBackend::new()
-            .with_account(&Id::from(session::ACCOUNT_ID)),
+            .with_account(&Id::from(session::ACCOUNT_ID))
+            .with_object_history(history("filenode"), retention()),
     );
-    jmap_filenode_server::register_filenode_handlers(dispatcher, Arc::clone(&filenode));
+    jmap_filenode_server::register_filenode_handlers_with_history(
+        dispatcher,
+        Arc::clone(&filenode),
+    );
 
     // Sharing (RFC 9670): Principal, ShareNotification.
     let sharing = Arc::new(
@@ -683,6 +719,25 @@ mod tests {
     use ::http::StatusCode;
     use http_body_util::BodyExt;
     use serde_json::json;
+
+    /// object-history-03 §2.1 and decision 1: every type the Session lists
+    /// in `supportedTypes` has history-aware `/get`, `/set`, `/query` and
+    /// `/queryChanges` (those it registers at all), after conditional
+    /// support attached to the `/set`s.
+    #[test]
+    fn advertised_history_types_have_no_gaps() {
+        let mut dispatcher = Dispatcher::new();
+        let _backends = register_all_extensions(&mut dispatcher);
+        let types = crate::session::object_history_capability(None).supported_types;
+        let types: Vec<&str> = types.iter().map(String::as_str).collect();
+        assert_eq!(types.len(), 19);
+        assert!(
+            dispatcher.object_history_gaps(&types).is_empty(),
+            "{:?}",
+            dispatcher.object_history_gaps(&types)
+        );
+        assert!(dispatcher.conditional_ready());
+    }
 
     /// The bearer token every test helper attaches to outbound
     /// requests. Matches the default carried by `AppState::new`.

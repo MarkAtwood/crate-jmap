@@ -2625,6 +2625,8 @@ dependencies = [
  "jmap-filenode-types",
  "jmap-mail-server",
  "jmap-mail-types",
+ "jmap-object-history-server",
+ "jmap-object-history-types",
  "jmap-quotas-server",
  "jmap-quotas-types",
  "jmap-server",

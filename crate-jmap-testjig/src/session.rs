@@ -124,6 +124,65 @@ pub(crate) fn blob_capability() -> jmap_blob_types::BlobAccountCapability {
     jmap_blob_server::memory::MemoryBackend::default_capability()
 }
 
+/// The object-history capability URI (draft-ietf-jmap-object-history-03
+/// §2.1).
+pub const OBJECT_HISTORY_URI: &str = jmap_object_history_types::JMAP_OBJECT_HISTORY_URI;
+
+/// How long the jig keeps a replaced or destroyed version: the
+/// account's `maxHistoryDuration` (§2.1), 30 days as in the §3.2.1
+/// example.
+pub(crate) const HISTORY_SECONDS: u64 = 30 * 24 * 60 * 60;
+
+/// The data types each jig backend keeps history for, by backend.
+/// Together they are the account's `supportedTypes`; each backend's
+/// `with_object_history` takes its own slice. The JMAP Data Types
+/// registry rows with "Supports History: Yes" and decisions 5, 22 and
+/// 23 decide the lists; SieveScript is out because the jig registers no
+/// Sieve handlers.
+pub(crate) const HISTORY_TYPES: &[(&str, &[&str])] = &[
+    (
+        "mail",
+        &["Mailbox", "Email", "Identity", "VacationResponse"],
+    ),
+    ("contacts", &["AddressBook", "ContactCard"]),
+    (
+        "calendars",
+        &["Calendar", "CalendarEvent", "ParticipantIdentity"],
+    ),
+    ("tasks", &["TaskList", "Task"]),
+    ("filenode", &["FileNode"]),
+    (
+        "chat",
+        &[
+            "Chat",
+            "Message",
+            "Space",
+            "ChatContact",
+            "CustomEmoji",
+            "SpaceBan",
+            "SpaceInvite",
+        ],
+    ),
+];
+
+/// The account's object-history capability (§2.1) restricted to
+/// `backend`'s types, or, for `None`, with every type the jig keeps
+/// history for.
+pub(crate) fn object_history_capability(
+    backend: Option<&str>,
+) -> jmap_object_history_types::ObjectHistoryAccountCapability {
+    let types = HISTORY_TYPES
+        .iter()
+        .filter(|(b, _)| backend.is_none_or(|want| want == *b))
+        .flat_map(|(_, t)| t.iter().map(|t| (*t).to_owned()))
+        .collect::<Vec<_>>();
+    serde_json::from_value(json!({
+        "maxHistoryDuration": HISTORY_SECONDS,
+        "supportedTypes": types,
+    }))
+    .expect("a well-formed object-history capability")
+}
+
 /// The RFC 8887 WebSocket subprotocol capability URI. Not in
 /// [`ADVERTISED_CAPABILITIES`] because it carries no account-scoped
 /// methods — see that constant's doc-comment.
@@ -167,8 +226,10 @@ pub fn session_json() -> Value {
 ///   requires; every other account capability is `{}`.
 /// - `accounts`: single entry keyed by [`ACCOUNT_ID`]; `name` =
 ///   [`USERNAME`]; not personal, not read-only;
-///   `accountCapabilities` re-advertises all 13 extension URIs (Core
-///   is conventionally session-only, not per-account).
+///   `accountCapabilities` re-advertises the 13 extension URIs (Core
+///   is conventionally session-only, not per-account) and adds the
+///   object-history capability (object-history-03 §2.1). That one has
+///   no methods of its own, so it is not in `primaryAccounts`.
 /// - `primaryAccounts`: every extension URI maps to [`ACCOUNT_ID`].
 ///   `urn:ietf:params:jmap:core` is NOT in `primaryAccounts` per
 ///   RFC 8620 §2 ("a value MUST be present for each capability in the
@@ -266,6 +327,14 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
     account_capabilities.insert(
         jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI.to_owned(),
         json!({ "accountIdForPrincipal": ACCOUNT_ID, "principalId": PRINCIPAL_ID }),
+    );
+
+    // object-history-03 §2.1: the Session capability is `{}` and present
+    // because this account has the account capability.
+    capabilities.insert(OBJECT_HISTORY_URI.to_owned(), json!({}));
+    account_capabilities.insert(
+        OBJECT_HISTORY_URI.to_owned(),
+        serde_json::to_value(object_history_capability(None)).unwrap_or_else(|_| json!({})),
     );
 
     let accounts = json!({

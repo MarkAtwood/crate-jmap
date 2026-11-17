@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-testjig**: object history over HTTP: mail, contacts,
+  calendars, tasks, filenode and chat register their history-aware
+  handlers on memory backends keeping versions for 30 days, and the
+  Session advertises `urn:ietf:params:jmap:object-history` with the 19
+  supported types. (bd:JMAP-tna1.3.14, JMAP-tna1.3.22)
 - **jmap-object-history-client**: `JmapObjectHistoryExt` /
   `SessionClient`: `get_history`, `query_destroyed`,
   `query_destroyed_changes`, `restore` (on base-client `SetCall`),

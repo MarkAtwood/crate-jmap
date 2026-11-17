@@ -183,6 +183,15 @@ synchronously (e.g. before spawning a second jig on the same port).
   `atomic` work on every Foo/set over HTTP; without the URI in `using`, a
   non-default one is `invalidArguments`. Each backend keeps its own scope
   gate: no backend calls another, so separate gates cannot deadlock.
+- Object history (draft-ietf-jmap-object-history-03 with the -04
+  editor's copy changes): mail, contacts, calendars, tasks, filenode and
+  chat register `register_<x>_handlers_with_history` on memory backends
+  built `with_object_history`, keeping versions for 30 days. The Session
+  advertises `urn:ietf:params:jmap:object-history` as `{}` and, on the
+  account, `maxHistoryDuration` with the 19 `supportedTypes` of
+  `session::HISTORY_TYPES`. Conditional support attaches to the
+  history-aware `/set`s, so `atomic` covers restores. Sieve, graph, scene
+  and VTC are not mounted on the jig, so their types are not listed.
 
 ## Architectural posture
 
