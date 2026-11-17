@@ -22,8 +22,11 @@ wire behaviour that a conforming peer can observe.
   (`parse_restore_argument`, `run_restore_phase` with `RestoreHooks` and
   referenced-first order, `apply_restore_patch`, `restored_diff`,
   `append_restore_results`, `enforce_max_objects_in_set_with_restore`),
-  and `Dispatcher::register_history_aware` / `object_history_gaps`. A
-  plain `register` clears the history-aware mark. No change for
+  `history_get`, `history_query`, `history_query_changes` and
+  `history_set` (the same around a type's own plain handler, which runs
+  unchanged), and `Dispatcher::register_history_aware` /
+  `object_history_gaps`. A plain `register` clears the history-aware
+  mark. No change for
   deployments that do not opt in. (bd:JMAP-tna1.3.3)
 - **jmap-object-history-server**: pure helpers for history-keeping
   backends: `select_versions` (§3 selection), `VersionLog` (retention,
@@ -690,6 +693,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server** (wire, every deployment): without
+  `urn:ietf:params:jmap:object-history` in `using`, `includeReplaced: true`
+  or `includeDestroyed: true` on `*/get`, `onlyDestroyed: true` or a
+  non-null `destroyedAfter`/`destroyedBefore` on `*/query` and
+  `*/queryChanges`, and a non-empty `restore` on `*/set` are now
+  `invalidArguments` before the handler runs, instead of being ignored;
+  the same arguments at their defaults are removed (docs/design/DECISIONS.md
+  decision 18). (bd:JMAP-tna1.3.25)
 - **jmap-chat-client**: no longer depends on `chrono` (RUSTSEC-2026-0543,
   unmaintained). Receipt timestamps and the default `rateLimit` retry time
   are computed in-crate; `format_receipt_timestamp_at` now parses only RFC

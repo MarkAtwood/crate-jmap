@@ -568,12 +568,37 @@ pub async fn handle_get_with_history<O: HistoryObject, B: ObjectHistoryBackend>(
     args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    history_get::<O, B, _, _>(backend, caller, args, using, |args| {
+        handle_get_with_metadata::<O, B>(backend, caller, args, using)
+    })
+    .await
+}
+
+/// [`handle_get_with_history`] with `plain` as the call made when no history
+/// argument is set, for a type whose plain handler is its own (a custom
+/// getter, a type-specific query).
+///
+/// # Errors
+///
+/// As [`handle_get_with_history`], with `plain`'s errors in place of the default
+/// handler's.
+pub async fn history_get<O: HistoryObject, B: ObjectHistoryBackend, F, Fut>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+    plain: F,
+) -> Result<HandlerOutput, JmapError>
+where
+    F: FnOnce(Value) -> Fut,
+    Fut: std::future::Future<Output = Result<HandlerOutput, JmapError>>,
+{
     let Value::Object(mut map) = args else {
-        return handle_get_with_metadata::<O, B>(backend, caller, args, using).await;
+        return plain(args).await;
     };
     let Some(history) = parse_history_get_arguments(&mut map, using)? else {
         strip_object_history_property(&mut map);
-        return handle_get_with_metadata::<O, B>(backend, caller, Value::Object(map), using).await;
+        return plain(Value::Object(map)).await;
     };
     strip_object_history_property(&mut map);
     let (account_id, mut args) = extract_account_id(Value::Object(map))?;
@@ -722,11 +747,38 @@ where
     O: HistoryObject + QueryObject,
     B: ObjectHistoryBackend,
 {
+    history_query::<O, B, _, _>(backend, caller, args, using, |args| {
+        handle_query_with_i18n::<O, B>(backend, caller, args, using)
+    })
+    .await
+}
+
+/// [`handle_query_with_history`] with `plain` as the call made when no history
+/// argument is set, for a type whose plain handler is its own (a custom
+/// getter, a type-specific query).
+///
+/// # Errors
+///
+/// As [`handle_query_with_history`], with `plain`'s errors in place of the default
+/// handler's.
+pub async fn history_query<O, B, F, Fut>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+    plain: F,
+) -> Result<HandlerOutput, JmapError>
+where
+    F: FnOnce(Value) -> Fut,
+    Fut: std::future::Future<Output = Result<HandlerOutput, JmapError>>,
+    O: HistoryObject + QueryObject,
+    B: ObjectHistoryBackend,
+{
     let Value::Object(mut map) = args else {
-        return handle_query_with_i18n::<O, B>(backend, caller, args, using).await;
+        return plain(args).await;
     };
     let Some(destroyed) = parse_destroyed_query_arguments(&mut map, using)? else {
-        return handle_query_with_i18n::<O, B>(backend, caller, Value::Object(map), using).await;
+        return plain(Value::Object(map)).await;
     };
     let (account_id, mut args) = extract_account_id(Value::Object(map))?;
     if !backend
@@ -817,12 +869,38 @@ where
     O: HistoryObject + QueryObject,
     B: ObjectHistoryBackend,
 {
+    history_query_changes::<O, B, _, _>(backend, caller, args, using, |args| {
+        handle_query_changes_with_i18n::<O, B>(backend, caller, args, using)
+    })
+    .await
+}
+
+/// [`handle_query_changes_with_history`] with `plain` as the call made when no history
+/// argument is set, for a type whose plain handler is its own (a custom
+/// getter, a type-specific query).
+///
+/// # Errors
+///
+/// As [`handle_query_changes_with_history`], with `plain`'s errors in place of the default
+/// handler's.
+pub async fn history_query_changes<O, B, F, Fut>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+    plain: F,
+) -> Result<HandlerOutput, JmapError>
+where
+    F: FnOnce(Value) -> Fut,
+    Fut: std::future::Future<Output = Result<HandlerOutput, JmapError>>,
+    O: HistoryObject + QueryObject,
+    B: ObjectHistoryBackend,
+{
     let Value::Object(mut map) = args else {
-        return handle_query_changes_with_i18n::<O, B>(backend, caller, args, using).await;
+        return plain(args).await;
     };
     let Some(destroyed) = parse_destroyed_query_arguments(&mut map, using)? else {
-        return handle_query_changes_with_i18n::<O, B>(backend, caller, Value::Object(map), using)
-            .await;
+        return plain(Value::Object(map)).await;
     };
     let (account_id, mut args) = extract_account_id(Value::Object(map))?;
     if !backend
@@ -1157,6 +1235,131 @@ where
     }
 }
 
+/// A history-aware `Foo/set` around `plain`, the type's own `/set`
+/// handler, which runs unchanged for creates, updates and destroys.
+///
+/// It takes `restore` out of the arguments ([`parse_restore_argument`]),
+/// moves each create or update naming `objectHistory` to
+/// `notCreated`/`notUpdated` (§7.3, §7.4), and, when there are restores:
+/// counts them toward `maxObjectsInSet` (-04 §5.1), checks `ifInState`
+/// against the state before them and removes it, runs
+/// [`run_restore_phase`] "before any create, update, or destroy" (§5.1),
+/// calls `plain`, and puts the state read before the restores in
+/// `oldState`. With the URI in `using` the response always has `restored`
+/// and `notRestored` ([`append_restore_results`]).
+///
+/// A method-level error from `plain` after restores were applied is
+/// returned as is; the restores stay applied unless the call runs in a
+/// conditional `atomic` scope.
+///
+/// # Errors
+///
+/// Those of `plain`, [`parse_restore_argument`] and [`run_restore_phase`];
+/// `accountNotFound`, `stateMismatch` and `requestTooLarge` when there are
+/// restores.
+pub async fn history_set<O, B, F, Fut>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+    hooks: &dyn RestoreHooks,
+    plain: F,
+) -> Result<HandlerOutput, JmapError>
+where
+    O: HistoryObject + SetObject,
+    B: ObjectHistoryBackend,
+    F: FnOnce(Value) -> Fut,
+    Fut: std::future::Future<Output = Result<HandlerOutput, JmapError>>,
+{
+    let Value::Object(mut map) = args else {
+        return plain(args).await;
+    };
+    let restore = parse_restore_argument(&mut map, using)?;
+    let mut acc = RestoreAccumulators::default();
+    let mut old_state = None;
+    if !restore.is_empty() {
+        let account_id = match map.get("accountId").and_then(Value::as_str) {
+            Some(s) => Id::new_validated(s)
+                .map_err(|e| invalid(format!("accountId is not a valid Id: {e}")))?,
+            None => return Err(invalid("accountId is required")),
+        };
+        if !backend
+            .account_exists(caller, &account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?
+        {
+            return Err(JmapError::account_not_found());
+        }
+        enforce_max_objects_in_set_with_restore(
+            &map,
+            restore.len(),
+            backend.max_objects_in_set(caller, &account_id),
+        )?;
+        let state = backend
+            .get_state::<O>(caller, &account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+        match map.remove("ifInState") {
+            None | Some(Value::Null) => {}
+            Some(Value::String(s)) if s == state.as_ref() => {}
+            Some(Value::String(_)) => return Err(JmapError::state_mismatch()),
+            Some(v) => {
+                return Err(invalid(format!(
+                    "ifInState: expected a string or null, got {}",
+                    json_type_name(&v)
+                )));
+            }
+        }
+        acc = run_restore_phase::<O, B>(backend, caller, &account_id, restore, hooks).await?;
+        old_state = Some(state);
+    }
+    let mut early_not_created = Map::new();
+    let mut early_not_updated = Map::new();
+    for (key, out) in [
+        ("create", &mut early_not_created),
+        ("update", &mut early_not_updated),
+    ] {
+        if let Some(Value::Object(entries)) = map.get_mut(key) {
+            let named: Vec<String> = entries
+                .iter()
+                .filter(|(_, v)| v.as_object().is_some_and(names_object_history))
+                .map(|(k, _)| k.clone())
+                .collect();
+            for k in named {
+                entries.remove(&k);
+                out.insert(k, set_error_value(object_history_set_error()));
+            }
+        }
+    }
+    let mut out = plain(Value::Object(map)).await?;
+    if let Value::Object(primary) = &mut out.primary {
+        if let Some(state) = old_state
+            && primary.contains_key("oldState")
+        {
+            primary.insert("oldState".to_owned(), json!(state.as_ref()));
+        }
+        for (key, early) in [
+            ("notCreated", early_not_created),
+            ("notUpdated", early_not_updated),
+        ] {
+            if early.is_empty() {
+                continue;
+            }
+            let slot = primary.entry(key.to_owned()).or_insert(Value::Null);
+            if !slot.is_object() {
+                *slot = Value::Object(Map::new());
+            }
+            if let Value::Object(m) = slot {
+                m.extend(early);
+            }
+        }
+    }
+    if uses_history(using) {
+        append_restore_results(&mut out.primary, &acc);
+    }
+    Ok(out)
+}
+
 /// The SetError for `objectHistory` in a create, update or restore patch:
 /// it is reserved (§7.3, §7.4) and never stored, so `invalidProperties`.
 pub fn object_history_set_error() -> SetError {
@@ -1319,4 +1522,55 @@ impl<C: Clone + Send + 'static> Dispatcher<C> {
         gaps.sort();
         gaps
     }
+}
+
+// ---------------------------------------------------------------------------
+// Dispatcher-wide check without the URI (decision 18)
+// ---------------------------------------------------------------------------
+
+/// Decision 18: without the object-history URI in `using`, reject a
+/// history argument that asks for history, and remove the ones at their
+/// defaults, before any handler runs, plain or history-aware.
+///
+/// `*/get`: `includeReplaced`, `includeDestroyed` other than `false` or
+/// `null`. `*/query` and `*/queryChanges` (-04): `onlyDestroyed` other than
+/// `false` or `null`, `destroyedAfter`/`destroyedBefore` other than `null`.
+/// `*/set`: `restore` other than `null` or `{}`. `historyAfter`,
+/// `historyBefore`, `historySkip` and `historyLimit` are left alone: §3
+/// ignores them when both flags are false. With the URI, nothing happens.
+pub(crate) fn check_history_without_uri(
+    method: &str,
+    args: &mut Value,
+    using: &[String],
+) -> Result<(), JmapError> {
+    if uses_history(using) {
+        return Ok(());
+    }
+    let Value::Object(map) = args else {
+        return Ok(());
+    };
+    let Some((_, verb)) = method.rsplit_once('/') else {
+        return Ok(());
+    };
+    let keys: &[&str] = match verb {
+        "get" => &["includeReplaced", "includeDestroyed"],
+        "query" | "queryChanges" => &["onlyDestroyed", "destroyedAfter", "destroyedBefore"],
+        "set" => &["restore"],
+        _ => return Ok(()),
+    };
+    for key in keys {
+        let at_default = match map.get(*key) {
+            None | Some(Value::Null) => true,
+            Some(Value::Bool(false)) => !key.starts_with("destroyed") && *key != "restore",
+            Some(Value::Object(m)) => *key == "restore" && m.is_empty(),
+            Some(_) => false,
+        };
+        if !at_default {
+            return Err(without_uri(key));
+        }
+    }
+    for key in keys {
+        map.remove(*key);
+    }
+    Ok(())
 }

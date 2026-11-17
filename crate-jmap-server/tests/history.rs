@@ -28,12 +28,13 @@ use jmap_object_history_types::{
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, CallContext, ChangesParams,
     ChangesResult, ClosureHandler, DestroyedQueryChangesParams, DestroyedQueryParams, Dispatcher,
-    GetObject, HandlerFuture, HistoryGetParams, HistoryGetResult, JmapBackend, JmapHandler,
-    JmapObject, ObjectHistoryBackend, ParentRestoreHooks, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, Restored, SetObject, append_restore_results,
-    apply_restore_patch, enforce_max_objects_in_set_with_restore, extract_account_id,
-    handle_get_with_history, handle_query_changes_with_history, handle_query_with_history,
-    names_object_history, object_history_set_error, parse_restore_argument, run_restore_phase,
+    GetObject, HandlerFuture, HandlerOutput, HistoryGetParams, HistoryGetResult, JmapBackend,
+    JmapHandler, JmapObject, ObjectHistoryBackend, ParentRestoreHooks, QueryChangesParams,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, Restored, SetObject,
+    append_restore_results, apply_restore_patch, enforce_max_objects_in_set_with_restore,
+    extract_account_id, handle_get_with_history, handle_query_changes_with_history,
+    handle_query_with_history, history_set, names_object_history, object_history_set_error,
+    parse_restore_argument, run_restore_phase,
 };
 use jmap_types::{Id, JmapError, PatchObject, SetError, SetErrorType, State, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -155,7 +156,10 @@ impl JmapBackend for Mock {
         _: &(),
         _: &Id,
     ) -> Result<State, StubError> {
-        Ok(State::from("s1"))
+        // One state per successful restore, so oldState is observable.
+        let i = self.0.lock().unwrap();
+        let n = i.log.iter().filter(|l| l.starts_with("restore ")).count();
+        Ok(State::from(format!("s{}", n + 1)))
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
@@ -765,4 +769,83 @@ fn object_history_gaps_flag_plain_registrations() {
     d.register("Note/set", noop());
     assert_eq!(d.object_history_gaps(&["Note"]), ["Note/set"]);
     assert!(d.object_history_gaps(&["Other"]).is_empty());
+}
+
+// ---- history_set around a plain /set ------------------------------------
+
+/// A plain Note/set stand-in: echoes the arguments it got and the state it
+/// saw, with one notCreated entry of its own.
+async fn plain_set(m: &Mock, args: Value) -> Result<HandlerOutput, JmapError> {
+    let state = m.get_state::<Note>(&(), &Id::from("A1")).await.unwrap();
+    Ok(HandlerOutput::new(json!({
+        "accountId": "A1", "oldState": state, "newState": state,
+        "args": args, "notCreated": {"plain": {"type": "invalidProperties"}}, "notUpdated": null
+    })))
+}
+
+async fn hset(m: &Mock, args: Value, using: &[String]) -> Result<Value, JmapError> {
+    history_set::<Note, Mock, _, _>(m, &(), args, using, &ParentRestoreHooks("parentId"), |a| {
+        plain_set(m, a)
+    })
+    .await
+    .map(|o| o.primary)
+}
+
+#[tokio::test]
+async fn history_set_runs_restores_first_and_reports_the_old_state() {
+    let m = Mock::new();
+    let out = hset(
+        &m,
+        json!({"accountId": "A1", "ifInState": "s1", "restore": {"d1": null},
+               "create": {"a": {"title": "t"}, "b": {"objectHistory": {}}},
+               "update": {"n1": {"objectHistory/version": 3}}}),
+        &using(),
+    )
+    .await
+    .unwrap();
+    // The plain handler saw the post-restore state, no restore, no
+    // ifInState, and only the clean create.
+    assert_eq!(
+        out["args"],
+        json!({"accountId": "A1", "create": {"a": {"title": "t"}}, "update": {}})
+    );
+    assert_eq!(out["newState"], "s2", "{out}");
+    assert_eq!(out["oldState"], "s1", "the state before the restore");
+    assert_eq!(out["restored"], json!({"d1": {"size": 99}}));
+    assert_eq!(
+        out["notCreated"]["b"]["properties"],
+        json!(["objectHistory"])
+    );
+    assert_eq!(out["notCreated"]["plain"]["type"], "invalidProperties");
+    assert_eq!(
+        out["notUpdated"]["n1"]["properties"],
+        json!(["objectHistory"])
+    );
+}
+
+#[tokio::test]
+async fn history_set_checks_if_in_state_before_restoring() {
+    let m = Mock::new();
+    let stale = json!({"accountId": "A1", "ifInState": "s0", "restore": {"d1": null}});
+    assert_eq!(err_type(hset(&m, stale, &using()).await), "stateMismatch");
+    assert!(m.log().is_empty());
+    let unknown = json!({"accountId": "ZZ", "restore": {"d1": null}});
+    assert_eq!(
+        err_type(hset(&m, unknown, &using()).await),
+        "accountNotFound"
+    );
+}
+
+#[tokio::test]
+async fn history_set_without_restores_is_the_plain_set() {
+    let m = Mock::new();
+    let args = json!({"accountId": "A1", "ifInState": "s1"});
+    let out = hset(&m, args.clone(), &[]).await.unwrap();
+    assert_eq!(out["args"], args);
+    assert!(!out.as_object().unwrap().contains_key("restored"));
+    let out = hset(&m, args, &using()).await.unwrap();
+    assert_eq!(
+        (&out["restored"], &out["notRestored"]),
+        (&Value::Null, &Value::Null)
+    );
 }

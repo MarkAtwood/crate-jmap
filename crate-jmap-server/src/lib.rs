@@ -72,10 +72,10 @@ pub use history::{
     NoRestoreHooks, OBJECT_HISTORY_PROPERTY, ObjectHistoryBackend, ParentRestoreHooks,
     RestoreAccumulators, RestoreHooks, Restored, append_restore_results, apply_restore_patch,
     attach_object_history, enforce_max_objects_in_set_with_restore, handle_get_with_history,
-    handle_query_changes_with_history, handle_query_with_history, names_object_history,
-    object_history_set_error, parse_destroyed_query_arguments, parse_history_get_arguments,
-    parse_restore_argument, require_history_support, restored_diff, run_restore_phase,
-    strip_object_history_property,
+    handle_query_changes_with_history, handle_query_with_history, history_get, history_query,
+    history_query_changes, history_set, names_object_history, object_history_set_error,
+    parse_destroyed_query_arguments, parse_history_get_arguments, parse_restore_argument,
+    require_history_support, restored_diff, run_restore_phase, strip_object_history_property,
 };
 pub use i18n::{
     I18nInfo, I18nProjection, I18nSet, localized_query_state, localized_update, unwrap_query_state,
@@ -538,6 +538,13 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             // draft-ietf-jmap-conditional-02 (docs/design/conditional.md
             // §5.2): every Foo/set call goes through the decision-2 check;
             // one with conditional arguments runs under the evaluator.
+            // docs/design/DECISIONS.md decision 18: history arguments
+            // without urn:ietf:params:jmap:object-history in `using`.
+            if let Err(e) = history::check_history_without_uri(&method, &mut args, &request.using) {
+                method_responses.push(error_invocation(&call_id, e));
+                continue;
+            }
+
             let conditional = if method.ends_with("/set") {
                 // RFC 8620 §5.3: an update key or destroy id may name a
                 // record an earlier call created; the handler resolves

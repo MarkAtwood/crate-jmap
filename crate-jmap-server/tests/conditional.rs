@@ -407,6 +407,8 @@ async fn send(d: &Dispatcher<()>, conditional: bool, calls: Value) -> Vec<Value>
     let mut using = vec![CORE];
     if conditional {
         using.push(COND);
+        // The restore probes need it since the decision-18 check.
+        using.push("urn:ietf:params:jmap:object-history");
     }
     let req: JmapRequest =
         serde_json::from_value(json!({"using": using, "methodCalls": calls})).unwrap();
