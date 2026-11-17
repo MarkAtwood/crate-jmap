@@ -644,8 +644,8 @@ pub struct MessageCreateInput<'a> {
     /// `String` and does not validate the RFC 3339 format at
     /// construction time. A malformed value forwards to the server,
     /// which rejects it with `invalidArguments`. Construct values via a
-    /// validating helper (e.g. `chrono::DateTime::<Utc>::to_rfc3339`)
-    /// rather than from arbitrary strings.
+    /// validating constructor (`UTCDate::new_validated`) rather than
+    /// from arbitrary strings.
     pub sent_at: &'a jmap_types::UTCDate,
     /// When `Some`, marks this message as a reply to the given message id.
     pub reply_to: Option<&'a Id>,

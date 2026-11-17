@@ -3,8 +3,6 @@
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-use chrono::{DateTime, Datelike, Timelike, Utc};
-
 use jmap_chat_types::{BroadcastMention, Mention, RichBody, SpanType};
 use jmap_types::{Id, UTCDate};
 
@@ -159,9 +157,7 @@ impl TypingIndicators {
 /// **Stability note**: The exact output strings (`"Today"`, `"Jan 15"`, etc.)
 /// are informational display strings, not a stable API contract.
 pub fn format_receipt_timestamp(dt: &UTCDate) -> String {
-    let now_str = Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
-    let now = UTCDate::from(now_str.as_str());
-    format_receipt_timestamp_at(dt, &now)
+    format_receipt_timestamp_at(dt, &now_utcdate())
 }
 
 /// Like [`format_receipt_timestamp`] but accepts an explicit reference time,
@@ -170,56 +166,114 @@ pub fn format_receipt_timestamp(dt: &UTCDate) -> String {
 /// Both `dt` and `now` are treated as UTC. To display in local time, adjust
 /// `now` to the desired reference point before calling.
 ///
-/// `now` is typed as [`UTCDate`] (a JMAP-native String newtype, RFC 3339)
-/// rather than `chrono::DateTime<chrono::Utc>` so the public signature
-/// of this crate does not leak the `chrono` major-version into its
-/// SemVer surface. The implementation parses `now` internally and
-/// silently falls back to "Today" if the reference time is itself
-/// unparsable (matching the existing behaviour for `dt`).
+/// `now` is typed as [`UTCDate`] (a JMAP-native String newtype, RFC 8620
+/// §1.4) so the public signature leaks no date-library type into this
+/// crate's SemVer surface. Both values must be RFC 8620 `UTCDate`s (`Z`
+/// suffix). If the reference time is itself unparsable the result falls
+/// back to "Today" (matching the behaviour for an unparsable `dt`, which
+/// is returned unchanged).
 pub fn format_receipt_timestamp_at(dt: &UTCDate, now: &UTCDate) -> String {
-    let parsed = match chrono::DateTime::parse_from_rfc3339(dt.as_ref()) {
-        Ok(d) => d.with_timezone(&Utc),
-        Err(_) => return dt.as_ref().to_string(),
+    let Ok(dt_secs) = dt.to_epoch_seconds() else {
+        return dt.as_ref().to_string();
     };
-
-    // Parse the reference time. If it itself fails to parse (callers
-    // typically supply a fresh Utc::now() via the public free function
-    // above, so this is rare), fall back to treating `dt` as "Today".
-    let now: DateTime<Utc> = match chrono::DateTime::parse_from_rfc3339(now.as_ref()) {
-        Ok(d) => d.with_timezone(&Utc),
-        Err(_) => return "Today".to_string(),
+    // If the reference time fails to parse (callers normally pass the
+    // current time through the free function above, so this is rare),
+    // treat `dt` as "Today".
+    let Ok(now_secs) = now.to_epoch_seconds() else {
+        return "Today".to_string();
     };
-
-    let dt_date = parsed.date_naive();
-    let now_date = now.date_naive();
-    let days_diff = (now_date - dt_date).num_days();
+    let parsed = Civil::from_epoch(dt_secs);
+    let now = Civil::from_epoch(now_secs);
+    let days_diff = now.days - parsed.days;
 
     // Negative days_diff means dt is in the future (clock skew); treat as today.
     match days_diff {
         ..=0 => "Today".to_string(),
         1 => "Yesterday".to_string(),
-        2..=6 => {
-            // chrono's %a is locale-independent: short English weekday
-            // name (Mon, Tue, Wed, Thu, Fri, Sat, Sun) regardless of
-            // the host OS locale — matching the prior hand-rolled
-            // table byte-for-byte while delegating to chrono's tested
-            // implementation.
-            format!(
-                "{} {:02}:{:02}",
-                parsed.format("%a"),
-                parsed.hour(),
-                parsed.minute()
-            )
-        }
+        2..=6 => format!(
+            "{} {:02}:{:02}",
+            parsed.weekday_abbr(),
+            parsed.hour,
+            parsed.minute
+        ),
         _ => {
-            // %b is the locale-independent short month name (Jan, Feb,
-            // ..., Dec). Same byte-equivalent guarantee as %a above.
-            if parsed.year() != now.year() {
-                format!("{} {} {}", parsed.format("%b"), parsed.day(), parsed.year())
+            if parsed.year != now.year {
+                format!("{} {} {}", parsed.month_abbr(), parsed.day, parsed.year)
             } else {
-                format!("{} {}", parsed.format("%b"), parsed.day())
+                format!("{} {}", parsed.month_abbr(), parsed.day)
             }
         }
+    }
+}
+
+/// The current time as an RFC 8620 `UTCDate` with whole seconds.
+pub(crate) fn now_utcdate() -> UTCDate {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
+    let c = Civil::from_epoch(secs);
+    UTCDate::from(format!(
+        "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+        c.year, c.month, c.day, c.hour, c.minute, c.second
+    ))
+}
+
+/// A UTC instant broken into calendar fields (proleptic Gregorian).
+struct Civil {
+    /// Whole days since 1970-01-01.
+    days: i64,
+    year: i64,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+}
+
+impl Civil {
+    /// Split `secs` since the Unix epoch, with Howard Hinnant's
+    /// `civil_from_days` ("chrono-Compatible Low-Level Date Algorithms"),
+    /// the inverse of the `days_from_civil` behind
+    /// [`UTCDate::to_epoch_seconds`].
+    fn from_epoch(secs: i64) -> Self {
+        let days = secs.div_euclid(86_400);
+        let rem = secs.rem_euclid(86_400);
+        let z = days + 719_468;
+        let era = z.div_euclid(146_097);
+        let doe = z - era * 146_097; // [0, 146096]
+        let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365; // [0, 399]
+        let doy = doe - (365 * yoe + yoe / 4 - yoe / 100); // [0, 365]
+        let mp = (5 * doy + 2) / 153; // [0, 11], March-based month
+        let day = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
+        let month = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
+        let year = yoe + era * 400 + i64::from(month <= 2);
+        // Each value is within the range commented above, so it fits.
+        let small = |n: i64| u32::try_from(n).unwrap_or(0);
+        Self {
+            days,
+            year,
+            month: small(month),
+            day: small(day),
+            hour: small(rem / 3600),
+            minute: small(rem / 60 % 60),
+            second: small(rem % 60),
+        }
+    }
+
+    /// The English three-letter weekday name; 1970-01-01 was a Thursday.
+    fn weekday_abbr(&self) -> &'static str {
+        const NAMES: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
+        let i = usize::try_from(self.days.rem_euclid(7)).unwrap_or(0);
+        NAMES[i]
+    }
+
+    /// The English three-letter month name.
+    fn month_abbr(&self) -> &'static str {
+        const NAMES: [&str; 12] = [
+            "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+        ];
+        let i = usize::try_from(self.month.saturating_sub(1)).unwrap_or(0);
+        NAMES.get(i).copied().unwrap_or("???")
     }
 }
 
@@ -227,11 +281,49 @@ pub fn format_receipt_timestamp_at(dt: &UTCDate, now: &UTCDate) -> String {
 mod tests {
     use super::*;
 
-    /// Fixed reference time: 2024-03-20T15:00:00Z (Wednesday). Returned
-    /// as `UTCDate` rather than `chrono::DateTime<Utc>` so the test
-    /// suite does not depend on the `chrono` constructor API.
+    /// Fixed reference time: 2024-03-20T15:00:00Z (Wednesday).
     fn now() -> UTCDate {
         UTCDate::from("2024-03-20T15:00:00Z")
+    }
+
+    /// Weekday names for the five days the "2 to 6 days ago" branch
+    /// covers, checked against a 2024 calendar (2024-03-14 was a
+    /// Thursday).
+    #[test]
+    fn weekday_names_follow_the_calendar() {
+        for (date, name) in [
+            ("2024-03-14", "Thu"),
+            ("2024-03-15", "Fri"),
+            ("2024-03-16", "Sat"),
+            ("2024-03-17", "Sun"),
+            ("2024-03-18", "Mon"),
+        ] {
+            let dt = UTCDate::from(format!("{date}T07:05:00Z"));
+            assert_eq!(
+                format_receipt_timestamp_at(&dt, &now()),
+                format!("{name} 07:05")
+            );
+        }
+    }
+
+    /// The civil split inverts `UTCDate::to_epoch_seconds`, leap day and
+    /// pre-1970 included, and the current time is a valid `UTCDate`.
+    #[test]
+    fn civil_split_round_trips() {
+        for s in [
+            "2000-02-29T12:00:00Z",
+            "1969-12-31T23:59:59Z",
+            "2024-12-31T00:00:01Z",
+        ] {
+            let c = Civil::from_epoch(UTCDate::from(s).to_epoch_seconds().unwrap());
+            let back = format!(
+                "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
+                c.year, c.month, c.day, c.hour, c.minute, c.second
+            );
+            assert_eq!(back, s);
+        }
+        let now = now_utcdate();
+        assert!(UTCDate::new_validated(now.as_ref()).is_ok(), "{now:?}");
     }
 
     /// Oracle: timestamp 2h before now (2024-03-20T13:00:00Z) — same calendar day → "Today".

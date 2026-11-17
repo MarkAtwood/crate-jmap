@@ -299,9 +299,7 @@ impl super::SessionClient {
         {
             let retry_after = match super::server_retry_after(err) {
                 Ok(Some(t)) => t,
-                Ok(None) => jmap_types::UTCDate::from(
-                    chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
-                ),
+                Ok(None) => crate::utils::now_utcdate(),
                 Err(super::ServerRetryAfterError::Malformed(raw)) => {
                     return Err(jmap_base_client::ClientError::UnexpectedResponse(format!(
                         "rateLimit SetError has malformed serverRetryAfter: {raw}"

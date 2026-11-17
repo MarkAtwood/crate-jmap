@@ -767,7 +767,12 @@ async fn message_create_rate_limit_without_hint_retries_now() {
         burn_on_read: None,
         expires_after_read_seconds: None,
     };
-    let now = || chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let now = || {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    };
     let before = now();
     let err = sc
         .message_create(&input, None)
@@ -776,11 +781,10 @@ async fn message_create_rate_limit_without_hint_retries_now() {
     let after = now();
     match err {
         jmap_base_client::ClientError::RateLimited { retry_after } => {
-            // Fixed-width `YYYY-MM-DDTHH:MM:SSZ` strings order lexically.
-            let at = retry_after.as_ref();
+            let at = u64::try_from(retry_after.to_epoch_seconds().unwrap()).unwrap();
             assert!(
-                before.as_str() <= at && at <= after.as_str(),
-                "retry_after {at} must lie between {before} and {after}"
+                before <= at && at <= after,
+                "retry_after {retry_after:?} must lie between {before} and {after} (epoch s)"
             );
         }
         other => panic!("expected RateLimited, got {other:?}"),

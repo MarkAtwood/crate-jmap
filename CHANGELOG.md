@@ -673,6 +673,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-client**: no longer depends on `chrono` (RUSTSEC-2026-0543,
+  unmaintained). Receipt timestamps and the default `rateLimit` retry time
+  are computed in-crate; `format_receipt_timestamp_at` now parses only RFC
+  8620 `UTCDate`s (`Z` suffix), so an RFC 3339 value with a numeric offset
+  is returned unchanged instead of being converted. No public API change.
+  (bd:JMAP-yqyd)
 - **BREAKING** **jmap-chat-client**: `SessionClient::blob_lookup` takes
   `type_names: &[&str]` instead of `Option<&[&str]>`, and always sends
   `typeNames` as an array: draft-ietf-jmap-blobext-03 §6 makes it a

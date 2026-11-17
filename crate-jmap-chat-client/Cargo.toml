@@ -17,7 +17,6 @@ jmap-chat-types = { workspace = true }
 jmap-blob-types = { workspace = true }
 jmap-base-client = { workspace = true }
 ulid = "1"
-chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 
