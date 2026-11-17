@@ -60,6 +60,8 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod history;
+
 use std::collections::{BTreeSet, HashMap};
 
 use crate::FileNodeBackend;
@@ -73,6 +75,7 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals, unicode_casemap_prepare,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
@@ -163,6 +166,9 @@ pub(crate) enum ChangeType {
     Updated,
     /// Object was destroyed.
     Destroyed,
+    /// Object was restored from history (draft-ietf-jmap-object-history
+    /// §5.1).
+    Restored,
 }
 
 /// Per-ID fate tracker for RFC 8620 §5.2 ID deduplication across change log
@@ -294,6 +300,9 @@ struct MemoryState {
     /// The `maxFileNodeDepth` of every account, set by
     /// [`MemoryBackend::with_max_file_node_depth`]. `None`: no limit.
     max_file_node_depth: Option<u64>,
+    /// Object history, once [`MemoryBackend::with_object_history`] turns it
+    /// on.
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 impl MemoryState {
@@ -347,6 +356,7 @@ impl MemoryBackend {
                 accounts: HashMap::new(),
                 metadata_info: None,
                 max_file_node_depth: None,
+                history: None,
             }),
         }
     }
@@ -753,12 +763,45 @@ impl JmapBackend for MemoryBackend {
                     continue;
                 }
                 (ChangeType::Destroyed, _) => IdFate::Destroyed,
+                // Settled below from the id's whole window.
+                (ChangeType::Restored, _) => IdFate::Updated,
             };
             if e.change_type == ChangeType::Updated {
                 window_props.record(e.id.as_ref(), e.updated_props.as_ref());
             }
             if fates.insert(e.id.clone(), fate).is_none() {
                 order.push(e.id.clone());
+            }
+        }
+
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for e in entries {
+            let event = match e.change_type {
+                ChangeType::Created => ChangeEvent::Created,
+                ChangeType::Updated => ChangeEvent::Updated,
+                ChangeType::Destroyed => ChangeEvent::Destroyed,
+                ChangeType::Restored => ChangeEvent::Restored,
+            };
+            events.entry(e.id.clone()).or_default().push(event);
+        }
+        for (id, list) in &events {
+            if !list.contains(&ChangeEvent::Restored) {
+                continue;
+            }
+            let fate = match fold_restore(list) {
+                Some(ChangeKind::Created) => IdFate::Created,
+                Some(ChangeKind::Destroyed) => IdFate::Destroyed,
+                Some(_) => IdFate::Updated,
+                None => {
+                    fates.remove(id);
+                    continue;
+                }
+            };
+            if fates.insert(id.clone(), fate).is_none() {
+                order.push(id.clone());
             }
         }
 
@@ -1263,6 +1306,18 @@ impl FileNodeBackend for MemoryBackend {
                 );
             }
         }
+        // Object history: the replaced version, and the §8.2 cut when
+        // inherited rights changed (conservatively, for every FileNode of
+        // the account).
+        if let Some(h) = guard.history.as_mut() {
+            if let Ok(previous) = serde_json::to_value(&node) {
+                h.record_replace("FileNode", account_id, id, previous);
+            }
+            if share_with_changed {
+                let now = h.now_ms();
+                h.set_rights_changed("FileNode", account_id, now);
+            }
+        }
 
         let result_v = serde_json::to_value(&updated_node).map_err(|e| {
             BackendSetError::Other(MemoryError::serde(
@@ -1301,8 +1356,13 @@ impl FileNodeBackend for MemoryBackend {
             Some(node) if node.role.is_some() => return Err(role_forbidden()),
             Some(_) => {}
         }
-        store.nodes.remove(id);
+        let removed = store.nodes.remove(id);
         store.bump_state(ChangeType::Destroyed, id.clone(), None);
+        if let (Some(h), Some(node)) = (guard.history.as_mut(), removed)
+            && let Ok(last) = serde_json::to_value(&node)
+        {
+            h.record_destroy("FileNode", account_id, id, last);
+        }
         Ok(())
     }
 

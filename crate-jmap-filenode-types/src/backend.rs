@@ -59,6 +59,8 @@ impl JmapObject for crate::FileNode {
 }
 
 impl GetObject for crate::FileNode {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::FileNode {}
 
 /// draft-ietf-jmap-filenode-20 §3.1.1: `@type` is "(immutable)", `id` is
 /// "(immutable; server-set)" and `changed` is "(server-set)"; §3.1.2 and
@@ -151,5 +153,18 @@ mod tests {
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5 and 14: FileNode has "Supports History: Yes".
+    #[test]
+    fn history_object_impl_matches_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        assert!(is_history_type(has::<crate::FileNode>()));
     }
 }

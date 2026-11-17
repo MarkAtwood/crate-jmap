@@ -48,6 +48,7 @@ mod filenode;
 #[cfg(feature = "memory")]
 mod glob;
 mod helpers;
+mod history;
 /// In-memory reference implementation of [`FileNodeBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production. See [`memory`] for
@@ -59,6 +60,11 @@ pub use backend::{CaseFolding, FileNodeBackend};
 pub use filenode::{
     handle_filenode_changes, handle_filenode_copy, handle_filenode_get, handle_filenode_query,
     handle_filenode_query_changes, handle_filenode_set,
+};
+pub use history::{
+    handle_filenode_get_with_history, handle_filenode_query_changes_with_history,
+    handle_filenode_query_with_history, handle_filenode_set_with_history,
+    register_filenode_handlers_with_history,
 };
 pub use jmap_filenode_types::FileNodeProperty;
 

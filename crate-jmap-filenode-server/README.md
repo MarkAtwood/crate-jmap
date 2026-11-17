@@ -454,6 +454,20 @@ jmap-types
 Path dependencies between crates use `path = "../crate-jmap-*"` and will remain that way
 until the family is published to crates.io.
 
+### Object history (draft-ietf-jmap-object-history-03)
+
+`register_filenode_handlers_with_history(dispatcher, backend)`, for a
+backend that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_filenode_handlers` and re-registers the history-aware FileNode
+`/get`, `/set`, `/query`, `/queryChanges` (the jmap-mail-server pattern).
+Restores run a parent before a child whose final `parentId` is another
+restore key; a restore under a missing parent is `invalidProperties`, and
+one whose name a sibling now holds `alreadyExists`. The memory backend's
+`with_object_history(capability, retention)` keeps the history; its
+`node-N` ids are never reused; an update that changes inherited rights
+sets the §8.2 cut for the account's FileNodes; destroyed queries filter
+and sort like `FileNode/query`, most recently destroyed first by default.
+
 ## Gotchas
 
 - `get_ancestors`, `get_descendant_ids`, `find_sibling_by_name`, and `blob_exists` have no

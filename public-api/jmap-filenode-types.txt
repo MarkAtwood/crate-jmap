@@ -155,6 +155,7 @@ pub fn jmap_filenode_types::FileNode::eq(&self, &jmap_filenode_types::FileNode) 
 impl core::fmt::Debug for jmap_filenode_types::FileNode
 pub fn jmap_filenode_types::FileNode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_filenode_types::FileNode
+impl jmap_object_history_types::HistoryObject for jmap_filenode_types::FileNode
 impl jmap_types::backend::GetObject for jmap_filenode_types::FileNode
 impl jmap_types::backend::JmapObject for jmap_filenode_types::FileNode
 pub type jmap_filenode_types::FileNode::Property = jmap_filenode_types::FileNodeProperty

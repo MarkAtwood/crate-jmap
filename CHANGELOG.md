@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: FileNode object history:
+  `register_filenode_handlers_with_history` and the
+  `handle_filenode_*_with_history` handlers (parent-first restores); the
+  memory backend's `with_object_history` (versions on update and destroy,
+  the §8.2 cut on inherited-rights changes, destroyed queries, restore
+  checking the parent and sibling names) and test knobs.
+  **jmap-filenode-types**: `HistoryObject` for FileNode. (bd:JMAP-tna1.3.11)
 - **jmap-calendars-server**: object history for Calendar, CalendarEvent
   and ParticipantIdentity: `register_calendars_handlers_with_history` and
   the `handle_*_with_history` handlers; the memory backend's
