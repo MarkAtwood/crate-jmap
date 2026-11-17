@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-server**: Email object history: `handle_email_get_with_history`
+  (the plain Email/get projection per entry), `..._query_with_history`,
+  `..._query_changes_with_history`, `..._set_with_history`, registered by
+  `register_mail_handlers_with_history`; the memory backend records Email
+  destroys (cascades included), queries destroyed Emails with the
+  Email/query filter and sort, and restores an Email into its Thread
+  under the same `threadId`. **jmap-mail-types**: `HistoryObject` for
+  Email. **jmap-server**: `restored` no longer reports serde defaults as
+  changes. (bd:JMAP-tna1.3.5)
 - **jmap-mail-server**: object history for Mailbox, Identity and
   VacationResponse: `register_mail_handlers_with_history` and the
   `handle_*_with_history` handlers (Mailbox `/get`, `/set`, `/query`,

@@ -7,7 +7,10 @@
 
 use std::collections::HashMap;
 
-use jmap_mail_types::{Mailbox, MailboxComparator, MailboxComparatorProperty, MailboxFilter};
+use jmap_mail_types::{
+    Email, EmailComparator, EmailFilter, Mailbox, MailboxComparator, MailboxComparatorProperty,
+    MailboxFilter,
+};
 use jmap_object_history_server::{
     HistoryRetention, HistorySelector, Selection, VersionLog, millis_from_utc_date,
 };
@@ -24,7 +27,10 @@ use jmap_types::{Id, JmapObject, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use super::{ChangeEntry, Inner, MemoryBackend, MemoryError, mailbox_matches_condition, retype};
+use super::{
+    ChangeEntry, Inner, MemoryBackend, MemoryError, email_matches_filter,
+    mailbox_matches_condition, retype, sort_email_ids,
+};
 
 /// The memory backend's history state.
 #[derive(Clone, Debug)]
@@ -136,7 +142,7 @@ impl MemoryBackend {
     ///
     /// When `supportedTypes` names a type without history
     /// (`jmap_object_history_types::is_history_type`), or one this backend
-    /// does not keep history for (Mailbox, Identity, VacationResponse).
+    /// does not keep history for (Mailbox, Email, Identity, VacationResponse).
     #[must_use]
     pub fn with_object_history(
         self,
@@ -200,9 +206,9 @@ impl MemoryBackend {
     }
 }
 
-/// The types this backend keeps history for (Email and SieveScript follow
-/// in bd JMAP-tna1.3.5 and .8).
-const SUPPORTED: &[&str] = &["Mailbox", "Identity", "VacationResponse"];
+/// The types this backend keeps history for (SieveScript follows in bd
+/// JMAP-tna1.3.8).
+const SUPPORTED: &[&str] = &["Mailbox", "Email", "Identity", "VacationResponse"];
 
 fn not_found() -> BackendSetError<MemoryError> {
     BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
@@ -304,6 +310,33 @@ impl Inner {
             });
             return Ok(boxes.into_iter().map(|(_, id, _)| id).collect());
         }
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            let filter: Option<EmailFilter> = filter.map(retype).transpose()?;
+            let sort: Vec<EmailComparator> = sort.map(retype).transpose()?.unwrap_or_default();
+            let mut kept: Vec<(i64, Id)> = Vec::new();
+            let mut snapshots: HashMap<Id, Value> = HashMap::new();
+            for (t, id, v) in rows {
+                let e =
+                    Email::deserialize(&v).map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
+                if filter
+                    .as_ref()
+                    .is_none_or(|f| email_matches_filter(&e, f, None))
+                {
+                    kept.push((t, id.clone()));
+                    snapshots.insert(id, v);
+                }
+            }
+            // §4: with no sort, by destruction time, most recent first; it
+            // also breaks ties for an explicit sort (applied stably below).
+            kept.sort_by(|(ta, ia), (tb, ib)| {
+                tb.cmp(ta).then_with(|| ia.as_ref().cmp(ib.as_ref()))
+            });
+            let mut ids: Vec<Id> = kept.into_iter().map(|(_, id)| id).collect();
+            if !sort.is_empty() {
+                sort_email_ids(&mut ids, &snapshots, &sort).map_err(BackendQueryError::Method)?;
+            }
+            return Ok(ids);
+        }
         // Identity and VacationResponse have no /query.
         if filter.is_some() {
             return Err(BackendQueryError::Method(
@@ -372,6 +405,87 @@ impl Inner {
             restored.insert(count.to_owned(), Value::from(0));
         }
         Ok(())
+    }
+}
+
+impl Inner {
+    /// An Email restore names only current Mailboxes (§5.2: a missing one
+    /// is rejected "as it would an update that refers to a nonexistent
+    /// object").
+    fn check_email_restore(
+        &self,
+        account: &Id,
+        email: &Map<String, Value>,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        let empty = HashMap::new();
+        let boxes = self
+            .objects_ref(Mailbox::TYPE_NAME, account.as_ref())
+            .unwrap_or(&empty);
+        let missing = email
+            .get("mailboxIds")
+            .and_then(Value::as_object)
+            .is_none_or(|m| {
+                m.is_empty() || m.keys().any(|k| !boxes.contains_key(&Id::from(k.as_str())))
+            });
+        if missing {
+            return Err(set_err(
+                SetError::new(SetErrorType::InvalidProperties).with_properties(["mailboxIds"]),
+            ));
+        }
+        Ok(())
+    }
+
+    /// Put a restored Email back in its Thread under the same `threadId`
+    /// (-04 §5.1: "if no other Email is in that Thread, the Thread exists
+    /// again with the same id"), and re-index its `messageId`. The memory
+    /// backend's Email destroy leaves Threads and Mailbox counts as they
+    /// are, so neither changes here.
+    fn rejoin_thread(&mut self, account: &Id, email: &Value) {
+        let (Some(email_id), Some(thread_id)) = (
+            email.get("id").and_then(Value::as_str),
+            email.get("threadId").and_then(Value::as_str),
+        ) else {
+            return;
+        };
+        let thread_id = Id::from(thread_id);
+        let threads = self.objects_mut("Thread", account.as_ref());
+        let existed = threads.contains_key(&thread_id);
+        let entry = threads
+            .entry(thread_id.clone())
+            .or_insert_with(|| serde_json::json!({"id": thread_id.as_ref(), "emailIds": []}));
+        let mut changed = false;
+        if let Some(ids) = entry.get_mut("emailIds").and_then(Value::as_array_mut)
+            && !ids.iter().any(|v| v.as_str() == Some(email_id))
+        {
+            ids.push(Value::from(email_id));
+            changed = true;
+        }
+        if changed {
+            let state = self.bump_state("Thread", account.as_ref());
+            let (created, updated) = if existed {
+                (vec![], vec![thread_id.clone()])
+            } else {
+                (vec![thread_id.clone()], vec![])
+            };
+            self.change_log_mut("Thread", account.as_ref())
+                .push(ChangeEntry {
+                    new_state: state,
+                    created,
+                    updated,
+                    destroyed: vec![],
+                    restored: vec![],
+                    updated_props: None,
+                });
+        }
+        if let Some(msg_ids) = email.get("messageId").and_then(Value::as_array) {
+            let index = self
+                .message_id_index
+                .entry(account.as_ref().to_owned())
+                .or_default();
+            for m in msg_ids.iter().filter_map(Value::as_str) {
+                index.insert(m.to_owned(), Id::from(email_id));
+            }
+        }
     }
 }
 
@@ -597,6 +711,9 @@ impl ObjectHistoryBackend for MemoryBackend {
         if O::TYPE_NAME == Mailbox::TYPE_NAME {
             inner.check_mailbox_restore(account_id, id, &mut stored)?;
         }
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            inner.check_email_restore(account_id, &stored)?;
+        }
         let value = Value::Object(stored);
         let Ok(object) = O::deserialize(&value) else {
             // -04 §5.1: values that no longer make a valid object.
@@ -612,6 +729,9 @@ impl ObjectHistoryBackend for MemoryBackend {
         if let Some(h) = inner.history.as_mut() {
             h.log.restore(O::TYPE_NAME, account_id, id);
             h.destroyed_changed(O::TYPE_NAME, account_id.as_ref(), id);
+        }
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            inner.rejoin_thread(account_id, &value);
         }
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())

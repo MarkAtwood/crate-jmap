@@ -1136,10 +1136,19 @@ where
         {
             Ok(restored) => {
                 let stored = serialize_value(&restored.stored)?;
-                acc.restored.insert(
-                    id.as_ref().to_owned(),
-                    restored_diff(&restored.baseline, &stored),
-                );
+                // Through `O` too, so serde defaults are not reported as
+                // changes.
+                let baseline =
+                    serde_json::from_value::<O>(Value::Object(restored.baseline.clone()))
+                        .ok()
+                        .and_then(|o| serde_json::to_value(o).ok())
+                        .and_then(|v| match v {
+                            Value::Object(m) => Some(m),
+                            _ => None,
+                        })
+                        .unwrap_or(restored.baseline);
+                acc.restored
+                    .insert(id.as_ref().to_owned(), restored_diff(&baseline, &stored));
                 acc.mutated = true;
             }
             Err(e) => {

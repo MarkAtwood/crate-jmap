@@ -434,20 +434,26 @@ signatures and always run the pre-checks; only the registered handlers see
 
 `register_mail_handlers_with_history(dispatcher, backend)`, for a backend
 that also implements `jmap_server::ObjectHistoryBackend`, calls
-`register_mail_handlers` and re-registers the history-aware Mailbox
-`/get`, `/set`, `/query`, `/queryChanges`, Identity `/get`, `/set` and
-VacationResponse `/get`, `/set` (Email and SieveScript follow). Each
+`register_mail_handlers` and re-registers the history-aware Mailbox and
+Email `/get`, `/set`, `/query`, `/queryChanges`, and Identity and
+VacationResponse `/get`, `/set` (SieveScript follows). Each
 `handle_*_with_history` wraps the plain handler, which runs unchanged when
-no history argument is set. Mailbox restores run parent first; a
-restored Mailbox's counts are zero; VacationResponse is never destroyed,
-so its restore is `notFound`.
+no history argument is set. History `Email/get` entries get the plain
+`Email/get` projection (default properties, body values, `header:`
+properties). Mailbox restores run parent first; a restored Mailbox's
+counts are zero; a restored Email keeps `blobId` and `threadId` and needs
+current Mailboxes in `mailboxIds`; VacationResponse is never destroyed, so
+its restore is `notFound`.
 
 `MemoryBackend::with_object_history(capability, retention)` turns history
 on for the types the capability lists. Test knobs:
 `set_history_clock_for_test`, `discard_version_for_test`,
 `purge_object_history`, `set_rights_changed_at_for_test`. A destroyed
-Mailbox query filters and sorts like `Mailbox/query` and defaults to
-destruction time, most recent first.
+Mailbox or Email query filters and sorts like `Mailbox/query` or
+`Email/query` (`collapseThreads` ignored) and defaults to destruction time,
+most recent first. Email destroys through `onDestroyRemoveEmails` are
+recorded. The memory backend keeps every blob, so a returned version's
+blob stays downloadable.
 
 ### Handler structure
 

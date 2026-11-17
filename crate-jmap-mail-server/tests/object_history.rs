@@ -26,7 +26,7 @@ use serde_json::{Value, json};
 const CORE: &str = "urn:ietf:params:jmap:core";
 const MAIL: &str = "urn:ietf:params:jmap:mail";
 const HISTORY: &str = "urn:ietf:params:jmap:object-history";
-const A: &str = "a1";
+const A: &str = "abc";
 /// 2026-03-01T00:00:00Z.
 const T0: i64 = 1_772_323_200_000;
 
@@ -36,7 +36,7 @@ fn backend() -> MemoryBackend {
         .with_object_history(
             serde_json::from_value(json!({
                 "maxHistoryDuration": 2_592_000,
-                "supportedTypes": ["Mailbox", "Identity", "VacationResponse"]
+                "supportedTypes": ["Mailbox", "Email", "Identity", "VacationResponse"]
             }))
             .unwrap(),
             HistoryRetention::new().max_duration(Some(Duration::from_secs(2_592_000))),
@@ -514,4 +514,235 @@ async fn without_history_configured_flags_are_invalid_arguments() {
         error(&s, "Identity/set", json!({"restore": {"x": null}})).await,
         "invalidArguments"
     );
+}
+
+// ---- Email (bd JMAP-tna1.3.5) -------------------------------------------
+
+/// 2026-03-15T16:30:00Z, the §3.2.2 destruction time of email42.
+const T_DESTROY: i64 = 1_773_592_200_000;
+
+/// The §3.2.2 account: email42 in mbOld (Thread T42) and email57 in the
+/// Inbox mb1 (Thread T57), both destroyed a minute apart. Returns the Email
+/// state from before the destroys.
+async fn emails_destroyed(s: &Server) -> String {
+    let acc = Id::from(A);
+    for (id, name) in [("mbOld", "Old"), ("mb1", "Inbox")] {
+        s.b.seed_object(
+            &acc,
+            "Mailbox",
+            &Id::from(id),
+            json!({"id": id, "name": name, "sortOrder": 0, "totalEmails": 0,
+                   "unreadEmails": 0, "totalThreads": 0, "unreadThreads": 0,
+                   "isSubscribed": true, "myRights": {"mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true, "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true, "mayRename": true, "mayDelete": true, "maySubmit": true}}),
+        );
+    }
+    for (id, thread, mailbox, subject, name, addr, received) in [
+        (
+            "email42",
+            "T42",
+            "mbOld",
+            "Meeting notes",
+            "Alice",
+            "alice@example.com",
+            "2026-03-10T09:00:00Z",
+        ),
+        (
+            "email57",
+            "T57",
+            "mb1",
+            "Project update",
+            "Bob",
+            "bob@example.com",
+            "2026-03-12T14:00:00Z",
+        ),
+    ] {
+        s.b.seed_object(
+            &acc,
+            "Thread",
+            &Id::from(thread),
+            json!({"id": thread, "emailIds": [id]}),
+        );
+        s.b.seed_object(
+            &acc,
+            "Email",
+            &Id::from(id),
+            json!({"id": id, "blobId": format!("blob-{id}"), "threadId": thread,
+                   "mailboxIds": {mailbox: true}, "keywords": {}, "size": 1000,
+                   "receivedAt": received, "subject": subject,
+                   "from": [{"name": name, "email": addr}]}),
+        );
+    }
+    let before = state(s, "Email").await;
+    s.b.set_history_clock_for_test(T_DESTROY);
+    one(s, "Email/set", json!({"destroy": ["email42"]})).await;
+    s.b.set_history_clock_for_test(T_DESTROY + 60_000);
+    one(s, "Email/set", json!({"destroy": ["email57"]})).await;
+    before
+}
+
+/// The §3.2.2 Email/get response list, verbatim.
+fn example_list() -> Value {
+    json!([
+      {
+        "id": "email42",
+        "subject": "Meeting notes",
+        "from": [{"name": "Alice", "email": "alice@example.com"}],
+        "receivedAt": "2026-03-10T09:00:00Z",
+        "objectHistory": {"version": 1, "replaced": "2026-03-15T16:30:00Z",
+                          "hasOlder": false, "expires": "2026-04-14T16:30:00Z"}
+      },
+      {
+        "id": "email57",
+        "subject": "Project update",
+        "from": [{"name": "Bob", "email": "bob@example.com"}],
+        "receivedAt": "2026-03-12T14:00:00Z",
+        "objectHistory": {"version": 1, "replaced": "2026-03-15T16:31:00Z",
+                          "hasOlder": false, "expires": "2026-04-14T16:31:00Z"}
+      }
+    ])
+}
+
+fn sorted_by_id(list: &Value) -> Value {
+    let mut v = list.as_array().unwrap().clone();
+    v.sort_by(|a, b| a["id"].as_str().cmp(&b["id"].as_str()));
+    Value::Array(v)
+}
+
+/// §3.2.2: Email/changes, then Email/get on its `destroyed` with
+/// includeDestroyed returns each Email's final version.
+#[tokio::test]
+async fn example_3_2_2_recovering_destroyed_emails() {
+    let s = Server::new();
+    let since = emails_destroyed(&s).await;
+    let r = s
+        .run(json!([
+            ["Email/changes", {"accountId": A, "sinceState": since}, "0"],
+            ["Email/get", {"accountId": A,
+                "#ids": {"resultOf": "0", "name": "Email/changes", "path": "/destroyed"},
+                "properties": ["subject", "from", "receivedAt"],
+                "includeDestroyed": true}, "1"]
+        ]))
+        .await;
+    // Email/changes lists `destroyed` in no particular order.
+    assert_eq!(sorted_by_id(&r[1]["list"]), example_list());
+    assert_eq!(r[1]["notFound"], json!([]));
+}
+
+/// §4.1, then §5.3 and the queryChanges that follows (-04 §4): the
+/// destroyed query, most recent first; the restore into the Inbox,
+/// reported as `{"email42": null}`; the query then loses email42.
+#[tokio::test]
+async fn example_4_1_and_5_3_query_restore_query_changes() {
+    let s = Server::new();
+    emails_destroyed(&s).await;
+    let r = s
+        .run(json!([
+            ["Email/query", {"accountId": A, "onlyDestroyed": true,
+                "destroyedAfter": "2026-03-01T00:00:00Z", "limit": 50}, "0"],
+            ["Email/get", {"accountId": A,
+                "#ids": {"resultOf": "0", "name": "Email/query", "path": "/ids"},
+                "properties": ["subject", "from", "receivedAt"],
+                "includeDestroyed": true}, "1"]
+        ]))
+        .await;
+    let q = &r[0];
+    assert_eq!(q["ids"], json!(["email57", "email42"]));
+    assert_eq!(
+        (&q["position"], &q["canCalculateChanges"]),
+        (&json!(0), &json!(true))
+    );
+    assert_eq!(sorted_by_id(&r[1]["list"]), example_list());
+    let query_state = q["queryState"].clone();
+
+    // The Mailbox email42 was in is destroyed since.
+    one(&s, "Mailbox/set", json!({"destroy": ["mbOld"]})).await;
+    // §5.2: restoring into it fails as an update naming it would.
+    let out = one(&s, "Email/set", json!({"restore": {"email42": null}})).await;
+    assert_eq!(
+        out["notRestored"]["email42"]["properties"],
+        json!(["mailboxIds"])
+    );
+
+    // §5.3 verbatim, but for the states.
+    let mut out = one(
+        &s,
+        "Email/set",
+        json!({"restore": {"email42": {"mailboxIds": {"mb1": true}}}}),
+    )
+    .await;
+    let map = out.as_object_mut().unwrap();
+    assert_ne!(map.remove("oldState"), map.remove("newState"));
+    assert_eq!(
+        out,
+        json!({"accountId": A, "created": null, "updated": null, "destroyed": null,
+               "notCreated": null, "notUpdated": null, "notDestroyed": null,
+               "restored": {"email42": null}, "notRestored": null})
+    );
+    // -04 §5.1: the same threadId, and the Thread holds it again.
+    let r = s
+        .run(json!([
+            ["Email/get", {"accountId": A, "ids": ["email42"], "properties": ["threadId", "blobId", "mailboxIds"]}, "0"],
+            ["Thread/get", {"accountId": A, "ids": ["T42"]}, "1"]
+        ]))
+        .await;
+    assert_eq!(
+        r[0]["list"][0],
+        json!({"id": "email42", "threadId": "T42", "blobId": "blob-email42", "mailboxIds": {"mb1": true}})
+    );
+    assert_eq!(r[1]["list"][0]["emailIds"], json!(["email42"]));
+
+    // -04 §4: queryChanges with the Foo/query values.
+    let qc = one(
+        &s,
+        "Email/queryChanges",
+        json!({"sinceQueryState": query_state, "onlyDestroyed": true,
+               "destroyedAfter": "2026-03-01T00:00:00Z"}),
+    )
+    .await;
+    assert_eq!(qc["removed"], json!(["email42"]));
+    assert_eq!(qc["added"], json!([]));
+}
+
+/// §3: an Email destroyed by `onDestroyRemoveEmails` counts as destroyed.
+#[tokio::test]
+async fn cascade_destroys_are_history() {
+    let s = Server::new();
+    let acc = Id::from(A);
+    s.b.seed_object(
+        &acc,
+        "Mailbox",
+        &Id::from("mbX"),
+        json!({"id": "mbX", "name": "X", "sortOrder": 0, "totalEmails": 1,
+               "unreadEmails": 1, "totalThreads": 1, "unreadThreads": 1,
+               "isSubscribed": true, "myRights": {"mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true, "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true, "mayRename": true, "mayDelete": true, "maySubmit": true}}),
+    );
+    s.b.seed_object(
+        &acc,
+        "Thread",
+        &Id::from("T1"),
+        json!({"id": "T1", "emailIds": ["e1"]}),
+    );
+    s.b.seed_object(
+        &acc,
+        "Email",
+        &Id::from("e1"),
+        json!({"id": "e1", "blobId": "b1", "threadId": "T1", "mailboxIds": {"mbX": true},
+               "keywords": {}, "size": 10, "receivedAt": "2026-03-01T00:00:00Z"}),
+    );
+    let out = one(
+        &s,
+        "Mailbox/set",
+        json!({"destroy": ["mbX"], "onDestroyRemoveEmails": true}),
+    )
+    .await;
+    assert_eq!(out["destroyed"], json!(["mbX"]), "{out}");
+    let got = one(
+        &s,
+        "Email/get",
+        json!({"ids": ["e1"], "includeDestroyed": true, "properties": ["blobId"]}),
+    )
+    .await;
+    assert_eq!(got["list"][0]["blobId"], "b1", "{got}");
+    let q = one(&s, "Email/query", json!({"onlyDestroyed": true})).await;
+    assert_eq!(q["ids"], json!(["e1"]));
 }

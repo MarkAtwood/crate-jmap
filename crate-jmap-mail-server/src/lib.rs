@@ -94,6 +94,8 @@ pub use email::{
     handle_email_parse, handle_email_query, handle_email_query_changes, handle_email_set,
 };
 pub use history::{
+    handle_email_get_with_history, handle_email_query_changes_with_history,
+    handle_email_query_with_history, handle_email_set_with_history,
     handle_identity_get_with_history, handle_identity_set_with_history,
     handle_mailbox_get_with_history, handle_mailbox_query_changes_with_history,
     handle_mailbox_query_with_history, handle_mailbox_set_with_history,

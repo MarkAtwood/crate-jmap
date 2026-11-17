@@ -2348,9 +2348,9 @@ impl MailBackend for MemoryBackend {
                 .objects
                 .get_mut("Email")
                 .and_then(|m| m.get_mut(&account_str))
-                .and_then(|store| store.remove(id))
-                .is_some();
-            let err = if removed {
+                .and_then(|store| store.remove(id));
+            let err = if let Some(last) = removed {
+                inner.record_destroy(Email::TYPE_NAME, account_id, id, last);
                 let new_state = inner.bump_state("Email", &account_str);
                 inner
                     .change_log_mut("Email", &account_str)

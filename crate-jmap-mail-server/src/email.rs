@@ -609,6 +609,41 @@ pub async fn handle_email_get<B: MailBackend>(
     args: Value,
     using: &[String],
 ) -> Result<HandlerOutput, JmapError> {
+    email_get_impl(
+        backend,
+        caller,
+        args,
+        using,
+        EmailSource::<std::future::Ready<Result<HistoryRows, JmapError>>>::Current,
+    )
+    .await
+}
+
+/// Where [`email_get_impl`] reads the Emails from.
+pub(crate) enum EmailSource<'a, F> {
+    /// The current Emails (`MailBackend::get_objects`).
+    Current,
+    /// History entries (draft-ietf-jmap-object-history §3): `fetch` gets
+    /// the account id and `ids` and returns (Email, objectHistory) pairs
+    /// and the ids not found. The per-Email projection is the same; each
+    /// entry gains `objectHistory`.
+    History(&'a (dyn Fn(Id, Option<Vec<Id>>) -> F + Sync)),
+}
+
+type HistoryRows = (Vec<(Email, Value)>, Vec<Id>);
+
+/// The body of [`handle_email_get`] and the history-aware Email/get.
+pub(crate) async fn email_get_impl<B, F>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+    source: EmailSource<'_, F>,
+) -> Result<HandlerOutput, JmapError>
+where
+    B: MailBackend,
+    F: std::future::Future<Output = Result<HistoryRows, JmapError>>,
+{
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
         .account_exists(caller, &account_id)
@@ -720,11 +755,22 @@ pub async fn handle_email_get<B: MailBackend>(
         max_bytes: max_body_value_bytes,
     };
 
-    let ids_slice = ids.as_deref();
-    let (list, not_found) = backend
-        .get_objects::<Email>(caller, &account_id, ids_slice, None)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
+    let (list, not_found): (Vec<(Email, Option<Value>)>, Vec<Id>) = match source {
+        EmailSource::Current => {
+            let (list, not_found) = backend
+                .get_objects::<Email>(caller, &account_id, ids.as_deref(), None)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+            (list.into_iter().map(|e| (e, None)).collect(), not_found)
+        }
+        EmailSource::History(fetch) => {
+            let (rows, not_found) = fetch(account_id.clone(), ids).await?;
+            (
+                rows.into_iter().map(|(e, info)| (e, Some(info))).collect(),
+                not_found,
+            )
+        }
+    };
 
     let state = backend
         .get_state::<Email>(caller, &account_id)
@@ -733,7 +779,7 @@ pub async fn handle_email_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|email| {
+        .map(|(email, object_history)| {
             let mut val = serialize_value(email)?;
             // Apply body-value filtering and truncation before property filtering.
             apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
@@ -753,6 +799,9 @@ pub async fn handle_email_get<B: MailBackend>(
                         map.remove("headers");
                     }
                 }
+            }
+            if let (Some(info), Value::Object(map)) = (object_history, &mut obj) {
+                jmap_server::attach_object_history(map, info.clone(), None);
             }
 
             Ok(obj)

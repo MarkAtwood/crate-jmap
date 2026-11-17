@@ -553,6 +553,7 @@ pub fn jmap_mail_types::Email::eq(&self, &jmap_mail_types::Email) -> bool
 impl core::fmt::Debug for jmap_mail_types::Email
 pub fn jmap_mail_types::Email::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mail_types::Email
+impl jmap_object_history_types::HistoryObject for jmap_mail_types::Email
 impl jmap_types::backend::GetObject for jmap_mail_types::Email
 impl jmap_types::backend::JmapObject for jmap_mail_types::Email
 pub type jmap_mail_types::Email::Property = jmap_mail_types::EmailProperty
