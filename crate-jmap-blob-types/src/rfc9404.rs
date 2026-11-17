@@ -4,7 +4,9 @@
 //! RFC 9404 `Blob/get` and `Blob/lookup` use the blobext types
 //! ([`BlobGetArgs`](crate::BlobGetArgs),
 //! [`BlobLookupArgs`](crate::BlobLookupArgs)): their RFC 9404 forms are
-//! subsets.
+//! subsets. The one RFC 9404 response shape that is not a subset is the
+//! `Blob/lookup` response, whose §4.3 has no `accountId`
+//! ([`Rfc9404LookupResponse`]).
 
 use std::collections::BTreeMap;
 
@@ -12,6 +14,7 @@ use jmap_types::{Id, SetError};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
+use crate::lookup::BlobInfo;
 use crate::serde_util::{empty_as_null, null_as_empty};
 use crate::set::BlobObject;
 use crate::source::DataSourceObject;
@@ -115,6 +118,38 @@ impl BlobUploadCallResponse {
             account_id,
             created: BTreeMap::new(),
             not_created: BTreeMap::new(),
+            extra: Map::new(),
+        }
+    }
+}
+
+/// `Blob/lookup` response as RFC 9404 §4.3 defines it: `list` only.
+///
+/// §4.3 lists no `accountId` in the response (its §4.3.1 example has none),
+/// so it is optional here; a server that sends it, as this workspace's
+/// does, fills it. There is no `notFound`: §4.3 has an unknown or invisible
+/// blob listed with empty arrays, so the §4.3.1 example's `notFound`
+/// (decision 21(ii)) lands in [`extra`](Self::extra).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Rfc9404LookupResponse {
+    /// `accountId`, when the server sends it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<Id>,
+    /// `list`: one BlobInfo per requested blobId.
+    pub list: Vec<BlobInfo>,
+    /// Unknown members, kept for round-trip.
+    #[serde(flatten, default, skip_serializing_if = "Map::is_empty")]
+    pub extra: Map<String, Value>,
+}
+
+impl Rfc9404LookupResponse {
+    /// A response with `list` and no `accountId`.
+    pub fn new(list: Vec<BlobInfo>) -> Self {
+        Self {
+            account_id: None,
+            list,
             extra: Map::new(),
         }
     }

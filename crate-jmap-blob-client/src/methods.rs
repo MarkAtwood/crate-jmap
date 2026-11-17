@@ -300,19 +300,7 @@ impl SessionClient {
                 "blob_lookup: ids and type_names must not be empty".into(),
             ));
         }
-        let mut using: Vec<&str> = extra_using.to_vec();
-        for name in &type_names {
-            let Some(entry) = jmap_types::data_types::data_type(name) else {
-                continue;
-            };
-            if !self.session.capabilities.contains_key(entry.capability) {
-                return Err(ClientError::InvalidArgument(format!(
-                    "blob_lookup: the session does not advertise {} for {name}",
-                    entry.capability
-                )));
-            }
-            using.push(entry.capability);
-        }
+        let using = lookup_using(&self.session, &type_names, extra_using)?;
         let args = BlobLookupArgs::new(self.blob_account_id()?, type_names, ids);
         self.call("Blob/lookup", to_args(&args)?, &using).await
     }
@@ -337,18 +325,63 @@ impl SessionClient {
         args: Value,
         extra_using: &[&str],
     ) -> Result<R, ClientError> {
-        let mut using = vec![CORE, JMAP_BLOB2_URI];
-        for uri in extra_using {
-            if !using.contains(uri) {
-                using.push(uri);
-            }
-        }
-        let mut builder = JmapRequestBuilder::new(&using);
-        builder.add_call(method, args, CALL_ID)?;
-        let response = self
-            .client
-            .call_session(&self.session, &builder.build()?)
-            .await?;
-        extract_response(&response, CALL_ID)
+        call_with(
+            &self.client,
+            &self.session,
+            JMAP_BLOB2_URI,
+            method,
+            args,
+            extra_using,
+        )
+        .await
     }
+}
+
+/// One `method` call with core, `capability` and `extra_using` in `using`.
+pub(crate) async fn call_with<R: serde::de::DeserializeOwned>(
+    client: &JmapClient,
+    session: &Session,
+    capability: &str,
+    method: &str,
+    args: Value,
+    extra_using: &[&str],
+) -> Result<R, ClientError> {
+    let mut using = vec![CORE, capability];
+    for uri in extra_using {
+        if !using.contains(uri) {
+            using.push(uri);
+        }
+    }
+    let mut builder = JmapRequestBuilder::new(&using);
+    builder.add_call(method, args, CALL_ID)?;
+    let response = client.call_session(session, &builder.build()?).await?;
+    extract_response(&response, CALL_ID)
+}
+
+/// The capabilities `using` needs for `type_names` (each name's from the
+/// JMAP Data Types registry, `jmap_types::data_types`), plus `extra_using`.
+///
+/// # Errors
+///
+/// [`ClientError::InvalidArgument`] for a registered type whose capability
+/// `session` does not advertise.
+pub(crate) fn lookup_using<'a>(
+    session: &Session,
+    type_names: &[String],
+    extra_using: &[&'a str],
+) -> Result<Vec<&'a str>, ClientError> {
+    let mut using: Vec<&str> = extra_using.to_vec();
+    for name in type_names {
+        let Some(entry) = jmap_types::data_types::data_type(name) else {
+            continue;
+        };
+        if !session.capabilities.contains_key(entry.capability) {
+            return Err(ClientError::InvalidArgument(format!(
+                "blob_lookup: the session does not advertise {} for {name}",
+                entry.capability
+            )));
+        }
+        using.push(entry.capability);
+    }
+    Ok(using)
 }

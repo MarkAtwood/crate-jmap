@@ -7,10 +7,15 @@ pub use jmap_blob_client::BlobLookupResponse
 pub use jmap_blob_client::BlobProperty
 pub use jmap_blob_client::BlobRef
 pub use jmap_blob_client::BlobSetResponse
+pub use jmap_blob_client::BlobUploadCallResponse
 pub use jmap_blob_client::ClientError
 pub use jmap_blob_client::ConvertRequest
+pub use jmap_blob_client::DataSourceObject
 pub use jmap_blob_client::DataSourceProperty
 pub use jmap_blob_client::DigestAlgorithm
+pub use jmap_blob_client::Rfc9404AccountCapability
+pub use jmap_blob_client::Rfc9404LookupResponse
+pub use jmap_blob_client::UploadObject
 #[non_exhaustive] pub struct jmap_blob_client::BlobGetInput
 pub jmap_blob_client::BlobGetInput::data_source_properties: core::option::Option<alloc::vec::Vec<jmap_blob_types::get::DataSourceProperty>>
 pub jmap_blob_client::BlobGetInput::length: core::option::Option<u64>
@@ -40,6 +45,18 @@ pub fn jmap_blob_client::BlobSetInput::default() -> jmap_blob_client::BlobSetInp
 impl core::fmt::Debug for jmap_blob_client::BlobSetInput
 pub fn jmap_blob_client::BlobSetInput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_blob_client::BlobSetInput
+pub struct jmap_blob_client::LegacySessionClient
+impl jmap_blob_client::LegacySessionClient
+pub fn jmap_blob_client::LegacySessionClient::blob_account_id(&self) -> core::result::Result<jmap_types::id::Id, jmap_base_client::error::ClientError>
+pub fn jmap_blob_client::LegacySessionClient::blob_capability(&self) -> core::result::Result<core::option::Option<jmap_blob_types::capability::Rfc9404AccountCapability>, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::LegacySessionClient::blob_get(&self, alloc::vec::Vec<jmap_blob_types::blob_ref::BlobRef>, core::option::Option<alloc::vec::Vec<jmap_blob_types::get::BlobProperty>>, core::option::Option<u64>, core::option::Option<u64>) -> core::result::Result<jmap_blob_types::get::BlobGetResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::LegacySessionClient::blob_lookup(&self, alloc::vec::Vec<jmap_types::id::Id>, alloc::vec::Vec<alloc::string::String>, &[&str]) -> core::result::Result<jmap_blob_types::rfc9404::Rfc9404LookupResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_blob_client::LegacySessionClient::blob_upload(&self, alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_blob_types::rfc9404::UploadObject>) -> core::result::Result<jmap_blob_types::rfc9404::BlobUploadCallResponse, jmap_base_client::error::ClientError>
+pub fn jmap_blob_client::LegacySessionClient::for_account(self, jmap_types::id::Id) -> Self
+impl core::clone::Clone for jmap_blob_client::LegacySessionClient
+pub fn jmap_blob_client::LegacySessionClient::clone(&self) -> jmap_blob_client::LegacySessionClient
+impl core::fmt::Debug for jmap_blob_client::LegacySessionClient
+pub fn jmap_blob_client::LegacySessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct jmap_blob_client::SessionClient
 impl jmap_blob_client::SessionClient
 pub fn jmap_blob_client::SessionClient::blob_account_id(&self) -> core::result::Result<jmap_types::id::Id, jmap_base_client::error::ClientError>
@@ -61,6 +78,8 @@ pub fn jmap_blob_client::SessionClient::clone(&self) -> jmap_blob_client::Sessio
 impl core::fmt::Debug for jmap_blob_client::SessionClient
 pub fn jmap_blob_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub trait jmap_blob_client::JmapBlobExt: jmap_blob_client::sealed::Sealed
+pub fn jmap_blob_client::JmapBlobExt::with_blob_legacy_session(&self, jmap_base_client::request::Session) -> jmap_blob_client::LegacySessionClient
 pub fn jmap_blob_client::JmapBlobExt::with_blob_session(&self, jmap_base_client::request::Session) -> jmap_blob_client::SessionClient
 impl jmap_blob_client::JmapBlobExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_blob_legacy_session(&self, jmap_base_client::request::Session) -> jmap_blob_client::LegacySessionClient
 pub fn jmap_base_client::client::JmapClient::with_blob_session(&self, jmap_base_client::request::Session) -> jmap_blob_client::SessionClient

@@ -66,6 +66,6 @@ pub use get::{
     ImageGps,
 };
 pub use lookup::{BlobInfo, BlobLookupArgs, BlobLookupResponse};
-pub use rfc9404::{BlobUploadArgs, BlobUploadCallResponse, UploadObject};
+pub use rfc9404::{BlobUploadArgs, BlobUploadCallResponse, Rfc9404LookupResponse, UploadObject};
 pub use set::{BlobCreateObject, BlobObject, BlobSetArgs, BlobSetResponse, BlobUpdated};
 pub use source::DataSourceObject;

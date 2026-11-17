@@ -14,6 +14,20 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-blob-client**: RFC 9404 bindings for servers that only advertise
+  `urn:ietf:params:jmap:blob`: `JmapBlobExt::with_blob_legacy_session`
+  returns a `LegacySessionClient` (`for_account`, `blob_account_id` from
+  the `blob` primary account, `blob_capability`, `blob_upload`, `blob_get`,
+  `blob_lookup`). Its `using` is core + `blob` (+ type capabilities for
+  lookup), never `blob2` (blobext-03 §2.1); `imageData` and `chunks` are
+  refused. Re-exports `UploadObject`, `DataSourceObject`,
+  `BlobUploadCallResponse`, `Rfc9404AccountCapability` and
+  `Rfc9404LookupResponse`. `JmapBlobExt` is sealed, so the new method is
+  not breaking. (bd:JMAP-tna1.11)
+- **jmap-blob-types**: `Rfc9404LookupResponse`, the RFC 9404 §4.3
+  Blob/lookup response, whose `accountId` is optional (§4.3 and its
+  §4.3.1 example have none). (bd:JMAP-tna1.11)
+
 - **jmap-blob**: the umbrella crate, replacing the 0.0.1 placeholder. It
   re-exports `jmap-blob-types` as `types` (always), `jmap-blob-client` as
   `client` (`client` feature) and `jmap-blob-server` as `server` (`server`;
