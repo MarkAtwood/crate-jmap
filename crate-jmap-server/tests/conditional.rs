@@ -392,7 +392,8 @@ impl JmapHandler<()> for SetHandler {
 fn dispatcher(store: &Shared, with_support: bool) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     d.register("Probe/get", Arc::new(GetHandler(Arc::clone(store))));
-    d.register("Probe/set", Arc::new(SetHandler(Arc::clone(store))));
+    // History-aware: the restore probes send `restore` (object history).
+    d.register_history_aware("Probe/set", Arc::new(SetHandler(Arc::clone(store))));
     if with_support {
         d.attach_set_support(
             "Probe/set",

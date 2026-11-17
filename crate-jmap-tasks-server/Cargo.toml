@@ -17,7 +17,12 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0. Mirrors the canonical
 # jmap-mail-server `memory` feature (JMAP-hwdv.1).
-memory = ["dep:uuid", "dep:jmap-metadata-server", "jmap-server/scoped-state"]
+memory = [
+    "dep:uuid",
+    "dep:jmap-metadata-server",
+    "dep:jmap-object-history-server",
+    "jmap-server/scoped-state",
+]
 
 [dependencies]
 jmap-types = { workspace = true }
@@ -32,6 +37,8 @@ serde_path_to_error = { workspace = true }
 uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
 # draft-ietf-jmap-metadata-05 helpers the MemoryBackend wires in (JMAP-s4kp.4).
 jmap-metadata-server = { workspace = true, optional = true }
+jmap-object-history-server = { workspace = true, optional = true }
+jmap-object-history-types = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

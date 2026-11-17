@@ -67,6 +67,8 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod history;
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::TasksBackend;
@@ -76,6 +78,7 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
@@ -177,6 +180,9 @@ struct ChangeEntry {
     /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
     /// `updatedProperties`.
     updated_props: Option<BTreeSet<String>>,
+    /// Ids restored from object history (draft-ietf-jmap-object-history
+    /// §5.1).
+    restored: Vec<Id>,
 }
 
 impl ChangeEntry {
@@ -227,6 +233,9 @@ struct Inner {
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+    /// Object history, once `MemoryBackend::with_object_history` turns it
+    /// on.
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 impl Inner {
@@ -685,7 +694,9 @@ impl JmapBackend for MemoryBackend {
             let mut ids = 0u64;
             if let Some(cut) = relevant.iter().position(|e| {
                 if !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()) {
-                    ids += (e.created.len() + e.updated.len() + e.destroyed.len()) as u64;
+                    ids +=
+                        (e.created.len() + e.updated.len() + e.destroyed.len() + e.restored.len())
+                            as u64;
                 }
                 ids > max
             }) {
@@ -733,6 +744,44 @@ impl JmapBackend for MemoryBackend {
                 } else if fates.insert(id.clone(), IdFate::Destroyed).is_none() {
                     order.push(id.clone());
                 }
+            }
+        }
+
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for entry in &relevant {
+            for (ids, event) in [
+                (&entry.created, ChangeEvent::Created),
+                (&entry.updated, ChangeEvent::Updated),
+                (&entry.destroyed, ChangeEvent::Destroyed),
+                (&entry.restored, ChangeEvent::Restored),
+            ] {
+                for id in ids {
+                    events.entry(id.clone()).or_default().push(event);
+                }
+            }
+        }
+        for (id, list) in &events {
+            if !list.contains(&ChangeEvent::Restored) {
+                continue;
+            }
+            let fate = match fold_restore(list) {
+                Some(ChangeKind::Created) => IdFate::Created,
+                Some(ChangeKind::Destroyed) => IdFate::Destroyed,
+                Some(_) => {
+                    // A restore is never metadata-only.
+                    window_props.record(id.as_ref(), None);
+                    IdFate::Updated
+                }
+                None => {
+                    fates.remove(id);
+                    continue;
+                }
+            };
+            if fates.insert(id.clone(), fate).is_none() {
+                order.push(id.clone());
             }
         }
 
@@ -1284,11 +1333,14 @@ impl MemoryBackend {
         supplied: Option<&serde_json::Value>,
     ) -> Result<(Id, O), BackendSetError<MemoryError>> {
         let server_id = Id::from(uuid::Uuid::new_v4().to_string());
+        // Object history §5.1 covers Task/copy too: a fresh v4 UUID never
+        // reuses a destroyed id.
         let stored_obj = build(&server_id)?;
         let val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().await;
+        debug_assert!(!inner.history_retains(O::TYPE_NAME, account_id, &server_id));
         check_metadata_create(
             &inner,
             O::TYPE_NAME,
@@ -1315,6 +1367,7 @@ impl MemoryBackend {
                 created: vec![server_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
 
@@ -1398,6 +1451,8 @@ impl TasksBackend for MemoryBackend {
                 SetErrorType::NotFound,
             ))));
         };
+        // Object history: the version this update replaces.
+        let previous = current.clone();
 
         let was_draft = current.get("isDraft").and_then(|v| v.as_bool()) == Some(true);
 
@@ -1515,6 +1570,7 @@ impl TasksBackend for MemoryBackend {
             None
         };
 
+        inner.record_replace(O::TYPE_NAME, account_id, id, previous);
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1526,6 +1582,7 @@ impl TasksBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props,
             });
 
@@ -1567,6 +1624,7 @@ impl TasksBackend for MemoryBackend {
 
         match removed {
             Some(val) => {
+                inner.record_destroy(O::TYPE_NAME, account_id, id, val.clone());
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1575,6 +1633,7 @@ impl TasksBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        restored: vec![],
                         updated_props: None,
                     });
                 if O::TYPE_NAME == "Task" {
@@ -1787,6 +1846,7 @@ mod changes_tests {
                 created: vec![id("eph"), id("fresh")],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
             log.push(ChangeEntry {
@@ -1794,6 +1854,7 @@ mod changes_tests {
                 created: vec![],
                 updated: vec![id("fresh"), id("old"), id("doomed")],
                 destroyed: vec![id("eph")],
+                restored: vec![],
                 updated_props: None,
             });
             log.push(ChangeEntry {
@@ -1801,6 +1862,7 @@ mod changes_tests {
                 created: vec![],
                 updated: vec![id("old")],
                 destroyed: vec![id("doomed"), id("gone")],
+                restored: vec![],
                 updated_props: None,
             });
         }
@@ -1841,6 +1903,7 @@ mod max_changes_tests {
                     created: ids.iter().map(|s| Id::from(*s)).collect(),
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 });
         }

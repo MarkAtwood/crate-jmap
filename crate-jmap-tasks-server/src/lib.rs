@@ -45,6 +45,7 @@ use jmap_server::{
 
 mod backend;
 mod helpers;
+mod history;
 /// In-memory reference implementation of [`TasksBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production. See [`memory`] for
@@ -56,6 +57,12 @@ mod task_list;
 mod task_notification;
 
 pub use backend::TasksBackend;
+pub use history::{
+    handle_task_get_with_history, handle_task_list_get_with_history,
+    handle_task_list_set_with_history, handle_task_query_changes_with_history,
+    handle_task_query_with_history, handle_task_set_with_history,
+    register_tasks_handlers_with_history,
+};
 pub use jmap_tasks_types::{TaskListProperty, TaskNotificationProperty, TaskProperty};
 pub use task::{
     handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,

@@ -1546,13 +1546,22 @@ impl<C: Clone + Send + 'static> Dispatcher<C> {
 /// `false` or `null`, `destroyedAfter`/`destroyedBefore` other than `null`.
 /// `*/set`: `restore` other than `null` or `{}`. `historyAfter`,
 /// `historyBefore`, `historySkip` and `historyLimit` are left alone: §3
-/// ignores them when both flags are false. With the URI, nothing happens.
-pub(crate) fn check_history_without_uri(
+/// ignores them when both flags are false.
+///
+/// With the URI, a method registered through
+/// [`Dispatcher::register_history_aware`] is left to its handler; any other
+/// method (a type without history, such as TaskNotification, or one
+/// registered plain) gets the same `invalidArguments` for a history
+/// argument, since its type cannot be in `supportedTypes` (§3.1: "MUST
+/// reject the call"; `object_history_gaps`).
+pub(crate) fn check_history_arguments(
     method: &str,
     args: &mut Value,
     using: &[String],
+    history_aware: bool,
 ) -> Result<(), JmapError> {
-    if uses_history(using) {
+    let with_uri = uses_history(using);
+    if with_uri && history_aware {
         return Ok(());
     }
     let Value::Object(map) = args else {
@@ -1575,7 +1584,14 @@ pub(crate) fn check_history_without_uri(
             Some(_) => false,
         };
         if !at_default {
-            return Err(without_uri(key));
+            return Err(if with_uri {
+                invalid(format!(
+                    "{method} keeps no object history, so {key} is not supported \
+                     (draft-ietf-jmap-object-history §3.1, §4, §5.1)"
+                ))
+            } else {
+                without_uri(key)
+            });
         }
     }
     for key in keys {

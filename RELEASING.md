@@ -79,7 +79,7 @@ dependencies are listed separately):
 | `jmap-object-history-server` | 3 | `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-peer-auth` | 3 | `jmap-did-types` | (none) |
 | `jmap-server` | 3 | `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
-| `jmap-tasks-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-types` | (none) |
+| `jmap-tasks-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-blob-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-types` | (none) |
 | `jmap-blob-server` | 4 | `jmap-blob-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-calendars-client` | 4 | `jmap-base-client`, `jmap-calendars-types`, `jmap-types` | `jmap-metadata-types` |
@@ -104,7 +104,7 @@ dependencies are listed separately):
 | `jmap-sharing-client` | 4 | `jmap-base-client`, `jmap-sharing-types`, `jmap-types` | (none) |
 | `jmap-sharing-server` | 4 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-sharing-types`, `jmap-types` | (none) |
 | `jmap-tasks-client` | 4 | `jmap-base-client`, `jmap-tasks-types`, `jmap-types` | (none) |
-| `jmap-tasks-server` | 4 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-tasks-types`, `jmap-types` | (none) |
+| `jmap-tasks-server` | 4 | `jmap-metadata-server`, `jmap-metadata-types`, `jmap-object-history-server`, `jmap-object-history-types`, `jmap-server`, `jmap-tasks-types`, `jmap-types` | (none) |
 | `jmap-vtc-client` | 4 | `jmap-base-client`, `jmap-types`, `jmap-vtc-types` | (none) |
 | `jmap-vtc-server` | 4 | `jmap-server`, `jmap-types`, `jmap-vtc-types` | (none) |
 | `jmap-blob` | 5 | `jmap-blob-client`, `jmap-blob-server`, `jmap-blob-types` | (none) |

@@ -121,11 +121,23 @@ async fn defaults_reach_the_handler_without_the_keys() {
 }
 
 #[tokio::test]
-async fn with_the_uri_the_check_does_nothing() {
+async fn with_the_uri_only_history_aware_methods_take_history_arguments() {
     let args = json!({"includeDestroyed": true, "includeReplaced": false});
-    let (_, seen) = call(false, "Note/get", args.clone(), true).await;
-    assert_eq!(seen, Some(args));
+    let (_, seen) = call(true, "Note/get", args.clone(), true).await;
+    assert_eq!(seen, Some(args.clone()));
     let args = json!({"restore": {"x": null}});
     let (_, seen) = call(true, "Note/set", args.clone(), true).await;
     assert_eq!(seen, Some(args));
+    // A plain method (a type without history) rejects them (§3.1).
+    for (method, args) in [
+        ("Note/get", json!({"includeDestroyed": true})),
+        ("Note/query", json!({"onlyDestroyed": true})),
+        ("Note/set", json!({"restore": {"x": null}})),
+    ] {
+        let (resp, seen) = call(false, method, args, true).await;
+        assert_eq!(resp[1]["type"], "invalidArguments", "{method}");
+        assert!(seen.is_none());
+    }
+    let (_, seen) = call(false, "Note/get", json!({"includeDestroyed": false}), true).await;
+    assert_eq!(seen, Some(json!({})));
 }

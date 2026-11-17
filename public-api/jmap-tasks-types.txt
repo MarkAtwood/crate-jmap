@@ -431,6 +431,7 @@ pub fn jmap_tasks_types::Task::default() -> jmap_tasks_types::Task
 impl core::fmt::Debug for jmap_tasks_types::Task
 pub fn jmap_tasks_types::Task::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_tasks_types::Task
+impl jmap_object_history_types::HistoryObject for jmap_tasks_types::Task
 impl jmap_types::backend::GetObject for jmap_tasks_types::Task
 impl jmap_types::backend::JmapObject for jmap_tasks_types::Task
 pub type jmap_tasks_types::Task::Property = jmap_tasks_types::TaskProperty
@@ -522,6 +523,7 @@ pub fn jmap_tasks_types::TaskList::eq(&self, &jmap_tasks_types::TaskList) -> boo
 impl core::fmt::Debug for jmap_tasks_types::TaskList
 pub fn jmap_tasks_types::TaskList::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_tasks_types::TaskList
+impl jmap_object_history_types::HistoryObject for jmap_tasks_types::TaskList
 impl jmap_types::backend::GetObject for jmap_tasks_types::TaskList
 impl jmap_types::backend::JmapObject for jmap_tasks_types::TaskList
 pub type jmap_tasks_types::TaskList::Property = jmap_tasks_types::TaskListProperty

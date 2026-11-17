@@ -539,8 +539,14 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             // §5.2): every Foo/set call goes through the decision-2 check;
             // one with conditional arguments runs under the evaluator.
             // docs/design/DECISIONS.md decision 18: history arguments
-            // without urn:ietf:params:jmap:object-history in `using`.
-            if let Err(e) = history::check_history_without_uri(&method, &mut args, &request.using) {
+            // without urn:ietf:params:jmap:object-history in `using`, or
+            // sent to a method that is not history-aware.
+            if let Err(e) = history::check_history_arguments(
+                &method,
+                &mut args,
+                &request.using,
+                self.history_aware.contains(&method),
+            ) {
                 method_responses.push(error_invocation(&call_id, e));
                 continue;
             }

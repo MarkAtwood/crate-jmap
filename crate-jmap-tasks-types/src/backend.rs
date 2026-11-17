@@ -228,6 +228,10 @@ impl JmapObject for crate::TaskList {
 }
 
 impl GetObject for crate::TaskList {}
+/// History ahead of its registration: on
+/// `jmap_object_history_types::PENDING_HISTORY_REGISTRATION`
+/// (docs/design/DECISIONS.md decisions 5 and 23).
+impl jmap_object_history_types::HistoryObject for crate::TaskList {}
 
 /// draft-ietf-jmap-tasks-06 §3 (lines 383, 496): `id` is "(immutable;
 /// server-set)", `myRights` is "(server-set)".
@@ -263,6 +267,10 @@ impl JmapObject for crate::Task {
 }
 
 impl GetObject for crate::Task {}
+/// History ahead of its registration: on
+/// `jmap_object_history_types::PENDING_HISTORY_REGISTRATION`
+/// (docs/design/DECISIONS.md decisions 5 and 23).
+impl jmap_object_history_types::HistoryObject for crate::Task {}
 
 /// draft-ietf-jmap-tasks-06 §4 (lines 715, 922, 941): `id` and
 /// `baseTaskId` are "(immutable; server-set)", `isOrigin` is
@@ -615,5 +623,22 @@ mod tests {
         assert!(decodes_as_operator::<crate::TaskNotification, _>(not(
             serde_json::json!({ "taskIds": ["t1"] })
         )));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5, 22 and 23: Task and TaskList have history (pending
+    /// their registration); TaskNotification does not.
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [has::<crate::TaskList>(), has::<crate::Task>()] {
+            assert!(is_history_type(name), "{name}");
+        }
+        assert!(!is_history_type("TaskNotification"));
     }
 }

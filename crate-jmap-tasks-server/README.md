@@ -355,6 +355,23 @@ until the family is published to crates.io.
   only for tests and demonstrations. Not production-grade. Server-assigned
   ids are uuid v4, as in `jmap-mail-server`.
 
+### Object history (draft-ietf-jmap-object-history-03)
+
+`register_tasks_handlers_with_history(dispatcher, backend)`, for a backend
+that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_tasks_handlers` and re-registers the history-aware TaskList
+`/get`, `/set` and Task `/get`, `/set`, `/query`, `/queryChanges` (the
+jmap-mail-server pattern). Task and TaskList have history ahead of their
+registration (`PENDING_HISTORY_REGISTRATION`, docs/design/DECISIONS.md
+decisions 5 and 23); TaskNotification has none (decision 22), so the
+dispatcher answers a history argument for it with `invalidArguments`.
+The memory backend's `with_object_history(capability, retention)` keeps
+the history: `onDestroyRemoveTasks` cascades are recorded, a restored Task
+needs a current TaskList and counts toward it again, and destroyed Task
+queries support what Task/query here does (`taskListId`, metadata; no
+sort). A deployment with chat-tasks redacts `chatId` on history entries
+as on current Tasks.
+
 ## Gotchas
 
 - `compute_utc_times` default returns `(None, None)` — `utcStart`/`utcDue` will be

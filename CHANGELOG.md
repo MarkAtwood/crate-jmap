@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-tasks-server**: object history for TaskList and Task (ahead of
+  their registration, decision 23): `register_tasks_handlers_with_history`
+  and the `handle_*_with_history` handlers; the memory backend's
+  `with_object_history` (cascades recorded, destroyed Task queries,
+  restore checking `taskListId`) and test knobs. **jmap-tasks-types**:
+  `HistoryObject` for TaskList and Task. (bd:JMAP-tna1.3.13)
 - **jmap-filenode-server**: FileNode object history:
   `register_filenode_handlers_with_history` and the
   `handle_filenode_*_with_history` handlers (parent-first restores); the
@@ -739,6 +745,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server** (wire): with `urn:ietf:params:jmap:object-history` in
+  `using`, a history argument (`includeReplaced`/`includeDestroyed` true,
+  `onlyDestroyed` true, a non-null `destroyedAfter`/`destroyedBefore`, a
+  non-empty `restore`) sent to a method not registered through
+  `register_history_aware` is `invalidArguments` before the handler runs:
+  its type has no history (object-history §3.1, §4, §5.1). Previously the
+  plain handler ignored it. (bd:JMAP-tna1.3.13)
 - **jmap-server** (wire, every deployment): without
   `urn:ietf:params:jmap:object-history` in `using`, `includeReplaced: true`
   or `includeDestroyed: true` on `*/get`, `onlyDestroyed: true` or a
