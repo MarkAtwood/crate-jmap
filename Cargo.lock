@@ -2332,6 +2332,15 @@ dependencies = [
 [[package]]
 name = "jmap-object-history-client"
 version = "0.5.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-object-history-types",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
 
 [[package]]
 name = "jmap-object-history-server"

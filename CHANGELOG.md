@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-object-history-client**: `JmapObjectHistoryExt` /
+  `SessionClient`: `get_history`, `query_destroyed`,
+  `query_destroyed_changes`, `restore` (on base-client `SetCall`),
+  `capability`/`supports`, and the paging helpers `older_page_before` and
+  `has_older`. (bd:JMAP-tna1.3.12)
 - **jmap-vtc-server**: object history for VTCCall, VTCRecording and
   VTCLivestream: `register_vtc_handlers_with_history` (the
   `streamKey`/`streamUri` blanking applied to every livestream version);

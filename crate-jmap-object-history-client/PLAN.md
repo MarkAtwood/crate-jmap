@@ -7,4 +7,4 @@ listed in the design note §2a.
 | Step | Bead | State |
 |---|---|---|
 | Scaffold: manifest, empty `lib.rs`, README | JMAP-tna1.3.1 | done |
-| History get, destroyed query, restore over base-client `SetCall`, paging helpers | JMAP-tna1.3.12 | open |
+| History get, destroyed query, restore over base-client `SetCall`, paging helpers | JMAP-tna1.3.12 | done |

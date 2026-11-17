@@ -1,1 +1,70 @@
 pub mod jmap_object_history_client
+#[non_exhaustive] pub struct jmap_object_history_client::DestroyedQueryCall
+pub jmap_object_history_client::DestroyedQueryCall::account_id: jmap_types::id::Id
+pub jmap_object_history_client::DestroyedQueryCall::arguments: jmap_object_history_types::DestroyedQueryArguments
+pub jmap_object_history_client::DestroyedQueryCall::calculate_total: bool
+pub jmap_object_history_client::DestroyedQueryCall::filter: core::option::Option<serde_json::value::Value>
+pub jmap_object_history_client::DestroyedQueryCall::limit: core::option::Option<u64>
+pub jmap_object_history_client::DestroyedQueryCall::position: core::option::Option<i64>
+pub jmap_object_history_client::DestroyedQueryCall::sort: core::option::Option<serde_json::value::Value>
+pub jmap_object_history_client::DestroyedQueryCall::type_capability: alloc::string::String
+impl jmap_object_history_client::DestroyedQueryCall
+pub fn jmap_object_history_client::DestroyedQueryCall::filter(self, core::option::Option<serde_json::value::Value>) -> Self
+pub fn jmap_object_history_client::DestroyedQueryCall::limit(self, core::option::Option<u64>) -> Self
+pub fn jmap_object_history_client::DestroyedQueryCall::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_object_history_client::DestroyedQueryCall::window(self, core::option::Option<jmap_types::id::UTCDate>, core::option::Option<jmap_types::id::UTCDate>) -> Self
+impl core::clone::Clone for jmap_object_history_client::DestroyedQueryCall
+pub fn jmap_object_history_client::DestroyedQueryCall::clone(&self) -> jmap_object_history_client::DestroyedQueryCall
+impl core::cmp::PartialEq for jmap_object_history_client::DestroyedQueryCall
+pub fn jmap_object_history_client::DestroyedQueryCall::eq(&self, &jmap_object_history_client::DestroyedQueryCall) -> bool
+impl core::fmt::Debug for jmap_object_history_client::DestroyedQueryCall
+pub fn jmap_object_history_client::DestroyedQueryCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_client::DestroyedQueryCall
+#[non_exhaustive] pub struct jmap_object_history_client::DestroyedQueryChangesCall
+pub jmap_object_history_client::DestroyedQueryChangesCall::max_changes: core::option::Option<u64>
+pub jmap_object_history_client::DestroyedQueryChangesCall::query: jmap_object_history_client::DestroyedQueryCall
+pub jmap_object_history_client::DestroyedQueryChangesCall::since_query_state: alloc::string::String
+impl jmap_object_history_client::DestroyedQueryChangesCall
+pub fn jmap_object_history_client::DestroyedQueryChangesCall::new(jmap_object_history_client::DestroyedQueryCall, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_object_history_client::DestroyedQueryChangesCall
+pub fn jmap_object_history_client::DestroyedQueryChangesCall::clone(&self) -> jmap_object_history_client::DestroyedQueryChangesCall
+impl core::cmp::PartialEq for jmap_object_history_client::DestroyedQueryChangesCall
+pub fn jmap_object_history_client::DestroyedQueryChangesCall::eq(&self, &jmap_object_history_client::DestroyedQueryChangesCall) -> bool
+impl core::fmt::Debug for jmap_object_history_client::DestroyedQueryChangesCall
+pub fn jmap_object_history_client::DestroyedQueryChangesCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_client::DestroyedQueryChangesCall
+#[non_exhaustive] pub struct jmap_object_history_client::HistoryGetCall
+pub jmap_object_history_client::HistoryGetCall::account_id: jmap_types::id::Id
+pub jmap_object_history_client::HistoryGetCall::arguments: jmap_object_history_types::HistoryGetArguments
+pub jmap_object_history_client::HistoryGetCall::ids: core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>
+pub jmap_object_history_client::HistoryGetCall::properties: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_object_history_client::HistoryGetCall::type_capability: alloc::string::String
+impl jmap_object_history_client::HistoryGetCall
+pub fn jmap_object_history_client::HistoryGetCall::ids(self, core::option::Option<alloc::vec::Vec<jmap_types::id::Id>>) -> Self
+pub fn jmap_object_history_client::HistoryGetCall::new(jmap_types::id::Id, impl core::convert::Into<alloc::string::String>, jmap_object_history_types::HistoryGetArguments) -> Self
+pub fn jmap_object_history_client::HistoryGetCall::properties(self, core::option::Option<alloc::vec::Vec<alloc::string::String>>) -> Self
+impl core::clone::Clone for jmap_object_history_client::HistoryGetCall
+pub fn jmap_object_history_client::HistoryGetCall::clone(&self) -> jmap_object_history_client::HistoryGetCall
+impl core::cmp::PartialEq for jmap_object_history_client::HistoryGetCall
+pub fn jmap_object_history_client::HistoryGetCall::eq(&self, &jmap_object_history_client::HistoryGetCall) -> bool
+impl core::fmt::Debug for jmap_object_history_client::HistoryGetCall
+pub fn jmap_object_history_client::HistoryGetCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_history_client::HistoryGetCall
+pub struct jmap_object_history_client::SessionClient
+impl jmap_object_history_client::SessionClient
+pub fn jmap_object_history_client::SessionClient::capability(&self, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_object_history_types::ObjectHistoryAccountCapability>, jmap_base_client::error::ClientError>
+pub async fn jmap_object_history_client::SessionClient::get_history<T: serde_core::de::DeserializeOwned>(&self, &str, &jmap_object_history_client::HistoryGetCall) -> core::result::Result<jmap_types::methods::GetResponse<jmap_object_history_types::HistoryEntry<T>>, jmap_base_client::error::ClientError>
+pub async fn jmap_object_history_client::SessionClient::query_destroyed(&self, &str, &jmap_object_history_client::DestroyedQueryCall) -> core::result::Result<jmap_types::methods::QueryResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_object_history_client::SessionClient::query_destroyed_changes(&self, &str, &jmap_object_history_client::DestroyedQueryChangesCall) -> core::result::Result<jmap_types::methods::QueryChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_object_history_client::SessionClient::restore(&self, &str, &jmap_base_client::conditional::SetCall, &[&str]) -> core::result::Result<(jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_object_history_types::RestoreOutcome), jmap_base_client::error::ClientError>
+pub fn jmap_object_history_client::SessionClient::supports(&self, &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_base_client::error::ClientError>
+impl core::clone::Clone for jmap_object_history_client::SessionClient
+pub fn jmap_object_history_client::SessionClient::clone(&self) -> jmap_object_history_client::SessionClient
+impl core::fmt::Debug for jmap_object_history_client::SessionClient
+pub fn jmap_object_history_client::SessionClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_object_history_client::JmapObjectHistoryExt: jmap_object_history_client::sealed::Sealed
+pub fn jmap_object_history_client::JmapObjectHistoryExt::with_object_history_session(&self, jmap_base_client::request::Session) -> jmap_object_history_client::SessionClient
+impl jmap_object_history_client::JmapObjectHistoryExt for jmap_base_client::client::JmapClient
+pub fn jmap_base_client::client::JmapClient::with_object_history_session(&self, jmap_base_client::request::Session) -> jmap_object_history_client::SessionClient
+pub fn jmap_object_history_client::has_older<T>(&[jmap_object_history_types::HistoryEntry<T>]) -> bool
+pub fn jmap_object_history_client::older_page_before<T>(&[jmap_object_history_types::HistoryEntry<T>]) -> core::option::Option<&jmap_types::id::UTCDate>
