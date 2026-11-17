@@ -142,7 +142,8 @@ impl MemoryBackend {
     ///
     /// When `supportedTypes` names a type without history
     /// (`jmap_object_history_types::is_history_type`), or one this backend
-    /// does not keep history for (Mailbox, Email, Identity, VacationResponse).
+    /// does not keep history for (Mailbox, Email, Identity, VacationResponse,
+    /// and SieveScript with the `sieve` feature).
     #[must_use]
     pub fn with_object_history(
         self,
@@ -206,9 +207,15 @@ impl MemoryBackend {
     }
 }
 
-/// The types this backend keeps history for (SieveScript follows in bd
-/// JMAP-tna1.3.8).
-const SUPPORTED: &[&str] = &["Mailbox", "Email", "Identity", "VacationResponse"];
+/// The types this backend keeps history for.
+const SUPPORTED: &[&str] = &[
+    "Mailbox",
+    "Email",
+    "Identity",
+    "VacationResponse",
+    #[cfg(feature = "sieve")]
+    "SieveScript",
+];
 
 fn not_found() -> BackendSetError<MemoryError> {
     BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
@@ -489,6 +496,31 @@ impl Inner {
     }
 }
 
+impl Inner {
+    /// §5.2: a restored SieveScript "is not active" (RFC 9661 §2.4 lets
+    /// only `onSuccessActivateScript` activate one), and a name another
+    /// script now uses is `alreadyExists`.
+    fn check_script_restore(
+        &self,
+        account: &Id,
+        id: &Id,
+        script: &mut Map<String, Value>,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        script.insert("isActive".to_owned(), Value::Bool(false));
+        let name = script.get("name").filter(|n| !n.is_null());
+        let taken = self
+            .objects_ref("SieveScript", account.as_ref())
+            .is_some_and(|m| {
+                m.iter()
+                    .any(|(other, v)| other != id && name.is_some() && v.get("name") == name)
+            });
+        if taken {
+            return Err(set_err(SetError::new(SetErrorType::AlreadyExists)));
+        }
+        Ok(())
+    }
+}
+
 impl ObjectHistoryBackend for MemoryBackend {
     fn object_history_capability(
         &self,
@@ -713,6 +745,9 @@ impl ObjectHistoryBackend for MemoryBackend {
         }
         if O::TYPE_NAME == Email::TYPE_NAME {
             inner.check_email_restore(account_id, &stored)?;
+        }
+        if O::TYPE_NAME == "SieveScript" {
+            inner.check_script_restore(account_id, id, &mut stored)?;
         }
         let value = Value::Object(stored);
         let Ok(object) = O::deserialize(&value) else {

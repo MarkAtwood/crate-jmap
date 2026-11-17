@@ -102,6 +102,11 @@ pub use history::{
     handle_vacation_get_with_history, handle_vacation_set_with_history,
     register_mail_handlers_with_history,
 };
+#[cfg(feature = "sieve")]
+pub use history::{
+    handle_sieve_get_with_history, handle_sieve_query_with_history, handle_sieve_set_with_history,
+    register_sieve_handlers_with_history,
+};
 pub use identity::{handle_identity_changes, handle_identity_get, handle_identity_set};
 pub use jmap_mail_types::{
     EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,

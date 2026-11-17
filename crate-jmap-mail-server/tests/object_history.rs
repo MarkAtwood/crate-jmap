@@ -30,13 +30,21 @@ const A: &str = "abc";
 /// 2026-03-01T00:00:00Z.
 const T0: i64 = 1_772_323_200_000;
 
+fn supported() -> Vec<&'static str> {
+    let mut t = vec!["Mailbox", "Email", "Identity", "VacationResponse"];
+    if cfg!(feature = "sieve") {
+        t.push("SieveScript");
+    }
+    t
+}
+
 fn backend() -> MemoryBackend {
     let b = MemoryBackend::new()
         .with_account(&Id::from(A))
         .with_object_history(
             serde_json::from_value(json!({
                 "maxHistoryDuration": 2_592_000,
-                "supportedTypes": ["Mailbox", "Email", "Identity", "VacationResponse"]
+                "supportedTypes": supported()
             }))
             .unwrap(),
             HistoryRetention::new().max_duration(Some(Duration::from_secs(2_592_000))),
@@ -55,6 +63,8 @@ impl Server {
         let b = backend();
         let mut d = Dispatcher::new();
         register_mail_handlers_with_history(&mut d, Arc::new(b.clone()));
+        #[cfg(feature = "sieve")]
+        jmap_mail_server::register_sieve_handlers_with_history(&mut d, Arc::new(b.clone()));
         Self { b, d }
     }
 
@@ -70,6 +80,10 @@ impl Server {
 }
 
 async fn run(d: &Dispatcher<()>, using: &[&str], calls: Value) -> Vec<Value> {
+    let mut using = using.to_vec();
+    if cfg!(feature = "sieve") && using.contains(&HISTORY) {
+        using.push("urn:ietf:params:jmap:sieve");
+    }
     let req: JmapRequest =
         serde_json::from_value(json!({"using": using, "methodCalls": calls})).unwrap();
     let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
@@ -94,7 +108,7 @@ async fn error(s: &Server, method: &str, args: Value) -> String {
     let mut args = args;
     args["accountId"] = json!(A);
     let req: JmapRequest = serde_json::from_value(
-        json!({"using": [CORE, MAIL, HISTORY], "methodCalls": [[method, args, "0"]]}),
+        json!({"using": [CORE, MAIL, HISTORY, "urn:ietf:params:jmap:sieve"], "methodCalls": [[method, args, "0"]]}),
     )
     .unwrap();
     let resp = serde_json::to_value(s.d.dispatch(req, (), State::from("s")).await).unwrap();
@@ -745,4 +759,92 @@ async fn cascade_destroys_are_history() {
     assert_eq!(got["list"][0]["blobId"], "b1", "{got}");
     let q = one(&s, "Email/query", json!({"onlyDestroyed": true})).await;
     assert_eq!(q["ids"], json!(["e1"]));
+}
+
+// ---- SieveScript (bd JMAP-tna1.3.8) -------------------------------------
+
+#[cfg(feature = "sieve")]
+async fn create_script(s: &Server, name: &str) -> String {
+    s.b.store_blob(&Id::from("script"), b"keep;".to_vec());
+    let out = one(
+        s,
+        "SieveScript/set",
+        json!({"create": {"s": {"name": name, "blobId": "script"}}}),
+    )
+    .await;
+    out["created"]["s"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{out}"))
+        .to_owned()
+}
+
+/// §4 over SieveScript (handler-side filter), §5.1/§5.2: a restored script
+/// is inactive and can be activated by `onSuccessActivateScript` in the
+/// same call; a name now taken is `alreadyExists`.
+#[cfg(feature = "sieve")]
+#[tokio::test]
+async fn sieve_scripts_destroyed_queried_and_restored() {
+    let s = Server::new();
+    let one_id = create_script(&s, "one").await;
+    let two_id = create_script(&s, "two").await;
+    s.at(1);
+    one(&s, "SieveScript/set", json!({"destroy": [&one_id]})).await;
+    s.at(2);
+    one(&s, "SieveScript/set", json!({"destroy": [&two_id]})).await;
+
+    let q = one(&s, "SieveScript/query", json!({"onlyDestroyed": true})).await;
+    assert_eq!(q["ids"], json!([&two_id, &one_id]), "most recent first");
+    let q = one(
+        &s,
+        "SieveScript/query",
+        json!({"onlyDestroyed": true, "filter": {"name": "one"}}),
+    )
+    .await;
+    assert_eq!(q["ids"], json!([&one_id]));
+    let q = one(
+        &s,
+        "SieveScript/query",
+        json!({"onlyDestroyed": true, "destroyedBefore": "2026-03-01T00:02:00Z"}),
+    )
+    .await;
+    assert_eq!(q["ids"], json!([&one_id]), "strictly before");
+    let live = one(&s, "SieveScript/query", json!({})).await;
+    assert_eq!(live["ids"], json!([]));
+
+    let out = one(
+        &s,
+        "SieveScript/set",
+        json!({"restore": {&one_id: null}, "onSuccessActivateScript": &one_id}),
+    )
+    .await;
+    assert!(out["restored"].get(&one_id).is_some(), "{out}");
+    let got = one(&s, "SieveScript/get", json!({"ids": [&one_id]})).await;
+    assert_eq!(got["list"][0]["isActive"], true, "{got}");
+
+    create_script(&s, "two").await;
+    let out = one(&s, "SieveScript/set", json!({"restore": {&two_id: null}})).await;
+    assert_eq!(out["notRestored"][&two_id]["type"], "alreadyExists");
+    let out = one(
+        &s,
+        "SieveScript/set",
+        json!({"restore": {&two_id: {"name": "two again"}}}),
+    )
+    .await;
+    assert!(out["restored"].get(&two_id).is_some(), "{out}");
+    let got = one(&s, "SieveScript/get", json!({"ids": [&two_id]})).await;
+    assert_eq!(got["list"][0]["isActive"], false);
+
+    let got = one(
+        &s,
+        "SieveScript/get",
+        json!({"ids": [&two_id], "includeReplaced": true, "properties": ["name"]}),
+    )
+    .await;
+    let names: Vec<&str> = got["list"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(names, ["two", "two again"]);
 }

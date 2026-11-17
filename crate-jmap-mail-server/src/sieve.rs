@@ -1015,6 +1015,19 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
+    sieve_query_impl(backend, caller, args, None).await
+}
+
+/// The body of [`handle_sieve_query`]. With `destroyed`, the query runs over
+/// those destroyed scripts (final versions with their destruction times,
+/// draft-ietf-jmap-object-history §4) instead of the current ones, and
+/// with no `sort` orders them most recently destroyed first.
+pub(crate) async fn sieve_query_impl<B: MailBackend + SieveBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    destroyed: Option<Vec<(SieveScript, jmap_types::UTCDate)>>,
+) -> Result<HandlerOutput, JmapError> {
     // Step 1: extract and verify account.
     let (account_id, mut args) = extract_account_id(args)?;
     if !backend
@@ -1093,10 +1106,24 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     }
 
     // Step 4: fetch all scripts for the account.
-    let (all_scripts, _not_found) = backend
-        .get_objects::<SieveScript>(caller, &account_id, None, None)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
+    let is_destroyed_query = destroyed.is_some();
+    let (all_scripts, destroyed_at): (Vec<SieveScript>, Vec<jmap_types::UTCDate>) = match destroyed
+    {
+        Some(rows) => rows.into_iter().unzip(),
+        None => {
+            let (all, _not_found) = backend
+                .get_objects::<SieveScript>(caller, &account_id, None, None)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+            (all, Vec::new())
+        }
+    };
+    let when = |s: &SieveScript| {
+        all_scripts
+            .iter()
+            .position(|x| x.id == s.id)
+            .and_then(|i| destroyed_at.get(i))
+    };
 
     // Step 5: apply filter.
     let filtered: Vec<&SieveScript> = all_scripts
@@ -1112,7 +1139,14 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     // ascending (the order is server-dependent, RFC 8620 §5.5). A null name
     // sorts before any string; `false` sorts before `true`.
     let mut sorted: Vec<&SieveScript> = filtered;
-    if sort.is_empty() {
+    if sort.is_empty() && is_destroyed_query {
+        // Object history §4: "If sort is null or empty, the results are
+        // ordered by time of destruction, most recent first."
+        sorted.sort_by(|a, b| match (when(a), when(b)) {
+            (Some(x), Some(y)) => y.cmp_instant(x).unwrap_or(std::cmp::Ordering::Equal),
+            _ => std::cmp::Ordering::Equal,
+        });
+    } else if sort.is_empty() {
         sorted.sort_by(|a, b| a.name.as_deref().cmp(&b.name.as_deref()));
     } else {
         sorted.sort_by(|a, b| {
@@ -1164,10 +1198,15 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         .collect();
 
     // Step 9: get query state.
-    let query_state = backend
+    let mut query_state = backend
         .get_state::<SieveScript>(caller, &account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
+    if is_destroyed_query {
+        // Its own kind of state (decision 25); there is no
+        // SieveScript/queryChanges, and canCalculateChanges is false.
+        query_state = jmap_types::State::from(format!("dq|{}", query_state.as_ref()));
+    }
 
     // Step 10: build response.
     let mut resp = json!({

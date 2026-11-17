@@ -436,13 +436,16 @@ signatures and always run the pre-checks; only the registered handlers see
 that also implements `jmap_server::ObjectHistoryBackend`, calls
 `register_mail_handlers` and re-registers the history-aware Mailbox and
 Email `/get`, `/set`, `/query`, `/queryChanges`, and Identity and
-VacationResponse `/get`, `/set` (SieveScript follows). Each
+VacationResponse `/get`, `/set`. `register_sieve_handlers_with_history`
+(feature `sieve`) does the same for SieveScript `/get`, `/set`, `/query`. Each
 `handle_*_with_history` wraps the plain handler, which runs unchanged when
 no history argument is set. History `Email/get` entries get the plain
 `Email/get` projection (default properties, body values, `header:`
 properties). Mailbox restores run parent first; a restored Mailbox's
 counts are zero; a restored Email keeps `blobId` and `threadId` and needs
-current Mailboxes in `mailboxIds`; VacationResponse is never destroyed, so
+current Mailboxes in `mailboxIds`; a restored SieveScript is inactive
+(activate it with `onSuccessActivateScript` in the same call) and a taken
+name is `alreadyExists`; VacationResponse is never destroyed, so
 its restore is `notFound`.
 
 `MemoryBackend::with_object_history(capability, retention)` turns history

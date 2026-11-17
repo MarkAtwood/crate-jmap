@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-server** (feature `sieve`): SieveScript object history:
+  `register_sieve_handlers_with_history` and `handle_sieve_get_with_history`,
+  `handle_sieve_query_with_history` (destroyed scripts through the
+  handler's own filter, sort and paging), `handle_sieve_set_with_history`;
+  the memory backend restores a script inactive and refuses a taken name.
+  **jmap-mail-types**: `HistoryObject` for SieveScript. (bd:JMAP-tna1.3.8)
 - **jmap-mail-server**: Email object history: `handle_email_get_with_history`
   (the plain Email/get projection per entry), `..._query_with_history`,
   `..._query_changes_with_history`, `..._set_with_history`, registered by

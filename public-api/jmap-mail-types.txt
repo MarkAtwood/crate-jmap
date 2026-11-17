@@ -1240,6 +1240,7 @@ pub fn jmap_mail_types::SieveScript::eq(&self, &jmap_mail_types::SieveScript) ->
 impl core::fmt::Debug for jmap_mail_types::SieveScript
 pub fn jmap_mail_types::SieveScript::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mail_types::SieveScript
+impl jmap_object_history_types::HistoryObject for jmap_mail_types::SieveScript
 impl jmap_types::backend::GetObject for jmap_mail_types::SieveScript
 impl jmap_types::backend::JmapObject for jmap_mail_types::SieveScript
 pub type jmap_mail_types::SieveScript::Property = jmap_mail_types::SieveScriptProperty

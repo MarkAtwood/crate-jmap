@@ -372,3 +372,186 @@ pub fn register_mail_handlers_with_history<B>(
         handle_vacation_set_with_history(&*b, &ctx, a, &using).await
     });
 }
+
+/// `SieveScript/get` with history (§3): `handle_sieve_get` otherwise.
+///
+/// # Errors
+///
+/// As `handle_sieve_get` and `jmap_server::history_get`.
+#[cfg(feature = "sieve")]
+pub async fn handle_sieve_get_with_history<B>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError>
+where
+    B: MailBackend + crate::SieveBackend + ObjectHistoryBackend,
+{
+    history_get::<jmap_mail_types::SieveScript, B, _, _>(backend, caller, args, using, |a| {
+        crate::handle_sieve_get(backend, caller, a)
+    })
+    .await
+}
+
+/// `SieveScript/query` with `onlyDestroyed` (§4): `handle_sieve_query`
+/// otherwise. SieveScript filters in the handler, so the destroyed query
+/// reads every destroyed script's final version through
+/// `get_object_history` and runs the same filter, sort and paging over
+/// them, most recently destroyed first by default. There is no
+/// `SieveScript/queryChanges`.
+///
+/// # Errors
+///
+/// As `handle_sieve_query` and
+/// `jmap_server::parse_destroyed_query_arguments`; `invalidArguments` when
+/// the account does not list SieveScript.
+#[cfg(feature = "sieve")]
+pub async fn handle_sieve_query_with_history<B>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError>
+where
+    B: MailBackend + crate::SieveBackend + ObjectHistoryBackend,
+{
+    use jmap_mail_types::SieveScript;
+    let Value::Object(mut map) = args else {
+        return crate::handle_sieve_query(backend, caller, args).await;
+    };
+    let Some(window) = jmap_server::parse_destroyed_query_arguments(&mut map, using)? else {
+        return crate::handle_sieve_query(backend, caller, Value::Object(map)).await;
+    };
+    let account = match map.get("accountId").and_then(Value::as_str) {
+        Some(s) => Id::new_validated(s)
+            .map_err(|e| JmapError::invalid_arguments(format!("accountId: {e}")))?,
+        None => return Err(JmapError::invalid_arguments("accountId is required")),
+    };
+    if !backend
+        .account_exists(caller, &account)
+        .await
+        .map_err(|e| jmap_server::server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    require_history_support::<SieveScript, B>(backend, caller, &account)?;
+    let mut all = jmap_object_history_types::HistoryGetArguments::new();
+    all.include_destroyed = true;
+    let result = backend
+        .get_object_history::<SieveScript>(caller, &account, HistoryGetParams::new(&all))
+        .await
+        .map_err(JmapError::from)?;
+    let strictly = |a: &jmap_types::UTCDate, b: &jmap_types::UTCDate, want: std::cmp::Ordering| {
+        a.cmp_instant(b).is_ok_and(|o| o == want)
+    };
+    let mut rows = Vec::new();
+    for entry in result.entries {
+        // Live scripts have no `replaced`; destroyed ones' final versions do.
+        let Some(at) = entry.object_history.replaced.clone() else {
+            continue;
+        };
+        if window
+            .destroyed_after
+            .as_ref()
+            .is_some_and(|after| !strictly(&at, after, std::cmp::Ordering::Greater))
+            || window
+                .destroyed_before
+                .as_ref()
+                .is_some_and(|before| !strictly(&at, before, std::cmp::Ordering::Less))
+        {
+            continue;
+        }
+        rows.push((entry.object, at));
+    }
+    crate::sieve::sieve_query_impl(backend, caller, Value::Object(map), Some(rows)).await
+}
+
+/// `SieveScript/set` with `restore` (§5.1): restores run first, so a
+/// restored script, which comes back inactive (§5.2), is a valid
+/// `onSuccessActivateScript` target in the same call.
+///
+/// # Errors
+///
+/// As `handle_sieve_set` and `jmap_server::history_set`.
+#[cfg(feature = "sieve")]
+pub async fn handle_sieve_set_with_history<B>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
+    args: Value,
+    using: &[String],
+) -> Result<HandlerOutput, JmapError>
+where
+    B: MailBackend + crate::SieveBackend + ObjectHistoryBackend,
+{
+    sieve_set_with_history(backend, caller, created_ids, args, using, false).await
+}
+
+#[cfg(feature = "sieve")]
+async fn sieve_set_with_history<B>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
+    args: Value,
+    using: &[String],
+    atomic: bool,
+) -> Result<HandlerOutput, JmapError>
+where
+    B: MailBackend + crate::SieveBackend + ObjectHistoryBackend,
+{
+    history_set::<jmap_mail_types::SieveScript, B, _, _>(
+        backend,
+        caller,
+        args,
+        using,
+        &NoRestoreHooks,
+        |a| crate::sieve::sieve_set(backend, caller, created_ids, a, atomic),
+    )
+    .await
+}
+
+/// `register_sieve_handlers`, then the history-aware `SieveScript/get`,
+/// `/set` and `/query`, bound to the request's `using` (the plain Sieve
+/// handlers take none).
+#[cfg(feature = "sieve")]
+pub fn register_sieve_handlers_with_history<B>(
+    dispatcher: &mut Dispatcher<B::CallerCtx>,
+    backend: Arc<B>,
+) where
+    B: MailBackend + crate::SieveBackend + ObjectHistoryBackend + 'static,
+{
+    crate::register_sieve_handlers(dispatcher, Arc::clone(&backend));
+    macro_rules! reg {
+        ($method:expr, |$b:ident, $a:ident, $ctx:ident, $using:ident $(, $field:ident)*| $body:expr) => {{
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+                Arc::clone(&backend),
+                move |$b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+                    let CallContext {
+                        args: $a,
+                        caller: $ctx,
+                        using: $using,
+                        $($field,)*
+                        ..
+                    } = cx;
+                    Box::pin(async move { $body }) as HandlerFuture
+                },
+            ));
+            dispatcher.register_history_aware($method, h);
+        }};
+    }
+    reg!("SieveScript/get", |b, a, ctx, using| {
+        handle_sieve_get_with_history(&*b, &ctx, a, &using).await
+    });
+    reg!("SieveScript/query", |b, a, ctx, using| {
+        handle_sieve_query_with_history(&*b, &ctx, a, &using).await
+    });
+    reg!("SieveScript/set", |b,
+                             a,
+                             ctx,
+                             using,
+                             created_ids,
+                             atomic| {
+        sieve_set_with_history(&*b, &ctx, &created_ids, a, &using, atomic).await
+    });
+}

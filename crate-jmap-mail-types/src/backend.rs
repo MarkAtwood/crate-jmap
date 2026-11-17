@@ -432,6 +432,9 @@ impl JmapObject for crate::sieve::SieveScript {
 
 #[cfg(feature = "sieve")]
 impl GetObject for crate::sieve::SieveScript {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+#[cfg(feature = "sieve")]
+impl jmap_object_history_types::HistoryObject for crate::sieve::SieveScript {}
 
 /// RFC 9661 §2 (rfc9661.txt:261, 284): `id` is "(immutable; server-set)",
 /// `isActive` is "(server-set; default: false)".
@@ -450,8 +453,7 @@ mod tests {
     //! classification failure until the `SetObject` lists name it.
 
     /// Decision 5/14: exactly the registry's "Supports History: Yes" mail
-    /// types implement `HistoryObject` (SieveScript arrives with bd
-    /// JMAP-tna1.3.8); "No" types never do.
+    /// types implement `HistoryObject`; "No" types never do.
     #[test]
     fn history_object_impls_match_the_registry() {
         use jmap_object_history_types::{HistoryObject, is_history_type};
