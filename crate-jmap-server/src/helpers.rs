@@ -1392,6 +1392,54 @@ pub fn resolve_blob_ref<'a>(raw: &'a str, created_ids: &BTreeMap<Id, Id>) -> Cow
     Cow::Borrowed(raw)
 }
 
+/// Check that every blobId under one of `keys` in a `/set` create object or
+/// update patch is an Id (RFC 8620 §1.2), at any depth: a key such as
+/// `"blobId"`, or a patch path whose last segment is one (such as
+/// `"media/p/blobId"`). `null` passes; the type decides whether it is
+/// allowed.
+///
+/// Returns an `invalidProperties` [`SetError`] naming the top-level property
+/// that holds the first malformed value (such as `"media"` for a Media
+/// object's `blobId`, RFC 9610 §2), or `None`. Whether the blob exists is
+/// for the backend to check.
+///
+/// Run it after [`resolve_blob_refs`], so a `#creationId` naming an
+/// earlier creation has become an Id and an unknown one is rejected here.
+#[must_use]
+pub fn check_blob_ids(obj: &Map<String, Value>, keys: &[&str]) -> Option<SetError> {
+    fn bad(value: &Value, keys: &[&str]) -> bool {
+        match value {
+            Value::Object(map) => map.iter().any(|(key, v)| {
+                let last = key.rsplit('/').next().unwrap_or(key);
+                if keys.contains(&last) && !v.is_object() && !v.is_array() {
+                    match v {
+                        Value::Null => false,
+                        Value::String(s) => Id::new_validated(s.as_str()).is_err(),
+                        _ => true,
+                    }
+                } else {
+                    bad(v, keys)
+                }
+            }),
+            Value::Array(items) => items.iter().any(|v| bad(v, keys)),
+            _ => false,
+        }
+    }
+    obj.iter()
+        .find(|(key, v)| {
+            bad(
+                &Value::Object(Map::from_iter([((*key).clone(), (*v).clone())])),
+                keys,
+            )
+        })
+        .map(|(key, _)| {
+            let top = key.split('/').next().unwrap_or(key);
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties([top])
+                .with_description("a blobId is not an Id (RFC 8620 §1.2)")
+        })
+}
+
 /// Rewrite the `update` keys and `destroy` entries of `/set` arguments that
 /// are `#creationId` references (RFC 8620 §5.3) to the ids they name.
 ///
@@ -1813,9 +1861,9 @@ pub fn patch_values_as_object(patch: &Map<String, Value>) -> Map<String, Value> 
 mod tests {
     use super::{
         MAX_MERGE_PATCH_DEPTH, MergePatchError, PatchPathError, apply_jmap_patch,
-        apply_patch_object, civil_from_days, enforce_max_objects_in_set, extract_account_id,
-        filter_arg, is_client_updatable, json_merge_patch, json_type_name, limit_or_max,
-        now_utc_string, parse_max_changes, parse_wire_id, query_anchor_args,
+        apply_patch_object, check_blob_ids, civil_from_days, enforce_max_objects_in_set,
+        extract_account_id, filter_arg, is_client_updatable, json_merge_patch, json_type_name,
+        limit_or_max, now_utc_string, parse_max_changes, parse_wire_id, query_anchor_args,
         reject_did_bearing_properties, reject_read_only_patch, reject_server_set, resolve_blob_ref,
         resolve_blob_refs, resolve_creation_ref, resolve_query_offset, resolve_query_start,
         resolve_set_id_refs, signed_seconds_since_epoch, utc_date_from_epoch_millis,
@@ -1987,6 +2035,37 @@ mod tests {
                 "update": {"E1": {"a": 1}, "C1": {"b": 2}, "#nope": {}, "lit": {}},
                 "destroy": ["E1", "C1", "#nope", "lit"]
             })
+        );
+    }
+
+    /// RFC 9610 §2 Media `blobId: Id`; RFC 8620 §1.2 Id syntax. A
+    /// malformed value names the top-level property, whether nested, a
+    /// patch path, or a whole replaced object; `null` and valid Ids pass.
+    #[test]
+    fn check_blob_ids_names_the_top_level_property() {
+        let check = |v: serde_json::Value| {
+            check_blob_ids(v.as_object().expect("object"), &["blobId"])
+                .map(|e| serde_json::Value::from(&e)["properties"].clone())
+        };
+        assert_eq!(
+            check(serde_json::json!({"media": {"p": {"blobId": "G1"}}})),
+            None
+        );
+        assert_eq!(
+            check(serde_json::json!({"media": {"p": {"blobId": null}}})),
+            None
+        );
+        assert_eq!(
+            check(serde_json::json!({"name": "x", "media": {"p": {"blobId": "#nope"}}})),
+            Some(serde_json::json!(["media"]))
+        );
+        assert_eq!(
+            check(serde_json::json!({"media/p/blobId": 7})),
+            Some(serde_json::json!(["media"]))
+        );
+        assert_eq!(
+            check(serde_json::json!({"locations/r": {"links": {"m": {"blobId": "a b"}}}})),
+            Some(serde_json::json!(["locations"]))
         );
     }
 

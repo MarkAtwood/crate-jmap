@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-server**: `check_blob_ids`, an `invalidProperties` check that
+  every blobId under named keys (or patch paths) of a `/set` create or
+  patch is an Id (RFC 8620 §1.2), naming the top-level property that holds
+  it. (bd:JMAP-tna1.15)
+
 - **jmap-server**: `resolve_set_id_refs`, which rewrites `/set` `update`
   keys and `destroy` entries that are `#creationId` references (RFC 8620
   §5.3) from this call's creates or the request's, leaving unknown ones as
@@ -1095,6 +1100,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **BREAKING** **jmap-contacts-server**, **jmap-calendars-server**: a
+  Media `blobId` (RFC 9610 §2) in ContactCard/set and /copy, and a Link
+  `blobId` (draft-ietf-jmap-calendars §5.3) at any depth in
+  CalendarEvent/set and /copy, must be an Id: a malformed value, or a
+  `#creationId` that matches no earlier creation, is now `invalidProperties`
+  naming the top-level property (`media`, `links`, `locations`, ...)
+  instead of being stored. Whether the blob exists stays the backend's
+  check. (bd:JMAP-tna1.15)
 - **jmap-mail-server**, **jmap-calendars-server**, **jmap-chat-server**,
   **jmap-chat-mimi-server**, **jmap-contacts-server**,
   **jmap-filenode-server**, **jmap-graph-server**, **jmap-scene-server**,

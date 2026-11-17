@@ -209,23 +209,66 @@ async fn event_parse_blob_ids_resolve_upload() {
     assert_eq!(args(&resp, 1)["type"], "invalidArguments");
 }
 
-/// An unknown reference is not resolved: it reaches the event unchanged,
-/// as any `#` value did before. CalendarEvent/set does not yet check a Link
-/// `blobId` is an Id at all (bd:JMAP-tna1.15), so today it is stored.
+/// An unknown reference is not resolved and is not an Id, so a create, an
+/// update and a copy override naming it fail `invalidProperties` naming the
+/// property that holds the Link (draft-ietf-jmap-calendars §5.3 Link
+/// `blobId`; RFC 8620 §1.2; bd:JMAP-tna1.15).
 #[tokio::test]
-async fn unknown_link_blob_ref_is_left_unchanged() {
+async fn unknown_link_blob_ref_is_invalid_properties() {
     let d = dispatcher();
     let resp = run(
         &d,
         json!([
             ["Calendar/set", {"accountId": ACCOUNT, "create": {"cal": calendar()}}, "0"],
             ["CalendarEvent/set", {"accountId": ACCOUNT, "create": {
-                "e": event("e", "#cal", "#nope")
+                "bad": event("e", "#cal", "#nope"),
+                "ok": event("f", "#cal", "Bliteral")
             }}, "1"]
         ]),
     )
     .await;
-    let e = created_id(&resp, 2, "e");
-    let nope = json!("#nope");
-    assert_eq!(blobs(&d, ACCOUNT, &e).await, (nope.clone(), nope));
+    let err = &args(&resp, 2)["notCreated"]["bad"];
+    assert_eq!(err["type"], "invalidProperties", "{err}");
+    assert_eq!(err["properties"], json!(["links"]), "{err}");
+    let ok = created_id(&resp, 2, "ok");
+
+    let resp = run(
+        &d,
+        json!([["CalendarEvent/set", {"accountId": ACCOUNT, "update": {
+            ok.as_str(): {"locations/room/links/map/blobId": "#nope"}
+        }}, "0"]]),
+    )
+    .await;
+    let err = &args(&resp, 1)["notUpdated"][&ok];
+    assert_eq!(err["properties"], json!(["locations"]), "{err}");
+    let lit = json!("Bliteral");
+    assert_eq!(blobs(&d, ACCOUNT, &ok).await, (lit.clone(), lit));
+}
+
+#[tokio::test]
+async fn copy_override_with_unknown_link_blob_ref_is_invalid_properties() {
+    let d = dispatcher();
+    let resp = run(
+        &d,
+        json!([
+            ["Calendar/set", {"accountId": OTHER, "create": {"cal": calendar()}}, "0"],
+            ["CalendarEvent/set", {"accountId": OTHER, "create": {
+                "e": event("e", "#cal", "Bsource")
+            }}, "1"],
+            ["Calendar/set", {"accountId": ACCOUNT, "create": {"dst": calendar()}}, "2"]
+        ]),
+    )
+    .await;
+    let source = created_id(&resp, 2, "e");
+    let dst = created_id(&resp, 3, "dst");
+    let resp = run(
+        &d,
+        json!([["CalendarEvent/copy", {"fromAccountId": OTHER, "accountId": ACCOUNT,
+            "create": {"k": {"id": source, "calendarIds": {dst.as_str(): true},
+                "links": {"a": link("#nope")}}}
+        }, "0"]]),
+    )
+    .await;
+    let err = &args(&resp, 1)["notCreated"]["k"];
+    assert_eq!(err["properties"], json!(["links"]), "{err}");
 }

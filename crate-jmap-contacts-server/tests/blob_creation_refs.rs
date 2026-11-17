@@ -180,22 +180,65 @@ async fn card_copy_media_override_resolves_upload() {
     assert_eq!(photo_blob(&d, ACCOUNT, &copy).await, UPLOADED);
 }
 
-/// An unknown reference is not resolved: it reaches the card unchanged,
-/// as any `#` value did before. ContactCard/set does not yet check a Media
-/// `blobId` is an Id at all (bd:JMAP-tna1.15), so today it is stored.
+/// An unknown reference is not resolved and is not an Id, so the create,
+/// an update and a copy override fail `invalidProperties` naming `media`
+/// (RFC 9610 §2 "*blobId*: Id"; bd:JMAP-tna1.15).
 #[tokio::test]
-async fn unknown_blob_ref_is_left_unchanged() {
+async fn unknown_blob_ref_is_invalid_properties() {
     let d = dispatcher();
     let resp = run(
         &d,
         json!([
             ["AddressBook/set", {"accountId": ACCOUNT, "create": {"ab": book()}}, "0"],
             ["ContactCard/set", {"accountId": ACCOUNT, "create": {
-                "c": card("c", json!({"p": photo("#nope")}))
+                "bad": card("c", json!({"p": photo("#nope")})),
+                "ok": card("d", json!({"p": photo("Bliteral")}))
             }}, "1"]
         ]),
     )
     .await;
-    let id = created_id(&resp, 2, "c");
-    assert_eq!(photo_blob(&d, ACCOUNT, &id).await, "#nope");
+    let invalid = json!({"type": "invalidProperties", "properties": ["media"],
+                         "description": "a blobId is not an Id (RFC 8620 §1.2)"});
+    assert_eq!(args(&resp, 2)["notCreated"]["bad"], invalid);
+    let ok = created_id(&resp, 2, "ok");
+
+    let resp = run(
+        &d,
+        json!([["ContactCard/set", {"accountId": ACCOUNT, "update": {
+            ok.as_str(): {"media/p/blobId": "#nope"}
+        }}, "0"]]),
+    )
+    .await;
+    assert_eq!(args(&resp, 1)["notUpdated"][&ok], invalid);
+    assert_eq!(photo_blob(&d, ACCOUNT, &ok).await, "Bliteral");
+}
+
+/// A ContactCard/copy override's Media `blobId` must be an Id too.
+#[tokio::test]
+async fn copy_override_with_unknown_blob_ref_is_invalid_properties() {
+    let d = dispatcher();
+    let resp = run(
+        &d,
+        json!([
+            ["AddressBook/set", {"accountId": OTHER, "create": {"ab": book()}}, "0"],
+            ["ContactCard/set", {"accountId": OTHER, "create": {
+                "c": card("c", json!({"p": photo("Bsource")}))
+            }}, "1"],
+            ["AddressBook/set", {"accountId": ACCOUNT, "create": {"dst": book()}}, "2"]
+        ]),
+    )
+    .await;
+    let source = created_id(&resp, 2, "c");
+    let book = created_id(&resp, 3, "dst");
+    let resp = run(
+        &d,
+        json!([["ContactCard/copy", {"fromAccountId": OTHER, "accountId": ACCOUNT,
+            "create": {"k": {"id": source, "addressBookIds": {book.as_str(): true},
+                "media": {"p": photo("#nope")}}}
+        }, "0"]]),
+    )
+    .await;
+    let err = &args(&resp, 1)["notCreated"]["k"];
+    assert_eq!(err["type"], "invalidProperties", "{err}");
+    assert_eq!(err["properties"], json!(["media"]), "{err}");
 }

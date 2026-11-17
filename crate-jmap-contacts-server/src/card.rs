@@ -210,6 +210,14 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 not_created.insert(create_id, err);
                 continue;
             }
+            // RFC 9610 §2: a Media `blobId` is an Id.
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&err));
+                continue;
+            }
             // `ContactCard.id` is optional, so the create parses without
             // one and `build` sets the id the backend mints.
             let mut card: ContactCard = match serde_path_to_error::deserialize(obj_val) {
@@ -264,6 +272,14 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             };
             if let Err(err) = resolve_map_key_refs(&mut patch_val, "addressBookIds", created_ids) {
                 not_updated.insert(id_str, serde_json::Value::from(&*err));
+                continue;
+            }
+            // RFC 9610 §2: a Media `blobId` is an Id.
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+            {
+                not_updated.insert(id_str, serde_json::Value::from(&err));
                 continue;
             }
 
@@ -562,6 +578,14 @@ pub(crate) async fn contact_card_copy<B: ContactsBackend>(
             }
             if let Some(err) = spec_val.as_object().and_then(jscontact_uri_error) {
                 not_copied.insert(create_id, err);
+                continue;
+            }
+            // RFC 9610 §2: an override Media `blobId` is an Id.
+            if let Some(err) = spec_val
+                .as_object()
+                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+            {
+                not_copied.insert(create_id, Value::from(&err));
                 continue;
             }
 

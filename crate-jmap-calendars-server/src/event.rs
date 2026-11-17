@@ -582,6 +582,14 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     let mut creates: Vec<(String, CalendarEvent)> = Vec::new();
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj_val) in create_map {
+            // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
+            if let Some(err) = obj_val
+                .as_object()
+                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&err));
+                continue;
+            }
             // §5.9: client cannot set both utcStart and start simultaneously,
             // or both utcEnd and duration.
             let has_utc_start = obj_val.get("utcStart").is_some_and(|v| !v.is_null());
@@ -665,6 +673,14 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch_val) in update_map {
+            // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
+            if let Some(err) = patch_val
+                .as_object()
+                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+            {
+                not_updated.insert(id_str, serde_json::Value::from(&err));
+                continue;
+            }
             // §5.9: patch cannot contain both utcStart and start, or both
             // utcEnd and duration.
             let has_utc_start = patch_val.get("utcStart").is_some_and(|v| !v.is_null());
@@ -1025,6 +1041,14 @@ pub(crate) async fn calendar_event_copy<B: CalendarsBackend>(
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, client_val) in create_map {
+            // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
+            if let Some(err) = client_val
+                .as_object()
+                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+            {
+                not_created.insert(create_id, serde_json::Value::from(&err));
+                continue;
+            }
             // RFC 8620 §5.4: "id" in the create entry is the source object id.
             // bd:JMAP-ic0j.12: distinguish missing-id from non-string-id so the
             // client error message points at the actual problem; both shapes are
