@@ -18,8 +18,8 @@ use jmap_types::data_types::data_type;
 use jmap_types::{Id, UTCDate};
 
 /// Storage for blobs: the hooks behind `Blob/get`, `Blob/set`,
-/// `Blob/lookup` and `Blob/convert` (draft-ietf-jmap-blobext-03) and the
-/// RFC 9404 methods.
+/// `Blob/lookup` and `Blob/convert` (draft-ietf-jmap-blobext-03), the
+/// RFC 9404 methods and RFC 8620 §6.3 `Blob/copy`.
 ///
 /// The handlers own argument validation, `#creationId` resolution, range
 /// selection, digest computation and error mapping; the backend owns the
@@ -205,6 +205,34 @@ pub trait BlobBackend: JmapBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
+
+    /// Copy `blob_id` from `from_account_id` into `to_account_id` (RFC 8620
+    /// §6.3 `Blob/copy`) and return the blob's id there.
+    ///
+    /// The handler has checked that both accounts exist and differ. The
+    /// backend checks the caller may read the blob in `from_account_id` and
+    /// write to `to_account_id`, applies its quota, and stores the octets
+    /// (it may share them). The copy keeps the source's media type and
+    /// starts unreferenced, so it expires as any new blob does.
+    ///
+    /// SetErrors, as [`BackendSetError::SetError`]: `notFound` when the
+    /// blob is missing or the caller may not see it ("the "notFound"
+    /// SetError error may be returned if the blobId to be copied cannot be
+    /// found"), and "any of the standard set errors that may be returned
+    /// for a create" (`forbidden`, `overQuota`, `tooLarge`, ...).
+    ///
+    /// Called for an account with or without a blob capability: Blob/copy
+    /// is core (`urn:ietf:params:jmap:core`).
+    ///
+    /// No default: a no-op default would report copies that were never
+    /// made.
+    fn copy_blob(
+        &self,
+        caller: &Self::CallerCtx,
+        from_account_id: &Id,
+        to_account_id: &Id,
+        blob_id: &Id,
+    ) -> impl std::future::Future<Output = Result<Id, BackendSetError<Self::Error>>> + Send;
 
     /// The capability URI of `type_name` when it is a type that can
     /// reference blobs, or `None` for an unknown type or one that cannot

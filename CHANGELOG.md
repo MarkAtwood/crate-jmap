@@ -14,6 +14,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-blob-server**: RFC 8620 §6.3 `Blob/copy`, registered by
+  `register_blob_handlers` (`handle_blob_copy`). It is core, so it needs
+  no blob capability; `blobIds` may be `#creationId` references;
+  `copied`/`notCopied` are keyed by the blobId as sent, and a missing
+  blob or unknown reference is `notFound`. `fromAccountId` equal to
+  `accountId` is `invalidArguments` (§6.3 copies "between two different
+  accounts"). **BREAKING** for `BlobBackend` implementors: new required
+  hook `copy_blob` (no default: a no-op would report false copies); the
+  memory backend implements it. (bd:JMAP-tna1.2.14)
+- **jmap-blob-types**: `BlobCopyArgs` and `BlobCopyResponse` (RFC 8620
+  §6.3). (bd:JMAP-tna1.2.14)
 - **jmap-blob-client**: RFC 9404 bindings for servers that only advertise
   `urn:ietf:params:jmap:blob`: `JmapBlobExt::with_blob_legacy_session`
   returns a `LegacySessionClient` (`for_account`, `blob_account_id` from

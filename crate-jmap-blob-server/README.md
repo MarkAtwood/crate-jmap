@@ -2,12 +2,13 @@
 
 JMAP Blob Management method handlers for the `jmap-server` dispatcher:
 `Blob/get`, `Blob/set`, `Blob/lookup` and `Blob/convert`
-([draft-ietf-jmap-blobext-03]), and `Blob/upload` ([RFC 9404]).
+([draft-ietf-jmap-blobext-03]), `Blob/upload` ([RFC 9404]) and the core
+`Blob/copy` (RFC 8620 §6.3).
 
 **Status: handlers complete.** `BlobBackend`, `register_blob_handlers`,
-`BlobMode`, the `memory` backend and all five handlers (the four blobext
-methods and RFC 9404 `Blob/upload`) are in place; opting `Blob/set` in
-to conditional updates is pending (see `PLAN.md`).
+`register_blob_conditional`, `BlobMode`, the `memory` backend and all six
+handlers (the four blobext methods, RFC 9404 `Blob/upload` and RFC 8620
+`Blob/copy`) are in place (see `PLAN.md`).
 
 ## What it is
 

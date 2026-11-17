@@ -692,6 +692,43 @@ impl MemoryBackend {
         Ok(())
     }
 
+    /// Copy `blob_id` of `from` into `to` as a new leaf blob with the
+    /// source's media type and a fresh expiry.
+    fn copy(
+        inner: &mut Inner,
+        from: &Id,
+        to: &Id,
+        blob_id: &Id,
+    ) -> Result<Id, BackendSetError<MemoryError>> {
+        let expires = inner.now() + EXPIRES_SECS;
+        let Some(src) = inner.accounts.get_mut(from) else {
+            return Err(BackendSetError::Other(unknown_account(from)));
+        };
+        if !src.materialize(blob_id) {
+            return Err(not_found(blob_id));
+        }
+        let (bytes, media_type) = src
+            .blobs
+            .get(blob_id)
+            .and_then(|b| Some((src.read(blob_id, 0..b.size)?, b.media_type.clone())))
+            .ok_or_else(|| not_found(blob_id))?;
+        let id = inner.mint();
+        let Some(dst) = inner.accounts.get_mut(to) else {
+            return Err(BackendSetError::Other(unknown_account(to)));
+        };
+        dst.blobs.insert(
+            id.clone(),
+            StoredBlob {
+                size: bytes.len() as u64,
+                sha256: sha256(&bytes),
+                repr: Repr::Bytes(bytes),
+                media_type,
+                expires: Some(expires),
+            },
+        );
+        Ok(id)
+    }
+
     fn references(
         inner: &Inner,
         account_id: &Id,
@@ -1082,6 +1119,21 @@ impl BlobBackend for MemoryBackend {
         blob_ids: &[Id],
     ) -> Result<BTreeMap<Id, Vec<Id>>, MemoryError> {
         Self::references(&*self.locked().await, account_id, type_name, blob_ids)
+    }
+
+    async fn copy_blob(
+        &self,
+        _caller: &(),
+        from_account_id: &Id,
+        to_account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Id, BackendSetError<MemoryError>> {
+        Self::copy(
+            &mut *self.locked().await,
+            from_account_id,
+            to_account_id,
+            blob_id,
+        )
     }
 
     async fn convert(

@@ -3,7 +3,8 @@
 //! (`urn:ietf:params:jmap:blob`).
 //!
 //! [`register_blob_handlers`] mounts `Blob/get`, `Blob/set`, `Blob/lookup`,
-//! `Blob/convert` and RFC 9404 `Blob/upload` over any [`BlobBackend`]. The handlers own argument
+//! `Blob/convert`, RFC 9404 `Blob/upload` and RFC 8620 §6.3 `Blob/copy`
+//! over any [`BlobBackend`]. The handlers own argument
 //! validation, `#creationId` resolution, range selection, digests and error
 //! mapping; the backend owns the octets, the reverse reference index and
 //! conversions. A request's `using` picks blob2 or RFC 9404 behaviour
@@ -12,8 +13,8 @@
 //! # Status
 //!
 //! Every handler is implemented: the four blobext ones (bd JMAP-tna1.2.7
-//! to .10) and RFC 9404 `Blob/upload` (JMAP-tna1.2.11). Opting `Blob/set`
-//! in to conditional updates is pending (JMAP-tna1.2.12).
+//! to .10), RFC 9404 `Blob/upload` (JMAP-tna1.2.11), conditional
+//! `Blob/set` (JMAP-tna1.2.12) and `Blob/copy` (JMAP-tna1.2.14).
 
 #![forbid(unsafe_code)]
 // bd:JMAP-uqhn.6 — narrowing and sign-changing `as` casts are banned;
@@ -34,6 +35,7 @@ use jmap_server::{
 
 mod backend;
 mod convert;
+mod copy;
 mod get;
 mod lookup;
 /// In-memory reference implementation of [`BlobBackend`].
@@ -53,16 +55,18 @@ pub use backend::{
     CreatedBlob, DigestQuery, TouchOutcome,
 };
 pub use convert::handle_blob_convert;
+pub use copy::handle_blob_copy;
 pub use get::handle_blob_get;
 pub use lookup::handle_blob_lookup;
 pub use mode::BlobMode;
 pub use set::handle_blob_set;
 pub use upload::handle_blob_upload;
 
-/// Register `Blob/get`, `Blob/set`, `Blob/lookup`, `Blob/convert` and
-/// `Blob/upload` on `dispatcher`.
+/// Register `Blob/get`, `Blob/set`, `Blob/lookup`, `Blob/convert`,
+/// `Blob/upload` and `Blob/copy` on `dispatcher`.
 ///
-/// Each handler receives the request's creation ids and `using`. Mount the
+/// Each handler receives the request's creation ids, and all but the core
+/// `Blob/copy` the request's `using`. Mount the
 /// capabilities in the Session yourself (blobext-03 §2.1): `{}` under
 /// `urn:ietf:params:jmap:blob2` in `capabilities`, and
 /// [`BlobBackend::blob_capability`] under it in each account's
@@ -99,6 +103,21 @@ where
     reg!("Blob/lookup", handle_blob_lookup);
     reg!("Blob/convert", handle_blob_convert);
     reg!("Blob/upload", handle_blob_upload);
+    let backend_arc: Arc<B> = Arc::clone(&backend);
+    let copy: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
+        backend_arc,
+        move |b: Arc<B>, cx: CallContext<B::CallerCtx>| {
+            let CallContext {
+                args,
+                caller,
+                created_ids,
+                ..
+            } = cx;
+            Box::pin(async move { handle_blob_copy(&*b, &caller, args, &created_ids).await })
+                as HandlerFuture
+        },
+    ));
+    dispatcher.register("Blob/copy", copy);
 }
 
 /// Opt `Blob/set` in to draft-ietf-jmap-conditional-02 (`ifUnchangedBy`

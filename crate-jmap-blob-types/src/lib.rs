@@ -4,7 +4,8 @@
 //! Provides the capability objects, [`DigestAlgorithm`] with built-in
 //! digesters, [`BlobRef`] (a blobId or `#creationId`), [`DataSourceObject`],
 //! and the arguments and responses of `Blob/set`, `Blob/get`,
-//! `Blob/lookup` and `Blob/convert`, plus RFC 9404 `Blob/upload`.
+//! `Blob/lookup` and `Blob/convert`, plus RFC 9404 `Blob/upload` and RFC
+//! 8620 §6.3 `Blob/copy`.
 //!
 //! This crate is types-only: no method handlers, no async, no network I/O.
 //! It sits between `jmap-types` (shared RFC 8620 wire primitives) and
@@ -41,6 +42,7 @@
 mod blob_ref;
 mod capability;
 mod convert;
+mod copy;
 mod digest;
 pub mod errors;
 mod get;
@@ -60,6 +62,7 @@ pub use convert::{
     CompressionMethod, ConvertRequest, ConvertedBlob, DecompressRecipe, DeltaRecipe, EntryType,
     ExtractRecipe, ImageConvertRecipe, PatchRecipe, Recipe, compress_level_range,
 };
+pub use copy::{BlobCopyArgs, BlobCopyResponse};
 pub use digest::{Digest, DigestAlgorithm};
 pub use get::{
     BlobGetArgs, BlobGetItem, BlobGetResponse, BlobProperty, DataSourceProperty, ImageData,

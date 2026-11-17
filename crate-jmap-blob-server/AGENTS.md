@@ -30,8 +30,10 @@ full workflow context.
 ## What This Is
 
 JMAP Blob Management method handlers (draft-ietf-jmap-blobext-03):
-`Blob/get`, `Blob/set`, `Blob/lookup`, `Blob/convert`, and RFC 9404
-`Blob/upload` with the RFC 9404 modes of get and lookup. Plugs into
+`Blob/get`, `Blob/set`, `Blob/lookup`, `Blob/convert`, RFC 9404
+`Blob/upload` with the RFC 9404 modes of get and lookup, and the core RFC
+8620 §6.3 `Blob/copy` (`copy.rs`, `BlobBackend::copy_blob`; needs no blob
+capability in `using` or on the accounts). Plugs into
 `jmap-server`'s `Dispatcher` via `register_blob_handlers`. Defines the
 `BlobBackend` trait; a reference in-memory implementation
 (`memory::MemoryBackend`) is gated behind the `memory` feature, with test
@@ -39,9 +41,8 @@ knobs behind `test-helpers`.
 
 Design: `docs/design/blobext.md` §5–§7. The crate owns wire validation,
 method semantics and error mapping; blob storage, the reverse lookup index
-and media conversion are backend hooks. `Blob/get` and `Blob/set` are
-done (bd JMAP-tna1.2.7, .8); the other handlers are `serverFail` stubs
-until bd JMAP-tna1.2.9 and .10. `start.rs` holds the common start every
+and media conversion are backend hooks. Every handler is done (bd
+JMAP-tna1.2.7 to .12, .14). `start.rs` holds the common start every
 handler runs; `set::create_one` is shared with Blob/upload (.11).
 
 ## Crate Family Context

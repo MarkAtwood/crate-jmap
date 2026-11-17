@@ -21,8 +21,9 @@ Tracked by bd JMAP-tna1.2 (epic).
 | `lookup.rs` | `Blob/lookup` (both modes) | -03 §6, RFC 9404 §4.3 | JMAP-tna1.2.9 (done) |
 | `convert.rs` | `Blob/convert`: shape, capability and archive-entry checks, inputs | -03 §8 | JMAP-tna1.2.10 (done) |
 | `upload.rs` | RFC 9404 `Blob/upload` (9404-mode get/lookup live in `get.rs`/`lookup.rs`) | RFC 9404 §4 | JMAP-tna1.2.11 (done) |
+| `copy.rs` | `Blob/copy` (core) over `BlobBackend::copy_blob` | RFC 8620 §6.3 | JMAP-tna1.2.14 (done) |
 
-Later: `register_blob_conditional` (JMAP-tna1.2.12), RFC 8620 §6.3
+Done later: `register_blob_conditional` (JMAP-tna1.2.12), RFC 8620 §6.3
 `Blob/copy` (JMAP-tna1.2.14).
 
 ## Out of Scope
