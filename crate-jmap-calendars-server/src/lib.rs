@@ -49,6 +49,7 @@ mod event;
 mod event_limits;
 mod event_notification;
 mod helpers;
+mod history;
 /// In-memory reference implementation of [`CalendarsBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production. See [`memory`] for
@@ -72,6 +73,13 @@ pub use event_notification::{
     handle_calendar_event_notification_changes, handle_calendar_event_notification_get,
     handle_calendar_event_notification_query, handle_calendar_event_notification_query_changes,
     handle_calendar_event_notification_set,
+};
+pub use history::{
+    handle_calendar_event_get_with_history, handle_calendar_event_query_changes_with_history,
+    handle_calendar_event_query_with_history, handle_calendar_event_set_with_history,
+    handle_calendar_get_with_history, handle_calendar_set_with_history,
+    handle_participant_identity_get_with_history, handle_participant_identity_set_with_history,
+    register_calendars_handlers_with_history,
 };
 pub use jmap_calendars_types::{
     CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,

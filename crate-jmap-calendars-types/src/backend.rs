@@ -224,6 +224,8 @@ impl JmapObject for crate::Calendar {
 }
 
 impl GetObject for crate::Calendar {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::Calendar {}
 
 /// draft-ietf-jmap-calendars-34 §4 (lines 757, 827, 916): `id` is
 /// "(immutable; server-set)"; `isDefault` and `myRights` are
@@ -264,6 +266,8 @@ impl JmapObject for crate::CalendarEvent {
 }
 
 impl GetObject for crate::CalendarEvent {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::CalendarEvent {}
 
 /// draft-ietf-jmap-calendars-34 §5 (lines 1146, 1151, 1164): `id` and
 /// `baseEventId` are "(immutable; server-set)", `isOrigin` is
@@ -380,6 +384,8 @@ impl JmapObject for crate::ParticipantIdentity {
 }
 
 impl GetObject for crate::ParticipantIdentity {}
+/// "Supports History: Yes" (draft-ietf-jmap-object-history-03 §7.2).
+impl jmap_object_history_types::HistoryObject for crate::ParticipantIdentity {}
 
 /// draft-ietf-jmap-calendars-34 §3 (lines 639, 650): `id` is "(immutable;
 /// server-set)", `isDefault` is "(server-set)".
@@ -805,5 +811,26 @@ mod tests {
         assert!(decodes_as_operator::<crate::CalendarEventNotification, _>(
             not(serde_json::json!({ "calendarEventIds": ["e1"] }))
         ));
+    }
+}
+
+#[cfg(test)]
+mod history_tests {
+    /// Decisions 5 and 14: the calendars types with "Supports History: Yes"
+    /// implement `HistoryObject`; CalendarEventNotification is "No".
+    #[test]
+    fn history_object_impls_match_the_registry() {
+        use jmap_object_history_types::{HistoryObject, is_history_type};
+        fn has<T: HistoryObject>() -> &'static str {
+            T::TYPE_NAME
+        }
+        for name in [
+            has::<crate::Calendar>(),
+            has::<crate::CalendarEvent>(),
+            has::<crate::ParticipantIdentity>(),
+        ] {
+            assert!(is_history_type(name), "{name}");
+        }
+        assert!(!is_history_type("CalendarEventNotification"));
     }
 }

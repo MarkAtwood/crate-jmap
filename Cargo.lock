@@ -1827,6 +1827,8 @@ dependencies = [
  "jmap-calendars-types",
  "jmap-metadata-server",
  "jmap-metadata-types",
+ "jmap-object-history-server",
+ "jmap-object-history-types",
  "jmap-server",
  "jmap-types",
  "serde",
@@ -1842,6 +1844,7 @@ version = "0.5.0"
 dependencies = [
  "jmap-jscalendar-types",
  "jmap-metadata-types",
+ "jmap-object-history-types",
  "jmap-types",
  "serde",
  "serde_json",

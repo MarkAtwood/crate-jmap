@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-calendars-server**: object history for Calendar, CalendarEvent
+  and ParticipantIdentity: `register_calendars_handlers_with_history` and
+  the `handle_*_with_history` handlers; the memory backend's
+  `with_object_history` (cascades recorded, destroyed CalendarEvent
+  queries, restore checking `calendarIds`) and test knobs.
+  **jmap-calendars-types**: `HistoryObject` for the three types.
+  (bd:JMAP-tna1.3.10)
 - **jmap-contacts-server**: object history for AddressBook and
   ContactCard: `register_contacts_handlers_with_history` and the
   `handle_*_with_history` handlers; the memory backend's

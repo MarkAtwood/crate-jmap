@@ -276,6 +276,7 @@ pub fn jmap_calendars_types::Calendar::eq(&self, &jmap_calendars_types::Calendar
 impl core::fmt::Debug for jmap_calendars_types::Calendar
 pub fn jmap_calendars_types::Calendar::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_calendars_types::Calendar
+impl jmap_object_history_types::HistoryObject for jmap_calendars_types::Calendar
 impl jmap_types::backend::GetObject for jmap_calendars_types::Calendar
 impl jmap_types::backend::JmapObject for jmap_calendars_types::Calendar
 pub type jmap_calendars_types::Calendar::Property = jmap_calendars_types::CalendarProperty
@@ -373,6 +374,7 @@ pub fn jmap_calendars_types::CalendarEvent::eq(&self, &jmap_calendars_types::Cal
 impl core::fmt::Debug for jmap_calendars_types::CalendarEvent
 pub fn jmap_calendars_types::CalendarEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_calendars_types::CalendarEvent
+impl jmap_object_history_types::HistoryObject for jmap_calendars_types::CalendarEvent
 impl jmap_types::backend::GetObject for jmap_calendars_types::CalendarEvent
 impl jmap_types::backend::JmapObject for jmap_calendars_types::CalendarEvent
 pub type jmap_calendars_types::CalendarEvent::Property = jmap_calendars_types::CalendarEventProperty
@@ -591,6 +593,7 @@ pub fn jmap_calendars_types::ParticipantIdentity::eq(&self, &jmap_calendars_type
 impl core::fmt::Debug for jmap_calendars_types::ParticipantIdentity
 pub fn jmap_calendars_types::ParticipantIdentity::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_calendars_types::ParticipantIdentity
+impl jmap_object_history_types::HistoryObject for jmap_calendars_types::ParticipantIdentity
 impl jmap_types::backend::GetObject for jmap_calendars_types::ParticipantIdentity
 impl jmap_types::backend::JmapObject for jmap_calendars_types::ParticipantIdentity
 pub type jmap_calendars_types::ParticipantIdentity::Property = jmap_calendars_types::ParticipantIdentityProperty

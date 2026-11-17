@@ -71,7 +71,7 @@ dependencies are listed separately):
 | `jmap-vtc-types` | 2 | `jmap-types` | (none) |
 | `jmap-web-push` | 2 | `jmap-types` | (none) |
 | `jmap-base-client` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-types` | (none) |
-| `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-types` | (none) |
+| `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-chat-types` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-types` | (none) |
 | `jmap-contacts-types` | 3 | `jmap-jscontact-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-did-resolver` | 3 | `jmap-did-types`, `jmap-types` | (none) |
@@ -83,7 +83,7 @@ dependencies are listed separately):
 | `jmap-blob-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-types` | (none) |
 | `jmap-blob-server` | 4 | `jmap-blob-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-calendars-client` | 4 | `jmap-base-client`, `jmap-calendars-types`, `jmap-types` | `jmap-metadata-types` |
-| `jmap-calendars-server` | 4 | `jmap-calendars-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-calendars-server` | 4 | `jmap-calendars-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-object-history-server`, `jmap-object-history-types`, `jmap-server`, `jmap-types` | (none) |
 | `jmap-chat-client` | 4 | `jmap-base-client`, `jmap-blob-types`, `jmap-chat-types`, `jmap-types` | `jmap-metadata-types` |
 | `jmap-chat-federation-types` | 4 | `jmap-chat-types`, `jmap-cid-types`, `jmap-types` | `jmap-base-client` |
 | `jmap-chat-mimi-types` | 4 | `jmap-types` | `jmap-chat-types` |

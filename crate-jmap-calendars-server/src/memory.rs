@@ -71,6 +71,8 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod history;
+
 use std::collections::{BTreeSet, HashMap, HashSet};
 
 use crate::{CalendarsBackend, SetDefaultResult};
@@ -81,6 +83,7 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals,
 };
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
     JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
@@ -195,6 +198,9 @@ struct ChangeEntry {
     /// draft-ietf-jmap-metadata-05 §3.3 `ignoreMetadataOnlyChanges` and
     /// `updatedProperties`.
     updated_props: Option<BTreeSet<String>>,
+    /// Ids restored from object history (draft-ietf-jmap-object-history
+    /// §5.1).
+    restored: Vec<Id>,
 }
 
 impl ChangeEntry {
@@ -263,6 +269,9 @@ struct Inner {
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+    /// Object history, once `MemoryBackend::with_object_history` turns it
+    /// on.
+    history: Option<jmap_object_history_server::HistoryStore>,
 }
 
 impl Inner {
@@ -383,6 +392,7 @@ impl Inner {
                 created: vec![],
                 updated: changed,
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: Some(BTreeSet::from(["isDefault".to_owned()])),
             });
     }
@@ -880,7 +890,9 @@ impl JmapBackend for MemoryBackend {
             let mut ids = 0u64;
             if let Some(cut) = relevant.iter().position(|e| {
                 if !(mode == MetadataOnlyChanges::Ignore && e.is_metadata_only_update()) {
-                    ids += (e.created.len() + e.updated.len() + e.destroyed.len()) as u64;
+                    ids +=
+                        (e.created.len() + e.updated.len() + e.destroyed.len() + e.restored.len())
+                            as u64;
                 }
                 ids > max
             }) {
@@ -971,6 +983,49 @@ impl JmapBackend for MemoryBackend {
                     }
                 }
                 ever_destroyed.insert(id.clone());
+            }
+            // A restore brings the id back under its old name (object
+            // history §5.1), so later entries may name it again.
+            for id in &entry.restored {
+                ever_destroyed.remove(id);
+            }
+        }
+
+        // Object history -04 §5.1: an id restored in the window is
+        // classified by whether it existed at sinceState and exists now,
+        // "exactly as if the object had never been destroyed between them".
+        let mut events: HashMap<Id, Vec<ChangeEvent>> = HashMap::new();
+        for entry in &relevant {
+            for (ids, event) in [
+                (&entry.created, ChangeEvent::Created),
+                (&entry.updated, ChangeEvent::Updated),
+                (&entry.destroyed, ChangeEvent::Destroyed),
+                (&entry.restored, ChangeEvent::Restored),
+            ] {
+                for id in ids {
+                    events.entry(id.clone()).or_default().push(event);
+                }
+            }
+        }
+        for (id, list) in &events {
+            if !list.contains(&ChangeEvent::Restored) {
+                continue;
+            }
+            match fold_restore(list) {
+                Some(ChangeKind::Created) => {
+                    fates.insert(id.clone(), IdFate::Created);
+                }
+                Some(ChangeKind::Destroyed) => {
+                    fates.insert(id.clone(), IdFate::Destroyed);
+                }
+                Some(_) => {
+                    fates.insert(id.clone(), IdFate::Updated);
+                    // A restore is never metadata-only.
+                    window_props.record(id.as_ref(), None);
+                }
+                None => {
+                    fates.remove(id);
+                }
             }
         }
 
@@ -1520,6 +1575,8 @@ impl MemoryBackend {
         inner.require_account(account_id.as_ref())?;
 
         let server_id = Id::from(uuid::Uuid::new_v4().to_string());
+        // Object history §5.1: a fresh v4 UUID never reuses a destroyed id.
+        debug_assert!(!inner.history_retains(O::TYPE_NAME, account_id, &server_id));
 
         let stored_obj = build(&server_id)?;
         let val = serde_json::to_value(&stored_obj)
@@ -1550,6 +1607,7 @@ impl MemoryBackend {
                 created: vec![server_id.clone()],
                 updated: vec![],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props: None,
             });
 
@@ -1727,6 +1785,7 @@ impl CalendarsBackend for MemoryBackend {
                 Some(&current),
             );
         }
+        inner.record_replace(O::TYPE_NAME, account_id, id, old_value.clone());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), current);
@@ -1737,6 +1796,7 @@ impl CalendarsBackend for MemoryBackend {
                 created: vec![],
                 updated: vec![id.clone()],
                 destroyed: vec![],
+                restored: vec![],
                 updated_props,
             });
 
@@ -1773,6 +1833,7 @@ impl CalendarsBackend for MemoryBackend {
 
         match removed {
             Some(old_value) => {
+                inner.record_destroy(O::TYPE_NAME, account_id, id, old_value.clone());
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -1781,6 +1842,7 @@ impl CalendarsBackend for MemoryBackend {
                         created: vec![],
                         updated: vec![],
                         destroyed: vec![id.clone()],
+                        restored: vec![],
                         updated_props: None,
                     });
                 // bd:JMAP-ic0j.8 — for CalendarEvent, feed the removed
@@ -2246,6 +2308,7 @@ mod change_log_dedup_tests {
                     created: vec![recycled.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 },
                 // Entry K=2: destroyed it.
@@ -2254,6 +2317,7 @@ mod change_log_dedup_tests {
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![recycled.clone()],
+                    restored: vec![],
                     updated_props: None,
                 },
                 // Entry K=3: re-mints the SAME id (the bug we are
@@ -2264,6 +2328,7 @@ mod change_log_dedup_tests {
                     created: vec![recycled.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 },
             ],
@@ -2301,6 +2366,7 @@ mod change_log_dedup_tests {
                     created: vec![recycled.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 },
                 ChangeEntry {
@@ -2308,6 +2374,7 @@ mod change_log_dedup_tests {
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![recycled.clone()],
+                    restored: vec![],
                     updated_props: None,
                 },
                 ChangeEntry {
@@ -2315,6 +2382,7 @@ mod change_log_dedup_tests {
                     created: vec![],
                     updated: vec![recycled.clone()],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 },
             ],
@@ -2349,6 +2417,7 @@ mod change_log_dedup_tests {
                     created: vec![id_a.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 },
                 ChangeEntry {
@@ -2356,6 +2425,7 @@ mod change_log_dedup_tests {
                     created: vec![],
                     updated: vec![],
                     destroyed: vec![id_a.clone()],
+                    restored: vec![],
                     updated_props: None,
                 },
                 // A DIFFERENT id, not the destroyed one.
@@ -2364,6 +2434,7 @@ mod change_log_dedup_tests {
                     created: vec![id_b.clone()],
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 },
             ],
@@ -3024,6 +3095,7 @@ mod max_changes_tests {
                     created: ids.iter().map(|s| Id::from(*s)).collect(),
                     updated: vec![],
                     destroyed: vec![],
+                    restored: vec![],
                     updated_props: None,
                 });
         }

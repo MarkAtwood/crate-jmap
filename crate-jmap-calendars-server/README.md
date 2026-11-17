@@ -474,6 +474,21 @@ default Calendar and ParticipantIdentity are single pointers, `calendarHasEvent`
 judged within one Calendar/set, there are no cross-object caps, and it refuses
 scheduling messages outright.
 
+### Object history (draft-ietf-jmap-object-history-03)
+
+`register_calendars_handlers_with_history(dispatcher, backend)`, for a
+backend that also implements `jmap_server::ObjectHistoryBackend`, calls
+`register_calendars_handlers` and re-registers the history-aware `/get`
+and `/set` of Calendar, CalendarEvent and ParticipantIdentity and
+CalendarEvent `/query`, `/queryChanges` (the jmap-mail-server pattern).
+`MemoryBackend::with_object_history(capability, retention)` turns history
+on, with the mail backend's test knobs. It records
+`onDestroyRemoveEvents` cascades; a restored event needs a current
+Calendar in `calendarIds`; a destroyed CalendarEvent query evaluates the
+same conditions as this backend's `CalendarEvent/query` (`inCalendar`,
+metadata), ignores `expandRecurrences`, and answers an explicit sort with
+`unsupportedSort`.
+
 ## Gotchas
 
 - **`compute_utc_times` default returns `(None, None)`** — `utcStart` and
