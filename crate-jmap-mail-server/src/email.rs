@@ -48,8 +48,8 @@ use crate::MailBackend;
 use crate::helpers::{
     MetadataProjection, SetAccumulators, check_metadata_entry, create_metadata,
     enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id, filter_properties,
-    finalize_set_response, not_found_json, reject_metadata_filter_without_capability, resolve_ref,
-    serialize_value, uses_metadata,
+    finalize_set_response, not_found_json, reject_metadata_filter_without_capability,
+    resolve_blob_ref, resolve_body_blob_refs, resolve_ref, serialize_value, uses_metadata,
 };
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg,
@@ -1262,6 +1262,7 @@ pub async fn handle_email_set<B: MailBackend>(
                 not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
                 continue;
             }
+            resolve_body_blob_refs(&mut obj_val, created_ids);
             let obj_val = &obj_val;
             // Validate: at least one mailboxId with value true is required (RFC 8621 §5.5.3).
             let mailbox_ids_ok = obj_val
@@ -2301,13 +2302,14 @@ pub async fn handle_email_import<B: MailBackend>(
             );
             continue;
         };
-        let blob_id: Id = match jmap_server::parse_wire_id(s, "blobId") {
-            Ok(id) => id,
-            Err(err) => {
-                not_created.insert(import_id, serde_json::Value::from(&*err));
-                continue;
-            }
-        };
+        let blob_id: Id =
+            match jmap_server::parse_wire_id(&resolve_blob_ref(s, created_ids), "blobId") {
+                Ok(id) => id,
+                Err(err) => {
+                    not_created.insert(import_id, serde_json::Value::from(&*err));
+                    continue;
+                }
+            };
 
         // Only include mailboxIds whose value is true (RFC 8621 §5.7 requires at least one).
         let mailbox_ids = match parse_mailbox_ids(&entry, "RFC 8621 §5.7") {
@@ -2405,9 +2407,30 @@ pub async fn handle_email_import<B: MailBackend>(
 /// Blobs that do not exist → `notFound`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `#creationId` in `blobIds` needs the request's creation ids, which this
+/// function does not take: [`register_mail_handlers`](crate::register_mail_handlers)
+/// resolves them (RFC 8620 §5.3).
 pub async fn handle_email_parse<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    email_parse(backend, caller, &BTreeMap::new(), args).await
+}
+
+/// [`handle_email_parse`], resolving each `#creationId` in `blobIds` against
+/// `created_ids` ([`jmap_server::CallContext::created_ids`]; RFC 8620 §5.3).
+///
+/// The response names a blob by the `blobIds` entry as sent, so a resolved
+/// reference keys `parsed` (or appears in `notParsable`/`notFound`) as
+/// `"#c1"` and the client can match it to its request. A reference that
+/// matches no earlier creation is not a valid Id, as before:
+/// `invalidArguments`.
+pub(crate) async fn email_parse<B: MailBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
@@ -2419,11 +2442,20 @@ pub async fn handle_email_parse<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let blob_ids: Vec<Id> = match args.remove("blobIds") {
-        Some(v) => serde_json::from_value(v)
-            .map_err(|_| JmapError::invalid_arguments("blobIds must be an Id array"))?,
+    let not_ids = || JmapError::invalid_arguments("blobIds must be an Id array");
+    let raw_blob_ids: Vec<String> = match args.remove("blobIds") {
+        Some(v) => serde_json::from_value(v).map_err(|_| not_ids())?,
         None => return Err(JmapError::invalid_arguments("blobIds is required")),
     };
+    // (as sent, resolved)
+    let blob_ids: Vec<(String, Id)> = raw_blob_ids
+        .into_iter()
+        .map(|raw| {
+            let id = Id::new_validated(resolve_blob_ref(&raw, created_ids).into_owned())
+                .map_err(|_| not_ids())?;
+            Ok((raw, id))
+        })
+        .collect::<Result<_, JmapError>>()?;
 
     let properties: Option<Vec<String>> = match args.remove("properties") {
         None | Some(Value::Null) => None,
@@ -2509,7 +2541,7 @@ pub async fn handle_email_parse<B: MailBackend>(
     let mut not_parsable: Vec<Value> = Vec::new();
     let mut not_found: Vec<Value> = Vec::new();
 
-    for blob_id in &blob_ids {
+    for (requested, blob_id) in &blob_ids {
         match backend.parse_email(caller, &account_id, blob_id).await {
             Ok(email) => {
                 let mut val = jmap_server::serialize_value(&email)?;
@@ -2548,7 +2580,7 @@ pub async fn handle_email_parse<B: MailBackend>(
                         }
                     }
                 }
-                parsed.insert(blob_id.as_ref().to_owned(), obj);
+                parsed.insert(requested.clone(), obj);
             }
             Err(_) => {
                 // RFC 8621 §5.8: distinguish "blob not found" from "not parsable".
@@ -2556,8 +2588,8 @@ pub async fn handle_email_parse<B: MailBackend>(
                 // serverFail so the client retries instead of silently
                 // mis-classifying the blob as not-found.
                 match backend.blob_exists(caller, &account_id, blob_id).await {
-                    Ok(true) => not_parsable.push(Value::String(blob_id.as_ref().to_owned())),
-                    Ok(false) => not_found.push(Value::String(blob_id.as_ref().to_owned())),
+                    Ok(true) => not_parsable.push(Value::String(requested.clone())),
+                    Ok(false) => not_found.push(Value::String(requested.clone())),
                     Err(e) => return Err(server_fail_from_backend(&e)),
                 }
             }

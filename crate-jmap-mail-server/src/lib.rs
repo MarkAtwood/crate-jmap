@@ -167,7 +167,7 @@ where
     //
     // Each optional trailing ident binds the `CallContext` field of that name:
     // `created_ids`, the request-wide creation id map (RFC 8620 §5.3) that
-    // `/set`, `/copy` and `Email/import` handlers use to resolve `#creationId` references, or `using`,
+    // `/set`, `/copy`, `Email/import` and `Email/parse` handlers use to resolve `#creationId` references, or `using`,
     // the request's capability list (draft-ietf-jmap-metadata-05 §3).
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident $(, $field:ident)*| $body:expr) => {{
@@ -248,8 +248,8 @@ where
     reg!("Email/import", backend, |b, _ci, a, ctx, created_ids| {
         handle_email_import(&*b, &ctx, &created_ids, a).await
     });
-    reg!("Email/parse", backend, |b, _ci, a, ctx| {
-        handle_email_parse(&*b, &ctx, a).await
+    reg!("Email/parse", backend, |b, _ci, a, ctx, created_ids| {
+        email::email_parse(&*b, &ctx, &created_ids, a).await
     });
 
     // SearchSnippet
@@ -414,15 +414,21 @@ where
     reg!("SieveScript/get", backend, |b, _ci, a, ctx| {
         sieve::handle_sieve_get(&*b, &ctx, a).await
     });
-    reg!("SieveScript/set", backend, |b, _ci, a, ctx, atomic| {
-        sieve::sieve_set(&*b, &ctx, a, atomic).await
-    });
+    reg!(
+        "SieveScript/set",
+        backend,
+        |b, _ci, a, ctx, created_ids, atomic| {
+            sieve::sieve_set(&*b, &ctx, &created_ids, a, atomic).await
+        }
+    );
     reg!("SieveScript/query", backend, |b, _ci, a, ctx| {
         sieve::handle_sieve_query(&*b, &ctx, a).await
     });
-    reg!("SieveScript/validate", backend, |b, _ci, a, ctx| {
-        sieve::handle_sieve_validate(&*b, &ctx, a).await
-    });
+    reg!(
+        "SieveScript/validate",
+        backend,
+        |b, _ci, a, ctx, created_ids| sieve::sieve_validate(&*b, &ctx, &created_ids, a).await
+    );
 }
 
 // ---------------------------------------------------------------------------

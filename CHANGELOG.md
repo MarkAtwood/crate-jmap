@@ -1081,6 +1081,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Fixed
 
+- **jmap-mail-server**: a blobId may be a `#creationId` naming a blob
+  created earlier in the request, such as by Blob/upload, Blob/set or
+  Blob/convert (RFC 8620 §5.3; draft-ietf-jmap-blobext-03 §8). Through
+  `register_mail_handlers` and `register_sieve_handlers`, Email/set
+  (every EmailBodyPart `blobId`), Email/import, Email/parse,
+  SieveScript/set (create and update) and SieveScript/validate resolve it.
+  Email/parse keys its results by the `blobIds` entry as sent. A reference
+  that matches no earlier creation fails as any `#` value did before. The
+  public `handle_*` functions are unchanged and do not resolve references.
+  (bd:JMAP-tna1.8)
 - **BREAKING** **jmap-chat-server**: Chat/set and Message/set update accept a
   server-set or immutable property (`id`, `kind`, `closedAt`, `chatId`,
   `senderId`, `sentAt`, ...) repeated with its stored value, as RFC 8620

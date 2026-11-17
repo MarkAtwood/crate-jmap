@@ -68,6 +68,69 @@ pub(crate) fn resolve_ref(
     })
 }
 
+/// A blobId-typed value with a `#creationId` reference (RFC 8620 §5.3)
+/// replaced by the id that an earlier method call of the request created,
+/// such as a blob from `Blob/upload`, `Blob/set` or `Blob/convert`
+/// (draft-ietf-jmap-blobext-03 §8, "later method calls").
+///
+/// `created_ids` is the request's creation id map
+/// ([`jmap_server::CallContext::created_ids`]). A literal, or a reference
+/// that matches no earlier creation, comes back unchanged, so the method's
+/// own blobId check rejects an unknown reference exactly as it rejected any
+/// `#` value before.
+pub(crate) fn resolve_blob_ref<'a>(
+    raw: &'a str,
+    created_ids: &std::collections::BTreeMap<Id, Id>,
+) -> std::borrow::Cow<'a, str> {
+    if raw.starts_with('#')
+        && let Some(id) = jmap_server::resolve_creation_ref(raw, created_ids)
+    {
+        return std::borrow::Cow::Owned(id.as_ref().to_owned());
+    }
+    std::borrow::Cow::Borrowed(raw)
+}
+
+/// Resolve, with [`resolve_blob_ref`], the `blobId` of every EmailBodyPart
+/// in an `Email/set` create object: the parts of `textBody`, `htmlBody` and
+/// `attachments`, and `bodyStructure` with all its `subParts` (RFC 8621
+/// §4.1.4, §5.5).
+///
+/// Values that are not strings, and parts that are not objects, are left for
+/// the create's own validation.
+pub(crate) fn resolve_body_blob_refs(
+    obj: &mut Value,
+    created_ids: &std::collections::BTreeMap<Id, Id>,
+) {
+    fn part(node: &mut Value, created_ids: &std::collections::BTreeMap<Id, Id>) {
+        let Some(map) = node.as_object_mut() else {
+            return;
+        };
+        if let Some(Value::String(raw)) = map.get_mut("blobId")
+            && let std::borrow::Cow::Owned(id) = resolve_blob_ref(raw, created_ids)
+        {
+            *raw = id;
+        }
+        if let Some(Value::Array(sub_parts)) = map.get_mut("subParts") {
+            for sub in sub_parts {
+                part(sub, created_ids);
+            }
+        }
+    }
+    let Some(map) = obj.as_object_mut() else {
+        return;
+    };
+    for list in ["textBody", "htmlBody", "attachments"] {
+        if let Some(Value::Array(parts)) = map.get_mut(list) {
+            for p in parts {
+                part(p, created_ids);
+            }
+        }
+    }
+    if let Some(root) = map.get_mut("bodyStructure") {
+        part(root, created_ids);
+    }
+}
+
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
 /// The six fields correspond to the six top-level result keys (`created`,

@@ -47,12 +47,12 @@ use jmap_mail_types::{SieveScript, SieveScriptComparator, SieveScriptComparatorP
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde::Deserialize;
 use serde_json::{Value, json};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use crate::MailBackend;
 use crate::helpers::{
     SetAccumulators, enforce_max_objects_in_get, enforce_max_objects_in_set, extract_account_id,
-    filter_properties, finalize_set_response,
+    filter_properties, finalize_set_response, resolve_blob_ref,
 };
 use jmap_server::{BackendSetError, SetError, SetErrorType};
 use jmap_server::{
@@ -338,7 +338,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    sieve_set(backend, caller, args, false).await
+    sieve_set(backend, caller, &BTreeMap::new(), args, false).await
 }
 
 /// [`handle_sieve_set`]; with `atomic` (an atomic Foo/set,
@@ -347,9 +347,15 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 /// and name-uniqueness checks are left to the backend's final-state check
 /// at commit (§4.2), so a destroy that makes room for a create in the same
 /// call succeeds.
+///
+/// A `#creationId` `blobId` in a create or update resolves against
+/// `created_ids` ([`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3), so a script uploaded earlier in the request can be stored; one
+/// that matches no earlier creation fails `invalidProperties`, as before.
 pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
     atomic: bool,
 ) -> Result<HandlerOutput, JmapError> {
@@ -564,7 +570,10 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
                 );
                 continue;
             };
-            let blob_id = match jmap_server::parse_wire_id(blob_id_str, "blobId") {
+            let blob_id = match jmap_server::parse_wire_id(
+                &resolve_blob_ref(blob_id_str, created_ids),
+                "blobId",
+            ) {
                 Ok(id) => id,
                 Err(err) => {
                     not_created.insert(creation_id, serde_json::Value::from(&*err));
@@ -770,13 +779,21 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
 
             // If the patch includes blobId, check size then validate the new blob.
             if let Some(new_blob_id_str) = patch.as_map().get("blobId").and_then(|v| v.as_str()) {
-                let new_blob_id = match jmap_server::parse_wire_id(new_blob_id_str, "blobId") {
+                let new_blob_id = match jmap_server::parse_wire_id(
+                    &resolve_blob_ref(new_blob_id_str, created_ids),
+                    "blobId",
+                ) {
                     Ok(id) => id,
                     Err(err) => {
                         not_updated.insert(id_str, serde_json::Value::from(&*err));
                         continue;
                     }
                 };
+                // The stored script names the resolved blob, not the reference.
+                patch.as_map_mut().insert(
+                    "blobId".to_owned(),
+                    Value::String(new_blob_id.as_ref().to_owned()),
+                );
 
                 // Fetch the script once; check maxSizeScript, then syntax.
                 match check_script(backend, caller, &account_id, &new_blob_id, max_script_bytes)
@@ -1212,9 +1229,26 @@ async fn check_script<B: SieveBackend>(
 /// a `SetError` describing why the script is invalid).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+///
+/// A `#creationId` `blobId` needs the request's creation ids, which this
+/// function does not take: `register_sieve_handlers` resolves them (RFC
+/// 8620 §5.3).
 pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
+    args: Value,
+) -> Result<HandlerOutput, JmapError> {
+    sieve_validate(backend, caller, &BTreeMap::new(), args).await
+}
+
+/// [`handle_sieve_validate`], resolving a `#creationId` `blobId` against
+/// `created_ids` ([`jmap_server::CallContext::created_ids`]; RFC 8620
+/// §5.3). A reference that matches no earlier creation is not a valid Id,
+/// as before: `invalidArguments`.
+pub(crate) async fn sieve_validate<B: MailBackend + SieveBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    created_ids: &BTreeMap<Id, Id>,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
     // Step 1: Extract accountId.
@@ -1222,7 +1256,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
 
     // Step 2: Extract blobId.
     let blob_id: Id = match args.get("blobId").and_then(|v| v.as_str()) {
-        Some(s) => Id::new_validated(s)
+        Some(s) => Id::new_validated(resolve_blob_ref(s, created_ids).into_owned())
             .map_err(|e| JmapError::invalid_arguments(format!("blobId: {e}")))?,
         None => return Err(JmapError::invalid_arguments("blobId is required")),
     };

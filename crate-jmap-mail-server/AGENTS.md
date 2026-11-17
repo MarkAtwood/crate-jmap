@@ -70,6 +70,34 @@ and was the original `StorageBackend` prototype; it is no longer the canonical
 shape and should not be copied verbatim. Do NOT copy chat-specific types or
 logic from any sibling crate.
 
+## `#creationId` in blobId-typed values (canonical; bd:JMAP-tna1.8)
+
+A blob created earlier in the request (Blob/upload, Blob/set,
+Blob/convert; draft-ietf-jmap-blobext-03 §8) may be named `#creationId`
+wherever a blobId goes (RFC 8620 §5.3). This crate resolves every
+blobId-typed argument and property against the request's creation id
+map; siblings mirror it (bd:JMAP-tna1.9):
+
+- `helpers::resolve_blob_ref(raw, created_ids)` returns the resolved id
+  for a known reference and the value **unchanged** otherwise, so the
+  method's existing blobId check rejects an unknown reference with the
+  error it already gave (`invalidProperties` on a /set property,
+  `invalidArguments` on a method argument). Resolve before
+  `parse_wire_id` / `Id::new_validated`.
+- Nested values: `helpers::resolve_body_blob_refs` rewrites every
+  EmailBodyPart `blobId` (textBody, htmlBody, attachments,
+  bodyStructure and its subParts) in the create object before parsing.
+- A /set **update** must write the resolved id back into the patch, not
+  just validate it, or the stored object keeps `#c1`.
+- Results keyed by the requested blob (Email/parse `parsed`,
+  `notParsable`, `notFound`) use the entry **as sent**, so the client
+  can match it to its request.
+- Public `handle_*` functions keep their signatures; the dispatcher
+  registers crate-private variants that take `created_ids` (as
+  `sieve_set` takes `atomic`). Today: `Email/set`, `Email/import`,
+  `Email/parse`, `SieveScript/set`, `SieveScript/validate`. Tests:
+  `tests/blob_creation_refs.rs`.
+
 ## Permission enforcement: backend canonical
 
 Per the workspace AGENTS.md "Caller identity (foundation seam)"
