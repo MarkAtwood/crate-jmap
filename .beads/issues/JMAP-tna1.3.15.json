@@ -2,14 +2,14 @@
   "id": "JMAP-tna1.3.15",
   "title": "object-history cross-extension tests (blobext, conditional, emailpush)",
   "description": "Design: docs/design/object-history.md. Decisions: docs/design/DECISIONS.md.\nNote key: H12. Crates: jmap-testjig tests/. Size: S.\n\nSpec: object-history-03 §3.1 (non-current versions are not blob references), §5.1; conditional-02 §3.1, §4; emailpush §3, §4. Design: docs/design/object-history.md §9, §10 'Cross-extension'; decisions 6(b), 10, 11.\n\nTests, over HTTP:\n- Blobs: a blob referenced only by a destroyed Email ⇒ Blob/lookup returns empty, for both blob2 and legacy urn:ietf:params:jmap:blob (decision 11). Blob/set destroy then succeeds, after which Email/get includeDestroyed ⇒ notFound and restore ⇒ notFound (decision 6(d)).\n- Conditional: ifUnchangedBy {\"x\": null} with restore of x succeeds. atomic:true with one failing restore ⇒ atomicFailure carrying notRestored, state unchanged, and no version left behind by the rolled-back restore (decision 6(b)).\n- EmailPush: a restored Email sends no EmailPush. An EmailPushConfig with objectHistory in properties is echoed and stored without it (decision 10).\n\nAcceptance: all of the above pass; oracles are hand-written.",
-  "notes": "2026-11-17: conditional part done over HTTP in crate-jmap-testjig/tests/object_history_e2e.rs (ifUnchangedBy {x:null}+restore; atomic failed restore -\u003e atomicFailure+notRestored, state and versions unchanged). Remaining: (1) EmailPush part blocked on JMAP-r44n.12 (open). (2) Blob part cannot be tested over the jig as wired: the jig's blob store is separate from mail's (http.rs 'ponytail' note), so Blob/lookup is empty regardless; needs either a shared blob store in the jig or a mail-server memory test. Also re-check the expected outcome against -04 §3.1 (newest retained version is the final one) since decision 6(d) is superseded.",
+  "notes": "2026-11-17: conditional part done over HTTP in crate-jmap-testjig/tests/object_history_e2e.rs (ifUnchangedBy {x:null}+restore; atomic failed restore -\u003e atomicFailure+notRestored, state and versions unchanged). Remaining: (1) EmailPush part blocked on JMAP-r44n.12 (open). (2) Blob part cannot be tested over the jig as wired: the jig's blob store is separate from mail's (http.rs 'ponytail' note), so Blob/lookup is empty regardless; needs either a shared blob store in the jig or a mail-server memory test. Also re-check the expected outcome against -04 §3.1 (newest retained version is the final one) since decision 6(d) is superseded.\n2026-11-18: blob part done (jig mail+blob share one store and gate; tests in crate-jmap-testjig/tests/object_history_e2e.rs blob_of_a_destroyed_email, created_email_message_is_a_blob). Only the EmailPush part remains; it needs JMAP-r44n.12, which depends on r44n.2, .3, .5 (all open).",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:52.67935477Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-17T19:29:53.461363398Z",
+  "updated_at": "2026-11-18T16:48:52.059585705Z",
   "labels": [
     "spec-sync"
   ],
