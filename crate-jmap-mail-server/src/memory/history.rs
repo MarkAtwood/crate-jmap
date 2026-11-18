@@ -130,7 +130,7 @@ impl MemoryBackend {
 }
 
 /// The types this backend keeps history for.
-const SUPPORTED: &[&str] = &[
+pub(super) const SUPPORTED: &[&str] = &[
     "Mailbox",
     "Email",
     "Identity",

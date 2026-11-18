@@ -33,13 +33,19 @@
 //!   through `stub_converter_for_test` (feature `test-helpers`), and is a
 //!   `serverFail` without one.
 //! - Objects that reference blobs exist only through
-//!   `add_reference_for_test` (feature `test-helpers`): this backend stores
+//!   `add_reference_for_test` (feature `test-helpers`) and, for a store
+//!   shared with another memory backend, its [`ExternalReferences`]
+//!   ([`MemoryBackend::with_external_references`]): this backend stores
 //!   no other data types, so without them `Blob/lookup` finds nothing,
-//!   which is correct.
+//!   which is correct. Two backends that call each other share one scope
+//!   gate ([`MemoryBackend::with_scope_gate`]).
 //!
 //! The caller is `()`: every caller sees every blob of an account.
 //!
 //! [`MemoryBackend::default_capability`]: crate::memory::MemoryBackend::default_capability
+//! [`ExternalReferences`]: crate::memory::ExternalReferences
+//! [`MemoryBackend::with_external_references`]: crate::memory::MemoryBackend::with_external_references
+//! [`MemoryBackend::with_scope_gate`]: crate::memory::MemoryBackend::with_scope_gate
 //! [`MemoryBackend::register_account`]: crate::memory::MemoryBackend::register_account
 //! [`MemoryBackend::with_account`]: crate::memory::MemoryBackend::with_account
 
@@ -55,8 +61,8 @@ use jmap_blob_types::{BlobAccountCapability, BlobRef, DigestAlgorithm, Recipe, e
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, BeginSetError, ChangesParams,
     ChangesResult, ConditionalBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams,
-    QueryChangesResult, QueryObject, QueryParams, QueryResult, ScopedGuard, ScopedState, SetScope,
-    SetScopeRequest, utc_date_from_epoch_seconds,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, ScopeGate, ScopedGuard, ScopedState,
+    SetScope, SetScopeRequest, utc_date_from_epoch_seconds,
 };
 use jmap_types::{Id, SetError, SetErrorType, State, UTCDate};
 
@@ -286,6 +292,61 @@ impl Inner {
 #[non_exhaustive]
 pub struct MemoryBackend {
     inner: ScopedState<Inner>,
+    external: External,
+}
+
+/// References that objects stored outside this backend hold on its blobs,
+/// for a deployment that shares this blob store with another memory
+/// backend ([`MemoryBackend::with_external_references`]).
+///
+/// The backend calls these without holding its own state, so an
+/// implementation may read this backend through
+/// [`MemoryBackend::blob_bytes`]; it must not hold its own store's lock
+/// while this backend calls it from inside one of that store's calls.
+pub trait ExternalReferences: Send + Sync {
+    /// For each of `blob_ids`, the ids of current `type_name` objects in
+    /// `account_id` that reference it, containment included
+    /// ([`BlobBackend::blob_references`]); non-current object-history
+    /// versions do not count (draft-ietf-jmap-object-history-03 §3.1). A
+    /// blob with no entry has none.
+    fn references(
+        &self,
+        account_id: &Id,
+        type_name: &str,
+        blob_ids: &[Id],
+    ) -> BTreeMap<Id, Vec<Id>>;
+
+    /// Whether a current object of any type in `account_id` references
+    /// `blob_id`: such a blob cannot be destroyed (`blobHasReference`) and
+    /// does not expire.
+    fn is_referenced(&self, account_id: &Id, blob_id: &Id) -> bool;
+
+    /// `blob_id` was destroyed. Drop the history versions that reference
+    /// it ("a version whose blob was discarded MUST NOT be returned",
+    /// object-history-03 §3.1).
+    fn blob_destroyed(&self, account_id: &Id, blob_id: &Id);
+}
+
+/// The optional [`ExternalReferences`], with a `Debug` that names it.
+#[derive(Clone, Default)]
+struct External(Option<Arc<dyn ExternalReferences>>);
+
+impl std::fmt::Debug for External {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(if self.0.is_some() {
+            "External(Some)"
+        } else {
+            "External(None)"
+        })
+    }
+}
+
+impl External {
+    fn is_referenced(&self, account_id: &Id, blob_id: &Id) -> bool {
+        self.0
+            .as_ref()
+            .is_some_and(|e| e.is_referenced(account_id, blob_id))
+    }
 }
 
 impl Default for MemoryBackend {
@@ -348,21 +409,106 @@ fn sha256(bytes: &[u8]) -> Option<String> {
 impl MemoryBackend {
     /// An empty backend with no accounts.
     pub fn new() -> Self {
+        Self::with_scope_gate(ScopeGate::new())
+    }
+
+    /// An empty backend whose conditional scopes take `gate`, shared with
+    /// another backend's state ([`ScopedState::with_gate`]) when the two
+    /// call each other, as a mail store sharing this blob store does.
+    pub fn with_scope_gate(gate: Arc<ScopeGate>) -> Self {
         Self {
-            inner: ScopedState::new(Inner {
-                accounts: HashMap::new(),
-                next_id: 0,
-                now: None,
-                omit_no_persist: false,
-                stub: None,
-            }),
+            inner: ScopedState::with_gate(
+                Inner {
+                    accounts: HashMap::new(),
+                    next_id: 0,
+                    now: None,
+                    omit_no_persist: false,
+                    stub: None,
+                },
+                gate,
+            ),
+            external: External::default(),
         }
+    }
+
+    /// The gate this backend's conditional scopes take, to share with
+    /// another backend.
+    pub fn scope_gate(&self) -> Arc<ScopeGate> {
+        Arc::clone(self.inner.gate())
+    }
+
+    /// Count `external`'s references too: in `Blob/lookup`, in
+    /// `blobHasReference` and in `expires`; and tell it of each destroy.
+    /// Call before cloning the backend.
+    #[must_use]
+    pub fn with_external_references(mut self, external: Arc<dyn ExternalReferences>) -> Self {
+        self.external = External(Some(external));
+        self
+    }
+
+    /// The whole of `blob_id` in `account_id`, generating a deferred
+    /// conversion first; `None` when there is no such blob. For a store
+    /// sharing this one; does not wait on the scope gate.
+    pub fn blob_bytes(&self, account_id: &Id, blob_id: &Id) -> Option<Vec<u8>> {
+        let mut inner = self.lock();
+        let acc = inner.accounts.get_mut(account_id)?;
+        if !acc.materialize(blob_id) {
+            return None;
+        }
+        let size = acc.blobs.get(blob_id)?.size;
+        acc.read(blob_id, 0..size)
+    }
+
+    /// Store `bytes` as leaf blob `blob_id` of `account_id`, unless it
+    /// exists, for a store sharing this one that mints its own ids. It
+    /// expires as a new blob does, unless something references it. Returns
+    /// whether the account exists.
+    pub fn store_blob(
+        &self,
+        account_id: &Id,
+        blob_id: &Id,
+        bytes: Vec<u8>,
+        media_type: Option<String>,
+    ) -> bool {
+        let mut inner = self.lock();
+        let expires = inner.now() + EXPIRES_SECS;
+        let Some(acc) = inner.accounts.get_mut(account_id) else {
+            return false;
+        };
+        acc.blobs
+            .entry(blob_id.clone())
+            .or_insert_with(|| StoredBlob {
+                size: bytes.len() as u64,
+                sha256: sha256(&bytes),
+                repr: Repr::Bytes(bytes),
+                media_type,
+                expires: Some(expires),
+            });
+        true
     }
 
     /// Add an empty account with the default capability.
     #[must_use]
     pub fn with_account(self, account_id: &Id) -> Self {
         self.register_account(account_id);
+        self
+    }
+
+    /// Add an empty account with `capability`, or give an existing one
+    /// `capability`. The backend enforces what it advertises: list a type in
+    /// `supportedTypeNames` only when an [`ExternalReferences`] answers
+    /// for it ([`MemoryBackend::with_external_references`]).
+    #[must_use]
+    pub fn with_account_capability(
+        self,
+        account_id: &Id,
+        capability: BlobAccountCapability,
+    ) -> Self {
+        self.lock()
+            .accounts
+            .entry(account_id.clone())
+            .or_insert_with(Account::new)
+            .capability = capability;
         self
     }
 
@@ -506,6 +652,7 @@ impl MemoryBackend {
         inner: &mut Inner,
         account_id: &Id,
         blob_id: &Id,
+        externally_referenced: bool,
     ) -> Result<Option<BlobMeta>, MemoryError> {
         let acc = inner
             .accounts
@@ -516,7 +663,7 @@ impl MemoryBackend {
         }
         Ok(acc.blobs.get(blob_id).map(|b| {
             let mut meta = BlobMeta::new(b.media_type.clone(), b.size);
-            meta.expires = if acc.is_referenced(blob_id) {
+            meta.expires = if externally_referenced || acc.is_referenced(blob_id) {
                 None
             } else {
                 b.expires.and_then(utc_date_from_epoch_seconds)
@@ -675,6 +822,7 @@ impl MemoryBackend {
         inner: &mut Inner,
         account_id: &Id,
         blob_id: &Id,
+        externally_referenced: bool,
     ) -> Result<(), BackendSetError<MemoryError>> {
         let Some(acc) = inner.accounts.get_mut(account_id) else {
             return Err(BackendSetError::Other(unknown_account(account_id)));
@@ -682,7 +830,7 @@ impl MemoryBackend {
         if !acc.blobs.contains_key(blob_id) {
             return Err(not_found(blob_id));
         }
-        if acc.is_referenced(blob_id) || acc.is_chunk_of_another(blob_id) {
+        if externally_referenced || acc.is_referenced(blob_id) || acc.is_chunk_of_another(blob_id) {
             return Err(set_error(
                 SetErrorType::from(errors::BLOB_HAS_REFERENCE),
                 format!("blob {} is still referenced", blob_id.as_ref()),
@@ -1022,7 +1170,9 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<BlobMeta>, MemoryError> {
-        Self::info(&mut *self.locked().await, account_id, blob_id)
+        // Asked before taking this backend's state (`ExternalReferences`).
+        let external = self.external.is_referenced(account_id, blob_id);
+        Self::info(&mut *self.locked().await, account_id, blob_id, external)
     }
 
     async fn read_blob_range(
@@ -1108,7 +1258,14 @@ impl BlobBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        Self::destroy(&mut *self.locked().await, account_id, blob_id)
+        // The external store is asked, and told, with this backend's state
+        // released (`ExternalReferences`).
+        let external = self.external.is_referenced(account_id, blob_id);
+        Self::destroy(&mut *self.locked().await, account_id, blob_id, external)?;
+        if let Some(e) = &self.external.0 {
+            e.blob_destroyed(account_id, blob_id);
+        }
+        Ok(())
     }
 
     async fn blob_references(
@@ -1118,7 +1275,20 @@ impl BlobBackend for MemoryBackend {
         type_name: &str,
         blob_ids: &[Id],
     ) -> Result<BTreeMap<Id, Vec<Id>>, MemoryError> {
-        Self::references(&*self.locked().await, account_id, type_name, blob_ids)
+        let mut out = Self::references(&*self.locked().await, account_id, type_name, blob_ids)?;
+        if let Some(e) = &self.external.0 {
+            // Only blobs this store holds: a missing blob has empty lists.
+            for (blob_id, ids) in e.references(account_id, type_name, blob_ids) {
+                if let Some(list) = out.get_mut(&blob_id) {
+                    for id in ids {
+                        if !list.contains(&id) {
+                            list.push(id);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(out)
     }
 
     async fn copy_blob(

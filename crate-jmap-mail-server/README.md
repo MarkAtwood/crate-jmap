@@ -458,6 +458,19 @@ most recent first. Email destroys through `onDestroyRemoveEmails` are
 recorded. The memory backend keeps every blob, so a returned version's
 blob stays downloadable.
 
+### Sharing a blob store
+
+`MemoryBackend::with_blob_store(store)` reads and writes every blob through
+an `ExternalBlobStore` (another backend's store, such as the blob-server
+memory backend serving blobext) instead of the backend's own map: an
+uploaded blob can be imported, and a created Email's message is a blob
+there. For that store's reference hook, `current_blob_references`
+(Email, and Mailbox and Thread through their Emails, blobext-03 §6) and
+`blob_has_current_reference` count current objects only, and
+`blob_destroyed` drops the history of objects whose newest version used
+the blob (object-history-03 §3.1). `with_scope_gate(gate)` shares one
+conditional scope gate with that store, since the two call each other.
+
 ### Handler structure
 
 Each handler function (e.g. `handle_email_get`, `handle_mailbox_set`) receives

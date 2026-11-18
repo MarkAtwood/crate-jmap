@@ -76,8 +76,11 @@
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
 
+mod blobs;
 mod history;
 pub mod seed;
+
+pub use blobs::ExternalBlobStore;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -452,6 +455,9 @@ enum IdFate {
 #[non_exhaustive]
 pub struct MemoryBackend {
     inner: ScopedState<Inner>,
+    /// The shared blob store, once [`MemoryBackend::with_blob_store`] sets
+    /// one.
+    blob_store: blobs::BlobStore,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -465,6 +471,7 @@ impl Clone for MemoryBackend {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            blob_store: self.blob_store.clone(),
         }
     }
 }
@@ -1841,10 +1848,23 @@ impl MailBackend for MemoryBackend {
         let val = serde_json::to_value(&email)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize email", &e)))?;
 
+        if self.blob_store.0.is_some() {
+            // Stored before the state is taken (`ExternalBlobStore`); an
+            // unused blob is left to expire if the create fails.
+            self.put_blob(
+                None,
+                account_id,
+                blob_id.clone(),
+                message.clone(),
+                "message/rfc822",
+            );
+        }
         let mut inner = self.inner.lock().await;
         inner.require_account(account_id.as_ref())?;
         check_metadata_create(&inner, Email::TYPE_NAME, account_id.as_ref(), &val, &val)?;
-        inner.blobs.insert(blob_id, message);
+        if self.blob_store.0.is_none() {
+            inner.blobs.insert(blob_id, message);
+        }
         inner.insert_email(account_id, &email, val);
         Ok((email_id, email))
     }
@@ -1852,10 +1872,10 @@ impl MailBackend for MemoryBackend {
     async fn read_blob(
         &self,
         _caller: &(),
-        _account_id: &Id,
+        account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Vec<u8>>, Self::Error> {
-        Ok(self.inner.lock().await.blobs.get(blob_id).cloned())
+        Ok(self.blob_bytes(account_id, blob_id).await)
     }
 
     // -----------------------------------------------------------------------
@@ -2055,12 +2075,9 @@ impl MailBackend for MemoryBackend {
         keywords: &[Keyword],
         received_at: Option<&UTCDate>,
     ) -> Result<(Id, Email), BackendSetError<Self::Error>> {
-        let bytes = {
-            let inner = self.inner.lock().await;
-            inner.blobs.get(blob_id).cloned().ok_or_else(|| {
-                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::BlobNotFound)))
-            })?
-        };
+        let bytes = self.blob_bytes(account_id, blob_id).await.ok_or_else(|| {
+            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::BlobNotFound)))
+        })?;
 
         // Parse message headers from raw bytes (best-effort RFC 5322 parsing).
         let parsed = crate::parse::parse_rfc5322_headers(&bytes);
@@ -2171,11 +2188,10 @@ impl MailBackend for MemoryBackend {
     async fn blob_exists(
         &self,
         _caller: &(),
-        _account_id: &Id,
+        account_id: &Id,
         blob_id: &Id,
     ) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().await;
-        Ok(inner.blobs.contains_key(blob_id))
+        Ok(self.blob_bytes(account_id, blob_id).await.is_some())
     }
 
     async fn parse_email(
@@ -2184,14 +2200,10 @@ impl MailBackend for MemoryBackend {
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Email, Self::Error> {
-        let bytes = {
-            let inner = self.inner.lock().await;
-            inner
-                .blobs
-                .get(blob_id)
-                .cloned()
-                .ok_or_else(|| MemoryError::new("blob not found"))?
-        };
+        let bytes = self
+            .blob_bytes(account_id, blob_id)
+            .await
+            .ok_or_else(|| MemoryError::new("blob not found"))?;
 
         let parsed = crate::parse::parse_rfc5322_headers(&bytes);
 
@@ -3153,7 +3165,7 @@ impl MdnBackend for MemoryBackend {
     async fn send_mdns(
         &self,
         _caller: &(),
-        _account_id: &jmap_types::Id,
+        account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
         send: BTreeMap<String, (jmap_mail_types::Mdn, jmap_mail_types::Email)>,
     ) -> Result<MdnSendResult, jmap_server::BackendSetError<Self::Error>> {
@@ -3241,7 +3253,15 @@ impl MdnBackend for MemoryBackend {
 
             // Step 6: store the blob.
             let blob_id = jmap_types::Id::from(uuid::Uuid::new_v4().to_string());
-            {
+            if self.blob_store.0.is_some() {
+                self.put_blob(
+                    None,
+                    account_id,
+                    blob_id,
+                    mdn_blob.into_bytes(),
+                    "message/disposition-notification",
+                );
+            } else {
                 let mut inner = self.inner.lock().await;
                 inner.blobs.insert(blob_id, mdn_blob.into_bytes());
             }

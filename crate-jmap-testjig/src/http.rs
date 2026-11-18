@@ -521,6 +521,48 @@ struct ExtensionBackends {
 /// `new_with_accounts`. The three different shapes pre-date this
 /// slice — a follow-up sweep could normalise them, but `.3` does not
 /// in-scope that.
+/// The jig's blob store, as mail's [`ExternalBlobStore`]
+/// (`jmap_mail_server::memory`).
+///
+/// [`ExternalBlobStore`]: jmap_mail_server::memory::ExternalBlobStore
+struct SharedBlobs(jmap_blob_server::memory::MemoryBackend);
+
+impl jmap_mail_server::memory::ExternalBlobStore for SharedBlobs {
+    fn read(&self, account_id: &Id, blob_id: &Id) -> Option<Vec<u8>> {
+        self.0.blob_bytes(account_id, blob_id)
+    }
+
+    fn store(&self, account_id: &Id, blob_id: &Id, bytes: Vec<u8>, media_type: &str) {
+        self.0
+            .store_blob(account_id, blob_id, bytes, Some(media_type.to_owned()));
+    }
+}
+
+/// Mail's current objects, as the blob store's [`ExternalReferences`].
+///
+/// [`ExternalReferences`]: jmap_blob_server::memory::ExternalReferences
+struct MailReferences(Arc<jmap_mail_server::memory::MemoryBackend>);
+
+impl jmap_blob_server::memory::ExternalReferences for MailReferences {
+    fn references(
+        &self,
+        account_id: &Id,
+        type_name: &str,
+        blob_ids: &[Id],
+    ) -> std::collections::BTreeMap<Id, Vec<Id>> {
+        self.0
+            .current_blob_references(account_id, type_name, blob_ids)
+    }
+
+    fn is_referenced(&self, account_id: &Id, blob_id: &Id) -> bool {
+        self.0.blob_has_current_reference(account_id, blob_id)
+    }
+
+    fn blob_destroyed(&self, account_id: &Id, blob_id: &Id) {
+        self.0.blob_destroyed(account_id, blob_id);
+    }
+}
+
 fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends {
     let account = Id::from(session::ACCOUNT_ID);
 
@@ -537,8 +579,20 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
 
     // Mail (RFC 8621): Mailbox, Thread, Email, SearchSnippet,
     // Identity, EmailSubmission, VacationResponse.
+    // Mail and blob share one blob store: mail reads and writes its blobs
+    // through the blob backend (so an uploaded blob can be imported, and a
+    // created Email's message is a Blob), and the blob backend asks mail
+    // which current objects reference a blob (Blob/lookup,
+    // blobHasReference) and tells it of each destroy, which drops the
+    // history versions using that blob (object-history-03 §3.1). Calling
+    // each other, they share one conditional scope gate.
+    let gate = jmap_server::ScopeGate::new();
+    let blob_store = jmap_blob_server::memory::MemoryBackend::with_scope_gate(Arc::clone(&gate))
+        .with_account_capability(&account, session::blob_capability());
     let mail = Arc::new(
         jmap_mail_server::memory::MemoryBackend::new()
+            .with_scope_gate(gate)
+            .with_blob_store(Arc::new(SharedBlobs(blob_store.clone())))
             .with_object_history(history("mail"), retention()),
     );
     mail.register_account(&account);
@@ -647,21 +701,23 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     jmap_quotas_server::register_quotas_handlers(dispatcher, Arc::clone(&quotas));
 
     // Blob (draft-ietf-jmap-blobext-03 `blob2` and RFC 9404 `blob`):
-    // Blob/get, /set, /lookup, /convert and /upload. The account keeps
-    // the backend's default capability, which the Session advertises
-    // (`session::blob_capability`). Blobs have no state, so nothing is
-    // kept for the SSE poller. ponytail: this blob store is separate from
-    // the mail and filenode memory stores, so no Email or FileNode
-    // references a blob here and Blob/lookup finds nothing.
-    let blob = Arc::new(jmap_blob_server::memory::MemoryBackend::new().with_account(&account));
+    // Blob/get, /set, /lookup, /convert and /upload, on the store mail
+    // shares (above). The account keeps the backend's default capability,
+    // which the Session advertises (`session::blob_capability`). Blobs
+    // have no state, so nothing is kept for the SSE poller. ponytail: the
+    // filenode store is still separate, so no FileNode references a blob
+    // here.
+    let blob =
+        Arc::new(blob_store.with_external_references(Arc::new(MailReferences(Arc::clone(&mail)))));
     jmap_blob_server::register_blob_handlers(dispatcher, Arc::clone(&blob));
 
     // draft-ietf-jmap-conditional-02: opt every registered Foo/set in
     // (docs/design/DECISIONS.md decisions 1 and 17), so the dispatcher is
     // `conditional_ready()` and the Session may advertise the capability
-    // (`get_session`). Each memory backend keeps its own ScopeGate: no
-    // backend here calls another, so a scope never holds one gate while
-    // waiting for a second, and separate gates cannot deadlock.
+    // (`get_session`). Mail and blob, which call each other, share one
+    // ScopeGate; every other backend keeps its own, as none calls
+    // another, so a scope never holds one gate while waiting for a
+    // second.
     jmap_mail_server::register_mail_conditional(dispatcher, Arc::clone(&mail));
     jmap_chat_server::register_chat_conditional(dispatcher, Arc::clone(&chat));
     jmap_calendars_server::register_calendars_conditional(dispatcher, Arc::clone(&calendars));

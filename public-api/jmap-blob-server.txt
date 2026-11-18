@@ -4,15 +4,21 @@ pub mod jmap_blob_server::memory
 impl jmap_blob_server::memory::MemoryBackend
 pub fn jmap_blob_server::memory::MemoryBackend::add_reference_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::advertise_for_test(&self, &jmap_types::id::Id, jmap_blob_types::capability::BlobAccountCapability)
+pub fn jmap_blob_server::memory::MemoryBackend::blob_bytes(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn jmap_blob_server::memory::MemoryBackend::default_capability() -> jmap_blob_types::capability::BlobAccountCapability
 pub fn jmap_blob_server::memory::MemoryBackend::fail_deferred_for_test(&self, &jmap_types::id::Id, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::hide_object_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::new() -> Self
 pub fn jmap_blob_server::memory::MemoryBackend::omit_no_persist_for_test(&self, bool)
 pub fn jmap_blob_server::memory::MemoryBackend::register_account(&self, &jmap_types::id::Id)
+pub fn jmap_blob_server::memory::MemoryBackend::scope_gate(&self) -> alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>
 pub fn jmap_blob_server::memory::MemoryBackend::set_clock_for_test(&self, i64)
+pub fn jmap_blob_server::memory::MemoryBackend::store_blob(&self, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<u8>, core::option::Option<alloc::string::String>) -> bool
 pub fn jmap_blob_server::memory::MemoryBackend::stub_converter_for_test(&self, impl core::ops::function::Fn(&jmap_blob_types::convert::Recipe) -> core::result::Result<alloc::vec::Vec<u8>, alloc::boxed::Box<jmap_types::set_error::SetError>> + core::marker::Send + core::marker::Sync + 'static)
 pub fn jmap_blob_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
+pub fn jmap_blob_server::memory::MemoryBackend::with_account_capability(self, &jmap_types::id::Id, jmap_blob_types::capability::BlobAccountCapability) -> Self
+pub fn jmap_blob_server::memory::MemoryBackend::with_external_references(self, alloc::sync::Arc<dyn jmap_blob_server::memory::ExternalReferences>) -> Self
+pub fn jmap_blob_server::memory::MemoryBackend::with_scope_gate(alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>) -> Self
 impl core::clone::Clone for jmap_blob_server::memory::MemoryBackend
 pub fn jmap_blob_server::memory::MemoryBackend::clone(&self) -> jmap_blob_server::memory::MemoryBackend
 impl core::default::Default for jmap_blob_server::memory::MemoryBackend
@@ -53,6 +59,10 @@ impl core::fmt::Debug for jmap_blob_server::memory::MemoryError
 pub fn jmap_blob_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_blob_server::memory::MemoryError
 pub fn jmap_blob_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_blob_server::memory::ExternalReferences: core::marker::Send + core::marker::Sync
+pub fn jmap_blob_server::memory::ExternalReferences::blob_destroyed(&self, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_blob_server::memory::ExternalReferences::is_referenced(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub fn jmap_blob_server::memory::ExternalReferences::references(&self, &jmap_types::id::Id, &str, &[jmap_types::id::Id]) -> alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>>
 #[non_exhaustive] pub enum jmap_blob_server::BlobMode
 pub jmap_blob_server::BlobMode::Blobext
 pub jmap_blob_server::BlobMode::Conflict

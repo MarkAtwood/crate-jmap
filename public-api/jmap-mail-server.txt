@@ -62,6 +62,13 @@ pub fn jmap_mail_server::memory::seed::SeedData::default() -> jmap_mail_server::
 pub async fn jmap_mail_server::memory::seed::setup_seed_data(&jmap_mail_server::memory::MemoryBackend, &jmap_types::id::Id) -> jmap_mail_server::memory::seed::SeedData
 #[non_exhaustive] pub struct jmap_mail_server::memory::MemoryBackend
 impl jmap_mail_server::memory::MemoryBackend
+pub fn jmap_mail_server::memory::MemoryBackend::blob_destroyed(&self, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_mail_server::memory::MemoryBackend::blob_has_current_reference(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> bool
+pub fn jmap_mail_server::memory::MemoryBackend::current_blob_references(&self, &jmap_types::id::Id, &str, &[jmap_types::id::Id]) -> alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>>
+pub fn jmap_mail_server::memory::MemoryBackend::scope_gate(&self) -> alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>
+pub fn jmap_mail_server::memory::MemoryBackend::with_blob_store(self, alloc::sync::Arc<dyn jmap_mail_server::memory::ExternalBlobStore>) -> Self
+pub fn jmap_mail_server::memory::MemoryBackend::with_scope_gate(self, alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>) -> Self
+impl jmap_mail_server::memory::MemoryBackend
 pub fn jmap_mail_server::memory::MemoryBackend::discard_version_for_test(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id, u64)
 pub fn jmap_mail_server::memory::MemoryBackend::purge_object_history(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id)
 pub fn jmap_mail_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
@@ -133,6 +140,9 @@ impl core::fmt::Debug for jmap_mail_server::memory::MemoryError
 pub fn jmap_mail_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_mail_server::memory::MemoryError
 pub fn jmap_mail_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub trait jmap_mail_server::memory::ExternalBlobStore: core::marker::Send + core::marker::Sync
+pub fn jmap_mail_server::memory::ExternalBlobStore::read(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn jmap_mail_server::memory::ExternalBlobStore::store(&self, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<u8>, &str)
 pub trait jmap_mail_server::MailBackend: jmap_server::backend::JmapBackend
 pub fn jmap_mail_server::MailBackend::batch_destroy_emails(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = alloc::vec::Vec<(jmap_types::id::Id, core::option::Option<jmap_server::backend::BackendSetError<Self::Error>>)>> + core::marker::Send where Self: core::marker::Sized
 pub fn jmap_mail_server::MailBackend::blob_exists(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send

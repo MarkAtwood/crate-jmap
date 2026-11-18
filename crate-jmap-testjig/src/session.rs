@@ -116,13 +116,20 @@ const BLOB2_URI: &str = jmap_blob_types::JMAP_BLOB2_URI;
 const BLOB_URI: &str = jmap_blob_types::JMAP_BLOB_URI;
 
 /// The blob account capability the jig's blob backend enforces: the
-/// memory backend's default, which every account it registers keeps.
+/// memory backend's default, with `supportedTypeNames` the mail types
+/// whose references the shared blob store answers for (Email, and
+/// Mailbox and Thread through the Emails they contain; blobext-03 §6).
 ///
 /// blobext-03 §2.1 says the account capability object "MUST contain"
 /// all 17 keys, so the Session writes this value, not `{}`.
 pub(crate) fn blob_capability() -> jmap_blob_types::BlobAccountCapability {
-    jmap_blob_server::memory::MemoryBackend::default_capability()
+    let mut cap = jmap_blob_server::memory::MemoryBackend::default_capability();
+    cap.supported_type_names = BLOB_LOOKUP_TYPES.iter().map(|t| (*t).to_owned()).collect();
+    cap
 }
+
+/// The `supportedTypeNames` of [`blob_capability`].
+pub(crate) const BLOB_LOOKUP_TYPES: &[&str] = &["Email", "Mailbox", "Thread"];
 
 /// The object-history capability URI (draft-ietf-jmap-object-history-03
 /// §2.1).

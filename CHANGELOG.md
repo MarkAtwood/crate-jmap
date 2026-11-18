@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-blob-server**: memory backend `with_external_references`
+  (`ExternalReferences`: another store's current objects count in
+  `Blob/lookup`, `blobHasReference` and `expires`, and hear of each
+  destroy), `blob_bytes`, `store_blob`, `with_account_capability`,
+  `with_scope_gate` / `scope_gate`. **jmap-mail-server**: memory backend
+  `with_blob_store` (`ExternalBlobStore`), `current_blob_references`,
+  `blob_has_current_reference`, `blob_destroyed`, `with_scope_gate` /
+  `scope_gate`. **jmap-testjig**: mail and blob share one blob store and
+  scope gate; the blob capability lists Email, Mailbox and Thread for
+  `Blob/lookup`. (bd:JMAP-tna1.3.15)
 - **jmap-testjig**: object history over HTTP: mail, contacts,
   calendars, tasks, filenode and chat register their history-aware
   handlers on memory backends keeping versions for 30 days, and the

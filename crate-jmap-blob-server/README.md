@@ -57,7 +57,14 @@ Advertise `urn:ietf:params:jmap:blob2` yourself: `{}` in the Session
   while referenced); touches honoured up to seven days; a stored sha-256 of
   each whole blob. It builds and lists `application/x-tar` itself (a
   hand-rolled ustar; archives are generated on first read) and runs other
-  recipes through a test stub. Feature `test-helpers` adds
+  recipes through a test stub. A store shared with another memory backend
+  (a mail store) uses `with_external_references`, whose
+  `ExternalReferences` counts that store's current objects in
+  `Blob/lookup`, `blobHasReference` and `expires` and hears of each
+  destroy; `blob_bytes` and `store_blob` let that store read and write
+  here, `with_account_capability` advertises the lookup types it answers
+  for, and `with_scope_gate` shares one conditional scope gate. Feature
+  `test-helpers` adds
   `advertise_for_test`, `add_reference_for_test`, `hide_object_for_test`,
   `set_clock_for_test`, `omit_no_persist_for_test`,
   `stub_converter_for_test` and `fail_deferred_for_test`.

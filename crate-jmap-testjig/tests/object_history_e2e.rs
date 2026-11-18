@@ -472,3 +472,180 @@ async fn atomic_failed_restore_rolls_back() {
         "the good restore was undone"
     );
 }
+
+const BLOB2: &str = "urn:ietf:params:jmap:blob2";
+const BLOB: &str = "urn:ietf:params:jmap:blob";
+
+/// `Blob/lookup` of `blob` for Emails, through `uri` (blob2 or RFC 9404
+/// blob); the matched Email ids.
+async fn emails_using(jig: &TestjigHandle, acc: &str, uri: &str, blob: &str) -> Value {
+    let r = one(
+        jig,
+        &[CORE, uri, MAIL],
+        "Blob/lookup",
+        json!({
+            "accountId": acc, "typeNames": ["Email", "Mailbox", "Thread"], "ids": [blob]
+        }),
+    )
+    .await;
+    assert_eq!(r["list"][0]["id"], blob, "{r}");
+    r["list"][0]["matchedIds"].clone()
+}
+
+/// bd JMAP-tna1.3.15, object-history-03 §3.1 with blobext-03 §4, §6 and
+/// RFC 9404 (decision 11): mail shares the jig's blob store. A blob that
+/// only a destroyed Email's history uses is no reference: Blob/lookup
+/// finds nothing through blob2 or RFC 9404 blob, and Blob/set destroy
+/// succeeds; the Email's versions go with it, so it is notFound for
+/// includeDestroyed, absent from onlyDestroyed, and its restore is
+/// notFound (-04 §3.1).
+#[tokio::test]
+async fn blob_of_a_destroyed_email() {
+    let jig = spawn_in_process(TestjigConfig::default()).await.unwrap();
+    let acc = account(&session(&jig).await);
+    let mail = [CORE, MAIL, HISTORY];
+    let boxes = one(
+        &jig,
+        &mail,
+        "Mailbox/set",
+        json!({"accountId": acc, "create": {"m": {"name": "Inbox", "role": "inbox"}}}),
+    )
+    .await;
+    let mb = created(&boxes, "m");
+
+    // An uploaded blob, imported as an Email.
+    let raw = "From: a@example.com\r\nTo: b@example.com\r\nSubject: Shared\r\n\
+               Message-ID: <shared@example.com>\r\n\r\nhello\r\n";
+    let up = one(
+        &jig,
+        &[CORE, BLOB2],
+        "Blob/set",
+        json!({"accountId": acc, "create": {"b": {
+            "data": [{"data:asText": raw}], "type": "message/rfc822"
+        }}}),
+    )
+    .await;
+    let blob = created(&up, "b");
+    let imp = one(
+        &jig,
+        &mail,
+        "Email/import",
+        json!({"accountId": acc, "emails": {"i": {
+            "blobId": blob, "mailboxIds": {&mb: true}
+        }}}),
+    )
+    .await;
+    let email = created(&imp, "i");
+    assert_eq!(imp["created"]["i"]["blobId"], blob, "{imp}");
+
+    // Referenced by a current Email: found, and not destroyable.
+    let m = emails_using(&jig, &acc, BLOB2, &blob).await;
+    assert_eq!(m["Email"], json!([&email]), "{m}");
+    assert_eq!(m["Mailbox"], json!([&mb]), "{m}");
+    let d = one(
+        &jig,
+        &[CORE, BLOB2],
+        "Blob/set",
+        json!({"accountId": acc, "destroy": [&blob]}),
+    )
+    .await;
+    assert_eq!(d["notDestroyed"][&blob]["type"], "blobHasReference", "{d}");
+
+    // Destroyed: its history is no reference (§3.1).
+    one(
+        &jig,
+        &mail,
+        "Email/set",
+        json!({"accountId": acc, "destroy": [&email]}),
+    )
+    .await;
+    for uri in [BLOB2, BLOB] {
+        let m = emails_using(&jig, &acc, uri, &blob).await;
+        assert_eq!(
+            m,
+            json!({"Email": [], "Mailbox": [], "Thread": []}),
+            "{uri}: {m}"
+        );
+    }
+    let kept = one(&jig, &mail, "Email/get",
+        json!({"accountId": acc, "ids": [&email], "includeDestroyed": true, "properties": ["blobId"]})).await;
+    assert_eq!(kept["list"][0]["blobId"], blob, "{kept}");
+
+    // The blob can go, and the versions using it go too.
+    let d = one(
+        &jig,
+        &[CORE, BLOB2],
+        "Blob/set",
+        json!({"accountId": acc, "destroy": [&blob]}),
+    )
+    .await;
+    assert_eq!(d["destroyed"], json!([&blob]), "{d}");
+    let gone = one(
+        &jig,
+        &mail,
+        "Email/get",
+        json!({"accountId": acc, "ids": [&email], "includeDestroyed": true}),
+    )
+    .await;
+    assert_eq!(gone["notFound"], json!([&email]), "{gone}");
+    let q = one(
+        &jig,
+        &mail,
+        "Email/query",
+        json!({"accountId": acc, "onlyDestroyed": true}),
+    )
+    .await;
+    assert_eq!(q["ids"], json!([]), "{q}");
+    let r = one(
+        &jig,
+        &mail,
+        "Email/set",
+        json!({"accountId": acc, "restore": {&email: null}}),
+    )
+    .await;
+    assert_eq!(r["notRestored"][&email]["type"], "notFound", "{r}");
+}
+
+/// A created Email's message is a blob of the shared store.
+#[tokio::test]
+async fn created_email_message_is_a_blob() {
+    let jig = spawn_in_process(TestjigConfig::default()).await.unwrap();
+    let acc = account(&session(&jig).await);
+    let mail = [CORE, MAIL];
+    let boxes = one(
+        &jig,
+        &mail,
+        "Mailbox/set",
+        json!({"accountId": acc, "create": {"m": {"name": "Inbox", "role": "inbox"}}}),
+    )
+    .await;
+    let mb = created(&boxes, "m");
+    let e = one(
+        &jig,
+        &mail,
+        "Email/set",
+        json!({"accountId": acc, "create": {"e": {
+            "mailboxIds": {&mb: true}, "subject": "Mine",
+            "from": [{"email": "a@example.com"}], "bodyValues": {"1": {"value": "hi"}},
+            "textBody": [{"partId": "1", "type": "text/plain"}]
+        }}}),
+    )
+    .await;
+    let blob = e["created"]["e"]["blobId"]
+        .as_str()
+        .expect("blobId")
+        .to_owned();
+    let g = one(
+        &jig,
+        &[CORE, BLOB2],
+        "Blob/get",
+        json!({"accountId": acc, "ids": [&blob], "properties": ["size"]}),
+    )
+    .await;
+    assert!(g["list"][0]["size"].as_u64().is_some_and(|n| n > 0), "{g}");
+    assert_eq!(
+        g["list"][0]["expires"],
+        Value::Null,
+        "referenced: no expiry: {g}"
+    );
+}

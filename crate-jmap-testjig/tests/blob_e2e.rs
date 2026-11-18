@@ -71,7 +71,7 @@ async fn session_advertises_both_blob_capabilities() {
         json!({
             "maxSizeBlobSet": null,
             "maxDataSources": 64,
-            "supportedTypeNames": [],
+            "supportedTypeNames": ["Email", "Mailbox", "Thread"],
             "supportedDigestAlgorithms": ["sha-256", "sha"],
             "uploadUrl": null,
             "chunkSize": null,
@@ -94,7 +94,7 @@ async fn session_advertises_both_blob_capabilities() {
         json!({
             "maxSizeBlobSet": null,
             "maxDataSources": 64,
-            "supportedTypeNames": [],
+            "supportedTypeNames": ["Email", "Mailbox", "Thread"],
             "supportedDigestAlgorithms": ["sha-256", "sha"]
         })
     );

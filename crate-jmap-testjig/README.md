@@ -181,8 +181,14 @@ synchronously (e.g. before spawning a second jig on the same port).
   dispatcher is `conditional_ready()` and the Session advertises
   `urn:ietf:params:jmap:conditional` (only then). `ifUnchangedBy` and
   `atomic` work on every Foo/set over HTTP; without the URI in `using`, a
-  non-default one is `invalidArguments`. Each backend keeps its own scope
-  gate: no backend calls another, so separate gates cannot deadlock.
+  non-default one is `invalidArguments`. Mail and blob, which call each
+  other, share one scope gate; every other backend keeps its own.
+- Mail shares the blob store: Email/import reads uploaded blobs, a created
+  Email's message is a Blob, `Blob/lookup` (blob2 and RFC 9404 blob)
+  answers for Email, Mailbox and Thread from current Emails, a blob a
+  current Email uses is `blobHasReference`, and destroying a blob only
+  history uses drops those versions (object-history-03 §3.1). FileNode
+  blobs are still a separate store.
 - Object history (draft-ietf-jmap-object-history-03 with the -04
   editor's copy changes): mail, contacts, calendars, tasks, filenode and
   chat register `register_<x>_handlers_with_history` on memory backends
