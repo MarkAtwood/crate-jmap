@@ -322,3 +322,32 @@ fn config_value(cfg: &EmailPushConfig) -> Value {
     // serializes.
     serde_json::to_value(cfg).unwrap_or(Value::Null)
 }
+
+/// Removes from `sub`'s `emailPush` map every account not in `accounts`,
+/// and returns whether anything was removed.
+///
+/// -05 §4: when the user loses access to an account, or the account no
+/// longer supports emailpush, the server "MUST remove that account from the
+/// "emailPush" map". A map whose every key goes stays `{}`, not `null`.
+/// An absent, `null` or non-object `emailPush` is left alone.
+///
+/// Call it with the caller's current [`EmailPushBackend::email_push_accounts`]:
+///
+/// - from `list_push_subscriptions`, on what it returns (strip on read: the
+///   next update, which patches the listed object, persists the result);
+/// - from the deployment's revocation path, persisting the result at once.
+pub fn prune_email_push(
+    sub: &mut PushSubscription,
+    accounts: &std::collections::BTreeMap<Id, EmailPushAccount>,
+) -> bool {
+    let Some(Value::Object(map)) = sub.extra.get_mut(EMAIL_PUSH_PROPERTY) else {
+        return false;
+    };
+    let before = map.len();
+    map.retain(|k, _| {
+        Id::new_validated(k.clone())
+            .ok()
+            .is_some_and(|id| accounts.contains_key(&id))
+    });
+    map.len() != before
+}

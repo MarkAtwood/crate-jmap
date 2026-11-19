@@ -143,6 +143,7 @@ pub fn jmap_mail_server::emailpush::EmailPushBackend::email_push_accounts(&self,
 pub async fn jmap_mail_server::emailpush::check_email_push_change<B: jmap_mail_server::emailpush::EmailPushBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, core::option::Option<&jmap_types::push::PushSubscription>, &mut jmap_types::push::PushSubscription) -> core::result::Result<(), jmap_server::backend::BackendSetError<<B as jmap_server::backend::JmapBackend>::Error>>
 pub fn jmap_mail_server::emailpush::check_email_push_config(&serde_json::value::Value, &jmap_mail_server::emailpush::EmailPushAccount, core::option::Option<&jmap_metadata_types::capability::DataTypeMetadataInfo>) -> core::result::Result<jmap_mail_types::emailpush::EmailPushConfig, jmap_mail_server::emailpush::InvalidEmailPushConfig>
 pub fn jmap_mail_server::emailpush::email_pushes_for(&jmap_server::push::StoredPushSubscription, i64, &jmap_mail_server::emailpush::EmailPushBatch<'_>) -> core::result::Result<alloc::vec::Vec<jmap_mail_server::emailpush::OutboundEmailPush>, jmap_mail_server::emailpush::EmailPushError>
+pub fn jmap_mail_server::emailpush::prune_email_push(&mut jmap_types::push::PushSubscription, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_server::emailpush::EmailPushAccount>) -> bool
 pub mod jmap_mail_server::mdn
 #[non_exhaustive] pub struct jmap_mail_server::mdn::MdnParseResult
 pub jmap_mail_server::mdn::MdnParseResult::not_found: alloc::vec::Vec<jmap_types::id::Id>

@@ -34,7 +34,9 @@ mod validate;
 
 pub use crate::filter::EmailCondition;
 pub use deliver::{DeliveredEmail, EmailPushBatch, OutboundEmailPush, email_pushes_for};
-pub use validate::{InvalidEmailPushConfig, check_email_push_change, check_email_push_config};
+pub use validate::{
+    InvalidEmailPushConfig, check_email_push_change, check_email_push_config, prune_email_push,
+};
 
 /// What one account supports for EmailPush, as the deployment reports it
 /// from [`EmailPushBackend::email_push_accounts`].
@@ -171,7 +173,10 @@ impl std::error::Error for EmailPushError {}
 ///   `jmap_web_push::MAX_PLAINTEXT` = 3993 octets).
 /// - When the user loses access to an account, or the account loses the
 ///   emailpush capability, the backend MUST stop sending EmailPush objects
-///   for it and remove it from every affected `emailPush` map (-05 §4).
+///   for it and remove it from every affected `emailPush` map (-05 §4):
+///   its revocation path calls [`prune_email_push`] on each affected
+///   subscription and persists the result, and `list_push_subscriptions`
+///   runs [`prune_email_push`] on what it returns.
 pub trait EmailPushBackend: PushSubscriptionBackend {
     /// The accounts `caller` can access whose `accountCapabilities` include
     /// `urn:ietf:params:jmap:emailpush`, with what each supports.

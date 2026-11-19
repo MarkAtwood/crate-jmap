@@ -40,6 +40,10 @@ wire behaviour that a conforming peer can observe.
   properties (-05 §3). `LimitTooSmall` when not even `{}` fits. A stored
   config that fails `check_email_push_config` for the live account gets no
   push. (bd:JMAP-r44n.2)
+- **jmap-mail-server** `emailpush`: `prune_email_push` removes lost accounts
+  from a subscription's `emailPush` map (an emptied map stays `{}`), for
+  `list_push_subscriptions` and the deployment's revocation path (-05 §4).
+  (bd:JMAP-r44n.3)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,

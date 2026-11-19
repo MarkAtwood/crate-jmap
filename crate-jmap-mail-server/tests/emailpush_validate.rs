@@ -640,3 +640,30 @@ async fn set_rejects_and_normalizes_end_to_end() {
     );
     assert_eq!(m.stored(&id).extra["emailPush"]["A"]["urgency"], "low");
 }
+
+// ---- r44n.3: pruning revoked accounts ----
+
+#[test]
+fn prune_removes_only_revoked_accounts() {
+    use jmap_mail_server::emailpush::prune_email_push;
+    let accounts = BTreeMap::from([(Id::from("A"), mail_account())]);
+    let cfg = json!({"filter": null, "properties": [], "urgency": "normal"});
+
+    let mut s = sub(Some(json!({"A": cfg.clone(), "R": cfg.clone()})));
+    assert!(prune_email_push(&mut s, &accounts));
+    assert_eq!(s.extra["emailPush"], json!({"A": cfg.clone()}));
+    // Nothing more to remove.
+    assert!(!prune_email_push(&mut s, &accounts));
+    assert_eq!(s.extra["emailPush"], json!({"A": cfg.clone()}));
+
+    // -05 §4 "remove that account from the map": the map stays, empty.
+    let mut s = sub(Some(json!({"R": cfg})));
+    assert!(prune_email_push(&mut s, &accounts));
+    assert_eq!(s.extra["emailPush"], json!({}));
+
+    for v in [None, Some(Value::Null)] {
+        let mut s = sub(v.clone());
+        assert!(!prune_email_push(&mut s, &accounts));
+        assert_eq!(s.extra.get("emailPush"), v.as_ref());
+    }
+}

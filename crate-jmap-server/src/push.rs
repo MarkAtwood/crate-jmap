@@ -170,6 +170,13 @@ pub trait PushSubscriptionBackend: JmapBackend {
     /// that were created using the same authentication credentials as for
     /// this "PushSubscription/get" request." The handler cannot tell
     /// credentials apart, so it relies on this method for that MUST.
+    ///
+    /// Extension properties tied to accounts are returned as they stand
+    /// for the caller now. An EmailPush backend runs
+    /// `jmap_mail_server::emailpush::prune_email_push` on each subscription
+    /// it returns, so an account the caller has lost is not listed
+    /// (draft-ietf-jmap-emailpush-05 §4); `/set` patches the listed object,
+    /// so the next update persists the pruned map.
     fn list_push_subscriptions(
         &self,
         caller: &Self::CallerCtx,
