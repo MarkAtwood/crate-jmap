@@ -301,7 +301,13 @@ pub struct TrackingBackend {
     filenode_attachment: Option<Result<jmap_chat_types::Attachment, SetError>>,
     /// Count of [`ChatBackend::filenode_attachment`] calls.
     filenode_attachment_calls: Arc<AtomicU64>,
+    /// The `(chat id, user ids)` of every [`ChatBackend::kick_chat_members`]
+    /// call this wrapper accepted, in call order.
+    kick_calls: Arc<Mutex<Vec<KickCall>>>,
 }
+
+/// One accepted [`ChatBackend::kick_chat_members`] call: `(chat id, user ids)`.
+pub type KickCall = (String, Vec<String>);
 
 /// One [`ChatBackend::may_set_custom_emoji`] call: `(target_space_id, op)`.
 pub type EmojiSetCall = (Option<Id>, EmojiSetOp);
@@ -470,6 +476,12 @@ impl TrackingBackend {
     /// tests that verify the handler reaches the predicate-call site.
     pub fn is_contact_blocked_call_count(&self) -> u64 {
         self.is_contact_blocked_calls.load(Ordering::SeqCst)
+    }
+
+    /// Return every [`ChatBackend::kick_chat_members`] call this wrapper
+    /// accepted, in call order.
+    pub fn kick_calls(&self) -> Vec<KickCall> {
+        self.kick_calls.lock().expect("lock poisoned").clone()
     }
 }
 
@@ -817,6 +829,28 @@ impl ChatBackend for TrackingBackend {
         }
         self.inner
             .may_update_chat(caller, account_id, chat, patch_keys)
+            .await
+    }
+
+    /// With room restrictions on, a Chat with a `roomId` stands for one
+    /// bound to a MIMI room: the kick is recorded and accepted. Any other
+    /// Chat forwards to `inner`, which keeps the trait default.
+    async fn kick_chat_members(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat: &jmap_chat_types::Chat,
+        user_ids: &[Id],
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        if self.room_restricted && is_room_chat(chat) {
+            self.kick_calls.lock().expect("lock poisoned").push((
+                chat.id.as_ref().to_owned(),
+                user_ids.iter().map(|u| u.as_ref().to_owned()).collect(),
+            ));
+            return Ok(Ok(()));
+        }
+        self.inner
+            .kick_chat_members(caller, account_id, chat, user_ids)
             .await
     }
 

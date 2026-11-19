@@ -2533,6 +2533,56 @@ pub trait ChatBackend: JmapBackend {
         async { Ok(Ok(())) }
     }
 
+    /// Apply the `kickMembers` key of a `Chat/set` update.
+    ///
+    /// draft-atwood-jmap-chat-mimi-00 §Moderation: "The `kickMembers`
+    /// patch key of `Chat/set` (String\[], ChatContact ids), which this
+    /// document adds for Chats bound to a room, removes the listed users'
+    /// clients from the group but keeps them in the participant list, so
+    /// that they can rejoin (`canKick`)." A backend that binds Chats to
+    /// MIMI rooms overrides this: it checks that `chat` is bound to a room
+    /// and that the owner may kick, then commits the client removals.
+    /// `members` is not changed; the Chat record stays as it is.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per `Chat/set` update whose patch carries a non-empty
+    /// `kickMembers`, after the handler has checked it is an array of
+    /// valid ids (else `invalidProperties`), after
+    /// [`Self::may_update_chat`] and the other patch checks, and before
+    /// [`Self::update_object`] writes the rest of the patch (if any).
+    /// `chat` is the stored Chat and `user_ids` the listed ChatContact ids
+    /// with `#creationId` references resolved. `Ok(Err(set_error))`
+    /// rejects the update with that SetError and nothing is written; `Err`
+    /// is `serverFail`.
+    ///
+    /// # Default implementation
+    ///
+    /// Rejects every kick with `invalidProperties` naming `kickMembers`.
+    /// A backend with no room model has no Chat that the key applies to,
+    /// so for it `kickMembers` is a key outside draft-atwood-jmap-chat-00
+    /// §Chat/set "Updating a Chat", which the handler rejects the same
+    /// way. Answering success instead would claim clients were removed
+    /// when none were.
+    fn kick_chat_members(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _user_ids: &[jmap_types::Id],
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async {
+            Ok(Err(SetError::new(
+                jmap_server::SetErrorType::InvalidProperties,
+            )
+            .with_properties(["kickMembers"])
+            .with_description(
+                "kickMembers applies only to a Chat bound to a MIMI room \
+                     (draft-atwood-jmap-chat-mimi-00); this backend binds none",
+            )))
+        }
+    }
+
     /// Blob lookup consulted by `handle_message_set` for each Attachment
     /// of a Message create.
     ///

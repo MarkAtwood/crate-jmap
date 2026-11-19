@@ -344,6 +344,16 @@ draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
    (§ChatBan/set: "while the ban lasts"). `sweep_expired` lifts bans whose
    `expiresAt` has passed through `destroy_chat_ban`.
 
+6d. **`kickMembers` (draft-atwood-jmap-chat-mimi-00 §Moderation).** The
+   `Chat/set` update key is accepted only as an array of ChatContact ids
+   (else `invalidProperties`), taken out of the patch and passed to
+   `ChatBackend::kick_chat_members` with the stored Chat; `members` is
+   not changed. The draft defines the key only for Chats bound to a MIMI
+   room, and this crate has no room model, so the default hook rejects
+   every kick with `invalidProperties` naming `kickMembers`, as for any
+   key outside §Chat/set "Updating a Chat". A backend with rooms
+   overrides it. An empty list is a no-op.
+
 ### Message/set and Message reads (§Message/set, §Message/query)
 
 7. **Sender membership and `send`.** "The server SHOULD verify the

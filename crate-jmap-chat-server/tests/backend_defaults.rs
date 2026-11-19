@@ -214,3 +214,18 @@ async fn is_contact_blocked_default_propagates_storage_error() {
         .await;
     assert!(result.is_err(), "{result:?}");
 }
+
+/// `kick_chat_members` rustdoc: the default "Rejects every kick with
+/// `invalidProperties` naming `kickMembers`", without consulting storage,
+/// so it never claims clients were removed.
+#[tokio::test]
+async fn kick_chat_members_default_rejects() {
+    let set_err = FaultyBackend
+        .kick_chat_members(&(), &account(), &chat(), &[Id::from("bob")])
+        .await
+        .expect("no storage call")
+        .expect_err("default rejects");
+    let wire = serde_json::to_value(&set_err).expect("SetError serializes");
+    assert_eq!(wire["type"], "invalidProperties", "{wire}");
+    assert_eq!(wire["properties"], json!(["kickMembers"]), "{wire}");
+}

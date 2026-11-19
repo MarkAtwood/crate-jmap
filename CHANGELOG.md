@@ -37,6 +37,11 @@ wire behaviour that a conforming peer can observe.
   `chat_ban_get`/`_changes`/`_create`/`_update`/`_destroy` with
   `ChatBanCreateInput` and `ChatBanPatch`; a `ChatBan` row in
   `jmap_types::data_types`. (bd:JMAP-it7g.1)
+- **jmap-chat-server**: `Chat/set` update key `kickMembers`
+  (draft-atwood-jmap-chat-mimi-00 §Moderation), validated as an array of
+  ChatContact ids and passed to the new `ChatBackend::kick_chat_members`
+  hook. The default rejects it with `invalidProperties`, as before, since
+  only a backend that binds Chats to MIMI rooms can kick. (bd:JMAP-it7g.2)
 
 - **jmap-metadata-server**: `ChangedProperties::record_created`, for a
   backend that lists an id created in the `/changes` window in `updated`

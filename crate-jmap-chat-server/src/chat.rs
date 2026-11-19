@@ -611,7 +611,42 @@ const CHAT_ID_PROPERTIES: &[&str] = &[
     "memberIds",
     "pinnedMessageIds",
     "removeMembers",
+    KICK_MEMBERS_KEY,
 ];
+
+/// The `Chat/set` update key draft-atwood-jmap-chat-mimi-00 §Moderation
+/// adds "for Chats bound to a room" (String\[], ChatContact ids).
+const KICK_MEMBERS_KEY: &str = "kickMembers";
+
+/// Remove [`KICK_MEMBERS_KEY`] from `patch` and return its ids, or `None`
+/// when the key is absent or lists no one (a kick of nobody is a no-op).
+///
+/// # Errors
+///
+/// A value that is not an array of strings, or an element that is not a
+/// valid Id (RFC 8620 §1.2), is `invalidProperties` naming the key.
+fn take_kick_members(
+    patch: &mut serde_json::Map<String, Value>,
+) -> Result<Option<Vec<Id>>, Box<SetError>> {
+    let Some(value) = patch.remove(KICK_MEMBERS_KEY) else {
+        return Ok(None);
+    };
+    let invalid = || {
+        Box::new(SetError::new(SetErrorType::InvalidProperties).with_properties([KICK_MEMBERS_KEY]))
+    };
+    let Value::Array(items) = value else {
+        return Err(invalid());
+    };
+    let ids = items
+        .iter()
+        .map(|v| {
+            v.as_str()
+                .and_then(|s| jmap_server::parse_wire_id(s, KICK_MEMBERS_KEY).ok())
+                .ok_or_else(invalid)
+        })
+        .collect::<Result<Vec<Id>, _>>()?;
+    Ok((!ids.is_empty()).then_some(ids))
+}
 
 /// The Chat update entry fields that hold a ChatContact id, as
 /// `(patch key, entry field, property named on failure)`: draft-atwood-jmap-chat-00
@@ -1272,7 +1307,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
 
             // Only the keys §Chat/set "Updating a Chat" defines may be
             // patched: the client-settable Chat properties that are not
-            // immutable, and [`MEMBER_PATCH_KEYS`]. Any other key is
+            // immutable, and [`MEMBER_PATCH_KEYS`], plus the mimi draft's
+            // [`KICK_MEMBERS_KEY`] (whole key only). Any other key is
             // `invalidProperties`. JSON Pointer paths count by their first
             // segment.
             let bad_props: Vec<&str> = patch
@@ -1281,7 +1317,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .map(String::as_str)
                 .filter(|k| {
                     let top = k.split('/').next().unwrap_or(k);
-                    !(is_client_updatable::<Chat>(top) || MEMBER_PATCH_KEYS.contains(&top))
+                    !(is_client_updatable::<Chat>(top)
+                        || MEMBER_PATCH_KEYS.contains(&top)
+                        || *k == KICK_MEMBERS_KEY)
                 })
                 .collect();
             if !bad_props.is_empty() {
@@ -1309,6 +1347,17 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             }
+
+            // draft-atwood-jmap-chat-mimi-00 §Moderation `kickMembers`: an
+            // operation, not a property, taken out of the patch here and
+            // handed to `ChatBackend::kick_chat_members` before the write.
+            let kick = match take_kick_members(patch.as_map_mut()) {
+                Ok(kick) => kick,
+                Err(err) => {
+                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    continue;
+                }
+            };
 
             // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
             // set, the server MUST reject with a `forbidden` SetError ...
@@ -1355,7 +1404,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
 
             // Nothing left once identical values are dropped (or a literal
             // `{}`): a no-op success with no write (RFC 8620 §5.3).
-            if patch.is_empty() {
+            if patch.is_empty() && kick.is_none() {
                 updated.insert(id_str, Value::Null);
                 continue;
             }
@@ -1492,6 +1541,35 @@ pub async fn handle_chat_set<B: ChatBackend>(
                             continue;
                         }
                     }
+                }
+            }
+
+            // draft-atwood-jmap-chat-mimi-00 §Moderation: `kickMembers`
+            // "removes the listed users' clients from the group but keeps
+            // them in the participant list". `members` is not touched; the
+            // backend decides whether the Chat is bound to a room and the
+            // caller may kick (`canKick`).
+            // ponytail: the kick and the rest of the patch are two backend
+            // calls; a failed write after a kick leaves the kick applied.
+            if let Some(user_ids) = &kick {
+                match backend
+                    .kick_chat_members(caller, &account_id, chat, user_ids)
+                    .await
+                {
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
+                        continue;
+                    }
+                    Err(e) => {
+                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
+                // Nothing else to write: the Chat record is unchanged.
+                if patch.is_empty() {
+                    updated.insert(id_str, Value::Null);
+                    continue;
                 }
             }
 
