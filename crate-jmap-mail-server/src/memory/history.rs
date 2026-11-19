@@ -549,11 +549,6 @@ impl ObjectHistoryBackend for MemoryBackend {
             params.destroyed_after,
             params.destroyed_before,
         );
-        if let Some(max) = q.max_changes
-            && changed.len() as u64 > max
-        {
-            return Err(BackendChangesError::TooManyChanges { limit: max });
-        }
         // RFC 8620 §5.6: every changed id is removed, and those in the
         // results now are added at their index.
         let added: Vec<AddedItem> = all
@@ -562,6 +557,13 @@ impl ObjectHistoryBackend for MemoryBackend {
             .filter(|(_, id)| changed.contains(id))
             .map(|(i, id)| AddedItem::new(id.clone(), i as u64))
             .collect();
+        // "Each item in the removed or added array is considered to be one
+        // change."
+        if let Some(max) = q.max_changes
+            && (changed.len() + added.len()) as u64 > max
+        {
+            return Err(BackendChangesError::TooManyChanges { limit: max });
+        }
         Ok(QueryChangesResult::new(
             q.since_query_state.clone(),
             State::from(new_state),

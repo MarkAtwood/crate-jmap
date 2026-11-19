@@ -1424,6 +1424,13 @@ impl JmapBackend for MemoryBackend {
         // Snapshot relevant change log entries under a brief lock, then release.
         let (relevant, has_more, new_state) = {
             let inner = self.inner.lock().await;
+            // RFC 8620 §5.2: a state this server never issued (here, one
+            // ahead of the current counter, as after a restart) cannot be
+            // calculated from; answering "no changes" would skip every
+            // change up to it.
+            if since > inner.current_state(O::TYPE_NAME, account_id.as_ref()) {
+                return Err(BackendChangesError::CannotCalculate);
+            }
             let log = inner
                 .change_log
                 .get(O::TYPE_NAME)
@@ -1791,10 +1798,16 @@ impl JmapBackend for MemoryBackend {
             filter,
             sort,
             max_changes,
-            up_to_id,
+            collapse_threads,
             language,
             ..
         } = params;
+        // The results below are not collapsed, so their indexes would be
+        // wrong for a collapseThreads query (RFC 8621 §4.5); the client
+        // re-runs the query instead.
+        if collapse_threads {
+            return Err(BackendChangesError::CannotCalculate);
+        }
         // Step 1: Validate since_query_state by parsing it as a u64 counter.
         // An unparsable token means the client supplied a state we never issued;
         // return cannotCalculateChanges (limit=0) per RFC 8620 §5.6.
@@ -1856,36 +1869,33 @@ impl JmapBackend for MemoryBackend {
 
         // Step 6: Compute added — IDs in created ∪ updated that are in the current result.
         // We iterate current_result (already sorted) to get correct positional indices.
-        // Determine the up_to_id cutoff position in current_result (exclusive upper bound).
-        let up_to_pos: Option<usize> =
-            up_to_id.and_then(|target| current_result.iter().position(|id| id == target));
-
+        // `upToId` is ignored: every filter and sort is treated as mutable
+        // (Step 5), and RFC 8620 §5.6 says "If they are not immutable, this
+        // argument is ignored."
         let mut added: Vec<AddedItem> = Vec::new();
         for (pos, id) in current_result.iter().enumerate() {
-            // If up_to_id is set, stop before reaching (and including) its position.
-            if let Some(cutoff) = up_to_pos
-                && pos >= cutoff
-            {
-                break;
-            }
             if created_set.contains(id) || updated_set.contains(id) {
                 added.push(AddedItem::new(id.clone(), pos as u64));
             }
         }
 
-        // Step 7: Apply max_changes — if total changes exceed the limit, return
-        // cannotCalculateChanges (limit=0) per RFC 8620 §5.6.
+        // Step 7: RFC 8620 §5.6 "tooManyChanges: There are more changes
+        // than the client's maxChanges argument", where "Each item in the
+        // removed or added array is considered to be one change".
         if let Some(max) = max_changes {
             let total_changes = removed.len() as u64 + added.len() as u64;
             if total_changes > max {
-                return Err(BackendChangesError::CannotCalculate);
+                return Err(BackendChangesError::TooManyChanges { limit: max });
             }
         }
 
+        // `total` is always supplied; the handler returns it only when
+        // calculateTotal is true.
+        let total = current_result.len() as u64;
         Ok(QueryChangesResult::new(
             since_query_state.clone(),
             new_query_state,
-            None,
+            Some(total),
             removed,
             added,
         ))

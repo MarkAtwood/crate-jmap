@@ -857,6 +857,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (memory backend, wire): `/queryChanges` over
+  `maxChanges` is `tooManyChanges` (it was `cannotCalculateChanges`), and
+  the `onlyDestroyed` form counts removed plus added items (RFC 8620
+  §5.6). `upToId` is ignored, as RFC 8620 §5.6 requires for queries on
+  mutable properties (it used to cut off `added`, the `upToId` itself
+  included). `total` is returned when `calculateTotal` is true. An
+  `Email/queryChanges` with `collapseThreads` is `cannotCalculateChanges`
+  rather than indexes from the uncollapsed results. A `sinceState` ahead
+  of the current state is `cannotCalculateChanges` instead of "no
+  changes". (bd:JMAP-q2wa.42, .43, .44, .45)
 - **jmap-mail-server** (wire): `Email/set` update checks `keywords` and
   `mailboxIds` as create does (RFC 8621 §4.1.1): an invalid keyword, a
   value other than `true` (or `null` on a path), an empty `mailboxIds`, or

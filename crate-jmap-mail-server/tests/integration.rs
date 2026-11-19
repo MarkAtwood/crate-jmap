@@ -7351,10 +7351,11 @@ async fn mailbox_query_anchor_resolves_position() {
 // JMAP-2qp.3: Email/queryChanges accepts collapseThreads
 // ---------------------------------------------------------------------------
 
-/// Oracle: Email/queryChanges with collapseThreads=true must be accepted without
-/// error (RFC 8621 §4.5 — collapseThreads is a required argument to pass through).
+/// Oracle: Email/queryChanges accepts collapseThreads (RFC 8621 §4.5). The
+/// memory backend does not compute collapsed changes, so it answers
+/// cannotCalculateChanges (RFC 8620 §5.6), never invalidArguments.
 #[tokio::test]
-async fn email_query_changes_accepts_collapse_threads() {
+async fn email_query_changes_collapse_threads_cannot_calculate() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
@@ -7362,12 +7363,10 @@ async fn email_query_changes_accepts_collapse_threads() {
         "sinceQueryState": "0",
         "collapseThreads": true,
     });
-    let result = handle_email_query_changes(&backend, &(), args, &[]).await;
-    assert!(
-        result.is_ok(),
-        "collapseThreads=true must not error; got: {:?}",
-        result.err()
-    );
+    let err = handle_email_query_changes(&backend, &(), args, &[])
+        .await
+        .expect_err("collapsed changes are not calculated");
+    assert_eq!(err.error_type.to_string(), "cannotCalculateChanges");
 }
 
 // ---------------------------------------------------------------------------
@@ -14241,12 +14240,12 @@ async fn query_changes_reports_updated_id_in_removed_and_added() {
     );
 }
 
-/// Oracle: Email/queryChanges with upToId truncates added at that position.
-///
-/// RFC 8620 §5.6 — upToId: the server should only return changes up to and
-/// NOT including the item at that position in the current result set.
+/// Oracle: RFC 8620 §5.6 upToId lets the server omit changes after it only
+/// "If the sort and filter are both only on immutable properties ... If they
+/// are not immutable, this argument is ignored." The memory backend treats
+/// every query as mutable, so every change is reported, upToId included.
 #[tokio::test]
-async fn query_changes_up_to_id_truncates_added() {
+async fn query_changes_up_to_id_is_ignored() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
@@ -14314,10 +14313,6 @@ async fn query_changes_up_to_id_truncates_added() {
         .as_str()
         .expect("n1 id")
         .to_string();
-    let n1_pos = all_ids
-        .iter()
-        .position(|id| *id == n1_id)
-        .expect("n1 must be in sorted list");
 
     // queryChanges with upToId=n1, sort by receivedAt ascending.
     let qc_args = serde_json::json!({
@@ -14339,43 +14334,20 @@ async fn query_changes_up_to_id_truncates_added() {
         .map(|v| v["id"].as_str().expect("id").to_owned())
         .collect();
 
-    // n1 itself and anything at or after its position must be excluded.
-    assert!(
-        !added.contains(&n1_id),
-        "upToId item itself must not appear in added; added={added:?}"
-    );
-    let n2_id = new_resp["created"]["n2"]["id"]
-        .as_str()
-        .expect("n2 id")
-        .to_string();
-    assert!(
-        !added.contains(&n2_id),
-        "items after upToId must not appear in added; added={added:?}"
-    );
-    // n0 is before n1_pos, so it must be in added.
-    let n0_id = new_resp["created"]["n0"]["id"]
-        .as_str()
-        .expect("n0 id")
-        .to_string();
-    let n0_pos_in_all = all_ids
-        .iter()
-        .position(|id| *id == n0_id)
-        .expect("n0 in sorted list");
-    if n0_pos_in_all < n1_pos {
+    for key in ["n0", "n1", "n2"] {
+        let id = new_resp["created"][key]["id"].as_str().expect("id");
         assert!(
-            added.contains(&n0_id),
-            "n0 (before upToId) must be in added; added={added:?}, n0_pos={n0_pos_in_all}, n1_pos={n1_pos}"
+            added.iter().any(|a| a == id),
+            "{key} must be in added; added={added:?}"
         );
     }
 }
 
-/// Oracle: Email/queryChanges with maxChanges smaller than the number of changes
-/// must return a cannotCalculateChanges error.
-///
-/// RFC 8620 §5.6 — if the number of changes would exceed maxChanges, the server
-/// MAY return cannotCalculateChanges.
+/// Oracle: RFC 8620 §5.6 "tooManyChanges: There are more changes than the
+/// client's maxChanges argument", where "Each item in the removed or added
+/// array is considered to be one change".
 #[tokio::test]
-async fn query_changes_max_changes_returns_cannot_calculate() {
+async fn query_changes_max_changes_returns_too_many_changes() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
@@ -14471,8 +14443,8 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
     let err = result.unwrap_err();
     assert_eq!(
         err.error_type.to_string(),
-        "cannotCalculateChanges",
-        "error must be cannotCalculateChanges; got: {:?}",
+        "tooManyChanges",
+        "error must be tooManyChanges; got: {:?}",
         err.error_type
     );
 }
