@@ -857,6 +857,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `header:{name}:asText` decodes RFC 2047
+  encoded-words and normalizes to NFC (RFC 8621 §4.1.2.2), so it matches
+  the `subject` property; it used to only unfold. `Email/query` with an
+  `anchor` and no `collapseThreads` is paged by the backend over the whole
+  result (it was capped at `max_collapse_threads_emails`), a missing
+  anchor is `anchorNotFound` even with `limit: 0`, and a capped
+  `collapseThreads` total counts collapsed Threads instead of Emails.
+  (bd:JMAP-q2wa.51, .52)
 - **jmap-server** (wire): the dispatcher rejects an `ifInState`,
   `ifFromInState` or `destroyFromIfInState` that is not a string or null
   with `invalidArguments` for every method (RFC 8620 §5.3, §5.4). Handlers

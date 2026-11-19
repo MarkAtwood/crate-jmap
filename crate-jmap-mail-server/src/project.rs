@@ -308,17 +308,9 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Result<Value, JmapEr
     Ok(match form {
         // RFC 8621 §4.1.2.1: the octets as they are, folding included.
         Raw => Value::String(raw_value.to_owned()),
-        AsText => {
-            // Unfold: remove CRLF (or LF) followed by WSP, then trim leading whitespace
-            // (RFC 8621 §4.1.3 — "unfold then decode encoded-words if possible").
-            // RFC 2047 encoded-word decoding is out of scope; we unfold only.
-            let unfolded = raw_value
-                .replace("\r\n ", " ")
-                .replace("\r\n\t", " ")
-                .replace("\n ", " ")
-                .replace("\n\t", " ");
-            Value::String(unfolded.trim_start().to_owned())
-        }
+        // RFC 8621 §4.1.2.2: unfold, strip, decode RFC 2047 encoded-words
+        // with a known charset, then NFC, as the `subject` property is.
+        AsText => Value::String(mime_tree::parse_text(raw_value.as_bytes())),
         // RFC 8621 §4.1.2.3 — list of mailboxes; group structure discarded.
         AsAddresses => match mime_tree::parse_header_typed(
             mime_tree::HeaderForm::Addresses,

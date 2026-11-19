@@ -89,3 +89,27 @@ async fn raw_form_keeps_folding_crlf() {
         .unwrap();
     assert_eq!(folded["value"], " one\r\n two", "{resp}");
 }
+
+/// RFC 8621 §4.1.2.2 Text: encoded-words with a known charset are decoded
+/// and the result is NFC, as for the `subject` property.
+#[tokio::test]
+async fn text_form_decodes_encoded_words() {
+    let b = MemoryBackend::new();
+    b.register_account(&Id::from("acc"));
+    b.store_blob(
+        &Id::from("B1"),
+        b"From: a@example.com\r\nSubject: =?UTF-8?Q?Caf=C3=A9?=\r\n\r\nbody\r\n".to_vec(),
+    );
+    let resp = handle_email_parse(
+        &b,
+        &(),
+        json!({"accountId": "acc", "blobIds": ["B1"],
+               "properties": ["subject", "header:Subject:asText"]}),
+    )
+    .await
+    .unwrap()
+    .primary;
+    let email = &resp["parsed"]["B1"];
+    assert_eq!(email["header:Subject:asText"], "Caf\u{e9}", "{resp}");
+    assert_eq!(email["header:Subject:asText"], email["subject"], "{resp}");
+}

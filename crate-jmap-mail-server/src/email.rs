@@ -378,124 +378,124 @@ pub async fn handle_email_query<B: MailBackend>(
 
     let sort_slice = sort.as_deref();
 
-    // When collapseThreads or anchor is set we need the full result set in-process.
-    // Without either, delegate limit/position directly to the backend.
-    let (ids, total, query_state, can_calculate_changes, reported_position) =
-        if collapse_threads || anchor.is_some() {
-            // Fast path: effective_limit=0 and no total needed — skip the expensive full
-            // fetch; a single zero-limit query gives queryState and canCalculateChanges.
-            if effective_limit == 0 && !calculate_total {
-                let empty = backend
-                    .query_objects::<Email>(
-                        caller,
-                        &account_id,
-                        QueryParams::new()
-                            .filter(filter.as_ref())
-                            .sort(sort_slice)
-                            .limit(Some(0)),
-                    )
-                    .await
-                    .map_err(JmapError::from)?;
-                return Ok(HandlerOutput::new(serde_json::json!({
-                    "accountId": account_id.as_ref(),
-                    "queryState": empty.query_state.as_ref(),
-                    "canCalculateChanges": empty.can_calculate_changes,
-                    "position": 0u64,
-                    "ids": [],
-                })));
-            }
-
-            // Fetch cap+1 to detect whether the backend had more results than
-            // the cap.  If more than cap items come back the result was
-            // truncated; truncate to cap and report total as an approximation.
-            let collapse_cap = backend.max_collapse_threads_emails(caller, &account_id);
-            let all = backend
+    // collapseThreads needs the result set in-process. Without it,
+    // position, anchor and limit go to the backend, which pages exactly
+    // and reports anchorNotFound (RFC 8620 §5.5) over the whole result.
+    let (ids, total, query_state, can_calculate_changes, reported_position) = if collapse_threads {
+        // Fast path: effective_limit=0, no total and no anchor to
+        // resolve (anchorNotFound must still be reported) — skip the
+        // full fetch; a zero-limit query gives queryState and
+        // canCalculateChanges.
+        if effective_limit == 0 && !calculate_total && anchor.is_none() {
+            let empty = backend
                 .query_objects::<Email>(
                     caller,
                     &account_id,
                     QueryParams::new()
                         .filter(filter.as_ref())
                         .sort(sort_slice)
-                        .limit(Some(collapse_cap as u64 + 1)),
+                        .limit(Some(0)),
                 )
                 .await
                 .map_err(JmapError::from)?;
-            let fetched_count = all.ids.len();
-            let query_state = all.query_state.clone();
-            let can_calculate_changes = all.can_calculate_changes;
+            return Ok(HandlerOutput::new(serde_json::json!({
+                "accountId": account_id.as_ref(),
+                "queryState": empty.query_state.as_ref(),
+                "canCalculateChanges": empty.can_calculate_changes,
+                "position": 0u64,
+                "ids": [],
+            })));
+        }
 
-            // We requested cap+1 to detect overflow: more than cap returned means
-            // the result set was larger than the cap and we must truncate.  Exactly
-            // cap returned means we did NOT overflow (the +1 "probe" came back empty).
-            let was_capped = fetched_count > collapse_cap;
-            let ids_for_collapse: Vec<Id> = if was_capped {
-                all.ids.into_iter().take(collapse_cap).collect()
-            } else {
-                all.ids
-            };
-
-            let all_ids = if collapse_threads {
-                collapse_by_thread(backend, caller, &account_id, ids_for_collapse)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?
-            } else {
-                ids_for_collapse
-            };
-
-            // When not capped, total is exact. When capped, use the cap as an
-            // approximate lower bound (the true count is ≥ collapse_cap).
-            // RFC 8620 §5.5 requires total to be present when calculateTotal=true,
-            // so we return the cap rather than None — it is an honest lower bound.
-            let total: Option<u64> = if !was_capped {
-                Some(all_ids.len() as u64)
-            } else {
-                Some(collapse_cap as u64)
-            };
-
-            // Resolve start position: anchor overrides position.
-            let start = if let Some(ref anchor_id) = anchor {
-                resolve_query_start(&all_ids, position, Some(anchor_id), anchor_offset)?
-            } else {
-                // bd:JMAP-qz9v.48 — centralized i64-to-usize bounds /
-                // i64::MIN handling in jmap_server::resolve_query_offset.
-                resolve_query_offset(position, all_ids.len())
-            };
-
-            let page: Vec<Id> = all_ids
-                .into_iter()
-                .skip(start)
-                .take(limit_or_max(Some(effective_limit)))
-                .collect();
-            (
-                page,
-                total,
-                query_state,
-                can_calculate_changes,
-                start as u64,
+        // Fetch cap+1 to detect whether the backend had more results than
+        // the cap.  If more than cap items come back the result was
+        // truncated; truncate to cap and report total as an approximation.
+        let collapse_cap = backend.max_collapse_threads_emails(caller, &account_id);
+        let all = backend
+            .query_objects::<Email>(
+                caller,
+                &account_id,
+                QueryParams::new()
+                    .filter(filter.as_ref())
+                    .sort(sort_slice)
+                    .limit(Some(collapse_cap as u64 + 1)),
             )
+            .await
+            .map_err(JmapError::from)?;
+        let fetched_count = all.ids.len();
+        let query_state = all.query_state.clone();
+        let can_calculate_changes = all.can_calculate_changes;
+
+        // We requested cap+1 to detect overflow: more than cap returned means
+        // the result set was larger than the cap and we must truncate.  Exactly
+        // cap returned means we did NOT overflow (the +1 "probe" came back empty).
+        let was_capped = fetched_count > collapse_cap;
+        let ids_for_collapse: Vec<Id> = if was_capped {
+            all.ids.into_iter().take(collapse_cap).collect()
         } else {
-            let result = backend
-                .query_objects::<Email>(
-                    caller,
-                    &account_id,
-                    QueryParams::new()
-                        .filter(filter.as_ref())
-                        .sort(sort_slice)
-                        .limit(Some(effective_limit))
-                        .position(position),
-                )
-                .await
-                .map_err(JmapError::from)?;
-            let pos = result.position;
-            let total = result.total;
-            (
-                result.ids,
-                total,
-                result.query_state,
-                result.can_calculate_changes,
-                pos,
-            )
+            all.ids
         };
+
+        let all_ids = if collapse_threads {
+            collapse_by_thread(backend, caller, &account_id, ids_for_collapse)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?
+        } else {
+            ids_for_collapse
+        };
+
+        // When not capped, total is exact. When capped it is the number
+        // of collapsed Threads among the first `collapse_cap` Emails, a
+        // lower bound (RFC 8620 §5.5 requires total when calculateTotal
+        // is true). Paging and anchors also see only those Emails.
+        let total: Option<u64> = Some(all_ids.len() as u64);
+
+        // Resolve start position: anchor overrides position.
+        let start = if let Some(ref anchor_id) = anchor {
+            resolve_query_start(&all_ids, position, Some(anchor_id), anchor_offset)?
+        } else {
+            // bd:JMAP-qz9v.48 — centralized i64-to-usize bounds /
+            // i64::MIN handling in jmap_server::resolve_query_offset.
+            resolve_query_offset(position, all_ids.len())
+        };
+
+        let page: Vec<Id> = all_ids
+            .into_iter()
+            .skip(start)
+            .take(limit_or_max(Some(effective_limit)))
+            .collect();
+        (
+            page,
+            total,
+            query_state,
+            can_calculate_changes,
+            start as u64,
+        )
+    } else {
+        let result = backend
+            .query_objects::<Email>(
+                caller,
+                &account_id,
+                QueryParams::new()
+                    .filter(filter.as_ref())
+                    .sort(sort_slice)
+                    .limit(Some(effective_limit))
+                    .position(position)
+                    .anchor(anchor.as_ref())
+                    .anchor_offset(anchor_offset),
+            )
+            .await
+            .map_err(JmapError::from)?;
+        let pos = result.position;
+        let total = result.total;
+        (
+            result.ids,
+            total,
+            result.query_state,
+            result.can_calculate_changes,
+            pos,
+        )
+    };
 
     // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
     let mut resp = json!({
