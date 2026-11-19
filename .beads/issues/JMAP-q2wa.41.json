@@ -2,13 +2,15 @@
   "id": "JMAP-q2wa.41",
   "title": "memory: destroying an Email leaves Thread emailIds and the Message-ID index stale",
   "description": "memory/mod.rs:2036-2061, 2347-2384: destroyed id stays in Thread emailIds, empty Thread not destroyed, Thread state not advanced, message_id_index keeps it (re-import gives alreadyExists with the destroyed id; MDN/parse forEmailId resolves to it). RFC 8621 §3. Restored Emails also append to emailIds unsorted (history.rs:367-371). (probe-confirmed) (mail-server review 2026-11-19)",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T05:32:48.354413287Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:32:48.354413287Z",
+  "updated_at": "2026-11-19T06:04:22.311031379Z",
+  "closed_at": "2026-11-19T06:04:22.311031379Z",
+  "close_reason": "Fixed: memory recount_mailboxes + detach_email; tests/memory_mailbox_counts.rs.",
   "dependencies": [
     {
       "issue_id": "JMAP-q2wa.41",

@@ -1,1 +1,2 @@
 {"id":"01a1f24b-05a4-711a-a8bf-f94724fd3592","issue_id":"JMAP-q2wa.39","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T05:32:45.348073411Z"}
+{"id":"01a1f267-e97d-78a8-b15c-a32ad567bc19","issue_id":"JMAP-q2wa.39","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Fixed: memory recount_mailboxes + detach_email; tests/memory_mailbox_counts.rs.","created_at":"2026-11-19T06:04:18.685569047Z"}
