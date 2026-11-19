@@ -13,6 +13,7 @@ their description.
 | [emailpush.md](emailpush.md) | draft-ietf-jmap-emailpush-05 (`EmailPushConfig`, `EmailPush`) | JMAP-r44n |
 | [blobext.md](blobext.md) | draft-ietf-jmap-blobext-03, plus RFC 9404 legacy serving | JMAP-tna1, server sub-epic JMAP-tna1.2 |
 | [object-history.md](object-history.md) | draft-ietf-jmap-object-history-03 | JMAP-tna1.3 (sub-epic of JMAP-tna1) |
+| [chat-backend-split.md](chat-backend-split.md) | Split `ChatBackend` into hook traits with `Delegate*` companions (decision 37; draft for review) | JMAP-it7g.6 |
 | [updates.md](updates.md) | draft-atwood-jmap-updates-00 (i18n `locale`/`localizations`, text handling, URIs, problem details) | JMAP-cayv |
 
 [DECISIONS.md](DECISIONS.md) lists Mark's decisions of 2026-11-13 (and, from
