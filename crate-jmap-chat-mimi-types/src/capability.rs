@@ -35,8 +35,8 @@ pub const MLS_MESSAGE_BODY_TYPE: &str = "message/mls";
 ///
 /// # Strictness
 ///
-/// No struct-level `#[serde(default)]`: the draft lists every field
-/// without marking any optional, so a missing field is a deserialize
+/// No struct-level `#[serde(default)]`: the draft marks only `assetUrl`
+/// and `assetDownloadUrl` optional, so any other missing field is a deserialize
 /// error. An empty `cipherSuites` is also rejected, because the draft
 /// says it "MUST NOT be empty".
 ///
@@ -77,6 +77,18 @@ pub struct MimiCapability {
     /// The maximum number of KeyPackage records, last-resort KeyPackages
     /// included, the server stores for this account.
     pub max_key_packages: u64,
+    /// `assetUrl`: an RFC 6570 level-1 URL template with the variable
+    /// `blobId`, at which a blob the account uploaded is served without
+    /// authentication, for use as an ExternalPart `url`. [`None`] if the
+    /// server does not store attachments.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_url: Option<String>,
+    /// `assetDownloadUrl`: an RFC 6570 level-1 URL template with the
+    /// variables `roomId` and `url`; a GET authenticated as for the API
+    /// returns the content at `url` for a message of room `roomId`.
+    /// [`None`] if the server does not fetch attachments.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_download_url: Option<String>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -167,8 +179,47 @@ mod tests {
     }
 
     #[test]
+    fn asset_urls_round_trip() {
+        // Oracle: draft §Account-Level Capability Object: `assetUrl`
+        // (String, optional) "with the variable `blobId`" and
+        // `assetDownloadUrl` (String, optional) "with the variables
+        // `roomId` and `url`". Template values are hand-written.
+        let mut raw = sample();
+        raw["assetUrl"] = json!("https://a.example/asset/{blobId}");
+        raw["assetDownloadUrl"] = json!("https://a.example/fetch?room={roomId}&url={url}");
+        let cap: MimiCapability = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(
+            cap.asset_url.as_deref(),
+            Some("https://a.example/asset/{blobId}")
+        );
+        assert_eq!(
+            cap.asset_download_url.as_deref(),
+            Some("https://a.example/fetch?room={roomId}&url={url}")
+        );
+        assert!(cap.extra.is_empty(), "typed, not in extra");
+        assert_eq!(serde_json::to_value(&cap).unwrap(), raw);
+
+        // Absent: None, and not written back.
+        let cap: MimiCapability = serde_json::from_value(sample()).unwrap();
+        assert_eq!((cap.asset_url, cap.asset_download_url), (None, None));
+    }
+
+    #[test]
+    fn asset_urls_must_be_strings() {
+        // Oracle: the draft types both as String.
+        for field in ["assetUrl", "assetDownloadUrl"] {
+            let mut raw = sample();
+            raw[field] = json!(1);
+            assert!(
+                serde_json::from_value::<MimiCapability>(raw).is_err(),
+                "{field}"
+            );
+        }
+    }
+
+    #[test]
     fn each_field_required() {
-        // Oracle: the draft lists all five fields with no "optional"
+        // Oracle: the draft lists these five fields with no "optional"
         // marker.
         for field in [
             "userUri",

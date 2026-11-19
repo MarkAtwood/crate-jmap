@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-types**: `MimiCapability::asset_url` and
+  `asset_download_url` (`assetUrl`, `assetDownloadUrl`; optional URL
+  templates, draft-atwood-jmap-chat-mimi-00 §Account-Level Capability
+  Object), typed instead of carried in `extra`. (bd:JMAP-it7g.7)
+
 - **jmap-base-client**: `SetOptions` (`#[non_exhaustive]`: `conditional`,
   `restore`) and `SetOptions::request`, the options parameter of every
   typed `*_set` binding; new per-set options become fields here.
