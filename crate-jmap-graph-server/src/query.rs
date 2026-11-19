@@ -84,8 +84,35 @@ pub fn compare_graphs(a: &Graph, b: &Graph, sort: &[GraphComparator]) -> Orderin
 /// §GraphNode/query Filter) matches no node: this crate serves no projected
 /// Graph, and a node's `objectUri` is "Always `null` for nodes that are not
 /// in a projected Graph", so it is never "one of these values".
+///
+/// The draft-atwood-jmap-graph-provenance-00 §Query Filters conditions, which
+/// the handlers pass only for an account that advertises that capability:
+/// `basis` ("To match records with no basis, include `null` in the
+/// array"), `status` (absent is `active`), `pinned` (absent is `false`) and
+/// `validAt`: "The record's `validUntil` is `null` or later than the given
+/// time." A stored value that does not decode matches no condition on it.
 pub fn node_matches(cond: &GraphNodeFilterCondition, node: &GraphNode) -> bool {
-    node.graph_id == cond.graph_id && cond.object_uri.is_none()
+    node.graph_id == cond.graph_id
+        && cond.object_uri.is_none()
+        && cond
+            .basis
+            .as_ref()
+            .is_none_or(|values| node.basis().is_ok_and(|b| values.contains(&b)))
+        && cond
+            .status
+            .as_ref()
+            .is_none_or(|values| node.status().is_ok_and(|s| values.contains(&s)))
+        && cond
+            .pinned
+            .is_none_or(|p| node.pinned().is_ok_and(|n| n == p))
+        && cond
+            .valid_at
+            .as_ref()
+            .is_none_or(|at| match node.valid_until() {
+                Ok(None) => true,
+                Ok(Some(until)) => until.cmp_instant(at).is_ok_and(Ordering::is_gt),
+                Err(_) => false,
+            })
 }
 
 /// Order two nodes by `sort` (`created`, `updated`), then by `id`.

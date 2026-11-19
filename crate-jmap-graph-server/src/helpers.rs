@@ -57,11 +57,25 @@ async fn graph_query_args<C: serde::de::DeserializeOwned + KnownSort, B: GraphBa
     };
     reject_unsupported_sort::<C>(args.get("sort"))?;
     // draft-atwood-jmap-graph-provenance-00 §Query Filters: `basis`,
-    // `status`, `pinned` and `validAt` decode into GraphNodeFilterCondition
-    // but are not evaluated yet (bd JMAP-98sl.7), so they are
+    // `status`, `pinned` and `validAt` are GraphNode conditions of an
+    // account that advertises the capability ("A server that advertises
+    // this capability supports all four conditions"); elsewhere they are
     // `unsupportedFilter`, not silently ignored.
     if PROVENANCE_FILTERS.iter().any(|k| filter.get(*k).is_some()) {
-        return Err(JmapError::unsupported_filter());
+        let provenance = kind == CandidateKind::Node
+            && args
+                .get("accountId")
+                .and_then(Value::as_str)
+                .is_some_and(|a| {
+                    backend.has_capability(
+                        caller,
+                        &Id::from(a),
+                        jmap_graph_types::JMAP_GRAPH_PROVENANCE_URI,
+                    )
+                });
+        if !provenance {
+            return Err(JmapError::unsupported_filter());
+        }
     }
     if !uses_search(filter) {
         return Ok(false);

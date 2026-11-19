@@ -22,6 +22,10 @@ use crate::helpers::{
     handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, mistyped,
     not_found, patched, patched_properties, readable_rights, string_or_null, to_map,
 };
+use crate::provenance::{
+    self, JMAP_GRAPH_PROVENANCE_URI, check_record, check_record_create, check_record_update,
+    require_curate, retraction_patch,
+};
 use crate::{EditLog, GraphBackend};
 use jmap_server::JmapAccounts;
 use jmap_server::{
@@ -32,6 +36,36 @@ use jmap_server::{
 /// The properties with a draft default, echoed in `created` when the
 /// client omits them (RFC 8620 §5.3).
 const DEFAULTED: &[&str] = &["annotations", "blobId", "mediaType", "uri"];
+
+/// The draft-atwood-jmap-graph-provenance-00 properties and their
+/// defaults, stored and echoed like the graph-00 defaults when the account
+/// advertises the capability.
+type Defaults = &'static [(&'static str, fn() -> Value)];
+
+const PROVENANCE_DEFAULTS: Defaults = &[
+    ("basis", || Value::Null),
+    ("confidence", || Value::Null),
+    ("validUntil", || Value::Null),
+    ("validFor", || Value::Null),
+    ("credentialDigest", || Value::Null),
+    ("status", || json!("active")),
+    ("pinned", || json!(false)),
+    ("curationReason", || Value::Null),
+];
+
+/// Whether `account_id` advertises `urn:ietf:params:jmap:graph:provenance`.
+pub(crate) fn provenance_on<B: GraphBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+) -> bool {
+    backend.has_capability(caller, account_id, JMAP_GRAPH_PROVENANCE_URI)
+}
+
+/// A provenance SetError as the handlers' `Value` form.
+fn set_error_value(e: &jmap_types::SetError) -> Value {
+    serde_json::Value::from(e)
+}
 
 /// `blobId`, `mediaType` and `uri` are `T|null` strings.
 const TYPES: &[TypeCheck] = &[
@@ -114,6 +148,18 @@ pub(crate) async fn create_graph_id<B: GraphBackend>(
     account_id: &Id,
     m: &Map<String, Value>,
 ) -> Result<Id, Value> {
+    create_graph_rights(backend, caller, account_id, m)
+        .await
+        .map(|(id, _)| id)
+}
+
+/// [`create_graph_id`], also returning the caller's rights on the Graph.
+pub(crate) async fn create_graph_rights<B: GraphBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    m: &Map<String, Value>,
+) -> Result<(Id, GraphRights), Value> {
     let Some(graph_id) = m
         .get("graphId")
         .and_then(Value::as_str)
@@ -133,7 +179,7 @@ pub(crate) async fn create_graph_id<B: GraphBackend>(
             )
         })?;
     require_write(&rights)?;
-    Ok(graph_id)
+    Ok((graph_id, rights))
 }
 
 /// The caller's rights on `graph_id` for an update or destroy of an item
@@ -318,7 +364,15 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             ));
         }
         validate(&m, cap)?;
-        let graph_id = create_graph_id(backend, caller, account_id, &m).await?;
+        let provenance = provenance_on(backend, caller, account_id);
+        if provenance {
+            check_record(&m).map_err(|e| set_error_value(&e))?;
+        }
+        let (graph_id, rights) = create_graph_rights(backend, caller, account_id, &m).await?;
+        if provenance {
+            check_record_create(&m, rights.may_curate().unwrap_or(false))
+                .map_err(|e| set_error_value(&e))?;
+        }
         let sets_snapshot_seq = m.contains_key(GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY);
         let edit = check_edit(
             backend,
@@ -342,14 +396,19 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
         } else {
             &[]
         };
+        let provenance_defaults: Defaults = if provenance { PROVENANCE_DEFAULTS } else { &[] };
         let omitted: Vec<&str> = DEFAULTED
             .iter()
             .chain(edit_defaults)
             .copied()
+            .chain(provenance_defaults.iter().map(|(k, _)| *k))
             .filter(|k| !m.contains_key(*k))
             .collect();
         for k in edit_defaults {
             m.entry(*k).or_insert(Value::Null);
+        }
+        for (k, default) in provenance_defaults {
+            m.entry(*k).or_insert_with(default);
         }
         fill_server_set::<B>(caller, &mut m);
         let mut node: GraphNode = serde_json::from_value(Value::Object(m))
@@ -376,7 +435,19 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
         let node: GraphNode = fetch_one(backend, caller, account_id, id)
             .await?
             .ok_or_else(not_found)?;
-        item_graph_writable(backend, caller, account_id, &node.graph_id).await?;
+        let provenance = provenance_on(backend, caller, account_id);
+        // With provenance, §Sharing Rights decides between mayWrite and
+        // mayCurate once the patch is known.
+        let rights = if provenance {
+            Some(
+                readable_rights(backend, caller, account_id, &node.graph_id)
+                    .await?
+                    .ok_or_else(not_found)?,
+            )
+        } else {
+            item_graph_writable(backend, caller, account_id, &node.graph_id).await?;
+            None
+        };
         let keys = patched_properties(&patch);
         if let Some(e) = reject_read_only_patch::<GraphNode>(patch.as_map(), Some(&to_map(&node)?))
         {
@@ -384,7 +455,21 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
                 &e.with_description("these properties are immutable or server-set"),
             ));
         }
-        let next = patched(&node, &patch)?;
+        let mut next = patched(&node, &patch)?;
+        let mut cleared = Map::new();
+        if let Some(rights) = &rights {
+            let current = to_map(&node)?;
+            check_record(&next).map_err(|e| set_error_value(&e))?;
+            check_record_update(&current, &next, &keys, rights).map_err(|e| set_error_value(&e))?;
+            if !provenance::is_retracted(&current) && provenance::is_retracted(&next) {
+                retraction_patch(&current, &next, patch.as_map_mut());
+                next = patched(&node, &patch)?;
+                cleared = provenance::retraction_cleared()
+                    .into_iter()
+                    .map(|(k, v)| (k.to_owned(), v))
+                    .collect();
+            }
+        }
         validate(&next, cap)?;
         check_edit(
             backend,
@@ -397,7 +482,11 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             keys.iter().any(|k| k == GRAPH_NODE_SNAPSHOT_SEQ_PROPERTY),
         )
         .await?;
-        let echo = touch::<B>(caller, &mut patch);
+        let mut echo = touch::<B>(caller, &mut patch);
+        // Retraction's clearing is a server change: echo it (RFC 8620 §5.3).
+        if let Value::Object(e) = &mut echo {
+            e.extend(cleared);
+        }
         match backend
             .update_object::<GraphNode>(caller, account_id, id, patch)
             .await
@@ -417,7 +506,16 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
         let node: GraphNode = fetch_one(backend, caller, account_id, id)
             .await?
             .ok_or_else(not_found)?;
-        item_graph_writable(backend, caller, account_id, &node.graph_id).await?;
+        if provenance_on(backend, caller, account_id) {
+            // "Destroying a record requires `mayCurate`, in place of the
+            // `mayWrite` that {{JMAP-GRAPH}} requires".
+            let rights = readable_rights(backend, caller, account_id, &node.graph_id)
+                .await?
+                .ok_or_else(not_found)?;
+            require_curate(&rights).map_err(|e| set_error_value(&e))?;
+        } else {
+            item_graph_writable(backend, caller, account_id, &node.graph_id).await?;
+        }
         backend
             .destroy_object::<GraphNode>(caller, account_id, id)
             .await

@@ -35,7 +35,7 @@ impl super::SessionClient {
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<GraphEdge>, jmap_base_client::ClientError> {
-        self.standard_get("GraphEdge/get", super::USING_GRAPH, ids, properties)
+        self.standard_get("GraphEdge/get", &self.using_graph(), ids, properties)
             .await
     }
 
@@ -62,7 +62,7 @@ impl super::SessionClient {
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
         self.standard_changes(
             "GraphEdge/changes",
-            super::USING_GRAPH,
+            &self.using_graph(),
             since_state,
             max_changes,
         )
@@ -111,7 +111,7 @@ impl super::SessionClient {
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set(
             "GraphEdge/set",
-            super::USING_GRAPH,
+            &self.using_graph(),
             create,
             update,
             destroy,
@@ -147,7 +147,7 @@ impl super::SessionClient {
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         self.standard_query(
             "GraphEdge/query",
-            super::USING_GRAPH,
+            &self.using_graph(),
             Some(filter),
             sort,
             params,
@@ -184,7 +184,7 @@ impl super::SessionClient {
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
         self.standard_query_changes(
             "GraphEdge/queryChanges",
-            super::USING_GRAPH,
+            &self.using_graph(),
             since_query_state,
             max_changes,
             Some(filter),

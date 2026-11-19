@@ -35,7 +35,7 @@ impl super::SessionClient {
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<GraphNode>, jmap_base_client::ClientError> {
-        self.standard_get("GraphNode/get", super::USING_GRAPH, ids, properties)
+        self.standard_get("GraphNode/get", &self.using_graph(), ids, properties)
             .await
     }
 
@@ -62,7 +62,7 @@ impl super::SessionClient {
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
         self.standard_changes(
             "GraphNode/changes",
-            super::USING_GRAPH,
+            &self.using_graph(),
             since_state,
             max_changes,
         )
@@ -110,7 +110,7 @@ impl super::SessionClient {
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set(
             "GraphNode/set",
-            super::USING_GRAPH,
+            &self.using_graph(),
             create,
             update,
             destroy,
@@ -150,7 +150,7 @@ impl super::SessionClient {
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         self.standard_query(
             "GraphNode/query",
-            using_for(filter),
+            &self.using_node_query(filter),
             Some(filter),
             sort,
             params,
@@ -187,7 +187,7 @@ impl super::SessionClient {
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
         self.standard_query_changes(
             "GraphNode/queryChanges",
-            using_for(filter),
+            &self.using_node_query(filter),
             since_query_state,
             max_changes,
             Some(filter),
@@ -196,15 +196,5 @@ impl super::SessionClient {
             calculate_total,
         )
         .await
-    }
-}
-
-/// The `using` array for a GraphNode `/query` or `/queryChanges` with
-/// `filter`: with the projection capability exactly when `objectUri` is set.
-fn using_for(filter: &GraphNodeFilterCondition) -> &'static [&'static str] {
-    if filter.object_uri.is_some() {
-        super::USING_GRAPH_PROJECTION
-    } else {
-        super::USING_GRAPH
     }
 }

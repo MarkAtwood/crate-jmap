@@ -17,11 +17,13 @@ use serde_json::{Map, Value};
 
 use crate::GraphBackend;
 use crate::helpers::{
-    SetOps, TypeCheck, check_annotations, decode_patch, fetch_one, handle_get_visible,
+    SetOps, TypeCheck, check_annotations, decode_patch, fetch_one, forbidden, handle_get_visible,
     handle_graph_item_query, handle_graph_item_query_changes, handle_set, invalid, mistyped,
     not_found, patched, patched_properties, to_map,
 };
-use crate::node::{create_graph_id, created_entry, fill_server_set, item_graph_writable, touch};
+use crate::node::{
+    create_graph_id, created_entry, fill_server_set, item_graph_writable, provenance_on, touch,
+};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, reject_read_only_patch, reject_server_set,
 };
@@ -167,6 +169,37 @@ pub async fn handle_graph_edge_set<B: GraphBackend>(
 
 struct EdgeSet;
 
+/// draft-atwood-jmap-graph-provenance-00 §Retraction: "The server rejects,
+/// with a `forbidden` SetError, a `GraphEdge/set` that would create,
+/// update, or destroy an edge whose `fromId` is, or would become, a
+/// retracted record". `from_ids` are the edge's `fromId` before and after;
+/// one that names no node the caller can fetch is left to the endpoint
+/// check. The backend re-checks it atomically with the write.
+async fn reject_retracted_from<B: GraphBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    from_ids: &[&str],
+) -> Result<(), Value> {
+    if !provenance_on(backend, caller, account_id) {
+        return Ok(());
+    }
+    for from in from_ids {
+        let Ok(from) = Id::new_validated(*from) else {
+            continue;
+        };
+        let node: Option<GraphNode> = fetch_one(backend, caller, account_id, &from).await?;
+        if let Some(node) = node
+            && crate::provenance::is_retracted(&to_map(&node)?)
+        {
+            return Err(forbidden(
+                "the edge's fromId is a retracted record, whose edges cannot change",
+            ));
+        }
+    }
+    Ok(())
+}
+
 impl<B: GraphBackend> SetOps<B> for EdgeSet {
     type Object = GraphEdge;
     const ID_PROPERTIES: &'static [&'static str] = &["graphId", "fromId", "toId"];
@@ -205,6 +238,8 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             &["fromId", "toId"],
         )
         .await?;
+        let from = m.get("fromId").and_then(Value::as_str).unwrap_or_default();
+        reject_retracted_from(backend, caller, account_id, &[from]).await?;
         let omitted: Vec<&str> = DEFAULTED
             .iter()
             .copied()
@@ -250,6 +285,17 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             .filter(|k| keys.iter().any(|p| p == k))
             .collect();
         check_endpoints(backend, caller, account_id, &edge.graph_id, &result, &moved).await?;
+        let from_after = result
+            .get("fromId")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        reject_retracted_from(
+            backend,
+            caller,
+            account_id,
+            &[edge.from_id.as_ref(), from_after],
+        )
+        .await?;
         let echo = touch::<B>(caller, &mut patch);
         match backend
             .update_object::<GraphEdge>(caller, account_id, id, patch)
@@ -271,6 +317,7 @@ impl<B: GraphBackend> SetOps<B> for EdgeSet {
             .await?
             .ok_or_else(not_found)?;
         item_graph_writable(backend, caller, account_id, &edge.graph_id).await?;
+        reject_retracted_from(backend, caller, account_id, &[edge.from_id.as_ref()]).await?;
         backend
             .destroy_object::<GraphEdge>(caller, account_id, id)
             .await

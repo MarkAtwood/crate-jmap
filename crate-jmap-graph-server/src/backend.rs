@@ -166,6 +166,16 @@ pub trait GraphBackend: JmapBackend {
     /// NOT distinguish a node that does not exist from a node in another
     /// Graph"). A backend MAY refuse with `overQuota` past a limit on nodes
     /// per Graph or edges per node (§Denial of Service).
+    ///
+    /// For an account with `urn:ietf:params:jmap:graph:provenance`
+    /// ([`Self::has_capability`]), also re-check, with the stored state:
+    /// a GraphNode against [`crate::provenance::check_record_create`] with
+    /// the caller's `mayCurate`; a GraphEdge whose `fromId` is a retracted
+    /// record is `forbidden`, and an evidence edge that would give its
+    /// record more than [`MAX_EVIDENCE_EDGES`](crate::provenance::MAX_EVIDENCE_EDGES)
+    /// is `overQuota` (draft-atwood-jmap-graph-provenance-00 §Retraction,
+    /// §Limits). Under an atomic conditional-02 scope the evidence limit is
+    /// judged on the final state at commit.
     fn create_object<O, F>(
         &self,
         caller: &Self::CallerCtx,
@@ -194,6 +204,15 @@ pub trait GraphBackend: JmapBackend {
     /// right `forbidden`. A `GraphEdge` patch that changes `fromId` or
     /// `toId` re-verifies that each names a GraphNode of the edge's Graph,
     /// as on create.
+    ///
+    /// With provenance, a GraphNode update is judged by
+    /// [`crate::provenance::check_record_update`] on the stored record
+    /// instead of the plain `mayWrite` rule, and a retraction clears the
+    /// content ([`crate::provenance::retraction_patch`]), so an update
+    /// cannot slip past a concurrent retraction; a retracted record's
+    /// prior history versions are removed (§Retraction). A GraphEdge update
+    /// follows the create rules for its old and new `fromId`. On a Graph,
+    /// `retention` needs `mayAdmin`, not `mayWrite`.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -206,7 +225,9 @@ pub trait GraphBackend: JmapBackend {
     /// advances only when the destroy commits. The backend re-verifies the
     /// right atomically: `mayAdmin` for a `Graph` ("Destroying a Graph
     /// requires `mayAdmin`"), `mayWrite` on its Graph for a `GraphNode` or
-    /// `GraphEdge`.
+    /// `GraphEdge`. With provenance, a GraphNode needs `mayCurate`
+    /// ([`crate::provenance::require_curate`]) in place of `mayWrite`, and a
+    /// GraphEdge whose `fromId` is a retracted record is `forbidden`.
     ///
     /// Destroying a `Graph` MUST "also destroy every GraphNode and
     /// GraphEdge in it. These objects are reported as destroyed by
@@ -355,6 +376,13 @@ pub trait GraphBackend: JmapBackend {
     /// the recipient's own account: the blocked-sender rule applies "When
     /// {{JMAP-CHAT}} is also available" (draft-atwood-jmap-graph-edit-00
     /// at 29e9a41, L370).
+    ///
+    /// The handlers ask it for `urn:ietf:params:jmap:graph:provenance` on
+    /// the account of each `/set` and `GraphNode/query`: with `true` they
+    /// apply draft-atwood-jmap-graph-provenance-00 ([`crate::provenance`]),
+    /// and the backend's `myRights` carries `mayCurate` (the owner's
+    /// `true`). With `false` the provenance properties are ordinary
+    /// unknown properties and its filters `unsupportedFilter`.
     fn has_capability(
         &self,
         caller: &Self::CallerCtx,

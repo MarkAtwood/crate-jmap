@@ -32,6 +32,16 @@ to `using`. A `GraphNodeOp/query` that fails with `opsCompacted` arrives as
 `GraphEditWsFrame::Op` and `::Cursor` for the op and cursor events. Send
 the enable before loading or catching up on a node (§GraphEditStreamEnable).
 
+For draft-atwood-jmap-graph-provenance-00 records, the provenance and
+curation properties are written through `graph_node_set` and read back
+with `GraphNode::basis`, `status`, `pinned` and the other accessors of
+`jmap-graph-types`; evidence is a `graph_edge_set` edge of type
+`EVIDENCE_EDGE_TYPE`; `GraphNodeFilterCondition` carries `basis`, `status`,
+`pinned` and `validAt`. When the bound account advertises
+`urn:ietf:params:jmap:graph:provenance` (`SessionClient::supports_provenance`),
+every Graph, GraphNode and GraphEdge request adds it to `using`; a GraphNode
+query that uses one of the four conditions always does.
+
 ## How to use
 
 One traversal hop (§Traversal): the edges leaving a frontier, then those

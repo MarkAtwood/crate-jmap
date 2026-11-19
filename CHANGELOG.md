@@ -14,6 +14,29 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-server**: draft-atwood-jmap-graph-provenance-00 server rules
+  for an account whose `GraphBackend::has_capability` reports
+  `urn:ietf:params:jmap:graph:provenance` (new `provenance` module,
+  `MemoryBackend::register_provenance`, re-exported
+  `JMAP_GRAPH_PROVENANCE_URI`). `GraphNode/set` validates the provenance
+  and curation properties and stores their defaults; curation changes and
+  destroys need `mayCurate` (an update of curation properties only needs
+  no `mayWrite`), and a non-curator creates only active, unpinned records;
+  retraction is irreversible, clears the content in the same update,
+  freezes the record's outgoing edges and purges its history versions; a
+  record has at most 32 evidence edges (`overQuota`, judged on the final
+  state under an atomic scope); `Graph.retention` needs `mayAdmin`;
+  `provenance::sweep_retention` destroys eligible records; `GraphNode/query`
+  evaluates `basis`, `status`, `pinned` and `validAt`, which were
+  `unsupportedFilter`. The memory backend's owner `myRights` carries
+  `mayCurate`. Accounts without the capability are unchanged
+  (bd:JMAP-98sl.2-.7).
+
+- **jmap-graph-client**: `SessionClient::supports_provenance`. Graph,
+  GraphNode and GraphEdge requests add `urn:ietf:params:jmap:graph:provenance`
+  to `using` when the account advertises it, and a GraphNode query that
+  uses a provenance filter condition always adds it (bd:JMAP-98sl.8).
+
 - **jmap-chat-types**: `Chat` declares `JmapObject::LOCALIZABLE`: `name` and
   `description` (a localized `description` may be `null`), per the JMAP Chat
   applicability table (bd:jmap-chat-spec-qb21). `locale` and `localizations`

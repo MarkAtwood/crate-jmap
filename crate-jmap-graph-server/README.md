@@ -8,7 +8,10 @@ behind the `memory` feature. It also serves draft-atwood-jmap-graph-edit-00
 (`urn:ietf:params:jmap:graph:edit`): GraphNodeOp edit logs,
 `GraphNode/cursor` and the WebSocket op and cursor stream, and
 draft-atwood-jmap-graph-search-00 (`urn:ietf:params:jmap:graph:search`):
-the built-in `where` filter language on GraphNode and GraphEdge `/query`.
+the built-in `where` filter language on GraphNode and GraphEdge `/query`,
+and draft-atwood-jmap-graph-provenance-00
+(`urn:ietf:params:jmap:graph:provenance`): provenance and curation
+properties, evidence edges, `mayCurate`, retraction and Graph retention.
 No HTTP, no persistence, no WebSocket transport.
 
 ## What it is
@@ -25,7 +28,8 @@ No HTTP, no persistence, no WebSocket transport.
 | `GraphEditSubscription`, `should_deliver` | graph-edit §WebSocket Stream |
 | `query::*` | §Graph/query, §GraphNode/query, §GraphEdge/query match and order functions |
 | `search::check_search_filter`, `search::GraphView`, `COLLATIONS` | graph-search §FilterCondition Extensions, §The Built-In Filter Language, §Visibility |
-| `memory::MemoryBackend` (feature `memory`) | reference backend, not production |
+| `provenance::*` | graph-provenance §Provenance Properties, §Curation Properties, §Retraction, §Sharing Rights, §Graph Extensions checks; `sweep_retention` (§Retention) |
+| `memory::MemoryBackend` (feature `memory`) | reference backend, not production; `register_provenance` |
 
 ## What it's for
 
@@ -54,7 +58,10 @@ call `register_graph_edit_handlers` and advertise `JMAP_GRAPH_EDIT_URI`
 with the object `GraphBackend::graph_edit_capability` returns. For
 search, advertise `JMAP_GRAPH_SEARCH_URI` with the object
 `GraphBackend::graph_search_capability` returns, and `search::COLLATIONS`
-in the core `collationAlgorithms`.
+in the core `collationAlgorithms`. For provenance records, advertise
+`JMAP_GRAPH_PROVENANCE_URI` with `{}`, return `true` for it from
+`GraphBackend::has_capability`, carry `mayCurate` in `myRights`, and run
+`provenance::sweep_retention` for each account at least daily.
 
 ## How it works
 
@@ -95,6 +102,24 @@ in the core `collationAlgorithms`.
   `GraphView` of the Graph as the caller sees it, so hidden nodes and
   edges cannot affect results. Without the capability the three are
   `unsupportedFilter`.
+- Provenance (when `has_capability` is true for
+  `urn:ietf:params:jmap:graph:provenance`): `GraphNode/set` checks
+  `basis`, `confidence`, `validUntil`, `validFor`, `credentialDigest`,
+  `status`, `pinned` and `curationReason` (`invalidProperties` naming
+  the property) and stores the defaults. Changing a curation property
+  needs `mayCurate`; an update of curation properties only needs no
+  `mayWrite`; destroying a record needs `mayCurate` in place of
+  `mayWrite`; a non-curator creates only active, unpinned records with no
+  `curationReason`. Retraction clears `blobId`, `mediaType`, `uri`, the
+  provenance properties and `annotations` in the same update, cannot be
+  undone, freezes the record except `pinned` and `curationReason`, and
+  freezes every edge whose `fromId` is the record (`forbidden`). With
+  object history, a retracted record's prior versions are removed. A
+  record has at most 32 evidence edges (`overQuota`; an atomic call is
+  judged on its final state). `Graph.retention` needs `mayAdmin` and
+  values of 1 to 36500 days. `GraphNode/query` evaluates `basis`,
+  `status`, `pinned` and `validAt`; without the capability they are
+  `unsupportedFilter` and the properties are left alone.
 - The WebSocket transport keeps one `GraphEditSubscription` per
   connection and asks `should_deliver` before sending each
   `GraphNodeOpEvent` and `GraphCursorEvent`; rights are checked at
@@ -153,11 +178,19 @@ draft-atwood-jmap-graph-provenance-00) follows the same rule.
   and its `$text` is a `i;unicode-casemap` substring match over
   string-valued annotations.
 
+- Provenance values are the author's claim: the server checks their form,
+  never their truth. Expiry (`validUntil`) hides nothing server-side;
+  `validAt` is how a client leaves expired records out.
+- The retention sweep runs only when the deployment calls
+  `provenance::sweep_retention`; pass the account owner as the caller. A
+  node with a non-null `editFormat` is never swept.
+
 ## References
 
 - [draft-atwood-jmap-graph-00] — JMAP for Graphs
 - [draft-atwood-jmap-graph-edit-00] — JMAP Graph Live Editing
 - [draft-atwood-jmap-graph-search-00] — JMAP Graph Search
+- [draft-atwood-jmap-graph-provenance-00] — JMAP Graph Provenance Records
 - [RFC 4790], [RFC 5051] — collations
 - [RFC 8620] — JMAP Core
 - [RFC 9670] — JMAP Sharing
@@ -166,6 +199,7 @@ draft-atwood-jmap-graph-provenance-00) follows the same rule.
 [draft-atwood-jmap-graph-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-graph-edit-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-graph-search-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-graph-provenance-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 4790]: https://www.rfc-editor.org/rfc/rfc4790
 [RFC 5051]: https://www.rfc-editor.org/rfc/rfc5051
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

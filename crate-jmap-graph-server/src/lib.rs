@@ -105,6 +105,7 @@ mod history;
 pub mod memory;
 mod node;
 mod op;
+pub mod provenance;
 pub mod query;
 pub mod search;
 mod stream;
@@ -137,6 +138,9 @@ pub use jmap_graph_types::JMAP_GRAPH_EDIT_URI;
 
 /// Capability URI for `urn:ietf:params:jmap:graph:search`.
 pub use jmap_graph_types::JMAP_GRAPH_SEARCH_URI;
+
+/// Capability URI for `urn:ietf:params:jmap:graph:provenance`.
+pub use jmap_graph_types::JMAP_GRAPH_PROVENANCE_URI;
 
 /// Register the `Graph/*`, `GraphNode/*` and `GraphEdge/*` method handlers
 /// with `dispatcher`.

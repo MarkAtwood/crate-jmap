@@ -46,6 +46,7 @@ pub(crate) const USING_GRAPH: &[&str] = &[
 
 /// Capability URIs for a GraphNode call whose filter uses the
 /// draft-atwood-jmap-graph-projection-00 `objectUri` property.
+#[cfg(test)]
 pub(crate) const USING_GRAPH_PROJECTION: &[&str] = &[
     "urn:ietf:params:jmap:core",
     jmap_graph_types::JMAP_GRAPH_URI,
@@ -154,6 +155,55 @@ impl SessionClient {
     /// compare the captured session `state` against a fresh fetch.
     pub fn session(&self) -> &jmap_base_client::Session {
         &self.session
+    }
+
+    /// Whether the bound account advertises
+    /// `urn:ietf:params:jmap:graph:provenance`
+    /// (draft-atwood-jmap-graph-provenance-00 §Capability) in its
+    /// `accountCapabilities`. When it does, every Graph, GraphNode and
+    /// GraphEdge call carries that URI in `using`, so its properties,
+    /// evidence edges and rights apply. No network I/O is done.
+    pub fn supports_provenance(&self) -> bool {
+        self.graph_account_id()
+            .ok()
+            .and_then(|id| self.session.accounts.get(id.as_ref()))
+            .is_some_and(|a| {
+                a.account_capabilities
+                    .contains_key(jmap_graph_types::JMAP_GRAPH_PROVENANCE_URI)
+            })
+    }
+
+    /// The `using` array of a Graph, GraphNode or GraphEdge call: core and
+    /// graph, plus provenance when [`Self::supports_provenance`].
+    pub(crate) fn using_graph(&self) -> Vec<&'static str> {
+        let mut using = USING_GRAPH.to_vec();
+        if self.supports_provenance() {
+            using.push(jmap_graph_types::JMAP_GRAPH_PROVENANCE_URI);
+        }
+        using
+    }
+
+    /// The `using` array of a GraphNode `/query` or `/queryChanges` with
+    /// `filter`: [`Self::using_graph`], plus projection when `objectUri` is
+    /// set (draft-atwood-jmap-graph-projection-00 Example) and provenance
+    /// when a §Query Filters condition is (`basis`, `status`, `pinned`,
+    /// `validAt`).
+    pub(crate) fn using_node_query(
+        &self,
+        filter: &jmap_graph_types::GraphNodeFilterCondition,
+    ) -> Vec<&'static str> {
+        let mut using = self.using_graph();
+        if filter.object_uri.is_some() {
+            using.push(jmap_graph_types::JMAP_GRAPH_PROJECTION_URI);
+        }
+        let provenance = filter.basis.is_some()
+            || filter.status.is_some()
+            || filter.pinned.is_some()
+            || filter.valid_at.is_some();
+        if provenance && !using.contains(&jmap_graph_types::JMAP_GRAPH_PROVENANCE_URI) {
+            using.push(jmap_graph_types::JMAP_GRAPH_PROVENANCE_URI);
+        }
+        using
     }
 
     /// Return the account id every typed method on this handle targets:

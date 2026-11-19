@@ -14,6 +14,15 @@
 //! [`jmap_base_client::WsSession`] and types the `GraphNodeOpEvent` and
 //! `GraphCursorEvent` frames it receives.
 //!
+//! draft-atwood-jmap-graph-provenance-00 adds properties, an edge type and
+//! filter conditions, not methods: when the bound account advertises
+//! `urn:ietf:params:jmap:graph:provenance`
+//! ([`SessionClient::supports_provenance`]) every Graph, GraphNode and
+//! GraphEdge request carries it in `using`, as does a GraphNode query that
+//! uses `basis`, `status`, `pinned` or `validAt`. The record properties are
+//! read with the `jmap-graph-types` accessors (`GraphNode::basis` and the
+//! rest).
+//!
 //! One traversal hop (draft §Traversal) is a `GraphEdge/query` from the
 //! current frontier followed by a `GraphEdge/get`:
 //!

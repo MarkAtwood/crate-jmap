@@ -81,8 +81,8 @@ use jmap_graph_types::{
 use jmap_graph_types::{GraphCursorEvent, GraphNodeOpFilterCondition};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
-    BeginSetError, ConditionalBackend, ScopedGuard, ScopedState, SetScope, SetScopeRequest,
-    apply_patch_object, limit_or_max, resolve_query_start,
+    BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
+    SetScopeRequest, apply_patch_object, limit_or_max, resolve_query_start,
 };
 use jmap_types::{Id, JmapError, State};
 use serde::Deserialize;
@@ -91,6 +91,10 @@ use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
 use crate::edit::check_node_edit;
+use crate::provenance::{
+    self, EVIDENCE_EDGE_TYPE, JMAP_GRAPH_PROVENANCE_URI, MAX_EVIDENCE_EDGES, check_record_create,
+    check_record_update, require_curate,
+};
 use crate::query::{
     compare_edges, compare_graphs, compare_nodes, edge_matches, graph_matches, node_matches,
 };
@@ -222,6 +226,11 @@ impl Inner {
             all.may_read = true;
             all.may_write = true;
             all.may_admin = true;
+            // draft-atwood-jmap-graph-provenance-00 §Sharing Rights: "The
+            // owner of the account that holds the Graph implicitly has it".
+            if self.provenance(account_id) {
+                all.extra.insert("mayCurate".to_owned(), json!(true));
+            }
             return Some(all);
         }
         Some(
@@ -264,6 +273,76 @@ impl Inner {
             Some(r) if r.may_read => Err(set_error(SetErrorType::Forbidden, "mayWrite required")),
             _ => Err(missing()),
         }
+    }
+
+    /// Whether `account_id` advertises `urn:ietf:params:jmap:graph:provenance`.
+    fn provenance(&self, account_id: &Id) -> bool {
+        self.advertised
+            .contains(&(account_id.clone(), JMAP_GRAPH_PROVENANCE_URI.to_owned()))
+    }
+
+    /// Whether stored node `node_id` is a retracted record.
+    fn retracted(&self, account_id: &Id, node_id: &str) -> bool {
+        self.get(GraphNode::TYPE_NAME, account_id, &Id::from(node_id))
+            .and_then(Value::as_object)
+            .is_some_and(provenance::is_retracted)
+    }
+
+    /// The evidence edges of record `from_id` (§Evidence).
+    fn evidence_count(&self, account_id: &Id, from_id: &str) -> usize {
+        self.objects(GraphEdge::TYPE_NAME, account_id)
+            .into_iter()
+            .flat_map(HashMap::values)
+            .filter(|e| {
+                e.get("type").and_then(Value::as_str) == Some(EVIDENCE_EDGE_TYPE)
+                    && e.get("fromId").and_then(Value::as_str) == Some(from_id)
+            })
+            .count()
+    }
+
+    /// The provenance rules on GraphEdge `edge` (stored as `after`, `before`
+    /// for an update), under the lock: a `fromId` that is or would become a
+    /// retracted record is `forbidden` (§Retraction); a record with more
+    /// than 32 evidence edges is `overQuota` (§Limits), left to the commit
+    /// under an atomic scope (`defer`).
+    fn check_edge_provenance(
+        &self,
+        account_id: &Id,
+        before: Option<&Value>,
+        after: Option<&Value>,
+        defer: bool,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        if !self.provenance(account_id) {
+            return Ok(());
+        }
+        let from = |v: Option<&Value>| {
+            v.and_then(|v| v.get("fromId"))
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        };
+        let (old_from, new_from) = (from(before), from(after));
+        if [&old_from, &new_from]
+            .into_iter()
+            .flatten()
+            .any(|f| self.retracted(account_id, f))
+        {
+            return Err(set_error(
+                SetErrorType::Forbidden,
+                "the edge's fromId is a retracted record, whose edges cannot change",
+            ));
+        }
+        let is_evidence = |v: Option<&Value>| {
+            v.and_then(|v| v.get("type")).and_then(Value::as_str) == Some(EVIDENCE_EDGE_TYPE)
+        };
+        let adds = is_evidence(after) && (!is_evidence(before) || old_from != new_from);
+        if !defer
+            && adds
+            && let Some(f) = &new_from
+            && self.evidence_count(account_id, f) >= MAX_EVIDENCE_EDGES
+        {
+            return Err(BackendSetError::SetError(Box::new(evidence_over_quota())));
+        }
+        Ok(())
     }
 
     /// The properties of `which` in edge `v` that do not name a GraphNode
@@ -476,6 +555,15 @@ impl MemoryBackend {
         }
     }
 
+    /// Advertise `urn:ietf:params:jmap:graph:provenance` on `account_id`
+    /// (draft-atwood-jmap-graph-provenance-00): `GraphNode/set`,
+    /// `GraphEdge/set`, `Graph/set` and `GraphNode/query` then apply its
+    /// rules there, the owner's `myRights` gain `mayCurate`, and
+    /// [`crate::provenance::sweep_retention`] covers the account's Graphs.
+    pub fn register_provenance(&self, account_id: &Id) {
+        self.advertise(account_id, JMAP_GRAPH_PROVENANCE_URI);
+    }
+
     /// Advertise the companion capability `uri` (e.g.
     /// `urn:ietf:params:jmap:chat`) on `account_id`.
     #[doc(hidden)]
@@ -588,6 +676,14 @@ impl std::fmt::Display for MemoryError {
 }
 
 impl std::error::Error for MemoryError {}
+
+/// provenance-00 §Limits: "A record has at most 32 evidence edges. The
+/// server rejects, with an `overQuota` SetError, a `GraphEdge/set` create
+/// or update that would give a record more than 32."
+fn evidence_over_quota() -> SetError {
+    SetError::new(SetErrorType::OverQuota)
+        .with_description("a record has at most 32 evidence edges")
+}
 
 fn set_error<E>(t: SetErrorType, description: &str) -> BackendSetError<E> {
     BackendSetError::SetError(Box::new(SetError::new(t).with_description(description)))
@@ -1018,6 +1114,19 @@ impl GraphBackend for MemoryBackend {
                 if !bad.is_empty() {
                     return Err(invalid(&bad, "not a GraphNode of the edge's Graph"));
                 }
+                let defer = self.inner.deferring();
+                inner.check_edge_provenance(account_id, None, Some(&value), defer)?;
+            }
+            if O::TYPE_NAME == GraphNode::TYPE_NAME && inner.provenance(account_id) {
+                // §Retraction and §Sharing Rights, re-checked under the lock.
+                let may_curate = inner
+                    .rights(caller, account_id, &graph_id)
+                    .is_some_and(|r| r.may_curate().unwrap_or(false));
+                check_record_create(
+                    value.as_object().unwrap_or(&serde_json::Map::new()),
+                    may_curate,
+                )
+                .map_err(BackendSetError::SetError)?;
             }
         }
         inner
@@ -1055,24 +1164,40 @@ impl GraphBackend for MemoryBackend {
         let keys: Vec<String> = patch.keys().map(top).collect();
 
         let mut subscribed = None;
+        let mut node_rights: Option<GraphRights> = None;
         if O::TYPE_NAME == Graph::TYPE_NAME {
             // §Graph/set rights, re-checked under the lock.
             let r = inner
                 .rights(caller, account_id, id)
                 .filter(|r| r.may_read)
                 .ok_or_else(not_found)?;
-            if keys.iter().any(|k| k == "shareWith") && !r.may_admin {
+            // provenance-00 §Graph Extensions: `retention` needs mayAdmin.
+            let admin_only: &[&str] = if inner.provenance(account_id) {
+                &["shareWith", "retention"]
+            } else {
+                &["shareWith"]
+            };
+            if keys.iter().any(|k| admin_only.contains(&k.as_str())) && !r.may_admin {
                 return Err(set_error(SetErrorType::Forbidden, "mayAdmin required"));
             }
-            if keys
-                .iter()
-                .any(|k| !["isSubscribed", "shareWith", "updated"].contains(&k.as_str()))
-                && !r.may_write
+            if keys.iter().any(|k| {
+                !["isSubscribed", "updated"].contains(&k.as_str())
+                    && !admin_only.contains(&k.as_str())
+            }) && !r.may_write
             {
                 return Err(set_error(SetErrorType::Forbidden, "mayWrite required"));
             }
             // `isSubscribed` is the caller's own; `null` resets it.
             subscribed = patch.remove("isSubscribed");
+        } else if O::TYPE_NAME == GraphNode::TYPE_NAME && inner.provenance(account_id) {
+            // §Sharing Rights: mayWrite or mayCurate, decided on the
+            // patched record below.
+            node_rights = Some(
+                inner
+                    .rights(caller, account_id, &graph_of(&current))
+                    .filter(|r| r.may_read)
+                    .ok_or_else(not_found)?,
+            );
         } else {
             inner.require_write(caller, account_id, &graph_of(&current), not_found)?;
         }
@@ -1085,6 +1210,23 @@ impl GraphBackend for MemoryBackend {
         };
         apply_patch_object(base, &patch)
             .map_err(|e| set_error(SetErrorType::InvalidPatch, &e.to_string()))?;
+        let empty = serde_json::Map::new();
+        if let Some(rights) = &node_rights {
+            // §Retraction and §Sharing Rights, re-checked under the lock, so
+            // an update cannot slip past a concurrent retraction.
+            let (before, after) = (
+                old.as_object().unwrap_or(&empty),
+                current.as_object().unwrap_or(&empty),
+            );
+            check_record_update(before, after, &keys, rights).map_err(BackendSetError::SetError)?;
+            if !provenance::is_retracted(before) && provenance::is_retracted(after) {
+                let mut clear = serde_json::Map::new();
+                provenance::retraction_patch(before, after, &mut clear);
+                if let Value::Object(m) = &mut current {
+                    m.extend(clear);
+                }
+            }
+        }
         if O::deserialize(&current).is_err() {
             return Err(set_error(
                 SetErrorType::InvalidProperties,
@@ -1117,6 +1259,8 @@ impl GraphBackend for MemoryBackend {
             if !bad.is_empty() {
                 return Err(invalid(&bad, "not a GraphNode of the edge's Graph"));
             }
+            let defer = self.inner.deferring();
+            inner.check_edge_provenance(account_id, Some(&old), Some(&current), defer)?;
         }
         match subscribed {
             Some(Value::Bool(b)) => {
@@ -1127,7 +1271,17 @@ impl GraphBackend for MemoryBackend {
             }
             None => {}
         }
-        if let Some(previous) = inner.get(O::TYPE_NAME, account_id, id).cloned() {
+        let retracted =
+            node_rights.is_some() && current.as_object().is_some_and(provenance::is_retracted);
+        if retracted {
+            // provenance-00 §Retraction: a server with GraphNode history
+            // "SHOULD NOT return any prior version of a retracted record,
+            // and SHOULD permanently remove those versions when the record
+            // is retracted".
+            if let Some(h) = inner.history.as_mut() {
+                h.purge(GraphNode::TYPE_NAME, account_id, id);
+            }
+        } else if let Some(previous) = inner.get(O::TYPE_NAME, account_id, id).cloned() {
             inner.record_replace(O::TYPE_NAME, account_id, id, previous);
         }
         inner
@@ -1160,8 +1314,19 @@ impl GraphBackend for MemoryBackend {
             if !r.may_admin {
                 return Err(set_error(SetErrorType::Forbidden, "mayAdmin required"));
             }
+        } else if O::TYPE_NAME == GraphNode::TYPE_NAME && inner.provenance(account_id) {
+            // provenance-00 §Sharing Rights: "Destroying a record requires
+            // `mayCurate`, in place of the `mayWrite`".
+            let r = inner
+                .rights(caller, account_id, &graph_of(&current))
+                .filter(|r| r.may_read)
+                .ok_or_else(not_found)?;
+            require_curate(&r).map_err(BackendSetError::SetError)?;
         } else {
             inner.require_write(caller, account_id, &graph_of(&current), not_found)?;
+            if O::TYPE_NAME == GraphEdge::TYPE_NAME {
+                inner.check_edge_provenance(account_id, Some(&current), None, false)?;
+            }
         }
         inner.destroy_where(O::TYPE_NAME, account_id, |v| v["id"] == json!(id));
         let id_str = Some(id.as_ref());
@@ -1316,21 +1481,56 @@ fn sequence(
 /// logs (so a rolled-back `GraphNodeOp/set` leaves the node's `seq` where
 /// it was) and queued cursor events together, cascades included.
 ///
-/// Commit checks nothing extra: a GraphNode destroy takes its edges with
-/// it, and edge endpoints are checked against the stored nodes when an
-/// edge is written, by GraphEdge/set, which changes no nodes; so no final
-/// state strands an edge.
+/// A GraphNode destroy takes its edges with it, and edge endpoints are
+/// checked against the stored nodes when an edge is written, by
+/// GraphEdge/set, which changes no nodes; so no final state strands an
+/// edge. Under an atomic scope the provenance-00 evidence limit moves to
+/// the commit (`final_state_failures`), so a call can replace an evidence
+/// edge of a record at the limit.
 impl ConditionalBackend for MemoryBackend {
     async fn begin_set(
         &self,
         _caller: &Id,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
-        Ok(self
-            .inner
-            .open(request, |_: &Inner, _: &Inner| Vec::new())
-            .await)
+        Ok(self.inner.open(request, final_state_failures).await)
     }
+}
+
+/// The evidence edges an atomic scope created or moved onto a record that
+/// then has more than 32 (provenance-00 §Limits): `overQuota` on each.
+fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
+    let mut failures = Vec::new();
+    for account in after.accounts.keys() {
+        let account_id = Id::from(account.as_str());
+        if !after.provenance(&account_id) {
+            continue;
+        }
+        let old = before.objects(GraphEdge::TYPE_NAME, &account_id);
+        let key = |v: &Value| {
+            (v.get("type").and_then(Value::as_str) == Some(EVIDENCE_EDGE_TYPE))
+                .then(|| v.get("fromId").and_then(Value::as_str).map(str::to_owned))
+                .flatten()
+        };
+        for (id, edge) in after
+            .objects(GraphEdge::TYPE_NAME, &account_id)
+            .into_iter()
+            .flat_map(HashMap::iter)
+        {
+            let Some(from) = key(edge) else { continue };
+            let op = match old.and_then(|m| m.get(id)) {
+                None => SetOp::Create(id.clone()),
+                Some(prev) if key(prev).as_deref() != Some(from.as_str()) => {
+                    SetOp::Update(id.clone())
+                }
+                Some(_) => continue,
+            };
+            if after.evidence_count(&account_id, &from) > MAX_EVIDENCE_EDGES {
+                failures.push(DeferredFailure::new(op, evidence_over_quota()));
+            }
+        }
+    }
+    failures
 }
 
 #[cfg(test)]

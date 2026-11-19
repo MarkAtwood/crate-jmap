@@ -12,7 +12,9 @@ AGENTS.md "Canonical Templates").
 
 draft-atwood-jmap-graph-00 `Graph/*`, `GraphNode/*` and `GraphEdge/*`
 method handlers, the draft-atwood-jmap-graph-edit-00 `GraphNodeOp/*` and
-`GraphNode/cursor` handlers and WebSocket stream check, the `GraphBackend`
+`GraphNode/cursor` handlers and WebSocket stream check, the
+draft-atwood-jmap-graph-search-00 filter checks, the
+draft-atwood-jmap-graph-provenance-00 record rules, the `GraphBackend`
 trait and a `memory` reference backend. Depends on RFC 8620 crates and `jmap-graph-types` only.
 
 ## Before starting any work
@@ -53,4 +55,9 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-graph-serv
 | Compaction | backend policy, not a trait method; memory `compact_ops` |
 | Stream | `GraphEditSubscription` per connection + `should_deliver`; transport is the consumer's (scene/chat pattern) |
 | Cursor fan-out, block check | `publish_cursor` (no-op default), `is_sender_blocked(caller, sender)` (fail-open, bd:JMAP-bghk), asked only when `has_capability` reports Chat on the recipient's account |
+| Provenance capability | `has_capability(.., JMAP_GRAPH_PROVENANCE_URI)`, no new trait method; off means the properties are unknown extras and the four filters `unsupportedFilter` |
+| Provenance checks | pure functions in `provenance`, run by the handler on the fetched object and by the backend under the lock (same split as `check_node_edit`) |
+| Evidence limit | backend only (needs the store); deferred to the commit under an atomic scope (`final_state_failures`) |
+| Retention sweep | `provenance::sweep_retention`, generic over `GraphBackend`, destroys through `destroy_object` with the owner as caller; deployment schedules it |
+| Retraction and history | backend purges the node's history at retraction and records no later prior versions |
 | Tests | Each assertion quotes its draft line; never the code under test |

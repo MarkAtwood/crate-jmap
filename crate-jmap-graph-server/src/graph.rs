@@ -53,6 +53,18 @@ fn validate(m: &Map<String, Value>, cap: &GraphCapability) -> Result<(), Value> 
     check_annotations(m, cap)
 }
 
+/// draft-atwood-jmap-graph-provenance-00 on the Graph as it would be
+/// stored, for an account that advertises it: `retention` (§Graph
+/// Extensions) and a Boolean `mayCurate` in each `shareWith` entry
+/// (§Sharing Rights).
+fn validate_provenance(m: &Map<String, Value>) -> Result<(), Value> {
+    crate::provenance::check_retention(m).map_err(|e| Value::from(&*e))?;
+    if !crate::provenance::share_with_rights_ok(m) {
+        return Err(invalid(&["shareWith"], "mayCurate is a Boolean"));
+    }
+    Ok(())
+}
+
 /// Handle `Graph/get` (draft-atwood-jmap-graph-00 §Graph/get): standard
 /// RFC 8620 §5.1 `/get`, with a Graph the caller may not read reported in
 /// `notFound` (§Access Control: "`notFound` on `/get`").
@@ -142,11 +154,20 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
             ));
         }
         validate(&m, cap)?;
-        let omitted: Vec<&str> = DEFAULTED
+        let provenance = crate::node::provenance_on(backend, caller, account_id);
+        if provenance {
+            validate_provenance(&m)?;
+        }
+        let mut omitted: Vec<&str> = DEFAULTED
             .iter()
             .copied()
             .filter(|k| !m.contains_key(*k))
             .collect();
+        if provenance && !m.contains_key("retention") {
+            // §Graph Extensions: "`retention` (Retention|null, default: `null`)".
+            m.insert("retention".to_owned(), Value::Null);
+            omitted.push("retention");
+        }
         let now = now_utc_string();
         // `id` is required by the type, so the parse uses
         // `jmap_server::CREATE_ID_PLACEHOLDER`; the
@@ -200,13 +221,31 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
             ));
         }
         let r = &graph.my_rights;
-        if keys.iter().any(|k| k == "shareWith") && !r.may_admin {
-            return Err(forbidden("changing shareWith requires mayAdmin"));
+        let provenance = crate::node::provenance_on(backend, caller, account_id);
+        // draft-atwood-jmap-graph-provenance-00 §Graph Extensions: "Only a
+        // user with `mayAdmin` may change [`retention`]".
+        let admin_only: &[&str] = if provenance {
+            &["shareWith", "retention"]
+        } else {
+            &["shareWith"]
+        };
+        if keys.iter().any(|k| admin_only.contains(&k.as_str())) && !r.may_admin {
+            return Err(forbidden(
+                "changing shareWith or retention requires mayAdmin",
+            ));
         }
-        if keys.iter().any(|k| k != "isSubscribed" && k != "shareWith") && !r.may_write {
+        if keys
+            .iter()
+            .any(|k| k != "isSubscribed" && !admin_only.contains(&k.as_str()))
+            && !r.may_write
+        {
             return Err(forbidden("changing name or annotations requires mayWrite"));
         }
-        validate(&patched(&graph, &patch)?, cap)?;
+        let next = patched(&graph, &patch)?;
+        validate(&next, cap)?;
+        if provenance {
+            validate_provenance(&next)?;
+        }
 
         let mut echo = Value::Null;
         if keys.iter().any(|k| k != "isSubscribed") {

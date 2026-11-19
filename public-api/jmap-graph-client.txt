@@ -22,6 +22,7 @@ pub fn jmap_graph_client::SessionClient::client(&self) -> &jmap_base_client::cli
 pub fn jmap_graph_client::SessionClient::for_account(&self, &str) -> core::result::Result<Self, jmap_base_client::error::ClientError>
 pub fn jmap_graph_client::SessionClient::graph_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
 pub fn jmap_graph_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+pub fn jmap_graph_client::SessionClient::supports_provenance(&self) -> bool
 impl jmap_graph_client::SessionClient
 pub async fn jmap_graph_client::SessionClient::graph_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_graph_client::SessionClient::graph_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_graph_types::graph::Graph>, jmap_base_client::error::ClientError>

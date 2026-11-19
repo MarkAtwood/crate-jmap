@@ -84,11 +84,11 @@ async fn node_and_edge_misspelt_key_is_unsupported_filter() {
 }
 
 /// draft-atwood-jmap-graph-provenance-00 §Query Filters (`basis`,
-/// `status`, `pinned`, `validAt`) decode but are not evaluated yet
-/// (bd JMAP-98sl.7): `unsupportedFilter`, never an ignored, match-all
-/// condition.
+/// `status`, `pinned`, `validAt`) on an account that does not advertise
+/// the capability: `unsupportedFilter`, never an ignored, match-all
+/// condition (tests/provenance.rs covers an account that does).
 #[tokio::test]
-async fn provenance_filters_are_unsupported_until_evaluated() {
+async fn provenance_filters_are_unsupported_without_the_capability() {
     let backend = backend();
     let resp = call!(
         handle_graph_set,

@@ -36,7 +36,7 @@ impl super::SessionClient {
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<Graph>, jmap_base_client::ClientError> {
-        self.standard_get("Graph/get", super::USING_GRAPH, ids, properties)
+        self.standard_get("Graph/get", &self.using_graph(), ids, properties)
             .await
     }
 
@@ -63,7 +63,7 @@ impl super::SessionClient {
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
         self.standard_changes(
             "Graph/changes",
-            super::USING_GRAPH,
+            &self.using_graph(),
             since_state,
             max_changes,
         )
@@ -113,7 +113,7 @@ impl super::SessionClient {
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
         self.standard_set(
             "Graph/set",
-            super::USING_GRAPH,
+            &self.using_graph(),
             create,
             update,
             destroy,
@@ -150,7 +150,7 @@ impl super::SessionClient {
         sort: Option<&[GraphComparator]>,
         params: &jmap_base_client::QueryParams,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
-        self.standard_query("Graph/query", super::USING_GRAPH, filter, sort, params)
+        self.standard_query("Graph/query", &self.using_graph(), filter, sort, params)
             .await
     }
 
@@ -187,7 +187,7 @@ impl super::SessionClient {
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
         self.standard_query_changes(
             "Graph/queryChanges",
-            super::USING_GRAPH,
+            &self.using_graph(),
             since_query_state,
             max_changes,
             filter,
