@@ -460,10 +460,11 @@ fn handle_push_disable(push_task: &mut Option<JoinHandle<()>>) {
 ///
 /// On entry, if `push_state` was supplied on `WebSocketPushEnable`
 /// (bd:JMAP-cf7p.12), the loop replays retained entries past that id
-/// before entering the live loop. The replay window is capped by the
-/// log's ring buffer; if `push_state < oldest_event_id`, the
-/// subscriber starts at "current" and the client must resync via
-/// `Foo/changes`.
+/// before entering the live loop. If the log no longer holds every
+/// entry past it, or the token is newer than the log (e.g. after a jig
+/// restart), the subscriber starts at "current" without replay and the
+/// client must resync via `Foo/changes`
+/// ([`crate::replay::StateChangeLog::resume_point`]).
 ///
 /// Wakes on either:
 /// - The state-change watch [`tokio::sync::watch::Receiver::changed`]
@@ -486,16 +487,9 @@ async fn push_loop(
     let mut state_changes = state.subscribe_state_changes();
     state_changes.mark_unchanged();
 
-    // Determine the starting position. If pushState is supplied and
-    // within the log's retained window, replay from there; otherwise
-    // start at current.
-    let log_current = state.state_log.current_event_id();
-    let log_oldest = state.state_log.oldest_event_id();
-    let mut last_seen = match push_state {
-        Some(n) if log_oldest == 0 || n + 1 >= log_oldest => n,
-        Some(_) => log_current,
-        None => log_current,
-    };
+    // Replay from pushState when the log can; otherwise start at
+    // current (jmap-chat-wss-guide §State-change push).
+    let mut last_seen = state.state_log.resume_point(push_state);
 
     // Replay any pending events at startup (bd:JMAP-cf7p.12).
     let _ = emit_pending(&state, &account, &mut last_seen, &filter, &push_tx).await;

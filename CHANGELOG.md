@@ -956,6 +956,14 @@ wire behaviour that a conforming peer can observe.
   §Checking capabilities: clients "MUST NOT send `ChatStreamEnable`" in
   that case). Pass the Session as the new first argument. (bd:JMAP-c70f)
 
+- **jmap-testjig**: a WebSocket `pushState` (or SSE `Last-Event-ID`) the
+  jig has no complete history for resumes from the current state without
+  replay (jmap-chat-wss-guide §State-change push). That covers a token
+  newer than the log, e.g. from before a jig restart, which used to
+  skip every new event up to its value, and a token past which a
+  per-type ring was evicted, which used to replay partial history
+  because another type's older entry was still retained. (bd:JMAP-rigq)
+
 - **BREAKING** **jmap-vtc-types**: hosted livestreams
   (draft-atwood-jmap-vtc-00 §VTCLivestream). `VtcLivestream` gains `mode`
   (`LivestreamMode`, default push), `failure_reason`

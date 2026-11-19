@@ -102,6 +102,130 @@ async fn push_state_replays_missed_changes() {
     jig.shutdown().await;
 }
 
+/// The jig's per-type replay ring holds 1024 entries
+/// (`replay::RING_CAPACITY`, crate-private).
+const RING_CAPACITY: usize = 1024;
+
+/// How long a reconnect is watched for a replay frame that must not
+/// come. Replay is sent before the push task's first wait, so it would
+/// arrive well inside this.
+const NO_REPLAY_WINDOW: Duration = Duration::from_millis(300);
+
+/// jmap-chat-wss-guide §State-change push: "When a client reconnects
+/// with a `pushState` the server no longer has history for, the server
+/// MUST resume delivering from the current state without replaying
+/// history." The Space ring rolls over past the token while the
+/// startup-recorded types keep lower ids retained, so the token looks
+/// in range by the smallest retained id; nothing is replayed, and the
+/// next change is delivered.
+#[tokio::test]
+async fn evicted_push_state_resumes_from_current() {
+    let jig = spawn_in_process(TestjigConfig::default())
+        .await
+        .expect("spawn testjig");
+    let token = jig.token.clone();
+    let addr = jig.addr;
+    let http = reqwest::Client::new();
+    let api_url = format!("http://{addr}/jmap");
+
+    let stale = {
+        let mut socket = open_ws_socket(addr, &token).await;
+        send_push_enable(&mut socket, None).await;
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        space_create(&http, &api_url, &token, "before").await;
+        let frame = read_state_change_for(&mut socket, "Space")
+            .await
+            .expect("StateChange frame must arrive");
+        let v: Value = serde_json::from_str(&frame).expect("StateChange JSON");
+        let push_state = v["pushState"].as_str().expect("pushState").to_owned();
+        let _ = socket.close(None).await;
+        push_state
+    };
+    tokio::time::sleep(Duration::from_millis(20)).await;
+
+    // Roll the Space ring past `stale`.
+    for i in 0..=RING_CAPACITY {
+        space_create(&http, &api_url, &token, &format!("churn-{i}")).await;
+    }
+
+    let mut socket = open_ws_socket(addr, &token).await;
+    send_push_enable(&mut socket, Some(&stale)).await;
+    assert_no_state_change(&mut socket).await;
+
+    space_create(&http, &api_url, &token, "after").await;
+    let frame = read_state_change_for(&mut socket, "Space")
+        .await
+        .expect("a change after the reconnect must be delivered");
+    let v: Value = serde_json::from_str(&frame).expect("StateChange JSON");
+    let after: u64 = v["pushState"].as_str().unwrap().parse().unwrap();
+    let stale: u64 = stale.parse().unwrap();
+    assert!(after > stale + RING_CAPACITY as u64);
+
+    let _ = socket.close(None).await;
+    jig.shutdown().await;
+}
+
+/// A `pushState` newer than any event the jig has assigned (a token
+/// from before a restart) is one the server has no history for, so it
+/// resumes from current (jmap-chat-wss-guide §State-change push):
+/// nothing is replayed, and every change after the connect is
+/// delivered rather than skipped up to the token's value.
+#[tokio::test]
+async fn future_push_state_resumes_from_current() {
+    let jig = spawn_in_process(TestjigConfig::default())
+        .await
+        .expect("spawn testjig");
+    let token = jig.token.clone();
+    let addr = jig.addr;
+    let http = reqwest::Client::new();
+    let api_url = format!("http://{addr}/jmap");
+
+    // History the reconnect must not replay.
+    space_create(&http, &api_url, &token, "before").await;
+
+    let future = "1000000";
+    let mut socket = open_ws_socket(addr, &token).await;
+    send_push_enable(&mut socket, Some(future)).await;
+    assert_no_state_change(&mut socket).await;
+
+    for name in ["after-1", "after-2"] {
+        space_create(&http, &api_url, &token, name).await;
+        let frame = read_state_change_for(&mut socket, "Space")
+            .await
+            .expect("each change after the connect must be delivered");
+        let v: Value = serde_json::from_str(&frame).expect("StateChange JSON");
+        let id: u64 = v["pushState"].as_str().unwrap().parse().unwrap();
+        assert!(id < 1_000_000, "pushState {id} is the jig's own id");
+    }
+
+    let _ = socket.close(None).await;
+    jig.shutdown().await;
+}
+
+/// Assert that no `StateChange` frame arrives within
+/// [`NO_REPLAY_WINDOW`].
+async fn assert_no_state_change<S>(socket: &mut S)
+where
+    S: futures_util::Stream<Item = Result<Message, tokio_tungstenite::tungstenite::Error>> + Unpin,
+{
+    let deadline = tokio::time::Instant::now() + NO_REPLAY_WINDOW;
+    while let Some(remaining) = deadline.checked_duration_since(tokio::time::Instant::now()) {
+        let Ok(next) = tokio::time::timeout(remaining, socket.next()).await else {
+            return;
+        };
+        if let Some(Ok(Message::Text(t))) = next {
+            let v: Value = serde_json::from_str(&t).unwrap_or(Value::Null);
+            assert_ne!(
+                v.get("@type").and_then(Value::as_str),
+                Some("StateChange"),
+                "no history may be replayed: {t}"
+            );
+        } else {
+            panic!("socket ended while waiting: {next:?}");
+        }
+    }
+}
+
 /// Open a WebSocket connection to the testjig, negotiating the `jmap`
 /// subprotocol and authenticating via the `?token=` query fallback.
 async fn open_ws_socket(

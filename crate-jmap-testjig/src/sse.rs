@@ -335,20 +335,13 @@ pub async fn get_events(
     // 2. `Last-Event-ID: N` where N is within the retained window:
     //    start at N; the first `events_since` call will replay
     //    everything missed.
-    // 3. `Last-Event-ID: N` where N predates the oldest retained
-    //    entry (ring buffer rolled over): start at the log's current
-    //    id and drop a replay-incomplete `state` event so the client
-    //    knows to resync via `Foo/changes`. The testjig MVP starts
-    //    at current and lets the client notice missing ids; a
-    //    production server would emit a `Connection: close` after a
-    //    distinct error event.
-    let log_current = state.inner.state_log.current_event_id();
-    let log_oldest = state.inner.state_log.oldest_event_id();
-    let last_seen = match last_event_id {
-        Some(n) if log_oldest == 0 || n + 1 >= log_oldest => n,
-        Some(_) => log_current,
-        None => log_current,
-    };
+    // 3. `Last-Event-ID: N` the log can no longer replay from (a ring
+    //    rolled over past N) or newer than the log (e.g. from before a
+    //    jig restart): start at the log's current id, so no partial
+    //    history is replayed and no new event is skipped. The testjig
+    //    MVP lets the client notice missing ids; a production server
+    //    would emit a `Connection: close` after a distinct error event.
+    let last_seen = state.inner.state_log.resume_point(last_event_id);
 
     let (tx, rx) = mpsc::channel::<Result<Event, Infallible>>(SSE_CHANNEL_BOUND);
 

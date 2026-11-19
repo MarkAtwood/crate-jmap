@@ -22,11 +22,12 @@
 //! On reconnect with a `Last-Event-ID` header (SSE) or a `pushState`
 //! field (WS), the subscriber sets its `last_seen_event_id` to the
 //! supplied value and the next `events_since` call replays everything
-//! the log still retains past that point. If the supplied id is older
-//! than the log's oldest retained entry (ring buffer rolled over), the
-//! subscriber falls back to the log's current id and the client must
-//! `Foo/changes` to catch up — replay-not-possible signalling is
-//! handled per-handler (SSE/WS).
+//! the log still retains past that point. If the log no longer holds
+//! every event after the supplied id (a ring rolled over past it), or
+//! the id is newer than any event the log assigned (e.g. a token from
+//! before a jig restart), the subscriber resumes from the log's current
+//! id without replay and the client must `Foo/changes` to catch up
+//! ([`StateChangeLog::resume_point`]).
 //!
 //! # Why producer-driven (and not the previous per-subscriber diff)
 //!
@@ -103,6 +104,13 @@ struct Inner {
     /// Per-type ring buffer of recorded entries. Newest at the back;
     /// pop-front on overflow.
     rings: BTreeMap<&'static str, VecDeque<StateChangeEntry>>,
+
+    /// Largest event id evicted from any ring, or `0` if none was.
+    /// Replay from `n` is complete only when `n >= evicted_through`.
+    /// The rings are per type, so the smallest retained id says
+    /// nothing about this: a type recorded once at startup keeps its
+    /// low id while a busy type's ring rolls over.
+    evicted_through: u64,
 }
 
 impl StateChangeLog {
@@ -113,6 +121,7 @@ impl StateChangeLog {
                 next_event_id: 1,
                 canonical: BTreeMap::new(),
                 rings: BTreeMap::new(),
+                evicted_through: 0,
             }),
         }
     }
@@ -159,10 +168,15 @@ impl StateChangeLog {
                 state_token: new_state.clone(),
             };
             let ring = inner.rings.entry(type_name).or_default();
-            if ring.len() >= RING_CAPACITY {
-                ring.pop_front();
-            }
+            let evicted = if ring.len() >= RING_CAPACITY {
+                ring.pop_front().map(|e| e.event_id)
+            } else {
+                None
+            };
             ring.push_back(entry.clone());
+            if let Some(id) = evicted {
+                inner.evicted_through = inner.evicted_through.max(id);
+            }
             recorded.push(entry);
         }
 
@@ -209,12 +223,9 @@ impl StateChangeLog {
 
     /// Return the most-recently-assigned event id (i.e. the largest
     /// `event_id` in any ring), or `0` if the log has never recorded
-    /// an event.
-    ///
-    /// Used as the initial `last_seen_event_id` for newly-connected
-    /// subscribers that did NOT supply a Last-Event-ID / pushState —
-    /// they start at "current state" so the first wake will emit
-    /// only genuinely-new changes.
+    /// an event. Subscribers get their start position from
+    /// [`Self::resume_point`]; this is for tests.
+    #[cfg(test)]
     pub(crate) fn current_event_id(&self) -> u64 {
         let inner = self
             .inner
@@ -223,24 +234,30 @@ impl StateChangeLog {
         inner.next_event_id.saturating_sub(1)
     }
 
-    /// Return the smallest `event_id` still retained across all
-    /// rings, or `0` if the log is empty.
+    /// Return the event id a subscriber presenting `token` resumes
+    /// after: the subscriber is sent every entry with a larger id.
     ///
-    /// A subscriber supplying `Last-Event-ID: N` where
-    /// `N < oldest_event_id()` has missed events that have rolled
-    /// out of the ring; the SSE / WS handler signals replay-failure
-    /// per its protocol's conventions.
-    pub(crate) fn oldest_event_id(&self) -> u64 {
+    /// - `None` (no token): the current id, so only new changes are
+    ///   sent.
+    /// - `Some(n)` with every event after `n` still retained and
+    ///   `n <= current`: `n`, so the missed events are replayed.
+    /// - `Some(n)` the log no longer has history for (an event after
+    ///   `n` was evicted) or newer than any assigned id (a token from
+    ///   before a restart): the current id. jmap-chat-wss-guide
+    ///   §State-change push: "the server MUST resume delivering from
+    ///   the current state without replaying history". Resuming at `n`
+    ///   for a future token would instead skip every new event up to
+    ///   `n`.
+    pub(crate) fn resume_point(&self, token: Option<u64>) -> u64 {
         let inner = self
             .inner
             .lock()
             .expect("StateChangeLog mutex poisoned by another thread panicking with lock held");
-        inner
-            .rings
-            .values()
-            .filter_map(|ring| ring.front().map(|e| e.event_id))
-            .min()
-            .unwrap_or(0)
+        let current = inner.next_event_id.saturating_sub(1);
+        match token {
+            Some(n) if n >= inner.evicted_through && n <= current => n,
+            _ => current,
+        }
     }
 }
 
@@ -272,14 +289,13 @@ mod tests {
         pairs.iter().map(|(t, s)| (*t, s.to_string())).collect()
     }
 
-    /// Oracle: a fresh log starts at `current_event_id() == 0` and
-    /// `oldest_event_id() == 0` — the "no events yet" sentinel that
-    /// `events_since(0, ...)` returns nothing against.
+    /// Oracle: a fresh log starts at `current_event_id() == 0` — the
+    /// "no events yet" sentinel that `events_since(0, ...)` returns
+    /// nothing against.
     #[test]
     fn fresh_log_has_no_events() {
         let log = StateChangeLog::new();
         assert_eq!(log.current_event_id(), 0);
-        assert_eq!(log.oldest_event_id(), 0);
         assert!(log.events_since(0, &TypeFilter::Wildcard).is_empty());
     }
 
@@ -370,20 +386,49 @@ mod tests {
         assert_eq!(entries.last().unwrap().event_id, (RING_CAPACITY + 5) as u64);
     }
 
-    /// Oracle: when the requested `last_seen` predates the oldest
-    /// retained entry, the caller can detect ring-rollover by
-    /// comparing `oldest_event_id() > last_seen`. The log itself
-    /// returns whatever it still has — the no-replay signal is
-    /// per-protocol (SSE / WS handlers' concern).
+    /// Oracle: a token whose following events are all retained resumes
+    /// at the token (replay); no token resumes at current.
     #[test]
-    fn oldest_event_id_signals_rollover() {
+    fn resume_point_replays_retained_history() {
         let log = StateChangeLog::new();
+        for i in 0..3 {
+            log.record_from_snapshot(snap(&[("Email", &format!("v{i}"))]));
+        }
+        assert_eq!(log.resume_point(Some(1)), 1);
+        assert_eq!(log.resume_point(Some(3)), 3);
+        assert_eq!(log.resume_point(None), 3);
+    }
+
+    /// Oracle: jmap-chat-wss-guide §State-change push: a token the
+    /// server "no longer has history for" resumes "from the current
+    /// state without replaying history". Mailbox keeps id 1 retained
+    /// while Email's ring rolls over ids 2..=6, so a token of 3 has
+    /// lost events 4..=6 even though id 1 is still held.
+    #[test]
+    fn resume_point_evicted_token_resumes_at_current() {
+        let log = StateChangeLog::new();
+        log.record_from_snapshot(snap(&[("Mailbox", "x")]));
         for i in 0..(RING_CAPACITY + 5) {
             log.record_from_snapshot(snap(&[("Email", &format!("v{i}"))]));
         }
-        // Oldest retained id == 6 (entries 1..=5 rolled out).
-        assert_eq!(log.oldest_event_id(), 6);
-        assert!(log.oldest_event_id() > 3); // a client at Last-Event-ID:3 missed events
+        let current = (RING_CAPACITY + 6) as u64;
+        assert_eq!(log.current_event_id(), current);
+        assert_eq!(log.resume_point(Some(3)), current);
+        // Ids 2..=6 rolled out; 6 is the last evicted, so 6 still
+        // replays completely.
+        assert_eq!(log.resume_point(Some(5)), current);
+        assert_eq!(log.resume_point(Some(6)), 6);
+    }
+
+    /// Oracle: a token newer than any assigned id (e.g. from before a
+    /// restart, against an empty log) resumes at current, not at the
+    /// token, so the next new event is delivered.
+    #[test]
+    fn resume_point_future_token_resumes_at_current() {
+        let log = StateChangeLog::new();
+        assert_eq!(log.resume_point(Some(42)), 0);
+        log.record_from_snapshot(snap(&[("Email", "a")]));
+        assert_eq!(log.resume_point(Some(42)), 1);
     }
 
     /// Oracle: each type has its own ring; high write rate on one
