@@ -1,1 +1,2 @@
 {"id":"01a1d271-7e0c-7b42-bb50-2ce5f9586254","issue_id":"JMAP-fg1r","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-13T01:06:55.628738748Z"}
+{"id":"01a1f609-65ec-7aef-98bb-ace1204e829a","issue_id":"JMAP-fg1r","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in 221bea09; also the two FilesRights expects in the same file.","created_at":"2026-11-19T22:59:33.484717229Z"}
