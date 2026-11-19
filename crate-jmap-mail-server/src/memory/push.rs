@@ -24,7 +24,6 @@ use crate::emailpush::{
     DeliveredEmail, EmailPushAccount, EmailPushBackend, EmailPushBatch, OutboundEmailPush,
     check_email_push_change, email_pushes_for, prune_email_push,
 };
-use jmap_server::ObjectHistoryBackend;
 
 /// The most push subscriptions the memory backend stores ("The server MUST
 /// limit the number of push subscriptions any one user may have", RFC 8620
@@ -37,8 +36,8 @@ pub const MAX_PUSH_SUBSCRIPTIONS: usize = 50;
 /// `jmap_web_push::MAX_PLAINTEXT`, which this crate does not depend on.
 pub const PUSH_PLAINTEXT_BYTES: usize = 3993;
 
-/// Push state, beside the main store: it takes no part in conditional
-/// scopes and is never held across an await.
+/// Push state, a part of the backend's scoped store.
+#[derive(Clone)]
 pub(super) struct PushState {
     subs: BTreeMap<Id, StoredPushSubscription>,
     verifications: Vec<PushVerification>,
@@ -62,19 +61,11 @@ impl Default for PushState {
 }
 
 impl MemoryBackend {
-    fn push(&self) -> std::sync::MutexGuard<'_, PushState> {
-        // A poisoned lock means a panic mid-update in a test harness; the
-        // state is plain data, so keep using it.
-        self.push
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-    }
-
     /// Removes and returns the PushVerification objects queued by
     /// `PushSubscription/set` creates, oldest first. A client sets the
     /// code on its subscription to verify it (RFC 8620 §7.2.2).
     pub fn take_push_verifications(&self) -> Vec<PushVerification> {
-        std::mem::take(&mut self.push().verifications)
+        std::mem::take(&mut self.inner.lock_unscoped().push.verifications)
     }
 
     /// Simulates an SMTP delivery to `account_id`: stores `raw` as a blob,
@@ -139,7 +130,8 @@ impl MemoryBackend {
         let now_secs = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| i64::try_from(d.as_secs()).unwrap_or(i64::MAX));
-        let mut push = self.push();
+        let mut inner = self.inner.lock().await;
+        let push = &mut inner.push;
         let batch = EmailPushBatch::new(
             account_id,
             account,
@@ -170,19 +162,23 @@ impl MemoryBackend {
         account_id: &Id,
         account: Option<EmailPushAccount>,
     ) {
-        self.push().accounts.insert(account_id.clone(), account);
+        self.inner
+            .lock_unscoped()
+            .push
+            .accounts
+            .insert(account_id.clone(), account);
     }
 
     /// Sets the EmailPush size limit of [`deliver_email`](Self::deliver_email)
     /// (default [`PUSH_PLAINTEXT_BYTES`]).
     pub fn set_push_max_bytes_for_test(&self, max_bytes: usize) {
-        self.push().max_bytes = max_bytes;
+        self.inner.lock_unscoped().push.max_bytes = max_bytes;
     }
 
     /// Removes and returns every EmailPush produced so far, with its
     /// subscription's id.
     pub fn take_email_pushes_for_test(&self) -> Vec<(Id, OutboundEmailPush)> {
-        std::mem::take(&mut self.push().sent)
+        std::mem::take(&mut self.inner.lock_unscoped().push.sent)
     }
 }
 
@@ -199,7 +195,15 @@ impl PushSubscriptionBackend for MemoryBackend {
         caller: &(),
     ) -> Result<Vec<StoredPushSubscription>, MemoryError> {
         let accounts = self.email_push_accounts(caller).await?;
-        let mut subs: Vec<StoredPushSubscription> = self.push().subs.values().cloned().collect();
+        let mut subs: Vec<StoredPushSubscription> = self
+            .inner
+            .lock()
+            .await
+            .push
+            .subs
+            .values()
+            .cloned()
+            .collect();
         for s in &mut subs {
             prune_email_push(&mut s.subscription, &accounts);
         }
@@ -216,7 +220,8 @@ impl PushSubscriptionBackend for MemoryBackend {
     ) -> Result<StoredPushSubscription, BackendSetError<MemoryError>> {
         check_email_push_change(self, caller, None, &mut new).await?;
         let expected_code = random_code();
-        let mut push = self.push();
+        let mut inner = self.inner.lock().await;
+        let push = &mut inner.push;
         if push.subs.len() >= MAX_PUSH_SUBSCRIPTIONS {
             return Err(BackendSetError::SetError(Box::new(
                 SetError::new(SetErrorType::OverQuota).with_description(format!(
@@ -247,14 +252,17 @@ impl PushSubscriptionBackend for MemoryBackend {
             || BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)));
         let id = sub.id.clone().ok_or_else(not_found)?;
         let old = self
-            .push()
+            .inner
+            .lock()
+            .await
+            .push
             .subs
             .get(&id)
             .map(|s| s.subscription.clone())
             .ok_or_else(not_found)?;
         check_email_push_change(self, caller, Some(&old), &mut sub).await?;
-        let mut push = self.push();
-        let stored = push.subs.get_mut(&id).ok_or_else(not_found)?;
+        let mut inner = self.inner.lock().await;
+        let stored = inner.push.subs.get_mut(&id).ok_or_else(not_found)?;
         stored.subscription = sub.clone();
         Ok(sub)
     }
@@ -264,9 +272,16 @@ impl PushSubscriptionBackend for MemoryBackend {
         _caller: &(),
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
-        self.push().subs.remove(id).map(|_| ()).ok_or_else(|| {
-            BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
-        })
+        self.inner
+            .lock()
+            .await
+            .push
+            .subs
+            .remove(id)
+            .map(|_| ())
+            .ok_or_else(|| {
+                BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
+            })
     }
 }
 
@@ -278,30 +293,20 @@ impl EmailPushBackend for MemoryBackend {
         &self,
         _caller: &(),
     ) -> Result<BTreeMap<Id, EmailPushAccount>, MemoryError> {
-        let known: Vec<Id> = self
-            .inner
-            .lock()
-            .await
+        let inner = self.inner.lock().await;
+        // Email history exactly when the object-history capability lists
+        // Email, so `objectHistory` is accepted in a config where Email/get
+        // accepts it (decision 10).
+        let email_history = inner
+            .history
+            .as_ref()
+            .is_some_and(|h| h.capability().supports::<Email>());
+        Ok(inner
             .known_accounts
             .iter()
             .map(|a| Id::from(a.as_str()))
-            .collect();
-        // Email history exactly when this account's object-history
-        // capability lists Email, so `objectHistory` is accepted in a
-        // config where Email/get accepts it (decision 10).
-        let history: Vec<bool> = known
-            .iter()
-            .map(|id| {
-                self.object_history_capability(&(), id)
-                    .is_some_and(|c| c.supports::<Email>())
-            })
-            .collect();
-        let push = self.push();
-        Ok(known
-            .into_iter()
-            .zip(history)
-            .filter_map(|(id, email_history)| {
-                let account = match push.accounts.get(&id) {
+            .filter_map(|id| {
+                let account = match inner.push.accounts.get(&id) {
                     None => Some(
                         EmailPushAccount::new(true)
                             .with_object_ids(true)

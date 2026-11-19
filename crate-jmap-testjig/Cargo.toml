@@ -28,7 +28,7 @@ path = "src/main.rs"
 # All 8 reference impls use `type CallerCtx = ();` which lines up with
 # the testjig's single-hardcoded-principal posture.
 jmap-server = { workspace = true }
-jmap-mail-server = { workspace = true, features = ["memory"] }
+jmap-mail-server = { workspace = true, features = ["memory", "emailpush"] }
 jmap-chat-server = { workspace = true, features = ["memory"] }
 jmap-calendars-server = { workspace = true, features = ["memory"] }
 jmap-tasks-server = { workspace = true, features = ["memory"] }
@@ -128,6 +128,9 @@ tokio-stream = "0.1"
 subtle = { workspace = true }
 
 [dev-dependencies]
+# The mail memory backend's `*_for_test` knobs (EmailPush records) in
+# the jig's own tests.
+jmap-mail-server = { workspace = true, features = ["memory", "emailpush", "test-helpers"] }
 # Multi-thread runtime + macros for #[tokio::test] across the
 # in-process spawn integration tests.
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "net"] }

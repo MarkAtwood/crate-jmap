@@ -649,3 +649,152 @@ async fn created_email_message_is_a_blob() {
         "referenced: no expiry: {g}"
     );
 }
+
+// ---- EmailPush with object history (bd JMAP-r44n.18; tna1.3.15) ----
+
+const EMAILPUSH: &str = "urn:ietf:params:jmap:emailpush";
+
+/// Creates and verifies an EmailPush subscription for `acc` asking for
+/// `properties`; its `created` entry.
+async fn email_push_subscription(jig: &TestjigHandle, acc: &str, properties: Value) -> Value {
+    let r = one(
+        jig,
+        &[CORE, EMAILPUSH],
+        "PushSubscription/set",
+        json!({"create": {"c": {
+            "deviceClientId": "d", "url": "https://push.example.com/x",
+            "keys": {"p256dh": "client-p256dh", "auth": "client-auth"},
+            "emailPush": {acc: {"properties": properties}}
+        }}}),
+    )
+    .await;
+    let created = r["created"]["c"].clone();
+    let id = created["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("{r}"))
+        .to_owned();
+    let v = jig.mail.take_push_verifications();
+    let r = one(
+        jig,
+        &[CORE, EMAILPUSH],
+        "PushSubscription/set",
+        json!({"update": {&id: {"verificationCode": v[0].verification_code}}}),
+    )
+    .await;
+    assert!(r["updated"].get(&id).is_some(), "{r}");
+    created
+}
+
+/// emailpush-05 §2.1 in the Session; decision 10 over HTTP: Email has
+/// history here, so `objectHistory` is accepted and stored without it, and
+/// pushes hold a prefix of the stored list.
+#[tokio::test]
+async fn email_push_config_drops_object_history() {
+    let jig = spawn_in_process(TestjigConfig::default()).await.unwrap();
+    let s = session(&jig).await;
+    let acc = account(&s);
+    assert_eq!(s["capabilities"][EMAILPUSH], json!({}));
+    assert_eq!(
+        s["accounts"][&acc]["accountCapabilities"][EMAILPUSH],
+        json!({})
+    );
+
+    let sub =
+        email_push_subscription(&jig, &acc, json!(["from", "objectHistory", "subject"])).await;
+    assert_eq!(
+        sub["emailPush"][&acc]["properties"],
+        json!(["from", "subject"]),
+        "{sub}"
+    );
+    let got = one(
+        &jig,
+        &[CORE, EMAILPUSH],
+        "PushSubscription/get",
+        json!({"properties": ["emailPush"]}),
+    )
+    .await;
+    assert_eq!(
+        got["list"][0]["emailPush"][&acc]["properties"],
+        json!(["from", "subject"])
+    );
+
+    let boxes = one(
+        &jig,
+        &[CORE, MAIL],
+        "Mailbox/set",
+        json!({"accountId": acc, "create": {"m": {"name": "Inbox", "role": "inbox"}}}),
+    )
+    .await;
+    let mb = jmap_types::Id::from(created(&boxes, "m"));
+    let (_, pushes) = jig
+        .mail
+        .deliver_email(
+            &jmap_types::Id::from(acc.as_str()),
+            b"From: a@example.com\r\nSubject: Hi\r\n\r\nx\r\n",
+            &[mb],
+            &[],
+        )
+        .await
+        .unwrap();
+    assert_eq!(pushes.len(), 1);
+    assert_eq!(
+        Value::Array(
+            pushes[0]
+                .1
+                .push
+                .emails
+                .iter()
+                .cloned()
+                .map(Value::Object)
+                .collect()
+        ),
+        json!([{"from": [{"email": "a@example.com"}], "subject": "Hi"}])
+    );
+}
+
+/// object-history-03 §5.1: a restore is a method call, not a delivery
+/// (emailpush-05 §3), so it pushes nothing.
+#[tokio::test]
+async fn restored_email_sends_no_email_push() {
+    let jig = spawn_in_process(TestjigConfig::default()).await.unwrap();
+    let acc = account(&session(&jig).await);
+    email_push_subscription(&jig, &acc, json!(["id"])).await;
+    let using = [CORE, MAIL, HISTORY];
+    let boxes = one(
+        &jig,
+        &using,
+        "Mailbox/set",
+        json!({"accountId": acc, "create": {"m": {"name": "Inbox", "role": "inbox"}}}),
+    )
+    .await;
+    let mb = created(&boxes, "m");
+    let (id, _) = jig
+        .mail
+        .deliver_email(
+            &jmap_types::Id::from(acc.as_str()),
+            b"From: a@example.com\r\nSubject: Hi\r\n\r\nx\r\n",
+            &[jmap_types::Id::from(mb.as_str())],
+            &[],
+        )
+        .await
+        .unwrap();
+    assert_eq!(jig.mail.take_email_pushes_for_test().len(), 1);
+
+    let r = one(
+        &jig,
+        &using,
+        "Email/set",
+        json!({"accountId": acc, "destroy": [id.as_ref()]}),
+    )
+    .await;
+    assert_eq!(r["destroyed"], json!([id.as_ref()]), "{r}");
+    let r = one(
+        &jig,
+        &using,
+        "Email/set",
+        json!({"accountId": acc, "restore": {id.as_ref(): null}}),
+    )
+    .await;
+    assert!(r["restored"].get(id.as_ref()).is_some(), "{r}");
+    assert!(jig.mail.take_email_pushes_for_test().is_empty());
+}

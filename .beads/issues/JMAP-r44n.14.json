@@ -2,13 +2,14 @@
   "id": "JMAP-r44n.14",
   "title": "chat-client: use base-client PushSubscription bindings instead of private chat-flavoured ones",
   "description": "Design: docs/design/emailpush.md. Decisions: docs/design/DECISIONS.md.\nNote key: E14. Crates: jmap-chat-client. Size: S.\n\nFollow-up. Design: docs/design/emailpush.md §8.\n\njmap-chat-client has private chat-flavoured PushSubscription/get and /set code. Once jmap-base-client has the generic push_subscription_get/push_subscription_set (with extra_using), reimplement the chat-client helpers as thin wrappers over them, keeping the public chat-client API unchanged (or #[deprecated] wrappers per the repo stability policy if a signature must change).\nAcceptance: existing chat-client tests pass; no duplicate request-building code remains; public-api snapshot shows no unintended change.",
+  "notes": "2026-11-19 (blocked on a decision for Mark): base-client push_subscription_get/set landed (r44n.9). The chat-client helpers cannot become thin wrappers without public API changes: (1) push_subscription_create/update/destroy take if_in_state, but RFC 8620 §7.2.2 says PushSubscription/set 'does *not* take an ifInState argument' — the base binding has none; (2) push_subscription_update/destroy return SetResponse\u003cPartialObject\u003e, whose accountId and newState are required, while §7.2.2 says the response has no accountId/oldState/newState, so a compliant server's response may fail to decode; the base binding returns PushSubscriptionSetResponse. Options: deprecate the if_in_state parameters and the SetResponse returns (new methods returning PushSubscriptionSetResponse), or keep the chat API and only share request building.",
   "status": "open",
   "priority": 3,
   "issue_type": "chore",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:50:38.787991144Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T02:50:38.787991144Z",
+  "updated_at": "2026-11-19T01:08:24.016638148Z",
   "labels": [
     "spec-sync"
   ],

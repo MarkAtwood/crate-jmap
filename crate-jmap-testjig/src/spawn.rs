@@ -110,6 +110,11 @@ pub struct TestjigHandle {
     /// Echoed from [`TestjigConfig::token`].
     pub token: String,
 
+    /// The mail memory backend behind the jig, for what HTTP cannot do,
+    /// such as an SMTP-style delivery
+    /// ([`MemoryBackend::deliver_email`](jmap_mail_server::memory::MemoryBackend::deliver_email)).
+    pub mail: std::sync::Arc<jmap_mail_server::memory::MemoryBackend>,
+
     /// The tokio task running the axum server. Held inside an
     /// [`Option`] so [`Self::shutdown`] can take it, abort it, and
     /// await it without consuming `self` (the Drop impl needs to be
@@ -187,7 +192,9 @@ pub async fn spawn_in_process(config: TestjigConfig) -> std::io::Result<TestjigH
     let listener = TcpListener::bind(SocketAddr::new(config.ip, config.port)).await?;
     let addr = listener.local_addr()?;
 
-    let app = router(AppState::with_token(config.token.clone()).with_addr(addr));
+    let state = AppState::with_token(config.token.clone()).with_addr(addr);
+    let mail = state.mail_backend();
+    let app = router(state);
     let token = config.token;
 
     let task = tokio::spawn(async move {
@@ -203,6 +210,7 @@ pub async fn spawn_in_process(config: TestjigConfig) -> std::io::Result<TestjigH
     Ok(TestjigHandle {
         addr,
         token,
+        mail,
         task: Some(task),
     })
 }

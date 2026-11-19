@@ -171,6 +171,11 @@ struct Inner {
     /// Object history, once [`MemoryBackend::with_object_history`] turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
+    /// PushSubscription and EmailPush state, inside the scoped store so an
+    /// atomic PushSubscription/set rolls back its creates and their
+    /// PushVerifications.
+    #[cfg(feature = "emailpush")]
+    push: push::PushState,
 }
 
 impl ChangeEntry {
@@ -463,9 +468,6 @@ pub struct MemoryBackend {
     /// The shared blob store, once [`MemoryBackend::with_blob_store`] sets
     /// one.
     blob_store: blobs::BlobStore,
-    /// PushSubscription and EmailPush state.
-    #[cfg(feature = "emailpush")]
-    push: std::sync::Arc<std::sync::Mutex<push::PushState>>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -480,8 +482,6 @@ impl Clone for MemoryBackend {
         Self {
             inner: self.inner.clone(),
             blob_store: self.blob_store.clone(),
-            #[cfg(feature = "emailpush")]
-            push: std::sync::Arc::clone(&self.push),
         }
     }
 }

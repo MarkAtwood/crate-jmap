@@ -70,6 +70,13 @@ wire behaviour that a conforming peer can observe.
   has Email history exactly when its object-history capability lists
   Email, so `objectHistory` is accepted (and dropped) in an EmailPush
   config there. (bd:JMAP-r44n.16)
+- **jmap-mail-server** memory backend: the PushSubscription store lives in
+  the scoped store, so `register_push_subscription_conditional` works with
+  it and an atomic `PushSubscription/set` rolls back its creates and their
+  PushVerifications. **jmap-testjig**: registers PushSubscription (with
+  conditional-02) on the mail backend, advertises
+  `urn:ietf:params:jmap:emailpush`, and exposes the mail backend as
+  `TestjigHandle::mail` for deliveries. (bd:JMAP-r44n.18)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,

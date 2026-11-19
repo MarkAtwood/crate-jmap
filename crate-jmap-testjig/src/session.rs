@@ -344,6 +344,11 @@ pub fn session_json_for(addr: SocketAddr) -> Value {
         serde_json::to_value(object_history_capability(None)).unwrap_or_else(|_| json!({})),
     );
 
+    // draft-ietf-jmap-emailpush-05 §2.1: both values are "an empty
+    // object"; the mail backend's EmailPushBackend lists this account.
+    capabilities.insert(jmap_mail_types::JMAP_EMAILPUSH_URI.to_owned(), json!({}));
+    account_capabilities.insert(jmap_mail_types::JMAP_EMAILPUSH_URI.to_owned(), json!({}));
+
     let accounts = json!({
         ACCOUNT_ID: {
             "name": USERNAME,

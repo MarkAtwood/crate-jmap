@@ -186,6 +186,11 @@ impl AppStateInner {
 }
 
 impl AppState {
+    /// The mail memory backend the dispatcher serves.
+    pub(crate) fn mail_backend(&self) -> Arc<jmap_mail_server::memory::MemoryBackend> {
+        Arc::clone(&self.inner.mail)
+    }
+
     /// Build the testjig's application state with the foundation
     /// `Core/echo` handler registered and the default bearer token
     /// (`test-token`) configured for the auth middleware.
@@ -597,6 +602,15 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     );
     mail.register_account(&account);
     jmap_mail_server::register_mail_handlers_with_history(dispatcher, Arc::clone(&mail));
+    // RFC 8620 §7.2 PushSubscription, with draft-ietf-jmap-emailpush-05's
+    // `emailPush` (gated on its capability in `using`). Nothing is sent:
+    // the mail backend keeps the verifications and EmailPush objects.
+    jmap_server::register_push_subscription_handlers(dispatcher, Arc::clone(&mail));
+    // conditional-02 §2.1: the jig advertises conditional, so every Foo/set
+    // honours it, this one included; the mail backend's scope covers the
+    // push store.
+    jmap_server::register_push_subscription_conditional(dispatcher, Arc::clone(&mail))
+        .expect("PushSubscription/set is registered just above");
 
     // Chat (draft-atwood-jmap-chat-00): Chat, Message, Space,
     // SpaceBan, ChatContact, ReadPosition, CustomEmoji, SpaceInvite,

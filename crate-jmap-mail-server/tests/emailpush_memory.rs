@@ -382,3 +382,40 @@ async fn thread_conditions_see_the_thread() {
             .unwrap();
     assert_eq!(pushes.len(), 1);
 }
+
+/// conditional-02 §4: an atomic PushSubscription/set with one rejected
+/// create stores nothing and queues no PushVerification.
+#[tokio::test]
+async fn atomic_set_rolls_back_creates() {
+    let b = MemoryBackend::new();
+    b.register_account(&Id::from(ACCOUNT));
+    let mut d = Dispatcher::new();
+    register_push_subscription_handlers(&mut d, Arc::new(b.clone()));
+    jmap_server::register_push_subscription_conditional(&mut d, Arc::new(b.clone())).unwrap();
+    let sub = |email_push: Value| {
+        json!({"deviceClientId": "d", "url": "https://push.example.com/x",
+               "keys": {"p256dh": "k", "auth": "a"}, "emailPush": email_push})
+    };
+    let req: JmapRequest = serde_json::from_value(json!({
+        "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:emailpush",
+                  "urn:ietf:params:jmap:conditional"],
+        "methodCalls": [["PushSubscription/set", {"atomic": true, "create": {
+            "good": sub(json!({ACCOUNT: {}})),
+            "bad": sub(json!({"X": {}}))
+        }}, "0"]]
+    }))
+    .unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    let inv = &resp["methodResponses"][0];
+    assert_eq!(inv[0], "error", "{inv}");
+    assert_eq!(inv[1]["type"], "atomicFailure", "{inv}");
+    assert!(b.take_push_verifications().is_empty());
+
+    let req: JmapRequest = serde_json::from_value(json!({
+        "using": ["urn:ietf:params:jmap:core"],
+        "methodCalls": [["PushSubscription/get", {}, "0"]]
+    }))
+    .unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    assert_eq!(resp["methodResponses"][0][1]["list"], json!([]), "{resp}");
+}
