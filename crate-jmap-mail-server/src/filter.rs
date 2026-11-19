@@ -693,24 +693,24 @@ mod tests {
     fn metadata_conditions() {
         let mut e = email();
         e.metadata = Some(
-            json!({"example.com:tags": {"t": "Urgent"}})
+            json!({"tags.example.com": {"t": "Urgent"}})
                 .as_object()
                 .unwrap()
                 .clone(),
         );
-        e.private_metadata = Some(json!({"example.com:p": "x"}).as_object().unwrap().clone());
+        e.private_metadata = Some(json!({"p.example.com": "x"}).as_object().unwrap().clone());
         let run = |v| email_matches(&e, None, &f(v)).unwrap();
-        assert!(run(json!({"metadataExists": "example.com:tags"})));
-        assert!(!run(json!({"metadataExists": "example.com:p"})));
-        assert!(run(json!({"privateMetadataExists": "example.com:p"})));
+        assert!(run(json!({"metadataExists": "tags.example.com"})));
+        assert!(!run(json!({"metadataExists": "p.example.com"})));
+        assert!(run(json!({"privateMetadataExists": "p.example.com"})));
         assert!(run(
-            json!({"metadataTextContains": {"path": "example.com:tags/t", "value": "urg"}})
+            json!({"metadataTextContains": {"path": "tags.example.com/t", "value": "urg"}})
         ));
         assert!(!run(
-            json!({"metadataTextEquals": {"path": "example.com:tags/t", "value": "urgent"}})
+            json!({"metadataTextEquals": {"path": "tags.example.com/t", "value": "urgent"}})
         ));
         assert!(run(
-            json!({"privateMetadataTextEquals": {"path": "example.com:p", "value": "x"}})
+            json!({"privateMetadataTextEquals": {"path": "p.example.com", "value": "x"}})
         ));
     }
 
