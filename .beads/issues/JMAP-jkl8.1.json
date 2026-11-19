@@ -2,13 +2,15 @@
   "id": "JMAP-jkl8.1",
   "title": "Tasks: audit the 17 jmapio/jmap items against the crates",
   "description": "Decision: docs/design/DECISIONS.md #23. Spec base: /data/PROJECT/IETF/specs/draft-ietf-jmap-tasks-06.txt; editor's source /data/GIT/jmapio-jmap spec/tasks/*.mdown; Mark's item on github.com/jmapio/jmap (gh issue view/pr view \u003cn\u003e -R jmapio/jmap). Prior crate audit: JMAP-t8ej.17. For each of #456-#472 (10 issues, 7 PRs) record: what it changes, whether it changes wire behaviour or only text, and the crate's current state (start from JMAP-t8ej.17's notes; note its caveats that #456/#463 misdescribe the crate). Append findings to each sibling bead below (--append-notes) and file any extra crate work found. Size S.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T03:52:26.504294661Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-13T03:52:26.504294661Z",
+  "updated_at": "2026-11-19T22:55:23.108555139Z",
+  "closed_at": "2026-11-19T22:55:23.108555139Z",
+  "close_reason": "Audit in docs/audits/2026-11-19-jkl8.1/README.md; findings appended to jkl8.2, .4-.9; jkl8.3 closed (already conforms). No extra crate work beyond the existing beads.",
   "labels": [
     "spec-sync"
   ],
