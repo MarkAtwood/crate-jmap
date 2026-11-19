@@ -1,1 +1,2 @@
 {"id":"01a1f24b-43fc-7770-8b12-19f5be1629b1","issue_id":"JMAP-q2wa.49","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T05:33:01.308488612Z"}
+{"id":"01a1f272-ee5d-79f6-878b-8e4848389b41","issue_id":"JMAP-q2wa.49","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Fixed; tests/email_parse_properties.rs.","created_at":"2026-11-19T06:16:20.829653928Z"}
