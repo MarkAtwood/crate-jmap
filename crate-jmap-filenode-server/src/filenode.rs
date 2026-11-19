@@ -728,10 +728,8 @@ async fn report_files_rights<B: FileNodeBackend>(
             else {
                 continue;
             };
-            node.insert(
-                "myRights".to_owned(),
-                serde_json::to_value(r).expect("FilesRights serializes to JSON"),
-            );
+            let r = serde_json::to_value(r).map_err(|e| server_fail_from_backend(&e))?;
+            node.insert("myRights".to_owned(), r);
         }
     }
     Ok(())
@@ -798,13 +796,13 @@ async fn report_created_files_rights<B: FileNodeBackend>(
     if !has_my_rights(node) {
         return;
     }
+    // The echo is best effort: a rights lookup or serialization failure
+    // leaves `myRights` out of the created entry, as before.
     if let (Ok(Some(rights)), Value::Object(m)) =
         (backend.files_rights(caller, account_id, node).await, entry)
+        && let Ok(rights) = serde_json::to_value(rights)
     {
-        m.insert(
-            "myRights".to_owned(),
-            serde_json::to_value(rights).expect("FilesRights serializes to JSON"),
-        );
+        m.insert("myRights".to_owned(), rights);
     }
 }
 
@@ -3449,9 +3447,11 @@ fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<Fi
     let mut merged =
         jmap_server::serialize_value(&source).map_err(|e| server_fail_value_from_backend(&e))?;
 
-    let map = merged
-        .as_object_mut()
-        .expect("FileNode serializes to a JSON object");
+    // A FileNode is a struct, so this is always an object; a change that
+    // broke that is a serverFail for this entry, not a panic.
+    let map = merged.as_object_mut().ok_or_else(|| {
+        server_fail_value_from_backend("FileNode did not serialize to a JSON object")
+    })?;
 
     if let Some(over_obj) = override_val.as_object() {
         // Fields the server owns; never overridable from the client.
