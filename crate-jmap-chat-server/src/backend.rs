@@ -476,6 +476,9 @@ impl std::error::Error for SlowModeError {}
 // ChatBackend trait
 // ---------------------------------------------------------------------------
 
+mod delegate;
+pub use delegate::*;
+
 /// Storage backend for JMAP Chat method handlers.
 ///
 /// Implementors provide the actual data access; the method handler modules

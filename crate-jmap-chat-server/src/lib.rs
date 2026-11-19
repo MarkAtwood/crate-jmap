@@ -100,6 +100,11 @@ pub use backend::{
     ChatModeration, ChatResolvers, ChatRestrictions, ChatSettings, ChatSpaces, ChatStore,
     EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError, SpacePolicy,
 };
+pub use backend::{
+    DelegateChatAccessPolicy, DelegateChatEvents, DelegateChatMessageLifecycle,
+    DelegateChatModeration, DelegateChatResolvers, DelegateChatRestrictions, DelegateChatSettings,
+    DelegateChatSpaces, DelegateChatStore, DelegateSpacePolicy,
+};
 pub use ban::{handle_ban_changes, handle_ban_get, handle_ban_set};
 pub use chat::{
     handle_chat_changes, handle_chat_get, handle_chat_query, handle_chat_query_changes,

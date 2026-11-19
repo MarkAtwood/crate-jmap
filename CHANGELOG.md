@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server**: a `Delegate*` companion for each of the ten chat
+  hook traits (`DelegateChatStore` … `DelegateChatResolvers`). A wrapping
+  backend implements `DelegateChatX` (a `Target` type and one accessor)
+  instead of `ChatX` to forward that whole trait to the wrapped backend;
+  a delegated trait runs on the target, including its calls into other
+  hook traits. The `testkit` conformance suite runs on a delegate-only
+  wrapper of `MemoryBackend`. (bd:JMAP-it7g.6.2)
+
 - **jmap-chat-server** `memory`: for long-running and wrapping embedders,
   `MemoryBackend::with_change_log_limit` (older `sinceState` answers
   `cannotCalculateChanges`), `with_event_limit`, `drain_outbound_events`,

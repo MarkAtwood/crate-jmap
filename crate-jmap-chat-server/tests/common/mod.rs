@@ -29,7 +29,8 @@ pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 use jmap_chat_server::{
     AttachmentBlob, ChatAccessPolicy, ChatBackend, ChatEvents, ChatLimits, ChatMessageLifecycle,
     ChatModeration, ChatResolvers, ChatRestrictions, ChatSettings, ChatSpaces, ChatStore,
-    EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError, SpacePatchOp, SpacePolicy,
+    DelegateChatMessageLifecycle, DelegateChatResolvers, EmojiSetOp, InviteJoinRefusal, OpResult,
+    SlowModeError, SpacePatchOp, SpacePolicy,
 };
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
@@ -866,28 +867,10 @@ impl ChatModeration for TrackingBackend {
     }
 }
 
-impl ChatMessageLifecycle for TrackingBackend {
-    async fn expire_message(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        message_id: &Id,
-    ) -> Result<(), Self::Error> {
-        self.inner
-            .expire_message(caller, account_id, message_id)
-            .await
-    }
-
-    async fn read_and_burn_message(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        message_id: &Id,
-        patch: PatchObject,
-    ) -> Result<(), BackendSetError<Self::Error>> {
-        self.inner
-            .read_and_burn_message(caller, account_id, message_id, patch)
-            .await
+impl DelegateChatMessageLifecycle for TrackingBackend {
+    type Target = MemoryBackend;
+    fn chat_message_lifecycle(&self) -> &MemoryBackend {
+        &self.inner
     }
 }
 
@@ -1814,17 +1797,10 @@ impl ChatSettings for InjectableBackend {
     }
 }
 
-impl ChatResolvers for InjectableBackend {
-    async fn attachment_blob(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
-    {
-        self.inner
-            .attachment_blob(caller, account_id, blob_id)
-            .await
+impl DelegateChatResolvers for InjectableBackend {
+    type Target = MemoryBackend;
+    fn chat_resolvers(&self) -> &MemoryBackend {
+        &self.inner
     }
 }
 
