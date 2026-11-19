@@ -143,6 +143,10 @@ impl super::SessionClient {
     /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
     /// `stateMismatch` unless its current state matches.
     ///
+    /// `options` carries the conditional-02 `ifUnchangedBy`/`atomic` and the
+    /// object-history-03 `restore` ([`SetOptions`](jmap_base_client::SetOptions));
+    /// `None` sends neither, and `using` gains a URI only for what is set.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -163,10 +167,12 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
+        options: Option<jmap_base_client::SetOptions>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
-        if create.is_none() && update.is_none() && destroy.is_none() {
+        let options = options.unwrap_or_default();
+        if create.is_none() && update.is_none() && destroy.is_none() && options.restore.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "principal_set: at least one of create, update, destroy must be Some \
+                "principal_set: at least one of create, update, destroy must be Some, or options.restore non-empty \
                  (an all-None /set is a no-op round-trip)"
                     .into(),
             ));
@@ -187,7 +193,7 @@ impl super::SessionClient {
         if let Some(d) = destroy {
             args["destroy"] = jmap_base_client::to_args(&d)?;
         }
-        let req = super::build_request("Principal/set", args, super::USING_SHARING);
+        let req = options.request("Principal/set", args, super::USING_SHARING, super::CALL_ID)?;
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

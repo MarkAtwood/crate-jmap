@@ -130,6 +130,7 @@ async fn graph_node_op_set_matches_submitting_example() {
                 "o1": { "nodeId": "N1", "baseSeq": 41, "data": "AAECAwQF" }
             }),
             None,
+            None,
         )
         .await
         .expect("GraphNodeOp/set must succeed");
@@ -405,10 +406,12 @@ async fn sent_if_in_state(server: &MockServer) -> Vec<(String, Option<Value>)> {
 async fn send_all_set(server: &MockServer, if_in_state: Option<&State>) {
     let sc = make_client(server);
     let d = || Some(vec![Id::from("x")]);
-    let _ = sc.graph_set(None, None, d(), if_in_state).await;
-    let _ = sc.graph_edge_set(None, None, d(), if_in_state).await;
-    let _ = sc.graph_node_set(None, None, d(), if_in_state).await;
-    let _ = sc.graph_node_op_set(json!({ "c1": {} }), if_in_state).await;
+    let _ = sc.graph_set(None, None, d(), if_in_state, None).await;
+    let _ = sc.graph_edge_set(None, None, d(), if_in_state, None).await;
+    let _ = sc.graph_node_set(None, None, d(), if_in_state, None).await;
+    let _ = sc
+        .graph_node_op_set(json!({ "c1": {} }), if_in_state, None)
+        .await;
 }
 
 #[tokio::test]

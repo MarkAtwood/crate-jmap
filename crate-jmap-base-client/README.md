@@ -315,6 +315,9 @@ inside the arms. It returns the RFC 8887 `requestId` of a `Response` or
 (`ifUnchangedBy`, `atomic`) and object-history `restore`; `JmapClient::set_call`
 sends it, adding `urn:ietf:params:jmap:conditional` to `using` only when the
 conditional options are set. Check `Session::supports_conditional()` first.
+Every typed `*_set` binding in the family clients takes the same options as its
+last parameter, `options: Option<SetOptions>` (`conditional`, `restore`);
+`SetOptions::request` builds such a request.
 `ConditionalError::from_method_error` reads `stateMismatch` (with `failed`),
 `atomicFailure` and `cannotApplyAtomically` from a `ClientError::MethodError`.
 

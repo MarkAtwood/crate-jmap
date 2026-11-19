@@ -149,6 +149,7 @@ async fn graph_set_create_matches_example() {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("Graph/set must succeed");
@@ -184,7 +185,7 @@ async fn graph_node_set_create_matches_example() {
         }
     });
     make_client(&server)
-        .graph_node_set(Some(create.clone()), None, None, None)
+        .graph_node_set(Some(create.clone()), None, None, None, None)
         .await
         .expect("GraphNode/set must succeed");
 
@@ -212,7 +213,7 @@ async fn graph_edge_set_create_matches_example() {
         }
     });
     make_client(&server)
-        .graph_edge_set(Some(create.clone()), None, None, None)
+        .graph_edge_set(Some(create.clone()), None, None, None, None)
         .await
         .expect("GraphEdge/set must succeed");
 
@@ -247,6 +248,7 @@ async fn graph_node_set_patch_matches_annotation_example() {
         .graph_node_set(
             None,
             Some(BTreeMap::from([(Id::from("N1"), patch)])),
+            None,
             None,
             None,
         )
@@ -629,8 +631,63 @@ async fn empty_state_tokens_are_rejected_without_io() {
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(matches!(
-        gc.graph_node_set(None, None, None, None).await,
+        gc.graph_node_set(None, None, None, None, None).await,
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+/// y1yu.21 acceptance: `options` adds `ifUnchangedBy`, `atomic` and the
+/// conditional URI (draft-ietf-jmap-conditional-02 §3, §4), and `None` or
+/// default options send the same request as before.
+#[tokio::test]
+async fn set_options_on_the_wire() {
+    let server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({"methodResponses": [], "sessionState": "s"})),
+        )
+        .mount(&server)
+        .await;
+    let client = make_client(&server);
+    let mut conditional = jmap_types::conditional::ConditionalSetArgs::default();
+    conditional.atomic = true;
+    conditional.if_unchanged_by.insert("x".to_owned(), None);
+    let mut set = jmap_base_client::SetOptions::default();
+    set.conditional = conditional;
+    for options in [
+        None,
+        Some(jmap_base_client::SetOptions::default()),
+        Some(set),
+    ] {
+        // The empty response is an error; only the request matters.
+        let _ = client
+            .graph_set(
+                None,
+                None,
+                Some(vec![jmap_types::Id::from("x")]),
+                None,
+                options,
+            )
+            .await;
+    }
+    let bodies: Vec<serde_json::Value> = server
+        .received_requests()
+        .await
+        .expect("recording")
+        .iter()
+        .filter(|r| r.method == wiremock::http::Method::POST)
+        .map(|r| serde_json::from_slice(&r.body).expect("JSON body"))
+        .collect();
+    assert_eq!(bodies.len(), 3);
+    assert_eq!(bodies[0], bodies[1], "default options change nothing");
+    let mut want = bodies[0].clone();
+    want["using"]
+        .as_array_mut()
+        .expect("using")
+        .push("urn:ietf:params:jmap:conditional".into());
+    want["methodCalls"][0][1]["atomic"] = true.into();
+    want["methodCalls"][0][1]["ifUnchangedBy"] = serde_json::json!({"x": null});
+    assert_eq!(bodies[2], want);
 }

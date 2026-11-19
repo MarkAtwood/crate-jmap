@@ -43,9 +43,11 @@ async fn sent(server: &MockServer) -> Vec<(String, Option<Value>)> {
 async fn send_all(server: &MockServer, if_in_state: Option<&State>) {
     let sc = helpers::make_client(server);
     let d = || Some(vec![Id::from("x")]);
-    let _ = sc.contact_card_set(None, None, d(), if_in_state).await;
     let _ = sc
-        .address_book_set(None, None, d(), if_in_state, None)
+        .contact_card_set(None, None, d(), if_in_state, None)
+        .await;
+    let _ = sc
+        .address_book_set(None, None, d(), if_in_state, None, None)
         .await;
 }
 

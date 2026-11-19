@@ -154,7 +154,7 @@ async fn mailbox_set_routes_vendor_extras_to_wire() {
     // acmeCorpCascade.
     let update: std::collections::BTreeMap<jmap_types::Id, jmap_types::PatchObject> =
         std::collections::BTreeMap::new();
-    sc.mailbox_set(None, Some(update), None, None, Some(params))
+    sc.mailbox_set(None, Some(update), None, None, Some(params), None)
         .await
         .expect("must succeed");
 
@@ -199,7 +199,7 @@ async fn email_submission_set_routes_vendor_extras_to_wire() {
         .extra
         .insert("acmeCorpQueue".into(), json!("priority"));
     let update: BTreeMap<Id, PatchObject> = BTreeMap::new();
-    sc.email_submission_set(None, Some(update), None, None, Some(params))
+    sc.email_submission_set(None, Some(update), None, None, Some(params), None)
         .await
         .expect("must succeed");
 

@@ -80,6 +80,7 @@ async fn filenode_set_create_with_params() {
             None,
             None,
             Some(params),
+            None,
         )
         .await
         .expect("filenode_set_create_with_params: must succeed");
@@ -174,7 +175,14 @@ async fn filenode_set_destroy_node_has_children_error() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .filenode_set(None, None, Some(vec![Id::from("node-abc")]), None, None)
+        .filenode_set(
+            None,
+            None,
+            Some(vec![Id::from("node-abc")]),
+            None,
+            None,
+            None,
+        )
         .await
         .expect("filenode_set_destroy_node_has_children_error: must succeed");
 
@@ -532,6 +540,7 @@ async fn filenode_set_created_omits_client_sent_properties() {
     let resp = sc
         .filenode_set(
             Some(json!({ "k1": { "parentId": null, "name": "a.txt", "blobId": "B1" } })),
+            None,
             None,
             None,
             None,

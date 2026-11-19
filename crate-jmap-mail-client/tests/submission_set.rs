@@ -68,6 +68,7 @@ async fn email_submission_set_create_round_trip() {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("email_submission_set_create_round_trip: must succeed");
@@ -145,6 +146,7 @@ async fn email_submission_set_on_success_update_email() {
         None,
         None,
         Some(params),
+        None,
     )
     .await
     .expect("email_submission_set_on_success_update_email: must succeed");
@@ -203,7 +205,7 @@ async fn email_submission_set_no_on_success_when_none() {
     // onSuccessDestroyEmail must be absent when params=None) is
     // preserved.
     let destroy_ids: Vec<jmap_types::Id> = vec![];
-    sc.email_submission_set(None, None, Some(destroy_ids), None, None)
+    sc.email_submission_set(None, None, Some(destroy_ids), None, None, None)
         .await
         .expect("email_submission_set_no_on_success_when_none: must succeed");
 

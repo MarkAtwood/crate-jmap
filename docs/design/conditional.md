@@ -92,7 +92,7 @@ No new crate. Extend:
 - `jmap-chat-tasks-server`: a `hidden_properties` helper for Task `chatId`.
 - `jmap-base-client`: generic `SetCall` carrying conditional and object-history `restore`
   options (decision 8), `Session::supports_conditional`, error decoding.
-- `jmap-filenode-client`: `filenode_set_conditional` (decision 8).
+- Family clients: a last `options: Option<SetOptions>` parameter on every typed `*_set` (decision 36).
 - `jmap-testjig`: opt in, advertise, readiness assertion, HTTP end-to-end tests.
 
 Dependency edges: none new. `jmap-server` adds tokio feature `sync` behind `scoped-state`
@@ -481,13 +481,12 @@ destroys; chat CustomEmoji/SpaceBan uniqueness; chat-mimi KeyPackageRef reuse an
   `CannotApplyAtomically`; it matches `MethodErrorType::StateMismatch` and
   `Other(s)` against the `ATOMIC_FAILURE`/`CANNOT_APPLY_ATOMICALLY` consts (decision 7). Rustdoc
   says an older client treats the last as `serverFail` (§4.3).
-- Typed per-crate bindings: only FileNode, the spec's example type, gets
-  `filenode_set_conditional` in `jmap-filenode-client` now (decision 8). It is a new function, not
-  new fields on `FileNodeSetParams`: that struct is not `#[non_exhaustive]`, and `filenode_set`
-  fixes `using` to `USING_FILENODE`. It wraps `SetCall`.
-- Next breaking release (decision 8, follow-up bead C13): all 30 typed `*_set` fns gain one
-  growable `#[non_exhaustive]` options parameter carrying the conditional and object-history
-  options together, so later per-set options need no further signature change.
+- Typed per-crate bindings (decision 36, superseding the timing of decision 8(c)): all 30 typed
+  `*_set` fns take a last `options: Option<SetOptions>` parameter. `SetOptions`
+  (`#[non_exhaustive]`, in `jmap-base-client`) carries the conditional and object-history options
+  together, so later per-set options need no further signature change; `SetOptions::request`
+  adds the conditional URI only when `conditional` is not default and the object-history URI only
+  when `restore` is not empty. The interim `filenode_set_conditional` was removed before release.
 
 ## 9. Interactions, breaking changes
 
@@ -664,7 +663,7 @@ Children of JMAP-y1yu, in order. Per-crate beads touch only their own directory 
 | C7 | mail-server (canonical): `register_mail_conditional` (decision 1), memory `ConditionalBackend` + ScopedState, Mailbox/SieveScript/quota final-state checks, pre-check skip under `cx.atomic`, example 5.2 | jmap-mail-server | L | C3, C4 |
 | C8 | filenode-server: `register_filenode_conditional`, ScopedState, atomic rollback, examples 5.1, 5.3–5.9 | jmap-filenode-server | M | C7, JMAP-6xas |
 | C9a–C9i | propagate: chat (L, incl. PushSubscription/set test on chat memory), calendars, tasks (+ `task_hidden_properties` in chat-tasks-server), contacts, sharing, vtc (`streamKey`/`streamUri` marks, event queue), scene (`invitedUserIds` mark), graph (op `seq`, both register paths), chat-mimi | one crate each (tasks: two) | M each | C7 (chat also C5) |
-| C10 | filenode-client `filenode_set_conditional` (decision 8) | jmap-filenode-client | S | C6 |
+| C10 | filenode-client `filenode_set_conditional` (decision 8; removed by C13, decision 36) | jmap-filenode-client | S | C6 |
 | C11 | testjig: shared gate, opt in for the 7 registered crates, advertise on `conditional_ready()`, 5.8 and decision 2 over HTTP | jmap-testjig | S | C3, C7, C8, C9a–C9e |
 | C12 | docs: AGENTS.md (conditional section, `ConditionalBackend` under the hook rule, opt-in registration pattern), README tables, CHANGELOG (Added, plus "Changed" for decision 2 and `JmapError.extra` decoding) | workspace | S | all of C1–C11 |
 | C13 (follow-up, next breaking release) | one growable `#[non_exhaustive]` options parameter on all 30 typed `*_set` fns, carrying conditional and object-history options (decision 8) | the 10 typed client crates (calendars, chat-mimi, contacts, filenode, graph, mail, scene, sharing, tasks, vtc) | L | C6 |

@@ -146,6 +146,10 @@ impl super::SessionClient {
     ///   to `Some(true)` to have the server send iTIP scheduling messages
     ///   (draft-ietf-jmap-calendars-34 §5.9.2).
     ///
+    /// `options` carries the conditional-02 `ifUnchangedBy`/`atomic` and the
+    /// object-history-03 `restore` ([`SetOptions`](jmap_base_client::SetOptions));
+    /// `None` sends neither, and `using` gains a URI only for what is set.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -166,10 +170,12 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<super::CalendarEventSetParams>,
+        options: Option<jmap_base_client::SetOptions>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
-        if create.is_none() && update.is_none() && destroy.is_none() {
+        let options = options.unwrap_or_default();
+        if create.is_none() && update.is_none() && destroy.is_none() && options.restore.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "calendar_event_set: at least one of create, update, destroy must be Some \
+                "calendar_event_set: at least one of create, update, destroy must be Some, or options.restore non-empty \
                  (an all-None /set is a no-op round-trip)"
                     .into(),
             ));
@@ -218,7 +224,12 @@ impl super::SessionClient {
                 args_obj.entry(k).or_insert(v);
             }
         }
-        let req = super::build_request("CalendarEvent/set", args, super::USING_CALENDARS);
+        let req = options.request(
+            "CalendarEvent/set",
+            args,
+            super::USING_CALENDARS,
+            super::CALL_ID,
+        )?;
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

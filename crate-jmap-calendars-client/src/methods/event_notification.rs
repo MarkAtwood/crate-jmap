@@ -125,7 +125,7 @@ impl super::SessionClient {
     ///
     /// ```ignore
     /// if !ids.is_empty() {
-    ///     let _ = sc.calendar_event_notification_set(Some(ids), None).await?;
+    ///     let _ = sc.calendar_event_notification_set(Some(ids), None, None).await?;
     /// }
     /// ```
     ///
@@ -145,6 +145,10 @@ impl super::SessionClient {
     ///   rejects with `stateMismatch`. Pass the `newState` returned by
     ///   a prior /get response.
     ///
+    /// `options` carries the conditional-02 `ifUnchangedBy`/`atomic` and the
+    /// object-history-03 `restore` ([`SetOptions`](jmap_base_client::SetOptions));
+    /// `None` sends neither, and `using` gains a URI only for what is set.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -160,7 +164,9 @@ impl super::SessionClient {
         &self,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
+        options: Option<jmap_base_client::SetOptions>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
+        let options = options.unwrap_or_default();
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {
             Some(ids) => jmap_base_client::to_args(&ids)?,
@@ -173,11 +179,12 @@ impl super::SessionClient {
         if let Some(s) = if_in_state {
             args["ifInState"] = s.as_ref().into();
         }
-        let req = super::build_request(
+        let req = options.request(
             "CalendarEventNotification/set",
             args,
             super::USING_CALENDARS,
-        );
+            super::CALL_ID,
+        )?;
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

@@ -40,7 +40,7 @@ async fn send_update(
     )
     .await;
     sc(&server)
-        .vtc_participant_set(None, Some(update), None, None)
+        .vtc_participant_set(None, Some(update), None, None, None)
         .await
         .expect("VTCParticipant/set must succeed");
     helpers::sent_invocation(&server).await
@@ -252,6 +252,7 @@ async fn vtc_participant_set_join_matches_lifecycle_example() {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("VTCParticipant/set must succeed");
@@ -296,7 +297,7 @@ async fn vtc_participant_set_dial_out_matches_draft_example() {
         }
     });
     let sc = helpers::make_client(&server, "mod-account");
-    sc.vtc_participant_set(Some(create), None, None, None)
+    sc.vtc_participant_set(Some(create), None, None, None, None)
         .await
         .expect("VTCParticipant/set must succeed");
     let sent = helpers::sent_invocation(&server).await;

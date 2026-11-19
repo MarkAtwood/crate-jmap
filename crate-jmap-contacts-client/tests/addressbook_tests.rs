@@ -180,7 +180,7 @@ async fn addressbook_set_create_round_trip() {
         }
     });
     let resp = sc
-        .address_book_set(Some(create_obj), None, None, None, None)
+        .address_book_set(Some(create_obj), None, None, None, None, None)
         .await
         .expect("addressbook_set_create_round_trip: must succeed");
 
@@ -242,6 +242,7 @@ async fn addressbook_set_on_destroy_remove_contents() {
             Some(vec![jmap_types::Id::from("ab-old")]),
             None,
             Some(params),
+            None,
         )
         .await
         .expect("addressbook_set_on_destroy_remove_contents: must succeed");
@@ -316,6 +317,7 @@ async fn addressbook_set_routes_extra_and_typed_wins() {
             Some(vec![jmap_types::Id::from("ab-old")]),
             None,
             Some(params),
+            None,
         )
         .await
         .expect("addressbook_set_routes_extra_and_typed_wins: must succeed");
@@ -375,6 +377,7 @@ async fn address_book_set_created_omits_client_sent_properties() {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("a partial created object must parse");
@@ -418,6 +421,7 @@ async fn addressbook_set_default_only_change() {
             on_success_set_is_default: Some("cd40089d-35f9-4fd7-980b-ba3a9f1d74fe".into()),
             ..Default::default()
         }),
+        None,
     )
     .await
     .expect("address_book_set: a default-only change must be sent");
@@ -458,7 +462,7 @@ async fn addressbook_set_without_changes_returns_invalid_argument() {
         }),
     ] {
         let err = sc
-            .address_book_set(None, None, None, None, params)
+            .address_book_set(None, None, None, None, params, None)
             .await
             .expect_err("an all-None address_book_set must be refused");
         assert!(

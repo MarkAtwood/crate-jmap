@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-base-client**: `SetOptions` (`#[non_exhaustive]`: `conditional`,
+  `restore`) and `SetOptions::request`, the options parameter of every
+  typed `*_set` binding; new per-set options become fields here.
+  (bd:JMAP-y1yu.21)
+
 - **jmap-metadata-server**: `ChangedProperties::record_created`, for a
   backend that lists an id created in the `/changes` window in `updated`
   too (RFC 8620 §5.2): such an id is never metadata-only (-05 §3.3).
@@ -283,12 +288,6 @@ wire behaviour that a conforming peer can observe.
   included, calls its `register_<x>_conditional` opt-in; the Session
   advertises `urn:ietf:params:jmap:conditional` when the dispatcher is
   `conditional_ready()`. (bd:JMAP-y1yu.19)
-
-- **jmap-filenode-client**: `SessionClient::filenode_set_conditional`, a
-  `FileNode/set` taking a base-client `SetCall`, so FileNode clients can
-  send `ifUnchangedBy` and `atomic` (draft-ietf-jmap-conditional-02;
-  decision 8). `filenode_set` and `FileNodeSetParams` are unchanged.
-  (bd:JMAP-y1yu.18)
 
 - **jmap-base-client**: conditional Foo/set on the client
   (draft-ietf-jmap-conditional-02; decision 8). `SetCall`, a generic
@@ -861,6 +860,20 @@ wire behaviour that a conforming peer can observe.
   (bd:JMAP-tna1.2.1)
 
 ### Changed
+
+- **BREAKING** **jmap-mail-client**, **jmap-calendars-client**,
+  **jmap-contacts-client**, **jmap-filenode-client**, **jmap-sharing-client**,
+  **jmap-tasks-client**, **jmap-graph-client**, **jmap-scene-client**,
+  **jmap-vtc-client**, **jmap-chat-mimi-client**: every typed `*_set`
+  function (30 in all, `address_book_set` … `vtc_recording_set`) takes a
+  new last parameter `options: Option<jmap_base_client::SetOptions>`. It
+  carries draft-ietf-jmap-conditional-02 `ifUnchangedBy`/`atomic` and
+  object-history-03 `restore`; `using` gains the conditional or
+  object-history URI only for what is set. Pass `None` for the old
+  request, byte for byte. A non-empty `restore` alone satisfies the
+  "at least one change" check. `filenode_set_conditional` (added in this
+  release cycle) is removed: use `filenode_set` with `SetOptions`.
+  (bd:JMAP-y1yu.21)
 
 - **jmap-metadata-server**: a metadata filter path's namespace part is no
   longer read as a JSON Pointer token: `metadataExists: "acme~"` matches

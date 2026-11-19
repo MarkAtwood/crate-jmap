@@ -44,7 +44,7 @@ async fn principal_set_destroy_round_trip() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .principal_set(None, None, Some(vec![Id::from("p-joe")]), None)
+        .principal_set(None, None, Some(vec![Id::from("p-joe")]), None, None)
         .await
         .expect("principal_set_destroy_round_trip: must succeed");
 
@@ -102,7 +102,7 @@ async fn principal_set_create_returns_forbidden() {
         }
     });
     let resp = sc
-        .principal_set(Some(create_obj), None, None, None)
+        .principal_set(Some(create_obj), None, None, None, None)
         .await
         .expect("principal_set_create_returns_forbidden: must succeed at transport level");
 
@@ -147,6 +147,7 @@ async fn principal_set_created_omits_client_sent_properties() {
     let resp = sc
         .principal_set(
             Some(json!({ "k1": { "type": "group", "name": "Team" } })),
+            None,
             None,
             None,
             None,

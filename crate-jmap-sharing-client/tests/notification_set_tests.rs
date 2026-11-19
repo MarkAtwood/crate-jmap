@@ -49,7 +49,7 @@ async fn share_notification_set_destroy_only_wire() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .share_notification_set(vec![Id::from("notif-1")], None)
+        .share_notification_set(vec![Id::from("notif-1")], None, None)
         .await
         .expect("share_notification_set_destroy_only_wire: must succeed");
 
@@ -125,7 +125,7 @@ async fn share_notification_set_empty_destroy() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .share_notification_set(vec![], None)
+        .share_notification_set(vec![], None, None)
         .await
         .expect("share_notification_set_empty_destroy: must succeed with no-op destroy");
 

@@ -202,7 +202,7 @@ async fn participant_identity_set_create_round_trip() {
     let mut create_map = BTreeMap::new();
     create_map.insert("newPi".to_owned(), identity);
     let resp = sc
-        .participant_identity_set(Some(json!(create_map)), None, None, None, None)
+        .participant_identity_set(Some(json!(create_map)), None, None, None, None, None)
         .await
         .expect("participant_identity_set: must succeed");
 
@@ -295,7 +295,7 @@ async fn participant_identity_set_destroy_only_passthrough() {
     let sc = helpers::make_client(&server);
     let destroy_ids = [Id::from("pi-old")];
     let _ = sc
-        .participant_identity_set(None, None, Some(destroy_ids.to_vec()), None, None)
+        .participant_identity_set(None, None, Some(destroy_ids.to_vec()), None, None, None)
         .await
         .expect("participant_identity_set: must succeed");
 
@@ -352,6 +352,7 @@ async fn participant_identity_set_default_creation_reference() {
             on_success_set_is_default: Some("#newPi".into()),
             ..Default::default()
         }),
+        None,
     )
     .await
     .expect("participant_identity_set: must succeed");
@@ -391,7 +392,7 @@ async fn participant_identity_set_without_changes_returns_invalid_argument() {
         }),
     ] {
         let err = sc
-            .participant_identity_set(None, None, None, None, params)
+            .participant_identity_set(None, None, None, None, params, None)
             .await
             .expect_err("an all-None participant_identity_set must be refused");
         assert!(

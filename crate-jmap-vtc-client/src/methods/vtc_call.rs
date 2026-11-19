@@ -77,6 +77,10 @@ impl super::SessionClient {
     /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
     /// `stateMismatch` unless its current state matches.
     ///
+    /// `options` carries the conditional-02 `ifUnchangedBy`/`atomic` and the
+    /// object-history-03 `restore` ([`SetOptions`](jmap_base_client::SetOptions));
+    /// `None` sends neither, and `using` gains a URI only for what is set.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -96,8 +100,9 @@ impl super::SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
+        options: Option<jmap_base_client::SetOptions>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
-        self.standard_set("VTCCall/set", create, update, destroy, if_in_state)
+        self.standard_set("VTCCall/set", create, update, destroy, if_in_state, options)
             .await
     }
 

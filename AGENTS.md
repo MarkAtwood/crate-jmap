@@ -999,8 +999,9 @@ Design: `docs/design/conditional.md`; decisions 1, 2, 7, 8, 16, 17 in
   caller marks it with `HandlerOutput::with_unreadable`, so a precondition
   on it is `forbidden` whatever its value (§9.1).
 - **Client.** `jmap-base-client` `SetCall` + `JmapClient::set_call` +
-  `ConditionalError`; typed clients add a `*_set_conditional` only as a new
-  function (decision 8; `jmap-filenode-client` has one).
+  `ConditionalError` for any `Foo/set`; every typed `*_set` fn takes a last
+  `options: Option<SetOptions>` (conditional + `restore`; decision 36). New
+  per-set options go in `SetOptions`, not new parameters.
 
 
 ## Object history (draft-ietf-jmap-object-history-03)

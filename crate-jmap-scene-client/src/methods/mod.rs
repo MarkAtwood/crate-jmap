@@ -273,10 +273,12 @@ impl SessionClient {
         update: Option<BTreeMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
+        options: Option<jmap_base_client::SetOptions>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
-        if create.is_none() && update.is_none() && destroy.is_none() {
+        let options = options.unwrap_or_default();
+        if create.is_none() && update.is_none() && destroy.is_none() && options.restore.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(format!(
-                "{method}: at least one of create, update, destroy must be Some \
+                "{method}: at least one of create, update, destroy must be Some, or options.restore non-empty \
                  (an all-None /set is a no-op round-trip)"
             )));
         }
@@ -294,7 +296,9 @@ impl SessionClient {
         if let Some(d) = destroy {
             args["destroy"] = jmap_base_client::to_args(&d)?;
         }
-        self.invoke(api_url, method, args).await
+        let req = options.request(method, args, USING_SCENE, CALL_ID)?;
+        let resp = self.client.call(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, CALL_ID)
     }
 
     /// RFC 8620 §5.5 `/query` with `filter`, `sort` and the window [`QueryParams`](jmap_base_client::QueryParams).

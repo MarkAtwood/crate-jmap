@@ -43,6 +43,7 @@ sc.filenode_set(
     None,
     None,
     None,
+    None,
 ).await?;
 
 // 6. Create a file node with collision handling.
@@ -59,6 +60,7 @@ sc.filenode_set(
     None,
     None,
     Some(params),
+    None,
 ).await?;
 # Ok(())
 # }
@@ -120,14 +122,12 @@ omitted from the wire request.
 
 ## Conditional FileNode/set (draft-ietf-jmap-conditional-02)
 
-`filenode_set_conditional(call)` sends a `jmap_base_client::SetCall` as
-`FileNode/set` with `ifUnchangedBy` and `atomic` (and object-history `restore`);
-`call.account_id` defaults to the session's FileNode account and FileNode arguments
-such as `onExists` go in `call.extra`. It adds `urn:ietf:params:jmap:conditional`
-to `using` only when the conditional options are set; check
+`filenode_set`'s last parameter, `options: Option<jmap_base_client::SetOptions>`,
+carries `ifUnchangedBy` and `atomic` (and object-history `restore`). It adds
+`urn:ietf:params:jmap:conditional` to `using` only when the conditional options are
+set, and `urn:ietf:params:jmap:object-history` only when `restore` is; check
 `Session::supports_conditional()` first. Read `stateMismatch`, `atomicFailure` and
 `cannotApplyAtomically` with `jmap_base_client::ConditionalError`.
-`filenode_set` is unchanged.
 
 ## FileNodeOnExists
 

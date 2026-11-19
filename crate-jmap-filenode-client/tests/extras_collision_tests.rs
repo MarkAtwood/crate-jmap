@@ -95,7 +95,14 @@ async fn filenode_set_typed_param_wins_over_colliding_extra() {
     params.extra.insert("acmeCorpX".into(), json!("kept"));
 
     helpers::make_client(&server)
-        .filenode_set(None, None, Some(vec![Id::from("n1")]), None, Some(params))
+        .filenode_set(
+            None,
+            None,
+            Some(vec![Id::from("n1")]),
+            None,
+            Some(params),
+            None,
+        )
         .await
         .expect("must succeed");
 

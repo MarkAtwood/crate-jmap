@@ -146,7 +146,7 @@ async fn calendar_event_set_smoke() {
     let mut create_map = std::collections::BTreeMap::new();
     create_map.insert("newEv".to_owned(), event);
     let resp = sc
-        .calendar_event_set(Some(json!(create_map)), None, None, None, None)
+        .calendar_event_set(Some(json!(create_map)), None, None, None, None, None)
         .await
         .expect("calendar_event_set_smoke: must succeed");
 
@@ -350,6 +350,7 @@ async fn calendar_set_on_destroy_remove_events_true_passthrough() {
                 on_destroy_remove_events: Some(true),
                 ..Default::default()
             }),
+            None,
         )
         .await
         .expect("calendar_set: must succeed");
@@ -430,7 +431,7 @@ async fn calendar_set_on_destroy_remove_events_none_omits_field() {
     // holds when destroy is Some.
     let destroy_ids = [jmap_types::Id::from("c-doomed")];
     let _ = sc
-        .calendar_set(None, None, Some(destroy_ids.to_vec()), None, None)
+        .calendar_set(None, None, Some(destroy_ids.to_vec()), None, None, None)
         .await
         .expect("calendar_set: must succeed");
 
@@ -546,6 +547,7 @@ async fn calendar_set_created_omits_client_sent_properties() {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("a partial created object must parse");
@@ -590,6 +592,7 @@ async fn calendar_event_set_send_scheduling_messages_passthrough() {
             send_scheduling_messages: Some(true),
             ..Default::default()
         }),
+        None,
     )
     .await
     .expect("calendar_event_set: must succeed");
@@ -645,6 +648,7 @@ async fn calendar_set_default_only_change() {
             on_success_set_is_default: Some("062adcfa-105d-455c-bc60-6db68b69c3f3".into()),
             ..Default::default()
         }),
+        None,
     )
     .await
     .expect("calendar_set: a default-only change must be sent");
@@ -685,7 +689,7 @@ async fn calendar_set_without_changes_returns_invalid_argument() {
         }),
     ] {
         let err = sc
-            .calendar_set(None, None, None, None, params)
+            .calendar_set(None, None, None, None, params, None)
             .await
             .expect_err("an all-None calendar_set must be refused");
         assert!(

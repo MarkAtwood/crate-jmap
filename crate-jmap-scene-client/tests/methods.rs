@@ -151,6 +151,7 @@ async fn scene_asset_set_create_matches_full_envelope_example() {
             None,
             None,
             None,
+            None,
         )
         .await
         .expect("SceneAsset/set must succeed");
@@ -567,7 +568,7 @@ async fn scene_avatar_set_enter_matches_example() {
     });
     let sc = make_client(&server, "acct-001");
     let resp = sc
-        .scene_avatar_set(Some(create.clone()), None, None, None)
+        .scene_avatar_set(Some(create.clone()), None, None, None, None)
         .await
         .expect("SceneAvatar/set must succeed");
 
@@ -766,7 +767,7 @@ async fn for_account_targets_hosting_account() {
         .as_map_mut()
         .insert("leftAt".into(), json!("2026-06-06T11:00:00Z"));
     let update = BTreeMap::from([(Id::from("01J5AVA0000000000000000001"), patch)]);
-    sc.scene_avatar_set(None, Some(update), None, None)
+    sc.scene_avatar_set(None, Some(update), None, None, None)
         .await
         .expect("SceneAvatar/set must succeed");
 
@@ -847,7 +848,7 @@ async fn empty_state_tokens_are_rejected_without_io() {
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(matches!(
-        sc.scene_object_set(None, None, None, None).await,
+        sc.scene_object_set(None, None, None, None, None).await,
         Err(ClientError::InvalidArgument(_))
     ));
     assert!(server.received_requests().await.unwrap().is_empty());
@@ -895,10 +896,16 @@ async fn sent_if_in_state(server: &MockServer) -> Vec<(String, Option<Value>)> {
 async fn send_all_set(server: &MockServer, if_in_state: Option<&State>) {
     let sc = make_client(server, "A1");
     let d = || Some(vec![Id::from("x")]);
-    let _ = sc.scene_asset_set(None, None, d(), if_in_state).await;
-    let _ = sc.scene_avatar_set(None, None, d(), if_in_state).await;
-    let _ = sc.scene_object_set(None, None, d(), if_in_state).await;
-    let _ = sc.scene_region_set(None, None, d(), if_in_state).await;
+    let _ = sc.scene_asset_set(None, None, d(), if_in_state, None).await;
+    let _ = sc
+        .scene_avatar_set(None, None, d(), if_in_state, None)
+        .await;
+    let _ = sc
+        .scene_object_set(None, None, d(), if_in_state, None)
+        .await;
+    let _ = sc
+        .scene_region_set(None, None, d(), if_in_state, None)
+        .await;
 }
 
 #[tokio::test]
@@ -918,4 +925,59 @@ async fn set_omits_none_if_in_state() {
     send_all_set(&server, None).await;
     let want: Vec<_> = SET_METHODS.iter().map(|m| (m.to_string(), None)).collect();
     assert_eq!(sent_if_in_state(&server).await, want);
+}
+
+/// y1yu.21 acceptance: `options` adds `ifUnchangedBy`, `atomic` and the
+/// conditional URI (draft-ietf-jmap-conditional-02 §3, §4), and `None` or
+/// default options send the same request as before.
+#[tokio::test]
+async fn set_options_on_the_wire() {
+    let server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(
+            wiremock::ResponseTemplate::new(200)
+                .set_body_json(serde_json::json!({"methodResponses": [], "sessionState": "s"})),
+        )
+        .mount(&server)
+        .await;
+    let client = make_client(&server, "A1");
+    let mut conditional = jmap_types::conditional::ConditionalSetArgs::default();
+    conditional.atomic = true;
+    conditional.if_unchanged_by.insert("x".to_owned(), None);
+    let mut set = jmap_base_client::SetOptions::default();
+    set.conditional = conditional;
+    for options in [
+        None,
+        Some(jmap_base_client::SetOptions::default()),
+        Some(set),
+    ] {
+        // The empty response is an error; only the request matters.
+        let _ = client
+            .scene_asset_set(
+                None,
+                None,
+                Some(vec![jmap_types::Id::from("x")]),
+                None,
+                options,
+            )
+            .await;
+    }
+    let bodies: Vec<serde_json::Value> = server
+        .received_requests()
+        .await
+        .expect("recording")
+        .iter()
+        .filter(|r| r.method == wiremock::http::Method::POST)
+        .map(|r| serde_json::from_slice(&r.body).expect("JSON body"))
+        .collect();
+    assert_eq!(bodies.len(), 3);
+    assert_eq!(bodies[0], bodies[1], "default options change nothing");
+    let mut want = bodies[0].clone();
+    want["using"]
+        .as_array_mut()
+        .expect("using")
+        .push("urn:ietf:params:jmap:conditional".into());
+    want["methodCalls"][0][1]["atomic"] = true.into();
+    want["methodCalls"][0][1]["ifUnchangedBy"] = serde_json::json!({"x": null});
+    assert_eq!(bodies[2], want);
 }

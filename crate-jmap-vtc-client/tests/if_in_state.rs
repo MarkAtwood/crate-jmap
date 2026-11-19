@@ -43,10 +43,16 @@ async fn sent(server: &MockServer) -> Vec<(String, Option<Value>)> {
 async fn send_all(server: &MockServer, if_in_state: Option<&State>) {
     let sc = helpers::make_client(server, "A1");
     let d = || Some(vec![Id::from("x")]);
-    let _ = sc.vtc_call_set(None, None, d(), if_in_state).await;
-    let _ = sc.vtc_livestream_set(None, None, d(), if_in_state).await;
-    let _ = sc.vtc_participant_set(None, None, d(), if_in_state).await;
-    let _ = sc.vtc_recording_set(None, None, d(), if_in_state).await;
+    let _ = sc.vtc_call_set(None, None, d(), if_in_state, None).await;
+    let _ = sc
+        .vtc_livestream_set(None, None, d(), if_in_state, None)
+        .await;
+    let _ = sc
+        .vtc_participant_set(None, None, d(), if_in_state, None)
+        .await;
+    let _ = sc
+        .vtc_recording_set(None, None, d(), if_in_state, None)
+        .await;
 }
 
 const METHODS: [&str; 4] = [

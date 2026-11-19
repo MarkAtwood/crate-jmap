@@ -139,11 +139,16 @@ impl SessionClient {
     /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
     /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
     /// `stateMismatch` unless its current state matches.
+    ///
+    /// `options` carries the conditional-02 `ifUnchangedBy`/`atomic` and the
+    /// object-history-03 `restore` ([`SetOptions`](jmap_base_client::SetOptions));
+    /// `None` sends neither, and `using` gains a URI only for what is set.
     pub async fn key_package_set(
         &self,
         create: &BTreeMap<String, KeyPackageCreate>,
         destroy: &[Id],
         if_in_state: Option<&State>,
+        options: Option<jmap_base_client::SetOptions>,
     ) -> Result<SetResponse<KeyPackageCreated>, jmap_base_client::ClientError> {
         let mut args = serde_json::json!({ "accountId": self.mimi_account_id()? });
         if let Some(s) = if_in_state {
@@ -155,7 +160,15 @@ impl SessionClient {
         if !destroy.is_empty() {
             args["destroy"] = jmap_base_client::to_args(destroy)?;
         }
-        self.call("KeyPackage/set", args).await
+        let req =
+            options
+                .unwrap_or_default()
+                .request("KeyPackage/set", args, USING_MIMI, CALL_ID)?;
+        let resp = self
+            .client
+            .call(self.session.api_url.as_str(), &req)
+            .await?;
+        jmap_base_client::extract_response(&resp, CALL_ID)
     }
 
     /// `KeyMaterial/fetch` (draft §KeyMaterial/fetch): obtain KeyPackages

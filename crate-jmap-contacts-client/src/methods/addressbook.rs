@@ -138,6 +138,10 @@ impl super::SessionClient {
     /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
     /// `stateMismatch` unless its current state matches.
     ///
+    /// `options` carries the conditional-02 `ifUnchangedBy`/`atomic` and the
+    /// object-history-03 `restore` ([`SetOptions`](jmap_base_client::SetOptions));
+    /// `None` sends neither, and `using` gains a URI only for what is set.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -155,14 +159,21 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
         params: Option<AddressBookSetParams>,
+        options: Option<jmap_base_client::SetOptions>,
     ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
+        let options = options.unwrap_or_default();
         let sets_default = params
             .as_ref()
             .is_some_and(|p| p.on_success_set_is_default.is_some());
-        if create.is_none() && update.is_none() && destroy.is_none() && !sets_default {
+        if create.is_none()
+            && update.is_none()
+            && destroy.is_none()
+            && options.restore.is_empty()
+            && !sets_default
+        {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "address_book_set: at least one of create, update, destroy or \
-                 params.on_success_set_is_default must be Some \
+                 params.on_success_set_is_default must be Some, or options.restore non-empty \
                  (an all-None /set is a no-op round-trip)"
                     .into(),
             ));
@@ -201,7 +212,12 @@ impl super::SessionClient {
                 args_obj.entry(k).or_insert(v);
             }
         }
-        let req = super::build_request("AddressBook/set", args, super::USING_CONTACTS);
+        let req = options.request(
+            "AddressBook/set",
+            args,
+            super::USING_CONTACTS,
+            super::CALL_ID,
+        )?;
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

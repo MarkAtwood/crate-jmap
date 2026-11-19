@@ -1,4 +1,5 @@
-//! `SessionClient::filenode_set_conditional` (bd JMAP-y1yu.18;
+//! `SessionClient::filenode_set` with conditional
+//! [`SetOptions`](jmap_base_client::SetOptions) (bd JMAP-y1yu.21;
 //! docs/design/conditional.md §8, DECISIONS.md decision 8).
 //!
 //! Oracles: draft-ietf-jmap-conditional-02 examples 5.1 (force-with-lease
@@ -7,7 +8,9 @@
 
 mod helpers;
 
-use jmap_base_client::{ClientError, ConditionalError, SetCall};
+use std::collections::BTreeMap;
+
+use jmap_base_client::{ClientError, ConditionalError, SetOptions};
 use jmap_types::conditional::ConditionalSetArgs;
 use jmap_types::{Id, PatchObject};
 use serde_json::{Value, json};
@@ -31,7 +34,7 @@ async fn mock(server: &MockServer, expected: Value, answer: Value) {
         .and(path("/api/"))
         .and(body_partial_json(json!({
             "using": USING,
-            "methodCalls": [["FileNode/set", expected, "0"]]
+            "methodCalls": [["FileNode/set", expected, "r1"]]
         })))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({
             "methodResponses": [answer], "sessionState": "s1"
@@ -52,7 +55,7 @@ async fn example_5_1_force_with_lease() {
             "ifUnchangedBy": { "f42": { "blobId": "G_old" } },
             "update": { "f42": { "blobId": "G_new", "modified": "2026-05-01T09:30:00Z" } }
         }),
-        json!(["error", {"type": "stateMismatch", "failed": ["f42"]}, "0"]),
+        json!(["error", {"type": "stateMismatch", "failed": ["f42"]}, "r1"]),
     )
     .await;
 
@@ -60,15 +63,15 @@ async fn example_5_1_force_with_lease() {
     conditional
         .if_unchanged_by
         .insert("f42".to_owned(), Some(patch(json!({"blobId": "G_old"}))));
-    let mut call = SetCall::default();
-    call.conditional = conditional;
-    call.update.insert(
+    let mut options = SetOptions::default();
+    options.conditional = conditional;
+    let update = BTreeMap::from([(
         Id::from("f42"),
         patch(json!({"blobId": "G_new", "modified": "2026-05-01T09:30:00Z"})),
-    );
+    )]);
 
     let result = helpers::make_client(&server)
-        .filenode_set_conditional(call)
+        .filenode_set(None, Some(update), None, None, None, Some(options))
         .await;
     let Err(ClientError::MethodError(err)) = result else {
         panic!("expected stateMismatch, got {result:?}");
@@ -85,16 +88,18 @@ async fn example_5_1_force_with_lease() {
 /// `atomicFailure` naming the offender.
 #[tokio::test]
 async fn example_5_8_atomic_swap() {
-    let swap = || {
-        let mut call = SetCall::default();
+    let options = || {
         let mut conditional = ConditionalSetArgs::default();
         conditional.atomic = true;
-        call.conditional = conditional;
-        call.update
-            .insert(Id::from("a"), patch(json!({"name": "previous.txt"})));
-        call.update
-            .insert(Id::from("b"), patch(json!({"name": "current.txt"})));
-        call
+        let mut options = SetOptions::default();
+        options.conditional = conditional;
+        Some(options)
+    };
+    let update = || {
+        Some(BTreeMap::from([
+            (Id::from("a"), patch(json!({"name": "previous.txt"}))),
+            (Id::from("b"), patch(json!({"name": "current.txt"}))),
+        ]))
     };
     let request = json!({
         "accountId": "A13824",
@@ -112,11 +117,11 @@ async fn example_5_8_atomic_swap() {
         json!(["FileNode/set", {
             "accountId": "A13824", "oldState": "1", "newState": "2",
             "updated": {"a": null, "b": null}
-        }, "0"]),
+        }, "r1"]),
     )
     .await;
     let response = helpers::make_client(&server)
-        .filenode_set_conditional(swap())
+        .filenode_set(None, update(), None, None, None, options())
         .await
         .expect("swap");
     let updated = response.updated;
@@ -129,11 +134,11 @@ async fn example_5_8_atomic_swap() {
         json!(["error", {
             "type": "atomicFailure",
             "notUpdated": {"b": {"type": "alreadyExists", "existingId": "c"}}
-        }, "0"]),
+        }, "r1"]),
     )
     .await;
     let result = helpers::make_client(&server)
-        .filenode_set_conditional(swap())
+        .filenode_set(None, update(), None, None, None, options())
         .await;
     let Err(ClientError::MethodError(err)) = result else {
         panic!("expected atomicFailure, got {result:?}");
@@ -148,4 +153,64 @@ async fn example_5_8_atomic_swap() {
         .into_keys()
         .collect();
     assert_eq!(offenders, [Id::from("b")]);
+}
+
+/// Default options send the request `filenode_set` sent before
+/// `SetOptions`: no conditional arguments and no conditional URI.
+#[tokio::test]
+async fn default_options_add_nothing() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .and(wiremock::matchers::body_json(json!({
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"],
+            "methodCalls": [["FileNode/set", {"accountId": "A13824", "destroy": ["x"]}, "r1"]]
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "methodResponses": [["FileNode/set", {
+                "accountId": "A13824", "oldState": "1", "newState": "2", "destroyed": ["x"]
+            }, "r1"]],
+            "sessionState": "s1"
+        })))
+        .mount(&server)
+        .await;
+    let client = helpers::make_client(&server);
+    for options in [None, Some(SetOptions::default())] {
+        client
+            .filenode_set(None, None, Some(vec![Id::from("x")]), None, None, options)
+            .await
+            .expect("plain FileNode/set");
+    }
+}
+
+/// A restore adds `restore` and the object-history URI.
+#[tokio::test]
+async fn restore_adds_the_object_history_uri() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .and(wiremock::matchers::body_json(json!({
+            "using": [
+                "urn:ietf:params:jmap:core",
+                "urn:ietf:params:jmap:filenode",
+                "urn:ietf:params:jmap:object-history"
+            ],
+            "methodCalls": [["FileNode/set", {"accountId": "A13824", "restore": {"x": null}}, "r1"]]
+        })))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+            "methodResponses": [["FileNode/set", {
+                "accountId": "A13824", "oldState": "1", "newState": "2",
+                "restored": {"x": null}
+            }, "r1"]],
+            "sessionState": "s1"
+        })))
+        .mount(&server)
+        .await;
+    let mut options = SetOptions::default();
+    options.restore.insert(Id::from("x"), None);
+    let response = helpers::make_client(&server)
+        .filenode_set(None, None, None, None, None, Some(options))
+        .await
+        .expect("restore");
+    assert!(response.extra.contains_key("restored"), "{response:?}");
 }

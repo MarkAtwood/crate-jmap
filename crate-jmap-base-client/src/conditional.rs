@@ -96,6 +96,85 @@ impl SetCall {
     }
 }
 
+/// The `using` URI of draft-ietf-jmap-object-history-03, for
+/// [`SetOptions::restore`]. `jmap-object-history-types` holds the public
+/// constant; this crate does not depend on it.
+const OBJECT_HISTORY_URI: &str = "urn:ietf:params:jmap:object-history";
+
+/// The options every typed `Foo/set` binding takes beyond the type's own
+/// arguments: the conditional-02 `ifUnchangedBy` and `atomic` (§3, §4) and
+/// the object-history-03 `restore` (§5.1).
+///
+/// New per-set options become new fields here, so the typed bindings
+/// need no further signature change. The default adds nothing to the
+/// request. Build it with [`SetOptions::default`] and set the fields you
+/// need.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct SetOptions {
+    /// `ifUnchangedBy` and `atomic`. When not
+    /// [default](ConditionalSetArgs::is_default), `using` gains
+    /// `urn:ietf:params:jmap:conditional`. Check
+    /// [`Session::supports_conditional`] first.
+    pub conditional: ConditionalSetArgs,
+    /// `restore`: id → the patch to apply to the restored version, or
+    /// `None` to restore it as it was. When not empty, `using` gains
+    /// `urn:ietf:params:jmap:object-history`, and the response's
+    /// `restored`/`notRestored` land in its `extra`.
+    pub restore: BTreeMap<Id, Option<PatchObject>>,
+}
+
+impl SetOptions {
+    /// True when nothing is set: the request is the same as without
+    /// options.
+    pub fn is_default(&self) -> bool {
+        self.conditional.is_default() && self.restore.is_empty()
+    }
+
+    /// The `/set` request `method` with arguments `args` and these options
+    /// merged in, under call id `call_id`.
+    ///
+    /// `using` is `base_using`, then the conditional URI when
+    /// [`conditional`](Self::conditional) is not default, then the
+    /// object-history URI when [`restore`](Self::restore) is not empty;
+    /// each URI once. Options overwrite a key of the same name already in
+    /// `args`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`] if `args` is not a JSON object.
+    /// - [`ClientError::Serialize`] if a value does not serialize.
+    pub fn request(
+        &self,
+        method: &str,
+        mut args: Value,
+        base_using: &[&str],
+        call_id: &str,
+    ) -> Result<jmap_types::JmapRequest, ClientError> {
+        let Value::Object(map) = &mut args else {
+            return Err(ClientError::InvalidArgument(format!(
+                "{method}: arguments must be a JSON object"
+            )));
+        };
+        if let Value::Object(conditional) = to_args(&self.conditional)? {
+            map.extend(conditional);
+        }
+        if !self.restore.is_empty() {
+            map.insert("restore".to_owned(), to_args(&self.restore)?);
+        }
+        let conditional = (!self.conditional.is_default()).then_some(JMAP_CONDITIONAL_URI);
+        let history = (!self.restore.is_empty()).then_some(OBJECT_HISTORY_URI);
+        let mut using: Vec<String> = Vec::new();
+        for uri in base_using.iter().copied().chain(conditional).chain(history) {
+            if !using.iter().any(|u| u == uri) {
+                using.push(uri.to_owned());
+            }
+        }
+        let invocation = jmap_types::Invocation::new(method, args, call_id);
+        Ok(jmap_types::JmapRequest::new(using, vec![invocation], None))
+    }
+}
+
 impl JmapClient {
     /// Send `call` as `method` (e.g. `"FileNode/set"`) to `session`'s API
     /// URL and decode the primary response as `R`.

@@ -619,6 +619,21 @@ pub fn jmap_base_client::SetCall::default() -> jmap_base_client::SetCall
 impl core::fmt::Debug for jmap_base_client::SetCall
 pub fn jmap_base_client::SetCall::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_base_client::SetCall
+#[non_exhaustive] pub struct jmap_base_client::SetOptions
+pub jmap_base_client::SetOptions::conditional: jmap_types::conditional::ConditionalSetArgs
+pub jmap_base_client::SetOptions::restore: alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, core::option::Option<jmap_types::patch::PatchObject>>
+impl jmap_base_client::SetOptions
+pub fn jmap_base_client::SetOptions::is_default(&self) -> bool
+pub fn jmap_base_client::SetOptions::request(&self, &str, serde_json::value::Value, &[&str], &str) -> core::result::Result<jmap_types::wire::JmapRequest, jmap_base_client::ClientError>
+impl core::clone::Clone for jmap_base_client::SetOptions
+pub fn jmap_base_client::SetOptions::clone(&self) -> jmap_base_client::SetOptions
+impl core::cmp::PartialEq for jmap_base_client::SetOptions
+pub fn jmap_base_client::SetOptions::eq(&self, &jmap_base_client::SetOptions) -> bool
+impl core::default::Default for jmap_base_client::SetOptions
+pub fn jmap_base_client::SetOptions::default() -> jmap_base_client::SetOptions
+impl core::fmt::Debug for jmap_base_client::SetOptions
+pub fn jmap_base_client::SetOptions::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_base_client::SetOptions
 #[non_exhaustive] pub struct jmap_base_client::SseFrame
 pub jmap_base_client::SseFrame::event: jmap_base_client::SseEvent
 pub jmap_base_client::SseFrame::id: core::option::Option<alloc::string::String>

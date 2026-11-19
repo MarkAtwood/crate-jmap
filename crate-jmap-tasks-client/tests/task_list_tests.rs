@@ -211,6 +211,7 @@ async fn task_list_set_on_destroy_remove_tasks_round_trip() {
                 on_destroy_remove_tasks: Some(true),
                 ..Default::default()
             }),
+            None,
         )
         .await
         .expect("task_list_set_on_destroy_remove_tasks_round_trip: must succeed");
@@ -286,7 +287,7 @@ async fn task_list_set_without_on_destroy_omits_field() {
     // be omitted from the wire when the caller passes None) is
     // preserved.
     let destroy_ids: Vec<jmap_types::Id> = vec![];
-    sc.task_list_set(None, None, Some(destroy_ids), None, None)
+    sc.task_list_set(None, None, Some(destroy_ids), None, None, None)
         .await
         .expect("task_list_set_without_on_destroy_omits_field: must succeed");
 
@@ -333,6 +334,7 @@ async fn task_list_set_created_omits_client_sent_properties() {
     let resp = sc
         .task_list_set(
             Some(json!({ "k1": { "name": "Chores" } })),
+            None,
             None,
             None,
             None,
