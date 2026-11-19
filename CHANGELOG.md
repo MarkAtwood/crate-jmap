@@ -987,6 +987,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-scene-client** (**BREAKING**): `SceneWsExt::send_scene_stream_enable`
+  takes the JMAP `Session` first and returns `ClientError::InvalidArgument`,
+  sending nothing, when it does not advertise
+  `urn:ietf:params:jmap:scene:websocket` (jmap-scene-wss-guide §Checking
+  capabilities: "clients MUST NOT send `SceneStreamEnable`"), as
+  `jmap-chat-client` does for `ChatStreamEnable`. New
+  `supports_scene_websocket(&Session)`. Migration: pass the Session the
+  WebSocket was opened from.
+
 - **jmap-server** (**BREAKING**): `JmapBackend` is now the union of two
   traits, with a blanket impl. `JmapAccounts` holds `Error`, `CallerCtx`,
   `account_exists`, `principal_id`, `accept_language`, `max_objects_in_set`,

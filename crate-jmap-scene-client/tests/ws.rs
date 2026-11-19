@@ -140,6 +140,35 @@ enum Step {
     Recv,
 }
 
+/// A Session advertising the Session Object Example's capabilities
+/// (draft-atwood-jmap-scene-wss-00 §Capability), or only the first two
+/// without `scene_ws`.
+fn session_with(scene_ws: bool) -> jmap_base_client::Session {
+    let mut caps = serde_json::json!({
+        "urn:ietf:params:jmap:websocket": { "url": "wss://scene.example.com/jmap/ws/", "supportsPush": true },
+        "urn:ietf:params:jmap:scene": {}
+    });
+    if scene_ws {
+        caps["urn:ietf:params:jmap:scene:websocket"] = serde_json::json!({});
+    }
+    serde_json::from_value(serde_json::json!({
+        "capabilities": caps,
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "u",
+        "apiUrl": "https://scene.example.com/api/",
+        "downloadUrl": "https://scene.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+        "uploadUrl": "https://scene.example.com/ul/{accountId}/",
+        "eventSourceUrl": "https://scene.example.com/sse/",
+        "state": "s1"
+    }))
+    .unwrap()
+}
+
+fn scene_session() -> jmap_base_client::Session {
+    session_with(true)
+}
+
 async fn next(ws: &mut WsSession) -> SceneWsFrame {
     ws.next_scene_frame().await.unwrap().unwrap()
 }
@@ -160,7 +189,9 @@ async fn complete_example_session() {
 
     let mut enable = SceneStreamEnable::default();
     enable.region_ids = Some(vec![Id::from("01J5ABC0000000000000000001")]);
-    ws.send_scene_stream_enable(&enable).await.unwrap();
+    ws.send_scene_stream_enable(&scene_session(), &enable)
+        .await
+        .unwrap();
 
     match next(&mut ws).await {
         SceneWsFrame::Avatar(e) => {
@@ -247,7 +278,9 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
     enable.region_ids = Some(vec![Id::from("01J5ABC0000000000000000001")]);
     enable.event_types = Some(vec![SceneEventType::Other("SceneFooBarEvent".to_owned())]);
     enable.id = Some("e1".to_owned());
-    ws.send_scene_stream_enable(&enable).await.unwrap();
+    ws.send_scene_stream_enable(&scene_session(), &enable)
+        .await
+        .unwrap();
 
     // L562-563: "the server MUST respond with a `RequestError` frame".
     match next(&mut ws).await {
@@ -286,4 +319,33 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
     assert!(ws.next_scene_frame().await.is_none());
 
     assert_eq!(server.await.unwrap(), [json(ENABLE_UNRECOGNIZED_ONLY)]);
+}
+
+/// jmap-scene-wss-guide §Checking capabilities: with
+/// `urn:ietf:params:jmap:websocket` and `urn:ietf:params:jmap:scene` but
+/// not `urn:ietf:params:jmap:scene:websocket`, "clients MUST NOT send
+/// `SceneStreamEnable`": the call fails and the server receives nothing.
+#[tokio::test]
+async fn stream_enable_refused_without_scene_websocket() {
+    let (mut ws, server) = serve(vec![Step::Recv]).await;
+    let err = ws
+        .send_scene_stream_enable(&session_with(false), &SceneStreamEnable::default())
+        .await
+        .expect_err("must refuse");
+    assert!(
+        matches!(err, jmap_base_client::ClientError::InvalidArgument(_)),
+        "{err:?}"
+    );
+    assert!(!jmap_scene_client::supports_scene_websocket(&session_with(
+        false
+    )));
+    assert!(jmap_scene_client::supports_scene_websocket(&session_with(
+        true
+    )));
+    // The next frame sent is the first the server sees, so the refused
+    // enable never reached it.
+    ws.send_scene_stream_disable().await.unwrap();
+    let received = server.await.unwrap();
+    assert_eq!(received.len(), 1, "{received:?}");
+    assert_eq!(received[0]["@type"], "SceneStreamDisable", "{received:?}");
 }

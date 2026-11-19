@@ -86,10 +86,11 @@ pub trait jmap_scene_client::SceneWsExt: jmap_scene_client::ws::sealed::Sealed
 pub fn jmap_scene_client::SceneWsExt::next_scene_frame(&mut self) -> impl core::future::future::Future<Output = core::option::Option<core::result::Result<jmap_scene_client::SceneWsFrame, jmap_base_client::error::ClientError>>> + core::marker::Send
 pub fn jmap_scene_client::SceneWsExt::send_scene_interaction(&mut self, &jmap_scene_types::event::SceneInteractionEvent) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
 pub fn jmap_scene_client::SceneWsExt::send_scene_stream_disable(&mut self) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
-pub fn jmap_scene_client::SceneWsExt::send_scene_stream_enable(&mut self, &jmap_scene_types::stream::SceneStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+pub fn jmap_scene_client::SceneWsExt::send_scene_stream_enable(&mut self, &jmap_base_client::request::Session, &jmap_scene_types::stream::SceneStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
 impl jmap_scene_client::SceneWsExt for jmap_base_client::ws::WsSession
 pub async fn jmap_base_client::ws::WsSession::next_scene_frame(&mut self) -> core::option::Option<core::result::Result<jmap_scene_client::SceneWsFrame, jmap_base_client::error::ClientError>>
 pub async fn jmap_base_client::ws::WsSession::send_scene_interaction(&mut self, &jmap_scene_types::event::SceneInteractionEvent) -> core::result::Result<(), jmap_base_client::error::ClientError>
 pub async fn jmap_base_client::ws::WsSession::send_scene_stream_disable(&mut self) -> core::result::Result<(), jmap_base_client::error::ClientError>
-pub async fn jmap_base_client::ws::WsSession::send_scene_stream_enable(&mut self, &jmap_scene_types::stream::SceneStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub async fn jmap_base_client::ws::WsSession::send_scene_stream_enable(&mut self, &jmap_base_client::request::Session, &jmap_scene_types::stream::SceneStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
 pub fn jmap_scene_client::parse_scene_ws_frame(jmap_base_client::ws::WsFrame) -> jmap_scene_client::SceneWsFrame
+pub fn jmap_scene_client::supports_scene_websocket(&jmap_base_client::request::Session) -> bool

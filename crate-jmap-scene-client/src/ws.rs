@@ -5,7 +5,7 @@
 //! base-client [`WsFrame`]; [`SceneWsExt`] adds Scene receive and send
 //! methods to [`WsSession`].
 
-use jmap_base_client::{ClientError, WsFrame, WsSession};
+use jmap_base_client::{ClientError, Session, WsFrame, WsSession};
 use jmap_scene_types::{
     SCENE_EVENT_TYPES, SceneAvatarEvent, SceneEvent, SceneInteractionEvent, SceneObjectEvent,
     SceneStreamDisable, SceneStreamEnable, SceneStreamMessage,
@@ -78,14 +78,23 @@ pub trait SceneWsExt: sealed::Sealed {
     /// Send a `SceneStreamEnable` frame, starting or replacing the Scene
     /// event subscription on this connection.
     ///
+    /// `session` is the JMAP Session object this connection was opened
+    /// from. When its `capabilities` lack
+    /// `urn:ietf:params:jmap:scene:websocket` ([`supports_scene_websocket`]),
+    /// nothing is sent: clients "MUST NOT send `SceneStreamEnable`" then
+    /// (jmap-scene-wss-guide §Checking capabilities).
+    ///
     /// A server that rejects it answers with a `RequestError`, which
     /// arrives as [`SceneWsFrame::Other`].
     ///
     /// # Errors
     ///
-    /// [`ClientError`] on a serialization or transport failure.
+    /// [`ClientError::InvalidArgument`] when `session` does not advertise
+    /// `urn:ietf:params:jmap:scene:websocket`; [`ClientError`] on a
+    /// serialization or transport failure.
     fn send_scene_stream_enable(
         &mut self,
+        session: &Session,
         enable: &SceneStreamEnable,
     ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
 
@@ -115,6 +124,15 @@ pub trait SceneWsExt: sealed::Sealed {
     ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
 }
 
+/// Whether `session` advertises `urn:ietf:params:jmap:scene:websocket`
+/// (draft-atwood-jmap-scene-wss-00 §Capability): the server pushes Scene
+/// events and accepts `SceneStreamEnable` and `SceneStreamDisable`.
+pub fn supports_scene_websocket(session: &Session) -> bool {
+    session
+        .capabilities
+        .contains_key(jmap_scene_types::JMAP_SCENE_WEBSOCKET_URI)
+}
+
 mod sealed {
     /// Seals [`super::SceneWsExt`]; see its rustdoc.
     pub trait Sealed {}
@@ -128,8 +146,15 @@ impl SceneWsExt for WsSession {
 
     async fn send_scene_stream_enable(
         &mut self,
+        session: &Session,
         enable: &SceneStreamEnable,
     ) -> Result<(), ClientError> {
+        if !supports_scene_websocket(session) {
+            return Err(ClientError::InvalidArgument(format!(
+                "SceneStreamEnable requires the Session capability {}",
+                jmap_scene_types::JMAP_SCENE_WEBSOCKET_URI
+            )));
+        }
         send_json(self, &SceneStreamMessage::Enable(enable.clone())).await
     }
 
