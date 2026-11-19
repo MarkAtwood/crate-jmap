@@ -14,6 +14,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-client**: `emailpush` feature: `EmailPushSubscriptionInput` (a
+  PushSubscription create whose `keys` are required),
+  `SessionClient::email_push_subscription_create`, `set_email_push`,
+  `patch_email_push` (each with the emailpush capability in `using`), and
+  `parse_push_payload` / `PushPayload` for decrypted push messages
+  (StateChange, PushVerification, EmailPush, other). (bd:JMAP-r44n.11)
 - **jmap-base-client**: `JmapClient::push_subscription_get` and
   `push_subscription_set` (RFC 8620 §7.2.1, §7.2.2: no `accountId`, no
   state), with `extra_using` for extension capabilities such as

@@ -8,6 +8,8 @@
 pub mod email;
 pub mod identity;
 pub mod mailbox;
+#[cfg(feature = "emailpush")]
+pub mod push;
 pub mod search_snippet;
 pub mod submission;
 pub mod thread;

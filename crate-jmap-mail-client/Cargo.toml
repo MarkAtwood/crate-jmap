@@ -11,6 +11,11 @@ keywords = ["jmap", "rfc8621", "client", "mail"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
+[features]
+# draft-ietf-jmap-emailpush-05: EmailPush subscriptions and push payload
+# decoding.
+emailpush = ["jmap-mail-types/emailpush"]
+
 [dependencies]
 jmap-types = { workspace = true }
 jmap-mail-types = { workspace = true }
@@ -19,6 +24,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
+# Path-only self-dep so integration tests see the `emailpush` feature.
+jmap-mail-client = { path = ".", features = ["emailpush"] }
 jmap-metadata-types = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 wiremock = { workspace = true }

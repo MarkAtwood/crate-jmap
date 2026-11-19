@@ -31,6 +31,8 @@
 mod methods;
 
 pub use jmap_base_client::ClientError;
+#[cfg(feature = "emailpush")]
+pub use methods::push::{EmailPushSubscriptionInput, PushPayload, parse_push_payload};
 pub use methods::{
     AddedItem, ChangesResponse, CopyResponse, EmailCopyParams, EmailGetParams, EmailImportCreated,
     EmailImportInput, EmailImportResponse, EmailParseParams, EmailParseResponse,
