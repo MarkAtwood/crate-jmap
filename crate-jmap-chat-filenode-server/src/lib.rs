@@ -14,6 +14,7 @@
 //! | `FileNodeBackend::create_object::<FileNode>`, before the insert | [`check_root_create`] and [`check_space_create`] |
 //! | `FileNodeBackend::update_object::<FileNode>`, before the write | [`check_space_update`] |
 //! | `FileNodeBackend::destroy_object::<FileNode>`, before the removal | [`check_space_destroy`] |
+//! | `FileNodeBackend::may_destroy`, `true` when it passes | [`check_space_destroy`] |
 //! | `FileNodeBackend::files_rights`, which `FileNode/get` and the `FileNode/set` and `FileNode/copy` `created` entries report as `myRights` | return [`space_files_rights`] |
 //! | `JmapReads::get_objects::<FileNode>` and the other FileNode reads, to leave out nodes with no flag | [`space_files_rights`] |
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
@@ -298,8 +299,8 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 /// No grace period is offered (the draft's "MAY instead retain"), so the
 /// trees go with the Space and no former member can reach them afterwards.
 /// The Space roots are found with the `spaceId` `FileNode/query` filter;
-/// each descendant is destroyed before its root, as `FileNode/set` does
-/// for `onDestroyRemoveChildren`. A Directory in the tree that has a
+/// each node is destroyed after all of its descendants (deepest first,
+/// the root last), as `FileNode/set` does for `onDestroyRemoveChildren`. A Directory in the tree that has a
 /// `role` cannot be destroyed (draft-ietf-jmap-filenode-20 §5), so its
 /// role is first cleared through [`FileNodeBackend::update_object`], as
 /// -20 §5 asks of a client; a backend that refuses to clear a role it
@@ -315,7 +316,8 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 /// error the nodes destroyed so far stay destroyed, and calling it again
 /// destroys the rest.
 ///
-/// Returns the destroyed ids, descendants before their root.
+/// Returns the destroyed ids in the order destroyed: each node after
+/// every one of its descendants.
 ///
 /// # Errors
 ///
@@ -349,7 +351,10 @@ pub async fn destroy_space_file_tree<F: FileNodeBackend>(
             .get_descendant_ids(caller, account_id, &root_id)
             .await
             .map_err(|e| TreeDestroyError::Query(BackendQueryError::Other(e)))?;
-        let tree: Vec<Id> = descendants.into_iter().chain([root_id]).collect();
+        // Deepest first, then the root: `get_descendant_ids` lists each id
+        // after its parent, so reversed it lists each child before its
+        // parent, and no destroyed node leaves a child behind.
+        let tree: Vec<Id> = descendants.into_iter().rev().chain([root_id]).collect();
         clear_roles(files, caller, account_id, &tree).await?;
         for id in tree {
             files
@@ -793,16 +798,18 @@ pub async fn check_space_update<C: ChatBackend, F: FileNodeBackend>(
 /// [`destroy_space_file_tree`] destroys in a server context and does not
 /// go through this check.
 ///
-/// This covers the `onExists` "replace" of draft-ietf-jmap-filenode-20
-/// §3.2.3 too: "If the user does not have mayDelete on the existing node,
-/// the operation fails with "forbidden"". `FileNode/set` and
-/// `FileNode/copy` check that themselves first, with the rights
-/// `FileNodeBackend::files_rights` reports (so [`space_files_rights`] when
-/// the deployment wires it there), before any `nodeHasChildren` check or
-/// cascade. They then destroy the replaced node through `destroy_object`,
-/// where this check is the atomic backstop and the only one that applies
-/// the Space root's `"manage_space"` rule: without the right, return its
-/// SetError from `destroy_object` without removing the node.
+/// Call it from `FileNodeBackend::destroy_object::<FileNode>`, before the
+/// removal, as the atomic check: without the right, return its SetError
+/// without removing the node. Call it from `FileNodeBackend::may_destroy`
+/// too, answering `true` when it returns `Ok(())`. A Space root's
+/// `myRights` grant `mayDelete` to a `"manage_channels"` member, so
+/// `FileNode/set` and `FileNode/copy` see no reason to refuse from the
+/// rights alone; a destroy with `onDestroyRemoveChildren` or an `onExists`
+/// "replace" (draft-ietf-jmap-filenode-20 §3.2.3) would then destroy the
+/// root's descendants before `destroy_object` refuses the root.
+/// `may_destroy` lets the handlers refuse the whole subtree first, as
+/// RFC 8620 §5.3 asks ("Each ... destruction of an object is considered
+/// an atomic unit").
 ///
 /// # Errors
 ///

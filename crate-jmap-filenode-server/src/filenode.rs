@@ -351,6 +351,77 @@ async fn effective_rights<B: FileNodeBackend>(
         .or(holder.my_rights))
 }
 
+/// The nodes `desc_ids` names, or `None` if the caller cannot discover
+/// one of them.
+///
+/// draft-ietf-jmap-filenode-20 §5: a discoverable node "can have
+/// descendants the user cannot discover. A destroy that would remove any
+/// of them, either through onDestroyRemoveChildren or as part of a node
+/// replaced through onExists, MUST be rejected with "forbidden", and the
+/// server MUST NOT destroy any node in that subtree." The backend leaves
+/// undiscoverable nodes out of its reads (see
+/// [`FileNodeBackend::files_rights`]), so an id that
+/// [`FileNodeBackend::get_descendant_ids`] lists but
+/// [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) does not
+/// return is one the caller cannot discover.
+async fn discoverable_descendants<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    desc_ids: &[Id],
+) -> Result<Option<Vec<FileNode>>, B::Error> {
+    if desc_ids.is_empty() {
+        return Ok(Some(Vec::new()));
+    }
+    let (descendants, _) = backend
+        .get_objects::<FileNode>(caller, account_id, Some(desc_ids), None)
+        .await?;
+    let visible: HashSet<&Id> = descendants.iter().map(|n| &n.id).collect();
+    if desc_ids.iter().any(|id| !visible.contains(id)) {
+        return Ok(None);
+    }
+    Ok(Some(descendants))
+}
+
+/// The `forbidden` SetError for a destroy, by `what`, that would remove
+/// nodes the caller cannot discover (draft-ietf-jmap-filenode-20 §5). It
+/// names none of them: "The alternatives would be to reveal the ids of
+/// the hidden nodes, or to destroy data the user cannot see" (§10.4).
+fn undiscoverable_descendants(what: &str) -> Value {
+    json!({
+        "type": "forbidden",
+        "description": format!("{what} would remove nodes you cannot discover"),
+    })
+}
+
+/// The first of `nodes` that [`FileNodeBackend::may_destroy`] refuses,
+/// asked before a destroy that removes all of them starts, so that the
+/// destroy, "an atomic unit" (RFC 8620 §5.3), is refused whole rather than
+/// failing part-way.
+async fn first_refused<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    target: Option<&FileNode>,
+    descendants: &[FileNode],
+) -> Result<Option<Id>, B::Error> {
+    for node in target.into_iter().chain(descendants) {
+        if !backend.may_destroy(caller, account_id, node).await? {
+            return Ok(Some(node.id.clone()));
+        }
+    }
+    Ok(None)
+}
+
+/// The `forbidden` SetError for a destroy that
+/// [`FileNodeBackend::may_destroy`] refuses for node `id`.
+fn destroy_refused(id: &Id) -> Value {
+    json!({
+        "type": "forbidden",
+        "description": format!("destroying {} is not permitted", id.as_ref()),
+    })
+}
+
 /// Destroy `existing`, the discoverable node an `onExists` "replace"
 /// displaces, with its descendants when `on_destroy_remove_children`
 /// allows, appending each destroyed id to `destroyed`.
@@ -436,17 +507,12 @@ async fn check_replace<B: FileNodeBackend>(
         if !on_destroy_remove_children {
             return Err(json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }));
         }
-        let (descendants, _) = backend
-            .get_objects::<FileNode>(caller, account_id, Some(&desc_ids), None)
+        let Some(descendants) = discoverable_descendants(backend, caller, account_id, &desc_ids)
             .await
-            .map_err(|e| server_fail_value_from_backend(&e))?;
-        let visible: std::collections::HashSet<&Id> = descendants.iter().map(|n| &n.id).collect();
-        if desc_ids.iter().any(|id| !visible.contains(id)) {
-            return Err(json!({
-                "type": "forbidden",
-                "description": "replacing the existing node would remove nodes you cannot discover",
-            }));
-        }
+            .map_err(|e| server_fail_value_from_backend(&e))?
+        else {
+            return Err(undiscoverable_descendants("replacing the existing node"));
+        };
         let with_role: std::collections::HashSet<&Id> = descendants
             .iter()
             .filter(|n| n.role.is_some())
@@ -455,6 +521,18 @@ async fn check_replace<B: FileNodeBackend>(
         if let Some(role_dir) = desc_ids.iter().find(|id| with_role.contains(id)) {
             return Err(role_forbidden(role_dir, "replacing"));
         }
+        if let Some(refused) = first_refused(backend, caller, account_id, None, &descendants)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?
+        {
+            return Err(destroy_refused(&refused));
+        }
+    }
+    if let Some(refused) = first_refused(backend, caller, account_id, Some(existing), &[])
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?
+    {
+        return Err(destroy_refused(&refused));
     }
 
     Ok(desc_ids)
@@ -871,9 +949,30 @@ const FILENODE_ID_PROPERTIES: &[&str] = &["parentId", "spaceId"];
 /// ## FileNode-specific arguments
 ///
 /// - `onDestroyRemoveChildren` (bool, default `false`): when `true`, the
-///   backend is responsible for cascading the destroy to children. When
+///   handler destroys the node's descendants first, deepest first. When
 ///   `false` (the default), a destroy of a node that has children returns
 ///   `notDestroyed` with error type `nodeHasChildren`.
+///
+/// ## Undiscoverable descendants
+///
+/// draft-ietf-jmap-filenode-20 §5: a destroy that would remove a
+/// descendant the caller cannot discover (one
+/// [`FileNodeBackend::get_descendant_ids`] lists but `get_objects` does not
+/// return), through the `onDestroyRemoveChildren` cascade or an `onExists`
+/// replacement, is `forbidden` and destroys nothing in the subtree.
+/// Without the cascade such a descendant makes the destroy
+/// `nodeHasChildren`, even when the destroy names it too. The implicit
+/// `FileNode/set` of a `FileNode/copy` with `onSuccessDestroyOriginal`
+/// follows the same rule.
+///
+/// ## Subtree destroys
+///
+/// RFC 8620 §5.3 makes each destroy "an atomic unit". Before a destroy
+/// that removes a subtree (the cascade, a replacement, the implicit
+/// destroy of `onSuccessDestroyOriginal`), the handler asks
+/// [`FileNodeBackend::may_destroy`] about every node in it and reports
+/// `forbidden`, destroying nothing, if any is refused; otherwise it calls
+/// [`FileNodeBackend::destroy_object`] for each node, deepest first.
 /// - `onExists` (object, optional): collision-handling policy when a create
 ///   would produce a name that already exists in the same parent directory.
 ///   See the spec §3.2.3 for full semantics.
@@ -2189,6 +2288,31 @@ async fn destroy_one<B: FileNodeBackend>(
         return (destroyed, Err(json!({ "type": "nodeHasChildren" })));
     }
 
+    // draft-ietf-jmap-filenode-20 §5: "A destroy that would remove any of
+    // [the descendants the user cannot discover], either through
+    // onDestroyRemoveChildren or [an onExists replacement], MUST be
+    // rejected with "forbidden", and the server MUST NOT destroy any node
+    // in that subtree. Without onDestroyRemoveChildren, destroying such a
+    // node while it has children fails with "nodeHasChildren" whether or
+    // not the user can discover those children." Without the cascade every
+    // descendant is named in this destroy (checked above); one the caller
+    // cannot discover is not destroyed by its own entry, so it is a child
+    // the node still has.
+    let descendants = match discoverable_descendants(backend, caller, account_id, &desc_ids).await {
+        Ok(Some(descendants)) => descendants,
+        Ok(None) if on_destroy_remove_children => {
+            return (
+                destroyed,
+                Err(undiscoverable_descendants(&format!(
+                    "destroying {}",
+                    id.as_ref()
+                ))),
+            );
+        }
+        Ok(None) => return (destroyed, Err(json!({ "type": "nodeHasChildren" }))),
+        Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
+    };
+
     // draft-ietf-jmap-filenode-20 §5: no Directory with a role may
     // go, whether named here or removed with its ancestor.
     //
@@ -2215,6 +2339,21 @@ async fn destroy_one<B: FileNodeBackend>(
         }
         Err(e) => {
             return (destroyed, Err(server_fail_value_from_backend(&e)));
+        }
+    }
+
+    // RFC 8620 §5.3: the destroy is "an atomic unit", so a cascade the
+    // backend would refuse part-way is refused before it starts. A node
+    // that is not stored is left to destroy_object, which reports it.
+    if on_destroy_remove_children && !descendants.is_empty() {
+        let target = match discoverable_sibling(backend, caller, account_id, id).await {
+            Ok(target) => target,
+            Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
+        };
+        match first_refused(backend, caller, account_id, target.as_ref(), &descendants).await {
+            Ok(None) => {}
+            Ok(Some(refused)) => return (destroyed, Err(destroy_refused(&refused))),
+            Err(e) => return (destroyed, Err(server_fail_value_from_backend(&e))),
         }
     }
 
@@ -3013,6 +3152,28 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
                 .await
                 .map_err(|e| server_fail_from_backend(&e))?;
 
+            // draft-ietf-jmap-filenode-20 §5: the cascade "MUST be rejected
+            // with "forbidden"" if it would remove a node the caller cannot
+            // discover, and destroys nothing in the subtree.
+            let descendants = match discoverable_descendants(
+                backend,
+                caller,
+                &from_account_id,
+                &desc_ids,
+            )
+            .await
+            {
+                Ok(Some(descendants)) => descendants,
+                Ok(None) => {
+                    not_destroyed.insert(
+                        source_id.as_ref().to_owned(),
+                        undiscoverable_descendants(&format!("destroying {}", source_id.as_ref())),
+                    );
+                    continue;
+                }
+                Err(e) => return Err(server_fail_from_backend(&e)),
+            };
+
             // draft-ietf-jmap-filenode-20 §5: a Directory with a role cannot
             // be destroyed, here or in the cascade.
             let doomed: Vec<Id> = std::iter::once(source_id.clone())
@@ -3028,6 +3189,27 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
                     continue;
                 }
                 Err(e) => return Err(server_fail_from_backend(&e)),
+            }
+
+            // RFC 8620 §5.3: each destroy is "an atomic unit"; refuse the
+            // cascade before it starts rather than part-way.
+            if !descendants.is_empty() {
+                let source = discoverable_sibling(backend, caller, &from_account_id, source_id)
+                    .await
+                    .map_err(|e| server_fail_from_backend(&e))?;
+                let refused = first_refused(
+                    backend,
+                    caller,
+                    &from_account_id,
+                    source.as_ref(),
+                    &descendants,
+                )
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+                if let Some(refused) = refused {
+                    not_destroyed.insert(source_id.as_ref().to_owned(), destroy_refused(&refused));
+                    continue;
+                }
             }
 
             // Deepest first; the ids are listed in `destroyed` as a
@@ -3919,6 +4101,10 @@ mod tests {
         /// Node ids `get_objects` leaves out of a by-id read, as a backend
         /// does for a node the caller cannot discover. Persistent.
         hidden: std::collections::HashSet<String>,
+        /// Node ids the policy forbids destroying: `may_destroy` answers
+        /// `false` and `destroy_object` refuses them with `forbidden`.
+        /// Persistent.
+        undeletable: std::collections::HashSet<String>,
         /// When `Some(n)`, `copy_object` fails once `copy_object_calls`
         /// reaches `n`; cleared when it fires.
         copy_object_fail_after: Option<u64>,
@@ -4064,9 +4250,20 @@ mod tests {
         }
 
         /// Make node `id` undiscoverable: `get_objects` reports it in
-        /// `notFound` when asked for it by id. Persistent.
+        /// `notFound` when asked for it by id, and `destroy_object` refuses
+        /// it with `notFound`. Persistent.
         fn hide_node(&self, id: &str) {
             self.faults.lock().unwrap().hidden.insert(id.to_owned());
+        }
+
+        /// Forbid destroying node `id`, in `may_destroy` and, atomically,
+        /// in `destroy_object`. Persistent.
+        fn forbid_destroy(&self, id: &str) {
+            self.faults
+                .lock()
+                .unwrap()
+                .undeletable
+                .insert(id.to_owned());
         }
 
         /// Let the first `n` `copy_object` calls through and fail the
@@ -4280,6 +4477,17 @@ mod tests {
             {
                 let mut guard = self.faults.lock().unwrap();
                 guard.destroy_object_calls = guard.destroy_object_calls.saturating_add(1);
+                // A node the caller cannot discover is not there for it.
+                if guard.hidden.contains(id.as_ref()) {
+                    return Err(BackendSetError::SetError(Box::new(
+                        jmap_types::SetError::new(jmap_types::SetErrorType::NotFound),
+                    )));
+                }
+                if guard.undeletable.contains(id.as_ref()) {
+                    return Err(BackendSetError::SetError(Box::new(
+                        jmap_types::SetError::new(jmap_types::SetErrorType::Forbidden),
+                    )));
+                }
             }
             self.inner.destroy_object::<O>(&(), account_id, id).await
         }
@@ -4392,6 +4600,16 @@ mod tests {
                 return Err(MemoryError::new(msg));
             }
             Ok(faults.files_rights.get(node.id.as_ref()).cloned())
+        }
+
+        async fn may_destroy(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            node: &FileNode,
+        ) -> Result<bool, Self::Error> {
+            let faults = self.faults.lock().unwrap();
+            Ok(!faults.undeletable.contains(node.id.as_ref()))
         }
 
         async fn find_sibling_by_name(
@@ -6941,6 +7159,166 @@ mod tests {
         let err = &resp["notCreated"]["c"];
         assert_eq!(err["type"], "forbidden", "{resp}");
         assert!(err.get("existingId").is_none(), "{resp}");
+    }
+
+    // -----------------------------------------------------------------------
+    // Destroy cascades over undiscoverable descendants (-20 §5)
+    // -----------------------------------------------------------------------
+
+    /// The FileNode/set response for destroying `ids` in [`replace_fixture`]
+    /// with `kid` hidden, and the number of `destroy_object` calls made.
+    async fn destroy_with_hidden_kid(ids: Value, remove_children: bool) -> (Value, u64) {
+        let backend = replace_fixture();
+        backend.hide_node("kid");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &(),
+            &std::collections::BTreeMap::new(),
+            json!({
+                "accountId": "acc1",
+                "onDestroyRemoveChildren": remove_children,
+                "destroy": ids
+            }),
+            &[],
+        )
+        .await
+        .expect("FileNode/set must not fail as a whole");
+        (resp, backend.destroy_object_call_count())
+    }
+
+    /// draft-ietf-jmap-filenode-20 §5 (lines 1304-1308): "A destroy that
+    /// would remove any of them [descendants the user cannot discover],
+    /// either through onDestroyRemoveChildren or as part of a node replaced
+    /// through onExists, MUST be rejected with "forbidden", and the server
+    /// MUST NOT destroy any node in that subtree."
+    #[tokio::test]
+    async fn destroy_cascade_over_undiscoverable_descendant_is_forbidden() {
+        let (resp, destroys) = destroy_with_hidden_kid(json!(["doc"]), true).await;
+        assert_eq!(resp["notDestroyed"]["doc"]["type"], "forbidden", "{resp}");
+        assert!(resp["destroyed"].is_null(), "{resp}");
+        assert_eq!(destroys, 0, "nothing in the subtree reaches destroy_object");
+    }
+
+    /// draft-ietf-jmap-filenode-20 §5 (lines 1308-1310): "Without
+    /// onDestroyRemoveChildren, destroying such a node while it has children
+    /// fails with "nodeHasChildren" whether or not the user can discover
+    /// those children." Naming the hidden child too does not remove it, so
+    /// the node still has it.
+    #[tokio::test]
+    async fn destroy_naming_undiscoverable_child_is_node_has_children() {
+        let (resp, _) = destroy_with_hidden_kid(json!(["doc", "kid"]), false).await;
+        assert_eq!(
+            resp["notDestroyed"]["doc"]["type"], "nodeHasChildren",
+            "{resp}"
+        );
+        assert!(resp["destroyed"].is_null(), "{resp}");
+    }
+
+    /// draft-ietf-jmap-filenode-20 §3.2.4 (lines 857-859): "If
+    /// onSuccessDestroyOriginal is true, the implicit FileNode/set call that
+    /// destroys the originals ... has onDestroyRemoveChildren true", so the
+    /// §5 rule (lines 1304-1308) applies to it: it "MUST be rejected with
+    /// "forbidden", and the server MUST NOT destroy any node in that
+    /// subtree."
+    #[tokio::test]
+    async fn destroy_original_over_undiscoverable_descendant_is_forbidden() {
+        let backend = replace_fixture();
+        backend.hide_node("kid");
+        let out = handle_filenode_copy(
+            &backend,
+            &(),
+            json!({
+                "fromAccountId": "acc1",
+                "accountId": "acc1",
+                "onSuccessDestroyOriginal": true,
+                "create": { "c": { "id": "doc", "parentId": "src" } }
+            }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect("FileNode/copy must not fail as a whole");
+        assert!(
+            out.primary["created"]["c"]["id"].is_string(),
+            "{}",
+            out.primary
+        );
+        let [implicit] = out.extra_invocations.as_slice() else {
+            panic!("one implicit FileNode/set: {:?}", out.extra_invocations);
+        };
+        assert_eq!(implicit.name, "FileNode/set");
+        let set = &implicit.arguments;
+        assert_eq!(set["notDestroyed"]["doc"]["type"], "forbidden", "{set}");
+        assert!(set["destroyed"].is_null(), "{set}");
+        assert_eq!(backend.destroy_object_call_count(), 0);
+    }
+
+    /// RFC 8620 §5.3 (lines 1947-1948): "Each creation, modification, or
+    /// destruction of an object is considered an atomic unit." With
+    /// onDestroyRemoveChildren the destroy of `doc` removes `kid` too
+    /// (draft-ietf-jmap-filenode-20 §3.2.3); when the backend forbids
+    /// destroying `doc`, `kid` must not be destroyed either.
+    #[tokio::test]
+    async fn destroy_cascade_refused_for_the_root_destroys_nothing() {
+        let backend = replace_fixture();
+        backend.forbid_destroy("doc");
+        let HandlerOutput { primary: resp, .. } = handle_filenode_set(
+            &backend,
+            &(),
+            &std::collections::BTreeMap::new(),
+            json!({ "accountId": "acc1", "onDestroyRemoveChildren": true, "destroy": ["doc"] }),
+            &[],
+        )
+        .await
+        .expect("FileNode/set must not fail as a whole");
+        assert_eq!(resp["notDestroyed"]["doc"]["type"], "forbidden", "{resp}");
+        assert!(resp["destroyed"].is_null(), "{resp}");
+        assert_eq!(backend.destroy_object_call_count(), 0);
+    }
+
+    /// RFC 8620 §5.3 (lines 1947-1948), as above, for an onExists
+    /// "replace" (draft-ietf-jmap-filenode-20 §3.2.3: "the server destroys
+    /// the existing node, and MUST include its id, and the ids of any
+    /// descendants destroyed with it"): a replacement the backend forbids
+    /// for the existing node destroys none of its descendants.
+    #[tokio::test]
+    async fn replace_refused_for_the_existing_node_destroys_nothing() {
+        let results = replace_errors(true, |b| b.forbid_destroy("doc")).await;
+        for (err, destroys) in results {
+            assert_eq!(err["type"], "forbidden", "{err}");
+            assert_eq!(destroys, 0, "{err}");
+        }
+    }
+
+    /// RFC 8620 §5.3 (lines 1947-1948), as above, for the implicit
+    /// FileNode/set of onSuccessDestroyOriginal, which "has
+    /// onDestroyRemoveChildren true" (draft-ietf-jmap-filenode-20 §3.2.4,
+    /// lines 857-859).
+    #[tokio::test]
+    async fn destroy_original_refused_for_the_root_destroys_nothing() {
+        let backend = replace_fixture();
+        backend.forbid_destroy("doc");
+        let out = handle_filenode_copy(
+            &backend,
+            &(),
+            json!({
+                "fromAccountId": "acc1",
+                "accountId": "acc1",
+                "onSuccessDestroyOriginal": true,
+                "create": { "c": { "id": "doc", "parentId": "src" } }
+            }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect("FileNode/copy must not fail as a whole");
+        let [implicit] = out.extra_invocations.as_slice() else {
+            panic!("one implicit FileNode/set: {:?}", out.extra_invocations);
+        };
+        let set = &implicit.arguments;
+        assert_eq!(set["notDestroyed"]["doc"]["type"], "forbidden", "{set}");
+        assert!(set["destroyed"].is_null(), "{set}");
+        assert_eq!(backend.destroy_object_call_count(), 0);
     }
 
     // -----------------------------------------------------------------------

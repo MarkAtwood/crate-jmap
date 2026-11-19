@@ -108,10 +108,14 @@ impl CaseFolding {
 ///   in place of `mayAddChildren` (-20 §5).
 /// - Destroy: `mayDelete`. -20 §3.2.3 also makes `forbidden` "a destroy
 ///   that would remove nodes the user cannot discover", such as an
-///   `onDestroyRemoveChildren` cascade over a hidden descendant; for a
-///   plain destroy the handler sees only the descendants
-///   [`get_descendant_ids`](Self::get_descendant_ids) returns, so the
-///   backend refuses the destroy of their parent.
+///   `onDestroyRemoveChildren` cascade over a hidden descendant. The
+///   handlers refuse such a cascade before destroying anything, finding
+///   hidden descendants as those
+///   [`get_descendant_ids`](Self::get_descendant_ids) lists but
+///   [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) leaves
+///   out, and ask [`may_destroy`](Self::may_destroy) about every node of a
+///   subtree first; [`destroy_object`](Self::destroy_object) stays the
+///   atomic check.
 /// - `onExists` "replace": -20 §3.2.3 has the server check, in order,
 ///   that the existing node is discoverable (else `forbidden`, without
 ///   its id), that the user has `mayDelete` on it (else `forbidden`), and
@@ -574,7 +578,11 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Used for: (1) cycle detection — if proposed new `parentId` is in the
     /// descendant set, the move would create a cycle; (2) `nodeHasChildren`
-    /// guard — if result is non-empty, the node has children.
+    /// guard — if result is non-empty, the node has children; (3) the
+    /// draft-ietf-jmap-filenode-20 §5 rule that a destroy removing a node
+    /// the caller cannot discover is `forbidden`. List every descendant,
+    /// those the caller cannot discover included: the handlers treat an id
+    /// listed here that `get_objects` leaves out as undiscoverable.
     ///
     /// # Order
     ///
@@ -828,6 +836,48 @@ pub trait FileNodeBackend: JmapBackend {
         _node: &FileNode,
     ) -> impl std::future::Future<Output = Result<Option<FilesRights>, Self::Error>> + Send {
         async { Ok(None) }
+    }
+
+    /// Whether the caller may destroy the stored `node`, asked before a
+    /// destroy that removes more than one node starts.
+    ///
+    /// RFC 8620 §5.3: "Each creation, modification, or destruction of an
+    /// object is considered an atomic unit." A FileNode destroy with
+    /// `onDestroyRemoveChildren`, an `onExists` "replace" and the implicit
+    /// destroy of `onSuccessDestroyOriginal` remove a subtree, one
+    /// [`Self::destroy_object`] call per node, deepest first. The handlers
+    /// ask this method about every node of the subtree before the first of
+    /// those calls and report `forbidden` for the entry, destroying
+    /// nothing, when it returns `false` for any of them. Without it, a node
+    /// that [`Self::destroy_object`] refuses part-way leaves its
+    /// descendants destroyed and itself in place.
+    ///
+    /// Answer as [`Self::destroy_object`] would for the same node. It
+    /// stays the canonical check, made atomically with the removal; this
+    /// method only lets the handler refuse before anything changes. A
+    /// deployment offering draft-atwood-jmap-chat-filenode-00 answers
+    /// with `jmap_chat_filenode_server::check_space_destroy`, whose Space
+    /// root rule ("Creating, renaming, or destroying a Space root requires
+    /// `"manage_space"` permission, whatever the root's `myRights` report")
+    /// the root's `myRights` do not show.
+    ///
+    /// # Errors
+    ///
+    /// A storage failure. The handler reports `serverFail` for the entry
+    /// and destroys nothing.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(true)` for every node (fail-open, bd:JMAP-bghk);
+    /// backends with an access policy override it.
+    fn may_destroy(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        node: &FileNode,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        let _ = (caller, account_id, node);
+        async { Ok(true) }
     }
 
     /// Returns the id of any sibling node that already has the given name, or

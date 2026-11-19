@@ -14,6 +14,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-filenode-server**: `FileNodeBackend::may_destroy`, a fail-open
+  hook the `FileNode/set` and `FileNode/copy` handlers ask about every node
+  of a subtree before a destroy that removes it (`onDestroyRemoveChildren`,
+  `onExists` "replace", `onSuccessDestroyOriginal`), so a node the backend
+  refuses fails the whole entry with `forbidden` before anything is
+  destroyed (RFC 8620 §5.3). `jmap-chat-filenode-server` documents wiring
+  `check_space_destroy` there, which refuses a Space root cascade for a
+  member without `"manage_space"` before its descendants go
+  (bd:JMAP-uro2).
+
 - **jmap-graph-server**: `validFor.purposes` entries must be RFC 3987 IRIs and
   a `credentialDigest` must be a possible SHA-256 encoding (its last
   character has zero padding bits), both stricter than the draft's wording
@@ -986,6 +996,20 @@ wire behaviour that a conforming peer can observe.
   (bd:JMAP-tna1.2.1)
 
 ### Changed
+
+- **jmap-filenode-server**: draft-ietf-jmap-filenode-20 §5 for destroy
+  cascades: a `FileNode/set` destroy with `onDestroyRemoveChildren`, and
+  the implicit destroy of `FileNode/copy` `onSuccessDestroyOriginal`, that
+  would remove a descendant the caller cannot discover is `forbidden` and
+  destroys nothing (only the `onExists` replacement checked this before);
+  without `onDestroyRemoveChildren`, such a descendant makes the destroy
+  `nodeHasChildren` even when the destroy names it (bd:JMAP-uro2).
+
+- **jmap-chat-filenode-server**: `destroy_space_file_tree` destroys each
+  node after its descendants (deepest first, the root last), as
+  draft-ietf-jmap-filenode-20 §3.2.3 has a server destroy "children before
+  their parents"; it destroyed parents first. The returned ids follow the
+  new order (bd:JMAP-uro2).
 
 - **jmap-tasks-server**: Task `workflowStatus` and `progress` follow decision
   42 (jmapio/jmap #465), in place of -06's "If set, `progress` MUST be null":

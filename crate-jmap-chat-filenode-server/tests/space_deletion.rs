@@ -11,6 +11,10 @@
 //!   period, so the tree is destroyed with the Space.
 //! - §Space File Tree: "A Space has zero, one, or more Space roots, each a
 //!   Directory identified by the `spaceId` extension property".
+//! - draft-ietf-jmap-filenode-20 §3.2.3 (line 707), onDestroyRemoveChildren:
+//!   the server "either destroys children before their parents, or checks
+//!   this constraint only against the final state". The tree destroy goes
+//!   node by node through `destroy_object`, so it takes the first way.
 //! - RFC 8620 §5.1 `notFound`: "the list of ids passed to the method for
 //!   records that do not exist"; §5.2 `destroyed`: "an array of ids for
 //!   records that have been destroyed since the old state".
@@ -206,4 +210,27 @@ async fn destroys_a_role_directory_in_the_tree() {
     let destroyed: HashSet<String> = destroyed.iter().map(|id| id.as_ref().to_owned()).collect();
     assert_eq!(destroyed, set(&all));
     assert_eq!(not_found(&files, &all).await, set(&all));
+}
+
+/// draft-ietf-jmap-filenode-20 §3.2.3 (line 707): the server "destroys
+/// children before their parents". Each node is destroyed after its
+/// children, `f2` before `d1` and both before the root `r1`.
+#[tokio::test]
+async fn destroys_children_before_their_parents() {
+    let files = fixture();
+    let destroyed = destroy_space_file_tree(&files, &(), &Id::from(ACCOUNT), &Id::from("S1"))
+        .await
+        .expect("destroy");
+    let pos = |id: &str| {
+        destroyed
+            .iter()
+            .position(|d| d.as_ref() == id)
+            .unwrap_or_else(|| panic!("{id} destroyed: {destroyed:?}"))
+    };
+    for (child, parent) in [("f2", "d1"), ("d1", "r1"), ("f1", "r1")] {
+        assert!(
+            pos(child) < pos(parent),
+            "{child} before {parent}: {destroyed:?}"
+        );
+    }
 }
