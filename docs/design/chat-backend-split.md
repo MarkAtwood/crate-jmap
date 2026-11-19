@@ -1,6 +1,6 @@
 # Design: split `ChatBackend` into hook traits (bd:JMAP-it7g.6)
 
-Status: draft for Mark's review, revised with the mimid session's answers (2026-11-19). Design only; no code in the repo was changed. Decision 37
+Status: final. Revised with the mimid session's answers; Mark answered the four open questions in §5 on 2026-11-19 (decision 39), each as recommended. Design only; no code in the repo was changed. Decision 37
 (Mark, 2026-11-19) chose a split into smaller hook traits over a forwarding macro and over
 leaving `ChatBackend` as it is. Requested by the mimid session (mimid-s2qc item 4).
 
@@ -171,7 +171,10 @@ and `Fed` (chat-federation-server tests); `Bound` in chat-vtc-server tests imple
 `JmapBackend` and is unaffected. The four test wrappers in chat-server tests/common are also the first users of
 `Delegate*`, which shrinks them.
 
-## 5. Open questions for Mark
+## 5. Questions, answered by Mark 2026-11-19 (decision 39)
+
+Answers: (1) the Chat-prefixed names; (2) per-trait delegation, not per method; (3) phase 2, after phase 1; (4) the same error type.
+
 
 1. **Trait names.** The ten names in §3.1, each with a `Delegate*` companion. Fine, or shorter (`Store`, `Policy`, ..) under a `backend` module?
 2. **Per-method delegation** (mimid's suggestion): give each hook trait a fallback, so that an
