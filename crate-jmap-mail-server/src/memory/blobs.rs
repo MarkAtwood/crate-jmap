@@ -88,6 +88,8 @@ impl MemoryBackend {
         Self {
             inner: ScopedState::with_gate(value, gate),
             blob_store: self.blob_store,
+            #[cfg(feature = "emailpush")]
+            push: self.push,
         }
     }
 

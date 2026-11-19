@@ -78,9 +78,13 @@
 
 mod blobs;
 mod history;
+#[cfg(feature = "emailpush")]
+mod push;
 pub mod seed;
 
 pub use blobs::ExternalBlobStore;
+#[cfg(feature = "emailpush")]
+pub use push::{MAX_PUSH_SUBSCRIPTIONS, PUSH_PLAINTEXT_BYTES};
 
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
@@ -459,6 +463,9 @@ pub struct MemoryBackend {
     /// The shared blob store, once [`MemoryBackend::with_blob_store`] sets
     /// one.
     blob_store: blobs::BlobStore,
+    /// PushSubscription and EmailPush state.
+    #[cfg(feature = "emailpush")]
+    push: std::sync::Arc<std::sync::Mutex<push::PushState>>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -473,6 +480,8 @@ impl Clone for MemoryBackend {
         Self {
             inner: self.inner.clone(),
             blob_store: self.blob_store.clone(),
+            #[cfg(feature = "emailpush")]
+            push: std::sync::Arc::clone(&self.push),
         }
     }
 }

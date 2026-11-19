@@ -25,10 +25,15 @@ sieve = ["jmap-mail-types/sieve"]
 # break across minor versions pre-1.0.
 memory = [
     "dep:uuid",
+    "dep:getrandom",
     "dep:jmap-metadata-server",
     "dep:jmap-object-history-server",
     "jmap-server/scoped-state",
 ]
+
+# `*_for_test` knobs of the memory backend (EmailPush accounts and size
+# limit). Never enabled by `memory` alone.
+test-helpers = ["memory"]
 
 [dependencies]
 jmap-types = { workspace = true }
@@ -53,6 +58,8 @@ uuid = { version = "1", default-features = false, features = ["v4", "std"], opti
 # draft-ietf-jmap-metadata-05 helpers the MemoryBackend wires in (JMAP-s4kp.1).
 jmap-metadata-server = { workspace = true, optional = true }
 jmap-object-history-server = { workspace = true, optional = true }
+# PushSubscription verification codes in the memory backend (RFC 8620 §7.2.2).
+getrandom = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
@@ -62,4 +69,4 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # them to downstream users by default.
 # Path-only, no version: cargo drops it on publish, so it never has to
 # resolve against crates.io versions that lack these features (JMAP-31o4).
-jmap-mail-server = { path = ".", features = ["memory", "mdn", "sieve", "emailpush"] }
+jmap-mail-server = { path = ".", features = ["memory", "mdn", "sieve", "emailpush", "test-helpers"] }

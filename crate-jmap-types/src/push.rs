@@ -287,6 +287,18 @@ pub struct PushVerification {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl PushVerification {
+    /// A PushVerification for subscription `push_subscription_id` carrying
+    /// `verification_code`, with no extension fields.
+    pub fn new(push_subscription_id: Id, verification_code: impl Into<String>) -> Self {
+        Self {
+            push_subscription_id,
+            verification_code: verification_code.into(),
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 impl fmt::Debug for PushVerification {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("PushVerification")

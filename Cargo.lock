@@ -2265,6 +2265,7 @@ dependencies = [
 name = "jmap-mail-server"
 version = "0.5.0"
 dependencies = [
+ "getrandom 0.3.4",
  "jmap-mail-server",
  "jmap-mail-types",
  "jmap-metadata-server",

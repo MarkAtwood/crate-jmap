@@ -50,6 +50,11 @@
     clippy::cast_sign_loss
 )]
 
+// The memory backend draws push verification codes from getrandom only
+// with `emailpush` (`memory/push.rs`).
+#[cfg(all(feature = "memory", not(feature = "emailpush")))]
+use getrandom as _;
+
 use std::sync::Arc;
 
 use jmap_mail_types::{Email, EmailSubmission, Identity, Mailbox, VacationResponse};

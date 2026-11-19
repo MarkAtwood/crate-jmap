@@ -852,6 +852,8 @@ pub fn jmap_types::PushSubscription::deserialize<__D>(__D) -> core::result::Resu
 pub jmap_types::PushVerification::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_types::PushVerification::push_subscription_id: jmap_types::Id
 pub jmap_types::PushVerification::verification_code: alloc::string::String
+impl jmap_types::PushVerification
+pub fn jmap_types::PushVerification::new(jmap_types::Id, impl core::convert::Into<alloc::string::String>) -> Self
 impl core::clone::Clone for jmap_types::PushVerification
 pub fn jmap_types::PushVerification::clone(&self) -> jmap_types::PushVerification
 impl core::cmp::Eq for jmap_types::PushVerification

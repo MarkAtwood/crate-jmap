@@ -140,6 +140,8 @@ pub fn jmap_mail_server::emailpush::OutboundEmailPush::fmt(&self, &mut core::fmt
 impl core::marker::StructuralPartialEq for jmap_mail_server::emailpush::OutboundEmailPush
 pub trait jmap_mail_server::emailpush::EmailPushBackend: jmap_server::push::PushSubscriptionBackend
 pub fn jmap_mail_server::emailpush::EmailPushBackend::email_push_accounts(&self, &Self::CallerCtx) -> impl core::future::future::Future<Output = core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_server::emailpush::EmailPushAccount>, Self::Error>> + core::marker::Send
+impl jmap_mail_server::emailpush::EmailPushBackend for jmap_mail_server::memory::MemoryBackend
+pub async fn jmap_mail_server::memory::MemoryBackend::email_push_accounts(&self, &()) -> core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_server::emailpush::EmailPushAccount>, jmap_mail_server::memory::MemoryError>
 pub async fn jmap_mail_server::emailpush::check_email_push_change<B: jmap_mail_server::emailpush::EmailPushBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, core::option::Option<&jmap_types::push::PushSubscription>, &mut jmap_types::push::PushSubscription) -> core::result::Result<(), jmap_server::backend::BackendSetError<<B as jmap_server::backend::JmapBackend>::Error>>
 pub fn jmap_mail_server::emailpush::check_email_push_config(&serde_json::value::Value, &jmap_mail_server::emailpush::EmailPushAccount, core::option::Option<&jmap_metadata_types::capability::DataTypeMetadataInfo>) -> core::result::Result<jmap_mail_types::emailpush::EmailPushConfig, jmap_mail_server::emailpush::InvalidEmailPushConfig>
 pub fn jmap_mail_server::emailpush::email_pushes_for(&jmap_server::push::StoredPushSubscription, i64, &jmap_mail_server::emailpush::EmailPushBatch<'_>) -> core::result::Result<alloc::vec::Vec<jmap_mail_server::emailpush::OutboundEmailPush>, jmap_mail_server::emailpush::EmailPushError>
@@ -202,6 +204,9 @@ pub fn jmap_mail_server::memory::MemoryBackend::scope_gate(&self) -> alloc::sync
 pub fn jmap_mail_server::memory::MemoryBackend::with_blob_store(self, alloc::sync::Arc<dyn jmap_mail_server::memory::ExternalBlobStore>) -> Self
 pub fn jmap_mail_server::memory::MemoryBackend::with_scope_gate(self, alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>) -> Self
 impl jmap_mail_server::memory::MemoryBackend
+pub async fn jmap_mail_server::memory::MemoryBackend::deliver_email(&self, &jmap_types::id::Id, &[u8], &[jmap_types::id::Id], &[jmap_mail_types::keyword::Keyword]) -> core::result::Result<(jmap_types::id::Id, alloc::vec::Vec<(jmap_types::id::Id, jmap_mail_server::emailpush::OutboundEmailPush)>), jmap_server::backend::BackendSetError<jmap_mail_server::memory::MemoryError>>
+pub fn jmap_mail_server::memory::MemoryBackend::take_push_verifications(&self) -> alloc::vec::Vec<jmap_types::push::PushVerification>
+impl jmap_mail_server::memory::MemoryBackend
 pub fn jmap_mail_server::memory::MemoryBackend::discard_version_for_test(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id, u64)
 pub fn jmap_mail_server::memory::MemoryBackend::purge_object_history(&self, &str, &jmap_types::id::Id, &jmap_types::id::Id)
 pub fn jmap_mail_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
@@ -213,6 +218,10 @@ pub fn jmap_mail_server::memory::MemoryBackend::seed_object(&self, &jmap_types::
 pub fn jmap_mail_server::memory::MemoryBackend::store_blob(&self, &jmap_types::id::Id, alloc::vec::Vec<u8>)
 pub fn jmap_mail_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
 pub fn jmap_mail_server::memory::MemoryBackend::with_metadata_info(self, &str, jmap_metadata_types::capability::DataTypeMetadataInfo) -> Self
+impl jmap_mail_server::memory::MemoryBackend
+pub fn jmap_mail_server::memory::MemoryBackend::set_email_push_account_for_test(&self, &jmap_types::id::Id, core::option::Option<jmap_mail_server::emailpush::EmailPushAccount>)
+pub fn jmap_mail_server::memory::MemoryBackend::set_push_max_bytes_for_test(&self, usize)
+pub fn jmap_mail_server::memory::MemoryBackend::take_email_pushes_for_test(&self) -> alloc::vec::Vec<(jmap_types::id::Id, jmap_mail_server::emailpush::OutboundEmailPush)>
 impl core::clone::Clone for jmap_mail_server::memory::MemoryBackend
 pub fn jmap_mail_server::memory::MemoryBackend::clone(&self) -> Self
 impl core::default::Default for jmap_mail_server::memory::MemoryBackend
@@ -240,6 +249,8 @@ pub fn jmap_mail_server::memory::MemoryBackend::max_sieve_script_bytes(&self, &(
 pub fn jmap_mail_server::memory::MemoryBackend::max_sieve_scripts_per_account(&self, &(), &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<usize, Self::Error>> + core::marker::Send
 pub fn jmap_mail_server::memory::MemoryBackend::vacation_response_script_id(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_types::id::Id>, Self::Error>> + core::marker::Send
 pub fn jmap_mail_server::memory::MemoryBackend::validate_sieve_script(&self, &(), &jmap_types::id::Id, &[u8]) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::string::String>, Self::Error>> + core::marker::Send
+impl jmap_mail_server::emailpush::EmailPushBackend for jmap_mail_server::memory::MemoryBackend
+pub async fn jmap_mail_server::memory::MemoryBackend::email_push_accounts(&self, &()) -> core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_server::emailpush::EmailPushAccount>, jmap_mail_server::memory::MemoryError>
 impl jmap_mail_server::mdn::MdnBackend for jmap_mail_server::memory::MemoryBackend
 pub fn jmap_mail_server::memory::MemoryBackend::get_blob_header_bytes(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, usize) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, Self::Error>> + core::marker::Send
 pub fn jmap_mail_server::memory::MemoryBackend::max_mdn_parse_blob_ids(&self, &Self::CallerCtx, &jmap_types::id::Id) -> usize
@@ -264,6 +275,12 @@ pub fn jmap_mail_server::memory::MemoryBackend::object_history_capability(&self,
 pub async fn jmap_mail_server::memory::MemoryBackend::query_destroyed<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &(), &jmap_types::id::Id, jmap_server::history::DestroyedQueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_mail_server::memory::MemoryError>>
 pub async fn jmap_mail_server::memory::MemoryBackend::query_destroyed_changes<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &(), &jmap_types::id::Id, jmap_server::history::DestroyedQueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_mail_server::memory::MemoryError>>
 pub async fn jmap_mail_server::memory::MemoryBackend::restore_object<O: jmap_object_history_types::HistoryObject + jmap_types::backend::SetObject>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::patch::PatchObject>) -> core::result::Result<jmap_server::history::Restored<O>, jmap_server::backend::BackendSetError<jmap_mail_server::memory::MemoryError>>
+impl jmap_server::push::PushSubscriptionBackend for jmap_mail_server::memory::MemoryBackend
+pub const jmap_mail_server::memory::MemoryBackend::PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES: &'static [(&'static str, &'static str)]
+pub async fn jmap_mail_server::memory::MemoryBackend::create_push_subscription(&self, &(), jmap_types::push::PushSubscription) -> core::result::Result<jmap_server::push::StoredPushSubscription, jmap_server::backend::BackendSetError<jmap_mail_server::memory::MemoryError>>
+pub async fn jmap_mail_server::memory::MemoryBackend::destroy_push_subscription(&self, &(), &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_mail_server::memory::MemoryError>>
+pub async fn jmap_mail_server::memory::MemoryBackend::list_push_subscriptions(&self, &()) -> core::result::Result<alloc::vec::Vec<jmap_server::push::StoredPushSubscription>, jmap_mail_server::memory::MemoryError>
+pub async fn jmap_mail_server::memory::MemoryBackend::update_push_subscription(&self, &(), jmap_types::push::PushSubscription) -> core::result::Result<jmap_types::push::PushSubscription, jmap_server::backend::BackendSetError<jmap_mail_server::memory::MemoryError>>
 #[non_exhaustive] pub struct jmap_mail_server::memory::MemoryError
 impl jmap_mail_server::memory::MemoryError
 pub fn jmap_mail_server::memory::MemoryError::description(&self) -> &str
@@ -273,6 +290,8 @@ impl core::fmt::Debug for jmap_mail_server::memory::MemoryError
 pub fn jmap_mail_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_mail_server::memory::MemoryError
 pub fn jmap_mail_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_mail_server::memory::MAX_PUSH_SUBSCRIPTIONS: usize
+pub const jmap_mail_server::memory::PUSH_PLAINTEXT_BYTES: usize
 pub trait jmap_mail_server::memory::ExternalBlobStore: core::marker::Send + core::marker::Sync
 pub fn jmap_mail_server::memory::ExternalBlobStore::read(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn jmap_mail_server::memory::ExternalBlobStore::store(&self, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<u8>, &str)

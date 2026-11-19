@@ -44,6 +44,17 @@ wire behaviour that a conforming peer can observe.
   from a subscription's `emailPush` map (an emptied map stays `{}`), for
   `list_push_subscriptions` and the deployment's revocation path (-05 §4).
   (bd:JMAP-r44n.3)
+- **jmap-mail-server** memory backend with `emailpush`: implements
+  `PushSubscriptionBackend` (128-bit verification codes from the OS CSPRNG,
+  `MAX_PUSH_SUBSCRIPTIONS` cap, `take_push_verifications` outbox; create and
+  update call `check_email_push_change`, list prunes lost accounts) and
+  `EmailPushBackend` (every account mail with ObjectID, without Email
+  history). `deliver_email` simulates an SMTP delivery: it imports the
+  message, advances an `EmailDelivery` state and returns the EmailPush
+  objects for every subscription within `PUSH_PLAINTEXT_BYTES` (3993). New
+  `test-helpers` feature: `set_email_push_account_for_test`,
+  `set_push_max_bytes_for_test`, `take_email_pushes_for_test`.
+  **jmap-types**: `PushVerification::new`. (bd:JMAP-r44n.12)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,
