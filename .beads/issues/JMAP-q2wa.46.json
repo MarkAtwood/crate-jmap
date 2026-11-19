@@ -2,13 +2,15 @@
   "id": "JMAP-q2wa.46",
   "title": "Email/set update skips keyword and mailboxIds validation",
   "description": "email.rs:790-861: patches {\"keywords\":{\"Bad(kw\":true}}, keywords/$Seen (uppercase), keywords/$flagged:false, mailboxIds {} or mailboxIds/m1:null all succeed. RFC 8621 §4.1.1 keyword charset, lowercase, values MUST be true, at least one Mailbox. (probe-confirmed) (mail-server review 2026-11-19)",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T05:32:56.426540661Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:32:56.426540661Z",
+  "updated_at": "2026-11-19T06:07:44.745656598Z",
+  "closed_at": "2026-11-19T06:07:44.745656598Z",
+  "close_reason": "check_email_patch; tests/email_update_validation.rs.",
   "dependencies": [
     {
       "issue_id": "JMAP-q2wa.46",
