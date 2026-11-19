@@ -94,7 +94,15 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
         Who::Contact(c) => Some(c.id.clone()),
         Who::Owner | Who::Unknown => None,
     };
-    let mut ctx = Commit::new(backend, caller, mailbox, &now, identities);
+    let mut ctx = Commit::new(
+        backend,
+        caller,
+        mailbox,
+        &now,
+        identities,
+        &peer.peer_domain,
+        &args.sender_user_id,
+    );
     let ack = HandlerOutput::new(serialize_value(PeerAck::new(args.account_id.clone()))?);
 
     if args.action == GroupUpdateAction::Create {

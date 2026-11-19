@@ -507,7 +507,15 @@ pub async fn handle_peer_deliver<B: FederationBackend>(
         return drop.respond(backend, caller, &payload, &target).await;
     }
 
-    let mut ctx = Commit::new(backend, caller, mailbox, &now, identities);
+    let mut ctx = Commit::new(
+        backend,
+        caller,
+        mailbox,
+        &now,
+        identities,
+        &peer.peer_domain,
+        &args.sender_user_id,
+    );
     let (received_msg_id, received_at) = match payload {
         Payload::Message(m) => deliver_message(&mut ctx, &args, m, &target).await?,
         Payload::Edit(e) => deliver_edit(&mut ctx, e, &target, sender_id.as_ref()).await?,
@@ -870,6 +878,10 @@ pub(crate) struct Commit<'a, B: FederationBackend> {
     pub(crate) account_id: &'a Id,
     pub(crate) now: &'a UTCDate,
     pub(crate) identities: Identities,
+    /// The request's authenticated peer domain.
+    peer_domain: &'a PeerDomain,
+    /// The request's caller identity, already bound to `peer_domain`.
+    caller_identity: &'a str,
     /// Placeholders created by this request, by identity.
     created: HashMap<String, Id>,
 }
@@ -881,6 +893,8 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
         account_id: &'a Id,
         now: &'a UTCDate,
         identities: Identities,
+        peer_domain: &'a PeerDomain,
+        caller_identity: &'a str,
     ) -> Self {
         Self {
             backend,
@@ -888,6 +902,8 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
             account_id,
             now,
             identities,
+            peer_domain,
+            caller_identity,
             created: HashMap::new(),
         }
     }
@@ -895,6 +911,20 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
     /// The local id of the user `identity` names, creating a placeholder
     /// ChatContact for an unknown one (§User References in Peer Methods
     /// rules 1 to 3).
+    ///
+    /// A placeholder for a peer identity of the request (the bound caller
+    /// identity, or any identity whose host is the authenticated peer
+    /// domain) gets `serverUrl` `https://<peer domain>/`: §ChatContact
+    /// Type Extensions for Federation defines it as the "Base HTTPS URL
+    /// of this contact's mailbox. Used for outbound delivery and for
+    /// probing `/.well-known/jmap`" and says "Servers populate this field
+    /// at contact creation time", and §Key Publication fetches
+    /// "`https://<peer-domain>/.well-known/jmap`". A placeholder for any
+    /// other identity gets none: the peer domain does not speak for it,
+    /// and "The placeholder's other properties are learned through later
+    /// interactions". An existing ChatContact is not changed; the draft
+    /// updates `serverUrl` only "when a more recent value is discovered
+    /// via `/.well-known/jmap`".
     pub(crate) async fn local_id(&mut self, identity: &str) -> Result<Id, JmapError> {
         match self.identities.lookup(identity) {
             Who::Owner => return Ok(self.account_id.clone()),
@@ -907,15 +937,24 @@ impl<'a, B: FederationBackend> Commit<'a, B> {
         // draft-atwood-jmap-chat-00 §ChatContact `login`: "A non-empty
         // human-readable identifier ... The format is deployment-specific".
         let now = self.now.clone();
+        let server_url = (identity == self.caller_identity
+            || bind_identity(identity, self.peer_domain) == IdentityBinding::Bound)
+            .then(|| format!("https://{}/", self.peer_domain.as_str()));
         let placeholder = |id: &Id| {
-            ChatContact::new(
+            let mut contact = ChatContact::new(
                 id.clone(),
                 identity,
                 identity,
                 now.clone(),
                 now.clone(),
                 false,
-            )
+            );
+            if let Some(url) = server_url {
+                contact
+                    .extra
+                    .insert("serverUrl".to_owned(), Value::String(url));
+            }
+            contact
         };
         let created = self
             .backend

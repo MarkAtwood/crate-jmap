@@ -186,6 +186,86 @@ async fn step2_unknown_sender_gets_a_placeholder_contact() {
     assert_eq!(messages[0].sender_id, carol.id);
 }
 
+/// The `serverUrl` a ChatContact carries on the wire (`ChatContact/get`).
+fn wire_server_url(contacts: &[jmap_chat_types::ChatContact], identity: &str) -> Value {
+    let contact = contacts
+        .iter()
+        .find(|c| c.identity == identity)
+        .unwrap_or_else(|| panic!("ChatContact for {identity}"));
+    serde_json::to_value(contact).expect("serialize ChatContact")["serverUrl"].clone()
+}
+
+/// Compliance §1.3 (jmap-chat-compliance-tests.md, jmap-chat-spec 120db2c):
+/// "After a federated message delivery, call `ChatContact/get` for the
+/// sender. Verify `serverUrl` is populated with the peer's base URL."
+/// fed §ChatContact Type Extensions for Federation: "`serverUrl` (String):
+/// Base HTTPS URL of this contact's mailbox. Used for outbound delivery and
+/// for probing `/.well-known/jmap`. ... Servers populate this field at
+/// contact creation time"; fed §Key Publication fetches
+/// "`https://<peer-domain>/.well-known/jmap`".
+#[tokio::test]
+async fn placeholder_sender_gets_the_peer_base_url_as_server_url() {
+    let fed = Fed::new();
+    let mut args = deliver_args(LOW, "direct", message("M1"));
+    args["senderUserId"] = json!("dave@peer.example");
+    fed.deliver(args).await.expect("accepted");
+    assert_eq!(
+        wire_server_url(&fed.contacts().await, "dave@peer.example"),
+        json!("https://peer.example/")
+    );
+}
+
+/// As above, for a host-less DID sender: the DID has no host, but the
+/// request's authenticated peer domain is its mailbox server (fed
+/// §Identity Binding rule 2).
+#[tokio::test]
+async fn placeholder_did_sender_gets_the_peer_base_url_as_server_url() {
+    let mut fed = Fed::new();
+    fed.verified_dids.insert(DID_KEY.to_owned());
+    let mut args = deliver_args(LOW, "direct", message("M1"));
+    args["senderUserId"] = json!(DID_KEY);
+    fed.deliver(args).await.expect("accepted");
+    assert_eq!(
+        wire_server_url(&fed.contacts().await, DID_KEY),
+        json!("https://peer.example/")
+    );
+}
+
+/// A mentioned identity on the peer domain is a peer identity of the
+/// request and gets the peer's base URL; one on another domain does not,
+/// since "A peer domain cannot claim an identity whose host is another
+/// domain" (fed §Identity Binding) and "The placeholder's other properties
+/// are learned through later interactions" (fed §User References in Peer
+/// Methods rule 3).
+#[tokio::test]
+async fn placeholder_server_url_only_for_identities_of_the_peer_domain() {
+    let fed = Fed::new();
+    let mut m = message("M1");
+    m["mentions"] = json!([{"id": "erin@peer.example"}, {"id": CAROL}]);
+    fed.deliver(deliver_args(LOW, "direct", m))
+        .await
+        .expect("accepted");
+    let contacts = fed.contacts().await;
+    assert_eq!(
+        wire_server_url(&contacts, "erin@peer.example"),
+        json!("https://peer.example/")
+    );
+    assert_eq!(wire_server_url(&contacts, CAROL), Value::Null);
+}
+
+/// fed §ChatContact Type Extensions for Federation: servers "SHOULD update
+/// it when a more recent value is discovered via `/.well-known/jmap`"; a
+/// delivery is no discovery, so a known ChatContact (Bob, seeded without
+/// `serverUrl`) is left as it is.
+#[tokio::test]
+async fn existing_contact_server_url_is_not_filled_by_delivery() {
+    let fed = Fed::new();
+    fed.deliver(deliver_args(LOW, "direct", message("M1")))
+        .await
+        .expect("accepted");
+    assert_eq!(wire_server_url(&fed.contacts().await, BOB), Value::Null);
+}
+
 /// fed L318: "A receiving server creates placeholders only as part of a
 /// request it accepts; a rejected request creates none."
 #[tokio::test]

@@ -934,6 +934,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-federation-server**: a placeholder ChatContact that a
+  `Peer/*` call creates for a peer identity of the request (the bound
+  caller identity, or any identity whose host is the authenticated peer
+  domain) now carries `serverUrl` `https://<peer domain>/`
+  (draft-atwood-jmap-chat-federation-00 §ChatContact Type Extensions for
+  Federation: "Servers populate this field at contact creation time").
+  Placeholders for identities of other domains and existing ChatContacts
+  are unchanged. (bd:JMAP-egy7)
 - **BREAKING** **jmap-vtc-types**: hosted livestreams
   (draft-atwood-jmap-vtc-00 §VTCLivestream). `VtcLivestream` gains `mode`
   (`LivestreamMode`, default push), `failure_reason`
