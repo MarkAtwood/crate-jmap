@@ -238,6 +238,8 @@ draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
    invites; other members see only invites they created"
    (`may_get_space_invite`). Members with `ban` see all SpaceBans of
    the Space; a banned user sees only their own (`may_get_space_ban`).
+   `sweep_expired` destroys SpaceBans whose `expiresAt` has passed
+   ("the server MUST restore the user's access").
 
 ### ChatBan/set and ChatBan/get (§ChatBan Methods)
 

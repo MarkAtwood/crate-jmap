@@ -964,6 +964,13 @@ wire behaviour that a conforming peer can observe.
   per-type ring was evicted, which used to replay partial history
   because another type's older entry was still retained. (bd:JMAP-rigq)
 
+- **jmap-chat-server**: `sweep_expired` destroys every SpaceBan whose
+  `expiresAt` has passed (draft-atwood-jmap-chat-00 §SpaceBan: "the
+  server MUST restore the user's access"; compliance test 9.2), through
+  `ChatStore::destroy_object` as `SpaceBan/set` destroy does, so
+  `SpaceBan/changes` reports it. Space membership is not touched.
+  (bd:JMAP-uf12)
+
 - **BREAKING** **jmap-vtc-types**: hosted livestreams
   (draft-atwood-jmap-vtc-00 §VTCLivestream). `VtcLivestream` gains `mode`
   (`LivestreamMode`, default push), `failure_reason`

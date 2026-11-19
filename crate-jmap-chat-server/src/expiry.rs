@@ -2,7 +2,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use jmap_chat_types::{Chat, ChatBan, Message, PresenceStatus};
+use jmap_chat_types::{Chat, ChatBan, Message, PresenceStatus, SpaceBan};
 use jmap_types::{Id, PatchObject, UTCDate};
 use serde_json::{Map, Value, json};
 
@@ -39,6 +39,12 @@ use jmap_server::BackendSetError;
 ///   the server MUST lift it." The ban is destroyed through
 ///   [`ChatModeration::destroy_chat_ban`](crate::ChatModeration::destroy_chat_ban); as for a `ChatBan/set` destroy,
 ///   "Lifting a ban does not add the user back to the Chat."
+/// - §SpaceBan `expiresAt`: "If present, the ban expires at this time and
+///   the server MUST restore the user's access." The ban is destroyed
+///   through [`ChatStore::destroy_object`](crate::ChatStore::destroy_object), as a `SpaceBan/set`
+///   destroy ("`destroy` lifts the ban") does, so the SpaceBan state
+///   advances. Space membership is not touched; the user regains access
+///   by joining again.
 ///
 /// Messages are hard-deleted through [`ChatMessageLifecycle::expire_message`](crate::ChatMessageLifecycle::expire_message),
 /// after which each affected Chat's derived §Chat `unreadCount` is
@@ -51,7 +57,7 @@ use jmap_server::BackendSetError;
 ///
 /// A stored date that does not parse as a UTCDate never counts as passed.
 ///
-/// ponytail: loads every Message, Chat, PresenceStatus and ChatBan of the account
+/// ponytail: loads every Message, Chat, PresenceStatus, ChatBan and SpaceBan of the account
 /// on each run, so a sweep is O(records). A backend with many messages
 /// should index the deadlines itself and call
 /// [`ChatMessageLifecycle::expire_message`](crate::ChatMessageLifecycle::expire_message) directly.
@@ -156,6 +162,18 @@ pub async fn sweep_expired<B: ChatBackend>(
         if ban.expires_at.as_ref().is_some_and(|t| passed(t, 0)) {
             backend
                 .destroy_chat_ban(caller, account_id, &ban.id)
+                .await?;
+        }
+    }
+
+    let (space_bans, _) = backend
+        .get_objects::<SpaceBan>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    for ban in &space_bans {
+        if ban.expires_at.as_ref().is_some_and(|t| passed(t, 0)) {
+            backend
+                .destroy_object::<SpaceBan>(caller, account_id, &ban.id)
                 .await?;
         }
     }
