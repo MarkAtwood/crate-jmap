@@ -423,3 +423,61 @@ fn invalid_stored_config_gets_no_push() {
     let mailbox = subscription(json!({"A1412": {"filter": {"inMailbox": INBOX}}}));
     assert!(run(&mailbox, &bare, &e, None, 3993).unwrap().is_empty());
 }
+
+/// Pushes for the Figure 3 Email (receivedAt 2026-01-01T00:00:00Z, given
+/// `keywords`) under `filter`, with a config stored without validation.
+fn pushes_with_filter(filter: Value, keywords: Value) -> usize {
+    let mut email = figure_3_email();
+    email.keywords = serde_json::from_value(keywords).unwrap();
+    let sub = subscription(json!({"A1412": {
+        "filter": filter, "properties": ["subject"], "urgency": "normal"
+    }}));
+    // A mail account: before/after are not among the conditions an
+    // account without mail must support (-05 §4).
+    let mail = EmailPushAccount::new(true).with_object_ids(true);
+    run(&sub, &mail, &[email], None, 3993).unwrap().len()
+}
+
+/// A stored `before` that is not a UTCDate (here with a multi-byte
+/// character across a field boundary) never panics and sends nothing,
+/// while a valid one in the same position does send.
+#[test]
+fn malformed_stored_date_sends_nothing() {
+    assert_eq!(
+        pushes_with_filter(json!({"before": "2027-01-02T03:04:05Z"}), json!({})),
+        1
+    );
+    assert_eq!(
+        pushes_with_filter(json!({"before": "202\u{e9}-01-02T03:04:05Z"}), json!({})),
+        0
+    );
+    assert_eq!(
+        pushes_with_filter(json!({"after": "garbage"}), json!({})),
+        0
+    );
+}
+
+/// RFC 8621 §4.4.1: `before` "must be before this date-time", `after`
+/// "must be the same or after"; fractional seconds count (RFC 8620 §1.4).
+#[test]
+fn before_after_compare_fractional_seconds() {
+    let at = |key: &str, date: &str| pushes_with_filter(json!({key: date}), json!({}));
+    assert_eq!(at("before", "2026-01-01T00:00:00.5Z"), 1);
+    assert_eq!(at("after", "2026-01-01T00:00:00.5Z"), 0);
+    assert_eq!(at("before", "2026-01-01T00:00:00Z"), 0);
+    assert_eq!(at("after", "2026-01-01T00:00:00Z"), 1);
+}
+
+/// RFC 8621 §4.1.1: "a keyword is a case-insensitive string".
+#[test]
+fn keyword_conditions_ignore_case() {
+    let flagged = json!({"$flagged": true});
+    assert_eq!(
+        pushes_with_filter(json!({"hasKeyword": "$Flagged"}), flagged.clone()),
+        1
+    );
+    assert_eq!(
+        pushes_with_filter(json!({"notKeyword": "$FLAGGED"}), flagged),
+        0
+    );
+}

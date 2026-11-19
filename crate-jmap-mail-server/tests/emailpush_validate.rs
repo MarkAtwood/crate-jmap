@@ -667,3 +667,55 @@ fn prune_removes_only_revoked_accounts() {
         assert_eq!(s.extra.get("emailPush"), v.as_ref());
     }
 }
+
+/// RFC 8620 §1.4: `before` / `after` are UTCDates ("date-time" with "Z").
+/// -05 §4: an invalid filter is invalidProperties at its path. A
+/// non-ASCII value used to be stored and then panic every delivery.
+#[tokio::test]
+async fn bad_filter_dates() {
+    let m = Mock::with(&[("A", mail_account())]);
+    let bad = paths(&["emailPush", "emailPush/A/filter"]);
+    for date in [
+        "202\u{e9}-01-02T03:04:05Z",
+        "garbage",
+        "2026-01-02",
+        "2026-13-45T03:04:05Z",
+        "2026-01-02T03:04:05+02:00",
+    ] {
+        for key in ["before", "after"] {
+            let filter = json!({"operator": "OR", "conditions": [{key: date}]});
+            assert_eq!(
+                create(&m, json!({"A": {"filter": filter}})).await,
+                bad,
+                "{key}: {date}"
+            );
+        }
+    }
+    assert!(
+        create(
+            &m,
+            json!({"A": {"filter": {"after": "2026-01-02T03:04:05.5Z"}}})
+        )
+        .await
+        .is_ok()
+    );
+}
+
+/// -05 §4: the emailPush rules apply when "The change includes
+/// "emailPush"". An update of `types` on the listed object, which
+/// `list_push_subscriptions` has pruned of revoked account R, does not
+/// include it, even though the stored object still holds R and A's config
+/// is no longer valid for A (it lost ObjectID, so `inMailbox` is out).
+#[tokio::test]
+async fn update_of_other_property_ignores_pruned_and_stale_configs() {
+    let m = Mock::with(&[("A", EmailPushAccount::new(false))]);
+    let a = json!({"filter": {"inMailbox": "m"}, "properties": [], "urgency": "normal"});
+    let stored = sub(Some(json!({"A": a.clone(), "R": a.clone()})));
+    let mut new = sub(Some(json!({"A": a})));
+    new.types = Some(vec!["Email".into()]);
+    assert!(
+        check_email_push_change(&m, &(), Some(&stored), &mut new)
+            .await
+            .is_ok()
+    );
+}

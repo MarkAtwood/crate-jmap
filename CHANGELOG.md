@@ -857,6 +857,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): Email filter `before` / `after` must be RFC
+  8620 §1.4 UTCDates: memory `Email/query` rejects others with
+  `invalidArguments`, and an EmailPush config with one is
+  `invalidProperties` at `emailPush/{account}/filter`. A non-ASCII value
+  used to panic the evaluator, and other malformed values matched every
+  Email. `before` / `after` now compare fractional seconds, and keyword
+  conditions ignore case (RFC 8621 §4.1.1). An update that leaves
+  `emailPush` as listed no longer re-checks configs because the stored
+  object still holds a revoked account. (bd:JMAP-q2wa.26, .27, .28, .29,
+  .30)
 - **jmap-filenode-server** (wire): `FileNode/copy` with `onExists: "replace"`
   no longer loses the existing node when the copy then fails
   (draft-ietf-jmap-filenode-20 §3.2.4 "succeeds or fails as a whole"). The

@@ -1511,6 +1511,7 @@ impl JmapBackend for MemoryBackend {
             EmailFilterCondition::has_metadata_condition,
             metadata_info.as_ref(),
         )?;
+        check_email_filter_dates(email_filter.as_ref())?;
         let email_sort: Option<Vec<EmailComparator>> = if O::TYPE_NAME == "Email" {
             sort.map(retype).transpose()?
         } else {
@@ -2540,6 +2541,22 @@ pub(super) struct ThreadIndex(Option<HashMap<Id, ThreadMembers>>);
 /// Each current Email of one Thread, with its keywords.
 type ThreadMembers = Vec<(Id, BTreeMap<Keyword, bool>)>;
 
+/// RFC 8620 §1.4: an Email filter's `before` / `after` are UTCDates; a
+/// malformed one is `invalidArguments`, whether or not any Email is
+/// evaluated.
+pub(super) fn check_email_filter_dates(
+    filter: Option<&EmailFilter>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    if filter.is_some_and(|f| !crate::filter::filter_dates_valid(f)) {
+        return Err(BackendQueryError::Method(
+            jmap_types::JmapError::invalid_arguments(
+                "filter before/after is not a UTCDate (RFC 8620 §1.4)",
+            ),
+        ));
+    }
+    Ok(())
+}
+
 impl ThreadIndex {
     /// Indexes the stored Emails `objects` when `filter` has a thread
     /// condition.
@@ -2592,8 +2609,14 @@ impl ThreadIndex {
             }
         };
         // The index is built whenever a thread condition is present, so
-        // only an unknown operator or filter form can fail here.
-        result.map_err(|_| jmap_types::JmapError::unsupported_filter())
+        // only a malformed date or an unknown operator or filter form can
+        // fail here.
+        result.map_err(|e| match e {
+            crate::filter::FilterError::InvalidDate => jmap_types::JmapError::invalid_arguments(
+                "filter before/after is not a UTCDate (RFC 8620 §1.4)",
+            ),
+            _ => jmap_types::JmapError::unsupported_filter(),
+        })
     }
 }
 

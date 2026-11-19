@@ -149,6 +149,10 @@ fn filter_ok(filter: Option<&Value>, account: &EmailPushAccount, metadata: Metad
     let Some(filter) = filter else {
         return true;
     };
+    // RFC 8620 §1.4: `before` / `after` are UTCDates.
+    if !crate::filter::filter_dates_valid(&filter) {
+        return false;
+    }
     conditions_used(&filter)
         .into_iter()
         .all(|c| condition_supported(c, account, metadata))
@@ -220,8 +224,10 @@ fn property_supported(name: &str, account: &EmailPushAccount, metadata: bool) ->
 /// no side effects.
 ///
 /// The change "includes emailPush" when a create sends it or an update
-/// changes it. Otherwise only the `keys` rule runs, so an update of other
-/// properties succeeds even if a stored account has since been revoked.
+/// changes it, compared with `old` pruned of revoked accounts as
+/// [`prune_email_push`] lists it. Otherwise only the `keys` rule runs, so an
+/// update of other properties succeeds even if a stored account has since
+/// been revoked or changed.
 /// When it does, `emailPush` is checked:
 ///
 /// - a non-object value is invalid at `emailPush`;
@@ -253,10 +259,27 @@ pub async fn check_email_push_change<B: EmailPushBackend>(
     new: &mut PushSubscription,
 ) -> Result<(), BackendSetError<B::Error>> {
     let value = new.extra.get(EMAIL_PUSH_PROPERTY);
-    let touches = match old {
+    let mut touches = match old {
         None => value.is_some(),
         Some(old) => old.extra.get(EMAIL_PUSH_PROPERTY) != value,
     };
+    let mut accounts = None;
+    // `new` comes from the listed, pruned object (`list_push_subscriptions`
+    // strips revoked accounts), `old` from storage: compare with `old` as
+    // listed, so a stored revoked account alone is not a change.
+    if touches
+        && let Some(old) = old
+        && old.extra.get(EMAIL_PUSH_PROPERTY).is_some_and(Value::is_object)
+    {
+        let current = backend
+            .email_push_accounts(caller)
+            .await
+            .map_err(BackendSetError::Other)?;
+        let mut listed = old.clone();
+        prune_email_push(&mut listed, &current);
+        touches = listed.extra.get(EMAIL_PUSH_PROPERTY) != value;
+        accounts = Some(current);
+    }
     let non_null = value.is_some_and(|v| !v.is_null());
     // -05 §4: "The "emailPush" property is not null and the "keys"
     // property of the PushSubscription is null."
@@ -266,10 +289,13 @@ pub async fn check_email_push_change<B: EmailPushBackend>(
     if touches && non_null {
         match value {
             Some(Value::Object(map)) => {
-                let accounts = backend
-                    .email_push_accounts(caller)
-                    .await
-                    .map_err(BackendSetError::Other)?;
+                let accounts = match accounts {
+                    Some(a) => a,
+                    None => backend
+                        .email_push_accounts(caller)
+                        .await
+                        .map_err(BackendSetError::Other)?,
+                };
                 let mut out = Map::new();
                 for (key, cfg) in map {
                     let account = Id::new_validated(key.clone())

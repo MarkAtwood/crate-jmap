@@ -22,6 +22,7 @@ use jmap_metadata_server::{
     metadata_path_exists, metadata_text_contains, metadata_text_equals, unicode_casemap_prepare,
 };
 use jmap_metadata_types::MetadataTextMatch;
+use jmap_types::UTCDate;
 use serde_json::{Map, Value};
 
 /// One FilterCondition property of RFC 8621 §4.4.1 or
@@ -126,6 +127,22 @@ pub(crate) enum FilterError {
     /// The filter holds an operator or filter form this crate does not
     /// know (`Operator` and `Filter` are `#[non_exhaustive]`).
     Unsupported,
+    /// A `before` or `after` value is not an RFC 8620 §1.4 `UTCDate`.
+    InvalidDate,
+}
+
+/// Whether every `before` and `after` in `filter` is a valid RFC 8620 §1.4
+/// `UTCDate` ("date-time" with the time-offset "Z"). Callers reject a
+/// filter that fails this before evaluating it.
+pub(crate) fn filter_dates_valid(filter: &EmailFilter) -> bool {
+    match filter {
+        Filter::Condition(c) => [&c.before, &c.after]
+            .into_iter()
+            .flatten()
+            .all(|d| UTCDate::new_validated(d.as_ref()).is_ok()),
+        Filter::Operator(op) => op.conditions.iter().all(filter_dates_valid),
+        _ => true,
+    }
 }
 
 /// The keywords of every Email in one Email's Thread, that Email included.
@@ -270,7 +287,24 @@ fn condition_matches(
     if !(all && some && none) {
         return Ok(false);
     }
-    let received = email.received_at.to_epoch_seconds().unwrap_or(0);
+    // "receivedAt ... must be before this date-time" / "the same or after"
+    // (RFC 8621 §4.4.1), compared as instants with fractional seconds.
+    let received_vs = |d: &UTCDate| {
+        email
+            .received_at
+            .cmp_instant(d)
+            .map_err(|_| FilterError::InvalidDate)
+    };
+    if let Some(d) = &c.before
+        && received_vs(d)?.is_ge()
+    {
+        return Ok(false);
+    }
+    if let Some(d) = &c.after
+        && received_vs(d)?.is_lt()
+    {
+        return Ok(false);
+    }
     let empty = Map::new();
     let metadata = email.metadata.as_ref().unwrap_or(&empty);
     let private = email.private_metadata.as_ref().unwrap_or(&empty);
@@ -281,14 +315,6 @@ fn condition_matches(
         && c.in_mailbox_other_than
             .as_ref()
             .is_none_or(|ex| email.mailbox_ids.keys().any(|m| !ex.contains(m)))
-        // "receivedAt ... must be before this date-time" / "on or after"
-        // (RFC 8621 §4.4.1). An unparseable bound constrains nothing.
-        && c.before.as_ref().is_none_or(|d| {
-            try_rfc3339_to_epoch_secs(d.as_ref()).is_none_or(|b| received < b)
-        })
-        && c.after.as_ref().is_none_or(|d| {
-            try_rfc3339_to_epoch_secs(d.as_ref()).is_none_or(|a| received >= a)
-        })
         // "size ... must be equal to or greater than" / "less than".
         && c.min_size.is_none_or(|n| email.size >= n)
         && c.max_size.is_none_or(|n| email.size < n)
@@ -311,8 +337,11 @@ fn condition_matches(
         && text_match(private, c.private_metadata_text_equals.as_ref(), metadata_text_equals))
 }
 
+/// RFC 8621 §4.1.1: "a keyword is a case-insensitive string".
 fn has(keywords: &BTreeMap<Keyword, bool>, k: &Keyword) -> bool {
-    keywords.get(k).copied().unwrap_or(false)
+    keywords
+        .iter()
+        .any(|(kw, set)| *set && kw.eq_ignore_ascii_case(k))
 }
 
 fn text_match(
@@ -408,7 +437,9 @@ pub(crate) fn try_rfc3339_to_epoch_secs(s: &str) -> Option<i64> {
     // Expected format: YYYY-MM-DDTHH:MM:SS[.fff](Z|+HH:MM|-HH:MM)
     // Length with Z offset: 20 chars; with millis+Z: 24 chars; with ±HH:MM: 25 chars.
     let s = s.trim();
-    if s.len() < 20 {
+    // The byte slicing below needs ASCII: a multi-byte character across a
+    // field boundary would panic.
+    if s.len() < 20 || !s.is_ascii() {
         return None;
     }
 

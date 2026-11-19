@@ -218,6 +218,7 @@ impl Inner {
         }
         if O::TYPE_NAME == Email::TYPE_NAME {
             let filter: Option<EmailFilter> = filter.map(retype).transpose()?;
+            super::check_email_filter_dates(filter.as_ref())?;
             let sort: Vec<EmailComparator> = sort.map(retype).transpose()?.unwrap_or_default();
             let mut kept: Vec<(i64, Id)> = Vec::new();
             let mut snapshots: HashMap<Id, Value> = HashMap::new();

@@ -179,8 +179,11 @@ pub fn email_pushes_for(
                     Err(FilterError::MissingThreadKeywords) => {
                         return Err(EmailPushError::MissingThreadKeywords);
                     }
-                    // A decoded filter holds only known operators.
-                    Err(FilterError::Unsupported) => return Ok(Vec::new()),
+                    // A checked config holds only known operators and
+                    // valid dates (`check_config`).
+                    Err(FilterError::Unsupported | FilterError::InvalidDate) => {
+                        return Ok(Vec::new());
+                    }
                 }
             }
         };

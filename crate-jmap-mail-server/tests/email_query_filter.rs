@@ -148,3 +148,49 @@ async fn get_fetches_text_body_values() {
     .unwrap();
     assert_eq!(got.primary["list"][0]["bodyValues"], json!({}));
 }
+
+/// RFC 8620 §1.4 / §5.5: a `before` / `after` that is not a UTCDate is
+/// invalidArguments, even with no Email to evaluate; a non-ASCII value used
+/// to panic.
+#[tokio::test]
+async fn malformed_date_is_invalid_arguments() {
+    let b = MemoryBackend::new();
+    b.register_account(&Id::from(ACCOUNT));
+    for filter in [
+        json!({"before": "202\u{e9}-01-02T03:04:05Z"}),
+        json!({"after": "2026-01-02"}),
+    ] {
+        let err = handle_email_query(
+            &b,
+            &(),
+            json!({"accountId": ACCOUNT, "filter": filter.clone()}),
+            &[],
+        )
+        .await
+        .expect_err("malformed date");
+        assert_eq!(err.error_type.to_string(), "invalidArguments", "{filter}");
+    }
+}
+
+/// RFC 8621 §4.1.1: keywords are case-insensitive.
+#[tokio::test]
+async fn keyword_condition_ignores_case() {
+    let (b, alice, bob) = setup().await;
+    handle_email_set(
+        &b,
+        &(),
+        &BTreeMap::new(),
+        json!({"accountId": ACCOUNT, "update": {alice.clone(): {"keywords/$flagged": true}}}),
+        &[],
+    )
+    .await
+    .unwrap();
+    assert_eq!(
+        query(&b, json!({"hasKeyword": "$FLAGGED"})).await,
+        vec![alice]
+    );
+    assert_eq!(
+        query(&b, json!({"notKeyword": "$Flagged"})).await,
+        vec![bob]
+    );
+}
