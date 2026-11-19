@@ -144,8 +144,8 @@ pub(crate) fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
 /// Fill `email`'s RFC 8621 §4.1.3 header properties from `parsed` and its
 /// §4.1.4 body properties from a MIME parse of `bytes`.
 ///
-/// Leaf parts get the blob ids `{blob_id}-part-{n}`, and every textBody and
-/// htmlBody part its decoded `bodyValues` entry. The preview comes from
+/// Leaf parts get the blob ids `{blob_id}-part-{n}`, and every "text/*"
+/// leaf part its decoded `bodyValues` entry. The preview comes from
 /// the MIME parse, or from the raw body when mime-tree cannot parse the
 /// message.
 pub(crate) fn fill_from_message(
@@ -175,12 +175,15 @@ pub(crate) fn fill_from_message(
             part_counter.set(i + 1);
             Id::from(format!("{blob_id}-part-{i}"))
         });
-        // RFC 8621 §4.1.4 bodyValues for every textBody and htmlBody part,
-        // so Email/get's fetch*BodyValues and the `body` / `text` filter
+        // RFC 8621 §4.1.4 bodyValues for every "text/*" leaf part of the
+        // bodyStructure, so Email/get's fetch*BodyValues (§4.2:
+        // fetchAllBodyValues "includes any "text/*" part in the
+        // "bodyStructure" property") and the `body` / `text` filter
         // conditions have the decoded text. A part that fails to decode
         // gets no value.
-        email.body_values = body_fields
-            .body_value_part_ids
+        let mut text_parts = Vec::new();
+        text_leaf_part_ids(&body_fields.body_structure, &mut text_parts);
+        email.body_values = text_parts
             .iter()
             .filter_map(|part_id| {
                 let part = parsed_msg.part_index.find_by_id(part_id)?;
@@ -267,5 +270,25 @@ mod preview_tests {
             parse_rfc5322_headers(msg.as_bytes()).preview.unwrap().len(),
             256
         );
+    }
+}
+
+/// The partIds of the "text/*" leaf parts under `part`, in order.
+fn text_leaf_part_ids(part: &jmap_mail_types::EmailBodyPart, out: &mut Vec<String>) {
+    match &part.sub_parts {
+        Some(children) => {
+            for child in children {
+                text_leaf_part_ids(child, out);
+            }
+        }
+        None => {
+            let is_text = part
+                .type_
+                .as_deref()
+                .is_some_and(|t| t.len() >= 5 && t[..5].eq_ignore_ascii_case("text/"));
+            if is_text && let Some(id) = &part.part_id {
+                out.push(id.clone());
+            }
+        }
     }
 }

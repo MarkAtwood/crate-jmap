@@ -520,6 +520,23 @@ fn extract_header_values(
     })
 }
 
+/// The partIds of the "text/*" parts in a `textBody` / `htmlBody` list:
+/// RFC 8621 §4.2 fetchTextBodyValues "includes any "text/*" part in the
+/// "textBody" property", and likewise for HTML (a textBody can also hold
+/// an inline image).
+fn text_part_ids_in(list: Option<&Value>) -> HashSet<String> {
+    list.and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter(|p| {
+            p.get("type")
+                .and_then(Value::as_str)
+                .is_some_and(|t| t.len() >= 5 && t[..5].eq_ignore_ascii_case("text/"))
+        })
+        .filter_map(|p| p.get("partId").and_then(Value::as_str).map(str::to_owned))
+        .collect()
+}
+
 /// Apply RFC 8621 §4.2 body-value fetch arguments to a serialized `Email` JSON value.
 ///
 /// - `args.fetch_text/html/all`: control which `bodyValues` entries survive. When none
@@ -539,26 +556,12 @@ fn apply_body_value_args(val: &mut Value, args: &BodyFetchArgs, body_prop_set: &
 
     // Collect part ids for text and html body lists so we can filter bodyValues.
     let text_part_ids: HashSet<String> = if args.fetch_text || args.fetch_all {
-        map.get("textBody")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|p| p.get("partId").and_then(|v| v.as_str()).map(str::to_owned))
-                    .collect()
-            })
-            .unwrap_or_default()
+        text_part_ids_in(map.get("textBody"))
     } else {
         HashSet::new()
     };
     let html_part_ids: HashSet<String> = if args.fetch_html || args.fetch_all {
-        map.get("htmlBody")
-            .and_then(|v| v.as_array())
-            .map(|arr| {
-                arr.iter()
-                    .filter_map(|p| p.get("partId").and_then(|v| v.as_str()).map(str::to_owned))
-                    .collect()
-            })
-            .unwrap_or_default()
+        text_part_ids_in(map.get("htmlBody"))
     } else {
         HashSet::new()
     };

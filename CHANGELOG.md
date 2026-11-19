@@ -857,6 +857,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `fetchTextBodyValues` /
+  `fetchHTMLBodyValues` return values only for the "text/*" parts of
+  `textBody` / `htmlBody` (an inline image there got one), and the memory
+  backend stores a value for every "text/*" leaf part, so
+  `fetchAllBodyValues` includes text attachments (RFC 8621 §4.2).
+  (bd:JMAP-q2wa.48)
 - **jmap-mail-server** (wire): `header:{name}:as{Form}` follows the RFC
   8621 §4.1.2 tables: a field RFC 5322 or RFC 2369 defines takes only its
   own forms (`header:From:asText`, `header:Subject:asAddresses` and
