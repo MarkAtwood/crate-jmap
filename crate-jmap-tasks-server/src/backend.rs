@@ -187,6 +187,13 @@ pub trait TasksBackend: JmapBackend {
     ///   only be set to true upon creation." The `Task/set` handler does
     ///   not pre-check this; the backend is the only enforcement point, in
     ///   the same critical section that applies the patch.
+    /// - A Task's `workflowStatus` and `progress` follow decision 42
+    ///   ([`crate::workflow::apply_workflow_status`]): a status not in the
+    ///   list's `workflowStatuses` is `invalidProperties` when the patch sets
+    ///   it or moves the task; a progress value is mirrored into `progress`
+    ///   (return the Task as `Some` to echo it); a conflicting `progress` is
+    ///   `invalidProperties`. Run it in the same critical section, as
+    ///   `create_object` does for a create.
     ///
     /// # Atomicity
     ///

@@ -276,7 +276,10 @@ pub struct Task {
     pub sort_order: Option<u32>,
 
     /// Current workflow status.  Must be one of the TaskList's
-    /// `workflowStatuses`.  If set, `progress` MUST be null.
+    /// `workflowStatuses`. In place of -06's "If set, `progress` MUST be
+    /// null", the server mirrors an RFC 8984 progress value into `progress`
+    /// and leaves it null for any other value (docs/design/DECISIONS.md
+    /// decision 42, jmapio/jmap #465; `jmap_tasks_server::workflow`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_status: Option<String>,
 

@@ -55,6 +55,7 @@ pub mod memory;
 mod task;
 mod task_list;
 mod task_notification;
+pub mod workflow;
 
 pub use backend::TasksBackend;
 pub use history::{

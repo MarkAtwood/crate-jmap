@@ -332,6 +332,37 @@ impl Inner {
     }
 
     /// Read `taskListId` out of a serialized Task value, if present.
+    /// The `workflowStatuses` of task list `list_id`, or `None` when the
+    /// list is not stored or has none (the default applies).
+    fn workflow_statuses(&mut self, account_id: &str, list_id: Option<&Id>) -> Option<Vec<String>> {
+        let list = self
+            .objects_mut(TaskList::TYPE_NAME, account_id)
+            .get(list_id?)?;
+        serde_json::from_value(list.get("workflowStatuses")?.clone()).ok()
+    }
+
+    /// Decision 42 on Task `task` under the lock
+    /// ([`crate::workflow::apply_workflow_status`]).
+    fn apply_workflow(
+        &mut self,
+        account_id: &str,
+        task: &mut serde_json::Value,
+        write: crate::workflow::WorkflowWrite<'_>,
+    ) -> Result<bool, BackendSetError<MemoryError>> {
+        let list = Self::task_list_id_of(task);
+        let statuses = self.workflow_statuses(account_id, list.as_ref());
+        let serde_json::Value::Object(map) = task else {
+            return Ok(false);
+        };
+        crate::workflow::apply_workflow_status(
+            map,
+            write,
+            statuses.as_deref(),
+            jmap_server::now_utc_string().as_ref(),
+        )
+        .map_err(BackendSetError::SetError)
+    }
+
     fn task_list_id_of(task: &serde_json::Value) -> Option<Id> {
         task.get("taskListId")
             .and_then(|v| v.as_str())
@@ -1337,11 +1368,23 @@ impl MemoryBackend {
         let server_id = Id::from(uuid::Uuid::new_v4().to_string());
         // Object history §5.1 covers Task/copy too: a fresh v4 UUID never
         // reuses a destroyed id.
-        let stored_obj = build(&server_id)?;
-        let val = serde_json::to_value(&stored_obj)
+        let mut stored_obj = build(&server_id)?;
+        let mut val = serde_json::to_value(&stored_obj)
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
 
         let mut inner = self.inner.lock().await;
+        // Decision 42 (workflowStatus and progress), under the lock so the
+        // list's workflowStatuses cannot change in between.
+        if O::TYPE_NAME == Task::TYPE_NAME
+            && inner.apply_workflow(
+                account_id.as_ref(),
+                &mut val,
+                crate::workflow::WorkflowWrite::Create,
+            )?
+        {
+            stored_obj = O::deserialize(&val)
+                .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize", &e)))?;
+        }
         debug_assert!(!inner.history_retains(O::TYPE_NAME, account_id, &server_id));
         check_metadata_create(
             &inner,
@@ -1566,8 +1609,41 @@ impl TasksBackend for MemoryBackend {
             )));
         }
 
+        // Decision 42 (workflowStatus and progress) on the patched Task,
+        // atomically with the write.
+        let mut echo = false;
+        if O::TYPE_NAME == Task::TYPE_NAME {
+            let written: Vec<String> = patch_val
+                .as_object()
+                .into_iter()
+                .flat_map(|m| m.keys())
+                .map(|k| {
+                    let head = k.split('/').next().unwrap_or(k);
+                    head.replace("~1", "/").replace("~0", "~")
+                })
+                .collect();
+            let empty = serde_json::Map::new();
+            let before = previous.as_object().unwrap_or(&empty);
+            echo = inner.apply_workflow(
+                account_id.as_ref(),
+                &mut current,
+                crate::workflow::WorkflowWrite::Update {
+                    before,
+                    written: &written,
+                },
+            )?;
+        }
+
         let new_task_list_id = if O::TYPE_NAME == "Task" {
             Inner::task_list_id_of(&current)
+        } else {
+            None
+        };
+        let echoed = if echo {
+            Some(
+                O::deserialize(&current)
+                    .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize", &e)))?,
+            )
         } else {
             None
         };
@@ -1593,7 +1669,7 @@ impl TasksBackend for MemoryBackend {
             inner.inc_task_ref(account_id.as_ref(), new_task_list_id);
         }
 
-        Ok(None)
+        Ok(echoed)
     }
 
     async fn update_task_per_user(

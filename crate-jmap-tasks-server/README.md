@@ -379,6 +379,11 @@ as on current Tasks.
 - `isDraft` immutability is the backend's job: `update_object` MUST reject a patch that
   sets `isDraft: true` on a Task whose stored value is not `true`; the handler does not
   check it.
+- `workflowStatus` and `progress` (decision 42, jmapio/jmap #465) are the backend's job
+  too: `create_object` and `update_object` run `workflow::apply_workflow_status` under
+  the lock. It mirrors an RFC 8984 progress value into `progress`, rejects a status
+  outside the list's `workflowStatuses` and a conflicting `progress`, and checks a move.
+  This replaces -06's "If set, `progress` MUST be null".
 - **`memory::MemoryBackend` is a reference implementation, not production.**
   Gated behind `feature = "memory"` (off by default). State is held in
   `HashMap`s behind a `std::sync::Mutex`; persistence is not implemented; a

@@ -987,6 +987,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-tasks-server**: Task `workflowStatus` and `progress` follow decision
+  42 (jmapio/jmap #465), in place of -06's "If set, `progress` MUST be null":
+  a `workflowStatus` that is an RFC 8984 progress value is mirrored into
+  `progress` (and `progressUpdated`), any other leaves it null; a conflicting
+  `progress` and a `workflowStatus` outside the list's `workflowStatuses`
+  (on create, when set, or on a move to another list) are
+  `invalidProperties`; changing a list's `workflowStatuses` leaves its tasks
+  alone. New `workflow` module; `TasksBackend::update_object` and
+  `create_object` enforce it atomically (the memory backend does). Writes
+  the old code accepted, such as a `workflowStatus` the list does not have,
+  now fail (bd:JMAP-jkl8.6).
+
 - **jmap-scene-client** (**BREAKING**): `SceneWsExt::send_scene_stream_enable`
   takes the JMAP `Session` first and returns `ClientError::InvalidArgument`,
   sending nothing, when it does not advertise
