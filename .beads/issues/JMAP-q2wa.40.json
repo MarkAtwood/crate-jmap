@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-q2wa.40",
+  "title": "memory: Mailbox state does not advance when counts change",
+  "description": "memory/mod.rs:343-365; Mailbox/changes never reports count changes and updatedProperties is never produced. RFC 8620 §5.1, RFC 8621 §2.2. (probe-confirmed) (mail-server review 2026-11-19)",
+  "status": "open",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T05:32:46.907502606Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T05:32:46.907502606Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-q2wa.40",
+      "depends_on_id": "JMAP-q2wa",
+      "type": "parent-child",
+      "created_at": "2026-11-19T05:32:47.462802181Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

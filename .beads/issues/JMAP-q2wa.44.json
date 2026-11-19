@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-q2wa.44",
+  "title": "memory: sinceState newer than current state accepted",
+  "description": "memory/mod.rs:1286-1327 returns empty changes with newState=sinceState for a future state (e.g. after restart); later changes are skipped forever. RFC 8620 §5.2 cannotCalculateChanges. (mail-server review 2026-11-19)",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T05:32:53.650480598Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T05:32:53.650480598Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-q2wa.44",
+      "depends_on_id": "JMAP-q2wa",
+      "type": "parent-child",
+      "created_at": "2026-11-19T05:32:54.024888231Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

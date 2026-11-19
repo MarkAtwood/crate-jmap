@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-q2wa.50",
+  "title": "Raw header form converts folding CRLF to LF",
+  "description": "parse.rs:51-57, project.rs:330. RFC 8621 §4.1.2.1 Raw keeps the octets up to the terminating CRLF. header:X-Folded gives \" one\\n two\". (probe-confirmed) (mail-server review 2026-11-19)",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T05:33:02.894125635Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T05:33:02.894125635Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-q2wa.50",
+      "depends_on_id": "JMAP-q2wa",
+      "type": "parent-child",
+      "created_at": "2026-11-19T05:33:03.530058111Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

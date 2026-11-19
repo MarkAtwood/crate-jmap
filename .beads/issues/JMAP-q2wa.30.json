@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-q2wa.30",
+  "title": "emailpush: update of another property re-validates untouched emailPush",
+  "description": "validate.rs:447-450 + memory/push.rs:567-576: old is raw (unpruned) storage, new is pruned+patched, so old != new whenever an account was revoked; an expires-only update can fail on emailPush/A2/filter. -05 §4 errors apply only when \"The change includes emailPush\". Compare against the pruned old value. (mail-server review 2026-11-19)",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T05:32:29.546056771Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T05:37:53.069399956Z",
+  "closed_at": "2026-11-19T05:37:53.069399956Z",
+  "close_reason": "Fixed with regression tests (tests/email_query_filter.rs, emailpush_validate.rs, emailpush_deliver.rs).",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-q2wa.30",
+      "depends_on_id": "JMAP-q2wa",
+      "type": "parent-child",
+      "created_at": "2026-11-19T05:32:30.242713264Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

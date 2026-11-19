@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-q2wa.31",
+  "title": "EmailSubmission/set onSuccess* acts on submissions the call never touched",
+  "description": "submission.rs:471-508 builds the onSuccess map from every literal id in onSuccessDestroyEmail/UpdateEmail and only removes notUpdated/notDestroyed ones. {\"onSuccessDestroyEmail\":[S]} with no create/update/destroy destroys S's Email. RFC 8621 §7.5 \"if the create/update/destroy succeeds\". (probe-confirmed) (mail-server review 2026-11-19)",
+  "status": "open",
+  "priority": 0,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T05:32:31.594388412Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T05:32:31.594388412Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-q2wa.31",
+      "depends_on_id": "JMAP-q2wa",
+      "type": "parent-child",
+      "created_at": "2026-11-19T05:32:32.137099143Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

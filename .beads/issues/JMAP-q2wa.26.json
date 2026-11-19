@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-q2wa.26",
+  "title": "filter: non-ASCII before/after value panics the server (byte slicing in try_rfc3339_to_epoch_secs)",
+  "description": "src/filter.rs:415-458 slices by byte index after only a length check; UTCDate deserializes unvalidated. emailPush filter {\"before\":\"202é-01-02T03:04:05Z\"} is stored, then every delivery panics inside the memory lock; memory Email/query uses the same evaluator. Must reject as invalidProperties / invalidArguments, never panic. (review 2026-11-19, probe-confirmed) (mail-server review 2026-11-19)",
+  "status": "closed",
+  "priority": 0,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T05:32:22.487959016Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T05:37:45.191467652Z",
+  "closed_at": "2026-11-19T05:37:45.191467652Z",
+  "close_reason": "Fixed with regression tests (tests/email_query_filter.rs, emailpush_validate.rs, emailpush_deliver.rs).",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-q2wa.26",
+      "depends_on_id": "JMAP-q2wa",
+      "type": "parent-child",
+      "created_at": "2026-11-19T05:32:22.936164257Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

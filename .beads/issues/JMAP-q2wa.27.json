@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-q2wa.27",
+  "title": "filter/emailpush: malformed before/after accepted and then match everything",
+  "description": "validate.rs filter_ok never checks before/after; filter.rs:286-291 treats an unparseable bound as no constraint. {\"before\":\"garbage\"}, \"2026-01-02\", \"2026-13-45T..Z\", \"+02:00\" offsets all accepted; every Email then matches. RFC 8620 §1.4 UTCDate; -05 §4 invalid filter -\u003e invalidProperties; Email/query -\u003e invalidArguments. (probe-confirmed) (mail-server review 2026-11-19)",
+  "status": "closed",
+  "priority": 1,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T05:32:23.973042544Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T05:37:47.05303782Z",
+  "closed_at": "2026-11-19T05:37:47.05303782Z",
+  "close_reason": "Fixed with regression tests (tests/email_query_filter.rs, emailpush_validate.rs, emailpush_deliver.rs).",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-q2wa.27",
+      "depends_on_id": "JMAP-q2wa",
+      "type": "parent-child",
+      "created_at": "2026-11-19T05:32:24.545413473Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
