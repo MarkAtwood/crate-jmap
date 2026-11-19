@@ -841,6 +841,44 @@ pub async fn handle_email_set<B: MailBackend>(
                 not_updated.insert(id_str.clone(), serde_json::Value::from(&*err));
                 continue;
             }
+            match check_email_patch(patch.as_map_mut()) {
+                Ok(false) => {}
+                Ok(true) => {
+                    // A Mailbox is removed by path: one must remain.
+                    let (current, _) = backend
+                        .get_objects::<Email>(
+                            caller,
+                            &account_id,
+                            Some(std::slice::from_ref(&id)),
+                            None,
+                        )
+                        .await
+                        .map_err(|e| server_fail_from_backend(&e))?;
+                    if let Some(email) = current.first() {
+                        let remaining = email.mailbox_ids.keys().any(|m| {
+                            !matches!(
+                                patch.as_map().get(&format!("mailboxIds/{}", m.as_ref())),
+                                Some(Value::Null)
+                            )
+                        }) || patch
+                            .as_map()
+                            .iter()
+                            .any(|(k, v)| k.starts_with("mailboxIds/") && v == &Value::Bool(true));
+                        if !remaining {
+                            not_updated.insert(
+                                id_str.clone(),
+                                json!({ "type": "invalidProperties", "properties": ["mailboxIds"],
+                                        "description": "an Email must belong to at least one Mailbox" }),
+                            );
+                            continue;
+                        }
+                    }
+                }
+                Err(err) => {
+                    not_updated.insert(id_str.clone(), err);
+                    continue;
+                }
+            }
 
             match backend
                 .update_object::<Email>(caller, &account_id, &id, patch)
@@ -944,25 +982,105 @@ fn validate_and_normalize_keywords(
 ) -> Result<BTreeMap<Keyword, bool>, String> {
     raw.into_iter()
         .filter(|(_, v)| *v) // false-valued keyword means absent — skip
-        .map(|(kw, _)| {
-            if kw.is_empty() || kw.len() > MAX_KEYWORD_LEN {
-                return Err(format!(
-                    "keyword '{}' has invalid length (must be 1–255 bytes)",
-                    kw
-                ));
-            }
-            if let Some(b) = kw
-                .bytes()
-                .find(|&b| !(0x21..=0x7e).contains(&b) || FORBIDDEN_KEYWORD_CHARS.contains(&b))
-            {
-                return Err(format!(
-                    "keyword '{}' contains forbidden character 0x{:02x}",
-                    kw, b
-                ));
-            }
-            Ok((Keyword::from(kw.to_ascii_lowercase()), true))
-        })
+        .map(|(kw, _)| Ok((Keyword::from(normalize_keyword(&kw)?), true)))
         .collect()
+}
+
+/// `kw` checked against RFC 8621 §4.1.1 and lowercased ("servers MUST
+/// return keywords in lowercase").
+fn normalize_keyword(kw: &str) -> Result<String, String> {
+    if kw.is_empty() || kw.len() > MAX_KEYWORD_LEN {
+        return Err(format!(
+            "keyword '{kw}' has invalid length (must be 1–255 bytes)"
+        ));
+    }
+    if let Some(b) = kw
+        .bytes()
+        .find(|&b| !(0x21..=0x7e).contains(&b) || FORBIDDEN_KEYWORD_CHARS.contains(&b))
+    {
+        return Err(format!(
+            "keyword '{kw}' contains forbidden character 0x{b:02x}"
+        ));
+    }
+    Ok(kw.to_ascii_lowercase())
+}
+
+/// Check and normalize the `keywords` and `mailboxIds` parts of an
+/// Email/set update patch (RFC 8621 §4.1.1): each keyword valid and
+/// lowercased, every value `true` (a `keywords/...` or `mailboxIds/...`
+/// path may also be `null`, which removes it), and a whole `mailboxIds`
+/// non-empty. Returns whether the patch removes a Mailbox by path, so the
+/// caller must check that one remains ("An Email in the mail store MUST
+/// belong to one or more Mailboxes at all times").
+///
+/// # Errors
+///
+/// The `invalidProperties` SetError naming the property.
+fn check_email_patch(patch: &mut serde_json::Map<String, Value>) -> Result<bool, Value> {
+    let invalid = |prop: &str, why: String| json!({ "type": "invalidProperties", "properties": [prop], "description": why });
+    let mut removes_mailbox = false;
+    let mut renamed: Vec<(String, String)> = Vec::new();
+    for (key, value) in patch.iter_mut() {
+        if key == "keywords" {
+            let Some(map) = value.as_object() else {
+                return Err(invalid("keywords", "keywords must be an object".to_owned()));
+            };
+            let mut out = serde_json::Map::new();
+            for (kw, v) in map {
+                if v != &Value::Bool(true) {
+                    return Err(invalid(
+                        "keywords",
+                        format!("keyword '{kw}' must map to true"),
+                    ));
+                }
+                out.insert(
+                    normalize_keyword(kw).map_err(|e| invalid("keywords", e))?,
+                    Value::Bool(true),
+                );
+            }
+            *value = Value::Object(out);
+        } else if let Some(kw) = key.strip_prefix("keywords/") {
+            if !matches!(value, Value::Bool(true) | Value::Null) {
+                return Err(invalid(
+                    "keywords",
+                    format!("keyword '{kw}' must be set to true or null"),
+                ));
+            }
+            let plain = kw.replace("~1", "/").replace("~0", "~");
+            normalize_keyword(&plain).map_err(|e| invalid("keywords", e))?;
+            let lower = format!("keywords/{}", kw.to_ascii_lowercase());
+            if &lower != key {
+                renamed.push((key.clone(), lower));
+            }
+        } else if key == "mailboxIds" {
+            let ok = value
+                .as_object()
+                .is_some_and(|m| !m.is_empty() && m.values().all(|v| v == &Value::Bool(true)));
+            if !ok {
+                return Err(invalid(
+                    "mailboxIds",
+                    "mailboxIds must be a non-empty object of Ids mapped to true".to_owned(),
+                ));
+            }
+        } else if key.starts_with("mailboxIds/") {
+            match value {
+                Value::Bool(true) => {}
+                Value::Null => removes_mailbox = true,
+                _ => {
+                    return Err(invalid(
+                        "mailboxIds",
+                        format!("{key} must be set to true or null"),
+                    ));
+                }
+            }
+        }
+    }
+    for (old, new) in renamed {
+        if let Some(v) = patch.remove(&old) {
+            patch.insert(new, v);
+        }
+    }
+    Ok(removes_mailbox && !patch.contains_key("mailboxIds"))
 }
 
 /// Replace `#creationId` mailbox references in an Email create or patch

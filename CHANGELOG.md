@@ -857,6 +857,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `Email/set` update checks `keywords` and
+  `mailboxIds` as create does (RFC 8621 §4.1.1): an invalid keyword, a
+  value other than `true` (or `null` on a path), an empty `mailboxIds`, or
+  path removals that leave no Mailbox are `invalidProperties`, and
+  keywords are stored lowercase. They used to be stored as sent.
+  (bd:JMAP-q2wa.46)
 - **jmap-mail-server** (memory backend): Mailbox counts are recomputed
   after every Email create, update, destroy and restore (RFC 8621 §2:
   `$draft` counts as read, `totalThreads` / `unreadThreads` per Mailbox),
