@@ -34,7 +34,7 @@
 //! cond.from_id = Some(vec![Id::from("N1")]);
 //! ```
 
-use jmap_types::{Id, impl_string_enum};
+use jmap_types::{Id, UTCDate, impl_string_enum};
 use serde::{Deserialize, Serialize};
 
 pub use jmap_types::{Filter, FilterOperator, Operator};
@@ -119,6 +119,11 @@ impl GraphComparator {
 /// Filter addition. A request that sets it uses
 /// [`JMAP_GRAPH_PROJECTION_URI`](crate::JMAP_GRAPH_PROJECTION_URI).
 ///
+/// `basis`, `status`, `pinned` and `valid_at` are the
+/// draft-atwood-jmap-graph-provenance-00 §Query Filters; a request that
+/// sets them uses
+/// [`JMAP_GRAPH_PROVENANCE_URI`](crate::JMAP_GRAPH_PROVENANCE_URI).
+///
 /// `where_`, `language` and `expression` are the
 /// draft-atwood-jmap-graph-search-00 §FilterCondition Extensions ("A
 /// FilterCondition may include `where`, `language` with `expression`, or
@@ -152,6 +157,23 @@ pub struct GraphNodeFilterCondition {
     /// language named by `language`."
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expression: Option<String>,
+    /// draft-atwood-jmap-graph-provenance-00 §Query Filters `basis`: "The
+    /// record's `basis` is one of the given values. To match records with
+    /// no basis, include `null` in the array."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub basis: Option<Vec<Option<crate::ProvenanceBasis>>>,
+    /// draft-atwood-jmap-graph-provenance-00 `status`: "The record's
+    /// `status` is one of the given values."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<Vec<crate::RecordStatus>>,
+    /// draft-atwood-jmap-graph-provenance-00 `pinned`: "The record's
+    /// `pinned` equals the given value."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub pinned: Option<bool>,
+    /// draft-atwood-jmap-graph-provenance-00 `validAt`: "The record's
+    /// `validUntil` is `null` or later than the given time."
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_at: Option<UTCDate>,
 }
 
 impl GraphNodeFilterCondition {
@@ -163,6 +185,10 @@ impl GraphNodeFilterCondition {
             where_: None,
             language: None,
             expression: None,
+            basis: None,
+            status: None,
+            pinned: None,
+            valid_at: None,
         }
     }
 }

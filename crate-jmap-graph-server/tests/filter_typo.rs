@@ -82,3 +82,33 @@ async fn node_and_edge_misspelt_key_is_unsupported_filter() {
     call!(handle_graph_node_query, &backend, ALICE, args.clone());
     call!(handle_graph_edge_query, &backend, ALICE, args);
 }
+
+/// draft-atwood-jmap-graph-provenance-00 §Query Filters (`basis`,
+/// `status`, `pinned`, `validAt`) decode but are not evaluated yet
+/// (bd JMAP-98sl.7): `unsupportedFilter`, never an ignored, match-all
+/// condition.
+#[tokio::test]
+async fn provenance_filters_are_unsupported_until_evaluated() {
+    let backend = backend();
+    let resp = call!(
+        handle_graph_set,
+        &backend,
+        ALICE,
+        json!({ "create": { "g": { "name": "g" } } })
+    );
+    let g = resp["created"]["g"]["id"].as_str().expect("graph");
+    for (k, v) in [
+        ("basis", json!(["inferred", null])),
+        ("status", json!(["active"])),
+        ("pinned", json!(true)),
+        ("validAt", json!("2026-11-19T00:00:00Z")),
+    ] {
+        let mut filter = json!({ "graphId": g });
+        filter[k] = v;
+        let args = json!({ "filter": filter, "sinceQueryState": "0" });
+        let t = call_err!(handle_graph_node_query, &backend, ALICE, args.clone());
+        assert_eq!(t, "unsupportedFilter", "GraphNode/query {k}");
+        let t = call_err!(handle_graph_node_query_changes, &backend, ALICE, args);
+        assert_eq!(t, "unsupportedFilter", "GraphNode/queryChanges {k}");
+    }
+}

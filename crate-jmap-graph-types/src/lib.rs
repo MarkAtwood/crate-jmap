@@ -51,6 +51,7 @@ mod edge;
 mod edit;
 mod graph;
 mod node;
+mod provenance;
 mod query;
 mod search;
 mod wire;
@@ -71,6 +72,10 @@ pub use edit::{
 };
 pub use graph::{Graph, GraphRights};
 pub use node::GraphNode;
+pub use provenance::{
+    EVIDENCE_EDGE_TYPE, JMAP_GRAPH_PROVENANCE_URI, MAX_EVIDENCE_EDGES, MAX_PURPOSES, PermittedUse,
+    ProvenanceBasis, RETENTION_DAYS, RecordStatus, Retention, property as provenance_property,
+};
 pub use query::{
     Filter, FilterOperator, GraphComparator, GraphEdgeComparator, GraphEdgeFilterCondition,
     GraphEdgeSortProperty, GraphFilter, GraphFilterCondition, GraphNodeComparator,

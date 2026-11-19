@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-types**: draft-atwood-jmap-graph-provenance-00 types:
+  `JMAP_GRAPH_PROVENANCE_URI`, `EVIDENCE_EDGE_TYPE`, the limits
+  (`MAX_EVIDENCE_EDGES`, `MAX_PURPOSES`, `RETENTION_DAYS`),
+  `ProvenanceBasis`, `RecordStatus`, `PermittedUse`, `Retention`, the
+  `provenance_property` names; `GraphNode` accessors `basis`,
+  `confidence`, `valid_until`, `is_expired_at`, `valid_for`,
+  `credential_digest`, `status`, `pinned`, `curation_reason`;
+  `GraphRights::may_curate`; `Graph::retention`; and the `basis`,
+  `status`, `pinned`, `valid_at` fields of `GraphNodeFilterCondition`.
+  `jmap-graph-server` answers those filter fields `unsupportedFilter`
+  until it evaluates them. (bd:JMAP-98sl.1)
+
 - **jmap-vtc-server**: the per-account cap on livestreams in `"starting"`
   or `"live"` (draft-atwood-jmap-vtc-00 §Livestream States, `overQuota`).
   It is a `VtcBackend::create_object` contract, checked atomically with

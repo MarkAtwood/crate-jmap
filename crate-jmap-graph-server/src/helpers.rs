@@ -43,6 +43,9 @@ pub(crate) fn invalid(properties: &[&str], description: &str) -> Value {
 /// `unsupportedFilter`, not silently ignored, unless the account has
 /// [`GraphBackend::graph_search_capability`]; then they are checked with
 /// [`check_search_filter`].
+/// The draft-atwood-jmap-graph-provenance-00 §Query Filters properties.
+const PROVENANCE_FILTERS: &[&str] = &["basis", "status", "pinned", "validAt"];
+
 async fn graph_query_args<C: serde::de::DeserializeOwned + KnownSort, B: GraphBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -53,6 +56,13 @@ async fn graph_query_args<C: serde::de::DeserializeOwned + KnownSort, B: GraphBa
         return Err(JmapError::unsupported_filter());
     };
     reject_unsupported_sort::<C>(args.get("sort"))?;
+    // draft-atwood-jmap-graph-provenance-00 §Query Filters: `basis`,
+    // `status`, `pinned` and `validAt` decode into GraphNodeFilterCondition
+    // but are not evaluated yet (bd JMAP-98sl.7), so they are
+    // `unsupportedFilter`, not silently ignored.
+    if PROVENANCE_FILTERS.iter().any(|k| filter.get(*k).is_some()) {
+        return Err(JmapError::unsupported_filter());
+    }
     if !uses_search(filter) {
         return Ok(false);
     }
