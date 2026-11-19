@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-c70f",
+  "title": "chat-client: refuse ChatStreamEnable when the Session lacks chat:websocket",
+  "description": "jmap-chat-wss-guide.md:108: \"clients MUST NOT send ChatStreamEnable in that case (a server that does not recognize it answers with a RequestError of type notRequest)\". ws.rs send_stream_enable sends without checking; the WS session does not know the Session. Size S. From audit JMAP-x3lu (docs/audits/2026-11-19-x3lu/, jmap-chat-spec 120db2c).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:41:06.339009618Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:41:06.339009618Z"
+}

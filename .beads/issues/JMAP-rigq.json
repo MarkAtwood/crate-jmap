@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-rigq",
+  "title": "testjig WS: an unknown or future pushState resumes from current, with tests",
+  "description": "jmap-chat-wss-guide.md:360: \"server MUST resume delivering from the current state without replaying history.\" ws.rs: a token newer than the log sets last_seen = n, skipping new events up to n (e.g. after a jig restart). No test for evicted or future tokens. Related closed JMAP-cf7p.12. Size S. From audit JMAP-x3lu (docs/audits/2026-11-19-x3lu/, jmap-chat-spec 120db2c).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:41:06.708159909Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:41:06.708159909Z"
+}

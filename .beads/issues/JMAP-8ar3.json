@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-8ar3",
+  "title": "federation-server: Peer/groupUpdate rejects or normalizes ChatMember roles other than admin/member",
+  "description": "Compliance §1.9 (doc:83) and §13.3 (doc:711): \"send a member with role: owner. Verify the server either rejects it or normalizes to member. The only valid values are admin and member.\" group_update.rs check_members validates only id and invitedBy. Size S. From audit JMAP-x3lu (docs/audits/2026-11-19-x3lu/, jmap-chat-spec 120db2c).",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:41:06.044383144Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:41:06.044383144Z"
+}
