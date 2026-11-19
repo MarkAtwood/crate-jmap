@@ -8,7 +8,7 @@ draft this library targets defines no `mayAdmin` on CalendarRights; it
 defines `mayShare`:
 
 - draft-ietf-jmap-calendars-26 (in this repo's `rfcs/`), CalendarRights:
-  "*mayShare*: Boolean / The user may modify the \"shareWith\" property
+  "*mayShare*: Boolean / The user may modify the "shareWith" property
   for this calendar."
 - draft-ietf-jmap-calendars-34 keeps `mayShare` and has no `mayAdmin`.
 
