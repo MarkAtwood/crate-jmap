@@ -1,0 +1,21 @@
+[package]
+name = "jmap-did"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Decentralized Identifiers (draft-atwood-jmap-did-00): umbrella crate re-exporting jmap-did-types"
+keywords = ["jmap", "did", "identity"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-did-types = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

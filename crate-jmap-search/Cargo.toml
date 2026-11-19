@@ -1,0 +1,18 @@
+[package]
+name = "jmap-search"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP search (planned): reserved umbrella for a generic filter-expression extension; no public items yet"
+keywords = ["jmap", "search", "query"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+# No dependencies: the jmap-search-types, -client and -server crates this
+# umbrella will re-export do not exist in the workspace yet (bd JMAP-nn3i).
+
+[package.metadata.docs.rs]
+all-features = true

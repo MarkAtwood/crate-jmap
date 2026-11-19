@@ -1,0 +1,27 @@
+[package]
+name = "jmap-object-history"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Object History (draft-ietf-jmap-object-history): umbrella crate re-exporting jmap-object-history-types, -client, and -server"
+keywords = ["jmap", "history", "undelete"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-object-history-types = { workspace = true }
+jmap-object-history-client = { workspace = true, optional = true }
+jmap-object-history-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-object-history-client"]
+server = ["dep:jmap-object-history-server"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

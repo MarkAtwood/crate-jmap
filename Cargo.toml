@@ -20,11 +20,14 @@ members = [
     "crate-jmap-object-history-types",
     "crate-jmap-object-history-server",
     "crate-jmap-object-history-client",
+    "crate-jmap-object-history",
     "crate-jmap-jscalendar-types",
     "crate-jmap-jscontact-types",
     "crate-jmap-metadata-types",
     "crate-jmap-cid-types",
+    "crate-jmap-cid",
     "crate-jmap-did-types",
+    "crate-jmap-did",
     "crate-jmap-did-resolver",
     "crate-jmap-web-push",
     "crate-jmap-peer-auth",
@@ -68,6 +71,13 @@ members = [
     "crate-jmap-vtc-client",
     "crate-jmap-scene-client",
     "crate-jmap-graph-client",
+    "crate-jmap-filenode",
+    "crate-jmap-sharing",
+    "crate-jmap-metadata",
+    "crate-jmap-vtc",
+    "crate-jmap-scene",
+    "crate-jmap-graph",
+    "crate-jmap-search",
     "crate-jmap-testjig",
 ]
 resolver = "2"
@@ -108,6 +118,7 @@ jmap-blob-server       = { path = "crate-jmap-blob-server",      version = "0.5"
 jmap-blob-client       = { path = "crate-jmap-blob-client",      version = "0.5" }
 jmap-object-history-types  = { path = "crate-jmap-object-history-types",  version = "0.5" }
 jmap-object-history-server = { path = "crate-jmap-object-history-server", version = "0.5" }
+jmap-object-history-client = { path = "crate-jmap-object-history-client", version = "0.5" }
 jmap-sharing-types     = { path = "crate-jmap-sharing-types",    version = "0.5" }
 jmap-jscalendar-types  = { path = "crate-jmap-jscalendar-types", version = "0.5" }
 jmap-jscontact-types   = { path = "crate-jmap-jscontact-types",  version = "0.5" }
@@ -132,8 +143,15 @@ jmap-metadata-server   = { path = "crate-jmap-metadata-server",  version = "0.5"
 jmap-sharing-server    = { path = "crate-jmap-sharing-server",   version = "0.5" }
 jmap-vtc-server        = { path = "crate-jmap-vtc-server",       version = "0.5" }
 jmap-scene-server      = { path = "crate-jmap-scene-server",     version = "0.5" }
+jmap-graph-server      = { path = "crate-jmap-graph-server",     version = "0.5" }
 jmap-base-client       = { path = "crate-jmap-base-client",      version = "0.5" }
 jmap-chat-client       = { path = "crate-jmap-chat-client",      version = "0.5" }
+jmap-filenode-client   = { path = "crate-jmap-filenode-client",  version = "0.5" }
+jmap-sharing-client    = { path = "crate-jmap-sharing-client",   version = "0.5" }
+jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.5" }
+jmap-vtc-client        = { path = "crate-jmap-vtc-client",       version = "0.5" }
+jmap-scene-client      = { path = "crate-jmap-scene-client",     version = "0.5" }
+jmap-graph-client      = { path = "crate-jmap-graph-client",     version = "0.5" }
 mime-tree              = "0.4"
 futures                = "0.3"
 serde                  = { version = "1", features = ["derive"] }

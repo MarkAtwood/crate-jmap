@@ -1,6 +1,6 @@
 # Releasing
 
-The 57 publishable `jmap-*` crates in this workspace must reach crates.io
+The 78 publishable `jmap-*` crates in this workspace must reach crates.io
 in **topological order**: each crate must find its dependencies on the
 registry. `cargo publish` with several `-p` flags orders them itself, and
 `scripts/publish.sh` wraps it (see "Publish procedure").
@@ -39,11 +39,11 @@ below). A crate's own self-dev-dependency is not an ordering edge.
 
 | Layer | Crates |
 |---|---|
-| 1 | `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-client`, `jmap-metadata-types`, `jmap-types` |
-| 2 | `jmap-blob-types`, `jmap-did-types`, `jmap-jscalendar-types`, `jmap-metadata-server`, `jmap-object-history-types`, `jmap-quotas-types`, `jmap-sharing-types`, `jmap-web-push` |
-| 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-types`, `jmap-did-resolver`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-object-history-server`, `jmap-peer-auth`, `jmap-scene-types`, `jmap-server`, `jmap-tasks-types`, `jmap-vtc-types` |
+| 1 | `jmap-cid-types`, `jmap-jscontact-types`, `jmap-metadata-client`, `jmap-metadata-types`, `jmap-search`, `jmap-types` |
+| 2 | `jmap-blob-types`, `jmap-cid`, `jmap-did-types`, `jmap-jscalendar-types`, `jmap-metadata-server`, `jmap-object-history-types`, `jmap-quotas-types`, `jmap-sharing-types`, `jmap-web-push` |
+| 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-types`, `jmap-did`, `jmap-did-resolver`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-metadata`, `jmap-object-history-server`, `jmap-peer-auth`, `jmap-scene-types`, `jmap-server`, `jmap-tasks-types`, `jmap-vtc-types` |
 | 4 | `jmap-blob-client`, `jmap-blob-server`, `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-server`, `jmap-contacts-client`, `jmap-contacts-server`, `jmap-filenode-client`, `jmap-filenode-server`, `jmap-graph-client`, `jmap-graph-server`, `jmap-mail-client`, `jmap-mime`, `jmap-object-history-client`, `jmap-peer-auth-io`, `jmap-quotas-client`, `jmap-quotas-server`, `jmap-scene-client`, `jmap-scene-server`, `jmap-sharing-client`, `jmap-sharing-server`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client`, `jmap-vtc-server` |
-| 5 | `jmap-blob`, `jmap-chat-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-scene-server`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-mail-server`, `jmap-quotas`, `jmap-scene-vtc-server` |
+| 5 | `jmap-blob`, `jmap-chat-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-scene-server`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-filenode`, `jmap-graph`, `jmap-mail-server`, `jmap-object-history`, `jmap-quotas`, `jmap-scene`, `jmap-scene-vtc-server`, `jmap-sharing`, `jmap-vtc` |
 | 6 | `jmap-graph-projection-server` |
 
 Crates within the same layer have no dependencies on each other. Direct
@@ -56,8 +56,10 @@ dependencies are listed separately):
 | `jmap-jscontact-types` | 1 | (none) | (none) |
 | `jmap-metadata-client` | 1 | (none) | (none) |
 | `jmap-metadata-types` | 1 | (none) | (none) |
+| `jmap-search` | 1 | (none) | (none) |
 | `jmap-types` | 1 | (none) | (none) |
 | `jmap-blob-types` | 2 | `jmap-types` | (none) |
+| `jmap-cid` | 2 | `jmap-cid-types` | (none) |
 | `jmap-did-types` | 2 | `jmap-types` | (none) |
 | `jmap-jscalendar-types` | 2 | `jmap-types` | (none) |
 | `jmap-metadata-server` | 2 | `jmap-metadata-types` | (none) |
@@ -69,10 +71,12 @@ dependencies are listed separately):
 | `jmap-calendars-types` | 3 | `jmap-jscalendar-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-chat-types` | 3 | `jmap-cid-types`, `jmap-did-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-contacts-types` | 3 | `jmap-jscontact-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
+| `jmap-did` | 3 | `jmap-did-types` | (none) |
 | `jmap-did-resolver` | 3 | `jmap-did-types`, `jmap-types` | (none) |
 | `jmap-filenode-types` | 3 | `jmap-cid-types`, `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-graph-types` | 3 | `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-mail-types` | 3 | `jmap-metadata-types`, `jmap-object-history-types`, `jmap-types` | (none) |
+| `jmap-metadata` | 3 | `jmap-metadata-client`, `jmap-metadata-server`, `jmap-metadata-types` | (none) |
 | `jmap-object-history-server` | 3 | `jmap-object-history-types`, `jmap-types` | (none) |
 | `jmap-peer-auth` | 3 | `jmap-did-types` | (none) |
 | `jmap-scene-types` | 3 | `jmap-object-history-types`, `jmap-types` | (none) |
@@ -116,9 +120,15 @@ dependencies are listed separately):
 | `jmap-chat-scene-server` | 5 | `jmap-scene-server`, `jmap-scene-types`, `jmap-types` | (none) |
 | `jmap-chat-tasks-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-server`, `jmap-tasks-server`, `jmap-tasks-types`, `jmap-types` | (none) |
 | `jmap-chat-vtc-server` | 5 | `jmap-chat-server`, `jmap-chat-types`, `jmap-server`, `jmap-types`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
+| `jmap-filenode` | 5 | `jmap-filenode-client`, `jmap-filenode-server`, `jmap-filenode-types` | (none) |
+| `jmap-graph` | 5 | `jmap-graph-client`, `jmap-graph-server`, `jmap-graph-types` | (none) |
 | `jmap-mail-server` | 5 | `jmap-mail-types`, `jmap-metadata-server`, `jmap-metadata-types`, `jmap-mime`, `jmap-object-history-server`, `jmap-object-history-types`, `jmap-server`, `jmap-types` | (none) |
+| `jmap-object-history` | 5 | `jmap-object-history-client`, `jmap-object-history-server`, `jmap-object-history-types` | (none) |
 | `jmap-quotas` | 5 | `jmap-quotas-client`, `jmap-quotas-server`, `jmap-quotas-types` | (none) |
+| `jmap-scene` | 5 | `jmap-scene-client`, `jmap-scene-server`, `jmap-scene-types` | (none) |
 | `jmap-scene-vtc-server` | 5 | `jmap-scene-server`, `jmap-scene-types`, `jmap-server`, `jmap-types`, `jmap-vtc-types` | `jmap-vtc-server` |
+| `jmap-sharing` | 5 | `jmap-sharing-client`, `jmap-sharing-server`, `jmap-sharing-types` | (none) |
+| `jmap-vtc` | 5 | `jmap-vtc-client`, `jmap-vtc-server`, `jmap-vtc-types` | (none) |
 | `jmap-graph-projection-server` | 6 | `jmap-contacts-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-server`, `jmap-types` | `jmap-mail-server` |
 
 To recheck after a manifest change, list each publishable crate's
@@ -215,7 +225,11 @@ You have published too many new crates in a short period of time. Please
 try again after <timestamp>.
 ```
 
-Bumps to existing crates do not count. The 2026-05-13 wave introduced
+Bumps to existing crates do not count, and that includes the names
+claimed on crates.io at 0.0.1 (bd JMAP-gs76: `jmap-filenode`,
+`jmap-sharing`, `jmap-metadata`, `jmap-vtc`, `jmap-scene`, `jmap-graph`,
+`jmap-search`, `jmap-object-history`, `jmap-did`, `jmap-cid` and others):
+their first workspace release is a bump. The 2026-05-13 wave introduced
 six new crates (`jmap-jscalendar-types`, `jmap-jscontact-types`,
 `jmap-cid-types`, `jmap-metadata-types`, `jmap-metadata-server`,
 `jmap-metadata-client`) and hit the limit twice. The 2026-10-24 0.4.0

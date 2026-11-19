@@ -1,0 +1,29 @@
+[package]
+name = "jmap-filenode"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP FileNode (draft-ietf-jmap-filenode): umbrella crate re-exporting jmap-filenode-types, -client, and -server"
+keywords = ["jmap", "filenode", "files"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-filenode-types = { workspace = true }
+jmap-filenode-client = { workspace = true, optional = true }
+jmap-filenode-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-filenode-client"]
+server = ["dep:jmap-filenode-server"]
+# The server's in-memory reference backend (not production).
+memory = ["server", "jmap-filenode-server/memory"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

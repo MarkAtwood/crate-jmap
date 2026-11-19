@@ -1,0 +1,21 @@
+[package]
+name = "jmap-cid"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Blob Content Identifiers (draft-atwood-jmap-cid-00): umbrella crate re-exporting jmap-cid-types"
+keywords = ["jmap", "cid", "integrity"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-cid-types = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

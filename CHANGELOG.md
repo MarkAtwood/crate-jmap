@@ -23,6 +23,26 @@ wire behaviour that a conforming peer can observe.
   `check_space_destroy` there, which refuses a Space root cascade for a
   member without `"manage_space"` before its descendants go
   (bd:JMAP-uro2).
+- **jmap-filenode**, **jmap-sharing**, **jmap-metadata**, **jmap-vtc**,
+  **jmap-scene**, **jmap-graph**, **jmap-object-history**: umbrella crates,
+  replacing the 0.0.1 name-claim placeholders. Each re-exports its
+  family's `-types` crate as `types` (always), `-client` as `client`
+  (`client` feature) and `-server` as `server` (`server` feature). The
+  FileNode, Sharing, VTC, Scene and Graph umbrellas add a `memory` feature
+  for the server's reference backend; Metadata and Object History have
+  none, because their server crates are helper libraries without one.
+  `jmap-object-history` keeps 0.0.1's `CAPABILITY`
+  (`urn:ietf:params:jmap:object-history`). (bd:JMAP-gs76.1-.6, .8)
+
+- **jmap-did**, **jmap-cid**: umbrella crates re-exporting `jmap-did-types`
+  and `jmap-cid-types` as `types`, with no features: neither family has a
+  client or server crate. `jmap-did` does not re-export the
+  `jmap-did-resolver` support crate. (bd:JMAP-gs76.9, .10)
+
+- **jmap-search**: 0.5.0 replaces the 0.0.1 placeholder with a reserved,
+  empty crate (no public items, no dependencies) holding the name for the
+  planned generic filter-expression extension (bd:JMAP-nn3i). Graph search
+  stays in `jmap-graph-types` and `jmap-graph-server`. (bd:JMAP-gs76.7)
 
 - **jmap-graph-server**: `validFor.purposes` entries must be RFC 3987 IRIs and
   a `credentialDigest` must be a possible SHA-256 encoding (its last

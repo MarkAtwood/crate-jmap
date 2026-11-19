@@ -2051,6 +2051,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-cid"
+version = "0.5.0"
+dependencies = [
+ "jmap-cid-types",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-cid-types"
 version = "0.5.0"
 dependencies = [
@@ -2104,6 +2112,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-did"
+version = "0.5.0"
+dependencies = [
+ "jmap-did-types",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-did-resolver"
 version = "0.5.0"
 dependencies = [
@@ -2129,6 +2145,16 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+]
+
+[[package]]
+name = "jmap-filenode"
+version = "0.5.0"
+dependencies = [
+ "jmap-filenode-client",
+ "jmap-filenode-server",
+ "jmap-filenode-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -2172,6 +2198,16 @@ dependencies = [
  "jmap-object-history-types",
  "jmap-types",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jmap-graph"
+version = "0.5.0"
+dependencies = [
+ "jmap-graph-client",
+ "jmap-graph-server",
+ "jmap-graph-types",
  "serde_json",
 ]
 
@@ -2299,6 +2335,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-metadata"
+version = "0.5.0"
+dependencies = [
+ "jmap-metadata-client",
+ "jmap-metadata-server",
+ "jmap-metadata-types",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-metadata-client"
 version = "0.5.0"
 dependencies = [
@@ -2332,6 +2378,16 @@ dependencies = [
  "jmap-mail-types",
  "jmap-types",
  "mime-tree",
+ "serde_json",
+]
+
+[[package]]
+name = "jmap-object-history"
+version = "0.5.0"
+dependencies = [
+ "jmap-object-history-client",
+ "jmap-object-history-server",
+ "jmap-object-history-types",
  "serde_json",
 ]
 
@@ -2446,6 +2502,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-scene"
+version = "0.5.0"
+dependencies = [
+ "jmap-scene-client",
+ "jmap-scene-server",
+ "jmap-scene-types",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-scene-client"
 version = "0.5.0"
 dependencies = [
@@ -2509,6 +2575,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-search"
+version = "0.5.0"
+
+[[package]]
 name = "jmap-server"
 version = "0.5.0"
 dependencies = [
@@ -2523,6 +2593,16 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "jmap-sharing"
+version = "0.5.0"
+dependencies = [
+ "jmap-sharing-client",
+ "jmap-sharing-server",
+ "jmap-sharing-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -2660,6 +2740,16 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "jmap-vtc"
+version = "0.5.0"
+dependencies = [
+ "jmap-vtc-client",
+ "jmap-vtc-server",
+ "jmap-vtc-types",
+ "serde_json",
 ]
 
 [[package]]

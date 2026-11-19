@@ -1,0 +1,27 @@
+[package]
+name = "jmap-metadata"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Object Metadata (draft-ietf-jmap-metadata): umbrella crate re-exporting jmap-metadata-types, -client, and -server"
+keywords = ["jmap", "metadata", "annotations"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-metadata-types = { workspace = true }
+jmap-metadata-client = { workspace = true, optional = true }
+jmap-metadata-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-metadata-client"]
+server = ["dep:jmap-metadata-server"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
