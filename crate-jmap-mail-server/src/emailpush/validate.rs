@@ -269,7 +269,10 @@ pub async fn check_email_push_change<B: EmailPushBackend>(
     // listed, so a stored revoked account alone is not a change.
     if touches
         && let Some(old) = old
-        && old.extra.get(EMAIL_PUSH_PROPERTY).is_some_and(Value::is_object)
+        && old
+            .extra
+            .get(EMAIL_PUSH_PROPERTY)
+            .is_some_and(Value::is_object)
     {
         let current = backend
             .email_push_accounts(caller)

@@ -729,3 +729,36 @@ async fn mdn_parse_blob_ids_over_default_cap_returns_request_too_large() {
         err.error_type
     );
 }
+
+/// RFC 9007 §2: textBody is "The human-readable part of the MDN, as plain
+/// text", a body, so it may span lines; the §3.1 example body is several
+/// sentences. Line breaks in header-bound fields stay invalid.
+#[tokio::test]
+async fn mdn_send_multiline_text_body() {
+    async fn send(text_body: &str, subject: &str) -> serde_json::Value {
+        let backend = MemoryBackend::new();
+        let account_id = Id::from("account1");
+        let email_id = setup_mdn_email(&backend, &account_id).await;
+        let identity_id = setup_identity(&backend, &account_id).await;
+        let args = serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "identityId": identity_id.as_ref(),
+            "send": {"k": {
+                "forEmailId": email_id.as_ref(),
+                "subject": subject,
+                "textBody": text_body,
+                "disposition": {"actionMode": "manual-action",
+                                "sendingMode": "mdn-sent-manually", "type": "displayed"}
+            }},
+            "onSuccessUpdateEmail": {"#k": {"keywords/$mdnsent": true}}
+        });
+        handle_mdn_send(&backend, &(), args, "c1")
+            .await
+            .unwrap()
+            .primary
+    }
+    let resp = send("Line one.\r\nLine two.", "Read").await;
+    assert!(!resp["sent"]["k"].is_null(), "{resp}");
+    let resp = send("Body", "Read\r\nBcc: x@example.com").await;
+    assert_eq!(resp["notSent"]["k"]["type"], "invalidProperties", "{resp}");
+}

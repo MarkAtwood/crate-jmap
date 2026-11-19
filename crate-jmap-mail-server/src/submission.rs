@@ -668,6 +668,16 @@ pub async fn handle_submission_set<B: MailBackend>(
         }
     }
 
+    // RFC 8621 §7.5: the onSuccess* side effects apply to a submission
+    // only "if the create/update/destroy succeeds". Keep the literal ids
+    // this call updated or destroyed; `#` creation references are added
+    // only for successful creates.
+    submission_email_id_map.retain(|key, _| {
+        key.starts_with('#')
+            || updated.contains_key(key)
+            || destroyed.iter().any(|d| d.as_str() == Some(key))
+    });
+
     let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
     let new_state = if mutated {
         backend
@@ -965,15 +975,33 @@ async fn process_create<B: MailBackend>(
     // --- envelope (derive if null/absent) ---
     let envelope: Envelope = match create_args.get("envelope") {
         None | Some(Value::Null) => {
-            // Derive mailFrom from Identity.email, rcptTo from Email.to + cc + bcc.
-            let mail_from = Address::new(identity.email.clone());
+            // RFC 8621 §7 envelope: "mailFrom": the first address of the
+            // Sender header field, else of From; "If the address found from
+            // this is not allowed by the Identity ..., the "email" property
+            // from the Identity MUST be used instead."
+            let header_from = [&email.sender, &email.from]
+                .into_iter()
+                .flatten()
+                .find_map(|addrs| addrs.first())
+                .map(|a| a.email.as_str());
+            let mail_from = match header_from {
+                Some(addr) if identity_allows(&identity.email, addr) => addr.to_owned(),
+                _ => identity.email.clone(),
+            };
+            // "rcptTo": "The deduplicated set of email addresses from the
+            // To, Cc, and Bcc header fields".
             let mut rcpt_to: Vec<Address> = Vec::new();
             for addrs in [&email.to, &email.cc, &email.bcc].into_iter().flatten() {
                 for addr in addrs {
-                    rcpt_to.push(Address::new(addr.email.clone()));
+                    if !rcpt_to
+                        .iter()
+                        .any(|r| r.email.eq_ignore_ascii_case(&addr.email))
+                    {
+                        rcpt_to.push(Address::new(addr.email.clone()));
+                    }
                 }
             }
-            Envelope::new(mail_from, rcpt_to)
+            Envelope::new(Address::new(mail_from), rcpt_to)
         }
         Some(v) => Envelope::deserialize(v).map_err(|e| {
             CreateError::SetError(Box::new(
@@ -1114,4 +1142,17 @@ async fn process_update<B: MailBackend>(
     backend
         .update_object::<EmailSubmission>(caller, account_id, id, patch)
         .await
+}
+
+/// Whether `identity_email` allows sending as `addr` (RFC 8621 §6): the same
+/// address, or, for a wildcard identity `*@domain`, any address ending in
+/// `@domain` ("the client may use any valid address ending in that
+/// string"). Compared ignoring ASCII case.
+fn identity_allows(identity_email: &str, addr: &str) -> bool {
+    match identity_email.strip_prefix("*@") {
+        Some(domain) => addr
+            .rsplit_once('@')
+            .is_some_and(|(local, d)| !local.is_empty() && d.eq_ignore_ascii_case(domain)),
+        None => addr.eq_ignore_ascii_case(identity_email),
+    }
 }

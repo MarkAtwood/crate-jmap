@@ -116,6 +116,14 @@ pub async fn handle_vacation_get<B: MailBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
+    // RFC 8621 §8: "There MUST only be exactly one VacationResponse object
+    // in an account". Until the first update stores it, the singleton is
+    // the default: disabled, every other property null.
+    let list = if list.is_empty() {
+        vec![VacationResponse::new(Id::from(SINGLETON_ID), false)]
+    } else {
+        list
+    };
     let list_json: Vec<Value> = list
         .iter()
         .map(jmap_server::serialize_value)
@@ -268,6 +276,19 @@ pub async fn handle_vacation_set<B: MailBackend>(
                     // constraint or a compare-and-swap) to avoid duplicate
                     // creation. The handler layer cannot add locking here
                     // because it holds no shared state.
+                    // The patch is checked against the default singleton
+                    // first, so an invalid patch stores nothing.
+                    if let Err(err) = patched_default(&patch) {
+                        not_updated.insert(id.clone(), err);
+                        continue;
+                    }
+                    // RFC 8621 §8.1: the singleton always exists; until now
+                    // it was the default /get reports. Store that default,
+                    // then update it, so object history keeps it as the
+                    // version this update replaced. If the update then
+                    // fails, the stored default is what /get showed before,
+                    // so nothing is rolled back (a destroy would break the
+                    // "exactly one" rule).
                     match backend
                         .create_object::<VacationResponse, _>(
                             caller,
@@ -278,7 +299,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                         .await
                     {
                         Ok(_) => {
-                            // Now apply the patch to the freshly created singleton.
+                            mutated = true;
                             match backend
                                 .update_object::<VacationResponse>(
                                     caller,
@@ -290,50 +311,12 @@ pub async fn handle_vacation_set<B: MailBackend>(
                             {
                                 Ok(Some(obj)) => {
                                     updated.insert(id.clone(), jmap_server::serialize_value(&obj)?);
-                                    mutated = true;
                                 }
                                 Ok(None) => {
                                     updated.insert(id.clone(), Value::Null);
-                                    mutated = true;
                                 }
                                 Err(be) => {
                                     let e = be.into_set_error_or_method_error()?;
-                                    // update_object failed after create_object succeeded.
-                                    // Roll back the create so the backend is not left with
-                                    // a default-state singleton that the client never asked
-                                    // for (compensating transaction). Without this, the next
-                                    // request would attempt to update a singleton whose state
-                                    // is inconsistent with what the client expects.
-                                    //
-                                    // Production backends should perform the create+update
-                                    // atomically (e.g. in a transaction) to avoid the window
-                                    // between these two calls entirely.
-                                    match backend
-                                        .destroy_object::<VacationResponse>(
-                                            caller,
-                                            &account_id,
-                                            &singleton_id,
-                                        )
-                                        .await
-                                    {
-                                        Ok(()) => {}
-                                        Err(rollback_err) => {
-                                            // Rollback failed: the backend now holds an
-                                            // orphaned default singleton. Log a warning so
-                                            // operators can detect and repair the state.
-                                            // This is acceptable for a test/reference backend
-                                            // but production backends should use atomic writes.
-                                            #[cfg(debug_assertions)]
-                                            eprintln!(
-                                                "WARN: VacationResponse upsert rollback failed \
-                                                 (orphaned singleton in account {:?}): {:?}",
-                                                account_id.as_ref(),
-                                                rollback_err,
-                                            );
-                                            #[cfg(not(debug_assertions))]
-                                            let _ = &rollback_err;
-                                        }
-                                    }
                                     not_updated.insert(id.clone(), serde_json::Value::from(&e));
                                 }
                             }
@@ -395,4 +378,27 @@ pub async fn handle_vacation_set<B: MailBackend>(
         },
     )
     .await
+}
+
+/// The default VacationResponse (RFC 8621 §8: disabled, every other
+/// property null) with `patch` applied, or the SetError for the update
+/// (checked before the default is stored):
+/// `invalidPatch` for a bad path, `invalidProperties` for a value of the
+/// wrong type.
+fn patched_default(patch: &PatchObject) -> Result<VacationResponse, Value> {
+    let default = VacationResponse::new(Id::from(SINGLETON_ID), false);
+    let Ok(Value::Object(mut map)) = serde_json::to_value(&default) else {
+        return Err(json!({ "type": "serverFail" }));
+    };
+    if let Err(e) = jmap_server::apply_patch_object(&mut map, patch.as_map()) {
+        return Err(json!({ "type": "invalidPatch", "description": e.to_string() }));
+    }
+    serde_json::from_value(Value::Object(map)).map_err(|_| {
+        let properties: Vec<&str> = patch
+            .as_map()
+            .keys()
+            .map(|k| k.split('/').next().unwrap_or(k))
+            .collect();
+        json!({ "type": "invalidProperties", "properties": properties })
+    })
 }

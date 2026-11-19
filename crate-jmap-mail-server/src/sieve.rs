@@ -888,33 +888,58 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
                 // (Fix R2_3: deactivate failure aborts activate to preserve one-active invariant).
                 let mut deactivation_failed = false;
 
-                if let Some(currently_active) = all_scripts.iter().find(|s| s.is_active)
+                // RFC 9661 §2.4: "if the id is either invalid or nonexistent,
+                // it MUST be ignored, and the currently active SieveScript (if
+                // any) will remain as such".
+                let target_exists = all_scripts.iter().any(|s| &s.id == target_id);
+
+                // Read after Step A, so a script it deactivated is not active
+                // here; one the client otherwise updated in this call still is.
+                if target_exists
+                    && let Some(currently_active) = all_scripts.iter().find(|s| s.is_active)
                     && &currently_active.id != target_id
                 {
                     let active_id = currently_active.id.clone();
                     let active_id_str = active_id.as_ref().to_owned();
-                    // Only deactivate if Step A hasn't already done so for this script.
-                    if !updated.contains_key(&active_id_str) {
-                        let mut patch_map = serde_json::Map::new();
-                        patch_map.insert("isActive".to_owned(), Value::Bool(false));
-                        let patch = PatchObject::from_map(patch_map);
-                        match backend
-                            .update_object::<SieveScript>(caller, &account_id, &active_id, patch)
-                            .await
-                        {
-                            Ok(_) => {
-                                updated.insert(active_id_str, json!({ "isActive": false }));
+                    // A script cannot be in both `updated` and `notUpdated`:
+                    // when the client's own update of it failed, leave it
+                    // active and activate nothing.
+                    if not_updated.contains_key(&active_id_str) {
+                        deactivation_failed = true;
+                    }
+                }
+                if !deactivation_failed
+                    && target_exists
+                    && let Some(currently_active) = all_scripts.iter().find(|s| s.is_active)
+                    && &currently_active.id != target_id
+                {
+                    let active_id = currently_active.id.clone();
+                    let active_id_str = active_id.as_ref().to_owned();
+                    let mut patch_map = serde_json::Map::new();
+                    patch_map.insert("isActive".to_owned(), Value::Bool(false));
+                    let patch = PatchObject::from_map(patch_map);
+                    match backend
+                        .update_object::<SieveScript>(caller, &account_id, &active_id, patch)
+                        .await
+                    {
+                        Ok(_) => {
+                            // Merge with an entry from the client's own update.
+                            let entry = updated.entry(active_id_str).or_insert_with(|| json!({}));
+                            if let Some(obj) = entry.as_object_mut() {
+                                obj.insert("isActive".to_owned(), json!(false));
+                            } else {
+                                *entry = json!({ "isActive": false });
                             }
-                            Err(e) => {
-                                not_updated.insert(active_id_str, backend_set_error_value(e));
-                                deactivation_failed = true;
-                            }
+                        }
+                        Err(e) => {
+                            not_updated.insert(active_id_str, backend_set_error_value(e));
+                            deactivation_failed = true;
                         }
                     }
                 }
 
                 // If deactivation failed, abort activation to preserve the one-active invariant.
-                if !deactivation_failed {
+                if target_exists && !deactivation_failed {
                     // Activate the target script.
                     let target_id_str = target_id.as_ref().to_owned();
                     let mut patch_map = serde_json::Map::new();

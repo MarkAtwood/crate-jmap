@@ -857,6 +857,26 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `EmailSubmission/set` applies
+  `onSuccessUpdateEmail` / `onSuccessDestroyEmail` only to submissions the
+  call created, updated or destroyed (RFC 8621 §7.5); naming another one
+  used to destroy its Email. The derived envelope takes `mailFrom` from
+  the Sender, else From, header when the Identity allows it (wildcard
+  `*@domain` identities included), and `rcptTo` is deduplicated (RFC 8621
+  §7). (bd:JMAP-q2wa.31, .32, .33)
+- **jmap-mail-server** (wire): `SieveScript/set` ignores an
+  `onSuccessActivateScript` id that does not exist instead of
+  deactivating the active script, and no longer leaves two scripts active
+  when the call also updates the active one (RFC 9661 §2, §2.4).
+  (bd:JMAP-q2wa.34, .35)
+- **jmap-mail-server** (wire): `VacationResponse/get` returns the default
+  singleton (disabled) on an account that has never stored one (RFC 8621
+  §8.1 "exactly one"). A first `VacationResponse/set` update with an
+  invalid value stores nothing, and one that fails later keeps the stored
+  default; it used to create and then destroy the singleton, which
+  tripped an assertion with object history on. (bd:JMAP-q2wa.36)
+- **jmap-mail-server** (wire): `MDN/send` accepts line breaks in
+  `textBody`, the human-readable body (RFC 9007 §2). (bd:JMAP-q2wa.37)
 - **jmap-mail-server** (wire): Email filter `before` / `after` must be RFC
   8620 §1.4 UTCDates: memory `Email/query` rejects others with
   `invalidArguments`, and an EmailPush config with one is

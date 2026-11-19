@@ -202,6 +202,9 @@ pub trait MdnBackend: MailBackend {
     /// The caller ([`handle_mdn_send`]) guarantees:
     /// - Every entry has `for_email_id = Some(…)` — `None` entries are
     ///   rejected before this method is called.
+    /// - No client-supplied value that becomes a header field holds CR or
+    ///   LF. `text_body` may: it is the human-readable body, which the
+    ///   backend encodes as a MIME body part (CRLF line endings).
     /// - The [`Email`] value paired with each [`Mdn`] is the same email
     ///   object that the handler already fetched for the `$mdnsent` pre-check
     ///   (step 6 of [`handle_mdn_send`]). Backends must use this value instead
@@ -388,9 +391,10 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         // value that ends up in a generated RFC 5322 header must be CRLF-clean
         // to prevent header injection (e.g. mdn_gateway → MDN-Gateway: header,
         // original_recipient → Original-Recipient:, error items → Error: headers).
+        // `textBody` is the body of the human-readable part (RFC 9007 §2),
+        // not a header field, so it may hold line breaks.
         let crlf_bad = [
             mdn.subject.as_deref(),
-            mdn.text_body.as_deref(),
             mdn.reporting_ua.as_deref(),
             mdn.final_recipient.as_deref(),
             mdn.mdn_gateway.as_deref(),

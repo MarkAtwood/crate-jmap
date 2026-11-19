@@ -789,12 +789,12 @@ async fn search_snippet_get_capability_gated() {
 // VacationResponse/get and VacationResponse/set handler tests
 // ---------------------------------------------------------------------------
 
-/// Oracle: VacationResponse/get on a fresh account returns an empty list.
-///
-/// RFC 8621 §8.1 — if no VacationResponse has been set, the server returns
-/// an empty list and notFound=null.  This is not an error.
+/// Oracle: RFC 8621 §8.1, "There MUST only be exactly one
+/// VacationResponse object in an account. It MUST have the id
+/// "singleton"": on a fresh account, before any update, /get returns the
+/// default singleton (disabled).
 #[tokio::test]
-async fn vacation_get_fresh_account_returns_empty() {
+async fn vacation_get_fresh_account_returns_default_singleton() {
     let backend = MemoryBackend::new();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
@@ -817,12 +817,10 @@ async fn vacation_get_fresh_account_returns_empty() {
         "VacationResponse/get must not generate extra invocations"
     );
 
-    // Oracle: RFC 8621 §8.1 — list is empty; RFC 8620 §5.1: notFound is [].
     let list = resp["list"].as_array().expect("list must be an array");
-    assert!(
-        list.is_empty(),
-        "fresh account must have empty vacation list"
-    );
+    assert_eq!(list.len(), 1, "exactly one VacationResponse: {resp}");
+    assert_eq!(list[0]["id"], "singleton", "{resp}");
+    assert_eq!(list[0]["isEnabled"], false, "{resp}");
     // RFC 8620 §5.1: notFound is Id[] — always an array, empty when no ids were requested.
     assert_eq!(
         resp["notFound"].as_array().map(|a| a.len()),
