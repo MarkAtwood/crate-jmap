@@ -92,6 +92,7 @@ impl_string_enum!(GatewayProtocol, "a VTC gateway protocol string",
 ///     "supportsScheduledCalls": false,
 ///     "supportsRecording": false,
 ///     "supportsLivestream": false,
+///     "livestreamModes": [],
 ///     "supportsLobby": false,
 ///     "supportsBreakoutRooms": false,
 ///     "supportedMediaTypes": ["audio", "video"],
@@ -119,6 +120,9 @@ pub struct VtcCapability {
     pub supports_recording: bool,
     /// `true` if the server supports VTCLivestream.
     pub supports_livestream: bool,
+    /// The VTCLivestream modes the server accepts: one or both of `"push"`
+    /// and `"hosted"`. Empty when `supports_livestream` is `false`.
+    pub livestream_modes: Vec<crate::LivestreamMode>,
     /// `true` if the server supports lobby (waiting-room) mode.
     pub supports_lobby: bool,
     /// `true` if the server supports breakout rooms.
@@ -233,6 +237,7 @@ mod tests {
             "supportsScheduledCalls": true,
             "supportsRecording": false,
             "supportsLivestream": false,
+            "livestreamModes": [],
             "supportsLobby": true,
             "supportsBreakoutRooms": true,
             "supportedMediaTypes": ["audio", "video", "screen"],
@@ -349,6 +354,7 @@ mod tests {
             "supportsScheduledCalls",
             "supportsRecording",
             "supportsLivestream",
+            "livestreamModes",
             "supportsLobby",
             "supportsBreakoutRooms",
             "supportedMediaTypes",

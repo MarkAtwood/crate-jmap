@@ -26,6 +26,7 @@ pub fn capability() -> Value {
         "supportsScheduledCalls": true,
         "supportsRecording": false,
         "supportsLivestream": false,
+        "livestreamModes": [],
         "supportsLobby": true,
         "supportsBreakoutRooms": true,
         "supportedMediaTypes": ["audio", "video"],
@@ -148,11 +149,12 @@ pub fn seed(backend: &MemoryBackend, call: Value) {
 }
 
 /// [`capability`] with `supportsRecording` and `supportsLivestream`
-/// (L231-234) enabled.
+/// (L231-234) enabled, accepting both livestream modes.
 pub fn media_capability() -> Value {
     let mut cap = capability();
     cap["supportsRecording"] = json!(true);
     cap["supportsLivestream"] = json!(true);
+    cap["livestreamModes"] = json!(["push", "hosted"]);
     cap
 }
 

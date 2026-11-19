@@ -235,11 +235,14 @@ async fn going_live_is_server_initiated() {
 }
 
 #[tokio::test]
-async fn configuration_changes_only_while_not_streaming() {
+async fn stream_configuration_is_immutable() {
+    // §VTCLivestream: `platform`, `streamUri` and `streamKey` are each
+    // "(String|null, immutable)", and "`"stopped"` and `"failed"` are
+    // final: to stream again, a client creates a new VTCLivestream".
+    // jmap-chat-spec 3227c0f allowed reconfiguring a stopped stream; 77c3474
+    // removed §Updating Stream Configuration (JMAP-t8ej.10).
     let backend = media_backend();
     live(&backend);
-    // L593, L596, L599: `platform`, `streamUri` and `streamKey` are each
-    // "(String|null, immutable)".
     let err = update(
         &backend,
         BOB,
@@ -250,19 +253,149 @@ async fn configuration_changes_only_while_not_streaming() {
     .expect_err("live");
     assert_invalid(&err, json!(["platform", "streamKey"]));
 
-    // jmap-chat-spec 3227c0f L1203 "`update` supports patching
-    // `streamUri`, `streamKey`, or `platform` only while the livestream is
-    // in state `"stopped"` or `"failed"`." 77c3474 removes that rule: the
-    // fields are immutable and L619 "`"stopped"` and `"failed"` are final".
-    // JMAP-t8ej.10 rewrites this half for 77c3474.
     update(&backend, BOB, "L1", json!({ "state": "stopped" }))
         .await
         .expect("stop");
-    update(&backend, BOB, "L1", json!({ "streamKey": "sk_new" }))
+    let err = update(&backend, BOB, "L1", json!({ "streamKey": "sk_new" }))
         .await
-        .expect("reconfigure");
+        .expect_err("immutable after stop too");
+    assert_invalid(&err, json!(["streamKey"]));
+    // An identical value is not a change (RFC 8620 §5.3).
+    update(
+        &backend,
+        BOB,
+        "L1",
+        json!({ "streamKey": "sk_live_abc123def456" }),
+    )
+    .await
+    .expect("identical value");
+}
+
+#[tokio::test]
+async fn stopped_is_final() {
+    // §Livestream States: "`"stopped"` and `"failed"` are final".
+    let backend = media_backend();
+    for (id, state) in [("L1", "stopped"), ("L2", "failed")] {
+        seed_as(
+            &backend,
+            "VTCLivestream",
+            stored_livestream(id, state, json!("2026-06-05T14:41:00Z")),
+        );
+        for to in ["starting", "live", "stopped"] {
+            let err = update(&backend, BOB, id, json!({ "state": to }))
+                .await
+                .expect_err("final");
+            assert_invalid(&err, json!(["state"]));
+        }
+    }
+}
+
+#[tokio::test]
+async fn push_is_the_default_mode() {
+    // §Starting a Livestream: "`mode` (String, optional): `"push"`
+    // (default)"; failureReason "`null` unless `state` is `"failed"`";
+    // playbackEndpoints "Always empty in push mode".
+    let backend = media_backend();
+    let created = create(&backend, BOB, start()).await.expect("start");
+    let id = created["id"].as_str().expect("id");
+    let seen = get_as(&backend, BOB, json!({ "ids": [id] })).await;
+    assert_eq!(seen["mode"], "push", "{seen}");
+    assert_eq!(seen["failureReason"], Value::Null, "{seen}");
+    assert_eq!(seen["playbackEndpoints"], json!([]), "{seen}");
+}
+
+#[tokio::test]
+async fn hosted_create_supplies_only_call_id_and_mode() {
+    // §Starting a Livestream: "In hosted mode the client supplies only
+    // `callId` and `mode`"; §VTCLivestream: platform, streamUri and
+    // streamKey are "Always `null` in hosted mode"; playbackEndpoints "MAY
+    // be empty while the livestream is `"starting"`".
+    let backend = media_backend();
+    let created = create(&backend, BOB, json!({ "callId": "C1", "mode": "hosted" }))
+        .await
+        .expect("hosted");
+    let id = created["id"].as_str().expect("id");
+    assert_eq!(created["state"], "starting", "{created}");
+    let seen = get_as(&backend, BOB, json!({ "ids": [id] })).await;
+    assert_eq!(seen["mode"], "hosted", "{seen}");
+    for k in ["platform", "streamUri", "streamKey"] {
+        assert_eq!(seen[k], Value::Null, "{k}: {seen}");
+    }
+    assert_eq!(seen["playbackEndpoints"], json!([]), "{seen}");
+}
+
+#[tokio::test]
+async fn hosted_create_rejects_each_stream_property() {
+    // §Starting a Livestream: "The server MUST return `invalidProperties`
+    // naming each of `streamUri`, `streamKey`, and `platform` that a
+    // hosted-mode create sets to a non-null value."
+    let backend = media_backend();
+    let mut obj = start();
+    obj["mode"] = json!("hosted");
+    let err = create(&backend, BOB, obj).await.expect_err("hosted");
+    assert_invalid(&err, json!(["streamUri", "streamKey", "platform"]));
+
+    // Null is allowed: it is the value hosted mode stores.
+    create(
+        &backend,
+        BOB,
+        json!({ "callId": "C1", "mode": "hosted", "platform": null, "streamUri": null }),
+    )
+    .await
+    .expect("nulls are fine");
+}
+
+#[tokio::test]
+async fn mode_must_be_in_livestream_modes() {
+    // §Starting a Livestream: "The server MUST return `invalidProperties`
+    // naming `mode` when the requested mode is not listed in the
+    // account-level `livestreamModes`."
+    let mut cap = media_capability();
+    cap["livestreamModes"] = json!(["push"]);
+    let backend = common::backend_with(cap);
+    seed(
+        &backend,
+        stored_call("C1", "room", "active", "2026-06-05T14:30:00Z"),
+    );
+    for mode in [json!("hosted"), json!("x-relay"), json!(7)] {
+        let err = create(&backend, BOB, json!({ "callId": "C1", "mode": mode }))
+            .await
+            .expect_err("mode");
+        assert_invalid(&err, json!(["mode"]));
+    }
+    create(&backend, BOB, start())
+        .await
+        .expect("push is listed");
+}
+
+#[tokio::test]
+async fn stopping_empties_playback_endpoints() {
+    // §VTCLivestream playbackEndpoints: "is empty once it is `"stopped"` or
+    // `"failed"`".
+    let backend = media_backend();
+    let mut hosted = stored_livestream("L1", "live", json!("2026-06-05T14:41:00Z"));
+    hosted["mode"] = json!("hosted");
+    for k in ["platform", "streamUri", "streamKey"] {
+        hosted[k] = Value::Null;
+    }
+    hosted["playbackEndpoints"] = json!([{
+        "protocol": "hls",
+        "url": "https://cdn.example.com/live/L1/index.m3u8",
+        "latencyHint": "standard",
+        "credential": null,
+        "expiresAt": null,
+        "timeReference": null,
+        "tracks": [],
+        "encrypted": false,
+        "keySystems": []
+    }]);
+    seed_as(&backend, "VTCLivestream", hosted);
+    update(&backend, BOB, "L1", json!({ "state": "stopped" }))
+        .await
+        .expect("stop");
     let seen = get_as(&backend, BOB, json!({ "ids": ["L1"] })).await;
-    assert_eq!(seen["streamKey"], "sk_new");
+    assert_eq!(seen["state"], "stopped", "{seen}");
+    assert_eq!(seen["playbackEndpoints"], json!([]), "{seen}");
 }
 
 #[tokio::test]
@@ -352,34 +485,13 @@ async fn stream_uri_must_be_an_rfc3986_uri() {
     // draft-atwood-jmap-updates-00 §7.1 (jmap-chat-spec 2b85363): a
     // URI-valued property "SHOULD hold a URI as defined in RFC 3986
     // Section 3". L1372 `streamUri` is "the RTMP or equivalent ingest
-    // endpoint"; one with a space is not a URI, on create or update.
+    // endpoint"; one with a space is not a URI.
     let backend = media_backend();
     let mut bad = start();
     bad["streamUri"] = json!("rtmp://live.example.com/my ingest");
     let err = create(&backend, BOB, bad).await.expect_err("not a URI");
     assert_invalid(&err, json!(["streamUri"]));
 
-    // A stopped stream may be reconfigured, but only with a URI.
-    seed_as(
-        &backend,
-        "VTCLivestream",
-        stored_livestream("L1", "stopped", json!("2026-06-05T14:41:00Z")),
-    );
-    let err = update(
-        &backend,
-        BOB,
-        "L1",
-        json!({ "streamUri": "rtmp://lïve.example.com/x" }),
-    )
-    .await
-    .expect_err("not a URI");
-    assert_invalid(&err, json!(["streamUri"]));
-    update(
-        &backend,
-        BOB,
-        "L1",
-        json!({ "streamUri": "rtmp://live.example.com/y" }),
-    )
-    .await
-    .expect("a URI is accepted");
+    // §VTCLivestream: `streamUri` is immutable, so an update never
+    // carries a new one (stream_configuration_is_immutable).
 }

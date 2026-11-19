@@ -76,6 +76,7 @@ fn fixture() -> MemoryBackend {
         "supportsScheduledCalls": true,
         "supportsRecording": false,
         "supportsLivestream": false,
+        "livestreamModes": [],
         "supportsLobby": false,
         "supportsBreakoutRooms": false,
         "supportedMediaTypes": ["audio", "video"],

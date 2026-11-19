@@ -99,7 +99,7 @@ pub fn register_vtc_handlers_with_history<B>(
         .await
     });
     reg!("VTCLivestream/get", |b, a, ctx, using| {
-        livestream_get_with(&*b, &ctx, a, |a| {
+        livestream_get_with(&*b, &ctx, a, false, |a| {
             history_get::<VtcLivestream, B, _, _>(&*b, &ctx, a, &using, |a| {
                 jmap_server::handle_get::<VtcLivestream, B>(&*b, &ctx, a)
             })

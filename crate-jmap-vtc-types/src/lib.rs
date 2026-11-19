@@ -75,7 +75,11 @@ pub use query::{
     VtcParticipantFilterCondition, VtcParticipantSortProperty, VtcRecordingFilter,
     VtcRecordingFilterCondition,
 };
-pub use recording::{LivestreamState, RecordingState, VtcLivestream, VtcRecording};
+pub use recording::{
+    LatencyHint, LivestreamFailureReason, LivestreamMode, LivestreamState, PlaybackProtocol,
+    RecordingState, StreamTrackKind, VtcLivestream, VtcPlaybackEndpoint, VtcRecording,
+    VtcStreamTrack, VtcTimeReference,
+};
 pub use stream::{
     VTC_EVENT_TYPES, VtcEventType, VtcStreamDisable, VtcStreamEnable, VtcStreamMessage,
 };

@@ -67,8 +67,10 @@ impl super::SessionClient {
 
     /// `VTCLivestream/set` (draft-atwood-jmap-vtc-00 L1212-L1274; RFC 8620 §5.3).
     ///
-    /// Starts (`create` with `callId`, `streamUri`, `streamKey`), stops
-    /// (`"state": "stopped"`), reconfigures and destroys a livestream.
+    /// Starts (`create` with `callId` and `streamUri`/`streamKey` in push
+    /// mode, or `callId` and `"mode": "hosted"`), stops
+    /// (`"state": "stopped"`) and destroys a livestream. The stream
+    /// configuration is immutable.
     /// Moderator-only.
     ///
     /// The result is the untyped [`SetResponse`]: per RFC 8620 §5.3 a

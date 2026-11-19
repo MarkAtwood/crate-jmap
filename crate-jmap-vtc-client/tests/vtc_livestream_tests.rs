@@ -147,7 +147,7 @@ async fn vtc_livestream_get_parses_redacted_livestream() {
     );
     let ls = &resp.list[0];
     assert_eq!(ls.state, LivestreamState::Live);
-    assert_eq!(ls.stream_key, "");
+    assert_eq!(ls.stream_key.as_deref(), Some(""));
 }
 
 /// `VTCLivestream/changes` (L1210), RFC 8620 §5.2.

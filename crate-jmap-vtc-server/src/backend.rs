@@ -100,7 +100,11 @@ pub fn call_already_active_on_chat() -> SetError {
 /// (§VTCCall/query). Who has access is the deployment's: a Chat binding
 /// applies the bound Chat's membership, `"view"` permission and the
 /// initiator's blocks; a standalone call admits its participants and
-/// initiator. A backend with no rule grants access (bd:JMAP-bghk).
+/// initiator. A backend with no rule grants access (bd:JMAP-bghk). For a
+/// hosted livestream the backend MAY also admit users who are not
+/// participants of the call, such as its audience: "even when that user may
+/// retrieve the livestream" (§Playback Authorization). Who receives
+/// playback endpoints is then [`Self::playback_endpoints_for`].
 /// [`Self::get_objects_unscoped`] is the one read exempt from this rule.
 ///
 /// For a call with `e2eeEnabled: true` the same reads MUST also hide its
@@ -517,6 +521,40 @@ pub trait VtcBackend: JmapBackend {
     /// Returns [`crate::RING_TIMEOUT`], the draft's example of 30 seconds.
     fn ring_timeout(&self) -> std::time::Duration {
         crate::RING_TIMEOUT
+    }
+
+    /// The `playbackEndpoints` of livestream `livestream_id` as
+    /// `VTCLivestream/get` returns them to `caller`, given `stored`, the
+    /// stored list (draft-atwood-jmap-vtc-00 §Playback Authorization).
+    ///
+    /// "The server computes `playbackEndpoints` for each requesting user:
+    /// `url`, `credential`, and `expiresAt` can differ between users and
+    /// between requests. Minting a new credential does not change the
+    /// VTCLivestream state string." A backend that restricts playback mints
+    /// the per-user `url`/`credential`/`expiresAt` here. "The server MAY
+    /// return an empty `playbackEndpoints` list to a user it does not
+    /// authorize to view, even when that user may retrieve the livestream."
+    ///
+    /// Called for each listed livestream whose `playbackEndpoints` the
+    /// request returns, after [`JmapBackend::get_objects`]. Not called for
+    /// object-history versions, whose endpoints are history as stored.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `stored` unchanged: a deployment that does not restrict
+    /// playback stores endpoints with `credential` and `expiresAt` `null`
+    /// and serves the same list to everyone.
+    fn playback_endpoints_for(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        livestream_id: &jmap_types::Id,
+        stored: Vec<jmap_vtc_types::VtcPlaybackEndpoint>,
+    ) -> impl std::future::Future<
+        Output = Result<Vec<jmap_vtc_types::VtcPlaybackEndpoint>, Self::Error>,
+    > + Send {
+        let _ = (caller, account_id, livestream_id);
+        async { Ok(stored) }
     }
 
     /// Per-backend capability probe: `true` if this backend supports the

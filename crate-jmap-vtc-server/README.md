@@ -69,14 +69,21 @@ Every `VTCRecording/set` and `VTCLivestream/set` operation needs
 rechecks `"active"` atomically with the insert. Recordings move
 `recording` ⇄ `paused` → `stopped` only, and each change (and the create)
 is followed by `VtcBackend::deliver_recording_state_event`. A livestream
-can only be stopped, from `starting` or `live`, and its `streamUri`,
-`streamKey` and `platform` change only while `stopped` or `failed`.
+create takes a `mode` from the account's `livestreamModes` (`push` by
+default): push needs `streamUri` and `streamKey`, and hosted takes only
+`callId` and `mode` and starts with no `playbackEndpoints`. A livestream
+can only be stopped, from `starting` or `live`; `stopped` and `failed` are
+final, and `mode`, `streamUri`, `streamKey` and `platform` are immutable.
+Stopping empties `playbackEndpoints`.
 Every `state` change goes through `VtcBackend::update_object_if`, which
 checks the stored state against the transition's source states
 atomically with the write, so concurrent updates cannot slip an unlisted
 transition through.
 `VTCLivestream/get` returns `streamKey` and `streamUri` as `""` to callers
-who are not moderators on the livestream's call.
+who are not moderators on the livestream's call, and each listed
+livestream's `playbackEndpoints` as `VtcBackend::playback_endpoints_for`
+computes them for the caller (§Playback Authorization; the default returns
+the stored list).
 `VTCParticipant/set` checks each update against the caller (own record
 or moderator) and the call policy, adds the server-set times
 (`joinedAt`, `leftAt`, `kickedBy`), then hands it to

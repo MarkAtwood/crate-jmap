@@ -161,15 +161,29 @@ impl GetObject for VtcLivestream {}
 /// docs/design/DECISIONS.md decision 22).
 impl jmap_object_history_types::HistoryObject for VtcLivestream {}
 
-/// draft-atwood-jmap-vtc-00 §VTCLivestream (lines 546-567): `id` is
-/// "immutable, server-set"; `startedAt` and `stoppedAt` are "server-set";
-/// `callId` is "immutable".
+/// draft-atwood-jmap-vtc-00 §VTCLivestream: `id` is "immutable,
+/// server-set"; `failureReason`, `playbackEndpoints`, `startedAt` and
+/// `stoppedAt` are "server-set"; `callId`, `mode`, `platform`, `streamUri`
+/// and `streamKey` are "immutable".
 impl SetObject for VtcLivestream {
     type Patch = PatchObject;
-    const SERVER_SET: &'static [&'static str] = &["id", "startedAt", "stoppedAt"];
-    const CLIENT_SETTABLE: &'static [&'static str] =
-        &["callId", "state", "platform", "streamUri", "streamKey"];
-    const IMMUTABLE: &'static [&'static str] = &["callId"];
+    const SERVER_SET: &'static [&'static str] = &[
+        "id",
+        "failureReason",
+        "playbackEndpoints",
+        "startedAt",
+        "stoppedAt",
+    ];
+    const CLIENT_SETTABLE: &'static [&'static str] = &[
+        "callId",
+        "mode",
+        "state",
+        "platform",
+        "streamUri",
+        "streamKey",
+    ];
+    const IMMUTABLE: &'static [&'static str] =
+        &["callId", "mode", "platform", "streamUri", "streamKey"];
 }
 
 impl QueryObject for VtcLivestream {
@@ -281,9 +295,12 @@ mod tests {
             id: Id::from("l1"),
             call_id: Id::from("c1"),
             state: de(json!("live")),
+            mode: de(json!("push")),
+            failure_reason: None,
             platform: Some("p".into()),
-            stream_uri: "rtmp://example.com/s".into(),
-            stream_key: "k".into(),
+            stream_uri: Some("rtmp://example.com/s".into()),
+            stream_key: Some("k".into()),
+            playback_endpoints: Vec::new(),
             started_at: Some(date()),
             stopped_at: Some(date()),
             extra: Map::new(),

@@ -25,8 +25,8 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use jmap_types::{GetObject, Id, JmapError, PatchObject, SetObject};
 use jmap_vtc_types::VtcMediaComparator;
 use jmap_vtc_types::{
-    CallState, LivestreamState, RecordingState, VtcCall, VtcLivestream, VtcRecording,
-    VtcRecordingStateEvent,
+    CallState, LivestreamMode, LivestreamState, RecordingState, VtcCall, VtcLivestream,
+    VtcRecording, VtcRecordingStateEvent,
 };
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -44,10 +44,8 @@ use jmap_server::{
     server_fail_from_backend, server_fail_value_from_backend, strip_read_only_patch,
 };
 
-/// The stream configuration that §Updating Stream Configuration
-/// (jmap-chat-spec 3227c0f) lets an update patch "only while the
-/// livestream is in state `"stopped"` or `"failed"`". 77c3474 removes
-/// that section and makes these properties immutable (JMAP-t8ej.10).
+/// The push-mode stream configuration. §VTCLivestream: each is
+/// "immutable" and "Always `null` in hosted mode".
 const STREAM_CONFIG: &[&str] = &["streamUri", "streamKey", "platform"];
 
 /// The two data types this module serves, for the shared `/set` driver.
@@ -140,7 +138,7 @@ pub async fn handle_vtc_livestream_get<B: VtcBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<HandlerOutput, JmapError> {
-    livestream_get_with(backend, caller, args, |a| {
+    livestream_get_with(backend, caller, args, true, |a| {
         jmap_server::handle_get::<VtcLivestream, B>(backend, caller, a)
     })
     .await
@@ -153,6 +151,7 @@ pub(crate) async fn livestream_get_with<B, F, Fut>(
     backend: &B,
     caller: &B::CallerCtx,
     mut args: Value,
+    per_viewer_endpoints: bool,
     get: F,
 ) -> Result<HandlerOutput, JmapError>
 where
@@ -216,6 +215,28 @@ where
                     );
                 }
             }
+            // §Playback Authorization: "The server computes
+            // `playbackEndpoints` for each requesting user".
+            if per_viewer_endpoints
+                && let (Some(id), Some(stored)) = (
+                    item.get("id").and_then(Value::as_str),
+                    item.get("playbackEndpoints"),
+                )
+            {
+                let stored = serde_json::from_value(stored.clone()).map_err(|_| {
+                    JmapError::server_fail("stored playbackEndpoints do not decode")
+                })?;
+                // Id::from: the id of this handler's own /get response.
+                let shown = backend
+                    .playback_endpoints_for(caller, &account_id, &Id::from(id), stored)
+                    .await
+                    .map_err(|e| server_fail_from_backend(&e))?;
+                item.insert(
+                    "playbackEndpoints".to_owned(),
+                    serde_json::to_value(shown)
+                        .map_err(|_| JmapError::server_fail("playbackEndpoints do not encode"))?,
+                );
+            }
             if strip_call_id {
                 item.remove("callId");
             }
@@ -238,7 +259,7 @@ pub async fn handle_vtc_livestream_changes<B: VtcBackend>(
 /// §VTCLivestream/set).
 ///
 /// Create: §Starting a Livestream, then [`VtcBackend::create_object`].
-/// Update: §Stopping a Livestream and §Updating Stream Configuration.
+/// Update: §Stopping a Livestream (the stream configuration is immutable).
 /// Destroy: §Destroying a Livestream. Every operation requires
 /// [`VtcBackend::is_moderator`] on the livestream's call.
 ///
@@ -793,8 +814,8 @@ pub(crate) async fn stop_livestreams<B: VtcBackend>(
     Ok(())
 }
 
-/// Transition livestream `id` to `"stopped"` and set `stoppedAt`, as a
-/// moderator's stop does. A livestream no longer `"starting"` or
+/// Transition livestream `id` to `"stopped"`, set `stoppedAt` and empty
+/// `playbackEndpoints`, as a moderator's stop does. A livestream no longer `"starting"` or
 /// `"live"` is left as it is.
 ///
 /// # Errors
@@ -811,6 +832,8 @@ async fn stop_livestream<B: VtcBackend>(
     let map = patch.as_map_mut();
     map.insert("state".to_owned(), json!(LivestreamState::Stopped));
     map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+    // §VTCLivestream playbackEndpoints: "empty once it is `"stopped"`".
+    map.insert("playbackEndpoints".to_owned(), json!([]));
     let from = [LivestreamState::Starting, LivestreamState::Live];
     // A stream that already stopped or failed is left as it is.
     let _ = backend
@@ -859,9 +882,72 @@ async fn create_livestream<B: VtcBackend>(
     check_create::<VtcLivestream, B>(backend, caller, account_id, &m, |c| c.supports_livestream)
         .await?;
 
+    // §Starting a Livestream: "`mode` (String, optional): `"push"`
+    // (default) or `"hosted"`"; "The server MUST return `invalidProperties`
+    // naming `mode` when the requested mode is not listed in the
+    // account-level `livestreamModes`."
+    let mode = match m.get("mode") {
+        None => LivestreamMode::Push,
+        Some(Value::String(s)) => LivestreamMode::from(s.as_str()),
+        Some(_) => return Err(invalid(&["mode"], "mode must be a string")),
+    };
+    let cap = backend
+        .vtc_capability(caller, account_id)
+        .await
+        .map_err(|e| server_fail_value_from_backend(&e))?;
+    if !cap.livestream_modes.contains(&mode) {
+        return Err(invalid(
+            &["mode"],
+            "this mode is not in the account's livestreamModes",
+        ));
+    }
+    let defaults = |platform: Value| {
+        vec![
+            ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
+            ("mode", json!(mode)),
+            ("state", json!(LivestreamState::Starting)),
+            ("failureReason", Value::Null),
+            ("platform", platform),
+            ("playbackEndpoints", json!([])),
+            ("startedAt", Value::Null),
+            ("stoppedAt", Value::Null),
+        ]
+    };
+    if mode == LivestreamMode::Hosted {
+        // "In hosted mode the client supplies only `callId` and `mode`. The
+        // server MUST return `invalidProperties` naming each of `streamUri`,
+        // `streamKey`, and `platform` that a hosted-mode create sets to a
+        // non-null value." The server then sets `playbackEndpoints` "as the
+        // endpoints become available".
+        let set: Vec<&str> = STREAM_CONFIG
+            .iter()
+            .copied()
+            .filter(|k| m.get(*k).is_some_and(|v| !v.is_null()))
+            .collect();
+        if !set.is_empty() {
+            return Err(invalid(
+                &set,
+                "a hosted livestream has no streamUri, streamKey or platform",
+            ));
+        }
+        let mut m = m;
+        m.insert("streamUri".to_owned(), Value::Null);
+        m.insert("streamKey".to_owned(), Value::Null);
+        let (_, livestream) = store::<VtcLivestream, B>(
+            backend,
+            caller,
+            account_id,
+            create_id,
+            m,
+            defaults(Value::Null),
+        )
+        .await?;
+        return to_value(&livestream);
+    }
+
     // "`streamUri` (String, required in push mode)", "`streamKey` (String,
     // required in push mode)"; "Optional in push mode: `platform`
-    // (String)". Push is the default mode.
+    // (String)".
     let mut bad: Vec<&str> = ["streamUri", "streamKey"]
         .into_iter()
         .filter(|k| !m.get(*k).is_some_and(Value::is_string))
@@ -886,20 +972,16 @@ async fn create_livestream<B: VtcBackend>(
     let platform = m.get("platform").cloned().unwrap_or(Value::Null);
 
     // "The server sets `id` and `state` (to `"starting"`)"; `startedAt` is
-    // "`null` before the stream is live".
+    // "`null` before the stream is live"; `failureReason` "`null` unless
+    // `state` is `"failed"`"; `playbackEndpoints` "Always empty in push
+    // mode".
     let (_, livestream) = store::<VtcLivestream, B>(
         backend,
         caller,
         account_id,
         create_id,
         m,
-        vec![
-            ("id", json!(jmap_server::CREATE_ID_PLACEHOLDER)),
-            ("state", json!(LivestreamState::Starting)),
-            ("platform", platform),
-            ("startedAt", Value::Null),
-            ("stoppedAt", Value::Null),
-        ],
+        defaults(platform),
     )
     .await?;
     to_value(&livestream)
@@ -1061,8 +1143,13 @@ async fn update_recording<B: VtcBackend>(
     Ok(updated)
 }
 
-/// §Stopping a Livestream and §Updating Stream Configuration. `Ok` is the
-/// `updated` echo.
+/// §Stopping a Livestream. `Ok` is the `updated` echo.
+///
+/// §VTCLivestream: `mode`, `platform`, `streamUri` and `streamKey` are
+/// "immutable", and "`"stopped"` and `"failed"` are final", so the only
+/// update is `state: "stopped"` from `"starting"` or `"live"`.
+/// [`strip_patch`] refuses a changed immutable or server-set value and drops
+/// an identical one; any other property is `invalidProperties`.
 async fn update_livestream<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1081,60 +1168,37 @@ async fn update_livestream<B: VtcBackend>(
     let fixed: Vec<&str> = keys
         .iter()
         .map(String::as_str)
-        .filter(|k| *k != "state" && !STREAM_CONFIG.contains(k))
+        .filter(|k| *k != "state")
         .collect();
     if !fixed.is_empty() {
-        return Err(invalid(
-            &fixed,
-            "only state, streamUri, streamKey and platform can be updated",
-        ));
+        return Err(invalid(&fixed, "only state can be updated"));
     }
 
+    // "`update` with `state: "stopped"` ends the stream"; "The server MUST
+    // return `invalidProperties` naming `state` if the livestream is not in
+    // state `"starting"` or `"live"`." The other transitions are
+    // server-initiated. The backend checks the state atomically with the
+    // write.
     let streaming = matches!(
         livestream.state,
         LivestreamState::Starting | LivestreamState::Live
     );
-    // jmap-chat-spec 3227c0f: "The server MUST return `invalidProperties`
-    // naming each patched configuration property for configuration updates
-    // while the stream is in state `"starting"` or `"live"`." 77c3474 makes
-    // these properties immutable (JMAP-t8ej.10).
-    let config: Vec<&str> = keys
-        .iter()
-        .map(String::as_str)
-        .filter(|k| STREAM_CONFIG.contains(k))
-        .collect();
-    if streaming && !config.is_empty() {
+    let requested = requested_state::<LivestreamState>(&patch);
+    if !(streaming && requested == Some(Ok(LivestreamState::Stopped))) {
         return Err(invalid(
-            &config,
-            "stream configuration can change only while stopped or failed",
+            &["state"],
+            "a livestream can only be stopped, and only while starting or live",
         ));
     }
-    if !stream_uri_ok(patch.as_map().get("streamUri")) {
-        return Err(invalid(&["streamUri"], "streamUri must be an RFC 3986 URI"));
-    }
-
+    // "The server sets `stoppedAt` to the current time." Once stopped, the
+    // list "is empty".
     let mut echo = Map::new();
-    let mut from = None;
-    if let Some(requested) = requested_state::<LivestreamState>(&patch) {
-        // "`update` with `state: "stopped"` ends the stream"; "The server
-        // MUST return `invalidProperties` naming `state` if the livestream
-        // is not in state `"starting"` or `"live"`." The other transitions
-        // are server-initiated. The backend checks the state atomically
-        // with the write.
-        if !(streaming && requested == Ok(LivestreamState::Stopped)) {
-            return Err(invalid(
-                &["state"],
-                "a livestream can only be stopped, and only while starting or live",
-            ));
-        }
-        // "The server sets `stoppedAt` to the current time."
-        echo.insert("stoppedAt".to_owned(), json!(now_utc_string()));
-        from = Some([LivestreamState::Starting, LivestreamState::Live].as_slice());
+    echo.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+    if !livestream.playback_endpoints.is_empty() {
+        echo.insert("playbackEndpoints".to_owned(), json!([]));
     }
-    // A configuration-only patch needs no compare-and-set: a client can
-    // only stop a stream, so a stream read as `"stopped"` or `"failed"`
-    // cannot become `"starting"` or `"live"` again before the write.
-    apply::<VtcLivestream, B>(backend, caller, account_id, id, from, patch, echo).await
+    let from = [LivestreamState::Starting, LivestreamState::Live];
+    apply::<VtcLivestream, B>(backend, caller, account_id, id, Some(&from), patch, echo).await
 }
 
 /// `true` unless `value` is a string that is not an RFC 3986 URI

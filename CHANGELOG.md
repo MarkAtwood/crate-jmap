@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: `VtcBackend::playback_endpoints_for`, called by
+  `VTCLivestream/get` for each listed livestream to compute its
+  `playbackEndpoints` for the caller (§Playback Authorization: per-user
+  `url`, `credential`, `expiresAt`, or an empty list for a user not
+  authorized to view); the default returns the stored list. The
+  §Per-call access docs note that a backend MAY admit a hosted
+  livestream's audience. (bd:JMAP-t8ej.11)
+
 - **jmap-chat-server**: a `Delegate*` companion for each of the ten chat
   hook traits (`DelegateChatStore` … `DelegateChatResolvers`). A wrapping
   backend implements `DelegateChatX` (a `Target` type and one accessor)
@@ -901,6 +909,26 @@ wire behaviour that a conforming peer can observe.
   (bd:JMAP-tna1.2.1)
 
 ### Changed
+
+- **BREAKING** **jmap-vtc-types**: hosted livestreams
+  (draft-atwood-jmap-vtc-00 §VTCLivestream). `VtcLivestream` gains `mode`
+  (`LivestreamMode`, default push), `failure_reason`
+  (`LivestreamFailureReason`) and `playback_endpoints`
+  (`VtcPlaybackEndpoint` with `VtcStreamTrack` and `VtcTimeReference`;
+  open string enums `PlaybackProtocol`, `LatencyHint`, `StreamTrackKind`;
+  `Debug` redacts the endpoint `url` and `credential`); `platform`,
+  `stream_uri` and `stream_key` are now `Option<String>` (`null` in hosted
+  mode). `mode`, `platform`, `streamUri` and `streamKey` are immutable and
+  `failureReason`, `playbackEndpoints` server-set. `VtcCapability` gains
+  the required `livestream_modes`. (bd:JMAP-t8ej.9, bd:JMAP-t8ej.10)
+- **BREAKING** **jmap-vtc-server**: `VTCLivestream/set` follows the
+  current draft: a create's `mode` must be in `livestreamModes`
+  (`invalidProperties` naming `mode`); a hosted create rejects a non-null
+  `streamUri`, `streamKey` or `platform`, naming each; `stopped` and
+  `failed` are final and the stream configuration is immutable, so the
+  only update is `state: "stopped"` (jmap-chat-spec 77c3474 removed
+  §Updating Stream Configuration). A stop empties `playbackEndpoints`.
+  (bd:JMAP-t8ej.10)
 
 - **BREAKING** **jmap-chat-server**: `ChatBackend`'s 43 methods move,
   unchanged, into ten hook traits: `ChatStore`, `ChatSpaces`,
