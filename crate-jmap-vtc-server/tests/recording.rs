@@ -279,6 +279,37 @@ async fn moderator_destroys_a_recording() {
 }
 
 #[tokio::test]
+async fn destroy_leaves_a_shared_blob_referenced() {
+    // jmap-vtc-recording-guide.md L444-448 (jmap-chat-spec 120db2c): "The
+    // blob referenced by `blobId` may still be referenced by other objects
+    // (for example, a FileNode object linking to the same blob). The
+    // server MUST NOT delete the blob if other references exist (RFC 8620
+    // blob lifecycle)."
+    //
+    // This crate owns no blob store (the deployment's does), so the
+    // observable other reference here is a second recording carrying the
+    // same blobId: destroying R1 removes only R1's metadata, and R2 still
+    // reads back with the blob, its size and its media type.
+    let backend = media_backend();
+    for id in ["R1", "R2"] {
+        let mut r = stored_recording(id, "available", "2026-06-05T14:40:00Z");
+        r["stoppedAt"] = json!("2026-06-05T15:10:00Z");
+        r["blobId"] = json!("Bshared");
+        r["size"] = json!(52_428_800);
+        r["duration"] = json!(1800);
+        r["mediaType"] = json!("video/webm");
+        seed_as(&backend, "VTCRecording", r);
+    }
+    let resp = set(&backend, BOB, json!({ "destroy": ["R1"] })).await;
+    assert_eq!(resp["destroyed"], json!(["R1"]), "{resp}");
+    assert_eq!(stored(&backend, "R1").await, Value::Null);
+    let other = stored(&backend, "R2").await;
+    assert_eq!(other["blobId"], "Bshared", "{other}");
+    assert_eq!(other["size"], 52_428_800, "{other}");
+    assert_eq!(other["mediaType"], "video/webm", "{other}");
+}
+
+#[tokio::test]
 async fn destroying_a_live_recording_stops_it_first() {
     let backend = media_backend();
     for (id, state) in [("R1", "recording"), ("R2", "paused"), ("R3", "available")] {

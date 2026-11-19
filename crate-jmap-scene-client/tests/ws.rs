@@ -349,3 +349,57 @@ async fn stream_enable_refused_without_scene_websocket() {
     assert_eq!(received.len(), 1, "{received:?}");
     assert_eq!(received[0]["@type"], "SceneStreamDisable", "{received:?}");
 }
+
+/// jmap-scene-wss-guide.md L428-430 (jmap-chat-spec 120db2c), §Extra
+/// fields: "Clients MUST tolerate unknown fields in event objects. Future
+/// spec revisions or deployment extensions may add fields. Parse only the
+/// fields you recognize; ignore the rest."
+///
+/// Each frame is a draft example (L1061, L1077, L1106 above) with
+/// hand-added unknown fields, some with structured values. Each still
+/// arrives as its typed variant with the recognized fields intact.
+#[tokio::test]
+async fn events_with_unknown_fields_are_tolerated() {
+    let (mut ws, server) = serve(vec![
+        Step::Send(
+            r#"{"@type":"SceneAvatarEvent","accountId":"account-xyz","regionId":"01J5ABC0000000000000000001","avatarId":"01J5AV00000000000000000002","event":"entered","userId":"user:bob@example.com","displayName":"Bob Martinez","futureField":{"nested":[1,2,3]},"x-vendor-mood":"cheerful"}"#,
+        ),
+        Step::Send(
+            r#"{"@type":"SceneObjectEvent","accountId":"account-xyz","regionId":"01J5ABC0000000000000000001","objectId":"01J5QBJ0000000000000000042","event":"created","updatedBy":"user:bob@example.com","position":[8.0,1.2,-3.5],"velocity":[0.0,0.0,1.0],"x-vendor-tick":42}"#,
+        ),
+        Step::Send(
+            r#"{"@type":"SceneInteractionEvent","accountId":"account-xyz","regionId":"01J5ABC0000000000000000001","objectId":"01J5QBJ0000000000000000001","userId":"user:alice@example.com","action":"click","data":null,"handedness":"left","x-vendor-latencyMs":12.5}"#,
+        ),
+    ])
+    .await;
+
+    match next(&mut ws).await {
+        SceneWsFrame::Avatar(e) => {
+            assert_eq!(e.event, AvatarEventKind::Entered);
+            assert_eq!(e.avatar_id, Id::from("01J5AV00000000000000000002"));
+            assert_eq!(e.user_id, "user:bob@example.com");
+            assert_eq!(e.display_name, "Bob Martinez");
+        }
+        other => panic!("expected SceneAvatarEvent, got {other:?}"),
+    }
+    match next(&mut ws).await {
+        SceneWsFrame::Object(e) => {
+            assert_eq!(e.event, ObjectEventKind::Created);
+            assert_eq!(e.object_id, Id::from("01J5QBJ0000000000000000042"));
+            assert_eq!(e.updated_by.as_deref(), Some("user:bob@example.com"));
+            assert_eq!(e.position, Some([8.0, 1.2, -3.5]));
+        }
+        other => panic!("expected SceneObjectEvent, got {other:?}"),
+    }
+    match next(&mut ws).await {
+        SceneWsFrame::Interaction(e) => {
+            assert_eq!(e.object_id, Id::from("01J5QBJ0000000000000000001"));
+            assert_eq!(e.user_id, "user:alice@example.com");
+            assert_eq!(e.action, "click");
+            assert_eq!(e.data, None);
+        }
+        other => panic!("expected SceneInteractionEvent, got {other:?}"),
+    }
+    assert!(ws.next_scene_frame().await.is_none());
+    assert!(server.await.unwrap().is_empty());
+}

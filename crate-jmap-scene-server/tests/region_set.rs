@@ -153,6 +153,55 @@ async fn created_region_is_returned_by_get() {
 }
 
 #[tokio::test]
+async fn environment_colors_in_all_three_forms_are_preserved() {
+    // jmap-scene-implementer-guide.md L230-241 (jmap-chat-spec 120db2c):
+    // "The preferred representation is the W3C Design Tokens Community
+    // Group color token format (`{"$type": "color", "$value": {...}}`,
+    // where `$value` is a Design Tokens color object with `colorSpace`,
+    // `components`, and optional `alpha` and `hex` ...). When Design
+    // Tokens are not practical, use CAM16 uniform color space coordinates
+    // (`[J, a, b]` or `[J, M, h]`). As a baseline fallback, sRGB hex
+    // strings (e.g., `"#87CEEB"`) are acceptable. Servers MUST accept all
+    // three representations and preserve whichever the client provides."
+    let token = json!({
+        "$type": "color",
+        "$value": {
+            "colorSpace": "srgb",
+            "components": [0.53, 0.81, 0.92],
+            "alpha": 0.5,
+            "hex": "#87ceeb"
+        }
+    });
+    let cam16_jab = json!([62.5, -12.25, -20.75]);
+    let cam16_jmh = json!([62.5, 24.0, 239.5]);
+    let hex = json!("#87CEEB");
+    let environment = json!({
+        "skyColor": token,
+        "fogColor": cam16_jab,
+        "groundColor": cam16_jmh,
+        "horizonColor": hex,
+        "ambientIntensity": 0.6
+    });
+    let backend = backend();
+    let mut r = design_review_room();
+    r["environment"] = environment.clone();
+    let id = create(&backend, r).await;
+    assert_eq!(get(&backend, &id).await["environment"], environment);
+
+    // Swap the forms between properties on update: each is still kept
+    // as given.
+    let swapped = json!({
+        "skyColor": hex,
+        "fogColor": token,
+        "groundColor": cam16_jab,
+        "horizonColor": cam16_jmh
+    });
+    let resp = update(&backend, ALICE, &id, json!({ "environment": swapped })).await;
+    assert!(resp["notUpdated"].is_null(), "update failed: {resp}");
+    assert_eq!(get(&backend, &id).await["environment"], swapped);
+}
+
+#[tokio::test]
 async fn create_takes_the_draft_defaults() {
     // L983-993 omits spawnOrientation; L291 "Default: `[0, 0, 0, 1]`
     // (identity)". L272 description is "(String|null)".
