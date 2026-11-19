@@ -85,6 +85,7 @@ mod history;
 mod identity;
 mod mailbox;
 mod parse;
+mod project;
 mod snippet;
 mod submission;
 mod thread;

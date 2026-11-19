@@ -194,7 +194,7 @@ pub(crate) fn fill_from_message(
 /// header value via mime-tree.
 ///
 /// This shares the workspace's single RFC 5322 parsing gateway with
-/// `email.rs::apply_header_form` so the Email/get `messageId` /
+/// `project.rs::apply_header_form` so the Email/get `messageId` /
 /// `inReplyTo` / `references` properties stay consistent with
 /// `header:<name>:asMessageIds` results on identical input
 /// (`bd:JMAP-j7pa.10`).
@@ -209,7 +209,7 @@ fn parse_msg_ids_via_mime_tree(s: &str) -> Vec<String> {
 ///
 /// Handles RFC 2047 encoded-words, RFC 5322 groups, and quoted-string
 /// display names with embedded commas. Shares the workspace's single RFC
-/// 5322 parsing gateway with `email.rs::apply_header_form` so the
+/// 5322 parsing gateway with `project.rs::apply_header_form` so the
 /// Email/get address properties stay consistent with
 /// `header:<name>:asAddresses` results on identical input
 /// (`bd:JMAP-j7pa.10`).
