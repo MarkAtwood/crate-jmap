@@ -2,13 +2,15 @@
   "id": "JMAP-q2wa.43",
   "title": "memory: Email/queryChanges ignores collapseThreads",
   "description": "memory/mod.rs:1683-1740 never reads collapse_threads; added indexes come from the uncollapsed list. RFC 8621 §4.5. Implement or return cannotCalculateChanges when collapseThreads is true. (mail-server review 2026-11-19)",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T05:32:51.783475379Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:32:51.783475379Z",
+  "updated_at": "2026-11-19T06:11:43.198506295Z",
+  "closed_at": "2026-11-19T06:11:43.198506295Z",
+  "close_reason": "Fixed in memory query_changes/get_changes; tests/memory_query_changes.rs and updated integration tests.",
   "dependencies": [
     {
       "issue_id": "JMAP-q2wa.43",
