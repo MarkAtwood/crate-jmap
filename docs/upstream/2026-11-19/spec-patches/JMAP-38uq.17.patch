@@ -1,0 +1,62 @@
+--- a/draft-atwood-jmap-scene-00.md
++++ b/draft-atwood-jmap-scene-00.md
+@@ -2421,7 +2421,7 @@
+ }
+ ~~~
+ 
+-Response:
++Response, echoing the `leftAt` the server stored, which differs from the one requested ({{RFC8620}} Section 5.3: the `updated` value includes "any properties that were changed in a way not explicitly requested by the client"):
+ 
+ ~~~json
+ {
+@@ -2432,7 +2432,9 @@
+       "newState": "state-avatar-23",
+       "created": null,
+       "updated": {
+-        "01J5AVA0000000000000000001": null
++        "01J5AVA0000000000000000001": {
++          "leftAt": "2026-06-06T11:45:02Z"
++        }
+       },
+       "destroyed": null,
+       "notCreated": null,
+@@ -3393,7 +3395,7 @@
+ }, "0"]]
+ ~~~
+ 
+-The server records its own current time as `leftAt` and responds:
++The server records its own current time as `leftAt` and responds with it:
+ 
+ ~~~json
+ [["SceneAvatar/set", {
+@@ -3402,7 +3404,9 @@
+   "newState": "s203",
+   "created": null,
+   "updated": {
+-    "01JXKR7A9MZQ3T5VWC8DHE2F01": null
++    "01JXKR7A9MZQ3T5VWC8DHE2F01": {
++      "leftAt": "2026-06-06T09:47:31Z"
++    }
+   },
+   "destroyed": null,
+   "notCreated": null,
+@@ -3669,7 +3673,7 @@
+ }, "0"]]
+ ~~~
+ 
+-Server responds:
++Server responds with the `leftAt` it recorded:
+ 
+ ~~~json
+ [["SceneAvatar/set", {
+@@ -3678,7 +3682,9 @@
+   "newState": "s211",
+   "created": null,
+   "updated": {
+-    "01JXKRD2Q8VB6M4TNWZ7CYHG30": null
++    "01JXKRD2Q8VB6M4TNWZ7CYHG30": {
++      "leftAt": "2026-06-06T10:22:16Z"
++    }
+   },
+   "destroyed": null,
+   "notCreated": null,

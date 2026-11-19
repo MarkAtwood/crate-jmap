@@ -1,0 +1,34 @@
+--- a/jmap-chat-compliance-tests.md
++++ b/jmap-chat-compliance-tests.md
+@@ -340,7 +340,7 @@
+ **Spec:** draft-atwood-jmap-chat-push-00 §ChatMessageEntry
+ **Severity:** MUST | **Round:** 1
+ 
+-**Test:** Generate a push payload. Verify each entry contains `chatKind`, `sentAt`, `senderDisplayName`. For channel chats, verify `spaceId` and `spaceName` are present.
++**Test:** Generate a push payload with no `properties` in the ChatPushConfig (the default set). Verify each entry contains `chatKind`, `sentAt`, `senderDisplayName`. Then set `properties` to include `spaceId` and `spaceName` and verify a channel message's entry carries both and a group or direct message's entry carries neither. `spaceId` and `spaceName` are not in the default set (draft-atwood-jmap-chat-push-00 §ChatPushConfig `properties`), so a default payload omits them even for channels.
+ 
+ ### 6.4 Properties filtering
+ **Spec:** draft-atwood-jmap-chat-push-00 §ChatPushConfig (`properties`)
+@@ -678,11 +678,11 @@
+ 
+ ## 12. PushSubscription
+ 
+-### 12.1 PushSubscription/get, /set, /changes exist
++### 12.1 PushSubscription/get and /set exist
+ **Spec:** draft-atwood-jmap-chat-push-00 §PushSubscription Extension, RFC 8620 Section 7.2
+ **Severity:** MUST | **Round:** 2
+ 
+-**Test:** Call `PushSubscription/set` create with `url` and `chatPush`. Verify success. Call `/get` and `/changes`.
++**Test:** Call `PushSubscription/set` create with `url` and `chatPush`. Verify success. Call `/get` and verify the subscription carries `chatPush`. RFC 8620 Section 7.2 defines only `PushSubscription/get` and `PushSubscription/set`; there is no `PushSubscription/changes`, and a server that answers it with `unknownMethod` is correct.
+ 
+ ---
+ 
+@@ -694,6 +694,8 @@
+ **Spec:** draft-atwood-jmap-chat-00 §Session-Level Capability Object
+ **Severity:** MUST | **Round:** 15
+ 
++The same check as §3.1, kept here because round 15 rediscovered it. An implementation that passes §3.1 passes this test.
++
+ **Test:** Fetch `/.well-known/jmap`. Verify `capabilities["urn:ietf:params:jmap:chat"]` is exactly `{}`. The chat properties (maxBodyBytes, supportedBodyTypes, etc.) must ONLY appear in per-account `accountCapabilities["urn:ietf:params:jmap:chat"]`.
+ 
+ **Common failure:** Copying the properties into both session-level and account-level. Session-level must be empty.
