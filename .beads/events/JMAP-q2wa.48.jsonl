@@ -1,1 +1,2 @@
 {"id":"01a1f24b-3e1e-7e1a-a380-a65a3c349661","issue_id":"JMAP-q2wa.48","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T05:32:59.806925484Z"}
+{"id":"01a1f279-4788-7bcc-9117-4ab9e8ae6b47","issue_id":"JMAP-q2wa.48","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Fixed; tests/body_values_parts.rs.","created_at":"2026-11-19T06:23:16.872774663Z"}
