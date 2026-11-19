@@ -81,129 +81,47 @@ Each request's `CallerCtx` value is forwarded into the handler closure (see
 
 ## `ChatBackend` trait
 
+`ChatBackend` is the union of ten hook traits, each a `JmapBackend`
+subtrait; every type that implements all ten is a `ChatBackend`, and the
+handlers take `B: ChatBackend` (docs/design/chat-backend-split.md). An
+empty `impl ChatX for MyBackend {}` keeps every default of that trait.
+
+| Trait | Methods |
+|---|---|
+| `ChatStore` (needs `ChatEvents`) | `create_object`, `update_object`, `destroy_object`, `create_message`, `supports_type` |
+| `ChatSpaces` | `generate_invite_code`, `join_space_with_invite`, `apply_space_patch`, `apply_space_metadata_patch`, `everyone_permissions`, `protect_last_admin`, `space_extension_properties` |
+| `SpacePolicy` | `may_set_custom_emoji`, `may_set_space_ban`, `may_set_space_invite`, `may_get_space_invite`, `may_get_space_ban` |
+| `ChatAccessPolicy` | `may_send_message`, `may_view_chat`, `may_set_pinned_messages`, `may_broadcast_mention`, `slow_mode_check`, `is_contact_blocked`, `validate_pinned_message_ids` |
+| `ChatRestrictions` | `may_create_message`, `may_update_message`, `may_update_chat` |
+| `ChatModeration` (needs `ChatStore`) | `create_chat_ban`, `update_chat_ban`, `destroy_chat_ban`, `kick_chat_members` |
+| `ChatMessageLifecycle` | `expire_message`, `read_and_burn_message` |
+| `ChatEvents` | `on_chat_destroyed`, `on_space_destroyed`, `on_space_ban_created`, `on_outbound_event` |
+| `ChatSettings` | `limits`, `retains_edit_history`, `maintains_unread_count`, `owner_user_id` |
+| `ChatResolvers` | `attachment_blob`, `filenode_attachment` |
+
+The rustdoc of each method states its contract, its default and who
+enforces what (see also "Permission enforcement responsibilities" below).
+Code that calls a hook on a concrete type imports that hook trait.
+
+### Wrapping a backend
+
+A backend that wraps another (such as `memory::MemoryBackend`) and changes
+only some behaviour implements the hook traits it changes, and a
+`Delegate*` companion for each trait it reuses as a whole:
+
 ```rust,ignore
-pub trait ChatBackend: JmapBackend {
-    /// Create a new object. `build` receives the backend-assigned id and
-    /// returns the object to store. Returns `(assigned_id, created_object)`.
-    /// `create_id` is the client-side creation id from the `/set` request.
-    fn create_object<O, F>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        create_id: &str,
-        build: F,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send
-    where
-        O: SetObject + Send + Sync,
-        F: FnOnce(&Id) -> O + Send;
-
-    /// Apply a partial update (patch) to an existing object.
-    /// Returns `Some(updated_object)` if the backend modified any properties beyond
-    /// what the client requested (RFC 8620 §5.3 server-set field echo), or `None`
-    /// if the patch was applied verbatim.
-    fn update_object<O: SetObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        id: &Id,
-        patch: O::Patch,
-    ) -> impl Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
-
-    /// Destroy an existing object by id.
-    fn destroy_object<O: SetObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        id: &Id,
-    ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
-
-    /// Returns `true` if this backend supports JMAP object type `O` for
-    /// `account_id`, as seen by `caller`.
-    /// Called by the session/capability builder — NOT called internally by handlers.
-    fn supports_type<O: JmapObject>(&self, caller: &Self::CallerCtx, account_id: &Id) -> bool;
-
-    /// Generate a cryptographically random invite code.
-    /// MUST use a CSPRNG. Do NOT use timestamps or sequential counters.
-    fn generate_invite_code(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-    ) -> impl Future<Output = Result<String, Self::Error>> + Send;
-
-    /// Redeem the SpaceInvite `invite_id` for `Space/join`: add the owner to
-    /// the invite's Space and increment the invite's `uses`.
-    fn join_space_with_invite(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        invite_id: &Id,
-        joined_at: &UTCDate,
-    ) -> impl Future<Output = Result<Result<(), InviteJoinRefusal>, Self::Error>> + Send;
-
-    /// Apply a `readAt`-setting `patch` to the `burnOnRead` Message
-    /// `message_id` and hard-delete it, as one atomic operation.
-    fn read_and_burn_message(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        message_id: &Id,
-        patch: PatchObject,
-    ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
-
-    /// Apply a sequence of structural mutations to a Space (§Space/set).
-    fn apply_space_patch(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        space_id: &Id,
-        ops: Vec<SpacePatchOp>,
-    ) -> impl Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
-
-    /// Apply a JSON Merge Patch to a Space's top-level metadata fields.
-    fn apply_space_metadata_patch(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        space_id: &Id,
-        patch: SpaceMetadataPatch,
-    ) -> impl Future<Output = Result<Option<Space>, BackendSetError<Self::Error>>> + Send;
-
-    /// Permissions of the implicit `@everyone` role in `space`, the
-    /// permission floor every member holds. No default.
-    fn everyone_permissions(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        space: &Space,
-    ) -> impl Future<Output = Result<HashSet<ChatPermission>, Self::Error>> + Send;
-
-    /// Blob lookup consulted for each Attachment of a Message create.
-    fn attachment_blob(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> impl Future<Output = Result<Result<Option<AttachmentBlob>, SetError>, Self::Error>> + Send;
-
-    // Methods with defaults (all take `caller: &Self::CallerCtx` first
-    // except `retains_edit_history` and `maintains_unread_count`):
-    // on_chat_destroyed, on_space_destroyed, on_space_ban_created,
-    // on_outbound_event, limits, space_extension_properties,
-    // protect_last_admin, retains_edit_history, maintains_unread_count,
-    // is_contact_blocked, owner_user_id, may_set_custom_emoji,
-    // may_broadcast_mention, may_set_pinned_messages, may_set_space_ban,
-    // may_set_space_invite, may_get_space_invite, may_get_space_ban,
-    // may_send_message, may_create_message, may_update_message,
-    // may_update_chat, filenode_attachment, may_view_chat,
-    // validate_pinned_message_ids, slow_mode_check, expire_message.
+impl ChatRestrictions for MyBackend { /* only the gates it changes */ }
+impl DelegateChatSpaces for MyBackend {
+    type Target = MemoryBackend;
+    fn chat_spaces(&self) -> &MemoryBackend { &self.inner }
 }
 ```
 
-This block lists the required methods; see `src/backend.rs` for the full
-signatures and contracts of the defaulted hooks.
-
-The read-side operations (`get_objects`, `get_state`, `get_changes`, `query_objects`,
-`query_changes`) are defined on the `JmapBackend` supertrait from `jmap-server`.
+`Delegate*::Target` has the wrapper's `CallerCtx` and `Error`. A delegated
+trait runs with the target as `self`, so its defaults reach the target's
+other hook traits (the `ChatModeration` defaults write through the
+target's `ChatStore`). A type implements `ChatX` or `DelegateChatX`, not
+both. `JmapBackend` itself is still forwarded by hand.
 
 ## Testing a backend: the conformance suite
 

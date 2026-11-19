@@ -559,6 +559,14 @@ pub async fn jmap_chat_server::memory::MemoryBackend::may_set_pinned_messages(&s
 pub async fn jmap_chat_server::memory::MemoryBackend::may_view_chat(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
 pub async fn jmap_chat_server::memory::MemoryBackend::slow_mode_check(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_chat_server::SlowModeError>
 pub fn jmap_chat_server::memory::MemoryBackend::validate_pinned_message_ids(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+impl<T: jmap_chat_server::DelegateChatAccessPolicy> jmap_chat_server::ChatAccessPolicy for T
+pub fn T::is_contact_blocked(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn T::may_broadcast_mention(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::may_send_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::may_set_pinned_messages(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::may_view_chat(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn T::slow_mode_check(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_chat_server::SlowModeError>> + core::marker::Send
+pub fn T::validate_pinned_message_ids(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub trait jmap_chat_server::ChatBackend: jmap_chat_server::ChatStore + jmap_chat_server::ChatSpaces + jmap_chat_server::SpacePolicy + jmap_chat_server::ChatAccessPolicy + jmap_chat_server::ChatRestrictions + jmap_chat_server::ChatModeration + jmap_chat_server::ChatMessageLifecycle + jmap_chat_server::ChatEvents + jmap_chat_server::ChatSettings + jmap_chat_server::ChatResolvers
 impl<T> jmap_chat_server::ChatBackend for T where T: jmap_chat_server::ChatStore + jmap_chat_server::ChatSpaces + jmap_chat_server::SpacePolicy + jmap_chat_server::ChatAccessPolicy + jmap_chat_server::ChatRestrictions + jmap_chat_server::ChatModeration + jmap_chat_server::ChatMessageLifecycle + jmap_chat_server::ChatEvents + jmap_chat_server::ChatSettings + jmap_chat_server::ChatResolvers
 pub trait jmap_chat_server::ChatEvents: jmap_server::backend::JmapBackend
@@ -571,12 +579,20 @@ pub fn jmap_chat_server::memory::MemoryBackend::on_chat_destroyed(&self, &(), &j
 pub fn jmap_chat_server::memory::MemoryBackend::on_outbound_event(&self, &(), &jmap_types::id::Id, &jmap_chat_server::OutboundEvent) -> impl core::future::future::Future<Output = ()> + core::marker::Send
 pub fn jmap_chat_server::memory::MemoryBackend::on_space_ban_created(&self, &(), &jmap_types::id::Id, &jmap_chat_types::space::SpaceBan) -> impl core::future::future::Future<Output = ()> + core::marker::Send
 pub fn jmap_chat_server::memory::MemoryBackend::on_space_destroyed(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+impl<T: jmap_chat_server::DelegateChatEvents> jmap_chat_server::ChatEvents for T
+pub fn T::on_chat_destroyed(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn T::on_outbound_event(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_server::OutboundEvent) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn T::on_space_ban_created(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::space::SpaceBan) -> impl core::future::future::Future<Output = ()> + core::marker::Send
+pub fn T::on_space_destroyed(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = ()> + core::marker::Send
 pub trait jmap_chat_server::ChatMessageLifecycle: jmap_server::backend::JmapBackend
 pub fn jmap_chat_server::ChatMessageLifecycle::expire_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::ChatMessageLifecycle::read_and_burn_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 impl jmap_chat_server::ChatMessageLifecycle for jmap_chat_server::memory::MemoryBackend
 pub async fn jmap_chat_server::memory::MemoryBackend::expire_message(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), Self::Error>
 pub async fn jmap_chat_server::memory::MemoryBackend::read_and_burn_message(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
+impl<T: jmap_chat_server::DelegateChatMessageLifecycle> jmap_chat_server::ChatMessageLifecycle for T
+pub fn T::expire_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), Self::Error>> + core::marker::Send
+pub fn T::read_and_burn_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub trait jmap_chat_server::ChatModeration: jmap_chat_server::ChatStore
 pub fn jmap_chat_server::ChatModeration::create_chat_ban<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, jmap_chat_types::chat::ChatBan), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_chat_types::chat::ChatBan + core::marker::Send
 pub fn jmap_chat_server::ChatModeration::destroy_chat_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
@@ -587,12 +603,20 @@ pub fn jmap_chat_server::memory::MemoryBackend::create_chat_ban<F>(&self, &Self:
 pub fn jmap_chat_server::memory::MemoryBackend::destroy_chat_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_chat_server::memory::MemoryBackend::kick_chat_members(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::memory::MemoryBackend::update_chat_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_chat_types::chat::ChatBan>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+impl<T: jmap_chat_server::DelegateChatModeration + jmap_chat_server::ChatStore> jmap_chat_server::ChatModeration for T
+pub fn T::create_chat_ban<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, jmap_chat_types::chat::ChatBan), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_chat_types::chat::ChatBan + core::marker::Send
+pub fn T::destroy_chat_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn T::kick_chat_members(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &[jmap_types::id::Id]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::update_chat_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_types::patch::PatchObject) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_chat_types::chat::ChatBan>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub trait jmap_chat_server::ChatResolvers: jmap_server::backend::JmapBackend
 pub fn jmap_chat_server::ChatResolvers::attachment_blob(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<core::option::Option<jmap_chat_server::AttachmentBlob>, jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::ChatResolvers::filenode_attachment(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &jmap_chat_types::message::AttachmentCreate) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<core::option::Option<jmap_chat_types::message::Attachment>, jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 impl jmap_chat_server::ChatResolvers for jmap_chat_server::memory::MemoryBackend
 pub async fn jmap_chat_server::memory::MemoryBackend::attachment_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::result::Result<core::option::Option<jmap_chat_server::AttachmentBlob>, jmap_types::set_error::SetError>, Self::Error>
 pub fn jmap_chat_server::memory::MemoryBackend::filenode_attachment(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &jmap_chat_types::message::AttachmentCreate) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<core::option::Option<jmap_chat_types::message::Attachment>, jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+impl<T: jmap_chat_server::DelegateChatResolvers> jmap_chat_server::ChatResolvers for T
+pub fn T::attachment_blob(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<core::option::Option<jmap_chat_server::AttachmentBlob>, jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::filenode_attachment(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &jmap_chat_types::message::AttachmentCreate) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<core::option::Option<jmap_chat_types::message::Attachment>, jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub trait jmap_chat_server::ChatRestrictions: jmap_server::backend::JmapBackend
 pub fn jmap_chat_server::ChatRestrictions::may_create_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::ChatRestrictions::may_update_chat(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &[&str]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
@@ -601,6 +625,10 @@ impl jmap_chat_server::ChatRestrictions for jmap_chat_server::memory::MemoryBack
 pub fn jmap_chat_server::memory::MemoryBackend::may_create_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::memory::MemoryBackend::may_update_chat(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &[&str]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::memory::MemoryBackend::may_update_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &jmap_chat_types::message::Message, &[&str]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+impl<T: jmap_chat_server::DelegateChatRestrictions> jmap_chat_server::ChatRestrictions for T
+pub fn T::may_create_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::may_update_chat(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &[&str]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::may_update_message(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::chat::Chat, &jmap_chat_types::message::Message, &[&str]) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub trait jmap_chat_server::ChatSettings: jmap_server::backend::JmapBackend
 pub fn jmap_chat_server::ChatSettings::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_chat_server::ChatLimits
 pub fn jmap_chat_server::ChatSettings::maintains_unread_count(&self) -> bool
@@ -611,6 +639,11 @@ pub fn jmap_chat_server::memory::MemoryBackend::limits(&self, &(), &jmap_types::
 pub fn jmap_chat_server::memory::MemoryBackend::maintains_unread_count(&self) -> bool
 pub async fn jmap_chat_server::memory::MemoryBackend::owner_user_id(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::string::String>, Self::Error>
 pub fn jmap_chat_server::memory::MemoryBackend::retains_edit_history(&self) -> bool
+impl<T: jmap_chat_server::DelegateChatSettings> jmap_chat_server::ChatSettings for T
+pub fn T::limits(&self, &Self::CallerCtx, &jmap_types::id::Id) -> jmap_chat_server::ChatLimits
+pub fn T::maintains_unread_count(&self) -> bool
+pub fn T::owner_user_id(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::string::String>, Self::Error>> + core::marker::Send
+pub fn T::retains_edit_history(&self) -> bool
 pub trait jmap_chat_server::ChatSpaces: jmap_server::backend::JmapBackend
 pub fn jmap_chat_server::ChatSpaces::apply_space_metadata_patch(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_chat_types::space_set::SpaceMetadataPatch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_chat_types::space::Space>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_chat_server::ChatSpaces::apply_space_patch(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<jmap_chat_types::space_set::SpacePatchOp>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_chat_server::OpResult>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
@@ -627,6 +660,14 @@ pub async fn jmap_chat_server::memory::MemoryBackend::generate_invite_code(&self
 pub async fn jmap_chat_server::memory::MemoryBackend::join_space_with_invite(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::UTCDate) -> core::result::Result<core::result::Result<(), jmap_chat_server::InviteJoinRefusal>, Self::Error>
 pub fn jmap_chat_server::memory::MemoryBackend::protect_last_admin(&self, &(), &jmap_types::id::Id) -> bool
 pub fn jmap_chat_server::memory::MemoryBackend::space_extension_properties(&self, &(), &jmap_types::id::Id) -> &'static [&'static str]
+impl<T: jmap_chat_server::DelegateChatSpaces> jmap_chat_server::ChatSpaces for T
+pub fn T::apply_space_metadata_patch(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, jmap_chat_types::space_set::SpaceMetadataPatch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_chat_types::space::Space>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn T::apply_space_patch(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<jmap_chat_types::space_set::SpacePatchOp>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_chat_server::OpResult>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn T::everyone_permissions(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::space::Space) -> impl core::future::future::Future<Output = core::result::Result<std::collections::hash::set::HashSet<jmap_chat_types::space::ChatPermission>, Self::Error>> + core::marker::Send
+pub fn T::generate_invite_code(&self, &Self::CallerCtx, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<alloc::string::String, Self::Error>> + core::marker::Send
+pub fn T::join_space_with_invite(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::UTCDate) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_chat_server::InviteJoinRefusal>, Self::Error>> + core::marker::Send
+pub fn T::protect_last_admin(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
+pub fn T::space_extension_properties(&self, &Self::CallerCtx, &jmap_types::id::Id) -> &'static [&'static str]
 pub trait jmap_chat_server::ChatStore: jmap_chat_server::ChatEvents
 pub fn jmap_chat_server::ChatStore::create_message<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, jmap_chat_types::message::Message), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_chat_types::message::Message + core::marker::Send
 pub fn jmap_chat_server::ChatStore::create_object<O, F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
@@ -639,6 +680,42 @@ pub async fn jmap_chat_server::memory::MemoryBackend::create_object<O, F>(&self,
 pub async fn jmap_chat_server::memory::MemoryBackend::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>
 pub fn jmap_chat_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub async fn jmap_chat_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
+impl<T: jmap_chat_server::DelegateChatStore + jmap_chat_server::ChatEvents> jmap_chat_server::ChatStore for T
+pub fn T::create_message<F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, jmap_chat_types::message::Message), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where F: core::ops::function::FnOnce(&jmap_types::id::Id) -> jmap_chat_types::message::Message + core::marker::Send
+pub fn T::create_object<O, F>(&self, &Self::CallerCtx, &jmap_types::id::Id, &str, F) -> impl core::future::future::Future<Output = core::result::Result<(jmap_types::id::Id, O), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send where O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync, F: core::ops::function::FnOnce(&jmap_types::id::Id) -> O + core::marker::Send
+pub fn T::destroy_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub fn T::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
+pub fn T::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
+pub trait jmap_chat_server::DelegateChatAccessPolicy: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatAccessPolicy::Target: jmap_chat_server::ChatAccessPolicy<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatAccessPolicy::chat_access_policy(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatEvents: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatEvents::Target: jmap_chat_server::ChatEvents<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatEvents::chat_events(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatMessageLifecycle: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatMessageLifecycle::Target: jmap_chat_server::ChatMessageLifecycle<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatMessageLifecycle::chat_message_lifecycle(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatModeration: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatModeration::Target: jmap_chat_server::ChatModeration<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatModeration::chat_moderation(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatResolvers: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatResolvers::Target: jmap_chat_server::ChatResolvers<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatResolvers::chat_resolvers(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatRestrictions: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatRestrictions::Target: jmap_chat_server::ChatRestrictions<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatRestrictions::chat_restrictions(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatSettings: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatSettings::Target: jmap_chat_server::ChatSettings<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatSettings::chat_settings(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatSpaces: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatSpaces::Target: jmap_chat_server::ChatSpaces<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatSpaces::chat_spaces(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateChatStore: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateChatStore::Target: jmap_chat_server::ChatStore<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateChatStore::chat_store(&self) -> &Self::Target
+pub trait jmap_chat_server::DelegateSpacePolicy: jmap_server::backend::JmapBackend
+pub type jmap_chat_server::DelegateSpacePolicy::Target: jmap_chat_server::SpacePolicy<CallerCtx = Self::CallerCtx, Error = Self::Error>
+pub fn jmap_chat_server::DelegateSpacePolicy::space_policy(&self) -> &Self::Target
 pub trait jmap_chat_server::SpacePolicy: jmap_server::backend::JmapBackend
 pub fn jmap_chat_server::SpacePolicy::may_get_space_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::space::SpaceBan) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::SpacePolicy::may_get_space_invite(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::space::SpaceInvite) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
@@ -651,6 +728,12 @@ pub async fn jmap_chat_server::memory::MemoryBackend::may_get_space_invite(&self
 pub async fn jmap_chat_server::memory::MemoryBackend::may_set_custom_emoji(&self, &(), &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, jmap_chat_server::EmojiSetOp) -> core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>
 pub async fn jmap_chat_server::memory::MemoryBackend::may_set_space_ban(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>
 pub async fn jmap_chat_server::memory::MemoryBackend::may_set_space_invite(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>) -> core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>
+impl<T: jmap_chat_server::DelegateSpacePolicy> jmap_chat_server::SpacePolicy for T
+pub fn T::may_get_space_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::space::SpaceBan) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn T::may_get_space_invite(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_chat_types::space::SpaceInvite) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
+pub fn T::may_set_custom_emoji(&self, &Self::CallerCtx, &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>, jmap_chat_server::EmojiSetOp) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::may_set_space_ban(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
+pub fn T::may_set_space_invite(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<&jmap_types::id::Id>) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<(), jmap_types::set_error::SetError>, Self::Error>> + core::marker::Send
 pub fn jmap_chat_server::build_chat_message_push(&jmap_types::id::Id, jmap_types::id::State, &jmap_chat_types::push::ChatPushConfig, &jmap_chat_types::capability::ChatPushCapability, jmap_chat_server::OwnerFlags, jmap_chat_server::PushItem<'_>, core::option::Option<u64>) -> jmap_chat_server::BuiltPush
 pub fn jmap_chat_server::chat_state_change_for(&jmap_types::push::PushSubscription, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::id::State>>, &std::collections::hash::set::HashSet<jmap_types::id::Id>) -> core::option::Option<jmap_types::push::StateChange>
 pub fn jmap_chat_server::fit_chat_message_push(jmap_chat_types::push::ChatMessagePush, usize) -> alloc::vec::Vec<core::option::Option<jmap_chat_types::push::ChatMessagePush>>

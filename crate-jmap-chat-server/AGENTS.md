@@ -33,7 +33,7 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 
 JMAP Chat extension method handlers (draft-atwood-jmap-chat). Plugs
 into `jmap-server`'s `Dispatcher` via `register_chat_handlers`. Defines
-`ChatBackend` trait; consumers provide the storage impl. A reference
+`ChatBackend` trait (the union of ten hook traits, each with a `Delegate*` companion; docs/design/chat-backend-split.md); consumers provide the storage impl. A reference
 in-memory implementation (`memory::MemoryBackend`) is gated behind
 the `memory` feature for tests and demos.
 
