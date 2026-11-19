@@ -947,6 +947,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-types**: the `icu_segmenter` requirement is now `2.2` (any 2.x from
+  2.2) instead of `~2.2`, like `icu_casemap` and `icu_normalizer`, so
+  dependents can use a newer ICU4X 2.x. The lockfile moves every `icu_*`
+  crate to 2.4.0.
+
 - **jmap-chat-federation-server**: a placeholder ChatContact that a
   `Peer/*` call creates for a peer identity of the request (the bound
   caller identity, or any identity whose host is the authenticated peer
