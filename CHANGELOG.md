@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
+  `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
+  `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,
+  absent `filter` is `null`), `EMAIL_PUSH_PROPERTY`, `email_push`,
+  `set_email_push`. (bd:JMAP-r44n.7)
 - **jmap-blob-server**: memory backend `with_external_references`
   (`ExternalReferences`: another store's current objects count in
   `Blob/lookup`, `blobHasReference` and `expires`, and hear of each

@@ -12,6 +12,7 @@ categories = ["email", "encoding"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [features]
+emailpush = []
 mdn = []
 sieve = []
 

@@ -57,6 +57,14 @@ mod submission;
 mod thread;
 mod vacation;
 
+#[cfg(feature = "emailpush")]
+mod emailpush;
+#[cfg(feature = "emailpush")]
+pub use emailpush::{
+    EMAIL_PUSH_PROPERTY, EmailPush, EmailPushAccountCapability, EmailPushCapability,
+    EmailPushConfig, JMAP_EMAILPUSH_URI, email_push, set_email_push,
+};
+
 #[cfg(feature = "mdn")]
 mod mdn;
 #[cfg(feature = "mdn")]

@@ -98,13 +98,27 @@ decision is bd JMAP-lbdy.
 
 ## Optional Features
 
-Two Cargo features gate optional RFC extension modules. Both are off by default;
+Three Cargo features gate optional extension modules. All are off by default;
 enable them in `Cargo.toml` only if you need the corresponding extension:
 
 ```toml
 [dependencies]
-jmap-mail-types = { version = "0.5", features = ["mdn", "sieve"] }
+jmap-mail-types = { version = "0.5", features = ["mdn", "sieve", "emailpush"] }
 ```
+
+### `emailpush` — draft-ietf-jmap-emailpush-05 Email Delivery Push
+
+Adds, at the crate root:
+
+| Item | Source |
+|---|---|
+| `JMAP_EMAILPUSH_URI` const (`"urn:ietf:params:jmap:emailpush"`) | §2.1, §7 |
+| `EmailPushCapability`, `EmailPushAccountCapability` (empty objects) | §2.1 |
+| `EmailPush` (`@type` always emitted, other values rejected) | §3 |
+| `EmailPushConfig` (`filter`, `properties`, `urgency`; always serialized with defaults filled) | §4 |
+| `EMAIL_PUSH_PROPERTY`, `email_push`, `set_email_push` (the `emailPush` map in `PushSubscription.extra`) | §4 |
+
+-05 gives `filter` no default; this crate treats an absent `filter` as `null`.
 
 ### `mdn` — RFC 9007 Message Disposition Notifications
 
@@ -436,6 +450,8 @@ jmap-types                 shared wire primitives (RFC 8620)
 - [RFC 4314] — IMAP ACL Extension (basis for `MailboxRights`)
 - [RFC 9007] — JMAP for MDN (gated behind the `mdn` Cargo feature)
 - [RFC 9661] — JMAP Sieve Scripts (gated behind the `sieve` Cargo feature)
+- [draft-ietf-jmap-emailpush-05] — JMAP Email Delivery Push (gated behind the
+  `emailpush` Cargo feature)
 
 [RFC 8621]: https://www.rfc-editor.org/rfc/rfc8621
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
@@ -443,4 +459,5 @@ jmap-types                 shared wire primitives (RFC 8620)
 [RFC 5321]: https://www.rfc-editor.org/rfc/rfc5321
 [RFC 4314]: https://www.rfc-editor.org/rfc/rfc4314
 [RFC 9007]: https://www.rfc-editor.org/rfc/rfc9007
+[draft-ietf-jmap-emailpush-05]: https://datatracker.ietf.org/doc/draft-ietf-jmap-emailpush/
 [RFC 9661]: https://www.rfc-editor.org/rfc/rfc9661
