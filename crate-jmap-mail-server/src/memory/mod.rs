@@ -311,28 +311,6 @@ impl Inner {
             self.sort_thread_email_ids(account, thread_id);
         }
 
-        let is_unread = !email.keywords.keys().any(|k| k.as_ref() == "$seen");
-        let mailboxes = self.objects_mut("Mailbox", account);
-        for (mbox_id, _) in email.mailbox_ids.iter().filter(|(_, in_mbox)| **in_mbox) {
-            let Some(obj) = mailboxes.get_mut(mbox_id).and_then(|v| v.as_object_mut()) else {
-                continue;
-            };
-            let mut bump = |key: &str| {
-                let n = obj.get(key).and_then(|x| x.as_u64()).unwrap_or(0);
-                obj.insert(key.to_owned(), (n + 1).into());
-            };
-            bump("totalEmails");
-            if is_unread {
-                bump("unreadEmails");
-            }
-            if !thread_existed {
-                bump("totalThreads");
-                if is_unread {
-                    bump("unreadThreads");
-                }
-            }
-        }
-
         if let Some(msg_ids) = &email.message_id {
             let account_index = self.message_id_index.entry(account.to_owned()).or_default();
             for msg_id in msg_ids {
@@ -363,6 +341,161 @@ impl Inner {
             restored: vec![],
             updated_props: None,
         });
+        self.recount_mailboxes(account);
+    }
+
+    /// Recompute the RFC 8621 §2 counts of every Mailbox in `account` from
+    /// its Emails, and record each Mailbox whose counts changed as updated
+    /// (advancing the Mailbox state, RFC 8620 §5.1), with
+    /// `updatedProperties` the counts (RFC 8621 §2.2).
+    ///
+    /// - totalEmails: "The number of Emails in this Mailbox".
+    /// - unreadEmails: those "that have neither the "$seen" keyword nor the
+    ///   "$draft" keyword".
+    /// - totalThreads: "Threads where at least one Email in the Thread is in
+    ///   this Mailbox".
+    /// - unreadThreads: the RFC's "simplest solution", Threads "where at
+    ///   least one Email in the Thread is both in this Mailbox and has
+    ///   neither the "$seen" nor "$draft" keywords".
+    fn recount_mailboxes(&mut self, account: &str) {
+        #[derive(Default, PartialEq)]
+        struct Counts {
+            emails: u64,
+            unread: u64,
+            threads: HashSet<String>,
+            unread_threads: HashSet<String>,
+        }
+        let mut counts: HashMap<String, Counts> = HashMap::new();
+        for email in self
+            .objects_ref("Email", account)
+            .into_iter()
+            .flat_map(HashMap::values)
+        {
+            let flagged = |name: &str| {
+                email
+                    .get("keywords")
+                    .and_then(serde_json::Value::as_object)
+                    .is_some_and(|k| {
+                        k.iter().any(|(kw, v)| {
+                            v == &serde_json::Value::Bool(true) && kw.eq_ignore_ascii_case(name)
+                        })
+                    })
+            };
+            let unread = !flagged("$seen") && !flagged("$draft");
+            let thread = email
+                .get("threadId")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("");
+            let boxes = email
+                .get("mailboxIds")
+                .and_then(serde_json::Value::as_object);
+            for (mbox, _) in boxes
+                .into_iter()
+                .flatten()
+                .filter(|(_, v)| *v == &serde_json::Value::Bool(true))
+            {
+                let c = counts.entry(mbox.clone()).or_default();
+                c.emails += 1;
+                c.threads.insert(thread.to_owned());
+                if unread {
+                    c.unread += 1;
+                    c.unread_threads.insert(thread.to_owned());
+                }
+            }
+        }
+        let mut changed = Vec::new();
+        for (id, mailbox) in self.objects_mut("Mailbox", account).iter_mut() {
+            let Some(obj) = mailbox.as_object_mut() else {
+                continue;
+            };
+            let c = counts.remove(id.as_ref()).unwrap_or_default();
+            let new = [
+                ("totalEmails", c.emails),
+                ("unreadEmails", c.unread),
+                ("totalThreads", c.threads.len() as u64),
+                ("unreadThreads", c.unread_threads.len() as u64),
+            ];
+            if new
+                .iter()
+                .any(|(k, n)| obj.get(*k).and_then(serde_json::Value::as_u64) != Some(*n))
+            {
+                for (k, n) in new {
+                    obj.insert(k.to_owned(), serde_json::Value::from(n));
+                }
+                changed.push(id.clone());
+            }
+        }
+        if changed.is_empty() {
+            return;
+        }
+        changed.sort();
+        let new_state = self.bump_state("Mailbox", account);
+        self.change_log_mut("Mailbox", account).push(ChangeEntry {
+            new_state,
+            created: vec![],
+            updated: changed,
+            destroyed: vec![],
+            restored: vec![],
+            updated_props: Some(
+                [
+                    "totalEmails",
+                    "unreadEmails",
+                    "totalThreads",
+                    "unreadThreads",
+                ]
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+            ),
+        });
+    }
+
+    /// Take a destroyed Email out of its Thread (destroying the Thread when
+    /// it was the last one, RFC 8621 §3) and out of the Message-ID index,
+    /// recording the Thread change.
+    fn detach_email(&mut self, account: &str, email: &serde_json::Value) {
+        let (Some(email_id), Some(thread_id)) = (
+            email.get("id").and_then(serde_json::Value::as_str),
+            email.get("threadId").and_then(serde_json::Value::as_str),
+        ) else {
+            return;
+        };
+        let thread_id = Id::from(thread_id);
+        let threads = self.objects_mut("Thread", account);
+        let mut emptied = false;
+        let mut removed = false;
+        if let Some(ids) = threads
+            .get_mut(&thread_id)
+            .and_then(|t| t.get_mut("emailIds"))
+            .and_then(serde_json::Value::as_array_mut)
+        {
+            let before = ids.len();
+            ids.retain(|v| v.as_str() != Some(email_id));
+            removed = ids.len() != before;
+            emptied = ids.is_empty();
+        }
+        if emptied {
+            threads.remove(&thread_id);
+        }
+        if removed {
+            let new_state = self.bump_state("Thread", account);
+            let (updated, destroyed) = if emptied {
+                (vec![], vec![thread_id])
+            } else {
+                (vec![thread_id], vec![])
+            };
+            self.change_log_mut("Thread", account).push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated,
+                destroyed,
+                restored: vec![],
+                updated_props: None,
+            });
+        }
+        if let Some(index) = self.message_id_index.get_mut(account) {
+            index.retain(|_, id| id.as_ref() != email_id);
+        }
     }
 
     /// Re-sort a Thread's `emailIds` by the `receivedAt` of each member email.
@@ -2024,6 +2157,9 @@ impl MailBackend for MemoryBackend {
                 restored: vec![],
                 updated_props,
             });
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            inner.recount_mailboxes(account_id.as_ref());
+        }
 
         // MemoryBackend echoes the object only after pruning stale
         // localizations (draft-atwood-jmap-updates-00 §4.1).
@@ -2046,6 +2182,9 @@ impl MailBackend for MemoryBackend {
         let removed = store.remove(id).ok_or_else(|| {
             BackendSetError::SetError(Box::new(SetError::new(SetErrorType::NotFound)))
         })?;
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            inner.detach_email(account_id.as_ref(), &removed);
+        }
         inner.record_destroy(O::TYPE_NAME, account_id, id, removed);
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -2058,6 +2197,9 @@ impl MailBackend for MemoryBackend {
                 restored: vec![],
                 updated_props: None,
             });
+        if O::TYPE_NAME == Email::TYPE_NAME {
+            inner.recount_mailboxes(account_id.as_ref());
+        }
         Ok(())
     }
 
@@ -2361,6 +2503,7 @@ impl MailBackend for MemoryBackend {
                 .and_then(|m| m.get_mut(&account_str))
                 .and_then(|store| store.remove(id));
             let err = if let Some(last) = removed {
+                inner.detach_email(&account_str, &last);
                 inner.record_destroy(Email::TYPE_NAME, account_id, id, last);
                 let new_state = inner.bump_state("Email", &account_str);
                 inner
@@ -2381,6 +2524,7 @@ impl MailBackend for MemoryBackend {
             };
             results.push((id.clone(), err));
         }
+        inner.recount_mailboxes(&account_str);
         results
     }
 

@@ -857,6 +857,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (memory backend): Mailbox counts are recomputed
+  after every Email create, update, destroy and restore (RFC 8621 §2:
+  `$draft` counts as read, `totalThreads` / `unreadThreads` per Mailbox),
+  and a count change advances the Mailbox state with
+  `updatedProperties` (RFC 8621 §2.2); counts used to change only on
+  insert. Destroying an Email removes it from its Thread (destroying an
+  emptied Thread) and from the Message-ID index, so re-importing the
+  message no longer reports `alreadyExists` for the destroyed id; a
+  restored Email rejoins its Thread in `receivedAt` order.
+  (bd:JMAP-q2wa.39, .40, .41)
 - **jmap-mail-server** (wire): `EmailSubmission/set` applies
   `onSuccessUpdateEmail` / `onSuccessDestroyEmail` only to submissions the
   call created, updated or destroyed (RFC 8621 §7.5); naming another one

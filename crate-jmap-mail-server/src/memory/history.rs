@@ -348,9 +348,9 @@ impl Inner {
 
     /// Put a restored Email back in its Thread under the same `threadId`
     /// (-04 §5.1: "if no other Email is in that Thread, the Thread exists
-    /// again with the same id"), and re-index its `messageId`. The memory
-    /// backend's Email destroy leaves Threads and Mailbox counts as they
-    /// are, so neither changes here.
+    /// again with the same id"), and re-index its `messageId`. The caller
+    /// sorts the Thread and recounts the Mailboxes once the Email is
+    /// stored again.
     fn rejoin_thread(&mut self, account: &Id, email: &Value) {
         let (Some(email_id), Some(thread_id)) = (
             email.get("id").and_then(Value::as_str),
@@ -628,6 +628,11 @@ impl ObjectHistoryBackend for MemoryBackend {
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), value);
+        if O::TYPE_NAME == Email::TYPE_NAME
+            && let Some(thread) = object_thread_id(&inner, account_id, id)
+        {
+            inner.sort_thread_email_ids(account_id.as_ref(), &thread);
+        }
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -639,6 +644,19 @@ impl ObjectHistoryBackend for MemoryBackend {
                 restored: vec![id.clone()],
                 updated_props: None,
             });
+        if O::TYPE_NAME == Email::TYPE_NAME || O::TYPE_NAME == Mailbox::TYPE_NAME {
+            inner.recount_mailboxes(account_id.as_ref());
+        }
         Ok(Restored::new(object, baseline))
     }
+}
+
+/// The `threadId` of stored Email `id`.
+fn object_thread_id(inner: &Inner, account: &Id, id: &Id) -> Option<Id> {
+    inner
+        .objects_ref(Email::TYPE_NAME, account.as_ref())?
+        .get(id)?
+        .get("threadId")?
+        .as_str()
+        .map(Id::from)
 }
