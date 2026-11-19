@@ -1045,6 +1045,14 @@ wire behaviour that a conforming peer can observe.
   draft-ietf-jmap-filenode-20 §3.2.3 has a server destroy "children before
   their parents"; it destroyed parents first. The returned ids follow the
   new order (bd:JMAP-uro2).
+- **jmap-tasks-server**: **BREAKING** (wire) `Task/get` returns a requested
+  `utcStart` / `utcDue` as `null` when the task has no `start` / `due`,
+  instead of leaving the key out (`UTCDate|null`, jmapio/jmap PR #464). When
+  the local time is set and `compute_utc_times` cannot convert it, the key
+  is still left out. A `null` `properties` no longer computes them: -06 §4
+  says they are "not included by default and must be requested explicitly"
+  (bd:JMAP-jkl8.5).
+
 - **jmap-tasks-types**: **BREAKING** `PrincipalTasksCapability.send_to`
   (`sendTo`, a method-to-address map) is replaced by `calendar_address`
   (`calendarAddress`, `String|null`, always serialized), the

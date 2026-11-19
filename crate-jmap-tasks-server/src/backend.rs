@@ -370,9 +370,15 @@ pub trait TasksBackend: JmapBackend {
     /// or `None` for each if the corresponding field is absent or the time zone
     /// is unknown.
     ///
+    /// `Task/get` sends `null` for a requested `utcStart` / `utcDue` when the
+    /// task has no `start` / `due` (jmapio/jmap PR #464), whatever this
+    /// returns; when the local time is set and this returns `None`, the key
+    /// is left out, because `null` would say the local time is unset.
+    ///
     /// The default implementation returns `(None, None)` — backends that do not
-    /// support time-zone conversion can accept this behaviour and the caller will
-    /// omit both fields.  Backends with full tz support should override this.
+    /// support time-zone conversion can accept this behaviour, and `Task/get`
+    /// then omits the two properties for tasks that have a `start` / `due`.
+    /// Backends with full tz support should override this.
     ///
     /// # Parameters
     /// - `caller` — the caller context. The default implementation ignores it,

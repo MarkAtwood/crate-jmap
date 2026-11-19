@@ -65,13 +65,19 @@ use jmap_server::{
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
-/// If `"utcStart"` or `"utcDue"` appear in the requested `properties` (or if
-/// `properties` is `null` — meaning all fields), [`TasksBackend::compute_utc_times`]
-/// is called for each returned task and the computed values are merged in
-/// (draft-tasks-06 §4, utcStart/utcDue paragraphs). The local-time inputs
-/// (`start`, `due`, `timeZone`, `timeZones`) are fetched for that even when
-/// `properties` leaves them out, and dropped again before the response, so
-/// only the requested properties are returned (RFC 8620 §5.1).
+/// `utcStart` and `utcDue` are returned only when `properties` names them:
+/// "This is not included by default and must be requested explicitly"
+/// (draft-tasks-06 §4). For each requested one,
+/// [`TasksBackend::compute_utc_times`] is called per returned task and the
+/// value is `UTCDate|null` (jmapio/jmap PR #464): `null` when the task has
+/// no `start` (for `utcStart`) or no `due` (for `utcDue`), the computed
+/// date otherwise. A task that has the local time but for which the backend
+/// returns `None` (it cannot convert, e.g. the default `compute_utc_times`)
+/// gets no key at all, since `null` would claim the local time is unset.
+/// The local-time inputs (`start`, `due`, `timeZone`, `timeZones`) are
+/// fetched for that even when `properties` leaves them out, and dropped
+/// again before the response, so only the requested properties are
+/// returned (RFC 8620 §5.1).
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Task for
@@ -93,7 +99,9 @@ pub async fn handle_task_get<B: TasksBackend>(
     // away; fetch the missing ones and strip them again below.
     let mut strip: Vec<&str> = Vec::new();
     let (want_start, want_due) = match args.get_mut("properties") {
-        None | Some(Value::Null) => (true, true), // all properties requested
+        // draft-tasks-06 §4: utcStart/utcDue are "not included by default
+        // and must be requested explicitly".
+        None | Some(Value::Null) => (false, false),
         Some(Value::Array(props)) => {
             let has = |name: &str| props.iter().any(|p| p == name);
             let wanted = (has("utcStart"), has("utcDue"));
@@ -139,11 +147,18 @@ pub async fn handle_task_get<B: TasksBackend>(
                 let (utc_start, utc_due) = backend
                     .compute_utc_times(caller, &account_id, &task, None)
                     .await;
-                if let Some(s) = utc_start.filter(|_| want_start) {
-                    item["utcStart"] = Value::String(s.into_inner());
-                }
-                if let Some(d) = utc_due.filter(|_| want_due) {
-                    item["utcDue"] = Value::String(d.into_inner());
+                // jmapio/jmap PR #464: `UTCDate|null`, null when the local
+                // time is not set.
+                let pairs = [
+                    (want_start, "utcStart", task.start.is_some(), utc_start),
+                    (want_due, "utcDue", task.due.is_some(), utc_due),
+                ];
+                for (wanted, key, has_local, utc) in pairs {
+                    match (wanted, has_local, utc) {
+                        (true, false, _) => item[key] = Value::Null,
+                        (true, true, Some(d)) => item[key] = Value::String(d.into_inner()),
+                        _ => {}
+                    }
                 }
             }
             if let Some(obj) = item.as_object_mut() {

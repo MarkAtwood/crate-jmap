@@ -268,12 +268,18 @@ pub struct Task {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_draft: Option<bool>,
 
-    /// UTC start time, computed by the server from `start` + `time_zone`.
-    /// Not included in default responses; must be requested explicitly.
+    /// `UTCDate|null`: the task's `start` converted to UTC using its time
+    /// zone, or `null` if `start` is not set (jmapio/jmap PR #464).
+    /// Server-computed at fetch time; not included in default responses
+    /// and must be requested explicitly. A `null` and an absent key both
+    /// decode as `None`.
     #[serde(rename = "utcStart", skip_serializing_if = "Option::is_none")]
     pub utc_start: Option<UTCDate>,
 
-    /// UTC due time, computed by the server.  Not in default response.
+    /// `UTCDate|null`: the task's `due` converted to UTC using its time
+    /// zone, or `null` if `due` is not set (jmapio/jmap PR #464; -06 said
+    /// "from the start/timeZone/duration properties", but a JSTask has no
+    /// `duration`). Not in the default response.
     #[serde(rename = "utcDue", skip_serializing_if = "Option::is_none")]
     pub utc_due: Option<UTCDate>,
 
