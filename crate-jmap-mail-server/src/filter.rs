@@ -26,9 +26,6 @@ use serde_json::{Map, Value};
 
 /// One FilterCondition property of RFC 8621 §4.4.1 or
 /// draft-ietf-jmap-metadata-05 §3.6.
-// Used by EmailPush validation (bd JMAP-r44n.5); until then only tests
-// name most variants.
-#[allow(dead_code)]
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum EmailCondition {
@@ -88,7 +85,7 @@ pub enum EmailCondition {
 
 impl EmailCondition {
     /// `true` for the six draft-ietf-jmap-metadata-05 §3.6 conditions.
-    #[allow(dead_code)] // EmailPush validation, bd JMAP-r44n.5
+    #[cfg_attr(not(feature = "emailpush"), allow(dead_code))]
     pub fn is_metadata(self) -> bool {
         matches!(
             self,
@@ -105,7 +102,7 @@ impl EmailCondition {
 /// The conditions an account without `urn:ietf:params:jmap:mail` "MUST
 /// support at least" (draft-ietf-jmap-emailpush-05 §4), in the draft's
 /// order.
-#[allow(dead_code)] // EmailPush validation, bd JMAP-r44n.5
+#[cfg_attr(not(feature = "emailpush"), allow(dead_code))]
 pub const EMAIL_PUSH_REQUIRED_CONDITIONS: [EmailCondition; 10] = [
     EmailCondition::HasKeyword,
     EmailCondition::NotKeyword,
@@ -181,14 +178,12 @@ fn fold(
 }
 
 /// The conditions `filter` uses, at any depth.
-#[allow(dead_code)] // EmailPush validation, bd JMAP-r44n.5
 pub(crate) fn conditions_used(filter: &EmailFilter) -> BTreeSet<EmailCondition> {
     let mut out = BTreeSet::new();
     collect(filter, &mut out);
     out
 }
 
-#[allow(dead_code)] // EmailPush validation, bd JMAP-r44n.5
 fn collect(filter: &EmailFilter, out: &mut BTreeSet<EmailCondition>) {
     match filter {
         Filter::Condition(c) => out.extend(condition_kinds(c)),
@@ -198,7 +193,6 @@ fn collect(filter: &EmailFilter, out: &mut BTreeSet<EmailCondition>) {
 }
 
 /// The conditions set in one FilterCondition.
-#[allow(dead_code)] // EmailPush validation, bd JMAP-r44n.5
 fn condition_kinds(c: &EmailFilterCondition) -> impl Iterator<Item = EmailCondition> {
     use EmailCondition as C;
     [

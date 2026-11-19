@@ -29,7 +29,10 @@ use std::future::Future;
 use jmap_server::PushSubscriptionBackend;
 use jmap_types::Id;
 
+mod validate;
+
 pub use crate::filter::EmailCondition;
+pub use validate::{InvalidEmailPushConfig, check_email_push_change, check_email_push_config};
 
 /// What one account supports for EmailPush, as the deployment reports it
 /// from [`EmailPushBackend::email_push_accounts`].
@@ -143,10 +146,10 @@ impl std::error::Error for EmailPushError {}
 ///
 /// # Consumer MUSTs
 ///
-/// - `create_push_subscription` and `update_push_subscription` MUST
-///   validate and normalize `emailPush` before storing it, and store the
-///   normalized result. PushSubscriptionBackend has no validation hook, so
-///   the backend does this itself, in the same call as the store.
+/// - `create_push_subscription` and `update_push_subscription` MUST call
+///   [`check_email_push_change`] before storing, and store the normalized
+///   result. PushSubscriptionBackend has no validation hook, so the backend
+///   does this itself, in the same call as the store.
 /// - Each delivered Email is built from a full
 ///   [`Email`](jmap_mail_types::Email), after delivery-time processing such
 ///   as Sieve (-05 §4: the filter "is evaluated against the message as it is

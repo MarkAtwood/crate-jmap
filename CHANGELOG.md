@@ -19,6 +19,13 @@ wire behaviour that a conforming peer can observe.
   not a `MailBackend` subtrait; required `email_push_accounts`),
   `EmailPushAccount`, `EmailPushError`, `EmailCondition`; root re-export of
   `JMAP_EMAILPUSH_URI`. Validation and delivery follow. (bd:JMAP-r44n.10)
+- **jmap-mail-server** `emailpush`: `check_email_push_change`, which a
+  deployment's `create_push_subscription` / `update_push_subscription`
+  call to apply every -05 §4 `invalidProperties` rule with a path per
+  invalid value and store each config normalized (defaults filled,
+  `objectHistory` accepted where Email/get accepts it and dropped); and the
+  pure per-config `check_email_push_config` / `InvalidEmailPushConfig`.
+  (bd:JMAP-r44n.5)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,

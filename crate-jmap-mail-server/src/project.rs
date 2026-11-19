@@ -716,13 +716,32 @@ pub(crate) fn take_body_args(
 /// # Errors
 ///
 /// A description of what is wrong with the `header:` property.
-#[allow(dead_code)] // EmailPush validation, bd JMAP-r44n.5
+#[cfg_attr(not(feature = "emailpush"), allow(dead_code))]
 pub(crate) fn check_email_property(name: &str) -> Result<(), String> {
     if is_header_property(name) {
         let req = parse_header_property(name)?;
         validate_header_form(&req.name_lower, &req.form)?;
     }
     Ok(())
+}
+
+/// Whether Email/get returns property `name` (RFC 8621 §4.1): a property
+/// of the default list, `headers`, `bodyStructure` or a `header:` form,
+/// plus, when `metadata` (the backend lists Email for
+/// draft-ietf-jmap-metadata-05), `metadata`, `privateMetadata` and their
+/// `/<namespace>` subselectors. `objectHistory` is not included.
+#[cfg_attr(not(feature = "emailpush"), allow(dead_code))]
+pub(crate) fn is_email_get_property(name: &str, metadata: bool) -> bool {
+    DEFAULT_EMAIL_GET_PROPERTIES.contains(&name)
+        || matches!(name, "headers" | "bodyStructure")
+        || is_header_property(name)
+        || (metadata
+            && ["metadata", "privateMetadata"].iter().any(|m| {
+                name == *m
+                    || name
+                        .strip_prefix(m)
+                        .is_some_and(|rest| rest.starts_with('/'))
+            }))
 }
 
 /// Whether `name` is a `header:` property (RFC 8621 §4.1.3).

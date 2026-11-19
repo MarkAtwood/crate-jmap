@@ -94,8 +94,20 @@ pub fn jmap_mail_server::emailpush::EmailPushAccount::default() -> jmap_mail_ser
 impl core::fmt::Debug for jmap_mail_server::emailpush::EmailPushAccount
 pub fn jmap_mail_server::emailpush::EmailPushAccount::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_mail_server::emailpush::EmailPushAccount
+#[non_exhaustive] pub struct jmap_mail_server::emailpush::InvalidEmailPushConfig
+pub jmap_mail_server::emailpush::InvalidEmailPushConfig::properties: alloc::vec::Vec<&'static str>
+impl core::clone::Clone for jmap_mail_server::emailpush::InvalidEmailPushConfig
+pub fn jmap_mail_server::emailpush::InvalidEmailPushConfig::clone(&self) -> jmap_mail_server::emailpush::InvalidEmailPushConfig
+impl core::cmp::Eq for jmap_mail_server::emailpush::InvalidEmailPushConfig
+impl core::cmp::PartialEq for jmap_mail_server::emailpush::InvalidEmailPushConfig
+pub fn jmap_mail_server::emailpush::InvalidEmailPushConfig::eq(&self, &jmap_mail_server::emailpush::InvalidEmailPushConfig) -> bool
+impl core::fmt::Debug for jmap_mail_server::emailpush::InvalidEmailPushConfig
+pub fn jmap_mail_server::emailpush::InvalidEmailPushConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_server::emailpush::InvalidEmailPushConfig
 pub trait jmap_mail_server::emailpush::EmailPushBackend: jmap_server::push::PushSubscriptionBackend
 pub fn jmap_mail_server::emailpush::EmailPushBackend::email_push_accounts(&self, &Self::CallerCtx) -> impl core::future::future::Future<Output = core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_server::emailpush::EmailPushAccount>, Self::Error>> + core::marker::Send
+pub async fn jmap_mail_server::emailpush::check_email_push_change<B: jmap_mail_server::emailpush::EmailPushBackend>(&B, &<B as jmap_server::backend::JmapBackend>::CallerCtx, core::option::Option<&jmap_types::push::PushSubscription>, &mut jmap_types::push::PushSubscription) -> core::result::Result<(), jmap_server::backend::BackendSetError<<B as jmap_server::backend::JmapBackend>::Error>>
+pub fn jmap_mail_server::emailpush::check_email_push_config(&serde_json::value::Value, &jmap_mail_server::emailpush::EmailPushAccount, core::option::Option<&jmap_metadata_types::capability::DataTypeMetadataInfo>) -> core::result::Result<jmap_mail_types::emailpush::EmailPushConfig, jmap_mail_server::emailpush::InvalidEmailPushConfig>
 pub mod jmap_mail_server::mdn
 #[non_exhaustive] pub struct jmap_mail_server::mdn::MdnParseResult
 pub jmap_mail_server::mdn::MdnParseResult::not_found: alloc::vec::Vec<jmap_types::id::Id>
