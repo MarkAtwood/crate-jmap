@@ -46,6 +46,25 @@ pub trait TasksBackend: JmapBackend {
     /// bd:JMAP-bghk) and CANNOT correctly implement TaskList ACLs or
     /// per-user scoping.
     ///
+    /// ## `mayWriteOwn` and task owners
+    ///
+    /// For a Task, write access is the TaskList's `mayWriteAll` right, or
+    /// its `mayWriteOwn` right when the caller is an owner of the task or
+    /// the task has no owner (draft-ietf-jmap-tasks-06 §3 `mayWriteOwn`).
+    /// Who the owner is follows JMAP Calendars (jmapio/jmap #461, PR #462;
+    /// draft-ietf-jmap-calendars-34 §4), not -06's "participant"/"chair"
+    /// text: decide it with [`jmap_tasks_types::is_task_owner`] and
+    /// [`jmap_tasks_types::task_has_owner`], passing the `calendarAddress`
+    /// of each of the caller's ParticipantIdentity objects in the account.
+    /// A participant with the `"owner"` role whose `calendarAddress` is one
+    /// of those makes the caller an owner; a task whose `participants` is
+    /// null or omitted, or has no `"owner"` participant, has no owner.
+    ///
+    /// Check a create against the new task, and an update or destroy
+    /// against the stored one: "This means the user may also transfer
+    /// ownership by updating a task so they are no longer an owner" (-06
+    /// §3), so the patched result need not leave the caller an owner.
+    ///
     /// # Errors
     ///
     /// Reject a create that RFC 8620 §5.3 defines an error for with
@@ -148,7 +167,10 @@ pub trait TasksBackend: JmapBackend {
     /// Implementors MUST verify caller write-access to the target object before
     /// applying the patch and MUST return [`BackendSetError::SetError`] with
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
-    /// the workspace-canonical rationale; the same rule applies here.
+    /// the workspace-canonical rationale; the same rule applies here. For a
+    /// Task, write access includes `mayWriteOwn` on a task the caller owns
+    /// or that has no owner, judged on the stored task (see
+    /// [`Self::create_object`], "`mayWriteOwn` and task owners").
     ///
     /// # Patch format
     ///
@@ -218,7 +240,10 @@ pub trait TasksBackend: JmapBackend {
     /// Implementors MUST verify caller write-access to the target object before
     /// destroying it and MUST return [`BackendSetError::SetError`] with
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`] for
-    /// the workspace-canonical rationale; the same rule applies here.
+    /// the workspace-canonical rationale; the same rule applies here. For a
+    /// Task, write access includes `mayWriteOwn` on a task the caller owns
+    /// or that has no owner (see [`Self::create_object`], "`mayWriteOwn`
+    /// and task owners").
     ///
     /// # Errors
     ///

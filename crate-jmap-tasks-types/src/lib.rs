@@ -21,6 +21,7 @@
 //! | `task` | [`Task`], [`TaskProgress`], [`Checklist`], [`CheckItem`], [`Comment`], [`Person`], [`TaskFilterCondition`] |
 //! | `notification` | [`TaskNotification`], [`NotificationType`], [`TaskNotificationFilterCondition`] |
 //! | `filter` | [`TaskComparator`], [`TaskComparatorProperty`], [`TaskNotificationComparator`], [`TaskNotificationComparatorProperty`] |
+//! | `ownership` | [`is_task_owner`], [`task_has_owner`] (the `mayWriteOwn` owner, as Calendars defines it) |
 //! | Crate root | [`TasksCapability`], [`TasksAccountCapability`], URI constants, extension capabilities |
 
 #![forbid(unsafe_code)]
@@ -29,6 +30,7 @@ mod backend;
 mod capability;
 mod filter;
 mod notification;
+mod ownership;
 mod task;
 mod task_list;
 
@@ -59,6 +61,7 @@ pub use jmap_jscalendar_types::{
 pub use notification::{
     NotificationType, TaskNotification, TaskNotificationFilter, TaskNotificationFilterCondition,
 };
+pub use ownership::{is_task_owner, task_has_owner};
 pub use task::{
     CheckItem, Checklist, Comment, Person, Task, TaskFilter, TaskFilterCondition, TaskProgress,
 };

@@ -68,6 +68,10 @@ pub struct TaskRights {
 
     /// User may create, modify, or destroy a task if they are the owner or
     /// the task has no owner.
+    ///
+    /// The owner is defined as in JMAP Calendars, a participant with the
+    /// `"owner"` role (jmapio/jmap #461): see [`crate::is_task_owner`] and
+    /// [`crate::task_has_owner`].
     pub may_write_own: bool,
 
     /// User may modify per-user properties (e.g. `keywords`, `color`,

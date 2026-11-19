@@ -43,6 +43,14 @@ wire behaviour that a conforming peer can observe.
   empty crate (no public items, no dependencies) holding the name for the
   planned generic filter-expression extension (bd:JMAP-nn3i). Graph search
   stays in `jmap-graph-types` and `jmap-graph-server`. (bd:JMAP-gs76.7)
+- **jmap-tasks-types**: `is_task_owner(task, user_calendar_addresses)` and
+  `task_has_owner(task)`: a task owner is a participant with the `"owner"`
+  role matching one of the user's ParticipantIdentity `calendarAddress`
+  values, and a task with null/omitted `participants` or no `"owner"`
+  participant has no owner, as JMAP Calendars defines it (jmapio/jmap #461,
+  PR #462; -06's "participant"/"chair" wording is not followed).
+  **jmap-tasks-server**: the `TasksBackend` write contracts cite them for
+  `mayWriteOwn` (bd:JMAP-jkl8.4).
 
 - **jmap-graph-server**: `validFor.purposes` entries must be RFC 3987 IRIs and
   a `credentialDigest` must be a possible SHA-256 encoding (its last
