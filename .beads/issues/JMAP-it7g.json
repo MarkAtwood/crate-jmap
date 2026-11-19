@@ -2,11 +2,12 @@
   "id": "JMAP-it7g",
   "title": "mimid requests 2026-11-19: ChatBan, kickMembers, MemoryBackend embedding",
   "description": "Requests from the mimid session on Mark's decision (2026-11-19). Spec: jmap-chat-spec 516c61b (draft-atwood-jmap-chat-00 §ChatBan, §ChatBan Methods; draft-atwood-jmap-chat-mimi-00 §Moderation kickMembers). mimid drops Chat/kick, Chat/ban, Chat/unban after (mimid-1wgh.62). Embedding issues from mimid-s2qc.",
+  "notes": "CHECKPOINT 2026-11-19: it7g.7 done (3f39665a). it7g.1/.2 (ChatBan, kickMembers) in progress in a worktree agent. .3-.6 pending.",
   "status": "open",
   "priority": 1,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T15:33:30.309194484Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T15:33:30.309194484Z"
+  "updated_at": "2026-11-19T16:00:02.769261976Z"
 }
