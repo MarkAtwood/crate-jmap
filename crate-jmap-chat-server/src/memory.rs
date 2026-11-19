@@ -1607,6 +1607,21 @@ impl ChatStore for MemoryBackend {
                 SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
             )));
         }
+        // `CustomEmoji` image size cap on a `blobId` change. An unchanged
+        // blob is not re-judged, so lowering the cap does not freeze
+        // renames of existing emoji.
+        if O::TYPE_NAME == "CustomEmoji" {
+            let stored_blob = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .and_then(|m| m.get(id))
+                .and_then(|e| e.get("blobId"));
+            let limits = inner.limits_override.unwrap_or_default();
+            if current.get("blobId") != stored_blob
+                && emoji_blob_over_cap(&inner, account_id, &current, &limits)
+            {
+                return Err(over_quota_error(crate::emoji::EMOJI_TOO_LARGE));
+            }
+        }
 
         let unread_changed = if O::TYPE_NAME == "ReadPosition" {
             let old = inner
@@ -2797,10 +2812,11 @@ impl Inner {
 /// `Err` nothing is changed.
 ///
 /// `defer`: an atomic conditional-02 scope is open on this task
-/// ([`ScopedState::deferring`]), so the CustomEmoji name check is left to
-/// its commit (`final_state_failures`). The ChatContact identity check is
-/// not: an identity cannot be given up within one call (ChatContact
-/// destroy is refused), so the final state could not differ.
+/// ([`ScopedState::deferring`]), so the CustomEmoji name and per-Space
+/// count checks are left to its commit (`final_state_failures`). The
+/// ChatContact identity check is not: an identity cannot be given up
+/// within one call (ChatContact destroy is refused), so the final state
+/// could not differ.
 /// The non-empty `id` string of a serialized object.
 fn object_id_of(val: &serde_json::Value) -> Result<Id, BackendSetError<MemoryError>> {
     match val.get("id").and_then(serde_json::Value::as_str) {
@@ -2865,6 +2881,25 @@ fn insert_created(
         return Err(BackendSetError::SetError(Box::new(
             SetError::new(SetErrorType::AlreadyExists).with_existing_id(existing),
         )));
+    }
+
+    // `CustomEmoji` caps on create. The count is cross-object, so an
+    // atomic scope leaves it to `final_state_failures`; the image size is
+    // the emoji's own.
+    if type_name == "CustomEmoji" {
+        let limits = inner.limits_override.unwrap_or_default();
+        let space_full = !defer
+            && limits.max_custom_emoji_per_space.is_some_and(|max| {
+                emoji_scope(&val).is_some_and(|space| {
+                    emoji_count_in_space(inner, account_id.as_ref(), &space) >= u64::from(max)
+                })
+            });
+        if space_full {
+            return Err(over_quota_error(crate::emoji::TOO_MANY_EMOJI));
+        }
+        if emoji_blob_over_cap(inner, account_id, &val, &limits) {
+            return Err(over_quota_error(crate::emoji::EMOJI_TOO_LARGE));
+        }
     }
 
     let reply_parent = if type_name == "Message" {
@@ -5573,6 +5608,51 @@ fn emoji_name_holder(
         .map(|(id, _)| id.clone())
 }
 
+/// The `spaceId` of a stored CustomEmoji; `None` for a server-global one.
+fn emoji_scope(emoji: &serde_json::Value) -> Option<serde_json::Value> {
+    emoji.get("spaceId").filter(|v| !v.is_null()).cloned()
+}
+
+/// How many stored CustomEmoji of `account_id` belong to Space `space`,
+/// for [`ChatLimits::max_custom_emoji_per_space`].
+fn emoji_count_in_space(inner: &Inner, account_id: &str, space: &serde_json::Value) -> u64 {
+    inner.objects_ref("CustomEmoji", account_id).map_or(0, |m| {
+        m.values()
+            .filter(|e| emoji_scope(e).as_ref() == Some(space))
+            .fold(0, |n, _| n.saturating_add(1))
+    })
+}
+
+/// Whether the blob of `emoji` is larger than
+/// [`ChatLimits::max_custom_emoji_bytes`]. The size is the one recorded
+/// with `MemoryBackend::set_attachment_blob_for_test`, the same store
+/// [`ChatResolvers::attachment_blob`] reports; an unrecorded blob is not
+/// checked, as there.
+fn emoji_blob_over_cap(
+    inner: &Inner,
+    account_id: &Id,
+    emoji: &serde_json::Value,
+    limits: &ChatLimits,
+) -> bool {
+    let (Some(max), Some(blob_id)) = (
+        limits.max_custom_emoji_bytes,
+        emoji.get("blobId").and_then(serde_json::Value::as_str),
+    ) else {
+        return false;
+    };
+    inner
+        .attachment_blobs
+        .get(&(account_id.as_ref().to_owned(), Id::from(blob_id)))
+        .is_some_and(|b| b.size > max)
+}
+
+/// An `overQuota` SetError (RFC 8620 §5.3) with a static `description`.
+fn over_quota_error(description: &str) -> BackendSetError<MemoryError> {
+    BackendSetError::SetError(Box::new(
+        SetError::new(SetErrorType::OverQuota).with_description(description),
+    ))
+}
+
 /// Order two stored objects by RFC 8620 §5.5 `sort` comparators
 /// (`property`, `isAscending` defaulting to `true`).
 ///
@@ -6070,9 +6150,9 @@ impl crate::testkit::ConformanceBackend for MemoryBackend {
 /// atomic rollback restores objects, state strings, change logs, push
 /// subscriptions and the queued lifecycle and outbound events, so nothing
 /// is announced for a change that never happened (§4.3). Under an atomic
-/// scope the backend leaves its cross-object checks (CustomEmoji names, the
-/// push subscription cap) to the commit,
-/// which checks the final state (`final_state_failures`).
+/// scope the backend leaves its cross-object checks (CustomEmoji names and
+/// per-Space counts, the push subscription cap) to the commit, which
+/// checks the final state (`final_state_failures`).
 impl ConditionalBackend for MemoryBackend {
     async fn begin_set(
         &self,
@@ -6089,6 +6169,9 @@ impl ConditionalBackend for MemoryBackend {
 /// - two CustomEmoji with one `name` in one scope (account-wide or one
 ///   Space): `alreadyExists` with `existingId` on a create,
 ///   `invalidProperties` `name` on an update, as outside a scope;
+/// - a Space holding more CustomEmoji than
+///   [`ChatLimits::max_custom_emoji_per_space`]: `overQuota` on the
+///   creates in that Space (jmap-chat-implementer-guide §2.2);
 /// - more than [`MAX_PUSH_SUBSCRIPTIONS`] push subscriptions:
 ///   `overQuota` on the creates.
 ///
@@ -6117,6 +6200,34 @@ fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
                             .with_properties([property]),
                     };
                     failures.push(DeferredFailure::new(op, error));
+                }
+            }
+        }
+    }
+    if let Some(max) = after
+        .limits_override
+        .unwrap_or_default()
+        .max_custom_emoji_per_space
+    {
+        for (account, objects) in after.objects.get("CustomEmoji").into_iter().flatten() {
+            let old = before.objects_ref("CustomEmoji", account);
+            for (id, obj) in objects {
+                let Some(space) = emoji_scope(obj) else {
+                    continue;
+                };
+                let created = old.is_none_or(|o| !o.contains_key(id));
+                let reported = failures
+                    .iter()
+                    .any(|f| matches!(&f.op, SetOp::Create(c) if c == id));
+                if created
+                    && !reported
+                    && emoji_count_in_space(after, account, &space) > u64::from(max)
+                {
+                    failures.push(DeferredFailure::new(
+                        SetOp::Create(id.clone()),
+                        SetError::new(SetErrorType::OverQuota)
+                            .with_description(crate::emoji::TOO_MANY_EMOJI),
+                    ));
                 }
             }
         }
@@ -6588,5 +6699,51 @@ mod max_changes_tests {
                 jmap_server::ChangesParams::new(&State::from(since)).max_changes(Some(max)),
             )
             .await
+    }
+}
+
+/// The final-state half of the [`ChatLimits::max_custom_emoji_per_space`]
+/// cap (bd:JMAP-b9qs). The handler pre-check and the create path never
+/// let a single `CustomEmoji/set` reach it, so it is driven directly.
+///
+/// Oracle: jmap-chat-implementer-guide §2.2: "The server MUST reject
+/// `CustomEmoji/set` with `overQuota` ... when the count ... limit is
+/// exceeded"; draft-ietf-jmap-conditional-02 §4.2 judges an atomic call
+/// on its final state.
+#[cfg(test)]
+mod emoji_cap_tests {
+    use super::*;
+
+    fn emoji(name: &str, space: &str) -> serde_json::Value {
+        serde_json::json!({ "name": name, "blobId": "b", "spaceId": space })
+    }
+
+    #[test]
+    fn final_state_over_the_cap_fails_only_the_creates() {
+        let mut before = Inner {
+            limits_override: Some(ChatLimits::default().with_max_custom_emoji_per_space(Some(1))),
+            ..Inner::default()
+        };
+        before
+            .objects_mut("CustomEmoji", "acc1")
+            .insert(Id::from("old"), emoji("old", "s1"));
+        let mut after = before.clone();
+        after
+            .objects_mut("CustomEmoji", "acc1")
+            .insert(Id::from("new"), emoji("new", "s1"));
+        after
+            .objects_mut("CustomEmoji", "acc1")
+            .insert(Id::from("elsewhere"), emoji("new", "s2"));
+
+        let failures = final_state_failures(&before, &after);
+        assert_eq!(failures.len(), 1, "{failures:?}");
+        assert_eq!(failures[0].op, SetOp::Create(Id::from("new")));
+        assert_eq!(failures[0].error.error_type, SetErrorType::OverQuota);
+
+        // At the cap (the old emoji gone): nothing fails.
+        after
+            .objects_mut("CustomEmoji", "acc1")
+            .remove(&Id::from("old"));
+        assert!(final_state_failures(&before, &after).is_empty());
     }
 }

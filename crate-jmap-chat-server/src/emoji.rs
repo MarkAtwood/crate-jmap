@@ -47,7 +47,7 @@ use crate::helpers::{
     extract_account_id, finalize_set_response, not_found_json, now_utc_string, optional_arg,
     reject_unsupported_sort, serialize_value,
 };
-use crate::{ChatBackend, EmojiSetOp};
+use crate::{ChatBackend, ChatLimits, EmojiSetOp};
 use jmap_server::{
     HandlerOutput, QueryParams, backend_set_error_value, bool_arg, filter_arg, is_client_updatable,
     query_anchor_args, reject_server_set, server_fail_from_backend, server_fail_value_from_backend,
@@ -314,6 +314,17 @@ pub async fn handle_emoji_query_changes<B: ChatBackend>(
 /// - `id`, `createdBy`, `createdAt`, `spaceId` are server-set or immutable and
 ///   rejected in updates unless identical to the stored value (RFC 8620 §5.3); an empty patch is a
 ///   no-op success.
+/// - The [`ChatLimits`] emoji caps, as a pre-check after the
+///   authorization gate (jmap-chat-implementer-guide §2.2: "The server
+///   MUST reject `CustomEmoji/set` with `overQuota` (per RFC 8620 §5.3)
+///   when the count or size limit is exceeded"). A create that would put
+///   more than `max_custom_emoji_per_space` emoji in its Space, or a
+///   create or `blobId` update whose blob
+///   ([`ChatResolvers::attachment_blob`](crate::ChatResolvers::attachment_blob)) is larger than
+///   `max_custom_emoji_bytes`, is `overQuota`. The count pre-check
+///   discounts emoji this call destroys, so it never refuses a create
+///   that an `atomic` call's final state allows; the backend enforces
+///   both caps canonically.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 ///
@@ -363,11 +374,15 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     let mut destroyed_list: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
+    let limits = backend.limits(caller, &account_id);
 
     // -----------------------------------------------------------------------
     // create
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        let mut space_counts = emoji_space_counts(backend, caller, &account_id, &limits, &args)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
         for (create_id, obj_val) in create_map {
             let resolved = match resolved_create(obj_val, &["spaceId"], created_ids) {
                 Ok(v) => v,
@@ -472,6 +487,19 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 }
             }
 
+            if let (Some(space), Some(max)) = (&space_id, limits.max_custom_emoji_per_space)
+                && space_counts.get(space).copied().unwrap_or(0) >= u64::from(max)
+            {
+                not_created.insert(create_id.clone(), over_quota(TOO_MANY_EMOJI));
+                continue;
+            }
+            if let Some(err) =
+                emoji_blob_too_large(backend, caller, &account_id, &limits, &blob_id).await
+            {
+                not_created.insert(create_id.clone(), err);
+                continue;
+            }
+
             // createdBy is the owner, referenced by the accountId
             // (draft-atwood-jmap-chat-00 §Terminology).
             let emoji = |id: &Id| {
@@ -487,6 +515,9 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             {
                 Ok((_server_id, created_obj)) => {
                     mutated = true;
+                    if let Some(space) = &created_obj.space_id {
+                        *space_counts.entry(space.clone()).or_default() += 1;
+                    }
                     created.insert(
                         create_id.clone(),
                         jmap_server::serialize_value(&created_obj)?,
@@ -599,6 +630,18 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                     id_str,
                     json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
                 );
+                continue;
+            }
+
+            // A malformed `blobId` is left to the backend's patch validation.
+            if let Some(blob_id) = clean_patch
+                .get("blobId")
+                .and_then(Value::as_str)
+                .and_then(|s| Id::new_validated(s).ok())
+                && let Some(err) =
+                    emoji_blob_too_large(backend, caller, &account_id, &limits, &blob_id).await
+            {
+                not_updated.insert(id_str, err);
                 continue;
             }
 
@@ -727,4 +770,75 @@ pub async fn handle_emoji_set<B: ChatBackend>(
         },
     )
     .await
+}
+
+/// `overQuota` description for [`ChatLimits::max_custom_emoji_per_space`].
+/// Static, without the count or the cap, as for the Space caps
+/// (bd:JMAP-x2gd.107). Byte-identical to the memory backend's.
+pub(crate) const TOO_MANY_EMOJI: &str = "too many custom emoji in this Space";
+
+/// `overQuota` description for [`ChatLimits::max_custom_emoji_bytes`].
+/// Byte-identical to the memory backend's.
+pub(crate) const EMOJI_TOO_LARGE: &str = "custom emoji image too large";
+
+/// An `overQuota` SetError (RFC 8620 §5.3) with `description`.
+fn over_quota(description: &str) -> Value {
+    json!({ "type": "overQuota", "description": description })
+}
+
+/// The stored CustomEmoji count per Space, less the emoji this call's
+/// `destroy` names, for the [`ChatLimits::max_custom_emoji_per_space`]
+/// pre-check. Empty when that cap is `None`.
+///
+/// Creates run before destroys, so outside `atomic` the backend still
+/// refuses a create that only a later destroy would make room for; the
+/// discount keeps the pre-check from refusing it under `atomic`, where
+/// the backend judges the final state.
+async fn emoji_space_counts<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    limits: &ChatLimits,
+    args: &serde_json::Map<String, Value>,
+) -> Result<BTreeMap<Id, u64>, B::Error> {
+    let mut counts = BTreeMap::new();
+    if limits.max_custom_emoji_per_space.is_none() {
+        return Ok(counts);
+    }
+    let (stored, _) = backend
+        .get_objects::<CustomEmoji>(caller, account_id, None, None)
+        .await?;
+    let destroyed: Vec<&str> = args
+        .get("destroy")
+        .and_then(Value::as_array)
+        .map(|ids| ids.iter().filter_map(Value::as_str).collect())
+        .unwrap_or_default();
+    for emoji in stored {
+        if let Some(space) = emoji.space_id
+            && !destroyed.contains(&emoji.id.as_ref())
+        {
+            *counts.entry(space).or_default() += 1;
+        }
+    }
+    Ok(counts)
+}
+
+/// The SetError for an emoji image `blob_id` larger than
+/// [`ChatLimits::max_custom_emoji_bytes`] (`overQuota`), or one the
+/// backend rejects (`invalidProperties` naming `blobId`). `None` when
+/// there is no cap, the blob fits, or the backend does not report it.
+async fn emoji_blob_too_large<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    limits: &ChatLimits,
+    blob_id: &Id,
+) -> Option<Value> {
+    let max = limits.max_custom_emoji_bytes?;
+    match backend.attachment_blob(caller, account_id, blob_id).await {
+        Ok(Ok(Some(blob))) if blob.size > max => Some(over_quota(EMOJI_TOO_LARGE)),
+        Ok(Ok(_)) => None,
+        Ok(Err(_)) => Some(json!({ "type": "invalidProperties", "properties": ["blobId"] })),
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
 }

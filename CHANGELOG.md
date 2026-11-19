@@ -26,6 +26,19 @@ wire behaviour that a conforming peer can observe.
   `jmap-graph-server` answers those filter fields `unsupportedFilter`
   until it evaluates them. (bd:JMAP-98sl.1)
 
+- **jmap-chat-server**: `CustomEmoji/set` per-Space count and per-image
+  size caps (jmap-chat-implementer-guide §2.2: "The server MUST reject
+  `CustomEmoji/set` with `overQuota` (per RFC 8620 §5.3) when the count or
+  size limit is exceeded"). New `ChatLimits::max_custom_emoji_per_space`
+  (`Option<u32>`, Space-scoped emoji only) and
+  `ChatLimits::max_custom_emoji_bytes` (`Option<u64>`, blob size from
+  `ChatResolvers::attachment_blob`), with `with_*` setters; `None` is no
+  limit, and the defaults are the guide's starting point, 100 and 256 KB
+  (262,144 bytes), so a create past them is now `overQuota`. The handler
+  pre-checks both; `ChatStore::create_object`/`update_object` must
+  enforce them atomically, and `MemoryBackend` does, judging the count of
+  an atomic conditional `/set` on its final state. (bd:JMAP-b9qs)
+
 - **jmap-vtc-server**: the per-account cap on livestreams in `"starting"`
   or `"live"` (draft-atwood-jmap-vtc-00 §Livestream States, `overQuota`).
   It is a `VtcBackend::create_object` contract, checked atomically with

@@ -221,6 +221,20 @@ pub struct ChatLimits {
     /// "Maximum number of attachments per message." `Message/set` create
     /// rejects more with a `tooLarge` SetError. Defaults to 16.
     pub max_attachments_per_message: u64,
+    /// Maximum number of CustomEmoji in one Space; `None` is no limit.
+    /// jmap-chat-implementer-guide §2.2: "The server MUST reject
+    /// `CustomEmoji/set` with `overQuota` (per RFC 8620 §5.3) when the
+    /// count or size limit is exceeded." A create that would make the
+    /// Space hold more is rejected. Server-global emoji (no `spaceId`)
+    /// are not counted. Defaults to the guide's starting point, 100.
+    pub max_custom_emoji_per_space: Option<u32>,
+    /// Maximum size in bytes of a CustomEmoji image blob; `None` is no
+    /// limit. `CustomEmoji/set` rejects a create or a `blobId` update
+    /// naming a larger blob with `overQuota` (guide §2.2, as above). The
+    /// size comes from [`ChatResolvers::attachment_blob`]; a blob it does
+    /// not report is not checked. Defaults to the guide's starting point,
+    /// 256 KB (262,144 bytes).
+    pub max_custom_emoji_bytes: Option<u64>,
 }
 
 impl Default for ChatLimits {
@@ -265,6 +279,8 @@ impl ChatLimits {
             max_body_bytes: 100_000,
             max_attachment_bytes: 50_000_000,
             max_attachments_per_message: 16,
+            max_custom_emoji_per_space: Some(100),
+            max_custom_emoji_bytes: Some(262_144),
         }
     }
 
@@ -349,6 +365,20 @@ impl ChatLimits {
     #[must_use]
     pub const fn with_max_attachments_per_message(mut self, max: u64) -> Self {
         self.max_attachments_per_message = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_custom_emoji_per_space`].
+    #[must_use]
+    pub const fn with_max_custom_emoji_per_space(mut self, max: Option<u32>) -> Self {
+        self.max_custom_emoji_per_space = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_custom_emoji_bytes`].
+    #[must_use]
+    pub const fn with_max_custom_emoji_bytes(mut self, max: Option<u64>) -> Self {
+        self.max_custom_emoji_bytes = max;
         self
     }
 }
@@ -647,6 +677,15 @@ pub trait ChatStore: ChatEvents {
     ///   in `update_object`, a rename onto a held name as an
     ///   `invalidProperties` SetError naming `name`. See
     ///   draft-atwood-jmap-chat-00 §CustomEmoji `name`.
+    ///   The same holds for the [`ChatLimits`] emoji caps: the backend
+    ///   MUST reject, atomically with the write, a create that would put
+    ///   more than `max_custom_emoji_per_space` emoji in its Space, and a
+    ///   create or `blobId` update naming a blob larger than
+    ///   `max_custom_emoji_bytes`, as `BackendSetError::SetError` with an
+    ///   `overQuota` SetError (jmap-chat-implementer-guide §2.2: "The
+    ///   server MUST reject `CustomEmoji/set` with `overQuota` ... when
+    ///   the count or size limit is exceeded"). The handler pre-checks
+    ///   both, but the pre-check cannot close the race.
     /// - **`Chat`** with `kind == Direct` — at most one direct chat
     ///   per `(account_id, contact_id)`. The handler at
     ///   [`crate::chat::handle_chat_set`] uses optimistic
@@ -2913,6 +2952,15 @@ pub trait ChatResolvers: JmapBackend {
     ///
     /// Required: the `size` check is a MUST, so a backend that cannot
     /// verify blobs says so explicitly by returning `Ok(Ok(None))`.
+    ///
+    /// # CustomEmoji images
+    ///
+    /// `handle_emoji_set` also calls this for the `blobId` of a create,
+    /// and of an update that sets `blobId`, when
+    /// [`ChatLimits::max_custom_emoji_bytes`] is a limit, to compare the
+    /// blob's `size` with it (`overQuota` when larger). There `Ok(Ok(None))`
+    /// skips the check, and `Ok(Err(_))` rejects the emoji with an
+    /// `invalidProperties` SetError naming `blobId`.
     fn attachment_blob(
         &self,
         caller: &Self::CallerCtx,

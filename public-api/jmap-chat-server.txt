@@ -430,6 +430,8 @@ pub jmap_chat_server::ChatLimits::max_attachments_per_message: u64
 pub jmap_chat_server::ChatLimits::max_body_bytes: u64
 pub jmap_chat_server::ChatLimits::max_categories_per_space: u32
 pub jmap_chat_server::ChatLimits::max_channels_per_space: u32
+pub jmap_chat_server::ChatLimits::max_custom_emoji_bytes: core::option::Option<u64>
+pub jmap_chat_server::ChatLimits::max_custom_emoji_per_space: core::option::Option<u32>
 pub jmap_chat_server::ChatLimits::max_group_chat_members: u32
 pub jmap_chat_server::ChatLimits::max_roles_per_space: u32
 pub jmap_chat_server::ChatLimits::max_space_members: u32
@@ -444,6 +446,8 @@ pub const fn jmap_chat_server::ChatLimits::with_max_attachments_per_message(self
 pub const fn jmap_chat_server::ChatLimits::with_max_body_bytes(self, u64) -> Self
 pub const fn jmap_chat_server::ChatLimits::with_max_categories_per_space(self, u32) -> Self
 pub const fn jmap_chat_server::ChatLimits::with_max_channels_per_space(self, u32) -> Self
+pub const fn jmap_chat_server::ChatLimits::with_max_custom_emoji_bytes(self, core::option::Option<u64>) -> Self
+pub const fn jmap_chat_server::ChatLimits::with_max_custom_emoji_per_space(self, core::option::Option<u32>) -> Self
 pub const fn jmap_chat_server::ChatLimits::with_max_group_chat_members(self, u32) -> Self
 pub const fn jmap_chat_server::ChatLimits::with_max_roles_per_space(self, u32) -> Self
 pub const fn jmap_chat_server::ChatLimits::with_max_space_members(self, u32) -> Self

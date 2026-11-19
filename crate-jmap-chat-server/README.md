@@ -317,6 +317,14 @@ draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
     create, update and destroy, for server-global and Space-scoped
     emoji alike.
 
+14a. **Quotas.** "The server MUST reject `CustomEmoji/set` with
+    `overQuota` (per RFC 8620 §5.3) when the count or size limit is
+    exceeded" (jmap-chat-implementer-guide §2.2). The limits are
+    `ChatLimits::max_custom_emoji_per_space` (Space-scoped emoji only)
+    and `max_custom_emoji_bytes` (blob size from `attachment_blob`),
+    default 100 and 256 KB as the guide suggests, `None` for no limit.
+    The handler pre-checks both; the backend enforces them atomically.
+
 ### Caller-identity-less backends
 
 The reference `MemoryBackend` returns `None` from `principal_id` and
@@ -386,9 +394,10 @@ call inside the backend's `ConditionalBackend::begin_set` scope. `MemoryBackend`
 store is a `jmap_server::ScopedState`: an atomic rollback restores objects, state
 strings, change logs and push subscriptions, and drops the queued lifecycle and
 outbound federation events, so nothing is announced for a change that never
-happened (§4.3). Under an atomic scope it leaves the CustomEmoji name check and the
-push subscription cap to the commit, which checks the final state: an emoji name
-swap, or replacing a subscription at the cap, succeeds. Per-object caps (group
+happened (§4.3). Under an atomic scope it leaves the CustomEmoji name and per-Space
+count checks and the push subscription cap to the commit, which checks the final
+state: an emoji name swap, replacing an emoji in a full Space, or replacing a
+subscription at the cap, succeeds. Per-object caps (group
 members, Space roles and categories) already see their own final state and are
 unchanged.
 
