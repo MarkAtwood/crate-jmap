@@ -33,7 +33,7 @@ use std::borrow::Cow;
 
 use icu_casemap::CaseMapper;
 use icu_normalizer::DecomposingNormalizerBorrowed;
-use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
+use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch, is_valid_namespace};
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
@@ -69,10 +69,13 @@ fn unescape_rfc6901(token: &str) -> Option<Cow<'_, str>> {
 ///
 /// -05 §3.6: "A path that is not well formed (for example, one with an
 /// invalid ~ escape) MUST be rejected with an "invalidArguments" error."
-/// A path is well formed when every `/`-separated token uses `~` only in
-/// the RFC 6901 escapes `~0` and `~1`. Whether the first token is a valid
-/// namespace identifier is not checked: -05 §3.6 says such a condition
-/// "matches no objects; it does not produce an error."
+/// The path is a namespace identifier, then optionally a JSON Pointer
+/// into the namespace value. It is well formed when every token of the
+/// pointer part (after the first `/`) uses `~` only in the RFC 6901
+/// escapes `~0` and `~1`. The namespace part is not a pointer token and is
+/// not checked: -05 §3.6 says a condition with "a string that is not a
+/// valid namespace identifier, matches no objects; it does not produce an
+/// error."
 ///
 /// A `/query` handler calls this for the path of every metadata
 /// condition and, on `false`, rejects the request with `invalidArguments`.
@@ -85,9 +88,12 @@ fn unescape_rfc6901(token: &str) -> Option<Cow<'_, str>> {
 /// assert!(is_well_formed_metadata_path("acme.example.com/a~1b/c~0d"));
 /// assert!(!is_well_formed_metadata_path("acme.example.com/a~2b"));
 /// assert!(!is_well_formed_metadata_path("acme.example.com/a~"));
+/// // Not a namespace identifier: matches nothing, but is not an error.
+/// assert!(is_well_formed_metadata_path("acme~"));
 /// ```
 pub fn is_well_formed_metadata_path(path: &str) -> bool {
     path.split('/')
+        .skip(1)
         .all(|token| unescape_rfc6901(token).is_some())
 }
 
@@ -102,11 +108,16 @@ pub fn is_well_formed_metadata_path(path: &str) -> bool {
 /// traverse an array, a scalar or a Binary value (-05 §3.6: "a path that
 /// would traverse an array, a scalar or a Binary value (Section 2.1.1)
 /// addresses no value"). Also returns [`None`] for a path that is not
-/// well formed.
+/// well formed, and when the namespace part is not a valid namespace
+/// identifier, even if stored data has such a key (-05 §3.6: "a string
+/// that is not a valid namespace identifier, matches no objects").
 fn resolve_path<'a>(map: &'a Map<String, Value>, path: &str) -> Option<&'a Value> {
     let mut tokens = path.split('/');
-    let ns = unescape_rfc6901(tokens.next()?)?;
-    let mut value = map.get(ns.as_ref())?;
+    let ns = tokens.next()?;
+    if !is_valid_namespace(ns) {
+        return None;
+    }
+    let mut value = map.get(ns)?;
     for (i, token) in tokens.enumerate() {
         // A Binary is an object within the namespace value, never the
         // namespace value itself (-05 §2.1.1).
@@ -506,14 +517,27 @@ mod tests {
         // -05 §3.6: "one with an invalid ~ escape" MUST be rejected.
         assert!(!is_well_formed_metadata_path("ns/a~2b"));
         assert!(!is_well_formed_metadata_path("ns/key/sub~"));
-        assert!(!is_well_formed_metadata_path("n~s"));
     }
 
     #[test]
     fn invalid_namespace_identifier_is_well_formed() {
         // -05 §3.6: "a string that is not a valid namespace identifier,
-        // matches no objects; it does not produce an error."
+        // matches no objects; it does not produce an error." The namespace
+        // is not a JSON Pointer token, so a `~` in it is no escape error.
         assert!(is_well_formed_metadata_path("Not A Namespace/key"));
+        assert!(is_well_formed_metadata_path("n~s"));
+        assert!(is_well_formed_metadata_path("acme~/key"));
+    }
+
+    #[test]
+    fn invalid_namespace_identifier_matches_stored_data_nowhere() {
+        // -05 §3.6: such a condition "matches no objects", even when
+        // stored data (written before validation, or imported) has that key.
+        let map = json!({"Acme.COM": {"x": "y"}, "a/b": {"x": "y"}});
+        let map = map.as_object().unwrap();
+        assert!(!metadata_path_exists(map, "Acme.COM/x"));
+        assert!(!metadata_path_exists(map, "Acme.COM"));
+        assert!(!metadata_path_exists(map, "a~1b/x"));
     }
 
     // -- resolve_path -----------------------------------------------------

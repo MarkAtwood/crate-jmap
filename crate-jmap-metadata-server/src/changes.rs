@@ -174,6 +174,11 @@ impl MetadataOnlyChanges {
 /// determine that an id's changes are metadata-only, it MUST include
 /// the id").
 ///
+/// An id created in the window has no old state to compare with: a
+/// backend that lists it in `updated` as well as `created` (RFC 8620
+/// §5.2 allows it) calls [`record_created`](Self::record_created) for it,
+/// so that every one of its properties counts as changed.
+///
 /// The accumulator does not filter by viewer: a backend with
 /// per-viewer `privateMetadata` (§2.2) records only the changes the
 /// viewer can see.
@@ -220,6 +225,16 @@ impl ChangedProperties {
             (Some(acc), Some(changed)) => acc.extend(changed.iter().cloned()),
             _ => *entry = None,
         }
+    }
+
+    /// Record that `id` was created in the window. Every property is new
+    /// relative to the old state, so the id is never metadata-only and
+    /// makes [`updated_properties`](Self::updated_properties) [`None`]
+    /// (§3.3: updatedProperties lists metadata names only if "the only
+    /// properties that have changed on every id in the updated array since
+    /// the old state are metadata and/or privateMetadata").
+    pub fn record_created(&mut self, id: &str) {
+        self.by_id.insert(id.to_owned(), None);
     }
 
     /// Returns `true` if every recorded update of `id` changed only
@@ -500,6 +515,22 @@ mod tests {
         window.record("MB3", Some(&props(&["name"])));
         assert_eq!(
             window.updated_properties(&["MB1", "MB3"], MetadataOnlyChanges::Report, &counts),
+            None
+        );
+    }
+
+    #[test]
+    fn created_then_updated_id_is_not_metadata_only() {
+        // Oracle: -05 §3.3 updatedProperties lists metadata names only if
+        // "the only properties that have changed on every id in the updated
+        // array since the old state are metadata and/or privateMetadata";
+        // a created id changed every property since the old state.
+        let mut window = ChangedProperties::new();
+        window.record_created("x");
+        window.record("x", Some(&BTreeSet::from(["metadata".to_owned()])));
+        assert!(!window.is_metadata_only("x"));
+        assert_eq!(
+            window.updated_properties(&["x"], MetadataOnlyChanges::Report, &[]),
             None
         );
     }

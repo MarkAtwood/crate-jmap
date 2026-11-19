@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-metadata-server**: `ChangedProperties::record_created`, for a
+  backend that lists an id created in the `/changes` window in `updated`
+  too (RFC 8620 §5.2): such an id is never metadata-only (-05 §3.3).
+  (bd:JMAP-ayoz.45)
+
 - **jmap-mail-client**: `emailpush` feature: `EmailPushSubscriptionInput` (a
   PushSubscription create whose `keys` are required),
   `SessionClient::email_push_subscription_create`, `set_email_push`,
@@ -856,6 +861,18 @@ wire behaviour that a conforming peer can observe.
   (bd:JMAP-tna1.2.1)
 
 ### Changed
+
+- **jmap-metadata-server**: a metadata filter path's namespace part is no
+  longer read as a JSON Pointer token: `metadataExists: "acme~"` matches
+  nothing instead of failing with `invalidArguments`, and a namespace that
+  is not a valid identifier matches nothing even when stored data has that
+  key (-05 §3.6). (bd:JMAP-ayoz.42)
+- **jmap-metadata-server**: `check_metadata_write` compares numbers by
+  value in the §2.1.2 migration case, so a complete replacement that sends
+  a stored `1.0` back as `1` is accepted; and it rejects `metadata/...`
+  and `privateMetadata/...` patch paths in a create entry with
+  `invalidProperties` (-05 §3.2, RFC 8620 §5.3). (bd:JMAP-ayoz.43,
+  bd:JMAP-ayoz.44)
 
 - **BREAKING** **jmap-chat-client**: `SessionClient::blob_lookup` and
   `blob_convert` go through `jmap-blob-client` and return its

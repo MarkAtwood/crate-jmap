@@ -233,7 +233,9 @@ fn metadata_target(key: &str) -> Option<(&str, Option<&str>)> {
 /// and 3, before the backend applies the write.
 ///
 /// `entry` is the create object or the update PatchObject; keys for
-/// other properties are ignored. `stored` is the object as stored
+/// other properties are ignored. A create entry with a
+/// `metadata/...` or `privateMetadata/...` patch path is rejected: only an
+/// update is a PatchObject (RFC 8620 §5.3). `stored` is the object as stored
 /// before an update, used for the §2.1.2 migration case, and [`None`]
 /// for a create. The checks, in the order -05 §3.2 requires:
 ///
@@ -318,7 +320,7 @@ pub fn check_metadata_write(
                             ));
                         }
                         if !is_namespace_supported(ns, info)
-                            && stored_namespace(ns) != Some(ns_value)
+                            && !stored_namespace(ns).is_some_and(|v| json_equal(v, ns_value))
                         {
                             return Err(InvalidMetadataWrite::new(
                                 key,
@@ -329,6 +331,14 @@ pub fn check_metadata_write(
                 }
                 _ => return Err(InvalidMetadataWrite::new(key, "value must be an object")),
             },
+            // RFC 8620 §5.3: a create entry holds whole property values;
+            // a PatchObject path is a property name it does not have.
+            Some(_) if kind == SetKind::Create => {
+                return Err(InvalidMetadataWrite::new(
+                    key,
+                    "patch paths are not allowed on create",
+                ));
+            }
             Some(path) => {
                 let ns = path.split('/').next().unwrap_or(path);
                 if !is_valid_namespace(ns) {
@@ -348,6 +358,32 @@ pub fn check_metadata_write(
         }
     }
     Ok(())
+}
+
+/// JSON value equality as §2.1.2 defines it for the migration case: "two
+/// JSON objects are equal when they have the same members with equal
+/// values, regardless of member order". Numbers compare by value, so `1`
+/// equals `1.0` (`serde_json`'s `==` compares the number's
+/// representation).
+fn json_equal(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => match (x.as_i64(), y.as_i64()) {
+            (Some(x), Some(y)) => x == y,
+            _ => match (x.as_u64(), y.as_u64()) {
+                (Some(x), Some(y)) => x == y,
+                _ => x.as_f64() == y.as_f64(),
+            },
+        },
+        (Value::Array(x), Value::Array(y)) => {
+            x.len() == y.len() && x.iter().zip(y).all(|(x, y)| json_equal(x, y))
+        }
+        (Value::Object(x), Value::Object(y)) => {
+            x.len() == y.len()
+                && x.iter()
+                    .all(|(k, v)| y.get(k).is_some_and(|w| json_equal(v, w)))
+        }
+        _ => a == b,
+    }
 }
 
 /// Check §3.2 rules 4 and 5 and the §2.1 object rule for every namespace a
@@ -782,6 +818,49 @@ mod tests {
                 write(SetKind::Update, entry.clone(), None, &info).is_err(),
                 "{entry}"
             );
+        }
+    }
+
+    #[test]
+    fn migration_case_compares_numbers_by_value() {
+        // Oracle: -05 §2.1.2 "a value equal to the stored one, where two
+        // JSON objects are equal when they have the same members with equal
+        // values": 1 and 1.0 are the same JSON number (RFC 8259 §6).
+        let info = filenode_info();
+        let stored = json!({"metadata": {"workflow": {"n": 1.0, "l": [2, {"m": 3.0}]}}});
+        assert!(
+            write(
+                SetKind::Update,
+                json!({"metadata": {"workflow": {"n": 1, "l": [2.0, {"m": 3}]}}}),
+                Some(stored.clone()),
+                &info
+            )
+            .is_ok()
+        );
+        assert!(
+            write(
+                SetKind::Update,
+                json!({"metadata": {"workflow": {"n": 1.5, "l": [2, {"m": 3}]}}}),
+                Some(stored),
+                &info
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn create_rejects_patch_paths() {
+        // Oracle: -05 §3.2 "In a create entry of Foo/set, each property's
+        // value MUST be a complete JSON object"; RFC 8620 §5.3: only an
+        // update is a PatchObject.
+        let info = filenode_info();
+        for entry in [
+            json!({"metadata/photography": {"a": 1}}),
+            json!({"metadata/photography/x": 1}),
+            json!({"metadata/workflow": null}),
+        ] {
+            let err = write(SetKind::Create, entry.clone(), None, &info).unwrap_err();
+            assert!(err.property().starts_with("metadata/"), "{entry}");
         }
     }
 
