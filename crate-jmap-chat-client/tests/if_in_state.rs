@@ -12,9 +12,10 @@ mod helpers;
 
 use jmap_chat_client::BodyType;
 use jmap_chat_client::{
-    ChatContactPatch, ChatCreateInput, ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch,
-    MessageCreateInput, MessagePatch, PresenceStatusPatch, SpaceBanCreateInput, SpaceBanPatch,
-    SpaceCreateInput, SpaceInviteCreateInput, SpacePatch,
+    ChatBanCreateInput, ChatBanPatch, ChatContactPatch, ChatCreateInput, ChatPatch,
+    CustomEmojiCreateInput, CustomEmojiPatch, MessageCreateInput, MessagePatch,
+    PresenceStatusPatch, SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput,
+    SpaceInviteCreateInput, SpacePatch,
 };
 use jmap_types::{Id, State, UTCDate};
 use serde_json::{Value, json};
@@ -132,6 +133,25 @@ async fn send_all(server: &MockServer, s: Option<&State>) {
     let _ = sc.space_ban_destroy(&ids, s).await;
 
     let _ = sc
+        .chat_ban_create(
+            &ChatBanCreateInput {
+                client_id: Some("cb1"),
+                chat_id: &id,
+                user_id: &id,
+                reason: None,
+                expires_at: None,
+            },
+            s,
+        )
+        .await;
+    let chat_ban_patch = ChatBanPatch {
+        reason: "spam".into(),
+        ..Default::default()
+    };
+    let _ = sc.chat_ban_update(&id, &chat_ban_patch, s).await;
+    let _ = sc.chat_ban_destroy(&ids, s).await;
+
+    let _ = sc
         .space_invite_create(
             &SpaceInviteCreateInput {
                 client_id: Some("i1"),
@@ -178,7 +198,7 @@ async fn send_all(server: &MockServer, s: Option<&State>) {
     let _ = sc.presence_status_update(&id, &presence_patch, s).await;
 }
 
-const METHODS: [&str; 21] = [
+const METHODS: [&str; 24] = [
     "Chat/set",
     "Chat/set",
     "Chat/set",
@@ -191,6 +211,9 @@ const METHODS: [&str; 21] = [
     "SpaceBan/set",
     "SpaceBan/set",
     "SpaceBan/set",
+    "ChatBan/set",
+    "ChatBan/set",
+    "ChatBan/set",
     "SpaceInvite/set",
     "SpaceInvite/set",
     "ChatContact/set",

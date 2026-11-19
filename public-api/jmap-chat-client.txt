@@ -197,6 +197,25 @@ pub fn jmap_chat_client::BatchResponse::fmt(&self, &mut core::fmt::Formatter<'_>
 pub struct jmap_chat_client::CallHandle<T>
 impl<T: core::fmt::Debug> core::fmt::Debug for jmap_chat_client::CallHandle<T>
 pub fn jmap_chat_client::CallHandle<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::ChatBanCreateInput<'a>
+pub jmap_chat_client::ChatBanCreateInput::chat_id: &'a jmap_types::id::Id
+pub jmap_chat_client::ChatBanCreateInput::client_id: core::option::Option<&'a str>
+pub jmap_chat_client::ChatBanCreateInput::expires_at: core::option::Option<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::ChatBanCreateInput::reason: core::option::Option<&'a str>
+pub jmap_chat_client::ChatBanCreateInput::user_id: &'a jmap_types::id::Id
+impl<'a> core::clone::Clone for jmap_chat_client::ChatBanCreateInput<'a>
+pub fn jmap_chat_client::ChatBanCreateInput<'a>::clone(&self) -> jmap_chat_client::ChatBanCreateInput<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::ChatBanCreateInput<'a>
+pub fn jmap_chat_client::ChatBanCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_chat_client::ChatBanPatch<'a>
+pub jmap_chat_client::ChatBanPatch::expires_at: jmap_chat_client::Patch<&'a jmap_types::id::UTCDate>
+pub jmap_chat_client::ChatBanPatch::reason: jmap_chat_client::Patch<&'a str>
+impl<'a> core::clone::Clone for jmap_chat_client::ChatBanPatch<'a>
+pub fn jmap_chat_client::ChatBanPatch<'a>::clone(&self) -> jmap_chat_client::ChatBanPatch<'a>
+impl<'a> core::default::Default for jmap_chat_client::ChatBanPatch<'a>
+pub fn jmap_chat_client::ChatBanPatch<'a>::default() -> jmap_chat_client::ChatBanPatch<'a>
+impl<'a> core::fmt::Debug for jmap_chat_client::ChatBanPatch<'a>
+pub fn jmap_chat_client::ChatBanPatch<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub struct jmap_chat_client::ChatContactPatch<'a>
 pub jmap_chat_client::ChatContactPatch::blocked: core::option::Option<bool>
 pub jmap_chat_client::ChatContactPatch::display_name: jmap_chat_client::Patch<&'a str>
@@ -343,6 +362,12 @@ pub fn jmap_chat_client::SessionClient::chat_account_id(&self) -> core::result::
 pub fn jmap_chat_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
 pub fn jmap_chat_client::SessionClient::for_account(&self, &str) -> core::result::Result<Self, jmap_base_client::error::ClientError>
 pub fn jmap_chat_client::SessionClient::session(&self) -> &jmap_base_client::request::Session
+impl jmap_chat_client::SessionClient
+pub async fn jmap_chat_client::SessionClient::chat_ban_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_ban_create(&self, &jmap_chat_client::ChatBanCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_ban_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_ban_get(&self, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[&str]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::chat::ChatBan>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::chat_ban_update(&self, &jmap_types::id::Id, &jmap_chat_client::ChatBanPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
 impl jmap_chat_client::SessionClient
 pub async fn jmap_chat_client::SessionClient::chat_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::chat_create(&self, &jmap_chat_client::ChatCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>

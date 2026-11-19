@@ -1,6 +1,6 @@
 //! Object history for the memory backend (draft-ietf-jmap-object-history-03
 //! with the -04 editor's copy changes; docs/design/object-history.md §7),
-//! for Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan and
+//! for Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, ChatBan and
 //! SpaceInvite (ReadPosition and PresenceStatus are excluded, decision 22).
 //!
 //! Two chat-00 rules (decision 22): a Message's versions are purged when it
@@ -35,6 +35,7 @@ const SUPPORTED: &[&str] = &[
     "ChatContact",
     "CustomEmoji",
     "SpaceBan",
+    "ChatBan",
     "SpaceInvite",
 ];
 
@@ -115,7 +116,8 @@ impl Inner {
 
     /// The restore rules of the chat types, as an update would apply them:
     /// a referenced Space must exist (`invalidProperties` naming
-    /// `spaceId`), and a CustomEmoji's name must be free.
+    /// `spaceId`), so must a ChatBan's Chat (naming `chatId`), and a
+    /// CustomEmoji's name must be free.
     fn check_chat_restore(
         &self,
         type_name: &str,
@@ -135,6 +137,16 @@ impl Inner {
                 return Err(invalid("spaceId"));
             }
         }
+        // A restored ChatBan names a Chat that must exist, as a create
+        // requires. Restoring it does not touch `members`.
+        if type_name == "ChatBan"
+            && let Some(chat) = object.get("chatId").and_then(Value::as_str)
+            && !self
+                .objects_ref("Chat", account.as_ref())
+                .is_some_and(|m| m.contains_key(&Id::from(chat)))
+        {
+            return Err(invalid("chatId"));
+        }
         if type_name == "CustomEmoji"
             && emoji_name_holder(self, account, object, Some(id)).is_some()
         {
@@ -146,7 +158,7 @@ impl Inner {
 
 impl MemoryBackend {
     /// Keep object history for the types `capability.supportedTypes` lists
-    /// (the seven chat history types), in every account, with `retention`;
+    /// (the eight chat history types), in every account, with `retention`;
     /// `capability` is also what
     /// [`ObjectHistoryBackend::object_history_capability`] advertises.
     ///

@@ -134,7 +134,7 @@ pub(crate) fn is_true(b: &bool) -> bool {
 }
 
 pub use backend::{
-    ChatContactProperty, ChatProperty, CustomEmojiProperty, MessageProperty,
+    ChatBanProperty, ChatContactProperty, ChatProperty, CustomEmojiProperty, MessageProperty,
     PresenceStatusProperty, ReadPositionProperty, SpaceBanProperty, SpaceInviteProperty,
     SpaceProperty,
 };
@@ -148,7 +148,8 @@ pub use capability::{
     JMAP_CHAT_WEBSOCKET_URI, MANDATORY_DID_METHODS, may_advertise_chat_did,
 };
 pub use chat::{
-    ChannelPermission, ChannelPermissionTargetType, Chat, ChatKind, ChatMember, ChatMemberRole,
+    ChannelPermission, ChannelPermissionTargetType, Chat, ChatBan, ChatKind, ChatMember,
+    ChatMemberRole,
 };
 pub use clearable::Clearable;
 pub use contact::{ChatContact, Endpoint};

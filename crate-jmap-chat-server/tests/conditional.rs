@@ -289,7 +289,7 @@ fn ready_after_handlers_and_conditional() {
     let b = backend();
     let mut d = Dispatcher::new();
     register_chat_handlers(&mut d, Arc::clone(&b));
-    assert_eq!(d.conditional_gaps().len(), 9, "{:?}", d.conditional_gaps());
+    assert_eq!(d.conditional_gaps().len(), 10, "{:?}", d.conditional_gaps());
     register_chat_conditional(&mut d, Arc::clone(&b));
     assert!(
         d.conditional_gaps().is_empty(),

@@ -17,7 +17,7 @@ JMAP Chat method calls as typed async methods, following the same session-bound
 ## What it's for
 
 Implements draft-atwood-jmap-chat-00 method bindings (`Chat/*`, `Message/*`,
-`Space/*`, `SpaceInvite/*`, `SpaceBan/*`, `ChatContact/*`, `CustomEmoji/*`,
+`Space/*`, `SpaceInvite/*`, `SpaceBan/*`, `ChatBan/*`, `ChatContact/*`, `CustomEmoji/*`,
 `ReadPosition/*`, `PresenceStatus/*`, and push-subscription methods) on top of
 `jmap-base-client`. Depends on `jmap-base-client` for transport and session,
 and on `jmap-chat-types` for the wire types. Sibling of `jmap-mail-client` in
@@ -106,6 +106,16 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 | `space_ban_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `space_ban_create` | `input: &SpaceBanCreateInput<'_>` | `SetResponse<PartialObject>` |
 | `space_ban_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
+
+### ChatBan/*
+
+| Method | Parameters | Returns |
+|---|---|---|
+| `chat_ban_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<ChatBan>` |
+| `chat_ban_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `chat_ban_create` | `input: &ChatBanCreateInput<'_>` | `SetResponse<PartialObject>` |
+| `chat_ban_update` | `id: &Id, patch: &ChatBanPatch<'_>` | `SetResponse<PartialObject>` |
+| `chat_ban_destroy` | `ids: &[Id]` | `SetResponse<PartialObject>` |
 
 ### ChatContact/*
 

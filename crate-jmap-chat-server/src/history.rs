@@ -1,7 +1,7 @@
 //! Object history for the chat types (draft-ietf-jmap-object-history-03
 //! with the -04 editor's copy changes; docs/design/object-history.md;
 //! docs/design/DECISIONS.md decision 22): Chat, Message, Space,
-//! ChatContact, CustomEmoji, SpaceBan and SpaceInvite. ReadPosition and
+//! ChatContact, CustomEmoji, SpaceBan, ChatBan and SpaceInvite. ReadPosition and
 //! PresenceStatus have none.
 //!
 //! In the shape of the canonical `jmap-mail-server` opt-in: each
@@ -12,23 +12,25 @@
 
 use std::sync::Arc;
 
-use jmap_chat_types::{Chat, ChatContact, CustomEmoji, Message, Space, SpaceBan, SpaceInvite};
+use jmap_chat_types::{
+    Chat, ChatBan, ChatContact, CustomEmoji, Message, Space, SpaceBan, SpaceInvite,
+};
 use jmap_server::{
     CallContext, ClosureHandler, Dispatcher, HandlerFuture, JmapHandler, NoRestoreHooks,
     ObjectHistoryBackend, history_get, history_query, history_query_changes, history_set,
 };
 
 use crate::{
-    ChatBackend, handle_ban_get, handle_ban_set, handle_chat_get, handle_chat_query,
-    handle_chat_query_changes, handle_chat_set, handle_contact_get, handle_contact_query,
-    handle_contact_query_changes, handle_contact_set, handle_emoji_get, handle_emoji_query,
-    handle_emoji_query_changes, handle_emoji_set, handle_invite_get, handle_invite_set,
-    handle_space_get, handle_space_query, handle_space_query_changes, handle_space_set, message,
-    register_chat_handlers,
+    ChatBackend, handle_ban_get, handle_ban_set, handle_chat_ban_get, handle_chat_ban_set,
+    handle_chat_get, handle_chat_query, handle_chat_query_changes, handle_chat_set,
+    handle_contact_get, handle_contact_query, handle_contact_query_changes, handle_contact_set,
+    handle_emoji_get, handle_emoji_query, handle_emoji_query_changes, handle_emoji_set,
+    handle_invite_get, handle_invite_set, handle_space_get, handle_space_query,
+    handle_space_query_changes, handle_space_set, message, register_chat_handlers,
 };
 
 /// [`register_chat_handlers`], then history-aware `/get` and `/set` of the
-/// seven chat history types and `/query`, `/queryChanges` of those that
+/// eight chat history types and `/query`, `/queryChanges` of those that
 /// have them (Chat, Message, Space, ChatContact, CustomEmoji), through
 /// `Dispatcher::register_history_aware` (docs/design/DECISIONS.md decision
 /// 1). Handlers that take no `using` in the plain registration are bound to
@@ -218,6 +220,18 @@ pub fn register_chat_handlers_with_history<B>(
     reg!("SpaceBan/set", |b, a, ctx, using, created_ids| {
         history_set::<SpaceBan, B, _, _>(&*b, &ctx, a, &using, &NoRestoreHooks, |a| {
             handle_ban_set(&*b, &ctx, &created_ids, a)
+        })
+        .await
+    });
+
+    // ChatBan
+    reg!("ChatBan/get", |b, a, ctx, using| {
+        history_get::<ChatBan, B, _, _>(&*b, &ctx, a, &using, |a| handle_chat_ban_get(&*b, &ctx, a))
+            .await
+    });
+    reg!("ChatBan/set", |b, a, ctx, using, created_ids| {
+        history_set::<ChatBan, B, _, _>(&*b, &ctx, a, &using, &NoRestoreHooks, |a| {
+            handle_chat_ban_set(&*b, &ctx, &created_ids, a)
         })
         .await
     });

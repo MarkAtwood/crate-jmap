@@ -579,6 +579,7 @@ pub(crate) async fn snapshot_all_states(
     poll_type!(state.chat, jmap_chat_types::CustomEmoji);
     poll_type!(state.chat, jmap_chat_types::SpaceInvite);
     poll_type!(state.chat, jmap_chat_types::SpaceBan);
+    poll_type!(state.chat, jmap_chat_types::ChatBan);
     poll_type!(state.chat, jmap_chat_types::PresenceStatus);
 
     // Calendars (draft-ietf-jmap-calendars).

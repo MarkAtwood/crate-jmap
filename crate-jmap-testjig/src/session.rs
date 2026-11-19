@@ -167,6 +167,7 @@ pub(crate) const HISTORY_TYPES: &[(&str, &[&str])] = &[
             "ChatContact",
             "CustomEmoji",
             "SpaceBan",
+            "ChatBan",
             "SpaceInvite",
         ],
     ),

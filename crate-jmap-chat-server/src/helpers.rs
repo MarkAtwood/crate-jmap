@@ -222,8 +222,8 @@ pub(crate) struct SetAccumulators {
 /// Build the final `/set` method response and re-fetch `newState` from the
 /// backend if any mutation occurred.
 ///
-/// All nine `/set` handlers in this crate (`Chat/set`, `Message/set`,
-/// `Space/set`, `SpaceInvite/set`, `SpaceBan/set`, `ChatContact/set`,
+/// All ten `/set` handlers in this crate (`Chat/set`, `Message/set`,
+/// `Space/set`, `SpaceInvite/set`, `SpaceBan/set`, `ChatBan/set`, `ChatContact/set`,
 /// `ReadPosition/set`, `CustomEmoji/set`, `PresenceStatus/set`) end with the
 /// same boilerplate: refresh the state token if `mutated`, then emit a
 /// `HandlerOutput` wrapping the canonical RFC 8620 §5.3

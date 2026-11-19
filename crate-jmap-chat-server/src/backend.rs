@@ -953,6 +953,166 @@ pub trait ChatBackend: JmapBackend {
         async {}
     }
 
+    /// Store a ChatBan and remove the banned user from the Chat's
+    /// `members` as one unit.
+    ///
+    /// [`crate::handle_chat_ban_set`] calls this for every `ChatBan/set`
+    /// create that passes its checks: the Chat named by `chatId` is a
+    /// group Chat, the caller holds its `"admin"` role and `userId` is not
+    /// the accountId. draft-atwood-jmap-chat-00 §ChatBan/set: "Creating a
+    /// ban removes the user from `members` if present, as `removeMembers`
+    /// would".
+    ///
+    /// `build` and every contract of [`Self::create_object`]
+    /// (authorisation, id assignment, errors, state and change log) apply
+    /// unchanged. On `Ok` the ban is stored and the user is no longer in
+    /// the Chat's `members`. On `Err` neither happens. A backend that binds
+    /// Chats to another group model (for example a MIMI room, where
+    /// draft-atwood-jmap-chat-mimi-00 §Moderation makes the ban one commit
+    /// that gives the user the "banned" role and removes the user's
+    /// clients) overrides this, and may reject the ban with a
+    /// [`BackendSetError::SetError`] such as `forbidden`.
+    ///
+    /// # Default implementation
+    ///
+    /// Calls [`Self::create_object`] for `ChatBan`. If the user is in the
+    /// Chat's `members`, it then calls [`Self::update_object`] on the Chat
+    /// with the user removed, and on success [`Self::on_outbound_event`]
+    /// with the [`GroupUpdateAction::RemoveMembers`](crate::GroupUpdateAction::RemoveMembers)
+    /// event that a `removeMembers` update reports. If that update fails,
+    /// the ban is destroyed again and the update's error is returned.
+    /// The steps are not one transaction; a backend that needs them in one
+    /// overrides this.
+    fn create_chat_ban<F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        create_id: &str,
+        build: F,
+    ) -> impl std::future::Future<
+        Output = Result<(jmap_types::Id, jmap_chat_types::ChatBan), BackendSetError<Self::Error>>,
+    > + Send
+    where
+        F: FnOnce(&jmap_types::Id) -> jmap_chat_types::ChatBan + Send,
+    {
+        async move {
+            let (id, ban) = self
+                .create_object::<jmap_chat_types::ChatBan, _>(caller, account_id, create_id, build)
+                .await?;
+            let chat = match self
+                .get_objects::<jmap_chat_types::Chat>(
+                    caller,
+                    account_id,
+                    Some(std::slice::from_ref(&ban.chat_id)),
+                    None,
+                )
+                .await
+            {
+                Ok((chats, _)) => chats.into_iter().next(),
+                Err(e) => {
+                    // Best effort: the ban must not outlive a failed removal.
+                    let _ = self
+                        .destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, &id)
+                        .await;
+                    return Err(BackendSetError::Other(e));
+                }
+            };
+            let Some(chat) = chat else {
+                return Ok((id, ban));
+            };
+            let before = chat.members.unwrap_or_default();
+            if before.iter().all(|m| m.id != ban.user_id) {
+                return Ok((id, ban));
+            }
+            let after: Vec<_> = before.into_iter().filter(|m| m.id != ban.user_id).collect();
+            let mut map = serde_json::Map::new();
+            map.insert(
+                "members".to_owned(),
+                serde_json::to_value(&after).expect("ChatMember serializes"),
+            );
+            if let Err(e) = self
+                .update_object::<jmap_chat_types::Chat>(
+                    caller,
+                    account_id,
+                    &chat.id,
+                    jmap_types::PatchObject::from_map(map),
+                )
+                .await
+            {
+                // Best effort: the ban must not outlive a failed removal.
+                let _ = self
+                    .destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, &id)
+                    .await;
+                return Err(e);
+            }
+            let mut recipients: Vec<jmap_types::Id> = after
+                .iter()
+                .filter(|m| m.id != *account_id)
+                .map(|m| m.id.clone())
+                .collect();
+            recipients.push(ban.user_id.clone());
+            let event = crate::OutboundEvent::GroupUpdate {
+                chat_id: chat.id.clone(),
+                action: crate::GroupUpdateAction::RemoveMembers {
+                    removed_ids: vec![ban.user_id.clone()],
+                },
+                recipients,
+            };
+            self.on_outbound_event(caller, account_id, &event).await;
+            Ok((id, ban))
+        }
+    }
+
+    /// Apply a `ChatBan/set` update to the stored ban `id`.
+    ///
+    /// [`crate::handle_chat_ban_set`] calls this for every update that
+    /// passes its checks: the caller holds the `"admin"` role in the ban's
+    /// Chat, and `patch` names only `reason` and `expiresAt`
+    /// (draft-atwood-jmap-chat-00 §ChatBan/set: "`update` supports:
+    /// `reason`, `expiresAt`"). Every contract of [`Self::update_object`]
+    /// applies unchanged. A backend that mirrors bans into another group
+    /// model (for example a MIMI room) overrides this.
+    ///
+    /// # Default implementation
+    ///
+    /// Calls [`Self::update_object`] for `ChatBan`.
+    fn update_chat_ban(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+        patch: jmap_types::PatchObject,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_chat_types::ChatBan>, BackendSetError<Self::Error>>,
+    > + Send {
+        self.update_object::<jmap_chat_types::ChatBan>(caller, account_id, id, patch)
+    }
+
+    /// Lift the ChatBan `id`.
+    ///
+    /// [`crate::handle_chat_ban_set`] calls this for every destroy that
+    /// passes its checks (the caller holds the `"admin"` role in the ban's
+    /// Chat), and [`crate::sweep_expired`] for every ban whose `expiresAt`
+    /// has passed. draft-atwood-jmap-chat-00 §ChatBan/set: "`destroy`
+    /// lifts the ban ... Lifting a ban does not add the user back to the
+    /// Chat." Every contract of [`Self::destroy_object`] applies unchanged.
+    /// A backend that binds Chats to a MIMI room overrides this to give
+    /// the user the member role again without adding any client
+    /// (draft-atwood-jmap-chat-mimi-00 §Moderation).
+    ///
+    /// # Default implementation
+    ///
+    /// Calls [`Self::destroy_object`] for `ChatBan`; `members` is not
+    /// touched.
+    fn destroy_chat_ban(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
+        self.destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, id)
+    }
+
     /// Called when the owner's action must be sent to other participants'
     /// servers: a new Message, a retraction (`deletedForAll`), an edit, a
     /// reaction added or removed, a group Chat change, a read receipt, a
@@ -1028,7 +1188,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Implementors should answer for the object types this trait
     /// covers (draft-atwood-jmap-chat-00): `Chat`, `Message`, `Space`,
-    /// `SpaceInvite`, `SpaceBan`, `ChatContact`, `CustomEmoji`,
+    /// `SpaceInvite`, `SpaceBan`, `ChatBan`, `ChatContact`, `CustomEmoji`,
     /// `ReadPosition`, and `PresenceStatus`. Backends MAY answer for
     /// object types from sibling extensions if they also implement those
     /// traits. A backend that does not recognise `O` SHOULD return

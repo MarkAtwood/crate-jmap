@@ -256,6 +256,26 @@ pub enum SpaceBanProperty {
     ExpiresAt,
 }
 
+/// Property selector for [`crate::ChatBan`] `/get` and `/set`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChatBanProperty {
+    /// The `id` property (draft-atwood-jmap-chat-00 §ChatBan).
+    Id,
+    /// The `chatId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    ChatId,
+    /// The `userId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    UserId,
+    /// The `bannedBy` property (draft-atwood-jmap-chat-00 §ChatBan).
+    BannedBy,
+    /// The `reason` property (draft-atwood-jmap-chat-00 §ChatBan).
+    Reason,
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    CreatedAt,
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    ExpiresAt,
+}
+
 /// Property selector for [`crate::PresenceStatus`] `/get` and `/set`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -604,6 +624,25 @@ impl SetObject for crate::SpaceBan {
     const IMMUTABLE: &'static [&'static str] = &["spaceId", "userId"];
 }
 
+impl JmapObject for crate::ChatBan {
+    const TYPE_NAME: &'static str = "ChatBan";
+    type Property = ChatBanProperty;
+}
+
+impl GetObject for crate::ChatBan {}
+/// "Supports History: Yes" (draft-atwood-jmap-chat-00 §IANA
+/// Considerations, the ChatBan "JMAP Data Types" row).
+impl jmap_object_history_types::HistoryObject for crate::ChatBan {}
+
+/// draft-atwood-jmap-chat-00 §ChatBan: `id`, `bannedBy` and `createdAt`
+/// are "immutable, server-set"; `chatId` and `userId` are "immutable".
+impl SetObject for crate::ChatBan {
+    type Patch = PatchObject;
+    const SERVER_SET: &'static [&'static str] = &["id", "bannedBy", "createdAt"];
+    const CLIENT_SETTABLE: &'static [&'static str] = &["chatId", "userId", "reason", "expiresAt"];
+    const IMMUTABLE: &'static [&'static str] = &["chatId", "userId"];
+}
+
 impl JmapObject for crate::PresenceStatus {
     const TYPE_NAME: &'static str = "PresenceStatus";
     type Property = PresenceStatusProperty;
@@ -824,6 +863,21 @@ mod tests {
     }
 
     #[test]
+    fn chat_ban_properties_are_classified() {
+        let obj = crate::ChatBan {
+            id: Id::from("b1"),
+            chat_id: Id::from("c1"),
+            user_id: Id::from("u1"),
+            banned_by: Id::from("a1"),
+            created_at: date(),
+            reason: Some("r".into()),
+            expires_at: Some(date()),
+            extra: Map::new(),
+        };
+        assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+
+    #[test]
     fn presence_status_properties_are_classified() {
         let obj = crate::PresenceStatus {
             id: Id::from("p1"),
@@ -841,7 +895,7 @@ mod tests {
 
 #[cfg(test)]
 mod history_tests {
-    /// Decisions 5, 14 and 22: the seven chat-00 types with "Supports
+    /// Decisions 5, 14 and 22: the eight chat-00 types with "Supports
     /// History: Yes" implement `HistoryObject`; ReadPosition and
     /// PresenceStatus do not.
     #[test]
@@ -858,6 +912,7 @@ mod history_tests {
             has::<crate::CustomEmoji>(),
             has::<crate::SpaceInvite>(),
             has::<crate::SpaceBan>(),
+            has::<crate::ChatBan>(),
         ] {
             assert!(is_history_type(name), "{name}");
         }

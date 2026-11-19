@@ -70,6 +70,7 @@ use jmap_server::{
 mod backend;
 mod ban;
 mod chat;
+mod chat_ban;
 mod contact;
 mod did_auth;
 mod emoji;
@@ -102,6 +103,7 @@ pub use chat::{
     handle_chat_changes, handle_chat_get, handle_chat_query, handle_chat_query_changes,
     handle_chat_set, handle_chat_typing,
 };
+pub use chat_ban::{handle_chat_ban_changes, handle_chat_ban_get, handle_chat_ban_set};
 pub use contact::{
     handle_contact_changes, handle_contact_get, handle_contact_query, handle_contact_query_changes,
     handle_contact_set,
@@ -151,7 +153,7 @@ pub use space::{
 /// pointing at the same underlying backend would also work.
 ///
 /// After this call, the dispatcher handles:
-/// `Chat/*`, `Message/*`, `Space/*`, `SpaceBan/*`, `ChatContact/*`,
+/// `Chat/*`, `Message/*`, `Space/*`, `SpaceBan/*`, `ChatBan/*`, `ChatContact/*`,
 /// `ReadPosition/*`, `CustomEmoji/*`, `SpaceInvite/*`, and `PresenceStatus/*`.
 ///
 /// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
@@ -330,6 +332,17 @@ where
         handle_ban_set(&*b, &ctx, &created_ids, a).await
     });
 
+    // ChatBan
+    reg!("ChatBan/get", backend, |b, _ci, a, ctx| {
+        handle_chat_ban_get(&*b, &ctx, a).await
+    });
+    reg!("ChatBan/changes", backend, |b, _ci, a, ctx| {
+        handle_chat_ban_changes(&*b, &ctx, a).await
+    });
+    reg!("ChatBan/set", backend, |b, _ci, a, ctx, created_ids| {
+        handle_chat_ban_set(&*b, &ctx, &created_ids, a).await
+    });
+
     // CustomEmoji
     reg!("CustomEmoji/get", backend, |b, _ci, a, ctx| {
         handle_emoji_get(&*b, &ctx, a).await
@@ -365,7 +378,7 @@ where
 ///
 /// Call after [`register_chat_handlers`]. Attaches [`SetSupport`] to each
 /// of `Chat/set`, `Message/set`, `Space/set`, `ChatContact/set`,
-/// `ReadPosition/set`, `SpaceInvite/set`, `SpaceBan/set`,
+/// `ReadPosition/set`, `SpaceInvite/set`, `SpaceBan/set`, `ChatBan/set`,
 /// `CustomEmoji/set` and `PresenceStatus/set` that is registered, and skips
 /// the rest; no handler is re-registered. For `PushSubscription/set`, call
 /// [`jmap_server::register_push_subscription_conditional`] too.
@@ -409,6 +422,7 @@ where
         ReadPosition,
         SpaceInvite,
         SpaceBan,
+        ChatBan,
         CustomEmoji,
         PresenceStatus
     );

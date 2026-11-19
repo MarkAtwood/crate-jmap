@@ -519,7 +519,7 @@ impl MemoryBackend {
     /// `jmap_mail_server::memory::MemoryBackend::seed_object`.
     ///
     /// `type_name` is the `TYPE_NAME` of a type this backend stores:
-    /// `"Chat"`, `"Message"`, `"Space"`, `"ChatContact"`, `"ReadPosition"`, `"CustomEmoji"`, `"SpaceInvite"`, `"SpaceBan"`, `"PresenceStatus"`.
+    /// `"Chat"`, `"Message"`, `"Space"`, `"ChatContact"`, `"ReadPosition"`, `"CustomEmoji"`, `"SpaceInvite"`, `"SpaceBan"`, `"ChatBan"`, `"PresenceStatus"`.
     ///
     /// # Panics
     ///
@@ -541,6 +541,7 @@ impl MemoryBackend {
             jmap_chat_types::CustomEmoji::TYPE_NAME,
             jmap_chat_types::SpaceInvite::TYPE_NAME,
             jmap_chat_types::SpaceBan::TYPE_NAME,
+            jmap_chat_types::ChatBan::TYPE_NAME,
             jmap_chat_types::PresenceStatus::TYPE_NAME,
         ];
         assert!(

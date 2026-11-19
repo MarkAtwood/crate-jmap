@@ -83,7 +83,7 @@ const KIND_SCOPED_CREATE_PROPS: &[(&str, ChatKind)] = &[
 ];
 
 /// Whether `account_id` holds the `"admin"` role in `chat.members`.
-fn is_chat_admin(chat: &Chat, account_id: &Id) -> bool {
+pub(crate) fn is_chat_admin(chat: &Chat, account_id: &Id) -> bool {
     chat.members
         .iter()
         .flatten()
@@ -210,6 +210,29 @@ fn apply_member_patch_keys(
         && !members.is_empty()
         && members.iter().all(|m| m.role != ChatMemberRole::Admin);
     Ok((members, closes))
+}
+
+/// Whether a ChatBan in force bans any of `user_ids` from Chat `chat_id`
+/// (draft-atwood-jmap-chat-00 §ChatBan).
+///
+/// ponytail: loads every ChatBan of the account per call. A backend with
+/// many bans should index them by Chat.
+async fn banned_among<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    chat_id: &Id,
+    user_ids: &[&Id],
+) -> Result<bool, B::Error> {
+    let (bans, _) = backend
+        .get_objects::<jmap_chat_types::ChatBan>(caller, account_id, None, None)
+        .await?;
+    let now = UTCDate::from(now_utc_string().as_ref());
+    Ok(bans.iter().any(|b| {
+        b.chat_id == *chat_id
+            && user_ids.contains(&&b.user_id)
+            && crate::chat_ban::chat_ban_is_active(b, &now)
+    }))
 }
 
 /// Ids of `members` other than the owner, who is referenced by the
@@ -1367,6 +1390,38 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     Err(set_err) => {
                         not_updated.insert(id_str, serde_json::Value::from(&*set_err));
                         continue;
+                    }
+                }
+            }
+
+            // draft-atwood-jmap-chat-00 §ChatBan/set: "while the ban lasts
+            // the server MUST reject adding the user with an `addMembers`
+            // entry, returning a `forbidden` SetError." Only users the
+            // update adds count; a ban whose `expiresAt` has passed is not
+            // in force.
+            if let Some((members, _)) = &member_change {
+                let added: Vec<&Id> = members
+                    .iter()
+                    .filter(|m| chat.members.iter().flatten().all(|old| old.id != m.id))
+                    .map(|m| &m.id)
+                    .collect();
+                if !added.is_empty() {
+                    match banned_among(backend, caller, &account_id, &id, &added).await {
+                        Ok(false) => {}
+                        Ok(true) => {
+                            not_updated.insert(
+                                id_str,
+                                json!({
+                                    "type": "forbidden",
+                                    "description": "addMembers names a user banned from this chat",
+                                }),
+                            );
+                            continue;
+                        }
+                        Err(e) => {
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                            continue;
+                        }
                     }
                 }
             }

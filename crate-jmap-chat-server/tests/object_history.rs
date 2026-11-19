@@ -20,13 +20,14 @@ use jmap_server::Dispatcher;
 use jmap_types::{Id, JmapRequest, State};
 use serde_json::{Value, json};
 
-const TYPES: [&str; 7] = [
+const TYPES: [&str; 8] = [
     "Chat",
     "Message",
     "Space",
     "ChatContact",
     "CustomEmoji",
     "SpaceBan",
+    "ChatBan",
     "SpaceInvite",
 ];
 
@@ -134,6 +135,43 @@ async fn chat_history_and_restore() {
         .one("Chat/get", json!({"ids": [&chat], "properties": ["name"]}))
         .await;
     assert_eq!(got["list"][0]["name"], "G2");
+}
+
+/// chat-00 §IANA registers ChatBan with "Supports History: Yes": a ban's
+/// `reason` edits are history, and a lifted ban is restored under its id.
+#[tokio::test]
+async fn chat_ban_history_and_restore() {
+    let s = Server::new();
+    let chat = group(&s).await;
+    let ban = s
+        .create(
+            "ChatBan/set",
+            json!({"chatId": &chat, "userId": "mallory", "reason": "r1"}),
+        )
+        .await;
+    s.tick(2_000);
+    s.one("ChatBan/set", json!({"update": {&ban: {"reason": "r2"}}}))
+        .await;
+    let got = s
+        .one(
+            "ChatBan/get",
+            json!({"ids": [&ban], "includeReplaced": true, "properties": ["reason"]}),
+        )
+        .await;
+    let reasons: Vec<&str> = got["list"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["reason"].as_str().unwrap())
+        .collect();
+    assert_eq!(reasons, ["r1", "r2"]);
+
+    s.tick(3_000);
+    s.one("ChatBan/set", json!({"destroy": [&ban]})).await;
+    let out = s.one("ChatBan/set", json!({"restore": {&ban: null}})).await;
+    assert!(out["restored"].get(&ban).is_some(), "{out}");
+    let got = s.one("ChatBan/get", json!({"ids": [&ban]})).await;
+    assert_eq!(got["list"][0]["reason"], "r2");
 }
 
 /// chat-00 §Message: an edited Message has history until it is deleted;

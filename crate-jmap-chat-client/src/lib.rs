@@ -44,15 +44,16 @@ pub use jmap_chat_types::BodyType;
 pub use methods::batch::{Batch, BatchResponse, CallHandle};
 pub use methods::quota::Quota;
 pub use methods::{
-    AddMemberInput, AddedItem, CALL_ID, ChangesResponse, ChatContactPatch, ChatCreateInput,
-    ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch, GetResponse, MessageCreateInput,
-    MessagePatch, PartialObject, Patch, PresenceStatusPatch, PushSubscriptionCreateInput,
-    PushSubscriptionPatch, QueryChangesResponse, QueryResponse, ReactionChange,
-    ServerRetryAfterError, SessionClient, SetError, SetResponse, SpaceAddCategoryInput,
-    SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput, SpaceBanCreateInput,
-    SpaceBanPatch, SpaceCreateInput, SpaceInviteCreateInput, SpaceJoinInput, SpaceJoinResponse,
-    SpacePatch, SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
-    SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput, server_retry_after,
+    AddMemberInput, AddedItem, CALL_ID, ChangesResponse, ChatBanCreateInput, ChatBanPatch,
+    ChatContactPatch, ChatCreateInput, ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch,
+    GetResponse, MessageCreateInput, MessagePatch, PartialObject, Patch, PresenceStatusPatch,
+    PushSubscriptionCreateInput, PushSubscriptionPatch, QueryChangesResponse, QueryResponse,
+    ReactionChange, ServerRetryAfterError, SessionClient, SetError, SetResponse,
+    SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput,
+    SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput, SpaceInviteCreateInput, SpaceJoinInput,
+    SpaceJoinResponse, SpacePatch, SpaceUpdateCategoryInput, SpaceUpdateChannelInput,
+    SpaceUpdateMemberInput, SpaceUpdateRoleInput, TypingResponse, UpdateMemberRoleInput,
+    server_retry_after,
 };
 pub use session::{
     ChatCapability, ChatCapabilityRole, ChatFilenodeCapability, ChatPushCapability, ChatSessionExt,

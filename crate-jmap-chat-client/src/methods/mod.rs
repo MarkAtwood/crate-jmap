@@ -5,6 +5,7 @@
 //! §5.2 /changes, §5.3 /set). Method implementations live in sub-modules and
 //! operate on `SessionClient`.
 
+pub mod chat_ban;
 pub mod contact;
 pub mod misc;
 pub mod space_ban;
@@ -827,6 +828,41 @@ pub struct SpaceBanCreateInput<'a> {
 /// Use `..Default::default()` to fill in unused fields.
 #[derive(Debug, Default, Clone)]
 pub struct SpaceBanPatch<'a> {
+    /// Set or clear the human-readable reason for the ban.
+    pub reason: Patch<&'a str>,
+    /// Set or clear the time after which the ban is automatically lifted.
+    pub expires_at: Patch<&'a jmap_types::UTCDate>,
+}
+
+/// Parameters for creating one ChatBan via `ChatBan/set`
+/// (draft-atwood-jmap-chat-00 §ChatBan/set).
+#[derive(Debug, Clone)]
+pub struct ChatBanCreateInput<'a> {
+    /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
+    /// is generated automatically. An empty `Some("")` is treated the same
+    /// as `None`, not as a rejection; callers must not assume the wire
+    /// echoes a caller-supplied empty string.
+    pub client_id: Option<&'a str>,
+    /// The group Chat this ban applies to.
+    pub chat_id: &'a Id,
+    /// ChatContact.id of the user to ban.
+    pub user_id: &'a Id,
+    /// Optional human-readable reason for the ban.
+    pub reason: Option<&'a str>,
+    /// Optional expiry time after which the ban is automatically lifted.
+    pub expires_at: Option<&'a jmap_types::UTCDate>,
+}
+
+/// Patch parameters for `ChatBan/set` update
+/// (draft-atwood-jmap-chat-00 §ChatBan/set: "`update` supports:
+/// `reason`, `expiresAt`").
+///
+/// A field left at [`Patch::Keep`] (default) is omitted from the patch.
+/// [`Patch::Clear`] sends `null`: no reason, or a ban that never expires.
+///
+/// Use `..Default::default()` to fill in unused fields.
+#[derive(Debug, Default, Clone)]
+pub struct ChatBanPatch<'a> {
     /// Set or clear the human-readable reason for the ban.
     pub reason: Patch<&'a str>,
     /// Set or clear the time after which the ban is automatically lifted.

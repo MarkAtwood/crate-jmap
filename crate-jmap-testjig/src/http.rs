@@ -613,7 +613,7 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
         .expect("PushSubscription/set is registered just above");
 
     // Chat (draft-atwood-jmap-chat-00): Chat, Message, Space,
-    // SpaceBan, ChatContact, ReadPosition, CustomEmoji, SpaceInvite,
+    // SpaceBan, ChatBan, ChatContact, ReadPosition, CustomEmoji, SpaceInvite,
     // PresenceStatus.
     let chat = Arc::new(
         jmap_chat_server::memory::MemoryBackend::new()
@@ -800,7 +800,7 @@ mod tests {
         let _backends = register_all_extensions(&mut dispatcher);
         let types = crate::session::object_history_capability(None).supported_types;
         let types: Vec<&str> = types.iter().map(String::as_str).collect();
-        assert_eq!(types.len(), 19);
+        assert_eq!(types.len(), 20);
         assert!(
             dispatcher.object_history_gaps(&types).is_empty(),
             "{:?}",

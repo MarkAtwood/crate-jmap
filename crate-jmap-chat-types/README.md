@@ -18,7 +18,7 @@ available from the crate root (e.g. `jmap_chat_types::Chat`).
 
 | Module | Types |
 |--------|-------|
-| `chat` | `Chat`, `ChatKind`, `ChatMember`, `ChannelPermission` |
+| `chat` | `Chat`, `ChatKind`, `ChatMember`, `ChannelPermission`, `ChatBan` |
 | `message` | `Message`, `Attachment`, `Mention`, `MessageAction`, `Reaction`, `MessageRevision`, `DeliveryReceipt`, `DeliveryState`, `ReadDisposition` |
 | `space` | `Space`, `SpaceRole`, `SpaceMember`, `Category`, `SpaceInvite`, `SpaceBan` |
 | `contact` | `ChatContact`, `Endpoint` |
@@ -45,6 +45,7 @@ names for the corresponding object in a JMAP `*/get` request:
 | `MessageProperty` | `Message` |
 | `SpaceProperty` | `Space` |
 | `SpaceBanProperty` | `SpaceBan` |
+| `ChatBanProperty` | `ChatBan` |
 | `SpaceInviteProperty` | `SpaceInvite` |
 | `ChatContactProperty` | `ChatContact` |
 | `CustomEmojiProperty` | `CustomEmoji` |

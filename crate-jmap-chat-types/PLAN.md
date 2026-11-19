@@ -60,7 +60,7 @@ No other dependencies.
 ```
 src/
   lib.rs        re-exports
-  chat.rs       Chat, ChatMember, ChannelPermission
+  chat.rs       Chat, ChatMember, ChannelPermission, ChatBan
   clearable.rs  Clearable<T> — null-vs-absent patch helper
   contact.rs    ChatContact, Endpoint
   emoji.rs      CustomEmoji
@@ -97,7 +97,7 @@ are empty.
 
 In scope in this crate (each has at least one round-trip preservation test):
 
-- `Chat`, `ChatMember`, `ChannelPermission` (`chat.rs`).
+- `Chat`, `ChatMember`, `ChannelPermission`, `ChatBan` (`chat.rs`).
 - `ChatContact`, `Endpoint` (`contact.rs`).
 - `CustomEmoji` (`emoji.rs`).
 - `ChatStreamEnable`, `ChatStreamDisable`, `ChatTypingEvent`,

@@ -24,6 +24,20 @@ wire behaviour that a conforming peer can observe.
   typed `*_set` binding; new per-set options become fields here.
   (bd:JMAP-y1yu.21)
 
+- **jmap-chat-types**, **jmap-chat-server**, **jmap-chat-client**,
+  **jmap-types**: the draft-atwood-jmap-chat-00 ChatBan data type for
+  group Chats. `ChatBan` and `ChatBanProperty` (with history support);
+  `handle_chat_ban_get`, `handle_chat_ban_changes` and
+  `handle_chat_ban_set`, registered with the other chat handlers, the
+  history-aware set and the conditional attach; `ChatBackend` hooks
+  `create_chat_ban` (stores the ban and removes the user from `members`),
+  `update_chat_ban` and `destroy_chat_ban`, with defaults over the
+  generic object methods; `Chat/set` `addMembers` naming a banned user is
+  `forbidden`; `sweep_expired` lifts expired bans; client
+  `chat_ban_get`/`_changes`/`_create`/`_update`/`_destroy` with
+  `ChatBanCreateInput` and `ChatBanPatch`; a `ChatBan` row in
+  `jmap_types::data_types`. (bd:JMAP-it7g.1)
+
 - **jmap-metadata-server**: `ChangedProperties::record_created`, for a
   backend that lists an id created in the `/changes` window in `updated`
   too (RFC 8620 §5.2): such an id is never metadata-only (-05 §3.3).

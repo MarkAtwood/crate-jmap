@@ -328,6 +328,54 @@ impl Chat {
     }
 }
 
+/// A ban preventing a user from being a member of a group Chat
+/// (draft-atwood-jmap-chat-00 §ChatBan).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChatBan {
+    /// The `id` property (draft-atwood-jmap-chat-00 §ChatBan).
+    pub id: Id,
+    /// The `chatId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    pub chat_id: Id,
+    /// The `userId` property (draft-atwood-jmap-chat-00 §ChatBan).
+    pub user_id: Id,
+    /// The `bannedBy` property (draft-atwood-jmap-chat-00 §ChatBan).
+    pub banned_by: Id,
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    pub created_at: UTCDate,
+    /// The `reason` property (draft-atwood-jmap-chat-00 §ChatBan).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §ChatBan).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<UTCDate>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl ChatBan {
+    /// Construct a [`ChatBan`] from its required server-set and client-provided fields.
+    ///
+    /// `reason` and `expires_at` default to `None`.
+    pub fn new(id: Id, chat_id: Id, user_id: Id, banned_by: Id, created_at: UTCDate) -> Self {
+        Self {
+            id,
+            chat_id,
+            user_id,
+            banned_by,
+            created_at,
+            reason: None,
+            expires_at: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -694,5 +742,45 @@ mod tests {
         assert_eq!(chat.metadata, None);
         raw["metadata"] = serde_json::json!(["x"]);
         assert!(serde_json::from_value::<Chat>(raw).is_err());
+    }
+
+    // Oracle: spec §ChatBan — `reason` and `expiresAt` are optional and
+    // absent means None.
+    #[test]
+    fn chat_ban_no_reason() {
+        let json = r#"{
+            "id": "ban1",
+            "chatId": "c1",
+            "userId": "u2",
+            "bannedBy": "u1",
+            "createdAt": "2024-02-20T08:00:00Z"
+        }"#;
+        let ban: ChatBan = serde_json::from_str(json).expect("deserialize ChatBan");
+        assert_eq!(ban.chat_id.as_ref(), "c1");
+        assert_eq!(ban.reason, None);
+        assert_eq!(ban.expires_at, None);
+    }
+
+    // Oracle: spec §ChatBan — all fields round-trip through JSON, and a
+    // vendor field is preserved.
+    #[test]
+    fn chat_ban_roundtrip() {
+        let raw = serde_json::json!({
+            "id": "ban2",
+            "chatId": "c1",
+            "userId": "u3",
+            "bannedBy": "u1",
+            "createdAt": "2024-02-21T09:00:00Z",
+            "reason": "Spam",
+            "expiresAt": "2024-03-21T09:00:00Z",
+            "acmeCorpCaseId": "abuse-42"
+        });
+        let ban: ChatBan = serde_json::from_value(raw.clone()).expect("deserialize ChatBan");
+        assert_eq!(ban.reason.as_deref(), Some("Spam"));
+        assert_eq!(
+            ban.expires_at.as_ref().map(AsRef::as_ref),
+            Some("2024-03-21T09:00:00Z")
+        );
+        assert_eq!(serde_json::to_value(&ban).expect("serialize ChatBan"), raw);
     }
 }

@@ -2,7 +2,7 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use jmap_chat_types::{Chat, Message, PresenceStatus};
+use jmap_chat_types::{Chat, ChatBan, Message, PresenceStatus};
 use jmap_types::{Id, PatchObject, UTCDate};
 use serde_json::{Map, Value, json};
 
@@ -35,6 +35,10 @@ use jmap_server::BackendSetError;
 /// - §PresenceStatus `expiresAt`: "the server SHOULD clear `statusText`
 ///   and `statusEmoji` (setting them to null) at this time, and SHOULD
 ///   reset `presence` to `"online"`."
+/// - §ChatBan `expiresAt`: "If present, the ban expires at this time and
+///   the server MUST lift it." The ban is destroyed through
+///   [`ChatBackend::destroy_chat_ban`]; as for a `ChatBan/set` destroy,
+///   "Lifting a ban does not add the user back to the Chat."
 ///
 /// Messages are hard-deleted through [`ChatBackend::expire_message`],
 /// after which each affected Chat's derived §Chat `unreadCount` is
@@ -47,7 +51,7 @@ use jmap_server::BackendSetError;
 ///
 /// A stored date that does not parse as a UTCDate never counts as passed.
 ///
-/// ponytail: loads every Message, Chat and PresenceStatus of the account
+/// ponytail: loads every Message, Chat, PresenceStatus and ChatBan of the account
 /// on each run, so a sweep is O(records). A backend with many messages
 /// should index the deadlines itself and call
 /// [`ChatBackend::expire_message`] directly.
@@ -140,6 +144,18 @@ pub async fn sweep_expired<B: ChatBackend>(
             ]);
             backend
                 .update_object::<PresenceStatus>(caller, account_id, &status.id, patch)
+                .await?;
+        }
+    }
+
+    let (bans, _) = backend
+        .get_objects::<ChatBan>(caller, account_id, None, None)
+        .await
+        .map_err(BackendSetError::Other)?;
+    for ban in &bans {
+        if ban.expires_at.as_ref().is_some_and(|t| passed(t, 0)) {
+            backend
+                .destroy_chat_ban(caller, account_id, &ban.id)
                 .await?;
         }
     }

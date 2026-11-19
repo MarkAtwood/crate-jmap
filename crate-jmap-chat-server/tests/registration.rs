@@ -62,6 +62,9 @@ const SPEC_METHODS: &[&str] = &[
     "SpaceBan/get",
     "SpaceBan/changes",
     "SpaceBan/set",
+    "ChatBan/get",
+    "ChatBan/changes",
+    "ChatBan/set",
 ];
 
 async fn call(method: &str) -> JmapResponse {

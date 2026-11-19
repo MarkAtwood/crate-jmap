@@ -190,6 +190,13 @@ const LATER_REGISTRATIONS: &[(&str, &str, &str, &str, &str)] = &[
         "draft-atwood-jmap-chat-00",
     ),
     (
+        "ChatBan",
+        "No",
+        "Yes",
+        "urn:ietf:params:jmap:chat",
+        "draft-atwood-jmap-chat-00",
+    ),
+    (
         "ReadPosition",
         "No",
         "Yes",
@@ -312,6 +319,7 @@ const ATWOOD_HISTORY_YES: &[&str] = &[
     "ChatContact",
     "CustomEmoji",
     "SpaceBan",
+    "ChatBan",
     "SpaceInvite",
     "Graph",
     "GraphNode",

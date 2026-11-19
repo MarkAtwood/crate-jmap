@@ -16,7 +16,7 @@ invite-use accounting).
 ## What it's for
 
 Implements the JMAP Chat extension (draft-atwood-jmap-chat-00) — Chat,
-Message, Space, ChatContact, ReadPosition, SpaceInvite, SpaceBan,
+Message, Space, ChatContact, ReadPosition, SpaceInvite, SpaceBan, ChatBan,
 CustomEmoji, and PresenceStatus objects — so consumers can wire chat method
 dispatch into their HTTP transport. Sibling to `jmap-mail-server` (the
 canonical extension-server template) and the other `jmap-*-server` crates;
@@ -75,6 +75,7 @@ Each request's `CallerCtx` value is forwarded into the handler closure (see
 | `ReadPosition` | `get`, `changes`, `set` |
 | `SpaceInvite` | `get`, `changes`, `set` |
 | `SpaceBan` | `get`, `changes`, `set` |
+| `ChatBan` | `get`, `changes`, `set` |
 | `CustomEmoji` | `get`, `changes`, `query`, `queryChanges`, `set` |
 | `PresenceStatus` | `get`, `changes`, `set` |
 
@@ -320,6 +321,29 @@ draft-atwood-jmap-chat-00 mandates the server to reject. Denials are
    (`may_get_space_invite`). Members with `ban` see all SpaceBans of
    the Space; a banned user sees only their own (`may_get_space_ban`).
 
+### ChatBan/set and ChatBan/get (§ChatBan Methods)
+
+6a. **ChatBan create "requires the `"admin"` role in the Chat, and the
+   Chat MUST be a group Chat"**, else `forbidden`; update and destroy
+   require the admin role too. The handler reads the role from the
+   stored Chat's `members`, as the `Chat/set` member keys do. A `chatId`
+   naming no Chat is `invalidProperties`, and the owner banning
+   themselves is `forbidden` (the draft is silent; the owner leaves with
+   `removeMembers`). Admins see all bans of their Chat; the banned user
+   sees bans whose `userId` is the accountId.
+
+6b. **Writes go through backend hooks.** `create_chat_ban` stores the ban
+   and removes the user from `members` ("as `removeMembers` would",
+   reporting the `removeMembers` group update); `update_chat_ban` and
+   `destroy_chat_ban` take the update and the lift ("Lifting a ban does
+   not add the user back"). The defaults use `create_object`,
+   `update_object` and `destroy_object`; a backend that binds Chats to a
+   MIMI room overrides them to emit the room commits.
+
+6c. **`addMembers` naming a user with a ChatBan in force is `forbidden`**
+   (§ChatBan/set: "while the ban lasts"). `sweep_expired` lifts bans whose
+   `expiresAt` has passed through `destroy_chat_ban`.
+
 ### Message/set and Message reads (§Message/set, §Message/query)
 
 7. **Sender membership and `send`.** "The server SHOULD verify the
@@ -420,7 +444,7 @@ beyond the standard invocation envelope.
 `register_chat_conditional(dispatcher, backend)`, called after
 `register_chat_handlers`, attaches `SetSupport` to each registered chat `/set`
 (Chat, Message, Space, ChatContact, ReadPosition, SpaceInvite, SpaceBan,
-CustomEmoji, PresenceStatus) and skips the rest; it re-registers nothing, and a
+ChatBan, CustomEmoji, PresenceStatus) and skips the rest; it re-registers nothing, and a
 deployment that never calls it is unchanged (docs/design/DECISIONS.md decisions 1
 and 17). For `PushSubscription/set` call
 `jmap_server::register_push_subscription_conditional` too. Advertise
@@ -466,7 +490,7 @@ Backends that don't need an auth identity use `type CallerCtx = ();` and a
 `register_chat_handlers_with_history(dispatcher, backend)`, for a backend
 that also implements `jmap_server::ObjectHistoryBackend`, calls
 `register_chat_handlers` and re-registers history-aware `/get` and `/set`
-of Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan and
+of Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, ChatBan and
 SpaceInvite and `/query`, `/queryChanges` of the first five (each wraps
 the unchanged plain handler). ReadPosition and PresenceStatus keep no
 history, so the dispatcher refuses history arguments for them

@@ -116,6 +116,14 @@ pub const DATA_TYPES: &[DataTypeEntry] = &[
         "draft-atwood-jmap-chat-00",
     ),
     row(
+        "ChatBan",
+        "urn:ietf:params:jmap:chat",
+        false,
+        true,
+        true,
+        "draft-atwood-jmap-chat-00",
+    ),
+    row(
         "ChatContact",
         "urn:ietf:params:jmap:chat",
         false,

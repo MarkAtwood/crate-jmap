@@ -150,6 +150,7 @@ src/
     message.rs      Message/get, Message/set, Message/query, Message/changes
     space.rs        Space/get, Space/set, Space/query, Space/changes
     space_ban.rs    SpaceBan/* sub-operations
+    chat_ban.rs     ChatBan/* sub-operations
     space_invite.rs SpaceInvite/* sub-operations
     contact.rs      ChatContact/get, ChatContact/set
     custom_emoji.rs CustomEmoji/* methods

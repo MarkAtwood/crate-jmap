@@ -26,7 +26,7 @@ parsing, generic handlers and the restore phase. Each data-type server crate opt
 Conditional-02 adopts the same opt-in pattern (decision 1) and composes with it (§9).
 
 First-round scope (decision 5): the 11 Table 1 "Yes" types; Task and TaskList; and Mark's private
-types Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite (chat), Graph, GraphNode,
+types Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, ChatBan, SpaceInvite (chat), Graph, GraphNode,
 GraphEdge (graph), SceneAsset, SceneRegion, SceneObject (scene), VTCCall, VTCRecording, VTCLivestream
 (vtc); the private-type list is confirmed by decision 22. Excluded (decision 22): GraphNodeOp,
 PresenceStatus, ReadPosition, SceneAvatar, VTCParticipant and TaskNotification, which are log,
@@ -290,7 +290,7 @@ handler-side checks (`reject_unsupported_sort`, metadata filter gating) still ru
 Destroyed `/query` exists only for types with a `/query`: Mailbox, Email, SieveScript (handler-side, §9), ContactCard,
 CalendarEvent, FileNode, Task, Chat, Message, Space, ChatContact, CustomEmoji, Graph, GraphNode, GraphEdge, SceneAsset,
 SceneRegion, SceneObject, VTCCall, VTCRecording and VTCLivestream. Identity, VacationResponse, AddressBook, Calendar,
-ParticipantIdentity, TaskList, SpaceBan and SpaceInvite have none.
+ParticipantIdentity, TaskList, SpaceBan, ChatBan and SpaceInvite have none.
 
 **Foo/queryChanges.** -04 §4 adds `onlyDestroyed`, `destroyedAfter` and `destroyedBefore` to `Foo/queryChanges`,
 with the values the client passed to `Foo/query`, rejected with `invalidArguments` in the same cases. So
@@ -511,7 +511,8 @@ clash ⇒ `alreadyExists`, parent-first restore order; the inherited-rights move
   from Mark's own updated Tasks draft (decision 23, JMAP-jkl8.9: TaskList, Task, TaskNotification with Supports
   History Yes, Yes, No), not from an upstream ask; until it exists Task/TaskList sit on OHT's pending list, and bead
   H24 moves them to the registry.
-- chat: Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, SpaceInvite. SpaceBan and SpaceInvite have no `/query`.
+- chat: Chat, Message, Space, ChatContact, CustomEmoji, SpaceBan, ChatBan, SpaceInvite. SpaceBan, ChatBan and SpaceInvite
+  have no `/query`.
   Message history follows the chat-00 purge rule (§2, decision 22). A Space destroy cascades to its channel Chats and
   their Messages, and chat-00 says it "Hard-deletes all records; no tombstones are retained", so the destroy also purges
   the history of the Space and everything in it, and none of it can be restored (decision 22; §2). A Space restore is

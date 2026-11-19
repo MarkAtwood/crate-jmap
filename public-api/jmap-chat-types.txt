@@ -82,6 +82,24 @@ impl serde_core::ser::Serialize for jmap_chat_types::ChannelPermissionTargetType
 pub fn jmap_chat_types::ChannelPermissionTargetType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
 impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChannelPermissionTargetType
 pub fn jmap_chat_types::ChannelPermissionTargetType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_chat_types::ChatBanProperty
+pub jmap_chat_types::ChatBanProperty::BannedBy
+pub jmap_chat_types::ChatBanProperty::ChatId
+pub jmap_chat_types::ChatBanProperty::CreatedAt
+pub jmap_chat_types::ChatBanProperty::ExpiresAt
+pub jmap_chat_types::ChatBanProperty::Id
+pub jmap_chat_types::ChatBanProperty::Reason
+pub jmap_chat_types::ChatBanProperty::UserId
+impl core::clone::Clone for jmap_chat_types::ChatBanProperty
+pub fn jmap_chat_types::ChatBanProperty::clone(&self) -> jmap_chat_types::ChatBanProperty
+impl core::cmp::Eq for jmap_chat_types::ChatBanProperty
+impl core::cmp::PartialEq for jmap_chat_types::ChatBanProperty
+pub fn jmap_chat_types::ChatBanProperty::eq(&self, &jmap_chat_types::ChatBanProperty) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatBanProperty
+pub fn jmap_chat_types::ChatBanProperty::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_chat_types::ChatBanProperty
+pub fn jmap_chat_types::ChatBanProperty::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatBanProperty
 #[non_exhaustive] pub enum jmap_chat_types::ChatCapabilityRole
 pub jmap_chat_types::ChatCapabilityRole::Other(alloc::string::String)
 pub jmap_chat_types::ChatCapabilityRole::Owner
@@ -1022,6 +1040,38 @@ impl<'de> jmap_chat_types::Chat
 pub fn jmap_chat_types::Chat::deserialize<__D>(__D) -> core::result::Result<jmap_chat_types::Chat, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::Chat
 pub fn jmap_chat_types::Chat::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_chat_types::ChatBan
+pub jmap_chat_types::ChatBan::banned_by: jmap_types::id::Id
+pub jmap_chat_types::ChatBan::chat_id: jmap_types::id::Id
+pub jmap_chat_types::ChatBan::created_at: jmap_types::id::UTCDate
+pub jmap_chat_types::ChatBan::expires_at: core::option::Option<jmap_types::id::UTCDate>
+pub jmap_chat_types::ChatBan::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_chat_types::ChatBan::id: jmap_types::id::Id
+pub jmap_chat_types::ChatBan::reason: core::option::Option<alloc::string::String>
+pub jmap_chat_types::ChatBan::user_id: jmap_types::id::Id
+impl jmap_chat_types::ChatBan
+pub fn jmap_chat_types::ChatBan::new(jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::Id, jmap_types::id::UTCDate) -> Self
+impl core::clone::Clone for jmap_chat_types::ChatBan
+pub fn jmap_chat_types::ChatBan::clone(&self) -> jmap_chat_types::ChatBan
+impl core::cmp::PartialEq for jmap_chat_types::ChatBan
+pub fn jmap_chat_types::ChatBan::eq(&self, &jmap_chat_types::ChatBan) -> bool
+impl core::fmt::Debug for jmap_chat_types::ChatBan
+pub fn jmap_chat_types::ChatBan::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_chat_types::ChatBan
+impl jmap_object_history_types::HistoryObject for jmap_chat_types::ChatBan
+impl jmap_types::backend::GetObject for jmap_chat_types::ChatBan
+impl jmap_types::backend::JmapObject for jmap_chat_types::ChatBan
+pub type jmap_chat_types::ChatBan::Property = jmap_chat_types::ChatBanProperty
+pub const jmap_chat_types::ChatBan::TYPE_NAME: &'static str
+impl jmap_types::backend::SetObject for jmap_chat_types::ChatBan
+pub type jmap_chat_types::ChatBan::Patch = jmap_types::patch::PatchObject
+pub const jmap_chat_types::ChatBan::CLIENT_SETTABLE: &'static [&'static str]
+pub const jmap_chat_types::ChatBan::IMMUTABLE: &'static [&'static str]
+pub const jmap_chat_types::ChatBan::SERVER_SET: &'static [&'static str]
+impl serde_core::ser::Serialize for jmap_chat_types::ChatBan
+pub fn jmap_chat_types::ChatBan::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_types::ChatBan
+pub fn jmap_chat_types::ChatBan::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_chat_types::ChatCalendarsCapability
 pub jmap_chat_types::ChatCalendarsCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_chat_types::ChatCalendarsCapability::may_bind_calendar: bool
