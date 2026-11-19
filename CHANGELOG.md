@@ -857,6 +857,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server** (wire): the dispatcher rejects an `ifInState`,
+  `ifFromInState` or `destroyFromIfInState` that is not a string or null
+  with `invalidArguments` for every method (RFC 8620 §5.3, §5.4). Handlers
+  across the workspace read a non-string value as absent and wrote
+  unconditionally. (bd:JMAP-q2wa.53)
 - **jmap-mail-server** (wire): `fetchTextBodyValues` /
   `fetchHTMLBodyValues` return values only for the "text/*" parts of
   `textBody` / `htmlBody` (an inline image there got one), and the memory

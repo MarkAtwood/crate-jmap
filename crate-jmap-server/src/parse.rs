@@ -279,6 +279,25 @@ pub(crate) fn check_filter_depth(args: &Value) -> Result<(), JmapError> {
     }
 }
 
+/// The state arguments RFC 8620 types as `String|null`: `ifInState`
+/// (§5.3, §5.4), `ifFromInState` and `destroyFromIfInState` (§5.4). Any
+/// other JSON type is `invalidArguments` for every method, before a handler
+/// could read it as absent and write unconditionally.
+pub(crate) fn check_state_arguments(args: &Value) -> Result<(), JmapError> {
+    for key in ["ifInState", "ifFromInState", "destroyFromIfInState"] {
+        match args.get(key) {
+            None | Some(Value::Null | Value::String(_)) => {}
+            Some(v) => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "{key}: expected a string or null, got {}",
+                    crate::json_type_name(v)
+                )));
+            }
+        }
+    }
+    Ok(())
+}
+
 /// `true` if `filter` (an RFC 8620 §5.5 FilterOperator or
 /// FilterCondition) has more than `levels` nested `conditions` arrays. A
 /// bare FilterCondition is depth 0; each enclosing operator adds one.

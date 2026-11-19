@@ -519,6 +519,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             // Resolve ResultReferences from prior responses.
             if let Err(e) = resolve_args(&mut args, &method_responses)
                 .and_then(|()| parse::check_filter_depth(&args))
+                .and_then(|()| parse::check_state_arguments(&args))
             {
                 method_responses.push(error_invocation(&call_id, e));
                 continue;
@@ -955,6 +956,39 @@ mod tests {
             slot.lock().expect("test: mutex poisoned").is_none(),
             "handler must not run on a refused filter"
         );
+    }
+
+    /// Oracle: RFC 8620 §5.3 / §5.4 type `ifInState`, `ifFromInState` and
+    /// `destroyFromIfInState` as `String|null`; any other value is refused
+    /// with invalidArguments before the handler runs (it would otherwise
+    /// read a number as "absent" and write unconditionally).
+    #[tokio::test]
+    async fn non_string_state_arguments_are_invalid_arguments() {
+        for key in ["ifInState", "ifFromInState", "destroyFromIfInState"] {
+            let slot = Arc::new(Mutex::new(None));
+            let mut d: Dispatcher<String> = Dispatcher::new();
+            d.register("Foo/copy", Arc::new(CaptureArgsHandler(slot.clone())));
+            let req = single_call("Foo/copy", json!({ key: 5 }), "c0");
+            let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+            let Invocation {
+                name, arguments, ..
+            } = &resp.method_responses[0];
+            assert_eq!(name, "error", "{key}");
+            assert_eq!(arguments["type"], "invalidArguments", "{key}");
+            assert!(
+                slot.lock().expect("test: mutex poisoned").is_none(),
+                "{key}"
+            );
+
+            let slot = Arc::new(Mutex::new(None));
+            let mut d: Dispatcher<String> = Dispatcher::new();
+            d.register("Foo/copy", Arc::new(CaptureArgsHandler(slot.clone())));
+            for ok in [json!(null), json!("s1")] {
+                let req = single_call("Foo/copy", json!({ key: ok }), "c0");
+                let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+                assert_eq!(resp.method_responses[0].name, "Foo/copy", "{key}");
+            }
+        }
     }
 
     /// Positive control for the cap: 32 operator levels, the documented
