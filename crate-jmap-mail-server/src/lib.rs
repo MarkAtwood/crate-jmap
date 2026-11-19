@@ -60,6 +60,8 @@ use jmap_server::{
 
 mod backend;
 mod email;
+#[cfg(feature = "emailpush")]
+pub mod emailpush;
 #[cfg(feature = "mdn")]
 pub mod mdn;
 /// In-memory reference implementation of [`MailBackend`].
@@ -70,6 +72,8 @@ pub mod mdn;
 pub mod memory;
 #[cfg(feature = "sieve")]
 mod sieve;
+#[cfg(feature = "emailpush")]
+pub use jmap_mail_types::JMAP_EMAILPUSH_URI;
 #[cfg(feature = "mdn")]
 pub use jmap_mail_types::JMAP_MDN_URI;
 #[cfg(feature = "sieve")]
@@ -78,7 +82,10 @@ pub use jmap_mail_types::JMAP_SIEVE_SCRIPTS_URI;
 pub use sieve::SieveBackend;
 #[cfg(feature = "sieve")]
 pub use sieve::{handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate};
-#[cfg(feature = "memory")]
+#[cfg(any(feature = "memory", feature = "emailpush"))]
+// Without `memory`, only EmailPush delivery (bd JMAP-r44n.1) will call the
+// evaluator.
+#[cfg_attr(not(feature = "memory"), allow(dead_code))]
 mod filter;
 mod helpers;
 mod history;

@@ -12,6 +12,10 @@ categories = ["network-programming", "web-programming::http-server"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [features]
+# draft-ietf-jmap-emailpush-05: EmailPushBackend, validation and delivery
+# (`pub mod emailpush`). jmap-metadata-server provides the case-insensitive
+# text matching of the filter evaluator.
+emailpush = ["jmap-mail-types/emailpush", "dep:jmap-metadata-server"]
 mdn = ["jmap-mail-types/mdn"]
 sieve = ["jmap-mail-types/sieve"]
 # Public, feature-gated in-memory reference implementation of MailBackend
@@ -58,4 +62,4 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # them to downstream users by default.
 # Path-only, no version: cargo drops it on publish, so it never has to
 # resolve against crates.io versions that lack these features (JMAP-31o4).
-jmap-mail-server = { path = ".", features = ["memory", "mdn", "sieve"] }
+jmap-mail-server = { path = ".", features = ["memory", "mdn", "sieve", "emailpush"] }

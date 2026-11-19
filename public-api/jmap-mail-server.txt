@@ -2,6 +2,7 @@ pub mod jmap_mail_server
 pub use jmap_mail_server::EmailProperty
 pub use jmap_mail_server::EmailSubmissionProperty
 pub use jmap_mail_server::IdentityProperty
+pub use jmap_mail_server::JMAP_EMAILPUSH_URI
 pub use jmap_mail_server::JMAP_MAIL_URI
 pub use jmap_mail_server::JMAP_MDN_URI
 pub use jmap_mail_server::JMAP_SIEVE_SCRIPTS_URI
@@ -11,6 +12,90 @@ pub use jmap_mail_server::MailboxProperty
 pub use jmap_mail_server::SearchSnippetProperty
 pub use jmap_mail_server::ThreadProperty
 pub use jmap_mail_server::VacationResponseProperty
+pub mod jmap_mail_server::emailpush
+#[non_exhaustive] pub enum jmap_mail_server::emailpush::EmailCondition
+pub jmap_mail_server::emailpush::EmailCondition::After
+pub jmap_mail_server::emailpush::EmailCondition::AllInThreadHaveKeyword
+pub jmap_mail_server::emailpush::EmailCondition::Bcc
+pub jmap_mail_server::emailpush::EmailCondition::Before
+pub jmap_mail_server::emailpush::EmailCondition::Body
+pub jmap_mail_server::emailpush::EmailCondition::Cc
+pub jmap_mail_server::emailpush::EmailCondition::From
+pub jmap_mail_server::emailpush::EmailCondition::HasAttachment
+pub jmap_mail_server::emailpush::EmailCondition::HasKeyword
+pub jmap_mail_server::emailpush::EmailCondition::Header
+pub jmap_mail_server::emailpush::EmailCondition::InMailbox
+pub jmap_mail_server::emailpush::EmailCondition::InMailboxOtherThan
+pub jmap_mail_server::emailpush::EmailCondition::MaxSize
+pub jmap_mail_server::emailpush::EmailCondition::MetadataExists
+pub jmap_mail_server::emailpush::EmailCondition::MetadataTextContains
+pub jmap_mail_server::emailpush::EmailCondition::MetadataTextEquals
+pub jmap_mail_server::emailpush::EmailCondition::MinSize
+pub jmap_mail_server::emailpush::EmailCondition::NoneInThreadHaveKeyword
+pub jmap_mail_server::emailpush::EmailCondition::NotKeyword
+pub jmap_mail_server::emailpush::EmailCondition::PrivateMetadataExists
+pub jmap_mail_server::emailpush::EmailCondition::PrivateMetadataTextContains
+pub jmap_mail_server::emailpush::EmailCondition::PrivateMetadataTextEquals
+pub jmap_mail_server::emailpush::EmailCondition::SomeInThreadHaveKeyword
+pub jmap_mail_server::emailpush::EmailCondition::Subject
+pub jmap_mail_server::emailpush::EmailCondition::Text
+pub jmap_mail_server::emailpush::EmailCondition::To
+impl jmap_mail_server::emailpush::EmailCondition
+pub fn jmap_mail_server::emailpush::EmailCondition::is_metadata(self) -> bool
+impl core::clone::Clone for jmap_mail_server::emailpush::EmailCondition
+pub fn jmap_mail_server::emailpush::EmailCondition::clone(&self) -> jmap_mail_server::emailpush::EmailCondition
+impl core::cmp::Eq for jmap_mail_server::emailpush::EmailCondition
+impl core::cmp::Ord for jmap_mail_server::emailpush::EmailCondition
+pub fn jmap_mail_server::emailpush::EmailCondition::cmp(&self, &jmap_mail_server::emailpush::EmailCondition) -> core::cmp::Ordering
+impl core::cmp::PartialEq for jmap_mail_server::emailpush::EmailCondition
+pub fn jmap_mail_server::emailpush::EmailCondition::eq(&self, &jmap_mail_server::emailpush::EmailCondition) -> bool
+impl core::cmp::PartialOrd for jmap_mail_server::emailpush::EmailCondition
+pub fn jmap_mail_server::emailpush::EmailCondition::partial_cmp(&self, &jmap_mail_server::emailpush::EmailCondition) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for jmap_mail_server::emailpush::EmailCondition
+pub fn jmap_mail_server::emailpush::EmailCondition::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_mail_server::emailpush::EmailCondition
+pub fn jmap_mail_server::emailpush::EmailCondition::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for jmap_mail_server::emailpush::EmailCondition
+impl core::marker::StructuralPartialEq for jmap_mail_server::emailpush::EmailCondition
+#[non_exhaustive] pub enum jmap_mail_server::emailpush::EmailPushError
+pub jmap_mail_server::emailpush::EmailPushError::LimitTooSmall
+pub jmap_mail_server::emailpush::EmailPushError::MissingThreadKeywords
+impl core::clone::Clone for jmap_mail_server::emailpush::EmailPushError
+pub fn jmap_mail_server::emailpush::EmailPushError::clone(&self) -> jmap_mail_server::emailpush::EmailPushError
+impl core::cmp::Eq for jmap_mail_server::emailpush::EmailPushError
+impl core::cmp::PartialEq for jmap_mail_server::emailpush::EmailPushError
+pub fn jmap_mail_server::emailpush::EmailPushError::eq(&self, &jmap_mail_server::emailpush::EmailPushError) -> bool
+impl core::error::Error for jmap_mail_server::emailpush::EmailPushError
+impl core::fmt::Debug for jmap_mail_server::emailpush::EmailPushError
+pub fn jmap_mail_server::emailpush::EmailPushError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_mail_server::emailpush::EmailPushError
+pub fn jmap_mail_server::emailpush::EmailPushError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_mail_server::emailpush::EmailPushError
+impl core::marker::StructuralPartialEq for jmap_mail_server::emailpush::EmailPushError
+#[non_exhaustive] pub struct jmap_mail_server::emailpush::EmailPushAccount
+pub jmap_mail_server::emailpush::EmailPushAccount::email_history: bool
+pub jmap_mail_server::emailpush::EmailPushAccount::filter_conditions: alloc::collections::btree::set::BTreeSet<jmap_mail_server::emailpush::EmailCondition>
+pub jmap_mail_server::emailpush::EmailPushAccount::mail: bool
+pub jmap_mail_server::emailpush::EmailPushAccount::object_ids: bool
+pub jmap_mail_server::emailpush::EmailPushAccount::properties: alloc::collections::btree::set::BTreeSet<alloc::string::String>
+impl jmap_mail_server::emailpush::EmailPushAccount
+pub fn jmap_mail_server::emailpush::EmailPushAccount::new(bool) -> Self
+pub fn jmap_mail_server::emailpush::EmailPushAccount::with_email_history(self, bool) -> Self
+pub fn jmap_mail_server::emailpush::EmailPushAccount::with_filter_conditions(self, impl core::iter::traits::collect::IntoIterator<Item = jmap_mail_server::emailpush::EmailCondition>) -> Self
+pub fn jmap_mail_server::emailpush::EmailPushAccount::with_object_ids(self, bool) -> Self
+pub fn jmap_mail_server::emailpush::EmailPushAccount::with_properties<S: core::convert::Into<alloc::string::String>>(self, impl core::iter::traits::collect::IntoIterator<Item = S>) -> Self
+impl core::clone::Clone for jmap_mail_server::emailpush::EmailPushAccount
+pub fn jmap_mail_server::emailpush::EmailPushAccount::clone(&self) -> jmap_mail_server::emailpush::EmailPushAccount
+impl core::cmp::Eq for jmap_mail_server::emailpush::EmailPushAccount
+impl core::cmp::PartialEq for jmap_mail_server::emailpush::EmailPushAccount
+pub fn jmap_mail_server::emailpush::EmailPushAccount::eq(&self, &jmap_mail_server::emailpush::EmailPushAccount) -> bool
+impl core::default::Default for jmap_mail_server::emailpush::EmailPushAccount
+pub fn jmap_mail_server::emailpush::EmailPushAccount::default() -> jmap_mail_server::emailpush::EmailPushAccount
+impl core::fmt::Debug for jmap_mail_server::emailpush::EmailPushAccount
+pub fn jmap_mail_server::emailpush::EmailPushAccount::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_mail_server::emailpush::EmailPushAccount
+pub trait jmap_mail_server::emailpush::EmailPushBackend: jmap_server::push::PushSubscriptionBackend
+pub fn jmap_mail_server::emailpush::EmailPushBackend::email_push_accounts(&self, &Self::CallerCtx) -> impl core::future::future::Future<Output = core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_mail_server::emailpush::EmailPushAccount>, Self::Error>> + core::marker::Send
 pub mod jmap_mail_server::mdn
 #[non_exhaustive] pub struct jmap_mail_server::mdn::MdnParseResult
 pub jmap_mail_server::mdn::MdnParseResult::not_found: alloc::vec::Vec<jmap_types::id::Id>

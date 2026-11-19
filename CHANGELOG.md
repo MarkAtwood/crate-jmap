@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-mail-server**: `emailpush` feature (draft-ietf-jmap-emailpush-05)
+  with `pub mod emailpush`: `EmailPushBackend` (a `PushSubscriptionBackend`,
+  not a `MailBackend` subtrait; required `email_push_accounts`),
+  `EmailPushAccount`, `EmailPushError`, `EmailCondition`; root re-export of
+  `JMAP_EMAILPUSH_URI`. Validation and delivery follow. (bd:JMAP-r44n.10)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,
