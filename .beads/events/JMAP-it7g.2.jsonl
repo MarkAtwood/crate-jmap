@@ -1,1 +1,2 @@
 {"id":"01a1f471-222b-7110-b1cb-bb3bcc6f607f","issue_id":"JMAP-it7g.2","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T15:33:37.451071515Z"}
+{"id":"01a1f4b7-2aaa-7dcc-9dff-6c7d523d7675","issue_id":"JMAP-it7g.2","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in 88c22776: kickMembers patch key via ChatBackend::kick_chat_members; default rejects with invalidProperties.","created_at":"2026-11-19T16:50:07.146905552Z"}

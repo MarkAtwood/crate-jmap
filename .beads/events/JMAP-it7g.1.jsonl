@@ -1,1 +1,2 @@
 {"id":"01a1f471-1da6-709b-ae7e-b8d889bdbbb0","issue_id":"JMAP-it7g.1","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T15:33:36.29404081Z"}
+{"id":"01a1f4b7-2863-7560-9b6c-d2d77753bb84","issue_id":"JMAP-it7g.1","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in f53460b1: ChatBan type, get/changes/set, MemoryBackend, ChatBackend create/update/destroy_chat_ban hooks, addMembers forbidden, expiry sweep, client methods, 9.2a/9.2b tests.","created_at":"2026-11-19T16:50:06.563354066Z"}

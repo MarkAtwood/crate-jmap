@@ -2,13 +2,15 @@
   "id": "JMAP-it7g.1",
   "title": "chat-types + chat-server: ChatBan type, ChatBan/get, /changes, /set, MemoryBackend storage, ChatBackend create/destroy hook; addMembers refuses banned users (forbidden)",
   "description": "chat-types + chat-server: ChatBan type, ChatBan/get, /changes, /set, MemoryBackend storage, ChatBackend create/destroy hook; addMembers refuses banned users (forbidden). Source: mimid session request 2026-11-19 (mimid-s2qc for embedding items).",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T15:33:36.290438927Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T15:33:36.290438927Z",
+  "updated_at": "2026-11-19T16:50:06.555928817Z",
+  "closed_at": "2026-11-19T16:50:06.555928817Z",
+  "close_reason": "Done in f53460b1: ChatBan type, get/changes/set, MemoryBackend, ChatBackend create/update/destroy_chat_ban hooks, addMembers forbidden, expiry sweep, client methods, 9.2a/9.2b tests.",
   "dependencies": [
     {
       "issue_id": "JMAP-it7g.1",

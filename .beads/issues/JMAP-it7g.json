@@ -2,12 +2,12 @@
   "id": "JMAP-it7g",
   "title": "mimid requests 2026-11-19: ChatBan, kickMembers, MemoryBackend embedding",
   "description": "Requests from the mimid session on Mark's decision (2026-11-19). Spec: jmap-chat-spec 516c61b (draft-atwood-jmap-chat-00 §ChatBan, §ChatBan Methods; draft-atwood-jmap-chat-mimi-00 §Moderation kickMembers). mimid drops Chat/kick, Chat/ban, Chat/unban after (mimid-1wgh.62). Embedding issues from mimid-s2qc.",
-  "notes": "CHECKPOINT 2026-11-19: it7g.7 done (3f39665a). it7g.1/.2 (ChatBan, kickMembers) in progress in a worktree agent. .3-.6 pending.",
+  "notes": "CHECKPOINT 2026-11-19: it7g.7 done (3f39665a). it7g.1/.2 (ChatBan, kickMembers) in progress in a worktree agent. .3-.6 pending.\nCHECKPOINT 2026-11-19: .1 (f53460b1), .2 (88c22776), .7 done and pushed. Follow-ups noted by implementer: federation Peer/deliver checks SpaceBan but not ChatBan for group senders; no object-URI registry so 'chatban' URI has no code; DECISIONS 22 lists seven chat history types (ChatBan now has history). Remaining: .3-.6.",
   "status": "open",
   "priority": 1,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T15:33:30.309194484Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T16:00:02.769261976Z"
+  "updated_at": "2026-11-19T16:50:07.439354142Z"
 }
