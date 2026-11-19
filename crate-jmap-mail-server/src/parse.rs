@@ -242,6 +242,26 @@ fn parse_address_list_via_mime_tree(s: &str) -> Vec<EmailAddress> {
     }
 }
 
+/// The partIds of the "text/*" leaf parts under `part`, in order.
+fn text_leaf_part_ids(part: &jmap_mail_types::EmailBodyPart, out: &mut Vec<String>) {
+    match &part.sub_parts {
+        Some(children) => {
+            for child in children {
+                text_leaf_part_ids(child, out);
+            }
+        }
+        None => {
+            let is_text = part
+                .type_
+                .as_deref()
+                .is_some_and(|t| t.len() >= 5 && t[..5].eq_ignore_ascii_case("text/"));
+            if is_text && let Some(id) = &part.part_id {
+                out.push(id.clone());
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod preview_tests {
     use super::parse_rfc5322_headers;
@@ -270,25 +290,5 @@ mod preview_tests {
             parse_rfc5322_headers(msg.as_bytes()).preview.unwrap().len(),
             256
         );
-    }
-}
-
-/// The partIds of the "text/*" leaf parts under `part`, in order.
-fn text_leaf_part_ids(part: &jmap_mail_types::EmailBodyPart, out: &mut Vec<String>) {
-    match &part.sub_parts {
-        Some(children) => {
-            for child in children {
-                text_leaf_part_ids(child, out);
-            }
-        }
-        None => {
-            let is_text = part
-                .type_
-                .as_deref()
-                .is_some_and(|t| t.len() >= 5 && t[..5].eq_ignore_ascii_case("text/"));
-            if is_text && let Some(id) = &part.part_id {
-                out.push(id.clone());
-            }
-        }
     }
 }
