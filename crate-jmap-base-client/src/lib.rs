@@ -71,6 +71,7 @@ mod error;
 mod i18n;
 mod iri;
 mod push;
+mod push_methods;
 mod query;
 mod request;
 mod sse;
@@ -97,6 +98,7 @@ pub use error::{
 pub use i18n::I18nSetting;
 pub use iri::{IriError, iri_to_uri, uri_to_iri};
 pub use push::StateChange;
+pub use push_methods::{PushSubscriptionGetResponse, PushSubscriptionSetResponse};
 pub use query::QueryParams;
 pub use request::{
     AccountInfo, AccountName, JmapRequestBuilder, JmapUrl, JmapUrlTemplate, Session, Username,

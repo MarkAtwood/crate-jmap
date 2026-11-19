@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-base-client**: `JmapClient::push_subscription_get` and
+  `push_subscription_set` (RFC 8620 §7.2.1, §7.2.2: no `accountId`, no
+  state), with `extra_using` for extension capabilities such as
+  `urn:ietf:params:jmap:emailpush`; `PushSubscriptionGetResponse`,
+  `PushSubscriptionSetResponse`. (bd:JMAP-r44n.9)
 - **jmap-mail-server**: `emailpush` feature (draft-ietf-jmap-emailpush-05)
   with `pub mod emailpush`: `EmailPushBackend` (a `PushSubscriptionBackend`,
   not a `MailBackend` subtrait; required `email_push_accounts`),
