@@ -2,13 +2,15 @@
   "id": "JMAP-q2wa.36",
   "title": "VacationResponse/set: failed patch on a fresh account destroys the singleton (panics with history)",
   "description": "vacation.rs:311 rollback of the upsert calls destroy_object::\u003cVacationResponse\u003e; memory/mod.rs:1795-1798 asserts the singleton is never destroyed -\u003e panic on the next update with history on; without history a destroyed id is reused. Also VacationResponse/get on such an account returns list [] notFound []. RFC 8621 §8 exactly one VacationResponse. (probe-confirmed) (mail-server review 2026-11-19)",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T05:32:40.020520625Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:32:40.020520625Z",
+  "updated_at": "2026-11-19T05:51:02.268429299Z",
+  "closed_at": "2026-11-19T05:51:02.268429299Z",
+  "close_reason": "Fixed with regression tests (tests/submission_envelope.rs, sieve_activate.rs, vacation_singleton.rs, mdn_integration.rs).",
   "dependencies": [
     {
       "issue_id": "JMAP-q2wa.36",

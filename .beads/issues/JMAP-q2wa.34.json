@@ -2,13 +2,15 @@
   "id": "JMAP-q2wa.34",
   "title": "SieveScript/set: onSuccessActivateScript with a nonexistent id deactivates the active script",
   "description": "sieve.rs:891-913, 953-958 deactivates before activating; target notFound is ignored. RFC 9661 §2.4: an invalid or nonexistent id \"MUST be ignored, and the currently active SieveScript (if any) will remain as such\". (probe-confirmed) (mail-server review 2026-11-19)",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T05:32:36.652912276Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:32:36.652912276Z",
+  "updated_at": "2026-11-19T05:50:59.872196782Z",
+  "closed_at": "2026-11-19T05:50:59.872196782Z",
+  "close_reason": "Fixed with regression tests (tests/submission_envelope.rs, sieve_activate.rs, vacation_singleton.rs, mdn_integration.rs).",
   "dependencies": [
     {
       "issue_id": "JMAP-q2wa.34",

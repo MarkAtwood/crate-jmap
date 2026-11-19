@@ -1,1 +1,2 @@
 {"id":"01a1f24a-e3b0-7b96-acf2-4f1ecc83e183","issue_id":"JMAP-q2wa.34","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T05:32:36.656760864Z"}
+{"id":"01a1f25b-b939-7522-8495-26405b81a788","issue_id":"JMAP-q2wa.34","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Fixed with regression tests (tests/submission_envelope.rs, sieve_activate.rs, vacation_singleton.rs, mdn_integration.rs).","created_at":"2026-11-19T05:50:59.897337881Z"}

@@ -2,13 +2,15 @@
   "id": "JMAP-q2wa.35",
   "title": "SieveScript/set: two scripts can end up active",
   "description": "sieve.rs:897 skips deactivating an active script the same call updated (e.g. rename), so update A + onSuccessActivateScript B leaves A and B active. RFC 9661 §2 at most one active script. (probe-confirmed) (mail-server review 2026-11-19)",
-  "status": "open",
+  "status": "closed",
   "priority": 1,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T05:32:38.310279936Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:32:38.310279936Z",
+  "updated_at": "2026-11-19T05:51:01.014207186Z",
+  "closed_at": "2026-11-19T05:51:01.014207186Z",
+  "close_reason": "Fixed with regression tests (tests/submission_envelope.rs, sieve_activate.rs, vacation_singleton.rs, mdn_integration.rs).",
   "dependencies": [
     {
       "issue_id": "JMAP-q2wa.35",
