@@ -53,7 +53,7 @@ use crate::helpers::{
 };
 use crate::project::{
     DEFAULT_EMAIL_GET_PROPERTIES, DEFAULT_EMAIL_PARSE_PROPERTIES, EmailProjection,
-    parse_header_property, take_body_args, validate_header_form,
+    is_email_get_property, parse_header_property, take_body_args, validate_header_form,
 };
 use jmap_server::{
     HandlerOutput, QueryChangesParams, QueryParams, backend_set_error_value, bool_arg,
@@ -150,6 +150,19 @@ where
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
     };
+
+    // RFC 8620 §5.1: "If an invalid property is requested, the call MUST
+    // be rejected with an "invalidArguments" error."
+    if let Some(props) = &properties {
+        let metadata = backend
+            .metadata_info::<Email>(caller, &account_id)
+            .is_some();
+        if let Some(bad) = props.iter().find(|p| !is_email_get_property(p, metadata)) {
+            return Err(JmapError::invalid_arguments(format!(
+                "properties: '{bad}' is not an Email property"
+            )));
+        }
+    }
 
     // RFC 8621 §4.2 — body-value fetch arguments (all default to false / 0 / default list).
     let (body_properties, body_fetch_args) = take_body_args(&mut args)?;

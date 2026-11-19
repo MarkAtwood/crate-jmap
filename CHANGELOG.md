@@ -846,6 +846,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `Email/get` rejects a `properties` name that
+  is not an Email property with `invalidArguments` (RFC 8620 §5.1 MUST);
+  it used to drop it. `metadata` / `privateMetadata` count only when the
+  backend lists Email for metadata; `objectHistory` only through the
+  history-aware Email/get. (bd:JMAP-r44n.15)
 - **jmap-mail-server** (wire, memory backend only): `Email/query` (and the
   `onlyDestroyed` query) now evaluates every RFC 8621 §4.4.1 condition
   through one shared evaluator. `maxSize`, `from`, `to`, `cc`, `bcc`,

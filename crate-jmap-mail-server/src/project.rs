@@ -729,8 +729,8 @@ pub(crate) fn check_email_property(name: &str) -> Result<(), String> {
 /// of the default list, `headers`, `bodyStructure` or a `header:` form,
 /// plus, when `metadata` (the backend lists Email for
 /// draft-ietf-jmap-metadata-05), `metadata`, `privateMetadata` and their
-/// `/<namespace>` subselectors. `objectHistory` is not included.
-#[cfg_attr(not(feature = "emailpush"), allow(dead_code))]
+/// `/<namespace>` subselectors. `objectHistory` is not included: the
+/// history-aware Email/get removes it before this check.
 pub(crate) fn is_email_get_property(name: &str, metadata: bool) -> bool {
     DEFAULT_EMAIL_GET_PROPERTIES.contains(&name)
         || matches!(name, "headers" | "bodyStructure")
