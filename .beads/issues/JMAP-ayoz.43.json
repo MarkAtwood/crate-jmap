@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-ayoz.43",
+  "title": "check_metadata_write: migration-case equality compares 1 and 1.0 as different",
+  "description": "§2.1.2: a complete replacement MAY include an unsupported namespace with a value equal to the stored one. serde_json == compares number representation, so stored {n:1.0} vs sent {n:1} was rejected as unsupported namespace.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T15:23:57.935564396Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T15:24:24.457241188Z",
+  "closed_at": "2026-11-19T15:24:24.457241188Z",
+  "close_reason": "Fixed in 317dbbf1 with regression tests.",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ayoz.43",
+      "depends_on_id": "JMAP-ayoz",
+      "type": "parent-child",
+      "created_at": "2026-11-19T15:23:58.279725223Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-ayoz.45",
+  "title": "ChangedProperties: no way to record a created id listed in updated",
+  "description": "§3.3 updatedProperties names metadata only if the only properties changed since the old state are metadata; a created id changed all. RFC 8620 §5.2 lets a backend list a created id in updated too; record() alone then reported [metadata]. Add record_created; workspace memory backends fold create+update to created, so unaffected.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T15:23:59.992195184Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T15:24:27.642466933Z",
+  "closed_at": "2026-11-19T15:24:27.642466933Z",
+  "close_reason": "Fixed in 317dbbf1 with regression tests.",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ayoz.45",
+      "depends_on_id": "JMAP-ayoz",
+      "type": "parent-child",
+      "created_at": "2026-11-19T15:24:00.313295537Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

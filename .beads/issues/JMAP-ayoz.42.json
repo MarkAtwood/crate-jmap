@@ -1,0 +1,24 @@
+{
+  "id": "JMAP-ayoz.42",
+  "title": "metadata filter: namespace part treated as RFC 6901 token (~ in namespace gives invalidArguments; invalid stored namespace key matches)",
+  "description": "§3.6: the path is a namespace identifier then a JSON Pointer; a string that is not a valid namespace identifier matches no objects and does not produce an error. is_well_formed_metadata_path unescaped the namespace token, so metadataExists \"acme~\" was invalidArguments; resolve_path looked up any stored key, so \"Acme.COM/x\" matched stored legacy data.",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "bug",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T15:23:56.955074308Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T15:24:22.834523154Z",
+  "closed_at": "2026-11-19T15:24:22.834523154Z",
+  "close_reason": "Fixed in 317dbbf1 with regression tests.",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-ayoz.42",
+      "depends_on_id": "JMAP-ayoz",
+      "type": "parent-child",
+      "created_at": "2026-11-19T15:23:57.291460064Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

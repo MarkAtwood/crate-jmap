@@ -1,0 +1,2 @@
+{"id":"01a1f468-4a73-7e93-b356-01abdce4900b","issue_id":"JMAP-ayoz.43","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T15:23:57.939956419Z"}
+{"id":"01a1f468-b211-73db-af3e-995541a6a61b","issue_id":"JMAP-ayoz.43","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Fixed in 317dbbf1 with regression tests.","created_at":"2026-11-19T15:24:24.465253937Z"}
