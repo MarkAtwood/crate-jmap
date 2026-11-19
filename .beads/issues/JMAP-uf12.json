@@ -2,11 +2,13 @@
   "id": "JMAP-uf12",
   "title": "chat-server: sweep_expired destroys SpaceBans past expiresAt",
   "description": "Oracle draft-atwood-jmap-chat-00 §SpaceBan: \"If present, the ban expires at this time and the server MUST restore the user's access.\" Compliance §9.2 (doc:609): run the expiry sweep, verify the ban is removed. Access checks already ignore expired bans (space.rs, federation deliver.rs); sweep_expired (expiry.rs) never destroys SpaceBans. Size S. From audit JMAP-x3lu (docs/audits/2026-11-19-x3lu/, jmap-chat-spec 120db2c).",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T19:41:05.251201229Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T19:41:05.251201229Z"
+  "updated_at": "2026-11-19T20:13:13.406060146Z",
+  "closed_at": "2026-11-19T20:13:13.406060146Z",
+  "close_reason": "Done on main (45b188e0)."
 }
