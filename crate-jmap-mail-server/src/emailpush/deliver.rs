@@ -8,6 +8,7 @@ use jmap_server::{StoredPushSubscription, is_deliverable};
 use jmap_types::{Id, State, Urgency};
 use serde_json::{Map, Value};
 
+use super::validate::{Metadata, check_config};
 use super::{EmailPushAccount, EmailPushError};
 use crate::filter::{FilterError, email_matches};
 use crate::project::project_email;
@@ -122,7 +123,11 @@ pub struct OutboundEmailPush {
 ///   objects until the PushSubscription has been verified");
 /// - it has no `keys` (-05 §6: the payload holds user data and must be
 ///   encrypted);
-/// - its `emailPush` has no valid config for `batch.account_id`;
+/// - its `emailPush` has no config for `batch.account_id`, or that config
+///   fails [`check_email_push_config`](super::check_email_push_config) for
+///   the live `batch.account` (a config written without
+///   `check_email_push_change`, or one an account change has made
+///   invalid, is never used);
 /// - no delivered Email matches the config's `filter`.
 ///
 /// It ignores the subscription's `types` (-05 §4: "regardless of the value
@@ -130,10 +135,24 @@ pub struct OutboundEmailPush {
 /// `properties` as Email/get would return them, `id` only when listed and
 /// never `objectHistory`.
 ///
+/// # Size limit
+///
+/// No EmailPush is longer than `batch.max_bytes` (-05 §3: "MUST NOT exceed
+/// the size limit of the push service"). Emails are packed in delivery
+/// order, starting a new EmailPush whenever the next would not fit ("MUST
+/// split them across multiple EmailPush objects"); every part carries the
+/// same `state`, the state after the whole batch. An Email too large to fit
+/// even alone goes out alone, with its properties added in the config's
+/// order until the next would not fit; that property and all later ones
+/// are left out, so its properties are a prefix of the list. No other Email
+/// is cut.
+///
 /// # Errors
 ///
-/// [`EmailPushError::MissingThreadKeywords`] when the filter has a thread
-/// condition and a delivered Email has no thread keywords.
+/// - [`EmailPushError::MissingThreadKeywords`] when the filter has a
+///   thread condition and a delivered Email has no thread keywords;
+/// - [`EmailPushError::LimitTooSmall`] when an EmailPush holding one `{}`
+///   does not fit in `batch.max_bytes`.
 pub fn email_pushes_for(
     stored: &StoredPushSubscription,
     now_secs: i64,
@@ -143,7 +162,11 @@ pub fn email_pushes_for(
     if !is_deliverable(stored, now_secs) || sub.keys.is_none() {
         return Ok(Vec::new());
     }
-    let Some(cfg) = config_for(sub.extra.get(EMAIL_PUSH_PROPERTY), batch.account_id) else {
+    let Some(cfg) = config_for(
+        sub.extra.get(EMAIL_PUSH_PROPERTY),
+        batch.account_id,
+        batch.account,
+    ) else {
         return Ok(Vec::new());
     };
     let mut emails = Vec::new();
@@ -173,18 +196,106 @@ pub fn email_pushes_for(
     } else {
         None
     };
-    // TODO(bd JMAP-r44n.2): split across pushes within batch.max_bytes,
-    // then truncate a lone oversized Email to a prefix of its properties.
-    Ok(vec![OutboundEmailPush {
-        push: EmailPush::new(batch.account_id.clone(), emails, state),
-        urgency: cfg.urgency,
-    }])
+    let parts = split(batch, &cfg.properties, emails, state.as_ref())?;
+    Ok(parts
+        .into_iter()
+        .map(|emails| OutboundEmailPush {
+            push: EmailPush::new(batch.account_id.clone(), emails, state.clone()),
+            urgency: cfg.urgency,
+        })
+        .collect())
 }
 
-/// The decoded config for `account_id` in an `emailPush` value.
-fn config_for(email_push: Option<&Value>, account_id: &Id) -> Option<EmailPushConfig> {
+/// Serialized length, as `jmap_web_push::Sender::send` measures it.
+fn json_len<T: serde::Serialize>(value: &T) -> usize {
+    // EmailPush and Email maps are plain JSON data, so they always
+    // serialize; an impossible failure measures as too large.
+    serde_json::to_vec(value).map_or(usize::MAX, |v| v.len())
+}
+
+/// Packs `emails` into the `emails` arrays of EmailPush objects of at most
+/// `batch.max_bytes`, cutting an Email to a prefix of `properties` only when
+/// it does not fit alone.
+///
+/// The compact serialization of an EmailPush is its length with `emails`
+/// empty, plus each Email's length, plus a comma between Emails, so each
+/// Email is serialized once to measure it.
+fn split(
+    batch: &EmailPushBatch<'_>,
+    properties: &[String],
+    emails: Vec<Map<String, Value>>,
+    state: Option<&State>,
+) -> Result<Vec<Vec<Map<String, Value>>>, EmailPushError> {
+    let max = batch.max_bytes;
+    let base = json_len(&EmailPush::new(
+        batch.account_id.clone(),
+        Vec::new(),
+        state.cloned(),
+    ));
+    // `[{}]`: "{}" is 2 octets.
+    if base.saturating_add(2) > max {
+        return Err(EmailPushError::LimitTooSmall);
+    }
+    let mut parts = Vec::new();
+    let mut current: Vec<Map<String, Value>> = Vec::new();
+    let mut current_len = base;
+    for email in emails {
+        let len = json_len(&email);
+        if base.saturating_add(len) > max {
+            // Too large even alone: it goes out alone, cut to a prefix.
+            if !current.is_empty() {
+                parts.push(std::mem::take(&mut current));
+                current_len = base;
+            }
+            parts.push(vec![truncate(email, properties, max - base)]);
+            continue;
+        }
+        let comma = usize::from(!current.is_empty());
+        if current_len + comma + len > max {
+            parts.push(std::mem::take(&mut current));
+            current_len = base;
+        }
+        current_len += usize::from(!current.is_empty()) + len;
+        current.push(email);
+    }
+    if !current.is_empty() {
+        parts.push(current);
+    }
+    Ok(parts)
+}
+
+/// `email` cut to the longest prefix of `properties` whose serialization
+/// is at most `room` octets: properties are added in list order, and the
+/// first that does not fit is left out with every one after it (-05 §3).
+/// A property the projection lacks (absent from the Email) is skipped.
+fn truncate(
+    mut email: Map<String, Value>,
+    properties: &[String],
+    room: usize,
+) -> Map<String, Value> {
+    let mut out = Map::new();
+    for name in properties {
+        let Some(value) = email.remove(name) else {
+            continue;
+        };
+        out.insert(name.clone(), value);
+        if json_len(&out) > room {
+            out.remove(name);
+            break;
+        }
+    }
+    out
+}
+
+/// The config for `account_id` in an `emailPush` value, when it passes
+/// the config check for `account` (decision 16), normalized.
+fn config_for(
+    email_push: Option<&Value>,
+    account_id: &Id,
+    account: &EmailPushAccount,
+) -> Option<EmailPushConfig> {
     let config = email_push?.as_object()?.get(account_id.as_ref())?;
-    serde_json::from_value(config.clone()).ok()
+    check_config(config, account, Metadata::Any).ok()
 }
 
 /// `email` projected onto `properties`, without `objectHistory`, which a

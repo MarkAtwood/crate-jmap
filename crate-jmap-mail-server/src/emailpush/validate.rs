@@ -84,6 +84,25 @@ pub fn check_email_push_config(
     account: &EmailPushAccount,
     metadata: Option<&DataTypeMetadataInfo>,
 ) -> Result<EmailPushConfig, InvalidEmailPushConfig> {
+    check_config(config, account, Metadata::Account(metadata))
+}
+
+/// Which draft-ietf-jmap-metadata-05 conditions a config check allows.
+#[derive(Clone, Copy)]
+pub(super) enum Metadata<'a> {
+    /// Those the account's metadata information supports (`None`: none).
+    Account(Option<&'a DataTypeMetadataInfo>),
+    /// All of them: delivery has no caller to ask, and a metadata
+    /// condition on an Email without metadata simply does not match.
+    Any,
+}
+
+/// [`check_email_push_config`] with the metadata rule chosen by the caller.
+pub(super) fn check_config(
+    config: &Value,
+    account: &EmailPushAccount,
+    metadata: Metadata<'_>,
+) -> Result<EmailPushConfig, InvalidEmailPushConfig> {
     let Value::Object(map) = config else {
         return Err(InvalidEmailPushConfig {
             properties: Vec::new(),
@@ -93,7 +112,11 @@ pub fn check_email_push_config(
     if !filter_ok(map.get("filter"), account, metadata) {
         bad.push("filter");
     }
-    if !properties_ok(map.get("properties"), account, metadata.is_some()) {
+    let metadata_properties = match metadata {
+        Metadata::Account(info) => info.is_some(),
+        Metadata::Any => true,
+    };
+    if !properties_ok(map.get("properties"), account, metadata_properties) {
         bad.push("properties");
     }
     if let Some(u) = map.get("urgency")
@@ -113,11 +136,7 @@ pub fn check_email_push_config(
     Ok(cfg)
 }
 
-fn filter_ok(
-    filter: Option<&Value>,
-    account: &EmailPushAccount,
-    metadata: Option<&DataTypeMetadataInfo>,
-) -> bool {
+fn filter_ok(filter: Option<&Value>, account: &EmailPushAccount, metadata: Metadata<'_>) -> bool {
     let Some(raw) = filter else {
         return true;
     };
@@ -138,14 +157,18 @@ fn filter_ok(
 fn condition_supported(
     c: EmailCondition,
     account: &EmailPushAccount,
-    metadata: Option<&DataTypeMetadataInfo>,
+    metadata: Metadata<'_>,
 ) -> bool {
     use EmailCondition as C;
     let private = matches!(
         c,
         C::PrivateMetadataExists | C::PrivateMetadataTextContains | C::PrivateMetadataTextEquals
     );
-    if c.is_metadata() && !metadata.is_some_and(|m| m.supports_private || !private) {
+    let allowed = match metadata {
+        Metadata::Account(info) => info.is_some_and(|m| m.supports_private || !private),
+        Metadata::Any => true,
+    };
+    if c.is_metadata() && !allowed {
         return false;
     }
     account.mail

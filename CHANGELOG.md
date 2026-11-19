@@ -33,6 +33,13 @@ wire behaviour that a conforming peer can observe.
   projected as Email/get would, `id` only when listed and never
   `objectHistory`; `state` null without mail; the config's urgency.
   (bd:JMAP-r44n.1)
+- **jmap-mail-server** `emailpush`: `email_pushes_for` keeps every EmailPush
+  within `max_bytes` (measured with `serde_json::to_vec`): Emails are packed
+  in delivery order and split across pushes that share the batch's state,
+  and only an Email too large alone is cut, to the longest prefix of its
+  properties (-05 §3). `LimitTooSmall` when not even `{}` fits. A stored
+  config that fails `check_email_push_config` for the live account gets no
+  push. (bd:JMAP-r44n.2)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,
