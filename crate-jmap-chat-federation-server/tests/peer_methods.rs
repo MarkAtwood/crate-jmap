@@ -164,6 +164,30 @@ async fn receipt_read_is_stored_under_the_reader_contact_id() {
     assert_eq!(m["deliveredAt"], json!(DELIVERED_AT));
 }
 
+/// jmap-chat-compliance-tests.md (jmap-chat-spec 120db2c) L445-449, §7.6
+/// "Peer/receipt preserves existing fields", Severity MUST: "Call
+/// `Peer/receipt` with only `deliveredAt`. Then call again with only
+/// `readAt`. Verify both values are preserved in the delivery receipt (the
+/// second call does NOT null out deliveredAt)." Restated as §13.5,
+/// L727-731: "Verify BOTH values are preserved in the delivery receipt —
+/// the second call must NOT null out the previously-stored
+/// `deliveredAt`."
+#[tokio::test]
+async fn receipt_second_call_preserves_previously_stored_fields() {
+    let fed = Fed::new();
+    fed.seed("Chat", group(&[(ACCOUNT, "admin"), (BOB_ID, "member")]));
+    fed.seed("Message", owner_message(GROUP));
+    fed.receipt(receipt_args(json!({"deliveredAt": DELIVERED_AT})))
+        .await
+        .expect("first call");
+    fed.receipt(receipt_args(json!({"readAt": READ_AT})))
+        .await
+        .expect("second call");
+    let receipt = &message(&fed, "m1").await["deliveryReceipts"][BOB_ID];
+    assert_eq!(receipt["deliveredAt"], json!(DELIVERED_AT), "{receipt}");
+    assert_eq!(receipt["readAt"], json!(READ_AT), "{receipt}");
+}
+
 /// fed L469: "Unrecognized values MUST be stored as-is." fed L463:
 /// "Servers SHOULD store this value in `Message.deliveryReceipts`".
 #[tokio::test]

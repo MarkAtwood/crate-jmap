@@ -101,6 +101,34 @@ async fn update_requires_ban_permission() {
     assert!(allowed["updated"].get(BAN_ID).is_some(), "{allowed:?}");
 }
 
+/// jmap-chat-compliance-tests.md L655-659 (jmap-chat-spec 120db2c), §10.4
+/// "SpaceBan/set update supports reason and expiresAt", Severity MUST:
+/// "Update an existing ban's `reason` and `expiresAt`. Verify success (not
+/// `forbidden`)." draft-atwood-jmap-chat-00.md L1562 (same revision):
+/// "`update` supports: `reason`, `expiresAt`." Both values read back.
+#[tokio::test]
+async fn update_of_reason_and_expires_at_succeeds() {
+    const EXPIRES_AT: &str = "2099-06-01T00:00:00Z";
+    let backend = seeded(true);
+    let resp = set(
+        &backend,
+        json!({ "update": { BAN_ID: { "reason": "spam", "expiresAt": EXPIRES_AT } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+    assert!(resp["updated"].get(BAN_ID).is_some(), "{resp}");
+
+    let HandlerOutput { primary: got, .. } = jmap_chat_server::handle_ban_get(
+        &backend,
+        &Id::from("owner"),
+        json!({ "accountId": ACCOUNT_ID, "ids": [BAN_ID] }),
+    )
+    .await
+    .expect("SpaceBan/get");
+    assert_eq!(got["list"][0]["reason"], "spam", "{got}");
+    assert_eq!(got["list"][0]["expiresAt"], EXPIRES_AT, "{got}");
+}
+
 /// jmap-chat-spec 77c3474 L1533 "`update` supports: `reason`,
 /// `expiresAt`. Requires `"ban"` permission in the Space." and RFC 8620
 /// §5.3 `forbidden`: "The action would violate an ACL or other permissions

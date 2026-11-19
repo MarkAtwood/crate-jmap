@@ -838,6 +838,47 @@ async fn step12_mentions_come_from_the_array_and_map_to_local_ids() {
     assert_eq!(mentioned, [Id::from(ACCOUNT), Id::from(BOB_ID), carol.id]);
 }
 
+/// jmap-chat-compliance-tests.md L759-763 (jmap-chat-spec 120db2c), §13.9
+/// "Peer/deliver mention arrays round-trip", Severity MUST: "Deliver a
+/// message via `Peer/deliver` with `mentions: [{"id": "u1"}]` and
+/// `broadcastMentions: [{"scope": "here"}]`, where `u1` is an identity
+/// string. Query the message back. Verify `mentions` holds the `id` of the
+/// local ChatContact whose `identity` is `u1`, and that
+/// `broadcastMentions` is preserved. Repeat with the recipient mailbox's
+/// `ownerUserId` as the mention id. Verify `mentions` holds that
+/// mailbox's accountId."
+#[tokio::test]
+async fn step12_broadcast_mentions_are_stored_with_mapped_mentions() {
+    let fed = Fed::new();
+    let mut m = message("M1");
+    m["mentions"] = json!([{"id": BOB}]);
+    m["broadcastMentions"] = json!([{"scope": "here"}]);
+    fed.deliver(deliver_args(LOW, "direct", m))
+        .await
+        .expect("accepted");
+    let mut m = message("M2");
+    m["mentions"] = json!([{"id": OWNER}]);
+    m["broadcastMentions"] = json!([{"scope": "here"}]);
+    fed.deliver(deliver_args(LOW, "direct", m))
+        .await
+        .expect("accepted");
+
+    let messages = fed.messages().await;
+    for (smid, mentioned) in [("M1", BOB_ID), ("M2", ACCOUNT)] {
+        let stored = messages
+            .iter()
+            .find(|m| m.sender_msg_id == smid)
+            .expect("stored");
+        let wire = serde_json::to_value(stored).expect("Message serializes");
+        assert_eq!(wire["mentions"], json!([{"id": mentioned}]), "{smid}");
+        assert_eq!(
+            wire["broadcastMentions"],
+            json!([{"scope": "here"}]),
+            "{smid}"
+        );
+    }
+}
+
 /// tasks L254 (draft-atwood-jmap-chat-tasks-00.md) and fed L312-322, all
 /// at jmap-chat-spec 63e9d08. tasks L254: "Between servers it carries
 /// identity strings, not local ids ... the receiving server maps each
@@ -1146,6 +1187,31 @@ async fn edit_applies_only_to_the_senders_message() {
         fed.deliver(edit_args("S-missing")).await,
         "invalidArguments",
     );
+}
+
+/// jmap-chat-compliance-tests.md L433-437 (jmap-chat-spec 120db2c), §7.4
+/// "Peer/deliver edit validates steps 3-7", Severity "MUST (blocked
+/// sender)": "Send a `Peer/deliver` edit from a blocked sender. Verify
+/// silent drop." draft-atwood-jmap-chat-federation-00.md L542 (same
+/// revision): "For `edit` payloads: perform steps 1 through 7 of
+/// {{new-message-validation}}"; L521, step 7: "If `blocked` is `true` on
+/// the sender's ChatContact record, silently drop the message and return
+/// success (to avoid disclosing block status to the sender)."
+#[tokio::test]
+async fn edit_from_blocked_sender_is_dropped_silently() {
+    let fed = Fed::new();
+    fed.seed("ChatContact", contact(BOB_ID, BOB, true));
+    fed.seed("Chat", direct_chat(LOW, BOB_ID));
+    fed.seed(
+        "Message",
+        stored_message("local-bob", "S1", LOW, BOB_ID, PAST),
+    );
+    let response = fed.deliver(edit_args("S1")).await.expect("success");
+    assert_eq!(response["accountId"], json!(PEER_ACCOUNT));
+    let messages = fed.messages().await;
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].body, "old");
+    assert_eq!(messages[0].edited_at, None);
 }
 
 fn reaction_args(action: &str, emoji: &str) -> Value {

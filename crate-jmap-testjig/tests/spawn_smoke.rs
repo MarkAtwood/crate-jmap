@@ -197,3 +197,39 @@ async fn spawn_in_process_honors_custom_token() {
         .expect("HTTP request must complete");
     assert_eq!(right.status(), StatusCode::OK);
 }
+
+/// jmap-chat-compliance-tests.md L147-151 (jmap-chat-spec 120db2c), §3.1
+/// "Session-level chat capability is empty object", Severity MUST: "Fetch
+/// `/.well-known/jmap`. Verify
+/// `capabilities["urn:ietf:params:jmap:chat"]` is `{}`. Chat properties
+/// (maxBodyBytes, supportedBodyTypes, etc.) belong ONLY in account-level
+/// `accountCapabilities`." draft-atwood-jmap-chat-00.md L320 (same
+/// revision): "The value of `capabilities["urn:ietf:params:jmap:chat"]`
+/// at the session level is an empty object `{}`."
+#[tokio::test]
+async fn session_level_chat_capability_is_empty_object() {
+    const CHAT: &str = "urn:ietf:params:jmap:chat";
+    let jig = spawn_in_process(TestjigConfig::default())
+        .await
+        .expect("spawn must succeed");
+    let session: Value = reqwest::Client::new()
+        .get(format!("http://{}/.well-known/jmap", jig.addr))
+        .bearer_auth(&jig.token)
+        .send()
+        .await
+        .expect("session request must succeed")
+        .json()
+        .await
+        .expect("session body must be JSON");
+
+    assert_eq!(session["capabilities"][CHAT], json!({}), "{session}");
+
+    let accounts = session["accounts"].as_object().expect("accounts object");
+    assert!(!accounts.is_empty(), "{session}");
+    for (id, account) in accounts {
+        let chat = &account["accountCapabilities"][CHAT];
+        for field in ["maxBodyBytes", "supportedBodyTypes"] {
+            assert!(chat.get(field).is_some(), "{id}: {field} missing: {chat}");
+        }
+    }
+}

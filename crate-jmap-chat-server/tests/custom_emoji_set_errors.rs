@@ -358,6 +358,34 @@ async fn gate_receives_the_targeted_emoji_scope_and_op() {
     );
 }
 
+/// jmap-chat-compliance-tests.md L661-665 (jmap-chat-spec 120db2c), §10.5
+/// "CustomEmoji/set update supports name and blobId", Severity MUST:
+/// "Update an existing emoji's `name` and `blobId`. Verify success."
+/// draft-atwood-jmap-chat-00.md L1511 (same revision): "`update` supports:
+/// `name`, `blobId`." Both values read back.
+#[tokio::test]
+async fn update_of_name_and_blob_id_succeeds() {
+    let backend = tracking(TrackingBackend::new());
+    let resp = set(
+        &backend,
+        json!({ "update": { GLOBAL_EMOJI: { "name": "partyparrot", "blobId": "blob2" } } }),
+    )
+    .await
+    .expect("CustomEmoji/set");
+    assert_eq!(resp["notUpdated"], Value::Null, "{resp}");
+    assert!(resp["updated"].get(GLOBAL_EMOJI).is_some(), "{resp}");
+
+    let HandlerOutput { primary: got, .. } = jmap_chat_server::handle_emoji_get(
+        &backend,
+        &(),
+        json!({ "accountId": ACCOUNT_ID, "ids": [GLOBAL_EMOJI] }),
+    )
+    .await
+    .expect("CustomEmoji/get");
+    assert_eq!(got["list"][0]["name"], "partyparrot", "{got}");
+    assert_eq!(got["list"][0]["blobId"], "blob2", "{got}");
+}
+
 /// jmap-chat-spec 77c3474 L1478: "Servers SHOULD return a `forbidden`
 /// SetError ({{RFC8620}} §5.3) when the caller is not authorized to act on
 /// the targeted emoji", which this crate does by choice. `{}` and a

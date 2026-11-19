@@ -352,6 +352,50 @@ fn has_mention_comes_only_from_mentions_ids() {
     );
 }
 
+/// The rich body of jmap-chat-compliance-tests.md L755 (jmap-chat-spec
+/// 120db2c), with this file's owner accountId: a `"mention"` span naming
+/// the owner and a `"broadcast"` span with scope `"everyone"`.
+fn rich_spans_only() -> Message {
+    let body = json!({ "spans": [
+        { "type": "mention", "userId": ACCOUNT },
+        { "type": "broadcast", "scope": "everyone" },
+    ] })
+    .to_string();
+    message(&body, "application/jmap-chat-rich", json!([]), json!([]))
+}
+
+/// jmap-chat-compliance-tests.md L365-371 (jmap-chat-spec 120db2c), §6.7
+/// "Rich body push mentions come from the arrays", Severity MUST: "Send a
+/// rich body with a `{"type": "mention", "userId": "<accountId>"}` span
+/// and an empty `mentions` array. Verify `hasMention: false`." The owner
+/// is both active and an admin, so only the arrays can keep it false.
+#[test]
+fn rich_mention_span_with_empty_mentions_is_not_a_mention() {
+    let cfg = config(json!({ "properties": ["hasMention"] }));
+    let owner = OwnerFlags::new(true, true);
+    let e =
+        entry_json(&build(&cfg, owner, &rich_spans_only(), &group_chat(), &bob(), None).payload);
+    assert_eq!(e["hasMention"], json!(false), "{e:?}");
+}
+
+/// jmap-chat-compliance-tests.md L751-755 (jmap-chat-spec 120db2c), §13.8
+/// "Push ignores rich body spans", Severity MUST: "Send a message with
+/// `bodyType: "application/jmap-chat-rich"`, body `{"spans": [{"type":
+/// "mention", "userId": "<accountId>"}, {"type": "broadcast", "scope":
+/// "everyone"}]}`, and empty `mentions` and `broadcastMentions`. Verify
+/// `hasMention: false` and `mentionScopes: []` in the push notification."
+/// draft-atwood-jmap-chat-push-00.md L192: "a rich body's `"broadcast"`
+/// spans are display-only and are not consulted".
+#[test]
+fn rich_spans_with_empty_arrays_give_no_mention_and_no_scopes() {
+    let cfg = config(json!({ "properties": ["hasMention", "mentionScopes"] }));
+    let owner = OwnerFlags::new(true, true);
+    let e =
+        entry_json(&build(&cfg, owner, &rich_spans_only(), &group_chat(), &bob(), None).payload);
+    assert_eq!(e["hasMention"], json!(false), "{e:?}");
+    assert_eq!(e["mentionScopes"], json!([]), "{e:?}");
+}
+
 /// draft-atwood-jmap-chat-push-00 §ChatMessageEntry (push:182): "The server
 /// MUST compute the candidate scopes as the deduplicated `scope` values
 /// appearing in `Message.broadcastMentions[]` ... `"everyone"` is included
