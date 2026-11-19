@@ -159,6 +159,16 @@ struct Inner {
     states: HashMap<&'static str, HashMap<String, u64>>,
     /// `type_name` → `account_id` → ordered change entries
     change_log: HashMap<&'static str, HashMap<String, Vec<ChangeEntry>>>,
+    /// `type_name` → `account_id` → the oldest state `/changes` can still
+    /// start from, once [`MemoryBackend::with_change_log_limit`] has
+    /// dropped older entries. Absent: every state since creation.
+    change_log_floor: HashMap<&'static str, HashMap<String, u64>>,
+    /// Entries kept per type and account; `None` keeps all. Set via
+    /// [`MemoryBackend::with_change_log_limit`].
+    change_log_limit: Option<usize>,
+    /// Lifecycle and outbound events kept, each list separately; `None`
+    /// keeps all. Set via [`MemoryBackend::with_event_limit`].
+    event_limit: Option<usize>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
     /// Test-only override for [`ChatBackend::limits`]. `None` means use
@@ -226,8 +236,8 @@ struct Inner {
 }
 
 /// One lifecycle callback received by the [`MemoryBackend`], as
-/// returned by `MemoryBackend::take_lifecycle_events_for_test`.
-#[doc(hidden)]
+/// returned by [`MemoryBackend::drain_lifecycle_events`].
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum LifecycleEvent {
     /// [`ChatBackend::on_chat_destroyed`] with this Chat id.
@@ -345,16 +355,55 @@ impl Inner {
         self.objects.get(type_name).and_then(|m| m.get(account_id))
     }
 
+    /// The change log of `type_name` in `account_id`, for the caller to
+    /// push one entry onto. With a [`MemoryBackend::with_change_log_limit`]
+    /// limit, the oldest entries are dropped first to leave room for it,
+    /// and the floor moves up to the newest dropped state.
     fn change_log_mut(
         &mut self,
         type_name: &'static str,
         account_id: &str,
     ) -> &mut Vec<ChangeEntry> {
+        let limit = self.change_log_limit;
+        let log = self
+            .change_log
+            .entry(type_name)
+            .or_default()
+            .entry(account_id.to_owned())
+            .or_default();
+        if let Some(limit) = limit
+            && log.len() >= limit
+        {
+            let excess = log.len() + 1 - limit.max(1);
+            let n = excess.min(log.len());
+            let dropped_to = n.checked_sub(1).map(|i| log[i].new_state);
+            log.drain(..n);
+            if let Some(floor) = dropped_to {
+                let slot = self
+                    .change_log_floor
+                    .entry(type_name)
+                    .or_default()
+                    .entry(account_id.to_owned())
+                    .or_default();
+                *slot = (*slot).max(floor);
+            }
+        }
         self.change_log
             .entry(type_name)
             .or_default()
             .entry(account_id.to_owned())
             .or_default()
+    }
+
+    /// Push `event` onto `list`, then drop the oldest beyond `limit`.
+    fn push_capped<T>(list: &mut Vec<T>, event: T, limit: Option<usize>) {
+        list.push(event);
+        if let Some(limit) = limit
+            && list.len() > limit
+        {
+            let excess = list.len() - limit;
+            list.drain(..excess);
+        }
     }
 }
 
@@ -515,7 +564,8 @@ impl MemoryBackend {
 
     /// Seed a pre-existing object into the store without bumping the
     /// state counter or recording a change-log entry. Test-fixture setup
-    /// only; registers `account_id` as known. Mirrors
+    /// only (to store an object as a logged create, use
+    /// [`insert_object`](Self::insert_object)); registers `account_id` as known. Mirrors
     /// `jmap_mail_server::memory::MemoryBackend::seed_object`.
     ///
     /// `type_name` is the `TYPE_NAME` of a type this backend stores:
@@ -644,7 +694,118 @@ impl MemoryBackend {
     /// Queue `event` in the store, so an atomic rollback drops it with the
     /// change that caused it; waits like any backend write.
     async fn record_lifecycle_event(&self, event: LifecycleEvent) {
-        self.inner.lock().await.lifecycle_events.push(event);
+        let mut inner = self.inner.lock().await;
+        let limit = inner.event_limit;
+        Inner::push_capped(&mut inner.lifecycle_events, event, limit);
+    }
+
+    /// Mint a fresh object id, as [`ChatBackend::create_object`] does.
+    ///
+    /// For a wrapping backend that must act on the complete object before
+    /// it is stored (for example, to commit it elsewhere first): mint the
+    /// id, build the object, act, then store it with
+    /// [`insert_object`](Self::insert_object) or
+    /// [`insert_message`](Self::insert_message).
+    pub fn mint_id(&self) -> Id {
+        self.inner.lock_unscoped().mint_id()
+    }
+
+    /// Store `object` under its own `id` in `account_id` as a create: the
+    /// state advances and the change log records the id as created, as for
+    /// [`ChatBackend::create_object`], with the same per-type uniqueness
+    /// checks. The id may be one the caller chose (such as a hash-derived
+    /// ChatContact id) or one from [`mint_id`](Self::mint_id).
+    ///
+    /// # Errors
+    ///
+    /// - `alreadyExists` naming the stored object when the id is taken, or
+    ///   when a per-type uniqueness contract (ChatContact `identity`,
+    ///   CustomEmoji `name`) is violated.
+    /// - [`BackendSetError::Other`] when `account_id` is not registered, or
+    ///   when `object` does not serialize to a JSON object with a
+    ///   non-empty `id` string.
+    pub async fn insert_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        object: O,
+    ) -> Result<O, BackendSetError<MemoryError>> {
+        let val = serde_json::to_value(&object)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
+        let id = object_id_of(&val)?;
+        let mut inner = self.inner.lock().await;
+        reject_taken_id(&inner, O::TYPE_NAME, account_id, &id)?;
+        let defer = self.inner.deferring();
+        insert_created(&mut inner, O::TYPE_NAME, account_id, &id, val, defer)?;
+        Ok(object)
+    }
+
+    /// [`insert_object`](Self::insert_object) for an owner-composed
+    /// Message, also recording its
+    /// [`OutboundEvent::NewMessage`](crate::OutboundEvent::NewMessage) in
+    /// the same write, as [`ChatBackend::create_message`] does.
+    ///
+    /// # Errors
+    ///
+    /// As [`insert_object`](Self::insert_object).
+    pub async fn insert_message(
+        &self,
+        account_id: &Id,
+        message: jmap_chat_types::Message,
+    ) -> Result<jmap_chat_types::Message, BackendSetError<MemoryError>> {
+        let val = serde_json::to_value(&message)
+            .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
+        let id = object_id_of(&val)?;
+        let mut inner = self.inner.lock().await;
+        reject_taken_id(&inner, "Message", account_id, &id)?;
+        let defer = self.inner.deferring();
+        insert_created(&mut inner, "Message", account_id, &id, val, defer)?;
+        let limit = inner.event_limit;
+        Inner::push_capped(
+            &mut inner.outbound_events,
+            crate::OutboundEvent::NewMessage {
+                chat_id: message.chat_id.clone(),
+                message_id: message.id.clone(),
+                sender_msg_id: message.sender_msg_id.clone(),
+            },
+            limit,
+        );
+        Ok(message)
+    }
+
+    /// Keep at most `limit` change-log entries (at least one) per data
+    /// type and account, dropping the oldest. A `Foo/changes` from a state older than the
+    /// oldest kept entry then fails with `cannotCalculateChanges` (RFC 8620
+    /// §5.2), and the client resyncs. Without a limit the log grows with
+    /// every change, which suits tests but not a long-running embedder.
+    #[must_use]
+    pub fn with_change_log_limit(self, limit: usize) -> Self {
+        self.inner.lock_unscoped().change_log_limit = Some(limit);
+        self
+    }
+
+    /// Keep at most `limit` of the recorded lifecycle events and of the
+    /// recorded outbound events (each list separately), dropping the
+    /// oldest. `0` records none. Without a limit both lists grow until
+    /// drained with [`drain_lifecycle_events`](Self::drain_lifecycle_events)
+    /// and [`drain_outbound_events`](Self::drain_outbound_events).
+    #[must_use]
+    pub fn with_event_limit(self, limit: usize) -> Self {
+        self.inner.lock_unscoped().event_limit = Some(limit);
+        self
+    }
+
+    /// Drain the lifecycle callbacks recorded so far
+    /// ([`ChatBackend::on_chat_destroyed`],
+    /// [`ChatBackend::on_space_destroyed`],
+    /// [`ChatBackend::on_space_ban_created`]), oldest first.
+    pub fn drain_lifecycle_events(&self) -> Vec<LifecycleEvent> {
+        std::mem::take(&mut self.inner.lock_unscoped().lifecycle_events)
+    }
+
+    /// Drain the [`ChatBackend::on_outbound_event`] events recorded so
+    /// far, oldest first.
+    pub fn drain_outbound_events(&self) -> Vec<crate::OutboundEvent> {
+        std::mem::take(&mut self.inner.lock_unscoped().outbound_events)
     }
 
     /// Test-only: drain the lifecycle callbacks received so far
@@ -1000,6 +1161,16 @@ impl JmapBackend for MemoryBackend {
             .as_ref()
             .parse()
             .map_err(|_| BackendChangesError::CannotCalculate)?;
+        // RFC 8620 §5.2 cannotCalculateChanges: the entries after
+        // `since_n` were dropped by the change-log limit.
+        if inner
+            .change_log_floor
+            .get(O::TYPE_NAME)
+            .and_then(|m| m.get(account_id.as_ref()))
+            .is_some_and(|&floor| since_n < floor)
+        {
+            return Err(BackendChangesError::CannotCalculate);
+        }
 
         let log = inner
             .change_log
@@ -1401,13 +1572,16 @@ impl ChatBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
         let defer = self.inner.deferring();
         insert_created(&mut inner, "Message", account_id, &server_id, val, defer)?;
-        inner
-            .outbound_events
-            .push(crate::OutboundEvent::NewMessage {
+        let limit = inner.event_limit;
+        Inner::push_capped(
+            &mut inner.outbound_events,
+            crate::OutboundEvent::NewMessage {
                 chat_id: message.chat_id.clone(),
                 message_id: message.id.clone(),
                 sender_msg_id: message.sender_msg_id.clone(),
-            });
+            },
+            limit,
+        );
         Ok((server_id, message))
     }
 
@@ -1766,7 +1940,9 @@ impl ChatBackend for MemoryBackend {
         async move {
             // Queued in the store: an atomic rollback drops it, so nothing
             // goes out for a change that never happened (§4.3).
-            self.inner.lock().await.outbound_events.push(event);
+            let mut inner = self.inner.lock().await;
+            let limit = inner.event_limit;
+            Inner::push_capped(&mut inner.outbound_events, event, limit);
         }
     }
 
@@ -2605,6 +2781,35 @@ impl Inner {
 /// its commit (`final_state_failures`). The ChatContact identity check is
 /// not: an identity cannot be given up within one call (ChatContact
 /// destroy is refused), so the final state could not differ.
+/// The non-empty `id` string of a serialized object.
+fn object_id_of(val: &serde_json::Value) -> Result<Id, BackendSetError<MemoryError>> {
+    match val.get("id").and_then(serde_json::Value::as_str) {
+        Some(id) if !id.is_empty() => Ok(Id::from(id)),
+        _ => Err(BackendSetError::Other(MemoryError::new(
+            "insert_object: object has no non-empty `id` string",
+        ))),
+    }
+}
+
+/// `alreadyExists` when `id` is already stored for `type_name` in
+/// `account_id`.
+fn reject_taken_id(
+    inner: &Inner,
+    type_name: &'static str,
+    account_id: &Id,
+    id: &Id,
+) -> Result<(), BackendSetError<MemoryError>> {
+    if inner
+        .objects_ref(type_name, account_id.as_ref())
+        .is_some_and(|m| m.contains_key(id))
+    {
+        return Err(BackendSetError::SetError(Box::new(
+            SetError::new(SetErrorType::AlreadyExists).with_existing_id(id.clone()),
+        )));
+    }
+    Ok(())
+}
+
 fn insert_created(
     inner: &mut Inner,
     type_name: &'static str,

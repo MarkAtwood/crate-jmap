@@ -14,6 +14,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-server** `memory`: for long-running and wrapping embedders,
+  `MemoryBackend::with_change_log_limit` (older `sinceState` answers
+  `cannotCalculateChanges`), `with_event_limit`, `drain_outbound_events`,
+  `drain_lifecycle_events` (bd:JMAP-it7g.3); and `mint_id`,
+  `insert_object`, `insert_message`, which store an object built ahead of
+  time under a minted or caller-chosen id as a logged create
+  (bd:JMAP-it7g.4, bd:JMAP-it7g.5). `memory::LifecycleEvent` is now
+  documented and `#[non_exhaustive]`.
+
 - **jmap-chat-mimi-types**: `MimiCapability::asset_url` and
   `asset_download_url` (`assetUrl`, `assetDownloadUrl`; optional URL
   templates, draft-atwood-jmap-chat-mimi-00 §Account-Level Capability

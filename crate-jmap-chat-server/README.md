@@ -516,6 +516,24 @@ retention)` turns history on; a restore needs the referenced Space to
 exist and a CustomEmoji name to be free; destroyed queries take no filter
 or sort here.
 
+## Embedding `MemoryBackend`
+
+`memory::MemoryBackend` is the reference backend; a long-running embedder,
+or a backend that wraps it, uses:
+
+- `with_change_log_limit(n)`: keep the newest `n` change-log entries per
+  type and account. A `/changes` from an older state answers
+  `cannotCalculateChanges` (RFC 8620 §5.2) and the client resyncs.
+- `with_event_limit(n)`, `drain_outbound_events()`,
+  `drain_lifecycle_events()`: the recorded outbound and lifecycle events
+  grow until drained; the limit drops the oldest (`0` records none).
+- `mint_id()`, `insert_object(account, object)`,
+  `insert_message(account, message)`: store an object built ahead of time
+  under its own id (minted, or chosen by the embedder, such as a
+  hash-derived ChatContact id) as a logged create, for a wrapper that must
+  act on the complete object before it is stored. `seed_object` is the
+  fixture path: it records no change.
+
 ## Gotchas
 
 - **Direct chat deduplication is eventually consistent.** The `Chat/set` create handler uses optimistic create-then-validate to detect duplicate Direct chats. Under concurrent load two clients may both successfully create the same Direct chat; the loser's write is rolled back and it receives `alreadyExists`, but the duplicate briefly exists. Backends can eliminate this window by enforcing uniqueness atomically in `create_object`.
