@@ -15,7 +15,7 @@ use jmap_server::{
 };
 use jmap_types::MethodErrorType;
 use jmap_types::i18n::{JMAP_I18N_URI, LocalizableProperty};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 
 #[derive(Debug)]
 struct MockError;
@@ -371,4 +371,62 @@ async fn wildcard_ranges() {
     .unwrap();
     assert_eq!(resp["list"][0]["name"], "Team contacts");
     assert_eq!(resp["list"][0]["locale"], "en");
+}
+
+/// `I18nProjection::without_language` is `from_args` on arguments with no
+/// `language`, for each mode that can arise (§3: a missing `language` is
+/// the default): stored values with the capability in use, the two
+/// properties stripped without it, and untouched for a type with no
+/// localizable properties. Expected objects are written by hand.
+#[test]
+fn without_language_matches_from_args_with_no_language() {
+    use jmap_server::I18nProjection;
+
+    let stored = json!({
+        "id": "ab1",
+        "name": "Team contacts",
+        "locale": "en",
+        "localizations": { "fr": { "name": "Contacts du groupe" } }
+    });
+    let info = I18nInfo::new();
+    let cases: [(&[String], Option<&I18nInfo>, Value); 3] = [
+        (
+            &with_i18n(),
+            Some(&info),
+            json!({
+                "id": "ab1",
+                "name": "Team contacts",
+                "locale": "en",
+                "localizations": { "fr": { "name": "Contacts du groupe" } }
+            }),
+        ),
+        (
+            &without_i18n(),
+            Some(&info),
+            json!({ "id": "ab1", "name": "Team contacts" }),
+        ),
+        (
+            &with_i18n(),
+            None,
+            json!({ "id": "ab1", "name": "Team contacts" }),
+        ),
+    ];
+    for (using, info, expected) in cases {
+        let built = I18nProjection::without_language::<Book>(using, info);
+        let parsed = I18nProjection::from_args::<Book>(&mut Map::new(), using, info).unwrap();
+        for projection in [built, parsed] {
+            let mut item = stored.as_object().unwrap().clone();
+            projection.apply(&mut item);
+            assert_eq!(Value::Object(item), expected);
+        }
+    }
+
+    let plain = I18nProjection::without_language::<Plain>(&with_i18n(), Some(&info));
+    let mut item = stored.as_object().unwrap().clone();
+    plain.apply(&mut item);
+    assert_eq!(
+        Value::Object(item),
+        stored,
+        "no localizable properties: untouched"
+    );
 }

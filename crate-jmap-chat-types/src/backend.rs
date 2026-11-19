@@ -300,9 +300,18 @@ pub enum PresenceStatusProperty {
 // JmapObject impls
 // ---------------------------------------------------------------------------
 
+/// `name` and `description` are localizable display text
+/// (draft-atwood-jmap-updates-00 §4.1; the JMAP Chat applicability table
+/// in bd:jmap-chat-spec-qb21). A localized `description` may be `null`,
+/// "none in that language"; `name` may not. The two properties
+/// round-trip through [`crate::Chat::extra`].
 impl JmapObject for crate::Chat {
     const TYPE_NAME: &'static str = "Chat";
     type Property = ChatProperty;
+    const LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty] = &[
+        jmap_types::i18n::LocalizableProperty::new("name", false),
+        jmap_types::i18n::LocalizableProperty::new("description", true),
+    ];
 }
 
 impl GetObject for crate::Chat {}
@@ -890,6 +899,26 @@ mod tests {
             extra: Map::new(),
         };
         assert_eq!(check_property_classification(&obj), Ok(()));
+    }
+}
+
+#[cfg(test)]
+mod localizable_tests {
+    use jmap_types::JmapObject;
+    use jmap_types::i18n::LocalizableProperty;
+
+    /// The JMAP Chat applicability table (bd:jmap-chat-spec-qb21):
+    /// Chat `name` and `description` take `locale` and `localizations`;
+    /// a localized `description` may be `null`.
+    #[test]
+    fn chat_name_and_description_are_localizable() {
+        assert_eq!(
+            <crate::Chat as JmapObject>::LOCALIZABLE,
+            &[
+                LocalizableProperty::new("name", false),
+                LocalizableProperty::new("description", true),
+            ]
+        );
     }
 }
 

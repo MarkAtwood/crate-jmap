@@ -14,6 +14,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-types**: `Chat` declares `JmapObject::LOCALIZABLE`: `name` and
+  `description` (a localized `description` may be `null`), per the JMAP Chat
+  applicability table (bd:jmap-chat-spec-qb21). `locale` and `localizations`
+  round-trip through `Chat::extra`. The generic i18n handlers now treat
+  Chat like AddressBook: without `urn:ietf:params:jmap:i18n` in use they
+  drop the two properties, and `language` is checked against the
+  capability and the account instead of being rejected outright.
+
+- **jmap-server**: `I18nProjection::without_language(using, info)`, the
+  projection for a request with no `language` argument; the same as
+  `from_args` on arguments without one, without the `Result`.
+
 - **jmap-graph-types**: draft-atwood-jmap-graph-provenance-00 types:
   `JMAP_GRAPH_PROVENANCE_URI`, `EVIDENCE_EDGE_TYPE`, the limits
   (`MAX_EVIDENCE_EDGES`, `MAX_PURPOSES`, `RETENTION_DAYS`),

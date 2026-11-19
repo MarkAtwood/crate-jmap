@@ -1025,6 +1025,7 @@ impl jmap_object_history_types::HistoryObject for jmap_chat_types::Chat
 impl jmap_types::backend::GetObject for jmap_chat_types::Chat
 impl jmap_types::backend::JmapObject for jmap_chat_types::Chat
 pub type jmap_chat_types::Chat::Property = jmap_chat_types::ChatProperty
+pub const jmap_chat_types::Chat::LOCALIZABLE: &'static [jmap_types::i18n::LocalizableProperty]
 pub const jmap_chat_types::Chat::TYPE_NAME: &'static str
 impl jmap_types::backend::QueryObject for jmap_chat_types::Chat
 pub type jmap_chat_types::Chat::Comparator = jmap_chat_types::Comparator<jmap_chat_types::ChatComparatorProperty>

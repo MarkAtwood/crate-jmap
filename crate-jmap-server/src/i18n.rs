@@ -127,6 +127,25 @@ impl I18nProjection {
                 Some(parse_ranges(&v)?)
             }
         };
+        Ok(Self::with_ranges::<O>(ranges, using, info))
+    }
+
+    /// The projection for a request with no `language` argument (or a
+    /// `null` one): what [`Self::from_args`] returns for arguments
+    /// without `language`, which never fails.
+    ///
+    /// For a handler that does not take `language`, or that has already
+    /// removed it. `using` and `info` are as for [`Self::from_args`].
+    #[must_use]
+    pub fn without_language<O: JmapObject>(using: &[String], info: Option<&I18nInfo>) -> Self {
+        Self::with_ranges::<O>(None, using, info)
+    }
+
+    fn with_ranges<O: JmapObject>(
+        ranges: Option<Vec<LanguageRange>>,
+        using: &[String],
+        info: Option<&I18nInfo>,
+    ) -> Self {
         let mode = if O::LOCALIZABLE.is_empty() {
             Mode::Off
         } else if !uses_i18n(using) || info.is_none() {
@@ -136,10 +155,10 @@ impl I18nProjection {
         } else {
             Mode::Stored
         };
-        Ok(Self {
+        Self {
             mode,
             properties: O::LOCALIZABLE,
-        })
+        }
     }
 
     /// The `language` ranges, when the request set them.
