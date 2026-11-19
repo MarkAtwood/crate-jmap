@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-98sl.6",
+  "title": "graph-server: Graph.retention (mayAdmin only, 1..36500 days) and the retention sweep (destroy as GraphNode/set, pinned and edit-log nodes exempt, clock from updated)",
+  "description": "§Graph Extensions, §Retention. Sweep runs like the other expiry sweeps; within one day. Spec: draft-atwood-jmap-graph-provenance-00.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:33:34.529299399Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:33:34.529299399Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-98sl.6",
+      "depends_on_id": "JMAP-98sl",
+      "type": "parent-child",
+      "created_at": "2026-11-19T19:33:34.708955465Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

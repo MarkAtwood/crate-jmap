@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-98sl.5",
+  "title": "graph-server: evidence edges, at most 32 per record (overQuota on GraphEdge/set create or update)",
+  "description": "§Evidence, §Limits. Spec: draft-atwood-jmap-graph-provenance-00.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:33:34.01978322Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:33:34.01978322Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-98sl.5",
+      "depends_on_id": "JMAP-98sl",
+      "type": "parent-child",
+      "created_at": "2026-11-19T19:33:34.204889318Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}

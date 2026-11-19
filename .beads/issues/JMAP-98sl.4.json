@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-98sl.4",
+  "title": "graph-server: retraction (clear content and provenance in the same update, irreversible, GraphEdge from a retracted record forbidden, history versions not returned and purged)",
+  "description": "§Retraction. Includes the object-history SHOULDs when GraphNode history is on. Spec: draft-atwood-jmap-graph-provenance-00.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:33:33.51731757Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:33:33.51731757Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-98sl.4",
+      "depends_on_id": "JMAP-98sl",
+      "type": "parent-child",
+      "created_at": "2026-11-19T19:33:33.675522455Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
