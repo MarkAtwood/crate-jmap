@@ -1,1 +1,2 @@
 {"id":"01a1f553-ba0b-7790-861e-c47265f7659b","issue_id":"JMAP-zr5h","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T19:41:07.467497085Z"}
+{"id":"01a1f639-0b09-780f-b1f3-bb98d4f7f88b","issue_id":"JMAP-zr5h","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in 31c568ea: 3 tests; rec:446 checked as two VTCRecordings sharing a blobId (no blob store in vtc-server).","created_at":"2026-11-19T23:51:35.945529884Z"}

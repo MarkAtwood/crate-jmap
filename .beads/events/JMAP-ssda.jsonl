@@ -1,1 +1,2 @@
 {"id":"01a1f553-b8f0-7047-bc8e-e6c5ce0a274b","issue_id":"JMAP-ssda","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T19:41:07.184018869Z"}
+{"id":"01a1f639-0946-75c0-8c94-2ab1bda398e7","issue_id":"JMAP-ssda","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in b9b88de9: 11 tests, all compliance rows covered; no bugs.","created_at":"2026-11-19T23:51:35.494377813Z"}
