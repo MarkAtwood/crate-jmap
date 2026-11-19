@@ -356,7 +356,7 @@ pub struct CategoryPatch {
 /// Server-side handlers parse the wire patch's metadata-key subset
 /// into this struct (stripping structural mutation keys like
 /// `addRoles` first), then hand it to
-/// `ChatBackend::apply_space_metadata_patch`. Each field is `Option<_>`;
+/// `ChatSpaces::apply_space_metadata_patch`. Each field is `Option<_>`;
 /// `None` means the field is absent from the wire patch and the
 /// corresponding `Space` property is left unchanged. Nullable target
 /// fields ([`description`](Self::description),

@@ -212,7 +212,7 @@ async fn attachment_size_and_sha256_are_checked_against_the_blob() {
     assert_attachments_invalid(&create(&backend, &chat_id, "hi", with(3, last_digit)).await);
 }
 
-/// `ChatBackend::attachment_blob` return mapping: "`Ok(Err(set_error))`:
+/// `ChatResolvers::attachment_blob` return mapping: "`Ok(Err(set_error))`:
 /// reject the create with `set_error`, e.g. `invalidProperties` naming
 /// `attachments` for an unknown `blobId`". RFC 8620 §5.3: `notCreated` is
 /// "A map of the creation id to a SetError for each record that failed to
@@ -239,7 +239,7 @@ async fn attachment_blob_set_error_rejects_the_create() {
     assert_eq!(backend.create_input_ids().len(), 1, "only the Chat: {resp}");
 }
 
-/// `ChatBackend::attachment_blob` return mapping: "`Err(e)`:
+/// `ChatResolvers::attachment_blob` return mapping: "`Err(e)`:
 /// `serverFail`". RFC 8620 §5.3 lists `serverFail` among the SetError
 /// types; the backend's error text is not echoed to the client.
 #[tokio::test]

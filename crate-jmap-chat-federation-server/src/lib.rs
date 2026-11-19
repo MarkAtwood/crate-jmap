@@ -53,7 +53,7 @@
 //!
 //! ## Sending
 //!
-//! A backend's `ChatBackend::on_outbound_event` turns each
+//! A backend's `ChatEvents::on_outbound_event` turns each
 //! `jmap_chat_server::OutboundEvent` into `Peer/*` calls. For a new
 //! Message, [`outbound_reference`] gives the `senderMsgId` to send for its
 //! `replyTo` and `threadRootId` (§Outbound Message Preparation), and

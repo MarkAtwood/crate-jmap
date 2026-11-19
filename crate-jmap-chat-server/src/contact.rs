@@ -186,11 +186,11 @@ pub async fn handle_contact_changes<B: ChatBackend>(
 /// server-set (draft-atwood-jmap-chat-did-00 §Optional `did` field), so a
 /// backend that binds one checks it with
 /// [`ChatContact::has_consistent_did`]. A create whose `identity` equals
-/// [`ChatBackend::owner_user_id`] is rejected with `invalidProperties`
+/// [`ChatSettings::owner_user_id`](crate::ChatSettings::owner_user_id) is rejected with `invalidProperties`
 /// naming `identity`. A create whose `identity` another ChatContact
 /// already holds is rejected by the backend with `alreadyExists` and
 /// `existingId` (see the `ChatContact` uniqueness contract on
-/// [`ChatBackend::create_object`]).
+/// [`ChatStore::create_object`](crate::ChatStore::create_object)).
 ///
 /// `destroy` is rejected with `forbidden`. `update` supports `blocked`
 /// and `displayName`; `id`, `identity`, `firstSeenAt`, `lastSeenAt` are

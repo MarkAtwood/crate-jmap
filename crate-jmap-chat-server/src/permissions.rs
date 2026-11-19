@@ -4,14 +4,14 @@
 //! mutation values onto the [`ChatPermission`] vocabulary defined by
 //! draft-atwood-jmap-chat-00 §SpaceRole `permissions` and gated per
 //! §Space/set. Backend implementations of
-//! [`ChatBackend::apply_space_patch`] consume these helpers to gate
+//! [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch) consume these helpers to gate
 //! per-op authorization after resolving the caller's effective
 //! permission set in a Space.
 //!
 //! Per workspace AGENTS.md "backend canonical" policy, handlers MUST NOT
 //! call these helpers for permission gating — only backends do.
 //!
-//! [`ChatBackend::apply_space_patch`]: crate::ChatBackend::apply_space_patch
+//! [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch): crate::ChatSpaces::apply_space_patch
 
 use std::collections::HashSet;
 
@@ -139,13 +139,13 @@ pub enum RequiredPermissions {
 /// that contract was load-bearing on a name no public API exposed.
 ///
 /// This helper is pure and has no side effects. Backends consume it
-/// inside [`ChatBackend::apply_space_patch`] after resolving the
+/// inside [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch) after resolving the
 /// caller's effective permissions. Handlers MUST NOT consume this
 /// helper for permission gating — gates are backend-canonical per
 /// workspace AGENTS.md.
 ///
 /// [`PatchObject`]: jmap_types::PatchObject
-/// [`ChatBackend::apply_space_patch`]: crate::ChatBackend::apply_space_patch
+/// [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch): crate::ChatSpaces::apply_space_patch
 pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
     match op {
         // Role family — draft §Space/set L1260, L1263, L1266.

@@ -19,7 +19,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetError, SetErrorTy
 // ---------------------------------------------------------------------------
 
 /// The outcome of a single [`SpacePatchOp`](crate::SpacePatchOp) applied by
-/// [`ChatBackend::apply_space_patch`].
+/// [`ChatSpaces::apply_space_patch`].
 ///
 /// `op_index` is the zero-based index of the op within the input `Vec`, used
 /// by handlers to construct a descriptive error message identifying which
@@ -136,7 +136,7 @@ impl OpResult {
 /// the cap values; they are implementation-defined and may vary per
 /// account or per tenant.
 ///
-/// Backends override [`ChatBackend::limits`] to supply their own values.
+/// Backends override [`ChatSettings::limits`] to supply their own values.
 /// The default impl returns conservative reference-impl-grade values
 /// suitable for tests and single-tenant dev servers; production
 /// deployments are expected to override.
@@ -214,7 +214,7 @@ pub struct ChatLimits {
     /// The account's `maxAttachmentBytes` capability value: "Maximum size
     /// in bytes of a single attachment blob." `Message/set` create
     /// rejects an Attachment whose `size` exceeds it with a `tooLarge`
-    /// SetError, before consulting [`ChatBackend::attachment_blob`].
+    /// SetError, before consulting [`ChatResolvers::attachment_blob`].
     /// Defaults to 50,000,000.
     pub max_attachment_bytes: u64,
     /// The account's `maxAttachmentsPerMessage` capability value:
@@ -237,7 +237,7 @@ impl ChatLimits {
     ///
     /// The struct is `#[non_exhaustive]` so external callers (tests
     /// using `MemoryBackend::set_limits_for_test`, production backends
-    /// overriding [`ChatBackend::limits`]) need a constructor to build
+    /// overriding [`ChatSettings::limits`]) need a constructor to build
     /// one. Future cap-field additions to [`ChatLimits`] are an
     /// additive non-breaking change because the constructor stays
     /// stable; callers wanting to override the new field combine
@@ -358,7 +358,7 @@ impl ChatLimits {
 // ---------------------------------------------------------------------------
 
 /// The stored blob behind an Attachment `blobId`, as reported by
-/// [`ChatBackend::attachment_blob`].
+/// [`ChatResolvers::attachment_blob`].
 ///
 /// `handle_message_set` compares these against the Attachment's `size`
 /// and `sha256` (draft-atwood-jmap-chat-00 §Attachment at jmap-chat-spec
@@ -388,7 +388,7 @@ impl AttachmentBlob {
 // ---------------------------------------------------------------------------
 
 /// Identifies the kind of `CustomEmoji/set` operation being authorized by
-/// [`ChatBackend::may_set_custom_emoji`].
+/// [`SpacePolicy::may_set_custom_emoji`].
 ///
 /// Per draft-atwood-jmap-chat-00 commit `9344aec` (2026-05-11, "refactor:
 /// implementation-defined emoji authorization"), authorization for
@@ -408,7 +408,7 @@ pub enum EmojiSetOp {
     Destroy,
 }
 
-/// Why [`ChatBackend::join_space_with_invite`] refused a redemption.
+/// Why [`ChatSpaces::join_space_with_invite`] refused a redemption.
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InviteJoinRefusal {
@@ -424,7 +424,7 @@ pub enum InviteJoinRefusal {
 // Slow-mode rate-limit gate
 // ---------------------------------------------------------------------------
 
-/// Outcome of a [`ChatBackend::slow_mode_check`] rejection.
+/// Outcome of a [`ChatAccessPolicy::slow_mode_check`] rejection.
 ///
 /// Per draft-atwood-jmap-chat-00 §Chat `slowModeSeconds` plus spec commit
 /// `de60acb` (2026-05-11) which softened the manage-channels exemption to
@@ -492,24 +492,24 @@ impl std::error::Error for SlowModeError {}
 ///
 /// `ChatBackend` carves its methods into two groups:
 ///
-/// 1. **Mutation / hot-path hooks are async.** [`ChatBackend::create_object`],
-///    [`ChatBackend::update_object`], [`ChatBackend::destroy_object`],
-///    [`ChatBackend::apply_space_patch`],
-///    [`ChatBackend::apply_space_metadata_patch`],
-///    [`ChatBackend::expire_message`],
-///    [`ChatBackend::read_and_burn_message`],
-///    [`ChatBackend::slow_mode_check`],
-///    [`ChatBackend::generate_invite_code`],
-///    [`ChatBackend::is_contact_blocked`], and
-///    [`ChatBackend::may_set_custom_emoji`] all return
+/// 1. **Mutation / hot-path hooks are async.** [`ChatStore::create_object`],
+///    [`ChatStore::update_object`], [`ChatStore::destroy_object`],
+///    [`ChatSpaces::apply_space_patch`],
+///    [`ChatSpaces::apply_space_metadata_patch`],
+///    [`ChatMessageLifecycle::expire_message`],
+///    [`ChatMessageLifecycle::read_and_burn_message`],
+///    [`ChatAccessPolicy::slow_mode_check`],
+///    [`ChatSpaces::generate_invite_code`],
+///    [`ChatAccessPolicy::is_contact_blocked`], and
+///    [`SpacePolicy::may_set_custom_emoji`] all return
 ///    `impl Future + Send`. These methods consult per-account state,
 ///    may issue I/O, and run on the JMAP request hot path; the async
 ///    signature lets production backends `.await` storage / cache /
 ///    policy lookups without runtime-pinning hazards.
 ///
-/// 2. **Policy / capability hooks are sync.** [`ChatBackend::supports_type`],
-///    [`ChatBackend::limits`], [`ChatBackend::protect_last_admin`], and
-///    [`ChatBackend::retains_edit_history`] are synchronous methods.
+/// 2. **Policy / capability hooks are sync.** [`ChatStore::supports_type`],
+///    [`ChatSettings::limits`], [`ChatSpaces::protect_last_admin`], and
+///    [`ChatSettings::retains_edit_history`] are synchronous methods.
 ///    These hooks answer deployment-policy or capability questions
 ///    whose answer SHOULD be derivable from in-process state (a
 ///    startup-loaded config snapshot, a cached per-account record).
@@ -532,7 +532,40 @@ impl std::error::Error for SlowModeError {}
 /// converting them all preemptively for hypothetical multi-tenant
 /// SaaS deployments would over-engineer the kit-vs-product posture
 /// described in workspace `AGENTS.md`.
-pub trait ChatBackend: JmapBackend {
+pub trait ChatBackend:
+    ChatStore
+    + ChatSpaces
+    + SpacePolicy
+    + ChatAccessPolicy
+    + ChatRestrictions
+    + ChatModeration
+    + ChatMessageLifecycle
+    + ChatEvents
+    + ChatSettings
+    + ChatResolvers
+{
+}
+
+impl<T> ChatBackend for T where
+    T: ChatStore
+        + ChatSpaces
+        + SpacePolicy
+        + ChatAccessPolicy
+        + ChatRestrictions
+        + ChatModeration
+        + ChatMessageLifecycle
+        + ChatEvents
+        + ChatSettings
+        + ChatResolvers
+{
+}
+
+/// Object writes and type support: the `/set` storage half of a chat backend.
+///
+/// Its defaults report outbound events through [`ChatEvents`].
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatStore: ChatEvents {
     /// Create a new object.
     ///
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
@@ -551,8 +584,8 @@ pub trait ChatBackend: JmapBackend {
     /// account-access checking, so a backend that trusts the handler lets any
     /// caller write any account. Space permission and role-hierarchy gates
     /// resolve against the owner's member entry through the `may_*` hooks (for
-    /// example [`Self::may_send_message`]), [`Self::apply_space_patch`] and
-    /// [`Self::apply_space_metadata_patch`].
+    /// example [`ChatAccessPolicy::may_send_message`]), [`ChatSpaces::apply_space_patch`] and
+    /// [`ChatSpaces::apply_space_metadata_patch`].
     ///
     /// # Id assignment
     ///
@@ -662,8 +695,8 @@ pub trait ChatBackend: JmapBackend {
     /// updated in `Message` state:
     ///
     /// - on a Message create or destroy (including
-    ///   [`expire_message`](Self::expire_message) and
-    ///   [`read_and_burn_message`](Self::read_and_burn_message)), the
+    ///   [`expire_message`](ChatMessageLifecycle::expire_message) and
+    ///   [`read_and_burn_message`](ChatMessageLifecycle::read_and_burn_message)), the
     ///   still-stored Message its `replyTo` names, whose `replyCount`
     ///   changed;
     /// - on a ReadPosition update that changes `lastReadMessageId`, each
@@ -716,7 +749,7 @@ pub trait ChatBackend: JmapBackend {
     /// # Default implementation
     ///
     /// Calls [`Self::create_object`] for `Message`, then, on success,
-    /// [`Self::on_outbound_event`] with the `NewMessage` event. The store
+    /// [`ChatEvents::on_outbound_event`] with the `NewMessage` event. The store
     /// and the enqueue are then two steps, and the enqueue cannot fail
     /// the create.
     fn create_message<F>(
@@ -837,7 +870,7 @@ pub trait ChatBackend: JmapBackend {
     /// Chat's `pinnedMessageIds` (draft-atwood-jmap-chat-00 §Chat:
     /// "When a pinned Message is hard-deleted, the server MUST remove
     /// its id from this list."), as
-    /// [`expire_message`](Self::expire_message) does. That change is
+    /// [`expire_message`](ChatMessageLifecycle::expire_message) does. That change is
     /// a Chat update.
     ///
     /// `destroy_object::<Space>` MUST also destroy every channel Chat
@@ -862,324 +895,6 @@ pub trait ChatBackend: JmapBackend {
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
-
-    /// Called after a Chat is destroyed, so a companion extension can
-    /// update the records that reference it. Examples:
-    /// draft-atwood-jmap-chat-tasks-00 §Lifecycle ("the affected Tasks'
-    /// `chatId` fields MUST be cleared") and draft-atwood-jmap-vtc-00
-    /// §VTCCall ("the server MUST clear the corresponding field to
-    /// `null` on all VTCCalls that reference it").
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once for each Chat that a request destroys, after the destroy
-    /// succeeds:
-    ///
-    /// - a `Chat/set` destroy;
-    /// - each channel in a successful `Space/set` `removeChannels` patch;
-    /// - each channel Chat whose `spaceId` is a Space that `Space/set`
-    ///   destroys (draft-atwood-jmap-chat-00 §Destroying a Space:
-    ///   "Cascades to all channel Chats"). These calls come before
-    ///   [`Self::on_space_destroyed`] for that Space.
-    ///
-    /// It is not called when the handler deletes a duplicate direct Chat
-    /// it created in the same request, because no response ever named
-    /// that id.
-    ///
-    /// The destroy is already committed, so the hook cannot fail the
-    /// request. A backend handles its own errors here. A change it makes
-    /// to another record type MUST advance that type's state, as in
-    /// [`Self::destroy_object`] ("Cascades").
-    ///
-    /// # Default implementation
-    ///
-    /// Does nothing. A backend that implements an extension which
-    /// references Chats overrides it.
-    fn on_chat_destroyed(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        chat_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        let _ = (caller, account_id, chat_id);
-        async {}
-    }
-
-    /// Called after a `Space/set` destroy succeeds, so a companion
-    /// extension can update the records that reference the Space.
-    /// Examples: draft-atwood-jmap-vtc-00 §VTCCall (clear `spaceId` on
-    /// VTCCalls) and draft-atwood-jmap-chat-filenode-00 §Space Deletion
-    /// ("the server SHOULD also destroy the associated file tree").
-    ///
-    /// The handler calls it once per destroyed Space, after
-    /// [`Self::on_chat_destroyed`] for each of its channel Chats. The
-    /// error and state rules of [`Self::on_chat_destroyed`] apply.
-    ///
-    /// # Default implementation
-    ///
-    /// Does nothing. A backend that implements an extension which
-    /// references Spaces overrides it.
-    fn on_space_destroyed(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        space_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        let _ = (caller, account_id, space_id);
-        async {}
-    }
-
-    /// Called after a `SpaceBan/set` create succeeds, with the stored
-    /// ban, so a companion extension can apply the ban to its own
-    /// records. Example: draft-atwood-jmap-vtc-00 §Access Control "Space
-    /// ban enforcement" (the server "MUST set `leftAt` on that
-    /// VTCParticipant record"; "The ban takes effect immediately on
-    /// active calls").
-    ///
-    /// The handler calls it once per created ban. The error and state
-    /// rules of [`Self::on_chat_destroyed`] apply.
-    ///
-    /// # Default implementation
-    ///
-    /// Does nothing. A backend that implements an extension which must
-    /// enforce Space bans overrides it.
-    fn on_space_ban_created(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        ban: &jmap_chat_types::SpaceBan,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        let _ = (caller, account_id, ban);
-        async {}
-    }
-
-    /// Store a ChatBan and remove the banned user from the Chat's
-    /// `members` as one unit.
-    ///
-    /// [`crate::handle_chat_ban_set`] calls this for every `ChatBan/set`
-    /// create that passes its checks: the Chat named by `chatId` is a
-    /// group Chat, the caller holds its `"admin"` role and `userId` is not
-    /// the accountId. draft-atwood-jmap-chat-00 §ChatBan/set: "Creating a
-    /// ban removes the user from `members` if present, as `removeMembers`
-    /// would".
-    ///
-    /// `build` and every contract of [`Self::create_object`]
-    /// (authorisation, id assignment, errors, state and change log) apply
-    /// unchanged. On `Ok` the ban is stored and the user is no longer in
-    /// the Chat's `members`. On `Err` neither happens. A backend that binds
-    /// Chats to another group model (for example a MIMI room, where
-    /// draft-atwood-jmap-chat-mimi-00 §Moderation makes the ban one commit
-    /// that gives the user the "banned" role and removes the user's
-    /// clients) overrides this, and may reject the ban with a
-    /// [`BackendSetError::SetError`] such as `forbidden`.
-    ///
-    /// # Default implementation
-    ///
-    /// Calls [`Self::create_object`] for `ChatBan`. If the user is in the
-    /// Chat's `members`, it then calls [`Self::update_object`] on the Chat
-    /// with the user removed, and on success [`Self::on_outbound_event`]
-    /// with the [`GroupUpdateAction::RemoveMembers`](crate::GroupUpdateAction::RemoveMembers)
-    /// event that a `removeMembers` update reports. If that update fails,
-    /// the ban is destroyed again and the update's error is returned.
-    /// The steps are not one transaction; a backend that needs them in one
-    /// overrides this.
-    fn create_chat_ban<F>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        create_id: &str,
-        build: F,
-    ) -> impl std::future::Future<
-        Output = Result<(jmap_types::Id, jmap_chat_types::ChatBan), BackendSetError<Self::Error>>,
-    > + Send
-    where
-        F: FnOnce(&jmap_types::Id) -> jmap_chat_types::ChatBan + Send,
-    {
-        async move {
-            let (id, ban) = self
-                .create_object::<jmap_chat_types::ChatBan, _>(caller, account_id, create_id, build)
-                .await?;
-            let chat = match self
-                .get_objects::<jmap_chat_types::Chat>(
-                    caller,
-                    account_id,
-                    Some(std::slice::from_ref(&ban.chat_id)),
-                    None,
-                )
-                .await
-            {
-                Ok((chats, _)) => chats.into_iter().next(),
-                Err(e) => {
-                    // Best effort: the ban must not outlive a failed removal.
-                    let _ = self
-                        .destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, &id)
-                        .await;
-                    return Err(BackendSetError::Other(e));
-                }
-            };
-            let Some(chat) = chat else {
-                return Ok((id, ban));
-            };
-            let before = chat.members.unwrap_or_default();
-            if before.iter().all(|m| m.id != ban.user_id) {
-                return Ok((id, ban));
-            }
-            let after: Vec<_> = before.into_iter().filter(|m| m.id != ban.user_id).collect();
-            let mut map = serde_json::Map::new();
-            map.insert(
-                "members".to_owned(),
-                serde_json::to_value(&after).expect("ChatMember serializes"),
-            );
-            if let Err(e) = self
-                .update_object::<jmap_chat_types::Chat>(
-                    caller,
-                    account_id,
-                    &chat.id,
-                    jmap_types::PatchObject::from_map(map),
-                )
-                .await
-            {
-                // Best effort: the ban must not outlive a failed removal.
-                let _ = self
-                    .destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, &id)
-                    .await;
-                return Err(e);
-            }
-            let mut recipients: Vec<jmap_types::Id> = after
-                .iter()
-                .filter(|m| m.id != *account_id)
-                .map(|m| m.id.clone())
-                .collect();
-            recipients.push(ban.user_id.clone());
-            let event = crate::OutboundEvent::GroupUpdate {
-                chat_id: chat.id.clone(),
-                action: crate::GroupUpdateAction::RemoveMembers {
-                    removed_ids: vec![ban.user_id.clone()],
-                },
-                recipients,
-            };
-            self.on_outbound_event(caller, account_id, &event).await;
-            Ok((id, ban))
-        }
-    }
-
-    /// Apply a `ChatBan/set` update to the stored ban `id`.
-    ///
-    /// [`crate::handle_chat_ban_set`] calls this for every update that
-    /// passes its checks: the caller holds the `"admin"` role in the ban's
-    /// Chat, and `patch` names only `reason` and `expiresAt`
-    /// (draft-atwood-jmap-chat-00 §ChatBan/set: "`update` supports:
-    /// `reason`, `expiresAt`"). Every contract of [`Self::update_object`]
-    /// applies unchanged. A backend that mirrors bans into another group
-    /// model (for example a MIMI room) overrides this.
-    ///
-    /// # Default implementation
-    ///
-    /// Calls [`Self::update_object`] for `ChatBan`.
-    fn update_chat_ban(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        id: &jmap_types::Id,
-        patch: jmap_types::PatchObject,
-    ) -> impl std::future::Future<
-        Output = Result<Option<jmap_chat_types::ChatBan>, BackendSetError<Self::Error>>,
-    > + Send {
-        self.update_object::<jmap_chat_types::ChatBan>(caller, account_id, id, patch)
-    }
-
-    /// Lift the ChatBan `id`.
-    ///
-    /// [`crate::handle_chat_ban_set`] calls this for every destroy that
-    /// passes its checks (the caller holds the `"admin"` role in the ban's
-    /// Chat), and [`crate::sweep_expired`] for every ban whose `expiresAt`
-    /// has passed. draft-atwood-jmap-chat-00 §ChatBan/set: "`destroy`
-    /// lifts the ban ... Lifting a ban does not add the user back to the
-    /// Chat." Every contract of [`Self::destroy_object`] applies unchanged.
-    /// A backend that binds Chats to a MIMI room overrides this to give
-    /// the user the member role again without adding any client
-    /// (draft-atwood-jmap-chat-mimi-00 §Moderation).
-    ///
-    /// # Default implementation
-    ///
-    /// Calls [`Self::destroy_object`] for `ChatBan`; `members` is not
-    /// touched.
-    fn destroy_chat_ban(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
-        self.destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, id)
-    }
-
-    /// Called when the owner's action must be sent to other participants'
-    /// servers: a new Message, a retraction (`deletedForAll`), an edit, a
-    /// reaction added or removed, a group Chat change, a read receipt, a
-    /// typing signal or a presence change. A backend that implements
-    /// draft-atwood-jmap-chat-federation-00 turns the
-    /// [`OutboundEvent`](crate::OutboundEvent) into `Peer/deliver`
-    /// (`message`, `edit` or `reactionUpdate`), `Peer/retract`,
-    /// `Peer/groupUpdate`, `Peer/receipt`, `Peer/typing` or `Peer/presence`
-    /// calls, typically by enqueueing the durable ones (§Persistent Queue).
-    /// [`OutboundEvent::Typing`](crate::OutboundEvent::Typing) also drives
-    /// the local `typing` push to the Chat's other local participants.
-    ///
-    /// # When the handler calls this
-    ///
-    /// - `Message/set` create:
-    ///   [`OutboundEvent::NewMessage`](crate::OutboundEvent::NewMessage), after the Message is written
-    ///   (draft-atwood-jmap-chat-00 §Message/set: "enqueues the message for
-    ///   outbound delivery").
-    /// - `Message/set` update setting `deletedForAll: true`:
-    ///   [`OutboundEvent::Retract`](crate::OutboundEvent::Retract), after the update is written
-    ///   (§Peer/retract "Sender Behavior": "the server MUST send
-    ///   `Peer/retract` to the server of every other participant in the
-    ///   Chat"). If the write fails, nothing is reported.
-    /// - `Message/set` update editing `body`, `bodyType`, `mentions` or
-    ///   `broadcastMentions` and not deleting the Message:
-    ///   [`OutboundEvent::Edit`](crate::OutboundEvent::Edit), after the update is written.
-    /// - `Chat/set` create of a group Chat, or update that changes a group
-    ///   Chat's members, roles, `name`, `description` or `avatarBlobId`:
-    ///   one [`OutboundEvent::GroupUpdate`](crate::OutboundEvent::GroupUpdate) per action, after the write
-    ///   (draft-atwood-jmap-chat-00 §Chat/set).
-    ///
-    /// - `Message/set` update patching `reactions/<senderReactionId>` and
-    ///   not deleting the Message:
-    ///   one [`OutboundEvent::ReactionUpdate`](crate::OutboundEvent::ReactionUpdate) per key that adds a
-    ///   reaction or removes a stored one, after the update is written
-    ///   (draft-atwood-jmap-chat-00 §Adding and Removing Reactions).
-    /// - `Message/set` update setting a non-null `readAt` on a Message whose
-    ///   `senderId` is not the accountId:
-    ///   [`OutboundEvent::Receipt`](crate::OutboundEvent::Receipt), after
-    ///   the update (or the `burnOnRead` hard-delete) is written, unless
-    ///   the effective `receiptSharing` (`Chat.receiptSharing`, else
-    ///   `PresenceStatus.receiptSharing`) is `false`
-    ///   (draft-atwood-jmap-chat-federation-00 §Peer/receipt "Sender
-    ///   Behavior").
-    /// - `Chat/typing`: [`OutboundEvent::Typing`](crate::OutboundEvent::Typing),
-    ///   after the request is validated (draft-atwood-jmap-chat-00
-    ///   §Chat/typing).
-    /// - `PresenceStatus/set` update naming `presence`, `statusText` or
-    ///   `statusEmoji`: [`OutboundEvent::Presence`](crate::OutboundEvent::Presence),
-    ///   after the update is written
-    ///   (draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence).
-    ///
-    /// The hook cannot fail the request. A backend handles its own errors
-    /// here.
-    ///
-    /// # Default implementation
-    ///
-    /// Does nothing, for a server that does not federate.
-    fn on_outbound_event(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        event: &crate::OutboundEvent,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        let _ = (caller, account_id, event);
-        async {}
-    }
 
     /// Returns `true` if this backend supports JMAP object type `O` for
     /// `account_id`, as seen by `caller`.
@@ -1220,7 +935,12 @@ pub trait ChatBackend: JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> bool;
+}
 
+/// Space structure: invites, joins, member and role patches, and Space-wide settings.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatSpaces: JmapBackend {
     /// Generate a cryptographically random invite code.
     ///
     /// Implementations MUST use a CSPRNG seeded from OS entropy. The
@@ -1346,86 +1066,6 @@ pub trait ChatBackend: JmapBackend {
         joined_at: &jmap_types::UTCDate,
     ) -> impl std::future::Future<Output = Result<Result<(), InviteJoinRefusal>, Self::Error>> + Send;
 
-    /// Apply a `readAt`-setting `patch` to the `burnOnRead` Message
-    /// `message_id` and hard-delete it, as one atomic operation.
-    ///
-    /// Per draft-atwood-jmap-chat-00 §Message `burnOnRead` (jmap-chat-spec
-    /// 77c3474 L750): "the receiving server SHOULD permanently hard-delete
-    /// this message (row removal, not tombstone) immediately after setting
-    /// `readAt`." This crate performs the recommended deletion by choice.
-    ///
-    /// # Authorisation contract
-    ///
-    /// Implementors MUST verify that `caller` may act as the owner of
-    /// `account_id` before setting `readAt` and deleting the Message and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
-    /// for the workspace-canonical rationale; the same rule applies here.
-    ///
-    /// # Atomicity contract
-    ///
-    /// Validate `patch` against the stored Message exactly as
-    /// [`Self::update_object`] would, then remove the row, record the id
-    /// in the `destroyed` set of the `Message` change log (bumping the
-    /// `Message` state once), and unpin it from its Chat (§Chat
-    /// `pinnedMessageIds`). All of it takes effect or none: on any error
-    /// nothing is committed, so a retried `readAt` patch burns again.
-    /// Composing this from `update_object` and [`Self::expire_message`]
-    /// loses that guarantee: a failed delete leaves `readAt` stored, and
-    /// a retry finds nothing left to set.
-    ///
-    /// # When the handler calls this
-    ///
-    /// `Message/set` update calls this instead of `update_object` when
-    /// the patch sets a non-null `readAt` and the stored Message has
-    /// `burnOnRead: true`. Return `SetError` `notFound` if the Message
-    /// does not exist and the `update_object` `SetError` for an invalid
-    /// patch. There is no default: a non-atomic default would reinstate
-    /// the gap.
-    fn read_and_burn_message(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        message_id: &jmap_types::Id,
-        patch: jmap_types::PatchObject,
-    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
-
-    /// Implementation-defined per-Space content limits for this caller
-    /// and account.
-    ///
-    /// Called by `handle_space_set` once per request, before
-    /// dispatching to [`Self::apply_space_patch`], to enforce
-    /// per-aggregate caps on roles, members, channels, and categories
-    /// per Space (draft-atwood-jmap-chat-00 §Space/set, spec commit
-    /// `80d5e11`), and by `handle_message_set` once per request to
-    /// validate `bodyType` against [`ChatLimits::supported_body_types`]
-    /// and [`ChatLimits::server_reserved_body_types`].
-    ///
-    /// The default implementation returns [`ChatLimits::default`],
-    /// which carries conservative reference-impl-grade values. The
-    /// `caller` and `account_id` arguments are plumbed even though the
-    /// default impl ignores them, so production backends can vary caps
-    /// per-account (Free vs. Pro tier, multi-tenant SaaS, etc.)
-    /// without a future API break. Implementations SHOULD return
-    /// quickly (in-process struct construction, possibly off a cached
-    /// per-account record) — this method is called on the hot
-    /// `Space/set` path.
-    ///
-    /// # Why sync, not async
-    ///
-    /// `Space/set` calls this once per request before dispatching the
-    /// mutation; an async `.await` here would add a roundtrip to the
-    /// hot path of every Space mutation. Production backends with
-    /// per-tenant caps SHOULD cache the resolved [`ChatLimits`] for
-    /// each account on first use and serve from the cache thereafter.
-    /// See the trait-level "Async vs sync method convention" section
-    /// above for the workspace rationale.
-    ///
-    /// Workspace cross-extension pattern: see `AGENTS.md` "Backend
-    /// caps and limits".
-    fn limits(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> ChatLimits {
-        ChatLimits::default()
-    }
-
     /// Apply a sequence of structural mutations to a Space
     /// (draft-atwood-jmap-chat-00 §Space/set).
     ///
@@ -1444,7 +1084,7 @@ pub trait ChatBackend: JmapBackend {
     /// for the whole call otherwise; the handler reports it in `notUpdated`.
     /// The per-op permission and role-hierarchy gates under "Per-op error
     /// semantics" are also enforced here, atomically with the mutation. See
-    /// [`Self::create_object`] for the workspace-canonical rationale.
+    /// [`ChatStore::create_object`] for the workspace-canonical rationale.
     ///
     /// # Ordering and atomicity
     ///
@@ -1467,7 +1107,7 @@ pub trait ChatBackend: JmapBackend {
     /// Per-aggregate count limits on roles, members, channels, and
     /// categories per Space are **backend-canonical** as of
     /// bd:JMAP-x2gd.44: the backend MUST query its own
-    /// [`ChatBackend::limits`], project the post-patch counts for the
+    /// [`ChatSettings::limits`], project the post-patch counts for the
     /// target Space, and reject the whole patch with an `overQuota`
     /// SetError (RFC 8620 §5.3) if any aggregate would exceed its
     /// cap. The cap enforcement MUST be atomic with the mutation
@@ -1651,7 +1291,7 @@ pub trait ChatBackend: JmapBackend {
     /// metadata fields (and not the semantic-mutation keys
     /// `addRoles` / `addMembers` / `addChannels` / `addCategories`
     /// etc.) route through this method instead of the generic
-    /// [`Self::update_object`]. Mixed patches carrying both top-level
+    /// [`ChatStore::update_object`]. Mixed patches carrying both top-level
     /// metadata AND semantic-mutation keys call
     /// [`Self::apply_space_patch`] first (for the structural ops) and
     /// this method second (for the metadata). The handler at
@@ -1662,7 +1302,7 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Implementors MUST verify that `caller` may act as the owner of
     /// `account_id` before applying the patch and MUST return [`BackendSetError::SetError`]
-    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`Self::create_object`]
+    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`ChatStore::create_object`]
     /// for the workspace-canonical rationale; the same rule applies here.
     ///
     /// # Permission and atomicity
@@ -1891,172 +1531,6 @@ pub trait ChatBackend: JmapBackend {
         true
     }
 
-    /// Whether the backend retains edit history for messages.
-    ///
-    /// Per draft-atwood-jmap-chat-00 commit `0783fc4` ("condition
-    /// MessageRevision push on edit-history retention") +
-    /// `§Message editHistory`: servers MAY limit retained
-    /// MessageRevisions, and when the server does not retain edit
-    /// history, the `editHistory` field MUST be omitted from
-    /// `Message/get` and (in principle) `Message/changes` responses.
-    /// `Message/changes` per RFC 8620 §5.2 returns only id arrays,
-    /// not Message objects, so the spec's "omit from /changes" is
-    /// a no-op at the wire level — the kit only enforces the
-    /// `Message/get` projection.
-    ///
-    /// # When the handler calls this
-    ///
-    /// `handle_message_get` consults this predicate once per call.
-    /// When `false`, every returned `Message` has its
-    /// `edit_history` field set to `None` before serialization,
-    /// which serde's `skip_serializing_if = "Option::is_none"`
-    /// collapses to a wire-absent field per spec.
-    ///
-    /// # Why sync, not async
-    ///
-    /// This is a static deployment-policy flag, not a per-call
-    /// decision — it does not consult per-account state, principal
-    /// identity, or per-message bounds. Production backends that
-    /// need to vary retention per-account would file a follow-up
-    /// bead for a parallel `retains_edit_history_for_account` hook
-    /// rather than reshaping this method.
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `false` — no retention. This matches the workspace's
-    /// "kit defines the hook; consumer enforces the policy" posture.
-    /// Production backends that retain edit history MUST override
-    /// this to `true`; the reference `MemoryBackend` exposes a
-    /// test-only setter for tests that need the retain-on path.
-    fn retains_edit_history(&self) -> bool {
-        false
-    }
-
-    /// Whether the backend keeps `Chat.unreadCount` itself instead of
-    /// the kit recomputing it.
-    ///
-    /// draft-atwood-jmap-chat-00 §Chat `unreadCount` (jmap-chat-spec
-    /// 33702a5 L629): "The value is advisory, for display such as
-    /// badges. Servers SHOULD keep it accurate, but MAY update it some
-    /// time after the change that affects it, MAY combine several such
-    /// changes into one update, and MAY report a server-defined maximum
-    /// in place of any larger count. Whenever the server changes the
-    /// value, the Chat's state changes as for any other property
-    /// ({{RFC8620}} Section 5.1)."
-    ///
-    /// # When the handlers call this
-    ///
-    /// When `false`, the kit keeps the count exact: `Chat/get` recomputes
-    /// `unreadCount` from the account's Messages and ReadPositions, and
-    /// every Message create or destroy, Message expiry, read-and-burn and
-    /// ReadPosition update writes the recomputed count to each affected
-    /// Chat through [`ChatBackend::update_object`], which advances the
-    /// `Chat` state.
-    ///
-    /// When `true`, the kit does neither: `Chat/get` returns the stored
-    /// `unreadCount` and no Chat is rewritten. The backend sees every
-    /// write that moves the count (the `create_object`, `update_object`
-    /// and `destroy_object` calls for Message and ReadPosition,
-    /// [`ChatBackend::expire_message`] and
-    /// [`ChatBackend::read_and_burn_message`]), and may defer, coalesce or
-    /// cap its update. It MUST still advance the `Chat` state, and log the
-    /// Chat as updated for `Chat/changes`, whenever the stored value
-    /// changes (RFC 8620 §5.1: "If the data changes, this string MUST
-    /// change").
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `false`, the exact upkeep the spec's SHOULD asks for. A
-    /// backend for which the per-event rewrite costs too much (it scans
-    /// every Message in the account) overrides this to `true`.
-    fn maintains_unread_count(&self) -> bool {
-        false
-    }
-
-    /// Whether the [`ChatContact`] `contact_id` has `blocked: true` on the
-    /// contact list of `account_id`.
-    ///
-    /// Delivery paths call this per recipient: `account_id` is the
-    /// recipient (the owner of the contact list) and `contact_id` is the
-    /// sender's or referenced ChatContact id *in that account*.
-    /// draft-atwood-jmap-chat-00 §Blocked Contacts: "Typing and presence
-    /// push events whose sending or referenced ChatContact has
-    /// `blocked: true` on the receiving owner's contact list are
-    /// similarly dropped server-side before delivery to any of the
-    /// owner's clients". §ChatContact `id` "identifies the ChatContact only
-    /// on this server", so `contact_id` is always resolved within
-    /// `account_id`'s list; it is never looked up in the sender's account.
-    ///
-    /// [`ChatContact`]: jmap_chat_types::ChatContact
-    ///
-    /// # Callers
-    ///
-    /// [`crate::should_push`] calls it with the push owner's account and
-    /// `Message.senderId`. [`crate::should_deliver_typing`] calls it with
-    /// the typing event's recipient and `senderId`.
-    /// [`crate::project_presence`] calls it with the presence event's
-    /// recipient and `contactId`.
-    /// [`crate::handle_chat_typing`] does not call it: the request carries
-    /// the sender's `accountId`, and the recipient's account is known only
-    /// to the transport that fans the event out, which calls
-    /// [`crate::should_deliver_typing`] per recipient.
-    ///
-    /// # Default implementation
-    ///
-    /// Fetches `contact_id` from `account_id` with
-    /// [`JmapBackend::get_objects`] and returns its `blocked` field, or
-    /// `Ok(false)` when `account_id` holds no such ChatContact. The
-    /// callers pass the recipient's `caller`, the same one they use to
-    /// read the recipient's Chat. Override this only when ChatContacts are
-    /// not stored behind `get_objects` or a cheaper lookup exists.
-    fn is_contact_blocked(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        contact_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        async move {
-            let (contacts, _) = self
-                .get_objects::<jmap_chat_types::ChatContact>(
-                    caller,
-                    account_id,
-                    Some(std::slice::from_ref(contact_id)),
-                    None,
-                )
-                .await?;
-            Ok(contacts.iter().any(|c| c.id == *contact_id && c.blocked))
-        }
-    }
-
-    /// The owner's identity for `account_id`: the value of the
-    /// `ownerUserId` Session field (draft-atwood-jmap-chat-00 §Session
-    /// Object Extensions).
-    ///
-    /// [`crate::contact::handle_contact_set`] rejects a `ChatContact/set`
-    /// create whose `identity` equals this value, octet for octet, with
-    /// an `invalidProperties` SetError naming `identity`
-    /// (draft-atwood-jmap-chat-00 §ChatContact/set: "the owner has no
-    /// ChatContact").
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(None)`: the owner's identity is unknown and the check
-    /// is skipped. Backends that serve `ownerUserId` MUST override this
-    /// to return the same value. A backend used with federation (a
-    /// `jmap_chat_federation_server::FederationBackend`) must return
-    /// `Some` for every mailbox: "Servers implementing {{JMAP-CHAT-FED}}
-    /// MUST include this field in the Session they serve an authenticated
-    /// owner" (draft-atwood-jmap-chat-00 §Session Object Extensions,
-    /// jmap-chat-spec b1cd625 L346), and the `Peer/*` handlers read it to
-    /// recognize the owner's identity in a call.
-    fn owner_user_id(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
-        async { Ok(None) }
-    }
-
     /// The permissions of the implicit `@everyone` role in `space`, the
     /// account `account_id`'s Space.
     ///
@@ -2078,7 +1552,12 @@ pub trait ChatBackend: JmapBackend {
     ) -> impl std::future::Future<
         Output = Result<std::collections::HashSet<jmap_chat_types::ChatPermission>, Self::Error>,
     > + Send;
+}
 
+/// Space-scoped authorization gates: custom emoji, SpaceBan and SpaceInvite writes and reads.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait SpacePolicy: JmapBackend {
     /// Authorization gate consulted by `handle_emoji_set` before every
     /// `CustomEmoji/set` create, update, or destroy.
     ///
@@ -2131,7 +1610,7 @@ pub trait ChatBackend: JmapBackend {
     /// The default returns `Ok(Ok(()))` — every op is permitted. This
     /// matches the workspace's "kit defines the hook; consumer
     /// enforces the policy" posture (see the parallel design of
-    /// [`Self::slow_mode_check`]). Production backends SHOULD override
+    /// [`ChatAccessPolicy::slow_mode_check`]). Production backends SHOULD override
     /// this method to apply the deployment's permission model — e.g.
     /// "only members of `target_space_id` may modify a Space-scoped
     /// emoji" or "only `manage_emoji` permission-holders may modify
@@ -2167,109 +1646,6 @@ pub trait ChatBackend: JmapBackend {
         _account_id: &jmap_types::Id,
         _target_space_id: Option<&jmap_types::Id>,
         _op: EmojiSetOp,
-    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
-        async { Ok(Ok(())) }
-    }
-
-    /// Authorization gate consulted by `handle_message_set` before a
-    /// create or update with a non-empty `broadcastMentions` array is
-    /// applied.
-    ///
-    /// Per draft-atwood-jmap-chat-00 §BroadcastMention (jmap-chat-spec
-    /// 77c3474 L462): sending a `Message` with a non-empty
-    /// `broadcastMentions` array requires the `"mention_broadcast"` Space
-    /// permission, and "Servers SHOULD reject `Message/set` create or update
-    /// requests that would write a broadcast mention from a sender lacking
-    /// this permission with `forbidden`." This crate performs the
-    /// recommended rejection by choice.
-    ///
-    /// For group/direct chats NOT part of any Space (`spaceId` is
-    /// `None`), broadcast mentions are unrestricted per spec; the
-    /// handler skips calling this method entirely in that case.
-    ///
-    /// # `space_id` semantics
-    ///
-    /// `space_id` is the Space that contains the target Chat (channel).
-    /// The handler resolves it by pre-fetching the Chat and reading
-    /// its `space_id` field. This method is only called when
-    /// `space_id` is `Some` — the handler skips the call for
-    /// group/direct chats with no Space.
-    ///
-    /// # `chat_id` semantics
-    ///
-    /// `chat_id` is the target channel Chat, whose `permissionOverrides`
-    /// apply: per draft-atwood-jmap-chat-00 §Space Permission Resolution,
-    /// "When determining whether a member may perform an action in a
-    /// channel Chat, servers MUST evaluate permissions in this order",
-    /// so an override may deny or allow `mention_broadcast` in one
-    /// channel only.
-    ///
-    /// # When the handler calls this
-    ///
-    /// `handle_message_set` invokes `may_broadcast_mention` once per
-    /// create entry or edit whose post-patch `broadcastMentions` is
-    /// non-empty AND whose target Chat has a `spaceId`; rich-body
-    /// `"broadcast"` spans are display-only and never trigger it
-    /// (draft-atwood-jmap-chat-00 §Rich Body Format). The call
-    /// fires AFTER structural validation (`validate_broadcast_mentions`)
-    /// has succeeded and BEFORE `create_object` / `update_object`, so
-    /// malformed payloads do not consume an authorization decision and
-    /// an unauthorized message never touches storage.
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(Ok(()))` — every op is permitted. This matches the
-    /// workspace's "kit defines the hook; consumer enforces the policy"
-    /// posture (see the parallel design of [`Self::may_set_custom_emoji`]).
-    /// Production backends SHOULD override this method to check the
-    /// caller's `mention_broadcast` permission in the target channel,
-    /// resolved per §Space Permission Resolution (see
-    /// [`resolve_channel_permissions`](crate::permissions::resolve_channel_permissions)).
-    ///
-    /// # SetError shape recommendation
-    ///
-    /// Production backends SHOULD return
-    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)
-    ///     .with_description("sender lacks mention_broadcast permission in this channel")))`.
-    fn may_broadcast_mention(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _space_id: &jmap_types::Id,
-        _chat_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
-        async { Ok(Ok(())) }
-    }
-
-    /// Authorization gate consulted by `handle_chat_set` before an update
-    /// whose patch touches `pinnedMessageIds` is applied.
-    ///
-    /// Per draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "For group
-    /// chats, only admins may modify this list. For direct chats, the
-    /// owner may modify it freely. For channel chats, only members with
-    /// the `"pin"` Space permission may modify this list." For a channel
-    /// the `"pin"` permission is resolved per §Space Permission
-    /// Resolution, so the channel's `permissionOverrides` apply.
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once per update entry whose patch sets `pinnedMessageIds` (or a
-    /// pointer path beneath it), AFTER wire-format validation and BEFORE
-    /// `update_object`. A `chat_id` that does not resolve SHOULD yield
-    /// `Ok(Ok(()))` so `update_object` surfaces `notFound`. The return
-    /// mapping is the same as [`Self::may_set_custom_emoji`].
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(Ok(()))` — every op is permitted, matching the
-    /// parallel hooks above. Production backends SHOULD override this
-    /// method and deny with
-    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`.
-    fn may_set_pinned_messages(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _chat_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
         async { Ok(Ok(())) }
     }
@@ -2393,6 +1769,169 @@ pub trait ChatBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
         async { Ok(true) }
     }
+}
+
+/// Chat and Message access gates: send, view, pins, broadcast mentions, slow mode, blocked contacts.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatAccessPolicy: JmapBackend {
+    /// Whether the [`ChatContact`] `contact_id` has `blocked: true` on the
+    /// contact list of `account_id`.
+    ///
+    /// Delivery paths call this per recipient: `account_id` is the
+    /// recipient (the owner of the contact list) and `contact_id` is the
+    /// sender's or referenced ChatContact id *in that account*.
+    /// draft-atwood-jmap-chat-00 §Blocked Contacts: "Typing and presence
+    /// push events whose sending or referenced ChatContact has
+    /// `blocked: true` on the receiving owner's contact list are
+    /// similarly dropped server-side before delivery to any of the
+    /// owner's clients". §ChatContact `id` "identifies the ChatContact only
+    /// on this server", so `contact_id` is always resolved within
+    /// `account_id`'s list; it is never looked up in the sender's account.
+    ///
+    /// [`ChatContact`]: jmap_chat_types::ChatContact
+    ///
+    /// # Callers
+    ///
+    /// [`crate::should_push`] calls it with the push owner's account and
+    /// `Message.senderId`. [`crate::should_deliver_typing`] calls it with
+    /// the typing event's recipient and `senderId`.
+    /// [`crate::project_presence`] calls it with the presence event's
+    /// recipient and `contactId`.
+    /// [`crate::handle_chat_typing`] does not call it: the request carries
+    /// the sender's `accountId`, and the recipient's account is known only
+    /// to the transport that fans the event out, which calls
+    /// [`crate::should_deliver_typing`] per recipient.
+    ///
+    /// # Default implementation
+    ///
+    /// Fetches `contact_id` from `account_id` with
+    /// [`JmapBackend::get_objects`] and returns its `blocked` field, or
+    /// `Ok(false)` when `account_id` holds no such ChatContact. The
+    /// callers pass the recipient's `caller`, the same one they use to
+    /// read the recipient's Chat. Override this only when ChatContacts are
+    /// not stored behind `get_objects` or a cheaper lookup exists.
+    fn is_contact_blocked(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        contact_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async move {
+            let (contacts, _) = self
+                .get_objects::<jmap_chat_types::ChatContact>(
+                    caller,
+                    account_id,
+                    Some(std::slice::from_ref(contact_id)),
+                    None,
+                )
+                .await?;
+            Ok(contacts.iter().any(|c| c.id == *contact_id && c.blocked))
+        }
+    }
+
+    /// Authorization gate consulted by `handle_message_set` before a
+    /// create or update with a non-empty `broadcastMentions` array is
+    /// applied.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §BroadcastMention (jmap-chat-spec
+    /// 77c3474 L462): sending a `Message` with a non-empty
+    /// `broadcastMentions` array requires the `"mention_broadcast"` Space
+    /// permission, and "Servers SHOULD reject `Message/set` create or update
+    /// requests that would write a broadcast mention from a sender lacking
+    /// this permission with `forbidden`." This crate performs the
+    /// recommended rejection by choice.
+    ///
+    /// For group/direct chats NOT part of any Space (`spaceId` is
+    /// `None`), broadcast mentions are unrestricted per spec; the
+    /// handler skips calling this method entirely in that case.
+    ///
+    /// # `space_id` semantics
+    ///
+    /// `space_id` is the Space that contains the target Chat (channel).
+    /// The handler resolves it by pre-fetching the Chat and reading
+    /// its `space_id` field. This method is only called when
+    /// `space_id` is `Some` — the handler skips the call for
+    /// group/direct chats with no Space.
+    ///
+    /// # `chat_id` semantics
+    ///
+    /// `chat_id` is the target channel Chat, whose `permissionOverrides`
+    /// apply: per draft-atwood-jmap-chat-00 §Space Permission Resolution,
+    /// "When determining whether a member may perform an action in a
+    /// channel Chat, servers MUST evaluate permissions in this order",
+    /// so an override may deny or allow `mention_broadcast` in one
+    /// channel only.
+    ///
+    /// # When the handler calls this
+    ///
+    /// `handle_message_set` invokes `may_broadcast_mention` once per
+    /// create entry or edit whose post-patch `broadcastMentions` is
+    /// non-empty AND whose target Chat has a `spaceId`; rich-body
+    /// `"broadcast"` spans are display-only and never trigger it
+    /// (draft-atwood-jmap-chat-00 §Rich Body Format). The call
+    /// fires AFTER structural validation (`validate_broadcast_mentions`)
+    /// has succeeded and BEFORE `create_object` / `update_object`, so
+    /// malformed payloads do not consume an authorization decision and
+    /// an unauthorized message never touches storage.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))` — every op is permitted. This matches the
+    /// workspace's "kit defines the hook; consumer enforces the policy"
+    /// posture (see the parallel design of [`SpacePolicy::may_set_custom_emoji`]).
+    /// Production backends SHOULD override this method to check the
+    /// caller's `mention_broadcast` permission in the target channel,
+    /// resolved per §Space Permission Resolution (see
+    /// [`resolve_channel_permissions`](crate::permissions::resolve_channel_permissions)).
+    ///
+    /// # SetError shape recommendation
+    ///
+    /// Production backends SHOULD return
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)
+    ///     .with_description("sender lacks mention_broadcast permission in this channel")))`.
+    fn may_broadcast_mention(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _space_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
+    /// Authorization gate consulted by `handle_chat_set` before an update
+    /// whose patch touches `pinnedMessageIds` is applied.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: "For group
+    /// chats, only admins may modify this list. For direct chats, the
+    /// owner may modify it freely. For channel chats, only members with
+    /// the `"pin"` Space permission may modify this list." For a channel
+    /// the `"pin"` permission is resolved per §Space Permission
+    /// Resolution, so the channel's `permissionOverrides` apply.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per update entry whose patch sets `pinnedMessageIds` (or a
+    /// pointer path beneath it), AFTER wire-format validation and BEFORE
+    /// `update_object`. A `chat_id` that does not resolve SHOULD yield
+    /// `Ok(Ok(()))` so `update_object` surfaces `notFound`. The return
+    /// mapping is the same as [`SpacePolicy::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))` — every op is permitted, matching the
+    /// parallel hooks above. Production backends SHOULD override this
+    /// method and deny with
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`.
+    fn may_set_pinned_messages(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
 
     /// Authorization gate consulted by `handle_message_set` before each
     /// Message create.
@@ -2416,7 +1955,7 @@ pub trait ChatBackend: JmapBackend {
     /// closed-Chat and closed-Space checks, and BEFORE `create_object`.
     /// A `chat_id` that does not resolve SHOULD yield `Ok(Ok(()))` so
     /// `create_object` surfaces the normal error. The return mapping is
-    /// the same as [`Self::may_set_custom_emoji`].
+    /// the same as [`SpacePolicy::may_set_custom_emoji`].
     ///
     /// # Default implementation
     ///
@@ -2431,243 +1970,6 @@ pub trait ChatBackend: JmapBackend {
         _chat_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
         async { Ok(Ok(())) }
-    }
-
-    /// Per-Chat restriction gate consulted by `handle_message_set` before
-    /// each Message create, with the stored target Chat.
-    ///
-    /// For extensions that bind a Chat to something outside JMAP Chat and
-    /// so restrict it, e.g. draft-atwood-jmap-chat-mimi-00 §message/mls:
-    /// "The server MUST reject a `Message/set` create in a Chat with a
-    /// `roomId` with a `forbidden` SetError." Extension properties of the
-    /// Chat are in [`Chat::extra`](jmap_chat_types::Chat::extra).
-    /// [`Self::may_send_message`] is the sender's membership and
-    /// permission gate; this one sees the Chat itself.
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once per create entry whose `chatId` resolves, AFTER wire-format
-    /// validation and BEFORE the closed-Chat check and
-    /// [`Self::may_send_message`]. The return mapping is the same as
-    /// [`Self::may_set_custom_emoji`].
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(Ok(()))`: every create is permitted (fail-open, like
-    /// the hooks above).
-    fn may_create_message(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _chat: &jmap_chat_types::Chat,
-    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
-        async { Ok(Ok(())) }
-    }
-
-    /// Per-Chat restriction gate consulted by `handle_message_set` before
-    /// each Message update, with the stored Message, its stored Chat and
-    /// the client's patch keys.
-    ///
-    /// For extension-bound Chats, e.g. draft-atwood-jmap-chat-mimi-00
-    /// §message/mls: "The server MUST reject a `Message/set` update that
-    /// changes `body`, `bodyType`, or `reactions` of a Message in a Chat
-    /// with a `roomId` with an `invalidProperties` SetError naming the
-    /// changed properties."
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once per update entry whose Message and Chat resolve, AFTER the
-    /// patch keys and `bodyType` are validated and BEFORE the sender,
-    /// edit-limit and reaction checks and `update_object`, even for an
-    /// empty patch. `patch_keys` are the keys as the client sent them,
-    /// less server-set and immutable keys that repeat the stored value
-    /// (RFC 8620 §5.3), so a reaction change appears as
-    /// `reactions/<senderReactionId>`. The return mapping is
-    /// the same as [`Self::may_set_custom_emoji`].
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(Ok(()))`: every update is permitted (fail-open, like
-    /// the hooks above).
-    fn may_update_message(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _chat: &jmap_chat_types::Chat,
-        _message: &jmap_chat_types::Message,
-        _patch_keys: &[&str],
-    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
-        async { Ok(Ok(())) }
-    }
-
-    /// Per-Chat restriction gate consulted by `handle_chat_set` before
-    /// each Chat update, with the stored Chat and the client's patch keys.
-    ///
-    /// For extension-bound Chats, e.g. draft-atwood-jmap-chat-mimi-00
-    /// §Chat.roomId: "The server MUST reject, with `forbidden`, a
-    /// `Chat/set` update on such a Chat that sets `name`, `description`,
-    /// or `avatarBlobId` or that uses the `addMembers`, `removeMembers`,
-    /// or `updateMemberRoles` patch key".
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once per update entry whose Chat resolves, AFTER the patch keys
-    /// are validated and BEFORE the closed-group, admin, member-patch and
-    /// `pinnedMessageIds` checks and `update_object`, even for an empty
-    /// patch. `patch_keys` are the keys as the client sent them, less
-    /// server-set and immutable keys that repeat the stored value (RFC
-    /// 8620 §5.3). The return mapping is
-    /// the same as [`Self::may_set_custom_emoji`].
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(Ok(()))`: every update is permitted (fail-open, like
-    /// the hooks above).
-    fn may_update_chat(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _chat: &jmap_chat_types::Chat,
-        _patch_keys: &[&str],
-    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
-        async { Ok(Ok(())) }
-    }
-
-    /// Apply the `kickMembers` key of a `Chat/set` update.
-    ///
-    /// draft-atwood-jmap-chat-mimi-00 §Moderation: "The `kickMembers`
-    /// patch key of `Chat/set` (String\[], ChatContact ids), which this
-    /// document adds for Chats bound to a room, removes the listed users'
-    /// clients from the group but keeps them in the participant list, so
-    /// that they can rejoin (`canKick`)." A backend that binds Chats to
-    /// MIMI rooms overrides this: it checks that `chat` is bound to a room
-    /// and that the owner may kick, then commits the client removals.
-    /// `members` is not changed; the Chat record stays as it is.
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once per `Chat/set` update whose patch carries a non-empty
-    /// `kickMembers`, after the handler has checked it is an array of
-    /// valid ids (else `invalidProperties`), after
-    /// [`Self::may_update_chat`] and the other patch checks, and before
-    /// [`Self::update_object`] writes the rest of the patch (if any).
-    /// `chat` is the stored Chat and `user_ids` the listed ChatContact ids
-    /// with `#creationId` references resolved. `Ok(Err(set_error))`
-    /// rejects the update with that SetError and nothing is written; `Err`
-    /// is `serverFail`.
-    ///
-    /// # Default implementation
-    ///
-    /// Rejects every kick with `invalidProperties` naming `kickMembers`.
-    /// A backend with no room model has no Chat that the key applies to,
-    /// so for it `kickMembers` is a key outside draft-atwood-jmap-chat-00
-    /// §Chat/set "Updating a Chat", which the handler rejects the same
-    /// way. Answering success instead would claim clients were removed
-    /// when none were.
-    fn kick_chat_members(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _chat: &jmap_chat_types::Chat,
-        _user_ids: &[jmap_types::Id],
-    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
-        async {
-            Ok(Err(SetError::new(
-                jmap_server::SetErrorType::InvalidProperties,
-            )
-            .with_properties(["kickMembers"])
-            .with_description(
-                "kickMembers applies only to a Chat bound to a MIMI room \
-                     (draft-atwood-jmap-chat-mimi-00); this backend binds none",
-            )))
-        }
-    }
-
-    /// Blob lookup consulted by `handle_message_set` for each Attachment
-    /// of a Message create.
-    ///
-    /// Per draft-atwood-jmap-chat-00 §Attachment at jmap-chat-spec 77c3474,
-    /// `size` L374: "Servers SHOULD verify against actual content", and
-    /// `sha256` L377: "Servers SHOULD verify". By choice, the handler
-    /// compares the returned [`AttachmentBlob`]
-    /// against the Attachment and rejects a mismatch with an
-    /// `invalidProperties` SetError naming `attachments` (§Input
-    /// Validation). The `sha256` comparison is constant-time
-    /// (`subtle::ConstantTimeEq`), so implementations return the digest
-    /// rather than comparing it themselves.
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once per Attachment, AFTER the `maxAttachmentsPerMessage` and
-    /// `maxAttachmentBytes` checks (§Denial of Service: "Enforce
-    /// `maxBodyBytes` and `maxAttachmentBytes` at parse time, before any
-    /// fetch or storage") and BEFORE `create_object`.
-    ///
-    /// # Return mapping
-    ///
-    /// - `Ok(Ok(Some(blob)))`: compare the Attachment against `blob`.
-    /// - `Ok(Ok(None))`: the backend does not verify this blob; accept.
-    /// - `Ok(Err(set_error))`: reject the create with `set_error`, e.g.
-    ///   `invalidProperties` naming `attachments` for an unknown `blobId`
-    ///   (RFC 8620 §5.3 defines `blobNotFound` only for upload paths).
-    /// - `Err(e)`: `serverFail`.
-    ///
-    /// Required: the `size` check is a MUST, so a backend that cannot
-    /// verify blobs says so explicitly by returning `Ok(Ok(None))`.
-    fn attachment_blob(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<
-        Output = Result<Result<Option<AttachmentBlob>, SetError>, Self::Error>,
-    > + Send;
-
-    /// FileNode resolution consulted by `handle_message_set` for each
-    /// create Attachment that carries `filenodeId`.
-    ///
-    /// Per draft-atwood-jmap-chat-filenode-00 §filenodeId: "When
-    /// `filenodeId` is present on an Attachment, the fields `blobId`,
-    /// `filename`, `contentType`, `size`, and `sha256` become OPTIONAL for
-    /// that Attachment entry; the server MUST populate any absent fields
-    /// from the referenced FileNode's properties before storage", and the
-    /// server "MUST verify that the referenced FileNode exists and belongs
-    /// to the same Space" and that "the sender has at least read access".
-    /// `chat` is the message's target Chat. A deployment offering
-    /// `urn:ietf:params:jmap:chat:filenode` implements this with
-    /// `jmap_chat_filenode_server::resolve_filenode_attachment`.
-    ///
-    /// # When the handler calls this
-    ///
-    /// Once per such Attachment, AFTER the `maxAttachmentsPerMessage`
-    /// check and the `may_send_message` gate, and BEFORE the
-    /// draft-atwood-jmap-chat-00 §Input Validation checks, the
-    /// `maxAttachmentBytes` check and [`Self::attachment_blob`], which all
-    /// apply to the returned Attachment.
-    ///
-    /// # Return mapping
-    ///
-    /// - `Ok(Ok(Some(attachment)))`: store `attachment`, the entry with
-    ///   its absent fields filled.
-    /// - `Ok(Ok(None))`: the extension is not active; the entry must carry
-    ///   all five fields, as an Attachment without `filenodeId` does.
-    /// - `Ok(Err(set_error))`: reject the create with `set_error`.
-    /// - `Err(e)`: `serverFail`.
-    ///
-    /// # Default implementation
-    ///
-    /// Returns `Ok(Ok(None))`: no FileNode store, matching the fail-open
-    /// hooks above.
-    fn filenode_attachment(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-        _chat: &jmap_chat_types::Chat,
-        _attachment: &jmap_chat_types::AttachmentCreate,
-    ) -> impl std::future::Future<
-        Output = Result<Result<Option<jmap_chat_types::Attachment>, SetError>, Self::Error>,
-    > + Send {
-        async { Ok(Ok(None)) }
     }
 
     /// Visibility gate consulted by `handle_message_get` and
@@ -2811,6 +2113,376 @@ pub trait ChatBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<(), SlowModeError>> + Send {
         async { Ok(()) }
     }
+}
+
+/// Per-Chat restriction gates on Message create and update and on Chat update, which a backend bound to an external room (such as a MIMI room) overrides.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatRestrictions: JmapBackend {
+    /// Per-Chat restriction gate consulted by `handle_message_set` before
+    /// each Message create, with the stored target Chat.
+    ///
+    /// For extensions that bind a Chat to something outside JMAP Chat and
+    /// so restrict it, e.g. draft-atwood-jmap-chat-mimi-00 §message/mls:
+    /// "The server MUST reject a `Message/set` create in a Chat with a
+    /// `roomId` with a `forbidden` SetError." Extension properties of the
+    /// Chat are in [`Chat::extra`](jmap_chat_types::Chat::extra).
+    /// [`ChatAccessPolicy::may_send_message`] is the sender's membership and
+    /// permission gate; this one sees the Chat itself.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per create entry whose `chatId` resolves, AFTER wire-format
+    /// validation and BEFORE the closed-Chat check and
+    /// [`ChatAccessPolicy::may_send_message`]. The return mapping is the same as
+    /// [`SpacePolicy::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))`: every create is permitted (fail-open, like
+    /// the hooks above).
+    fn may_create_message(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
+    /// Per-Chat restriction gate consulted by `handle_message_set` before
+    /// each Message update, with the stored Message, its stored Chat and
+    /// the client's patch keys.
+    ///
+    /// For extension-bound Chats, e.g. draft-atwood-jmap-chat-mimi-00
+    /// §message/mls: "The server MUST reject a `Message/set` update that
+    /// changes `body`, `bodyType`, or `reactions` of a Message in a Chat
+    /// with a `roomId` with an `invalidProperties` SetError naming the
+    /// changed properties."
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per update entry whose Message and Chat resolve, AFTER the
+    /// patch keys and `bodyType` are validated and BEFORE the sender,
+    /// edit-limit and reaction checks and `update_object`, even for an
+    /// empty patch. `patch_keys` are the keys as the client sent them,
+    /// less server-set and immutable keys that repeat the stored value
+    /// (RFC 8620 §5.3), so a reaction change appears as
+    /// `reactions/<senderReactionId>`. The return mapping is
+    /// the same as [`SpacePolicy::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))`: every update is permitted (fail-open, like
+    /// the hooks above).
+    fn may_update_message(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _message: &jmap_chat_types::Message,
+        _patch_keys: &[&str],
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+
+    /// Per-Chat restriction gate consulted by `handle_chat_set` before
+    /// each Chat update, with the stored Chat and the client's patch keys.
+    ///
+    /// For extension-bound Chats, e.g. draft-atwood-jmap-chat-mimi-00
+    /// §Chat.roomId: "The server MUST reject, with `forbidden`, a
+    /// `Chat/set` update on such a Chat that sets `name`, `description`,
+    /// or `avatarBlobId` or that uses the `addMembers`, `removeMembers`,
+    /// or `updateMemberRoles` patch key".
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per update entry whose Chat resolves, AFTER the patch keys
+    /// are validated and BEFORE the closed-group, admin, member-patch and
+    /// `pinnedMessageIds` checks and `update_object`, even for an empty
+    /// patch. `patch_keys` are the keys as the client sent them, less
+    /// server-set and immutable keys that repeat the stored value (RFC
+    /// 8620 §5.3). The return mapping is
+    /// the same as [`SpacePolicy::may_set_custom_emoji`].
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(()))`: every update is permitted (fail-open, like
+    /// the hooks above).
+    fn may_update_chat(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _patch_keys: &[&str],
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
+    }
+}
+
+/// Group Chat moderation: ChatBan create, update and destroy, and the `kickMembers` patch key.
+///
+/// Its defaults write through [`ChatStore`].
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatModeration: ChatStore {
+    /// Store a ChatBan and remove the banned user from the Chat's
+    /// `members` as one unit.
+    ///
+    /// [`crate::handle_chat_ban_set`] calls this for every `ChatBan/set`
+    /// create that passes its checks: the Chat named by `chatId` is a
+    /// group Chat, the caller holds its `"admin"` role and `userId` is not
+    /// the accountId. draft-atwood-jmap-chat-00 §ChatBan/set: "Creating a
+    /// ban removes the user from `members` if present, as `removeMembers`
+    /// would".
+    ///
+    /// `build` and every contract of [`ChatStore::create_object`]
+    /// (authorisation, id assignment, errors, state and change log) apply
+    /// unchanged. On `Ok` the ban is stored and the user is no longer in
+    /// the Chat's `members`. On `Err` neither happens. A backend that binds
+    /// Chats to another group model (for example a MIMI room, where
+    /// draft-atwood-jmap-chat-mimi-00 §Moderation makes the ban one commit
+    /// that gives the user the "banned" role and removes the user's
+    /// clients) overrides this, and may reject the ban with a
+    /// [`BackendSetError::SetError`] such as `forbidden`.
+    ///
+    /// # Default implementation
+    ///
+    /// Calls [`ChatStore::create_object`] for `ChatBan`. If the user is in the
+    /// Chat's `members`, it then calls [`ChatStore::update_object`] on the Chat
+    /// with the user removed, and on success [`ChatEvents::on_outbound_event`]
+    /// with the [`GroupUpdateAction::RemoveMembers`](crate::GroupUpdateAction::RemoveMembers)
+    /// event that a `removeMembers` update reports. If that update fails,
+    /// the ban is destroyed again and the update's error is returned.
+    /// The steps are not one transaction; a backend that needs them in one
+    /// overrides this.
+    fn create_chat_ban<F>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        create_id: &str,
+        build: F,
+    ) -> impl std::future::Future<
+        Output = Result<(jmap_types::Id, jmap_chat_types::ChatBan), BackendSetError<Self::Error>>,
+    > + Send
+    where
+        F: FnOnce(&jmap_types::Id) -> jmap_chat_types::ChatBan + Send,
+    {
+        async move {
+            let (id, ban) = self
+                .create_object::<jmap_chat_types::ChatBan, _>(caller, account_id, create_id, build)
+                .await?;
+            let chat = match self
+                .get_objects::<jmap_chat_types::Chat>(
+                    caller,
+                    account_id,
+                    Some(std::slice::from_ref(&ban.chat_id)),
+                    None,
+                )
+                .await
+            {
+                Ok((chats, _)) => chats.into_iter().next(),
+                Err(e) => {
+                    // Best effort: the ban must not outlive a failed removal.
+                    let _ = self
+                        .destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, &id)
+                        .await;
+                    return Err(BackendSetError::Other(e));
+                }
+            };
+            let Some(chat) = chat else {
+                return Ok((id, ban));
+            };
+            let before = chat.members.unwrap_or_default();
+            if before.iter().all(|m| m.id != ban.user_id) {
+                return Ok((id, ban));
+            }
+            let after: Vec<_> = before.into_iter().filter(|m| m.id != ban.user_id).collect();
+            let mut map = serde_json::Map::new();
+            map.insert(
+                "members".to_owned(),
+                serde_json::to_value(&after).expect("ChatMember serializes"),
+            );
+            if let Err(e) = self
+                .update_object::<jmap_chat_types::Chat>(
+                    caller,
+                    account_id,
+                    &chat.id,
+                    jmap_types::PatchObject::from_map(map),
+                )
+                .await
+            {
+                // Best effort: the ban must not outlive a failed removal.
+                let _ = self
+                    .destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, &id)
+                    .await;
+                return Err(e);
+            }
+            let mut recipients: Vec<jmap_types::Id> = after
+                .iter()
+                .filter(|m| m.id != *account_id)
+                .map(|m| m.id.clone())
+                .collect();
+            recipients.push(ban.user_id.clone());
+            let event = crate::OutboundEvent::GroupUpdate {
+                chat_id: chat.id.clone(),
+                action: crate::GroupUpdateAction::RemoveMembers {
+                    removed_ids: vec![ban.user_id.clone()],
+                },
+                recipients,
+            };
+            self.on_outbound_event(caller, account_id, &event).await;
+            Ok((id, ban))
+        }
+    }
+
+    /// Apply a `ChatBan/set` update to the stored ban `id`.
+    ///
+    /// [`crate::handle_chat_ban_set`] calls this for every update that
+    /// passes its checks: the caller holds the `"admin"` role in the ban's
+    /// Chat, and `patch` names only `reason` and `expiresAt`
+    /// (draft-atwood-jmap-chat-00 §ChatBan/set: "`update` supports:
+    /// `reason`, `expiresAt`"). Every contract of [`ChatStore::update_object`]
+    /// applies unchanged. A backend that mirrors bans into another group
+    /// model (for example a MIMI room) overrides this.
+    ///
+    /// # Default implementation
+    ///
+    /// Calls [`ChatStore::update_object`] for `ChatBan`.
+    fn update_chat_ban(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+        patch: jmap_types::PatchObject,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_chat_types::ChatBan>, BackendSetError<Self::Error>>,
+    > + Send {
+        self.update_object::<jmap_chat_types::ChatBan>(caller, account_id, id, patch)
+    }
+
+    /// Lift the ChatBan `id`.
+    ///
+    /// [`crate::handle_chat_ban_set`] calls this for every destroy that
+    /// passes its checks (the caller holds the `"admin"` role in the ban's
+    /// Chat), and [`crate::sweep_expired`] for every ban whose `expiresAt`
+    /// has passed. draft-atwood-jmap-chat-00 §ChatBan/set: "`destroy`
+    /// lifts the ban ... Lifting a ban does not add the user back to the
+    /// Chat." Every contract of [`ChatStore::destroy_object`] applies unchanged.
+    /// A backend that binds Chats to a MIMI room overrides this to give
+    /// the user the member role again without adding any client
+    /// (draft-atwood-jmap-chat-mimi-00 §Moderation).
+    ///
+    /// # Default implementation
+    ///
+    /// Calls [`ChatStore::destroy_object`] for `ChatBan`; `members` is not
+    /// touched.
+    fn destroy_chat_ban(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
+        self.destroy_object::<jmap_chat_types::ChatBan>(caller, account_id, id)
+    }
+
+    /// Apply the `kickMembers` key of a `Chat/set` update.
+    ///
+    /// draft-atwood-jmap-chat-mimi-00 §Moderation: "The `kickMembers`
+    /// patch key of `Chat/set` (String\[], ChatContact ids), which this
+    /// document adds for Chats bound to a room, removes the listed users'
+    /// clients from the group but keeps them in the participant list, so
+    /// that they can rejoin (`canKick`)." A backend that binds Chats to
+    /// MIMI rooms overrides this: it checks that `chat` is bound to a room
+    /// and that the owner may kick, then commits the client removals.
+    /// `members` is not changed; the Chat record stays as it is.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per `Chat/set` update whose patch carries a non-empty
+    /// `kickMembers`, after the handler has checked it is an array of
+    /// valid ids (else `invalidProperties`), after
+    /// [`ChatRestrictions::may_update_chat`] and the other patch checks, and before
+    /// [`ChatStore::update_object`] writes the rest of the patch (if any).
+    /// `chat` is the stored Chat and `user_ids` the listed ChatContact ids
+    /// with `#creationId` references resolved. `Ok(Err(set_error))`
+    /// rejects the update with that SetError and nothing is written; `Err`
+    /// is `serverFail`.
+    ///
+    /// # Default implementation
+    ///
+    /// Rejects every kick with `invalidProperties` naming `kickMembers`.
+    /// A backend with no room model has no Chat that the key applies to,
+    /// so for it `kickMembers` is a key outside draft-atwood-jmap-chat-00
+    /// §Chat/set "Updating a Chat", which the handler rejects the same
+    /// way. Answering success instead would claim clients were removed
+    /// when none were.
+    fn kick_chat_members(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _user_ids: &[jmap_types::Id],
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async {
+            Ok(Err(SetError::new(
+                jmap_server::SetErrorType::InvalidProperties,
+            )
+            .with_properties(["kickMembers"])
+            .with_description(
+                "kickMembers applies only to a Chat bound to a MIMI room \
+                     (draft-atwood-jmap-chat-mimi-00); this backend binds none",
+            )))
+        }
+    }
+}
+
+/// Message expiry and read-and-burn.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatMessageLifecycle: JmapBackend {
+    /// Apply a `readAt`-setting `patch` to the `burnOnRead` Message
+    /// `message_id` and hard-delete it, as one atomic operation.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Message `burnOnRead` (jmap-chat-spec
+    /// 77c3474 L750): "the receiving server SHOULD permanently hard-delete
+    /// this message (row removal, not tombstone) immediately after setting
+    /// `readAt`." This crate performs the recommended deletion by choice.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify that `caller` may act as the owner of
+    /// `account_id` before setting `readAt` and deleting the Message and MUST return [`BackendSetError::SetError`]
+    /// with [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. See [`ChatStore::create_object`]
+    /// for the workspace-canonical rationale; the same rule applies here.
+    ///
+    /// # Atomicity contract
+    ///
+    /// Validate `patch` against the stored Message exactly as
+    /// [`ChatStore::update_object`] would, then remove the row, record the id
+    /// in the `destroyed` set of the `Message` change log (bumping the
+    /// `Message` state once), and unpin it from its Chat (§Chat
+    /// `pinnedMessageIds`). All of it takes effect or none: on any error
+    /// nothing is committed, so a retried `readAt` patch burns again.
+    /// Composing this from `update_object` and [`Self::expire_message`]
+    /// loses that guarantee: a failed delete leaves `readAt` stored, and
+    /// a retry finds nothing left to set.
+    ///
+    /// # When the handler calls this
+    ///
+    /// `Message/set` update calls this instead of `update_object` when
+    /// the patch sets a non-null `readAt` and the stored Message has
+    /// `burnOnRead: true`. Return `SetError` `notFound` if the Message
+    /// does not exist and the `update_object` `SetError` for an invalid
+    /// patch. There is no default: a non-atomic default would reinstate
+    /// the gap.
+    fn read_and_burn_message(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        message_id: &jmap_types::Id,
+        patch: jmap_types::PatchObject,
+    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
     /// Hard-delete a message ("expire" it) due to a per-message expiry
     /// event.
@@ -2884,6 +2556,414 @@ pub trait ChatBackend: JmapBackend {
         _message_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         async { Ok(()) }
+    }
+}
+
+/// Notifications from the handlers after a change: lifecycle callbacks and outbound events.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatEvents: JmapBackend {
+    /// Called after a Chat is destroyed, so a companion extension can
+    /// update the records that reference it. Examples:
+    /// draft-atwood-jmap-chat-tasks-00 §Lifecycle ("the affected Tasks'
+    /// `chatId` fields MUST be cleared") and draft-atwood-jmap-vtc-00
+    /// §VTCCall ("the server MUST clear the corresponding field to
+    /// `null` on all VTCCalls that reference it").
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once for each Chat that a request destroys, after the destroy
+    /// succeeds:
+    ///
+    /// - a `Chat/set` destroy;
+    /// - each channel in a successful `Space/set` `removeChannels` patch;
+    /// - each channel Chat whose `spaceId` is a Space that `Space/set`
+    ///   destroys (draft-atwood-jmap-chat-00 §Destroying a Space:
+    ///   "Cascades to all channel Chats"). These calls come before
+    ///   [`Self::on_space_destroyed`] for that Space.
+    ///
+    /// It is not called when the handler deletes a duplicate direct Chat
+    /// it created in the same request, because no response ever named
+    /// that id.
+    ///
+    /// The destroy is already committed, so the hook cannot fail the
+    /// request. A backend handles its own errors here. A change it makes
+    /// to another record type MUST advance that type's state, as in
+    /// [`ChatStore::destroy_object`] ("Cascades").
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing. A backend that implements an extension which
+    /// references Chats overrides it.
+    fn on_chat_destroyed(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, chat_id);
+        async {}
+    }
+
+    /// Called after a `Space/set` destroy succeeds, so a companion
+    /// extension can update the records that reference the Space.
+    /// Examples: draft-atwood-jmap-vtc-00 §VTCCall (clear `spaceId` on
+    /// VTCCalls) and draft-atwood-jmap-chat-filenode-00 §Space Deletion
+    /// ("the server SHOULD also destroy the associated file tree").
+    ///
+    /// The handler calls it once per destroyed Space, after
+    /// [`Self::on_chat_destroyed`] for each of its channel Chats. The
+    /// error and state rules of [`Self::on_chat_destroyed`] apply.
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing. A backend that implements an extension which
+    /// references Spaces overrides it.
+    fn on_space_destroyed(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        space_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, space_id);
+        async {}
+    }
+
+    /// Called after a `SpaceBan/set` create succeeds, with the stored
+    /// ban, so a companion extension can apply the ban to its own
+    /// records. Example: draft-atwood-jmap-vtc-00 §Access Control "Space
+    /// ban enforcement" (the server "MUST set `leftAt` on that
+    /// VTCParticipant record"; "The ban takes effect immediately on
+    /// active calls").
+    ///
+    /// The handler calls it once per created ban. The error and state
+    /// rules of [`Self::on_chat_destroyed`] apply.
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing. A backend that implements an extension which must
+    /// enforce Space bans overrides it.
+    fn on_space_ban_created(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        ban: &jmap_chat_types::SpaceBan,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, ban);
+        async {}
+    }
+
+    /// Called when the owner's action must be sent to other participants'
+    /// servers: a new Message, a retraction (`deletedForAll`), an edit, a
+    /// reaction added or removed, a group Chat change, a read receipt, a
+    /// typing signal or a presence change. A backend that implements
+    /// draft-atwood-jmap-chat-federation-00 turns the
+    /// [`OutboundEvent`](crate::OutboundEvent) into `Peer/deliver`
+    /// (`message`, `edit` or `reactionUpdate`), `Peer/retract`,
+    /// `Peer/groupUpdate`, `Peer/receipt`, `Peer/typing` or `Peer/presence`
+    /// calls, typically by enqueueing the durable ones (§Persistent Queue).
+    /// [`OutboundEvent::Typing`](crate::OutboundEvent::Typing) also drives
+    /// the local `typing` push to the Chat's other local participants.
+    ///
+    /// # When the handler calls this
+    ///
+    /// - `Message/set` create:
+    ///   [`OutboundEvent::NewMessage`](crate::OutboundEvent::NewMessage), after the Message is written
+    ///   (draft-atwood-jmap-chat-00 §Message/set: "enqueues the message for
+    ///   outbound delivery").
+    /// - `Message/set` update setting `deletedForAll: true`:
+    ///   [`OutboundEvent::Retract`](crate::OutboundEvent::Retract), after the update is written
+    ///   (§Peer/retract "Sender Behavior": "the server MUST send
+    ///   `Peer/retract` to the server of every other participant in the
+    ///   Chat"). If the write fails, nothing is reported.
+    /// - `Message/set` update editing `body`, `bodyType`, `mentions` or
+    ///   `broadcastMentions` and not deleting the Message:
+    ///   [`OutboundEvent::Edit`](crate::OutboundEvent::Edit), after the update is written.
+    /// - `Chat/set` create of a group Chat, or update that changes a group
+    ///   Chat's members, roles, `name`, `description` or `avatarBlobId`:
+    ///   one [`OutboundEvent::GroupUpdate`](crate::OutboundEvent::GroupUpdate) per action, after the write
+    ///   (draft-atwood-jmap-chat-00 §Chat/set).
+    ///
+    /// - `Message/set` update patching `reactions/<senderReactionId>` and
+    ///   not deleting the Message:
+    ///   one [`OutboundEvent::ReactionUpdate`](crate::OutboundEvent::ReactionUpdate) per key that adds a
+    ///   reaction or removes a stored one, after the update is written
+    ///   (draft-atwood-jmap-chat-00 §Adding and Removing Reactions).
+    /// - `Message/set` update setting a non-null `readAt` on a Message whose
+    ///   `senderId` is not the accountId:
+    ///   [`OutboundEvent::Receipt`](crate::OutboundEvent::Receipt), after
+    ///   the update (or the `burnOnRead` hard-delete) is written, unless
+    ///   the effective `receiptSharing` (`Chat.receiptSharing`, else
+    ///   `PresenceStatus.receiptSharing`) is `false`
+    ///   (draft-atwood-jmap-chat-federation-00 §Peer/receipt "Sender
+    ///   Behavior").
+    /// - `Chat/typing`: [`OutboundEvent::Typing`](crate::OutboundEvent::Typing),
+    ///   after the request is validated (draft-atwood-jmap-chat-00
+    ///   §Chat/typing).
+    /// - `PresenceStatus/set` update naming `presence`, `statusText` or
+    ///   `statusEmoji`: [`OutboundEvent::Presence`](crate::OutboundEvent::Presence),
+    ///   after the update is written
+    ///   (draft-atwood-jmap-chat-federation-00 §Peer/subscribePresence).
+    ///
+    /// The hook cannot fail the request. A backend handles its own errors
+    /// here.
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing, for a server that does not federate.
+    fn on_outbound_event(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        event: &crate::OutboundEvent,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, event);
+        async {}
+    }
+}
+
+/// Deployment settings and identity: limits, edit history, unread counts, the owner's user id.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatSettings: JmapBackend {
+    /// Implementation-defined per-Space content limits for this caller
+    /// and account.
+    ///
+    /// Called by `handle_space_set` once per request, before
+    /// dispatching to [`ChatSpaces::apply_space_patch`], to enforce
+    /// per-aggregate caps on roles, members, channels, and categories
+    /// per Space (draft-atwood-jmap-chat-00 §Space/set, spec commit
+    /// `80d5e11`), and by `handle_message_set` once per request to
+    /// validate `bodyType` against [`ChatLimits::supported_body_types`]
+    /// and [`ChatLimits::server_reserved_body_types`].
+    ///
+    /// The default implementation returns [`ChatLimits::default`],
+    /// which carries conservative reference-impl-grade values. The
+    /// `caller` and `account_id` arguments are plumbed even though the
+    /// default impl ignores them, so production backends can vary caps
+    /// per-account (Free vs. Pro tier, multi-tenant SaaS, etc.)
+    /// without a future API break. Implementations SHOULD return
+    /// quickly (in-process struct construction, possibly off a cached
+    /// per-account record) — this method is called on the hot
+    /// `Space/set` path.
+    ///
+    /// # Why sync, not async
+    ///
+    /// `Space/set` calls this once per request before dispatching the
+    /// mutation; an async `.await` here would add a roundtrip to the
+    /// hot path of every Space mutation. Production backends with
+    /// per-tenant caps SHOULD cache the resolved [`ChatLimits`] for
+    /// each account on first use and serve from the cache thereafter.
+    /// See the trait-level "Async vs sync method convention" section
+    /// above for the workspace rationale.
+    ///
+    /// Workspace cross-extension pattern: see `AGENTS.md` "Backend
+    /// caps and limits".
+    fn limits(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> ChatLimits {
+        ChatLimits::default()
+    }
+
+    /// Whether the backend retains edit history for messages.
+    ///
+    /// Per draft-atwood-jmap-chat-00 commit `0783fc4` ("condition
+    /// MessageRevision push on edit-history retention") +
+    /// `§Message editHistory`: servers MAY limit retained
+    /// MessageRevisions, and when the server does not retain edit
+    /// history, the `editHistory` field MUST be omitted from
+    /// `Message/get` and (in principle) `Message/changes` responses.
+    /// `Message/changes` per RFC 8620 §5.2 returns only id arrays,
+    /// not Message objects, so the spec's "omit from /changes" is
+    /// a no-op at the wire level — the kit only enforces the
+    /// `Message/get` projection.
+    ///
+    /// # When the handler calls this
+    ///
+    /// `handle_message_get` consults this predicate once per call.
+    /// When `false`, every returned `Message` has its
+    /// `edit_history` field set to `None` before serialization,
+    /// which serde's `skip_serializing_if = "Option::is_none"`
+    /// collapses to a wire-absent field per spec.
+    ///
+    /// # Why sync, not async
+    ///
+    /// This is a static deployment-policy flag, not a per-call
+    /// decision — it does not consult per-account state, principal
+    /// identity, or per-message bounds. Production backends that
+    /// need to vary retention per-account would file a follow-up
+    /// bead for a parallel `retains_edit_history_for_account` hook
+    /// rather than reshaping this method.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `false` — no retention. This matches the workspace's
+    /// "kit defines the hook; consumer enforces the policy" posture.
+    /// Production backends that retain edit history MUST override
+    /// this to `true`; the reference `MemoryBackend` exposes a
+    /// test-only setter for tests that need the retain-on path.
+    fn retains_edit_history(&self) -> bool {
+        false
+    }
+
+    /// Whether the backend keeps `Chat.unreadCount` itself instead of
+    /// the kit recomputing it.
+    ///
+    /// draft-atwood-jmap-chat-00 §Chat `unreadCount` (jmap-chat-spec
+    /// 33702a5 L629): "The value is advisory, for display such as
+    /// badges. Servers SHOULD keep it accurate, but MAY update it some
+    /// time after the change that affects it, MAY combine several such
+    /// changes into one update, and MAY report a server-defined maximum
+    /// in place of any larger count. Whenever the server changes the
+    /// value, the Chat's state changes as for any other property
+    /// ({{RFC8620}} Section 5.1)."
+    ///
+    /// # When the handlers call this
+    ///
+    /// When `false`, the kit keeps the count exact: `Chat/get` recomputes
+    /// `unreadCount` from the account's Messages and ReadPositions, and
+    /// every Message create or destroy, Message expiry, read-and-burn and
+    /// ReadPosition update writes the recomputed count to each affected
+    /// Chat through [`ChatStore::update_object`], which advances the
+    /// `Chat` state.
+    ///
+    /// When `true`, the kit does neither: `Chat/get` returns the stored
+    /// `unreadCount` and no Chat is rewritten. The backend sees every
+    /// write that moves the count (the `create_object`, `update_object`
+    /// and `destroy_object` calls for Message and ReadPosition,
+    /// [`ChatMessageLifecycle::expire_message`] and
+    /// [`ChatMessageLifecycle::read_and_burn_message`]), and may defer, coalesce or
+    /// cap its update. It MUST still advance the `Chat` state, and log the
+    /// Chat as updated for `Chat/changes`, whenever the stored value
+    /// changes (RFC 8620 §5.1: "If the data changes, this string MUST
+    /// change").
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `false`, the exact upkeep the spec's SHOULD asks for. A
+    /// backend for which the per-event rewrite costs too much (it scans
+    /// every Message in the account) overrides this to `true`.
+    fn maintains_unread_count(&self) -> bool {
+        false
+    }
+
+    /// The owner's identity for `account_id`: the value of the
+    /// `ownerUserId` Session field (draft-atwood-jmap-chat-00 §Session
+    /// Object Extensions).
+    ///
+    /// [`crate::contact::handle_contact_set`] rejects a `ChatContact/set`
+    /// create whose `identity` equals this value, octet for octet, with
+    /// an `invalidProperties` SetError naming `identity`
+    /// (draft-atwood-jmap-chat-00 §ChatContact/set: "the owner has no
+    /// ChatContact").
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(None)`: the owner's identity is unknown and the check
+    /// is skipped. Backends that serve `ownerUserId` MUST override this
+    /// to return the same value. A backend used with federation (a
+    /// `jmap_chat_federation_server::FederationBackend`) must return
+    /// `Some` for every mailbox: "Servers implementing {{JMAP-CHAT-FED}}
+    /// MUST include this field in the Session they serve an authenticated
+    /// owner" (draft-atwood-jmap-chat-00 §Session Object Extensions,
+    /// jmap-chat-spec b1cd625 L346), and the `Peer/*` handlers read it to
+    /// recognize the owner's identity in a call.
+    fn owner_user_id(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
+        async { Ok(None) }
+    }
+}
+
+/// Lookups outside chat storage: attachment blobs and FileNode attachments.
+///
+/// Part of [`ChatBackend`] (docs/design/chat-backend-split.md).
+pub trait ChatResolvers: JmapBackend {
+    /// Blob lookup consulted by `handle_message_set` for each Attachment
+    /// of a Message create.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Attachment at jmap-chat-spec 77c3474,
+    /// `size` L374: "Servers SHOULD verify against actual content", and
+    /// `sha256` L377: "Servers SHOULD verify". By choice, the handler
+    /// compares the returned [`AttachmentBlob`]
+    /// against the Attachment and rejects a mismatch with an
+    /// `invalidProperties` SetError naming `attachments` (§Input
+    /// Validation). The `sha256` comparison is constant-time
+    /// (`subtle::ConstantTimeEq`), so implementations return the digest
+    /// rather than comparing it themselves.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per Attachment, AFTER the `maxAttachmentsPerMessage` and
+    /// `maxAttachmentBytes` checks (§Denial of Service: "Enforce
+    /// `maxBodyBytes` and `maxAttachmentBytes` at parse time, before any
+    /// fetch or storage") and BEFORE `create_object`.
+    ///
+    /// # Return mapping
+    ///
+    /// - `Ok(Ok(Some(blob)))`: compare the Attachment against `blob`.
+    /// - `Ok(Ok(None))`: the backend does not verify this blob; accept.
+    /// - `Ok(Err(set_error))`: reject the create with `set_error`, e.g.
+    ///   `invalidProperties` naming `attachments` for an unknown `blobId`
+    ///   (RFC 8620 §5.3 defines `blobNotFound` only for upload paths).
+    /// - `Err(e)`: `serverFail`.
+    ///
+    /// Required: the `size` check is a MUST, so a backend that cannot
+    /// verify blobs says so explicitly by returning `Ok(Ok(None))`.
+    fn attachment_blob(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<
+        Output = Result<Result<Option<AttachmentBlob>, SetError>, Self::Error>,
+    > + Send;
+
+    /// FileNode resolution consulted by `handle_message_set` for each
+    /// create Attachment that carries `filenodeId`.
+    ///
+    /// Per draft-atwood-jmap-chat-filenode-00 §filenodeId: "When
+    /// `filenodeId` is present on an Attachment, the fields `blobId`,
+    /// `filename`, `contentType`, `size`, and `sha256` become OPTIONAL for
+    /// that Attachment entry; the server MUST populate any absent fields
+    /// from the referenced FileNode's properties before storage", and the
+    /// server "MUST verify that the referenced FileNode exists and belongs
+    /// to the same Space" and that "the sender has at least read access".
+    /// `chat` is the message's target Chat. A deployment offering
+    /// `urn:ietf:params:jmap:chat:filenode` implements this with
+    /// `jmap_chat_filenode_server::resolve_filenode_attachment`.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Once per such Attachment, AFTER the `maxAttachmentsPerMessage`
+    /// check and the `may_send_message` gate, and BEFORE the
+    /// draft-atwood-jmap-chat-00 §Input Validation checks, the
+    /// `maxAttachmentBytes` check and [`Self::attachment_blob`], which all
+    /// apply to the returned Attachment.
+    ///
+    /// # Return mapping
+    ///
+    /// - `Ok(Ok(Some(attachment)))`: store `attachment`, the entry with
+    ///   its absent fields filled.
+    /// - `Ok(Ok(None))`: the extension is not active; the entry must carry
+    ///   all five fields, as an Attachment without `filenodeId` does.
+    /// - `Ok(Err(set_error))`: reject the create with `set_error`.
+    /// - `Err(e)`: `serverFail`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(Ok(None))`: no FileNode store, matching the fail-open
+    /// hooks above.
+    fn filenode_attachment(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat: &jmap_chat_types::Chat,
+        _attachment: &jmap_chat_types::AttachmentCreate,
+    ) -> impl std::future::Future<
+        Output = Result<Result<Option<jmap_chat_types::Attachment>, SetError>, Self::Error>,
+    > + Send {
+        async { Ok(Ok(None)) }
     }
 }
 

@@ -32,11 +32,11 @@
 //!
 //! - The `replyCount` / `unreadReplyCount` tests check
 //!   [`ChatLimits::supports_threads`](crate::ChatLimits::supports_threads)
-//!   from [`ChatBackend::limits`]; one test runs only when it is `false`,
+//!   from [`ChatSettings::limits`](crate::ChatSettings::limits); one test runs only when it is `false`,
 //!   the others only when it is `true`. Run the macro once per
 //!   configuration to cover both.
 //! - The exact `Chat.unreadCount` tests run only when
-//!   [`ChatBackend::maintains_unread_count`] is `false`, where this crate
+//!   [`ChatSettings::maintains_unread_count`](crate::ChatSettings::maintains_unread_count) is `false`, where this crate
 //!   keeps the count exact. draft-atwood-jmap-chat-00 §Chat `unreadCount`
 //!   lets a backend that keeps the count itself update it "some time after
 //!   the change that affects it" and "report a server-defined maximum".
@@ -67,12 +67,12 @@ pub trait ConformanceBackend: ChatBackend {
     /// The caller context of a request made by the owner of
     /// `account_id`.
     ///
-    /// The [`ChatBackend::create_object`] authorisation contract applies:
+    /// The [`ChatStore::create_object`](crate::ChatStore::create_object) authorisation contract applies:
     /// the backend must let this caller act as the owner of `account_id`.
     fn caller(&self, account_id: &Id) -> Self::CallerCtx;
 
     /// Provision `account_id`, owned by `owner_user_id` (the `ownerUserId`
-    /// Session field, as returned by [`ChatBackend::owner_user_id`]), so
+    /// Session field, as returned by [`ChatSettings::owner_user_id`](crate::ChatSettings::owner_user_id)), so
     /// [`JmapBackend::account_exists`](jmap_server::JmapBackend::account_exists)
     /// reports it and it holds no objects.
     fn add_account(&self, account_id: &Id, owner_user_id: &str) -> impl Future<Output = ()> + Send;
@@ -1903,7 +1903,7 @@ mod query_anchor {
 
 // ---------------------------------------------------------------------------
 // `Space/join` by invite code redeems the invite atomically through
-// `ChatBackend::join_space_with_invite` (bd:JMAP-x2gd.2).
+// `ChatSpaces::join_space_with_invite` (bd:JMAP-x2gd.2).
 //
 // Oracle: draft-atwood-jmap-chat-00 §Space/join (jmap-chat-spec 77c3474
 // L1416): "The `uses` increment and membership insertion SHOULD be

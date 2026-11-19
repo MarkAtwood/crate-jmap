@@ -13,7 +13,7 @@
 mod common;
 
 use common::{ACCOUNT_ID, MemoryBackend, seed_group_chat};
-use jmap_chat_server::ChatBackend;
+use jmap_chat_server::ChatStore;
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;

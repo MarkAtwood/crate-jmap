@@ -14,9 +14,9 @@
 //! | `VtcBackend::create_call`, `update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | [`sync_active_call_id`] |
 //! | `VtcBackend::is_user_blocked` | [`is_blocked_by_contact`] |
 //! | `JmapBackend::get_objects`, `query_objects` and `query_changes`, per VTCCall (`VtcBackend` §Per-call access) | [`may_access_call`] |
-//! | `ChatBackend::on_chat_destroyed` | [`clear_channel_references`] |
-//! | `ChatBackend::on_space_destroyed` | [`clear_space_references`] |
-//! | `ChatBackend::on_space_ban_created` | [`contact_identity`], then [`eject_banned_user`] |
+//! | `ChatEvents::on_chat_destroyed` | [`clear_channel_references`] |
+//! | `ChatEvents::on_space_destroyed` | [`clear_space_references`] |
+//! | `ChatEvents::on_space_ban_created` | [`contact_identity`], then [`eject_banned_user`] |
 //! | WebSocket transport, before sending a VTC event | [`should_deliver_vtc`] |
 //!
 //! Each function takes only the backend it reads or writes, so the two
@@ -44,7 +44,7 @@ use serde_json::{Value, json};
 /// and §Creating a Room Call for a `VTCCall/set` create.
 ///
 /// - `chatId` must name a Chat in `account_id` that
-///   [`ChatBackend::may_view_chat`] allows, and the owner must be a member
+///   [`ChatAccessPolicy::may_view_chat`](jmap_chat_server::ChatAccessPolicy::may_view_chat) allows, and the owner must be a member
 ///   of that Chat: "When `chatId` does not resolve to a Chat object, the
 ///   server MUST return `invalidProperties` naming `chatId`. The server
 ///   SHOULD return the same error when the caller is not a member of that
@@ -61,7 +61,7 @@ use serde_json::{Value, json};
 ///   channel's `spaceId`. The permissions are resolved as in
 ///   draft-atwood-jmap-chat-00 §Space Permission Resolution, with the
 ///   implicit `@everyone` role's permissions from
-///   [`ChatBackend::everyone_permissions`]. A Space that does not resolve, or
+///   [`ChatSpaces::everyone_permissions`](jmap_chat_server::ChatSpaces::everyone_permissions). A Space that does not resolve, or
 ///   does not list the owner as a member, grants nothing.
 ///
 /// `caller` and `account_id` are the `VTCCall/set` caller and account.
@@ -153,7 +153,7 @@ pub async fn check_call_create<C: ChatBackend>(
 ///   initiator's, as [`check_call_create`] treats the owner as the
 ///   creator. It applies to every call, bound or not.
 /// - The call has a `chatId` that names no Chat in `account_id`, that
-///   [`ChatBackend::may_view_chat`] hides, or whose members do not include
+///   [`ChatAccessPolicy::may_view_chat`](jmap_chat_server::ChatAccessPolicy::may_view_chat) hides, or whose members do not include
 ///   `viewer`: the owner or `contactId` of a direct Chat, a `members`
 ///   entry of a group Chat, a member of the Space of a channel.
 /// - The call has a `spaceId` or `channelId` and `viewer` is not a member
@@ -164,7 +164,7 @@ pub async fn check_call_create<C: ChatBackend>(
 /// - The call has a `channelId` and `viewer` lacks
 ///   [`ChatPermission::View`] there, resolved as in [`check_call_create`]
 ///   (draft-atwood-jmap-chat-00 §Space Permission Resolution, with the
-///   `@everyone` floor from [`ChatBackend::everyone_permissions`]).
+///   `@everyone` floor from [`ChatSpaces::everyone_permissions`](jmap_chat_server::ChatSpaces::everyone_permissions)).
 ///
 /// `true` only means the Chat rules do not deny access. A call with no
 /// binding still needs the backend's own rule, draft-atwood-jmap-vtc-00
@@ -256,7 +256,7 @@ pub async fn may_access_call<C: ChatBackend>(
 /// every VTCCall create and update. A `chatId` that names no Chat is
 /// ignored.
 ///
-/// The write goes through [`ChatBackend::update_object`], which advances
+/// The write goes through [`ChatStore::update_object`](jmap_chat_server::ChatStore::update_object), which advances
 /// the Chat state, so the Chat `StateChange` follows. Call this in the
 /// same atomic step as the VTCCall write and before the VTCCall
 /// `StateChange` is delivered: the update MUST be "applied atomically
@@ -265,7 +265,7 @@ pub async fn may_access_call<C: ChatBackend>(
 /// # Errors
 ///
 /// Returns the Chat backend's error from reading or updating the Chat.
-// Same error type as `ChatBackend::update_object`, which it propagates.
+// Same error type as `ChatStore::update_object`, which it propagates.
 pub async fn sync_active_call_id<C: ChatBackend>(
     chat: &C,
     caller: &C::CallerCtx,
@@ -356,7 +356,7 @@ pub async fn clear_channel_references<V: VtcBackend>(
 /// "recorded in the `identity` property of the user's ChatContact", and
 /// "The owner has no ChatContact: a client-facing reference to the owner
 /// carries the accountId". So `account_id` maps to
-/// [`ChatBackend::owner_user_id`] and any other id to that ChatContact's
+/// [`ChatSettings::owner_user_id`](jmap_chat_server::ChatSettings::owner_user_id) and any other id to that ChatContact's
 /// `identity`. `None` when the ChatContact does not exist or the owner's
 /// identity is unknown.
 ///

@@ -24,7 +24,7 @@ use jmap_server::BackendSetError;
 ///   after setting `readAt`".
 /// - §Message `burnOnRead`: a read message is hard-deleted "immediately
 ///   after setting `readAt`". `Message/set` already does this atomically
-///   through [`ChatBackend::read_and_burn_message`]; the sweep deletes any
+///   through [`ChatMessageLifecycle::read_and_burn_message`](crate::ChatMessageLifecycle::read_and_burn_message); the sweep deletes any
 ///   read `burnOnRead` message that reached the store another way.
 ///
 ///   Both read-based rules apply "only to the receiving mailbox; the
@@ -37,14 +37,14 @@ use jmap_server::BackendSetError;
 ///   reset `presence` to `"online"`."
 /// - §ChatBan `expiresAt`: "If present, the ban expires at this time and
 ///   the server MUST lift it." The ban is destroyed through
-///   [`ChatBackend::destroy_chat_ban`]; as for a `ChatBan/set` destroy,
+///   [`ChatModeration::destroy_chat_ban`](crate::ChatModeration::destroy_chat_ban); as for a `ChatBan/set` destroy,
 ///   "Lifting a ban does not add the user back to the Chat."
 ///
-/// Messages are hard-deleted through [`ChatBackend::expire_message`],
+/// Messages are hard-deleted through [`ChatMessageLifecycle::expire_message`](crate::ChatMessageLifecycle::expire_message),
 /// after which each affected Chat's derived §Chat `unreadCount` is
 /// recorded as changed, as `Message/set` destroy does. Chat and
 /// PresenceStatus resets go through
-/// [`ChatBackend::update_object`], so each advances its type's state.
+/// [`ChatStore::update_object`](crate::ChatStore::update_object), so each advances its type's state.
 ///
 /// Each step is idempotent: a re-run at the same `now` finds nothing left
 /// to do, and changes no state.
@@ -54,14 +54,14 @@ use jmap_server::BackendSetError;
 /// ponytail: loads every Message, Chat, PresenceStatus and ChatBan of the account
 /// on each run, so a sweep is O(records). A backend with many messages
 /// should index the deadlines itself and call
-/// [`ChatBackend::expire_message`] directly.
+/// [`ChatMessageLifecycle::expire_message`](crate::ChatMessageLifecycle::expire_message) directly.
 ///
 /// # Errors
 ///
 /// Returns the first backend error. A `SetError` comes from a reset
-/// patch that [`ChatBackend::update_object`] rejected. Work done before
+/// patch that [`ChatStore::update_object`](crate::ChatStore::update_object) rejected. Work done before
 /// the error stays applied, so the next run continues from there.
-// Same error type as `ChatBackend::update_object`, which it propagates.
+// Same error type as `ChatStore::update_object`, which it propagates.
 pub async fn sweep_expired<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

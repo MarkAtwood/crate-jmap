@@ -59,7 +59,7 @@ use jmap_server::{
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
-/// Each returned ban must pass [`ChatBackend::may_get_space_ban`]; a
+/// Each returned ban must pass [`SpacePolicy::may_get_space_ban`](crate::SpacePolicy::may_get_space_ban); a
 /// hidden ban is reported exactly like a missing one.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -169,7 +169,7 @@ pub async fn handle_ban_changes<B: ChatBackend>(
 ///   no-op success.
 ///
 /// Create, update and destroy each consult
-/// [`ChatBackend::may_set_space_ban`] for the ban's Space.
+/// [`SpacePolicy::may_set_space_ban`](crate::SpacePolicy::may_set_space_ban) for the ban's Space.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 ///

@@ -773,13 +773,13 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 // backend-canonical cap enforcement via `crate::helpers::count_add_ops`.
 
 /// Enforce per-Space count limits before dispatching structural ops to
-/// [`ChatBackend::apply_space_patch`].
+/// [`ChatSpaces::apply_space_patch`](crate::ChatSpaces::apply_space_patch).
 ///
 /// Per draft-atwood-jmap-chat-00 §Space/set (spec commit `80d5e11`,
 /// 2026-05-11), each of the four `add*` ops MUST return an `overQuota`
 /// SetError (RFC 8620 §5.3) when the resulting count would exceed a
 /// server-defined limit. The handler queries the backend's
-/// [`ChatBackend::limits`] for the cap values, fetches the current
+/// [`ChatSettings::limits`](crate::ChatSettings::limits) for the cap values, fetches the current
 /// Space to count existing roles/members/channels/categories, then
 /// compares `existing + add` against the cap for each affected
 /// collection.
@@ -970,7 +970,7 @@ fn resolve_override_targets(
 /// - `name` is required on create.
 /// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates
 ///   unless identical to the stored value (RFC 8620 §5.3); an empty patch is a no-op success.
-/// - Keys listed by [`ChatBackend::space_extension_properties`] are
+/// - Keys listed by [`ChatSpaces::space_extension_properties`](crate::ChatSpaces::space_extension_properties) are
 ///   accepted on create and update, except a core Space property or a
 ///   structural patch key, which keeps its core meaning (`closedAt` in an
 ///   update is `invalidProperties`); any other unknown create or update
@@ -980,7 +980,7 @@ fn resolve_override_targets(
 ///   `using` (pass [`jmap_server::CallContext::using`]; -05 §3), as is
 ///   `null` for either in a create (-05 §3.2). An update applies them as
 ///   RFC 8620 §5.3 PatchObject paths through
-///   [`ChatBackend::update_object`], before the structural keys; the
+///   [`ChatStore::update_object`](crate::ChatStore::update_object), before the structural keys; the
 ///   backend validates the rest.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -1037,7 +1037,7 @@ pub async fn handle_space_set<B: ChatBackend>(
     let mut destroyed_list: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
     let mut mutated = false;
-    // `ChatBackend::space_extension_properties`: "A listed key that is
+    // `ChatSpaces::space_extension_properties`: "A listed key that is
     // already a core Space property or a structural patch key keeps its
     // core meaning", so such a key is dropped here and never reaches
     // `extra` on create or `apply_space_metadata_patch` on update.
@@ -1337,7 +1337,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             //     (the property or a path below it), forwarded to
             //     update_object,
             //   - metadata or a backend-registered extension property
-            //     (`ChatBackend::space_extension_properties`), forwarded
+            //     (`ChatSpaces::space_extension_properties`), forwarded
             //     to apply_space_metadata_patch,
             //   - unknown (rejected as invalidProperties).
             // Any parse error on a structural entry is fatal for this target.
@@ -1455,7 +1455,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             // would exceed its cap, reject the whole update target with
             // a single `overQuota` SetError per RFC 8620 §5.3 atomicity
             // at the target level. The cap values come from the
-            // backend's `ChatBackend::limits` (queried once per request
+            // backend's `ChatSettings::limits` (queried once per request
             // above the loop); the current per-collection counts come
             // from a `get_objects::<Space>` read of the target Space.
             if !ops.is_empty() {
@@ -1551,7 +1551,7 @@ pub async fn handle_space_set<B: ChatBackend>(
 
             // Apply metadata (if any) via the dedicated chat-server
             // entry point. Routing through
-            // `ChatBackend::apply_space_metadata_patch` (rather than
+            // `ChatSpaces::apply_space_metadata_patch` (rather than
             // the generic `update_object::<Space>`) gives the backend
             // the type and identity context it needs to apply the
             // `manage_space` permission gate atomically with the
@@ -1641,7 +1641,7 @@ pub async fn handle_space_set<B: ChatBackend>(
 
             // The backend cascades the destroy to the Space's channel
             // Chats (§Destroying a Space), so read their ids first for
-            // `ChatBackend::on_chat_destroyed`.
+            // `ChatEvents::on_chat_destroyed`.
             // ponytail: a channel added by a concurrent request between
             // this read and the destroy gets no callback. The upgrade
             // path is a destroy method that returns the cascaded ids.
@@ -1763,7 +1763,7 @@ pub async fn handle_space_join<B: ChatBackend>(
             // Constant-time invite-code compare (bd:JMAP-sc1b.89).
             //
             // `SpaceInvite.code` is an unguessable CSPRNG-derived credential
-            // (see `ChatBackend::generate_invite_code` in `backend.rs`). A
+            // (see `ChatSpaces::generate_invite_code` in `backend.rs`). A
             // plain `String == String` short-circuits at the first mismatched
             // byte, exposing a byte-by-byte timing oracle to any caller that
             // can issue `Space/join` requests. `ConstantTimeEq::ct_eq`

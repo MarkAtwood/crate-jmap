@@ -59,7 +59,7 @@ use jmap_server::{SetError, SetErrorType};
 /// `ids`, optional `properties`); the returned `Value` is the §5.1
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
-/// Each returned invite must pass [`ChatBackend::may_get_space_invite`];
+/// Each returned invite must pass [`SpacePolicy::may_get_space_invite`](crate::SpacePolicy::may_get_space_invite);
 /// a hidden invite is reported exactly like a missing one.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -140,7 +140,7 @@ pub async fn handle_invite_get<B: ChatBackend>(
 /// `hasMoreChanges`, `created`, `updated`, `destroyed`).
 ///
 /// `created` and `updated` list only invites that still exist and pass
-/// [`ChatBackend::may_get_space_invite`]; `destroyed` is not filtered.
+/// [`SpacePolicy::may_get_space_invite`](crate::SpacePolicy::may_get_space_invite); `destroyed` is not filtered.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_invite_changes<B: ChatBackend>(
@@ -241,7 +241,7 @@ pub async fn handle_invite_changes<B: ChatBackend>(
 /// - update: always rejected with `forbidden`.
 /// - destroy: revokes the invite.
 ///
-/// Create and destroy each consult [`ChatBackend::may_set_space_invite`]
+/// Create and destroy each consult [`SpacePolicy::may_set_space_invite`](crate::SpacePolicy::may_set_space_invite)
 /// for the invite's Space.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -411,7 +411,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
             let now: UTCDate = UTCDate::from(now_str.as_ref());
 
             // Delegate code generation to the backend. The trait contract
-            // (`ChatBackend::generate_invite_code`) requires a CSPRNG with
+            // (`ChatSpaces::generate_invite_code`) requires a CSPRNG with
             // at least 128 bits of entropy and a fixed-length ASCII-safe
             // encoding; the reference `MemoryBackend` uses `getrandom::fill`
             // on a 16-byte buffer (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93). The

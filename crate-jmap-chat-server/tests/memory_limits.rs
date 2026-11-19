@@ -6,8 +6,8 @@
 //! Usually due to the client's state being too old". A state the kept
 //! log still covers computes changes as before.
 
-use jmap_chat_server::ChatBackend;
 use jmap_chat_server::memory::MemoryBackend;
+use jmap_chat_server::{ChatEvents, ChatStore};
 use jmap_chat_types::CustomEmoji;
 use jmap_server::{BackendChangesError, ChangesParams, JmapBackend};
 use jmap_types::{Id, State};

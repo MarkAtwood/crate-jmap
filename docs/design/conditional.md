@@ -406,7 +406,7 @@ Defaults, under the spec-method-defaults rule:
   mocks use it.
 - `hidden_properties`: default `Ok(empty)` (permission hook, fail-open). Consumers that redact per
   caller override it; `jmap-chat-tasks-server` gains `task_hidden_properties` (Task `chatId` via
-  `ChatBackend::may_view_chat`, the same decision as `redact_task_chat_ids`).
+  `ChatAccessPolicy::may_view_chat`, the same decision as `redact_task_chat_ids`).
 
 No new per-object hooks: extension `create_object`/`update_object`/`destroy_object` keep their
 signatures; the scope is ambient. Backends that enforce invariants "atomically with the write"

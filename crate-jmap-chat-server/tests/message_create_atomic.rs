@@ -1,5 +1,5 @@
 //! `Message/set` create stores the Message and enqueues its outbound
-//! delivery as one unit through `ChatBackend::create_message`
+//! delivery as one unit through `ChatStore::create_message`
 //! (bd:JMAP-z4z0.5).
 //!
 //! Oracles:
@@ -10,7 +10,7 @@
 //!   enqueues the message for outbound delivery."
 //! - draft-atwood-jmap-chat-00 §Message `senderMsgId`: "Equals `id` for
 //!   messages composed by the owner."
-//! - `ChatBackend::create_object` contract: "A call that returns `Err`
+//! - `ChatStore::create_object` contract: "A call that returns `Err`
 //!   MUST leave the stored data, the state and the change log unchanged."
 //!   `create_message` extends it: "On `Err` nothing is stored and nothing
 //!   is enqueued."

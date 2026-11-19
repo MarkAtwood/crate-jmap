@@ -25,7 +25,11 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use jmap_chat_server::memory::{MemoryBackend as ChatMemory, MemoryError};
-use jmap_chat_server::{ChatBackend, ChatLimits, InviteJoinRefusal, OpResult, SpacePatchOp};
+use jmap_chat_server::{
+    ChatAccessPolicy, ChatEvents, ChatLimits, ChatMessageLifecycle, ChatModeration, ChatResolvers,
+    ChatRestrictions, ChatSettings, ChatSpaces, ChatStore, InviteJoinRefusal, OpResult,
+    SpacePatchOp, SpacePolicy,
+};
 use jmap_chat_tasks_server::{check_task_chat_id, redact_task_chat_ids};
 use jmap_chat_types::ChatTasksCapability;
 use jmap_server::{
@@ -262,32 +266,7 @@ impl JmapBackend for ViewGate {
     }
 }
 
-impl ChatBackend for ViewGate {
-    async fn attachment_blob(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
-    {
-        self.inner
-            .attachment_blob(caller, account_id, blob_id)
-            .await
-    }
-
-    async fn may_view_chat(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        chat_id: &Id,
-    ) -> Result<bool, Self::Error> {
-        self.calls.fetch_add(1, Ordering::SeqCst);
-        if self.fail {
-            return Err(MemoryError::new("may_view_chat failed"));
-        }
-        Ok(!self.denied.contains(chat_id))
-    }
-
+impl ChatStore for ViewGate {
     async fn create_object<O, F>(
         &self,
         caller: &(),
@@ -328,7 +307,9 @@ impl ChatBackend for ViewGate {
     fn supports_type<O: JmapObject>(&self, caller: &(), account_id: &Id) -> bool {
         self.inner.supports_type::<O>(caller, account_id)
     }
+}
 
+impl ChatSpaces for ViewGate {
     async fn join_space_with_invite(
         &self,
         caller: &(),
@@ -360,10 +341,6 @@ impl ChatBackend for ViewGate {
             .await
     }
 
-    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
-        self.inner.limits(caller, account_id)
-    }
-
     async fn apply_space_patch(
         &self,
         caller: &(),
@@ -387,7 +364,30 @@ impl ChatBackend for ViewGate {
             .apply_space_metadata_patch(caller, account_id, space_id, patch)
             .await
     }
+}
 
+impl SpacePolicy for ViewGate {}
+
+impl ChatAccessPolicy for ViewGate {
+    async fn may_view_chat(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        if self.fail {
+            return Err(MemoryError::new("may_view_chat failed"));
+        }
+        Ok(!self.denied.contains(chat_id))
+    }
+}
+
+impl ChatRestrictions for ViewGate {}
+
+impl ChatModeration for ViewGate {}
+
+impl ChatMessageLifecycle for ViewGate {
     async fn expire_message(
         &self,
         caller: &(),
@@ -408,6 +408,28 @@ impl ChatBackend for ViewGate {
     ) -> Result<(), BackendSetError<Self::Error>> {
         self.inner
             .read_and_burn_message(caller, account_id, message_id, patch)
+            .await
+    }
+}
+
+impl ChatEvents for ViewGate {}
+
+impl ChatSettings for ViewGate {
+    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
+        self.inner.limits(caller, account_id)
+    }
+}
+
+impl ChatResolvers for ViewGate {
+    async fn attachment_blob(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
+        self.inner
+            .attachment_blob(caller, account_id, blob_id)
             .await
     }
 }

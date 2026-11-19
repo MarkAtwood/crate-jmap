@@ -15,8 +15,8 @@
 //! longer exists stays visible and may still be updated or destroyed, so
 //! it can be cleaned up, as the memory backend does for a SpaceBan whose
 //! Space is gone. The writes go through
-//! [`ChatBackend::create_chat_ban`], [`ChatBackend::update_chat_ban`] and
-//! [`ChatBackend::destroy_chat_ban`], where a backend re-verifies and
+//! [`ChatModeration::create_chat_ban`](crate::ChatModeration::create_chat_ban), [`ChatModeration::update_chat_ban`](crate::ChatModeration::update_chat_ban) and
+//! [`ChatModeration::destroy_chat_ban`](crate::ChatModeration::destroy_chat_ban), where a backend re-verifies and
 //! applies the ban to its own group model.
 //!
 //! # Wire-shape contract
@@ -216,10 +216,10 @@ pub async fn handle_chat_ban_changes<B: ChatBackend>(
 /// - update and destroy "Requires the `"admin"` role in the Chat"; a ban
 ///   whose Chat no longer exists is not gated.
 ///
-/// Creates go through [`ChatBackend::create_chat_ban`], which also removes
+/// Creates go through [`ChatModeration::create_chat_ban`](crate::ChatModeration::create_chat_ban), which also removes
 /// the user from `members`; updates through
-/// [`ChatBackend::update_chat_ban`]; destroys through
-/// [`ChatBackend::destroy_chat_ban`], which does not add the user back.
+/// [`ChatModeration::update_chat_ban`](crate::ChatModeration::update_chat_ban); destroys through
+/// [`ChatModeration::destroy_chat_ban`](crate::ChatModeration::destroy_chat_ban), which does not add the user back.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 ///

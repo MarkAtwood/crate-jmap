@@ -65,8 +65,10 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult,
-    SlowModeError, SpacePatchOp, strip_unsupported_chat_push, validate_chat_push,
+    AttachmentBlob, ChatAccessPolicy, ChatEvents, ChatLimits, ChatMessageLifecycle, ChatModeration,
+    ChatResolvers, ChatRestrictions, ChatSettings, ChatSpaces, ChatStore, EmojiSetOp,
+    InviteJoinRefusal, OpResult, SlowModeError, SpacePatchOp, SpacePolicy,
+    strip_unsupported_chat_push, validate_chat_push,
 };
 use jmap_chat_types::{ChatPermission, ChatPushCapability};
 use jmap_metadata_server::{
@@ -171,21 +173,21 @@ struct Inner {
     event_limit: Option<usize>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
-    /// Test-only override for [`ChatBackend::limits`]. `None` means use
+    /// Test-only override for [`ChatSettings::limits`]. `None` means use
     /// [`ChatLimits::default`]. Set via
     /// `MemoryBackend::set_limits_for_test`.
     limits_override: Option<ChatLimits>,
     /// `(account_id, blobId)` → stored blob metadata reported by
-    /// [`ChatBackend::attachment_blob`]. Set via
+    /// [`ChatResolvers::attachment_blob`]. Set via
     /// `MemoryBackend::set_attachment_blob_for_test`.
     attachment_blobs: HashMap<(String, Id), AttachmentBlob>,
-    /// Test-only override for [`ChatBackend::retains_edit_history`].
+    /// Test-only override for [`ChatSettings::retains_edit_history`].
     /// Set via `MemoryBackend::set_retains_edit_history_for_test`.
     retains_edit_history: bool,
-    /// Test-only override for [`ChatBackend::maintains_unread_count`].
+    /// Test-only override for [`ChatSettings::maintains_unread_count`].
     /// Set via `MemoryBackend::set_maintains_unread_count_for_test`.
     maintains_unread_count: bool,
-    /// Test-only override for [`ChatBackend::protect_last_admin`].
+    /// Test-only override for [`ChatSpaces::protect_last_admin`].
     ///
     /// Default `false` — opposite the trait default of `true` — so
     /// existing tests that do not seed admin memberships are not
@@ -194,7 +196,7 @@ struct Inner {
     /// Production deployments override the trait method instead.
     protect_last_admin: bool,
     /// account id → owner's identity, served by
-    /// [`ChatBackend::owner_user_id`]. Set via
+    /// [`ChatSettings::owner_user_id`]. Set via
     /// `MemoryBackend::set_owner_user_id_for_test`.
     owner_user_ids: HashMap<String, String>,
     /// Push subscriptions by id. `CallerCtx = ()` means one owner, so
@@ -204,14 +206,14 @@ struct Inner {
     /// object. Accounts not in the map do not advertise the capability.
     /// Set via `MemoryBackend::set_chat_push_capability_for_test`.
     chat_push_caps: HashMap<Id, ChatPushCapability>,
-    /// Served by [`ChatBackend::space_extension_properties`]. Empty by
+    /// Served by [`ChatSpaces::space_extension_properties`]. Empty by
     /// default. Set via
     /// `MemoryBackend::set_space_extension_properties_for_test`.
     space_extension_properties: &'static [&'static str],
     /// Every lifecycle callback received, in call order. Drained via
     /// `MemoryBackend::take_lifecycle_events_for_test`.
     lifecycle_events: Vec<LifecycleEvent>,
-    /// Every [`ChatBackend::on_outbound_event`] received, in call order.
+    /// Every [`ChatEvents::on_outbound_event`] received, in call order.
     /// Drained via `MemoryBackend::take_outbound_events_for_test`.
     outbound_events: Vec<crate::OutboundEvent>,
     /// Permissions of the implicit `@everyone` role in every Space
@@ -240,11 +242,11 @@ struct Inner {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum LifecycleEvent {
-    /// [`ChatBackend::on_chat_destroyed`] with this Chat id.
+    /// [`ChatEvents::on_chat_destroyed`] with this Chat id.
     ChatDestroyed(Id),
-    /// [`ChatBackend::on_space_destroyed`] with this Space id.
+    /// [`ChatEvents::on_space_destroyed`] with this Space id.
     SpaceDestroyed(Id),
-    /// [`ChatBackend::on_space_ban_created`] with this ban.
+    /// [`ChatEvents::on_space_ban_created`] with this ban.
     SpaceBanCreated(jmap_chat_types::SpaceBan),
 }
 
@@ -411,7 +413,7 @@ impl Inner {
 // MemoryBackend
 // ---------------------------------------------------------------------------
 
-/// A fully in-memory implementation of [`ChatBackend`].
+/// A fully in-memory implementation of [`ChatBackend`](crate::ChatBackend).
 ///
 /// Stores objects as serialized JSON; each mutation bumps a monotonic state
 /// counter and records a change log entry. Used as both the integration-test
@@ -641,7 +643,7 @@ impl MemoryBackend {
     // canonical mail-server pattern (bd:JMAP-x2gd.49).
     // -------------------------------------------------------------------
 
-    /// Test-only: flip the [`ChatBackend::retains_edit_history`] flag.
+    /// Test-only: flip the [`ChatSettings::retains_edit_history`] flag.
     ///
     /// Pass `true` to make `Message/get` return `editHistory` on
     /// fetched messages, or `false` to omit it. The default is
@@ -656,7 +658,7 @@ impl MemoryBackend {
         inner.retains_edit_history = retain;
     }
 
-    /// Test-only: flip the [`ChatBackend::maintains_unread_count`] flag.
+    /// Test-only: flip the [`ChatSettings::maintains_unread_count`] flag.
     ///
     /// Pass `true` to make the handlers leave `Chat.unreadCount` to the
     /// backend. The reference backend never updates the stored value,
@@ -671,7 +673,7 @@ impl MemoryBackend {
         inner.maintains_unread_count = value;
     }
 
-    /// Test-only: flip the [`ChatBackend::protect_last_admin`] flag.
+    /// Test-only: flip the [`ChatSpaces::protect_last_admin`] flag.
     ///
     /// Pass `true` to enable last-admin protection on Space patches,
     /// or `false` to disable. The default is `false`, opposite
@@ -699,7 +701,7 @@ impl MemoryBackend {
         Inner::push_capped(&mut inner.lifecycle_events, event, limit);
     }
 
-    /// Mint a fresh object id, as [`ChatBackend::create_object`] does.
+    /// Mint a fresh object id, as [`ChatStore::create_object`] does.
     ///
     /// For a wrapping backend that must act on the complete object before
     /// it is stored (for example, to commit it elsewhere first): mint the
@@ -712,7 +714,7 @@ impl MemoryBackend {
 
     /// Store `object` under its own `id` in `account_id` as a create: the
     /// state advances and the change log records the id as created, as for
-    /// [`ChatBackend::create_object`], with the same per-type uniqueness
+    /// [`ChatStore::create_object`], with the same per-type uniqueness
     /// checks. The id may be one the caller chose (such as a hash-derived
     /// ChatContact id) or one from [`mint_id`](Self::mint_id).
     ///
@@ -742,7 +744,7 @@ impl MemoryBackend {
     /// [`insert_object`](Self::insert_object) for an owner-composed
     /// Message, also recording its
     /// [`OutboundEvent::NewMessage`](crate::OutboundEvent::NewMessage) in
-    /// the same write, as [`ChatBackend::create_message`] does.
+    /// the same write, as [`ChatStore::create_message`] does.
     ///
     /// # Errors
     ///
@@ -795,30 +797,30 @@ impl MemoryBackend {
     }
 
     /// Drain the lifecycle callbacks recorded so far
-    /// ([`ChatBackend::on_chat_destroyed`],
-    /// [`ChatBackend::on_space_destroyed`],
-    /// [`ChatBackend::on_space_ban_created`]), oldest first.
+    /// ([`ChatEvents::on_chat_destroyed`],
+    /// [`ChatEvents::on_space_destroyed`],
+    /// [`ChatEvents::on_space_ban_created`]), oldest first.
     pub fn drain_lifecycle_events(&self) -> Vec<LifecycleEvent> {
         std::mem::take(&mut self.inner.lock_unscoped().lifecycle_events)
     }
 
-    /// Drain the [`ChatBackend::on_outbound_event`] events recorded so
+    /// Drain the [`ChatEvents::on_outbound_event`] events recorded so
     /// far, oldest first.
     pub fn drain_outbound_events(&self) -> Vec<crate::OutboundEvent> {
         std::mem::take(&mut self.inner.lock_unscoped().outbound_events)
     }
 
     /// Test-only: drain the lifecycle callbacks received so far
-    /// ([`ChatBackend::on_chat_destroyed`],
-    /// [`ChatBackend::on_space_destroyed`],
-    /// [`ChatBackend::on_space_ban_created`]), oldest first.
+    /// ([`ChatEvents::on_chat_destroyed`],
+    /// [`ChatEvents::on_space_destroyed`],
+    /// [`ChatEvents::on_space_ban_created`]), oldest first.
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
     pub fn take_lifecycle_events_for_test(&self) -> Vec<LifecycleEvent> {
         std::mem::take(&mut self.inner.lock_unscoped().lifecycle_events)
     }
 
-    /// Test-only: drain the [`ChatBackend::on_outbound_event`] events
+    /// Test-only: drain the [`ChatEvents::on_outbound_event`] events
     /// received so far, oldest first.
     #[doc(hidden)]
     #[cfg(feature = "test-helpers")]
@@ -827,7 +829,7 @@ impl MemoryBackend {
     }
 
     /// Test-only: set the list returned by
-    /// [`ChatBackend::space_extension_properties`], standing in for a
+    /// [`ChatSpaces::space_extension_properties`], standing in for a
     /// Space extension that owns those properties. Production callers
     /// must not use this method; the API stability disclaimer on the
     /// `memory` feature applies doubly here.
@@ -839,7 +841,7 @@ impl MemoryBackend {
     }
 
     /// Test-only: set the owner's identity for `account_id`, as returned
-    /// by [`ChatBackend::owner_user_id`] (the `ownerUserId` Session
+    /// by [`ChatSettings::owner_user_id`] (the `ownerUserId` Session
     /// field). Unset accounts return `None`. Production callers must not
     /// use this method; the API stability disclaimer on the `memory`
     /// feature applies doubly here.
@@ -877,7 +879,7 @@ impl MemoryBackend {
     }
 
     /// Test-only: override the [`ChatLimits`] returned by
-    /// [`ChatBackend::limits`].
+    /// [`ChatSettings::limits`].
     ///
     /// Pass `Some(limits)` to install a custom cap structure, or `None`
     /// to revert to [`ChatLimits::default`]. Used by count-limit
@@ -894,7 +896,7 @@ impl MemoryBackend {
     }
 
     /// Test-only: record the stored blob behind `blob_id` in `account_id`
-    /// for [`ChatBackend::attachment_blob`], or forget it with `None`.
+    /// for [`ChatResolvers::attachment_blob`], or forget it with `None`.
     ///
     /// ponytail: the reference backend has no blob store, so it holds only
     /// the size and digest; an unregistered `blobId` is reported as
@@ -1528,7 +1530,7 @@ impl JmapBackend for MemoryBackend {
     }
 }
 
-impl ChatBackend for MemoryBackend {
+impl ChatStore for MemoryBackend {
     async fn create_object<O, F>(
         &self,
         _caller: &(),
@@ -1743,14 +1745,16 @@ impl ChatBackend for MemoryBackend {
     ) -> bool {
         true
     }
+}
 
+impl ChatSpaces for MemoryBackend {
     async fn generate_invite_code(
         &self,
         _caller: &(),
         _account_id: &Id,
     ) -> Result<String, MemoryError> {
         // CSPRNG-backed invite code, per the contract documented on
-        // `ChatBackend::generate_invite_code` (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93).
+        // `ChatSpaces::generate_invite_code` (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93).
         //
         // 16 random bytes = 128 bits of entropy, hex-encoded to 32 chars.
         // Far above the 48-bit nanosecond-truncated value the original
@@ -1775,7 +1779,7 @@ impl ChatBackend for MemoryBackend {
         Ok(out)
     }
 
-    /// Reference implementation of [`ChatBackend::join_space_with_invite`].
+    /// Reference implementation of [`ChatSpaces::join_space_with_invite`].
     ///
     /// Every check and both writes run under one hold of the backend
     /// lock, which is the atomic operation draft-atwood-jmap-chat-00
@@ -1853,35 +1857,7 @@ impl ChatBackend for MemoryBackend {
         Ok(Ok(()))
     }
 
-    /// Reference implementation of [`ChatBackend::limits`].
-    ///
-    /// Returns the test-only override set via
-    /// `MemoryBackend::set_limits_for_test` when present, else falls
-    /// back to [`ChatLimits::default`]. Production backends ignore the
-    /// override knob and read from their own per-account
-    /// configuration.
-    fn limits(&self, _caller: &(), _account_id: &Id) -> ChatLimits {
-        let inner = self.inner.lock_unscoped();
-        inner.limits_override.unwrap_or_default()
-    }
-
-    /// Reference implementation of [`ChatBackend::attachment_blob`]:
-    /// reports the blob registered via
-    /// `MemoryBackend::set_attachment_blob_for_test`, else `Ok(Ok(None))`.
-    async fn attachment_blob(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Result<Option<AttachmentBlob>, SetError>, Self::Error> {
-        let inner = self.inner.lock().await;
-        Ok(Ok(inner
-            .attachment_blobs
-            .get(&(account_id.as_ref().to_owned(), blob_id.clone()))
-            .copied()))
-    }
-
-    /// Reference implementation of [`ChatBackend::protect_last_admin`].
+    /// Reference implementation of [`ChatSpaces::protect_last_admin`].
     ///
     /// Returns the test-only override set via
     /// `MemoryBackend::set_protect_last_admin_for_test` when set;
@@ -1895,59 +1871,8 @@ impl ChatBackend for MemoryBackend {
         inner.protect_last_admin
     }
 
-    /// Records the call for
-    /// `MemoryBackend::take_lifecycle_events_for_test`.
-    fn on_chat_destroyed(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        chat_id: &Id,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        self.record_lifecycle_event(LifecycleEvent::ChatDestroyed(chat_id.clone()))
-    }
-
-    /// Records the call for
-    /// `MemoryBackend::take_lifecycle_events_for_test`.
-    fn on_space_destroyed(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        space_id: &Id,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        self.record_lifecycle_event(LifecycleEvent::SpaceDestroyed(space_id.clone()))
-    }
-
-    /// Records the call for
-    /// `MemoryBackend::take_lifecycle_events_for_test`.
-    fn on_space_ban_created(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        ban: &jmap_chat_types::SpaceBan,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        self.record_lifecycle_event(LifecycleEvent::SpaceBanCreated(ban.clone()))
-    }
-
-    /// Records the event for
-    /// `MemoryBackend::take_outbound_events_for_test`.
-    fn on_outbound_event(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        event: &crate::OutboundEvent,
-    ) -> impl std::future::Future<Output = ()> + Send {
-        let event = event.clone();
-        async move {
-            // Queued in the store: an atomic rollback drops it, so nothing
-            // goes out for a change that never happened (§4.3).
-            let mut inner = self.inner.lock().await;
-            let limit = inner.event_limit;
-            Inner::push_capped(&mut inner.outbound_events, event, limit);
-        }
-    }
-
     /// Reference implementation of
-    /// [`ChatBackend::space_extension_properties`]: the list set via
+    /// [`ChatSpaces::space_extension_properties`]: the list set via
     /// `MemoryBackend::set_space_extension_properties_for_test`, empty
     /// by default. Values are stored unvalidated.
     fn space_extension_properties(
@@ -1959,7 +1884,7 @@ impl ChatBackend for MemoryBackend {
         inner.space_extension_properties
     }
 
-    /// Reference implementation of [`ChatBackend::apply_space_patch`].
+    /// Reference implementation of [`ChatSpaces::apply_space_patch`].
     ///
     /// Dispatches each [`SpacePatchOp`] to a per-variant helper. All
     /// twelve variants are implemented: Category (bd:JMAP-g7wu.2.4.5),
@@ -2016,7 +1941,7 @@ impl ChatBackend for MemoryBackend {
     }
 
     /// Reference implementation of
-    /// [`ChatBackend::apply_space_metadata_patch`].
+    /// [`ChatSpaces::apply_space_metadata_patch`].
     ///
     /// Applies the JSON Merge Patch to the target Space's top-level
     /// metadata fields under a single mutex acquisition, with the
@@ -2037,38 +1962,6 @@ impl ChatBackend for MemoryBackend {
         apply_space_metadata_patch_impl(&mut inner, account_id, space_id, patch_map)
     }
 
-    /// Reference implementation of [`ChatBackend::retains_edit_history`].
-    ///
-    /// Returns the test-only override set via
-    /// `MemoryBackend::set_retains_edit_history_for_test` when set;
-    /// otherwise returns `false`, matching the trait default. The
-    /// reference backend does not retain edit history out of the box.
-    ///
-    /// Spec: draft-atwood-jmap-chat-00 commit `0783fc4`.
-    fn retains_edit_history(&self) -> bool {
-        let inner = self.inner.lock_unscoped();
-        inner.retains_edit_history
-    }
-
-    fn maintains_unread_count(&self) -> bool {
-        let inner = self.inner.lock_unscoped();
-        inner.maintains_unread_count
-    }
-
-    /// Reference implementation of [`ChatBackend::owner_user_id`].
-    ///
-    /// Returns the value set via
-    /// `MemoryBackend::set_owner_user_id_for_test` for `account_id`,
-    /// or `None` when unset.
-    async fn owner_user_id(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-    ) -> Result<Option<String>, Self::Error> {
-        let inner = self.inner.lock().await;
-        Ok(inner.owner_user_ids.get(account_id.as_ref()).cloned())
-    }
-
     /// The set from [`MemoryBackend::set_space_everyone_permissions`] for
     /// `space`, else the one from [`MemoryBackend::set_everyone_permissions`].
     async fn everyone_permissions(
@@ -2084,8 +1977,10 @@ impl ChatBackend for MemoryBackend {
             .everyone_for(space.id.as_ref())
             .clone())
     }
+}
 
-    /// Reference implementation of [`ChatBackend::may_set_custom_emoji`].
+impl SpacePolicy for MemoryBackend {
+    /// Reference implementation of [`SpacePolicy::may_set_custom_emoji`].
     ///
     /// Demonstration-only: returns `Ok(Ok(()))` unconditionally. The
     /// reference backend does not honor identity-scoped permissions
@@ -2107,7 +2002,135 @@ impl ChatBackend for MemoryBackend {
         Ok(Ok(()))
     }
 
-    /// Reference implementation of [`ChatBackend::may_broadcast_mention`].
+    /// Reference implementation of [`SpacePolicy::may_set_space_ban`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/set: each op
+    /// "Requires `"ban"` permission in the Space." A Space that does not
+    /// exist is permitted, matching the pinned-messages gate. The
+    /// caller's member entry is `account_id` (draft §Terminology).
+    async fn may_set_space_ban(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        let inner = self.inner.lock().await;
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(space_id))
+        else {
+            return Ok(Ok(()));
+        };
+        Ok(
+            if caller_effective_permissions(space, account_id, inner.everyone_in(space))
+                .is_some_and(|perms| perms.contains(&ChatPermission::Ban))
+            {
+                Ok(())
+            } else {
+                Err(SetError::new(SetErrorType::Forbidden)
+                    .with_description("caller lacks required permission `ban` in this Space"))
+            },
+        )
+    }
+
+    /// Reference implementation of [`SpacePolicy::may_set_space_invite`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceInvite/set: create
+    /// "Requires `"manage_members"` permission"; destroy also permits
+    /// "ownership of the invite", which is `createdBy` equal to
+    /// `account_id` (draft §SpaceInvite.createdBy). A Space that does not
+    /// exist is permitted, matching the ban gate.
+    async fn may_set_space_invite(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+        created_by: Option<&Id>,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        if created_by == Some(account_id) {
+            return Ok(Ok(()));
+        }
+        let inner = self.inner.lock().await;
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(space_id))
+        else {
+            return Ok(Ok(()));
+        };
+        Ok(
+            if caller_effective_permissions(space, account_id, inner.everyone_in(space))
+                .is_some_and(|perms| perms.contains(&ChatPermission::ManageMembers))
+            {
+                Ok(())
+            } else {
+                Err(SetError::new(SetErrorType::Forbidden).with_description(
+                    "caller lacks required permission `manage_members` in this Space",
+                ))
+            },
+        )
+    }
+
+    /// Reference implementation of [`SpacePolicy::may_get_space_invite`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceInvite/get: only a
+    /// member of the invite's Space sees it, and only if it holds
+    /// `manage_members` or created the invite (`createdBy` equal to
+    /// `account_id`, the caller's member entry per draft §Terminology).
+    /// An invite whose Space does not exist is visible, matching
+    /// [`Self::may_set_space_invite`], which lets such an invite be
+    /// created.
+    async fn may_get_space_invite(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        invite: &jmap_chat_types::SpaceInvite,
+    ) -> Result<bool, Self::Error> {
+        let inner = self.inner.lock().await;
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(&invite.space_id))
+        else {
+            return Ok(true);
+        };
+        Ok(
+            caller_effective_permissions(space, account_id, inner.everyone_in(space)).is_some_and(
+                |p| p.contains(&ChatPermission::ManageMembers) || invite.created_by == *account_id,
+            ),
+        )
+    }
+
+    /// Reference implementation of [`SpacePolicy::may_get_space_ban`].
+    ///
+    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/get: a holder of
+    /// `ban` in the ban's Space sees it, and so does the banned user
+    /// (`userId` equal to `account_id`). Everyone else does not. A ban
+    /// whose Space does not exist is visible, matching
+    /// [`Self::may_set_space_ban`], which lets such a ban be created.
+    async fn may_get_space_ban(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        ban: &jmap_chat_types::SpaceBan,
+    ) -> Result<bool, Self::Error> {
+        if ban.user_id == *account_id {
+            return Ok(true);
+        }
+        let inner = self.inner.lock().await;
+        let Some(space) = inner
+            .objects_ref("Space", account_id.as_ref())
+            .and_then(|m| m.get(&ban.space_id))
+        else {
+            return Ok(true);
+        };
+        Ok(
+            caller_effective_permissions(space, account_id, inner.everyone_in(space))
+                .is_some_and(|p| p.contains(&ChatPermission::Ban)),
+        )
+    }
+}
+
+impl ChatAccessPolicy for MemoryBackend {
+    /// Reference implementation of [`ChatAccessPolicy::may_broadcast_mention`].
     ///
     /// Implements draft-atwood-jmap-chat-00 §BroadcastMention: a
     /// non-empty `broadcastMentions` array in a channel requires the
@@ -2147,7 +2170,7 @@ impl ChatBackend for MemoryBackend {
         )
     }
 
-    /// Reference implementation of [`ChatBackend::may_send_message`].
+    /// Reference implementation of [`ChatAccessPolicy::may_send_message`].
     ///
     /// Implements draft-atwood-jmap-chat-00 §Message/set: in a group Chat
     /// the owner's ChatMember entry (id = accountId) must exist; in a
@@ -2196,7 +2219,7 @@ impl ChatBackend for MemoryBackend {
         })
     }
 
-    /// Reference implementation of [`ChatBackend::may_view_chat`].
+    /// Reference implementation of [`ChatAccessPolicy::may_view_chat`].
     ///
     /// Implements draft-atwood-jmap-chat-00 §Message/query: a channel's
     /// messages are visible only when the owner holds `"view"` there
@@ -2212,7 +2235,7 @@ impl ChatBackend for MemoryBackend {
         Ok(owner_may_view_chat(&inner, account_id, chat_id))
     }
 
-    /// Reference implementation of [`ChatBackend::may_set_pinned_messages`].
+    /// Reference implementation of [`ChatAccessPolicy::may_set_pinned_messages`].
     ///
     /// Implements draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`:
     /// group chats require the caller to be a member with role `admin`;
@@ -2255,133 +2278,7 @@ impl ChatBackend for MemoryBackend {
         })
     }
 
-    /// Reference implementation of [`ChatBackend::may_set_space_ban`].
-    ///
-    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/set: each op
-    /// "Requires `"ban"` permission in the Space." A Space that does not
-    /// exist is permitted, matching the pinned-messages gate. The
-    /// caller's member entry is `account_id` (draft §Terminology).
-    async fn may_set_space_ban(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        space_id: &Id,
-    ) -> Result<Result<(), SetError>, Self::Error> {
-        let inner = self.inner.lock().await;
-        let Some(space) = inner
-            .objects_ref("Space", account_id.as_ref())
-            .and_then(|m| m.get(space_id))
-        else {
-            return Ok(Ok(()));
-        };
-        Ok(
-            if caller_effective_permissions(space, account_id, inner.everyone_in(space))
-                .is_some_and(|perms| perms.contains(&ChatPermission::Ban))
-            {
-                Ok(())
-            } else {
-                Err(SetError::new(SetErrorType::Forbidden)
-                    .with_description("caller lacks required permission `ban` in this Space"))
-            },
-        )
-    }
-
-    /// Reference implementation of [`ChatBackend::may_set_space_invite`].
-    ///
-    /// Implements draft-atwood-jmap-chat-00 §SpaceInvite/set: create
-    /// "Requires `"manage_members"` permission"; destroy also permits
-    /// "ownership of the invite", which is `createdBy` equal to
-    /// `account_id` (draft §SpaceInvite.createdBy). A Space that does not
-    /// exist is permitted, matching the ban gate.
-    async fn may_set_space_invite(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        space_id: &Id,
-        created_by: Option<&Id>,
-    ) -> Result<Result<(), SetError>, Self::Error> {
-        if created_by == Some(account_id) {
-            return Ok(Ok(()));
-        }
-        let inner = self.inner.lock().await;
-        let Some(space) = inner
-            .objects_ref("Space", account_id.as_ref())
-            .and_then(|m| m.get(space_id))
-        else {
-            return Ok(Ok(()));
-        };
-        Ok(
-            if caller_effective_permissions(space, account_id, inner.everyone_in(space))
-                .is_some_and(|perms| perms.contains(&ChatPermission::ManageMembers))
-            {
-                Ok(())
-            } else {
-                Err(SetError::new(SetErrorType::Forbidden).with_description(
-                    "caller lacks required permission `manage_members` in this Space",
-                ))
-            },
-        )
-    }
-
-    /// Reference implementation of [`ChatBackend::may_get_space_invite`].
-    ///
-    /// Implements draft-atwood-jmap-chat-00 §SpaceInvite/get: only a
-    /// member of the invite's Space sees it, and only if it holds
-    /// `manage_members` or created the invite (`createdBy` equal to
-    /// `account_id`, the caller's member entry per draft §Terminology).
-    /// An invite whose Space does not exist is visible, matching
-    /// [`Self::may_set_space_invite`], which lets such an invite be
-    /// created.
-    async fn may_get_space_invite(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        invite: &jmap_chat_types::SpaceInvite,
-    ) -> Result<bool, Self::Error> {
-        let inner = self.inner.lock().await;
-        let Some(space) = inner
-            .objects_ref("Space", account_id.as_ref())
-            .and_then(|m| m.get(&invite.space_id))
-        else {
-            return Ok(true);
-        };
-        Ok(
-            caller_effective_permissions(space, account_id, inner.everyone_in(space)).is_some_and(
-                |p| p.contains(&ChatPermission::ManageMembers) || invite.created_by == *account_id,
-            ),
-        )
-    }
-
-    /// Reference implementation of [`ChatBackend::may_get_space_ban`].
-    ///
-    /// Implements draft-atwood-jmap-chat-00 §SpaceBan/get: a holder of
-    /// `ban` in the ban's Space sees it, and so does the banned user
-    /// (`userId` equal to `account_id`). Everyone else does not. A ban
-    /// whose Space does not exist is visible, matching
-    /// [`Self::may_set_space_ban`], which lets such a ban be created.
-    async fn may_get_space_ban(
-        &self,
-        _caller: &(),
-        account_id: &Id,
-        ban: &jmap_chat_types::SpaceBan,
-    ) -> Result<bool, Self::Error> {
-        if ban.user_id == *account_id {
-            return Ok(true);
-        }
-        let inner = self.inner.lock().await;
-        let Some(space) = inner
-            .objects_ref("Space", account_id.as_ref())
-            .and_then(|m| m.get(&ban.space_id))
-        else {
-            return Ok(true);
-        };
-        Ok(
-            caller_effective_permissions(space, account_id, inner.everyone_in(space))
-                .is_some_and(|p| p.contains(&ChatPermission::Ban)),
-        )
-    }
-
-    /// Reference implementation of [`ChatBackend::slow_mode_check`].
+    /// Reference implementation of [`ChatAccessPolicy::slow_mode_check`].
     ///
     /// Demonstration-only: this backend has no rate-tracker and always
     /// returns `Ok(())`. The kit defines the hook; production
@@ -2402,8 +2299,14 @@ impl ChatBackend for MemoryBackend {
     ) -> Result<(), SlowModeError> {
         Ok(())
     }
+}
 
-    /// Reference implementation of [`ChatBackend::expire_message`].
+impl ChatRestrictions for MemoryBackend {}
+
+impl ChatModeration for MemoryBackend {}
+
+impl ChatMessageLifecycle for MemoryBackend {
+    /// Reference implementation of [`ChatMessageLifecycle::expire_message`].
     ///
     /// Hard-deletes the message from the in-memory store and appends a
     /// `Message` change-log entry recording the id as `destroyed`, so
@@ -2438,7 +2341,7 @@ impl ChatBackend for MemoryBackend {
         Ok(())
     }
 
-    /// Reference implementation of [`ChatBackend::read_and_burn_message`].
+    /// Reference implementation of [`ChatMessageLifecycle::read_and_burn_message`].
     ///
     /// Validates the patch on a clone and hard-deletes the row under one
     /// hold of the backend lock, recording the id as `destroyed`. The
@@ -2466,6 +2369,123 @@ impl ChatBackend for MemoryBackend {
             updated_props: None,
         });
         Ok(())
+    }
+}
+
+impl ChatEvents for MemoryBackend {
+    /// Records the call for
+    /// `MemoryBackend::take_lifecycle_events_for_test`.
+    fn on_chat_destroyed(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        chat_id: &Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        self.record_lifecycle_event(LifecycleEvent::ChatDestroyed(chat_id.clone()))
+    }
+
+    /// Records the call for
+    /// `MemoryBackend::take_lifecycle_events_for_test`.
+    fn on_space_destroyed(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        space_id: &Id,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        self.record_lifecycle_event(LifecycleEvent::SpaceDestroyed(space_id.clone()))
+    }
+
+    /// Records the call for
+    /// `MemoryBackend::take_lifecycle_events_for_test`.
+    fn on_space_ban_created(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        ban: &jmap_chat_types::SpaceBan,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        self.record_lifecycle_event(LifecycleEvent::SpaceBanCreated(ban.clone()))
+    }
+
+    /// Records the event for
+    /// `MemoryBackend::take_outbound_events_for_test`.
+    fn on_outbound_event(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        event: &crate::OutboundEvent,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let event = event.clone();
+        async move {
+            // Queued in the store: an atomic rollback drops it, so nothing
+            // goes out for a change that never happened (§4.3).
+            let mut inner = self.inner.lock().await;
+            let limit = inner.event_limit;
+            Inner::push_capped(&mut inner.outbound_events, event, limit);
+        }
+    }
+}
+
+impl ChatSettings for MemoryBackend {
+    /// Reference implementation of [`ChatSettings::limits`].
+    ///
+    /// Returns the test-only override set via
+    /// `MemoryBackend::set_limits_for_test` when present, else falls
+    /// back to [`ChatLimits::default`]. Production backends ignore the
+    /// override knob and read from their own per-account
+    /// configuration.
+    fn limits(&self, _caller: &(), _account_id: &Id) -> ChatLimits {
+        let inner = self.inner.lock_unscoped();
+        inner.limits_override.unwrap_or_default()
+    }
+
+    /// Reference implementation of [`ChatSettings::retains_edit_history`].
+    ///
+    /// Returns the test-only override set via
+    /// `MemoryBackend::set_retains_edit_history_for_test` when set;
+    /// otherwise returns `false`, matching the trait default. The
+    /// reference backend does not retain edit history out of the box.
+    ///
+    /// Spec: draft-atwood-jmap-chat-00 commit `0783fc4`.
+    fn retains_edit_history(&self) -> bool {
+        let inner = self.inner.lock_unscoped();
+        inner.retains_edit_history
+    }
+
+    fn maintains_unread_count(&self) -> bool {
+        let inner = self.inner.lock_unscoped();
+        inner.maintains_unread_count
+    }
+
+    /// Reference implementation of [`ChatSettings::owner_user_id`].
+    ///
+    /// Returns the value set via
+    /// `MemoryBackend::set_owner_user_id_for_test` for `account_id`,
+    /// or `None` when unset.
+    async fn owner_user_id(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+    ) -> Result<Option<String>, Self::Error> {
+        let inner = self.inner.lock().await;
+        Ok(inner.owner_user_ids.get(account_id.as_ref()).cloned())
+    }
+}
+
+impl ChatResolvers for MemoryBackend {
+    /// Reference implementation of [`ChatResolvers::attachment_blob`]:
+    /// reports the blob registered via
+    /// `MemoryBackend::set_attachment_blob_for_test`, else `Ok(Ok(None))`.
+    async fn attachment_blob(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Result<Option<AttachmentBlob>, SetError>, Self::Error> {
+        let inner = self.inner.lock().await;
+        Ok(Ok(inner
+            .attachment_blobs
+            .get(&(account_id.as_ref().to_owned(), blob_id.clone()))
+            .copied()))
     }
 }
 
@@ -3003,7 +3023,7 @@ fn roots_with_unread_change(
 
 /// Record `ids` as updated Messages because a server-computed thread
 /// count changed (see "State and change log" on
-/// [`ChatBackend::create_object`]). A no-op when `ids` is empty or
+/// [`ChatStore::create_object`]). A no-op when `ids` is empty or
 /// `supportsThreads` is off, since the counts are then not returned.
 fn record_thread_count_changes(inner: &mut Inner, account_id: &str, ids: Vec<Id>) {
     if ids.is_empty() || !inner.limits_override.unwrap_or_default().supports_threads {
@@ -3083,7 +3103,7 @@ fn destroy_space_channels(inner: &mut Inner, account_id: &str, space_id: &Id) {
 /// Apply a [`SpacePatchOp`] sequence to the in-memory Space store.
 ///
 /// This is the implementation core of
-/// [`ChatBackend::apply_space_patch`], whose trait method locks the
+/// [`ChatSpaces::apply_space_patch`], whose trait method locks the
 /// `Inner` mutex before invoking it. Permission gating and
 /// role-position hierarchy resolve against the owner's member entry
 /// `account_id` (draft-atwood-jmap-chat-00 §Terminology).
@@ -3355,7 +3375,7 @@ fn space_metadata_patch_to_map(
 }
 
 /// Backend-canonical impl of
-/// [`ChatBackend::apply_space_metadata_patch`] for the reference
+/// [`ChatSpaces::apply_space_metadata_patch`] for the reference
 /// in-memory store (bd:JMAP-g7wu.2.4.13).
 ///
 /// Snapshots the target Space, enforces the `manage_space` gate,
@@ -6119,7 +6139,7 @@ fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::ChatBackend;
+
     use jmap_chat_types::ChatContact;
     use std::collections::HashSet;
 

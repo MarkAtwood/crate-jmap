@@ -12,7 +12,7 @@
 mod common;
 
 use common::{ACCOUNT_ID, MemoryBackend, SPACE_ID, TrackingBackend};
-use jmap_chat_server::ChatBackend;
+use jmap_chat_server::ChatAccessPolicy;
 use jmap_chat_server::message::{
     handle_message_get, handle_message_query, handle_message_query_changes, handle_message_set,
 };
@@ -413,7 +413,7 @@ async fn query_returns_messages_in_channel_with_view() {
     }
 }
 
-/// The handlers consult `ChatBackend::may_view_chat` themselves for
+/// The handlers consult `ChatAccessPolicy::may_view_chat` themselves for
 /// `Message/get` and for a `chatId`-scoped `Message/query`, so a backend
 /// that overrides only the hook still gets this crate's chosen behaviour
 /// for §Message/query (jmap-chat-spec 77c3474) L1301: "messages in
@@ -478,7 +478,7 @@ async fn query_changes_omits_messages_in_channel_without_view() {
 }
 
 /// §Message/query L1209 for a `chatId`-scoped `Message/queryChanges`
-/// against a backend that overrides only `ChatBackend::may_view_chat`:
+/// against a backend that overrides only `ChatAccessPolicy::may_view_chat`:
 /// the changes cannot be reported, so the handler answers RFC 8620 §5.6
 /// `cannotCalculateChanges` ("The server cannot calculate the changes
 /// from the queryState string given by the client") and the client's

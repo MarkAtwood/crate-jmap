@@ -1,5 +1,5 @@
 //! Integration tests for the Space top-level metadata permission gate
-//! in [`ChatBackend::apply_space_metadata_patch`] with caller identity
+//! in [`ChatSpaces::apply_space_metadata_patch`](jmap_chat_server::ChatSpaces::apply_space_metadata_patch) with caller identity
 //! wired through [`common::IdentityBackend`] (bd:JMAP-g7wu.2.4.13).
 //!
 //! Background: bd:JMAP-g7wu.2.4.3 landed the Role/Member permission
@@ -10,7 +10,7 @@
 //! `isPubliclyPreviewable`) flowed through the generic
 //! `update_object::<Space>` path and bypassed permission gating
 //! entirely. bd:JMAP-g7wu.2.4.13 closes that gap by introducing a
-//! dedicated trait method `ChatBackend::apply_space_metadata_patch`,
+//! dedicated trait method `ChatSpaces::apply_space_metadata_patch`,
 //! routing the handler's metadata path through it, and gating the
 //! mutation on `manage_space` per draft-atwood-jmap-chat-00.
 //!

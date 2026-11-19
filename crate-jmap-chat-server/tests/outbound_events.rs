@@ -1,4 +1,4 @@
-//! `ChatBackend::on_outbound_event` for new Messages, retractions, edits,
+//! `ChatEvents::on_outbound_event` for new Messages, retractions, edits,
 //! reactions and group Chat changes (bd:JMAP-5mz6.5, bd:JMAP-5mz6.7).
 //!
 //! Oracles, quoted from the jmap-chat-spec drafts:

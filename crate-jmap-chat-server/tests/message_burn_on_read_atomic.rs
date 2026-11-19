@@ -1,5 +1,5 @@
 //! Burn-on-read sets `readAt` and hard-deletes in one atomic backend call,
-//! `ChatBackend::read_and_burn_message` (bd:JMAP-x2gd.6).
+//! `ChatMessageLifecycle::read_and_burn_message` (bd:JMAP-x2gd.6).
 //!
 //! Oracle: draft-atwood-jmap-chat-00 §Message `burnOnRead` (jmap-chat-spec
 //! 77c3474 L750): "When `true`, the receiving server SHOULD permanently

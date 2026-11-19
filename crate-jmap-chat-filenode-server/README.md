@@ -34,9 +34,9 @@ calls these functions from its trait methods:
 | `FileNodeBackend::files_rights` | return `space_files_rights`; `FileNode/get` reports it as `myRights`, and `FileNode/set` and `FileNode/copy` report it in each `created` entry |
 | `JmapBackend::get_objects::<FileNode>` and the other FileNode reads | `space_files_rights`: leave out nodes with no flag |
 | The same, when advertising `maxSpaceStorageBytes` | `check_space_quota` |
-| `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | `create_space_file_tree` |
-| `ChatBackend::filenode_attachment` | `resolve_filenode_attachment` |
-| `ChatBackend::on_space_destroyed` | `destroy_space_file_tree` |
+| `ChatStore::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | `create_space_file_tree` |
+| `ChatResolvers::filenode_attachment` | `resolve_filenode_attachment` |
+| `ChatEvents::on_space_destroyed` | `destroy_space_file_tree` |
 
 ## How to use
 
@@ -58,7 +58,7 @@ A Space root is a Directory with a `spaceId`; a node belongs to the
 Space of the nearest Space root among itself and its ancestors. A Space
 has zero or more roots, found with the `FileNode/query` `spaceId` filter
 the draft requires. The `manage_space` check unions the member's SpaceRole permissions with
-the Space's `@everyone` permissions from `ChatBackend::everyone_permissions`;
+the Space's `@everyone` permissions from `ChatSpaces::everyone_permissions`;
 ChannelPermission overrides
 do not apply to file tree access.
 
@@ -69,7 +69,7 @@ do not apply to file tree access.
   roots per Space") counts them with a `spaceId` query and returns
   `forbidden`, re-checked in the insert's transaction.
 - The permission checks read the `@everyone` role's permissions per
-  Space from `ChatBackend::everyone_permissions`: the draft says every
+  Space from `ChatSpaces::everyone_permissions`: the draft says every
   member holds that role but puts its permissions on no wire object.
   Controller principals that bypass permission resolution are
   deployment-defined; skip the call for them.

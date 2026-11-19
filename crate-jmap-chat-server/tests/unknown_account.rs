@@ -9,7 +9,7 @@
 mod common;
 
 use common::MemoryBackend;
-use jmap_chat_server::ChatBackend;
+use jmap_chat_server::ChatStore;
 use jmap_chat_types::CustomEmoji;
 use jmap_server::{BackendSetError, JmapBackend, SetErrorType};
 use jmap_types::Id;

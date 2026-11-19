@@ -1,5 +1,5 @@
 //! Message/set create resolves an Attachment that carries `filenodeId`
-//! through `ChatBackend::filenode_attachment` (bd:JMAP-v9py.16.6).
+//! through `ChatResolvers::filenode_attachment` (bd:JMAP-v9py.16.6).
 //!
 //! Oracles, at jmap-chat-spec 0cd3af0:
 //!

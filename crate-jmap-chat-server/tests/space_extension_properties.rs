@@ -1,5 +1,5 @@
 //! Space properties owned by a Space extension, registered through
-//! `ChatBackend::space_extension_properties` (bd:JMAP-5mz6.1,
+//! `ChatSpaces::space_extension_properties` (bd:JMAP-5mz6.1,
 //! bd:JMAP-y3f2.16).
 //!
 //! Oracles (jmap-chat-spec commit 91672c9):
@@ -206,7 +206,7 @@ async fn only_registered_keys_are_accepted() {
     assert!(space.get("calendarId").is_none(), "{space}");
 }
 
-/// `ChatBackend::space_extension_properties`: "A listed key that is
+/// `ChatSpaces::space_extension_properties`: "A listed key that is
 /// already a core Space property or a structural patch key keeps its
 /// core meaning." draft-atwood-jmap-chat-00 L820: Space `closedAt` is
 /// "server-set", so a listed `closedAt` on create is `invalidProperties`

@@ -338,7 +338,7 @@ fn group_update_events(
 /// exclude Messages the owner sent." This server does not count Messages
 /// the owner sent (`senderId` is the accountId), so a Chat with no
 /// ReadPosition counts every Message from others. A backend whose
-/// [`ChatBackend::maintains_unread_count`] is `true` gets its stored
+/// [`ChatSettings::maintains_unread_count`](crate::ChatSettings::maintains_unread_count) is `true` gets its stored
 /// value back instead.
 ///
 /// `using` is the request's capability list (pass
@@ -366,10 +366,10 @@ pub async fn handle_chat_get<B: ChatBackend>(
 /// Overwrite `unreadCount` on each Chat in a `Chat/get` response `list`
 /// that carries the property (it is absent when `properties` leaves it
 /// out), unless the backend maintains the count itself
-/// ([`ChatBackend::maintains_unread_count`]).
+/// ([`ChatSettings::maintains_unread_count`](crate::ChatSettings::maintains_unread_count)).
 // ponytail: scans every Message and ReadPosition in the account per call
 // (O(messages) per Chat/get); a backend with many messages keeps its own
-// count via ChatBackend::maintains_unread_count.
+// count via ChatSettings::maintains_unread_count.
 async fn fill_unread_counts<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -451,9 +451,9 @@ pub(crate) fn unread_count(
 /// `Chat.unreadCount` for the affected Chat, possibly later". `Chat/get`
 /// derives the count on every call, so a ReadPosition update or a Message
 /// create/destroy changes Chat data; this records that change through
-/// [`ChatBackend::update_object`], whose contract bumps the type state
+/// [`ChatStore::update_object`](crate::ChatStore::update_object), whose contract bumps the type state
 /// and logs the id as updated. Does nothing when the backend maintains
-/// the count itself ([`ChatBackend::maintains_unread_count`]).
+/// the count itself ([`ChatSettings::maintains_unread_count`](crate::ChatSettings::maintains_unread_count)).
 ///
 /// Best-effort, like [`crate::message::ensure_read_positions`]: the
 /// caller's own write already succeeded and its response must report
@@ -678,7 +678,7 @@ const CHAT_ENTRY_ID_PROPERTIES: &[(&str, &str, &str)] = &[
 ///   `invalidProperties`; `name`, `description` and `avatarBlobId` updates
 ///   are `forbidden` unless the Chat is a group and the caller is an admin.
 /// - `pinnedMessageIds` updates are gated by
-///   [`ChatBackend::may_set_pinned_messages`].
+///   [`ChatAccessPolicy::may_set_pinned_messages`](crate::ChatAccessPolicy::may_set_pinned_messages).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 ///
@@ -1331,7 +1331,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             }
 
             // Per-Chat restrictions of extension-bound Chats; see
-            // `ChatBackend::may_update_chat`.
+            // `ChatRestrictions::may_update_chat`.
             let patch_keys: Vec<&str> = patch.as_map().keys().map(String::as_str).collect();
             match backend
                 .may_update_chat(caller, &account_id, chat, &patch_keys)
@@ -1350,7 +1350,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
 
             // draft-atwood-jmap-chat-mimi-00 §Moderation `kickMembers`: an
             // operation, not a property, taken out of the patch here and
-            // handed to `ChatBackend::kick_chat_members` before the write.
+            // handed to `ChatModeration::kick_chat_members` before the write.
             let kick = match take_kick_members(patch.as_map_mut()) {
                 Ok(kick) => kick,
                 Err(err) => {
@@ -1505,7 +1505,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // arrays (update_object rejects them as invalidPatch), so only
             // the whole-property key can add ids, and its value is the
             // post-patch list. Only ids absent from the stored list count
-            // as added; see ChatBackend::validate_pinned_message_ids.
+            // as added; see ChatAccessPolicy::validate_pinned_message_ids.
             // ponytail: check-then-update is not atomic; a Message
             // hard-deleted between the two leaves a stale pin. A backend
             // needing strictness re-checks inside its update transaction.
@@ -1739,7 +1739,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
 ///
 /// [`ChatContact`]: jmap_chat_types::ChatContact
 ///
-/// This handler does not call [`ChatBackend::is_contact_blocked`]: that
+/// This handler does not call [`ChatAccessPolicy::is_contact_blocked`](crate::ChatAccessPolicy::is_contact_blocked): that
 /// check reads the recipient's contact list, and the request names only
 /// the sender's `accountId`. The transport that fans the event out knows
 /// each recipient's account and MUST call [`crate::should_deliver_typing`]

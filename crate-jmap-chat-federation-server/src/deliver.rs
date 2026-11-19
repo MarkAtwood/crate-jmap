@@ -221,7 +221,7 @@ pub trait FederationBackend: ChatBackend {
     /// `Peer/deliver` step 3 for a direct Chat: "create a new Chat record
     /// with this chatId"; `Peer/groupUpdate` `"create"` for a group Chat:
     /// "The receiver MUST create a new Chat record of `kind: "group"` with
-    /// this chatId". [`ChatBackend::create_object`] assigns ids, so it
+    /// this chatId". [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object) assigns ids, so it
     /// cannot. Record the create in Chat state and changes as
     /// `create_object` does.
     fn create_chat(

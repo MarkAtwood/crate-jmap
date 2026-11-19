@@ -15,7 +15,11 @@ use jmap_chat_federation_server::{
 };
 use jmap_chat_federation_types::{PeerAttachment, PeerAvatar};
 use jmap_chat_server::memory::{MemoryBackend, MemoryError};
-use jmap_chat_server::{ChatBackend, ChatLimits, InviteJoinRefusal, OpResult, SpacePatchOp};
+use jmap_chat_server::{
+    ChatAccessPolicy, ChatEvents, ChatLimits, ChatMessageLifecycle, ChatModeration, ChatResolvers,
+    ChatRestrictions, ChatSettings, ChatSpaces, ChatStore, InviteJoinRefusal, OpResult,
+    SpacePatchOp, SpacePolicy,
+};
 use jmap_chat_types::{
     Chat, ChatContact, ChatPresenceEvent, ChatTypingEvent, Message, Space, SpaceMetadataPatch,
 };
@@ -415,17 +419,7 @@ impl JmapBackend for Fed {
     }
 }
 
-impl ChatBackend for Fed {
-    async fn attachment_blob(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
-    {
-        self.chat.attachment_blob(caller, account_id, blob_id).await
-    }
-
+impl ChatStore for Fed {
     async fn create_object<O, F>(
         &self,
         caller: &(),
@@ -473,7 +467,9 @@ impl ChatBackend for Fed {
     fn supports_type<O: JmapObject>(&self, caller: &(), account_id: &Id) -> bool {
         self.chat.supports_type::<O>(caller, account_id)
     }
+}
 
+impl ChatSpaces for Fed {
     async fn generate_invite_code(
         &self,
         caller: &(),
@@ -510,18 +506,6 @@ impl ChatBackend for Fed {
             .await
     }
 
-    async fn read_and_burn_message(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        message_id: &Id,
-        patch: PatchObject,
-    ) -> Result<(), BackendSetError<MemoryError>> {
-        self.chat
-            .read_and_burn_message(caller, account_id, message_id, patch)
-            .await
-    }
-
     async fn apply_space_patch(
         &self,
         caller: &(),
@@ -545,7 +529,33 @@ impl ChatBackend for Fed {
             .apply_space_metadata_patch(caller, account_id, space_id, patch)
             .await
     }
+}
 
+impl SpacePolicy for Fed {}
+
+impl ChatAccessPolicy for Fed {}
+
+impl ChatRestrictions for Fed {}
+
+impl ChatModeration for Fed {}
+
+impl ChatMessageLifecycle for Fed {
+    async fn read_and_burn_message(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        message_id: &Id,
+        patch: PatchObject,
+    ) -> Result<(), BackendSetError<MemoryError>> {
+        self.chat
+            .read_and_burn_message(caller, account_id, message_id, patch)
+            .await
+    }
+}
+
+impl ChatEvents for Fed {}
+
+impl ChatSettings for Fed {
     fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
         self.chat.limits(caller, account_id)
     }
@@ -556,6 +566,18 @@ impl ChatBackend for Fed {
         account_id: &Id,
     ) -> Result<Option<String>, MemoryError> {
         self.chat.owner_user_id(caller, account_id).await
+    }
+}
+
+impl ChatResolvers for Fed {
+    async fn attachment_blob(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
+        self.chat.attachment_blob(caller, account_id, blob_id).await
     }
 }
 

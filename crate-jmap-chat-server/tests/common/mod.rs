@@ -27,8 +27,9 @@ use std::sync::{Arc, Mutex};
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
-    AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult,
-    SlowModeError, SpacePatchOp,
+    AttachmentBlob, ChatAccessPolicy, ChatBackend, ChatEvents, ChatLimits, ChatMessageLifecycle,
+    ChatModeration, ChatResolvers, ChatRestrictions, ChatSettings, ChatSpaces, ChatStore,
+    EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError, SpacePatchOp, SpacePolicy,
 };
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
@@ -105,17 +106,7 @@ impl JmapBackend for FaultyBackend {
     }
 }
 
-impl ChatBackend for FaultyBackend {
-    async fn attachment_blob(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        _blob_id: &Id,
-    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
-    {
-        Ok(Ok(None))
-    }
-
+impl ChatStore for FaultyBackend {
     async fn create_object<O, F>(
         &self,
         _caller: &(),
@@ -162,7 +153,9 @@ impl ChatBackend for FaultyBackend {
     ) -> bool {
         false
     }
+}
 
+impl ChatSpaces for FaultyBackend {
     async fn join_space_with_invite(
         &self,
         _caller: &(),
@@ -171,18 +164,6 @@ impl ChatBackend for FaultyBackend {
         _joined_at: &UTCDate,
     ) -> Result<Result<(), InviteJoinRefusal>, Self::Error> {
         Err(MemoryError::new("storage unavailable"))
-    }
-
-    async fn read_and_burn_message(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-        _message_id: &Id,
-        _patch: PatchObject,
-    ) -> Result<(), BackendSetError<Self::Error>> {
-        Err(BackendSetError::Other(MemoryError::new(
-            "storage unavailable",
-        )))
     }
 
     async fn generate_invite_code(
@@ -235,6 +216,44 @@ impl ChatBackend for FaultyBackend {
     }
 }
 
+impl SpacePolicy for FaultyBackend {}
+
+impl ChatAccessPolicy for FaultyBackend {}
+
+impl ChatRestrictions for FaultyBackend {}
+
+impl ChatModeration for FaultyBackend {}
+
+impl ChatMessageLifecycle for FaultyBackend {
+    async fn read_and_burn_message(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _message_id: &Id,
+        _patch: PatchObject,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        Err(BackendSetError::Other(MemoryError::new(
+            "storage unavailable",
+        )))
+    }
+}
+
+impl ChatEvents for FaultyBackend {}
+
+impl ChatSettings for FaultyBackend {}
+
+impl ChatResolvers for FaultyBackend {
+    async fn attachment_blob(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _blob_id: &Id,
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
+        Ok(Ok(None))
+    }
+}
+
 // ---------------------------------------------------------------------------
 // TrackingBackend — MemoryBackend with policy hooks overridable per-test
 // ---------------------------------------------------------------------------
@@ -251,30 +270,30 @@ impl ChatBackend for FaultyBackend {
 #[derive(Clone, Default)]
 pub struct TrackingBackend {
     inner: MemoryBackend,
-    /// When `Some`, [`ChatBackend::slow_mode_check`] returns
+    /// When `Some`, [`ChatAccessPolicy::slow_mode_check`](jmap_chat_server::ChatAccessPolicy::slow_mode_check) returns
     /// `Err(SlowModeError::new(<this>))`. When `None`, forwards to
     /// `inner` (which is a no-op).
     slow_mode_block: Option<UTCDate>,
-    /// When `true`, [`ChatBackend::may_set_custom_emoji`] returns
+    /// When `true`, [`SpacePolicy::may_set_custom_emoji`](jmap_chat_server::SpacePolicy::may_set_custom_emoji) returns
     /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))` for every op
     /// (Create/Update/Destroy). When `false`, forwards to `inner`
     /// (which returns `Ok(Ok(()))`).
     emoji_set_deny: bool,
-    /// When `true`, [`ChatBackend::may_set_custom_emoji`] returns a
+    /// When `true`, [`SpacePolicy::may_set_custom_emoji`](jmap_chat_server::SpacePolicy::may_set_custom_emoji) returns a
     /// backend error whose Display contains [`INJECTABLE_BACKEND_CANARY`].
     emoji_set_fail: bool,
     /// The `(target_space_id, op)` of every
-    /// [`ChatBackend::may_set_custom_emoji`] call, in call order.
+    /// [`SpacePolicy::may_set_custom_emoji`](jmap_chat_server::SpacePolicy::may_set_custom_emoji) call, in call order.
     emoji_set_calls: Arc<Mutex<Vec<EmojiSetCall>>>,
-    /// When `true`, [`ChatBackend::may_broadcast_mention`] returns
+    /// When `true`, [`ChatAccessPolicy::may_broadcast_mention`](jmap_chat_server::ChatAccessPolicy::may_broadcast_mention) returns
     /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))`. When `false`,
     /// forwards to `inner` (which returns `Ok(Ok(()))`).
     broadcast_mention_deny: bool,
-    /// When `true`, [`ChatBackend::may_view_chat`] returns `Ok(false)`.
+    /// When `true`, [`ChatAccessPolicy::may_view_chat`](jmap_chat_server::ChatAccessPolicy::may_view_chat) returns `Ok(false)`.
     /// When `false`, forwards to `inner`.
     chat_view_deny: bool,
     /// Counter incremented every time
-    /// [`ChatBackend::is_contact_blocked`] is invoked. Lets a test
+    /// [`ChatAccessPolicy::is_contact_blocked`](jmap_chat_server::ChatAccessPolicy::is_contact_blocked) is invoked. Lets a test
     /// verify whether a handler consulted the predicate, which has no
     /// effect on the handler's wire response.
     is_contact_blocked_calls: Arc<AtomicU64>,
@@ -288,28 +307,28 @@ pub struct TrackingBackend {
     /// When `Some`, [`JmapBackend::get_objects`] for this type name
     /// returns an error. Other types forward to `inner`.
     get_objects_fail: Option<&'static str>,
-    /// The `id` of every object the [`ChatBackend::create_object`] builder
+    /// The `id` of every object the [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object) builder
     /// returned, in call order.
     create_input_ids: Arc<Mutex<Vec<serde_json::Value>>>,
-    /// When `Some`, [`ChatBackend::attachment_blob`] returns
+    /// When `Some`, [`ChatResolvers::attachment_blob`](jmap_chat_server::ChatResolvers::attachment_blob) returns
     /// `Ok(Err(<this>))`.
     attachment_blob_reject: Option<SetError>,
-    /// When `true`, [`ChatBackend::attachment_blob`] returns `Err`.
+    /// When `true`, [`ChatResolvers::attachment_blob`](jmap_chat_server::ChatResolvers::attachment_blob) returns `Err`.
     attachment_blob_fail: bool,
-    /// When `Some`, [`ChatBackend::filenode_attachment`] returns
+    /// When `Some`, [`ChatResolvers::filenode_attachment`](jmap_chat_server::ChatResolvers::filenode_attachment) returns
     /// `Ok(<this>.map(Some))`; when `None`, it forwards to `inner`.
     filenode_attachment: Option<Result<jmap_chat_types::Attachment, SetError>>,
-    /// Count of [`ChatBackend::filenode_attachment`] calls.
+    /// Count of [`ChatResolvers::filenode_attachment`](jmap_chat_server::ChatResolvers::filenode_attachment) calls.
     filenode_attachment_calls: Arc<AtomicU64>,
-    /// The `(chat id, user ids)` of every [`ChatBackend::kick_chat_members`]
+    /// The `(chat id, user ids)` of every [`ChatModeration::kick_chat_members`](jmap_chat_server::ChatModeration::kick_chat_members)
     /// call this wrapper accepted, in call order.
     kick_calls: Arc<Mutex<Vec<KickCall>>>,
 }
 
-/// One accepted [`ChatBackend::kick_chat_members`] call: `(chat id, user ids)`.
+/// One accepted [`ChatModeration::kick_chat_members`](jmap_chat_server::ChatModeration::kick_chat_members) call: `(chat id, user ids)`.
 pub type KickCall = (String, Vec<String>);
 
-/// One [`ChatBackend::may_set_custom_emoji`] call: `(target_space_id, op)`.
+/// One [`SpacePolicy::may_set_custom_emoji`](jmap_chat_server::SpacePolicy::may_set_custom_emoji) call: `(target_space_id, op)`.
 pub type EmojiSetCall = (Option<Id>, EmojiSetOp);
 
 /// The Chat/set patch keys draft-atwood-jmap-chat-mimi-00 L251 forbids on
@@ -342,7 +361,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`ChatBackend::slow_mode_check`] always
+    /// Configure the wrapper so [`ChatAccessPolicy::slow_mode_check`](jmap_chat_server::ChatAccessPolicy::slow_mode_check) always
     /// rejects with the given `retry_after` UTCDate. The wrapped
     /// `MemoryBackend` is otherwise functional.
     pub fn with_slow_mode_blocking(retry_after: UTCDate) -> Self {
@@ -352,7 +371,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`ChatBackend::may_set_custom_emoji`]
+    /// Configure the wrapper so [`SpacePolicy::may_set_custom_emoji`](jmap_chat_server::SpacePolicy::may_set_custom_emoji)
     /// returns a `Forbidden` SetError for every op. The wrapped
     /// `MemoryBackend` is otherwise functional.
     pub fn with_emoji_set_denied() -> Self {
@@ -362,7 +381,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`ChatBackend::may_set_custom_emoji`]
+    /// Configure the wrapper so [`SpacePolicy::may_set_custom_emoji`](jmap_chat_server::SpacePolicy::may_set_custom_emoji)
     /// fails with a backend error for every op. The wrapped
     /// `MemoryBackend` is otherwise functional.
     pub fn with_emoji_set_failing() -> Self {
@@ -373,12 +392,12 @@ impl TrackingBackend {
     }
 
     /// The `(target_space_id, op)` of every
-    /// [`ChatBackend::may_set_custom_emoji`] call so far, in call order.
+    /// [`SpacePolicy::may_set_custom_emoji`](jmap_chat_server::SpacePolicy::may_set_custom_emoji) call so far, in call order.
     pub fn emoji_set_calls(&self) -> Vec<EmojiSetCall> {
         self.emoji_set_calls.lock().unwrap().clone()
     }
 
-    /// Configure the wrapper so [`ChatBackend::may_broadcast_mention`]
+    /// Configure the wrapper so [`ChatAccessPolicy::may_broadcast_mention`](jmap_chat_server::ChatAccessPolicy::may_broadcast_mention)
     /// returns a `Forbidden` SetError. The wrapped `MemoryBackend` is
     /// otherwise functional.
     pub fn with_broadcast_mention_denied() -> Self {
@@ -388,7 +407,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`ChatBackend::may_view_chat`] hides
+    /// Configure the wrapper so [`ChatAccessPolicy::may_view_chat`](jmap_chat_server::ChatAccessPolicy::may_view_chat) hides
     /// every Chat. The wrapped `MemoryBackend` is otherwise functional.
     pub fn with_chat_view_denied() -> Self {
         Self {
@@ -417,7 +436,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`ChatBackend::attachment_blob`] rejects
+    /// Configure the wrapper so [`ChatResolvers::attachment_blob`](jmap_chat_server::ChatResolvers::attachment_blob) rejects
     /// every blob with `set_error`. The wrapped `MemoryBackend` is
     /// otherwise functional.
     pub fn with_attachment_blob_rejected(set_error: SetError) -> Self {
@@ -427,7 +446,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`ChatBackend::attachment_blob`] fails
+    /// Configure the wrapper so [`ChatResolvers::attachment_blob`](jmap_chat_server::ChatResolvers::attachment_blob) fails
     /// with a backend error. The wrapped `MemoryBackend` is otherwise
     /// functional.
     pub fn with_attachment_blob_failing() -> Self {
@@ -437,7 +456,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`ChatBackend::filenode_attachment`]
+    /// Configure the wrapper so [`ChatResolvers::filenode_attachment`](jmap_chat_server::ChatResolvers::filenode_attachment)
     /// resolves every `filenodeId` entry to `result`. The wrapped
     /// `MemoryBackend` is otherwise functional.
     pub fn with_filenode_attachment(result: Result<jmap_chat_types::Attachment, SetError>) -> Self {
@@ -447,7 +466,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Count of [`ChatBackend::filenode_attachment`] calls so far.
+    /// Count of [`ChatResolvers::filenode_attachment`](jmap_chat_server::ChatResolvers::filenode_attachment) calls so far.
     pub fn filenode_attachment_call_count(&self) -> u64 {
         self.filenode_attachment_calls.load(Ordering::SeqCst)
     }
@@ -465,20 +484,20 @@ impl TrackingBackend {
         calls.get(type_name).copied().unwrap_or(0)
     }
 
-    /// Return the `id` of every object the [`ChatBackend::create_object`]
+    /// Return the `id` of every object the [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object)
     /// builder returned, in call order.
     pub fn create_input_ids(&self) -> Vec<serde_json::Value> {
         self.create_input_ids.lock().expect("lock poisoned").clone()
     }
 
     /// Return the number of times the wrapped
-    /// [`ChatBackend::is_contact_blocked`] has been invoked. Used by
+    /// [`ChatAccessPolicy::is_contact_blocked`](jmap_chat_server::ChatAccessPolicy::is_contact_blocked) has been invoked. Used by
     /// tests that verify the handler reaches the predicate-call site.
     pub fn is_contact_blocked_call_count(&self) -> u64 {
         self.is_contact_blocked_calls.load(Ordering::SeqCst)
     }
 
-    /// Return every [`ChatBackend::kick_chat_members`] call this wrapper
+    /// Return every [`ChatModeration::kick_chat_members`](jmap_chat_server::ChatModeration::kick_chat_members) call this wrapper
     /// accepted, in call order.
     pub fn kick_calls(&self) -> Vec<KickCall> {
         self.kick_calls.lock().expect("lock poisoned").clone()
@@ -556,7 +575,7 @@ impl JmapBackend for TrackingBackend {
     }
 }
 
-impl ChatBackend for TrackingBackend {
+impl ChatStore for TrackingBackend {
     async fn create_object<O, F>(
         &self,
         caller: &(),
@@ -576,20 +595,6 @@ impl ChatBackend for TrackingBackend {
                 ids.lock().expect("lock poisoned").push(built["id"].clone());
                 obj
             })
-            .await
-    }
-
-    /// Records the event in `inner`, so a test can read it with
-    /// `inner().take_outbound_events_for_test()`. `create_message` is
-    /// not overridden: the trait default runs.
-    async fn on_outbound_event(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        event: &jmap_chat_server::OutboundEvent,
-    ) {
-        self.inner
-            .on_outbound_event(caller, account_id, event)
             .await
     }
 
@@ -621,7 +626,9 @@ impl ChatBackend for TrackingBackend {
     ) -> bool {
         self.inner.supports_type::<O>(caller, account_id)
     }
+}
 
+impl ChatSpaces for TrackingBackend {
     async fn join_space_with_invite(
         &self,
         caller: &(),
@@ -653,10 +660,6 @@ impl ChatBackend for TrackingBackend {
             .await
     }
 
-    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
-        self.inner.limits(caller, account_id)
-    }
-
     async fn apply_space_patch(
         &self,
         caller: &(),
@@ -680,23 +683,9 @@ impl ChatBackend for TrackingBackend {
             .apply_space_metadata_patch(caller, account_id, space_id, patch)
             .await
     }
+}
 
-    async fn slow_mode_check(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        chat_id: &Id,
-    ) -> Result<(), SlowModeError> {
-        match &self.slow_mode_block {
-            Some(d) => Err(SlowModeError::new(d.clone())),
-            None => {
-                self.inner
-                    .slow_mode_check(caller, account_id, chat_id)
-                    .await
-            }
-        }
-    }
-
+impl SpacePolicy for TrackingBackend {
     async fn may_set_custom_emoji(
         &self,
         caller: &(),
@@ -720,6 +709,24 @@ impl ChatBackend for TrackingBackend {
             self.inner
                 .may_set_custom_emoji(caller, account_id, target_space_id, op)
                 .await
+        }
+    }
+}
+
+impl ChatAccessPolicy for TrackingBackend {
+    async fn slow_mode_check(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<(), SlowModeError> {
+        match &self.slow_mode_block {
+            Some(d) => Err(SlowModeError::new(d.clone())),
+            None => {
+                self.inner
+                    .slow_mode_check(caller, account_id, chat_id)
+                    .await
+            }
         }
     }
 
@@ -766,7 +773,9 @@ impl ChatBackend for TrackingBackend {
             .is_contact_blocked(caller, account_id, contact_id)
             .await
     }
+}
 
+impl ChatRestrictions for TrackingBackend {
     async fn may_create_message(
         &self,
         caller: &(),
@@ -831,7 +840,9 @@ impl ChatBackend for TrackingBackend {
             .may_update_chat(caller, account_id, chat, patch_keys)
             .await
     }
+}
 
+impl ChatModeration for TrackingBackend {
     /// With room restrictions on, a Chat with a `roomId` stands for one
     /// bound to a MIMI room: the kick is recorded and accepted. Any other
     /// Chat forwards to `inner`, which keeps the trait default.
@@ -853,11 +864,9 @@ impl ChatBackend for TrackingBackend {
             .kick_chat_members(caller, account_id, chat, user_ids)
             .await
     }
+}
 
-    fn retains_edit_history(&self) -> bool {
-        self.inner.retains_edit_history()
-    }
-
+impl ChatMessageLifecycle for TrackingBackend {
     async fn expire_message(
         &self,
         caller: &(),
@@ -880,7 +889,35 @@ impl ChatBackend for TrackingBackend {
             .read_and_burn_message(caller, account_id, message_id, patch)
             .await
     }
+}
 
+impl ChatEvents for TrackingBackend {
+    /// Records the event in `inner`, so a test can read it with
+    /// `inner().take_outbound_events_for_test()`. `create_message` is
+    /// not overridden: the trait default runs.
+    async fn on_outbound_event(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        event: &jmap_chat_server::OutboundEvent,
+    ) {
+        self.inner
+            .on_outbound_event(caller, account_id, event)
+            .await
+    }
+}
+
+impl ChatSettings for TrackingBackend {
+    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
+        self.inner.limits(caller, account_id)
+    }
+
+    fn retains_edit_history(&self) -> bool {
+        self.inner.retains_edit_history()
+    }
+}
+
+impl ChatResolvers for TrackingBackend {
     async fn attachment_blob(
         &self,
         caller: &(),
@@ -1029,17 +1066,7 @@ impl JmapBackend for IdentityBackend {
     }
 }
 
-impl ChatBackend for IdentityBackend {
-    async fn attachment_blob(
-        &self,
-        _caller: &Id,
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
-    {
-        self.inner.attachment_blob(&(), account_id, blob_id).await
-    }
-
+impl ChatStore for IdentityBackend {
     async fn create_object<O, F>(
         &self,
         _caller: &Id,
@@ -1080,7 +1107,9 @@ impl ChatBackend for IdentityBackend {
     fn supports_type<O: JmapObject>(&self, _caller: &Id, account_id: &Id) -> bool {
         self.inner.supports_type::<O>(&(), account_id)
     }
+}
 
+impl ChatSpaces for IdentityBackend {
     async fn join_space_with_invite(
         &self,
         _caller: &Id,
@@ -1118,10 +1147,6 @@ impl ChatBackend for IdentityBackend {
             .await
     }
 
-    fn limits(&self, _caller: &Id, account_id: &Id) -> ChatLimits {
-        self.inner.limits(&(), account_id)
-    }
-
     fn protect_last_admin(&self, _caller: &Id, account_id: &Id) -> bool {
         self.inner.protect_last_admin(&(), account_id)
     }
@@ -1149,16 +1174,9 @@ impl ChatBackend for IdentityBackend {
             .apply_space_metadata_patch(&(), account_id, space_id, patch)
             .await
     }
+}
 
-    async fn slow_mode_check(
-        &self,
-        _caller: &Id,
-        account_id: &Id,
-        chat_id: &Id,
-    ) -> Result<(), SlowModeError> {
-        self.inner.slow_mode_check(&(), account_id, chat_id).await
-    }
-
+impl SpacePolicy for IdentityBackend {
     async fn may_set_custom_emoji(
         &self,
         _caller: &Id,
@@ -1168,17 +1186,6 @@ impl ChatBackend for IdentityBackend {
     ) -> Result<Result<(), SetError>, Self::Error> {
         self.inner
             .may_set_custom_emoji(&(), account_id, target_space_id, op)
-            .await
-    }
-
-    async fn may_set_pinned_messages(
-        &self,
-        _caller: &Id,
-        account_id: &Id,
-        chat_id: &Id,
-    ) -> Result<Result<(), SetError>, Self::Error> {
-        self.inner
-            .may_set_pinned_messages(&(), account_id, chat_id)
             .await
     }
 
@@ -1224,6 +1231,28 @@ impl ChatBackend for IdentityBackend {
     ) -> Result<bool, Self::Error> {
         self.inner.may_get_space_ban(&(), account_id, ban).await
     }
+}
+
+impl ChatAccessPolicy for IdentityBackend {
+    async fn slow_mode_check(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<(), SlowModeError> {
+        self.inner.slow_mode_check(&(), account_id, chat_id).await
+    }
+
+    async fn may_set_pinned_messages(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        self.inner
+            .may_set_pinned_messages(&(), account_id, chat_id)
+            .await
+    }
 
     async fn may_send_message(
         &self,
@@ -1253,11 +1282,13 @@ impl ChatBackend for IdentityBackend {
             .is_contact_blocked(&(), account_id, contact_id)
             .await
     }
+}
 
-    fn retains_edit_history(&self) -> bool {
-        self.inner.retains_edit_history()
-    }
+impl ChatRestrictions for IdentityBackend {}
 
+impl ChatModeration for IdentityBackend {}
+
+impl ChatMessageLifecycle for IdentityBackend {
     async fn expire_message(
         &self,
         _caller: &Id,
@@ -1277,6 +1308,30 @@ impl ChatBackend for IdentityBackend {
         self.inner
             .read_and_burn_message(&(), account_id, message_id, patch)
             .await
+    }
+}
+
+impl ChatEvents for IdentityBackend {}
+
+impl ChatSettings for IdentityBackend {
+    fn limits(&self, _caller: &Id, account_id: &Id) -> ChatLimits {
+        self.inner.limits(&(), account_id)
+    }
+
+    fn retains_edit_history(&self) -> bool {
+        self.inner.retains_edit_history()
+    }
+}
+
+impl ChatResolvers for IdentityBackend {
+    async fn attachment_blob(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
+        self.inner.attachment_blob(&(), account_id, blob_id).await
     }
 }
 
@@ -1315,16 +1370,16 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 /// # Supported injection targets
 ///
 /// - `(O::TYPE_NAME, "create")` — fails the next
-///   [`ChatBackend::create_object`] call for type `O`.
+///   [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object) call for type `O`.
 /// - `(O::TYPE_NAME, "update")` — fails the next
-///   [`ChatBackend::update_object`] call for type `O`.
+///   [`ChatStore::update_object`](jmap_chat_server::ChatStore::update_object) call for type `O`.
 /// - `(O::TYPE_NAME, "destroy")` — fails the next
-///   [`ChatBackend::destroy_object`] call for type `O`.
+///   [`ChatStore::destroy_object`](jmap_chat_server::ChatStore::destroy_object) call for type `O`.
 /// - `(O::TYPE_NAME, "get")` — fails the next
 ///   [`JmapBackend::get_objects`] call for type `O`.
 /// - [`InjectableBackend::queue_chat_get_fault_after_create`] — arms
 ///   `("Chat", "get")` after the next successful
-///   [`ChatBackend::create_object`] call for type `Chat`, so the
+///   [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object) call for type `Chat`, so the
 ///   handler's pre-create snapshot read succeeds and its post-create
 ///   race-detection re-fetch fails.
 /// - `(O::TYPE_NAME, "query")` — the next [`JmapBackend::query_objects`]
@@ -1332,13 +1387,13 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///   `unsupportedFilter` with description
 ///   [`INJECTED_QUERY_METHOD_ERROR_DESCRIPTION`] (RFC 8620 §5.5).
 /// - `("Message", "read_and_burn")` — fails the next
-///   [`ChatBackend::read_and_burn_message`] call.
+///   [`ChatMessageLifecycle::read_and_burn_message`](jmap_chat_server::ChatMessageLifecycle::read_and_burn_message) call.
 /// - `("Message", "create_message")` — fails the next
-///   [`ChatBackend::create_message`] call before anything is stored or
+///   [`ChatStore::create_message`](jmap_chat_server::ChatStore::create_message) call before anything is stored or
 ///   enqueued, as a backend does when it cannot enqueue the
 ///   `NewMessage` event.
 /// - [`InjectableBackend::queue_chat_race_phantom`] — after the next
-///   [`ChatBackend::create_object`] call for type `Chat` returns
+///   [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object) call for type `Chat` returns
 ///   successfully, insert a phantom `Direct` Chat into the inner
 ///   backend with a lex-smaller id and the supplied `contact_id`.
 ///   This makes the handler's race-detection re-fetch see a
@@ -1521,19 +1576,7 @@ impl JmapBackend for InjectableBackend {
     }
 }
 
-impl ChatBackend for InjectableBackend {
-    async fn attachment_blob(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        blob_id: &Id,
-    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
-    {
-        self.inner
-            .attachment_blob(caller, account_id, blob_id)
-            .await
-    }
-
+impl ChatStore for InjectableBackend {
     async fn create_object<O, F>(
         &self,
         caller: &(),
@@ -1655,7 +1698,9 @@ impl ChatBackend for InjectableBackend {
     ) -> bool {
         self.inner.supports_type::<O>(caller, account_id)
     }
+}
 
+impl ChatSpaces for InjectableBackend {
     async fn join_space_with_invite(
         &self,
         caller: &(),
@@ -1687,10 +1732,6 @@ impl ChatBackend for InjectableBackend {
             .await
     }
 
-    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
-        self.inner.limits(caller, account_id)
-    }
-
     async fn apply_space_patch(
         &self,
         caller: &(),
@@ -1714,7 +1755,17 @@ impl ChatBackend for InjectableBackend {
             .apply_space_metadata_patch(caller, account_id, space_id, patch)
             .await
     }
+}
 
+impl SpacePolicy for InjectableBackend {}
+
+impl ChatAccessPolicy for InjectableBackend {}
+
+impl ChatRestrictions for InjectableBackend {}
+
+impl ChatModeration for InjectableBackend {}
+
+impl ChatMessageLifecycle for InjectableBackend {
     async fn expire_message(
         &self,
         caller: &(),
@@ -1742,7 +1793,9 @@ impl ChatBackend for InjectableBackend {
             .read_and_burn_message(caller, account_id, message_id, patch)
             .await
     }
+}
 
+impl ChatEvents for InjectableBackend {
     async fn on_outbound_event(
         &self,
         caller: &(),
@@ -1751,6 +1804,26 @@ impl ChatBackend for InjectableBackend {
     ) {
         self.inner
             .on_outbound_event(caller, account_id, event)
+            .await
+    }
+}
+
+impl ChatSettings for InjectableBackend {
+    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
+        self.inner.limits(caller, account_id)
+    }
+}
+
+impl ChatResolvers for InjectableBackend {
+    async fn attachment_blob(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Result<Option<jmap_chat_server::AttachmentBlob>, jmap_server::SetError>, MemoryError>
+    {
+        self.inner
+            .attachment_blob(caller, account_id, blob_id)
             .await
     }
 }

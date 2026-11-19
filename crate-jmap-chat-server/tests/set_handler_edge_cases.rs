@@ -12,7 +12,7 @@
 //!   Chats only.**". L1003 a direct create "accepts" `contactId`; L1018
 //!   group create: "Optional at creation: `description` (String),
 //!   `avatarBlobId` (String), `messageExpirySeconds` (UnsignedInt)."
-//! - `ChatBackend::create_object` rustdoc: "The backend mints the new
+//! - `ChatStore::create_object` rustdoc: "The backend mints the new
 //!   object's id, calls `build(&id)` exactly once to obtain the complete
 //!   object, and stores that object under `id`".
 //! - The bead: the Chat/set and Message/set update checks reuse the one

@@ -96,7 +96,9 @@ mod space;
 pub mod testkit;
 
 pub use backend::{
-    AttachmentBlob, ChatBackend, ChatLimits, EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError,
+    AttachmentBlob, ChatAccessPolicy, ChatBackend, ChatEvents, ChatLimits, ChatMessageLifecycle,
+    ChatModeration, ChatResolvers, ChatRestrictions, ChatSettings, ChatSpaces, ChatStore,
+    EmojiSetOp, InviteJoinRefusal, OpResult, SlowModeError, SpacePolicy,
 };
 pub use ban::{handle_ban_changes, handle_ban_get, handle_ban_set};
 pub use chat::{

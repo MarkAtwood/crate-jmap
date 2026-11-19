@@ -17,7 +17,7 @@ do not depend on each other; this crate depends on both.
 | `clear_space_task_list_id` | chat-tasks §taskListId: a destroyed TaskList's Spaces lose `taskListId` |
 | `clear_task_chat_ids` | chat-tasks §Lifecycle: a destroyed Chat's Tasks lose `chatId` |
 | `check_task_chat_id` | chat-tasks §chatId: `null` clears; otherwise any valid `Id`, never looked up (the Chat may not exist yet); refused as `invalidProperties` naming `chatId` with `mayBackReferenceChat: false` |
-| `redact_task_chat_ids` | chat-tasks §Chat back-reference leakage MAY: hide `chatId` from a reader whose `ChatBackend::may_view_chat` is `false` |
+| `redact_task_chat_ids` | chat-tasks §Chat back-reference leakage MAY: hide `chatId` from a reader whose `ChatAccessPolicy::may_view_chat` is `false` |
 | `task_hidden_properties` | the same decision for draft-ietf-jmap-conditional-02 §9.1: the Tasks whose `chatId` is hidden from the reader, so a `chatId` precondition is `forbidden` rather than compared |
 
 ## What it's for
@@ -27,11 +27,11 @@ these functions:
 
 | Where | Call |
 |---|---|
-| `ChatBackend::space_extension_properties` | `space_extension_properties` |
-| `ChatBackend::create_object::<Space>` and `apply_space_metadata_patch`, for a `taskListId` value | `check_task_list_id` |
-| `ChatBackend::create_object::<Space>`, before the insert, for auto-bind | `create_space_task_list` |
+| `ChatSpaces::space_extension_properties` | `space_extension_properties` |
+| `ChatStore::create_object::<Space>` and `apply_space_metadata_patch`, for a `taskListId` value | `check_task_list_id` |
+| `ChatStore::create_object::<Space>`, before the insert, for auto-bind | `create_space_task_list` |
 | `TasksBackend::destroy_object::<TaskList>`, after the destroy | `clear_space_task_list_id` |
-| `ChatBackend::on_chat_destroyed` | `clear_task_chat_ids` |
+| `ChatEvents::on_chat_destroyed` | `clear_task_chat_ids` |
 | `TasksBackend::create_object::<Task>` and `update_object::<Task>`, for a `chatId` value | `check_task_chat_id` |
 | `JmapBackend::get_objects::<Task>`, on the Tasks returned to the reader | `redact_task_chat_ids` |
 | `ObjectHistoryBackend::get_object_history::<Task>`, on every history entry (draft-ietf-jmap-object-history §8.2: no version shows what the current one hides) | `redact_task_chat_ids` |
@@ -40,7 +40,7 @@ these functions:
 ## How to use
 
 ```rust,ignore
-// Inside ChatBackend::apply_space_metadata_patch, after the manage_space gate:
+// Inside ChatSpaces::apply_space_metadata_patch, after the manage_space gate:
 if let Some(value) = patch.extra.get(SPACE_TASK_LIST_ID_PROPERTY) {
     check_task_list_id(&self.tasks, &tasks_caller, account_id, value)
         .await

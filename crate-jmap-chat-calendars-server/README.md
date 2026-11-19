@@ -24,14 +24,14 @@ calls these functions:
 | Where | Call |
 |---|---|
 | Session object, per account | `may_advertise` |
-| `ChatBackend::space_extension_properties` | `space_extension_properties` |
-| `ChatBackend::create_object::<Space>` and `apply_space_metadata_patch`, for a `calendarId` value | `check_calendar_id` |
-| `ChatBackend::create_object::<Space>`, before the insert, for auto-bind | `create_space_calendar` |
+| `ChatSpaces::space_extension_properties` | `space_extension_properties` |
+| `ChatStore::create_object::<Space>` and `apply_space_metadata_patch`, for a `calendarId` value | `check_calendar_id` |
+| `ChatStore::create_object::<Space>`, before the insert, for auto-bind | `create_space_calendar` |
 
 ## How to use
 
 ```rust,ignore
-// Inside ChatBackend::apply_space_metadata_patch, after the manage_space gate:
+// Inside ChatSpaces::apply_space_metadata_patch, after the manage_space gate:
 if let Some(value) = patch.extra.get(SPACE_CALENDAR_ID_PROPERTY) {
     check_calendar_id(&self.calendars, &calendars_caller, account_id, value)
         .await

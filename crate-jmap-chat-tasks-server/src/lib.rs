@@ -12,11 +12,11 @@
 //! | Where | Call |
 //! |---|---|
 //! | Session object, before advertising `urn:ietf:params:jmap:chat:tasks` on an account | [`may_advertise`] |
-//! | `ChatBackend::space_extension_properties` | [`space_extension_properties`] |
-//! | `ChatBackend::create_object::<Space>` and `ChatBackend::apply_space_metadata_patch`, for a `taskListId` value | [`check_task_list_id`] |
-//! | `ChatBackend::create_object::<Space>`, before the insert, for auto-bind on create | [`create_space_task_list`] |
+//! | `ChatSpaces::space_extension_properties` | [`space_extension_properties`] |
+//! | `ChatStore::create_object::<Space>` and `ChatSpaces::apply_space_metadata_patch`, for a `taskListId` value | [`check_task_list_id`] |
+//! | `ChatStore::create_object::<Space>`, before the insert, for auto-bind on create | [`create_space_task_list`] |
 //! | `TasksBackend::destroy_object::<TaskList>`, after the destroy | [`clear_space_task_list_id`] |
-//! | `ChatBackend::on_chat_destroyed` | [`clear_task_chat_ids`] |
+//! | `ChatEvents::on_chat_destroyed` | [`clear_task_chat_ids`] |
 //! | `TasksBackend::create_object::<Task>` and `TasksBackend::update_object::<Task>`, for a `chatId` value | [`check_task_chat_id`] |
 //! | `JmapBackend::get_objects::<Task>`, on the Tasks returned to the reader | [`redact_task_chat_ids`] |
 //!
@@ -66,7 +66,7 @@ pub fn may_advertise<'a>(account_capabilities: impl IntoIterator<Item = &'a str>
 }
 
 /// The Space extension properties to return from
-/// `ChatBackend::space_extension_properties` for an account advertising
+/// `ChatSpaces::space_extension_properties` for an account advertising
 /// `capability`: `taskListId` when `mayBindTaskList` is `true`, none
 /// otherwise.
 ///
@@ -157,7 +157,7 @@ pub async fn check_task_list_id<K: TasksBackend>(
 /// §Binding and unbinding: "Servers MAY automatically create a new
 /// TaskList when a Space is created and bind it ... When this is done, the
 /// server MUST set `taskListId` to the new TaskList's id at Space creation
-/// time." Call it from `ChatBackend::create_object::<Space>` before the
+/// time." Call it from `ChatStore::create_object::<Space>` before the
 /// insert, so the stored Space and the `Space/set` `created` entry carry
 /// the binding.
 ///
@@ -224,7 +224,7 @@ pub async fn create_space_task_list<K: TasksBackend>(
 /// `TasksBackend::destroy_object::<TaskList>` once the destroy succeeds,
 /// so it runs for every `TaskList/set` destroy. Each Space is patched
 /// with `taskListId: null`, which removes the property (RFC 8620 §5.3),
-/// through [`ChatBackend::update_object`], which advances the Space state
+/// through [`ChatStore::update_object`](jmap_chat_server::ChatStore::update_object), which advances the Space state
 /// so `Space/changes` lists it.
 ///
 /// The Space and the TaskList are on the same account (§taskListId: "The
@@ -235,7 +235,7 @@ pub async fn create_space_task_list<K: TasksBackend>(
 ///
 /// Returns the Chat backend's error from reading or updating a Space.
 /// Spaces cleared before the error stay cleared.
-// Same error type as `ChatBackend::update_object`, which it propagates.
+// Same error type as `ChatStore::update_object`, which it propagates.
 pub async fn clear_space_task_list_id<C: ChatBackend>(
     chat: &C,
     caller: &C::CallerCtx,
@@ -269,7 +269,7 @@ pub async fn clear_space_task_list_id<C: ChatBackend>(
 /// §Lifecycle: "When a Chat referenced by one or more Tasks is destroyed,
 /// the affected Tasks' `chatId` fields MUST be cleared (set to absent) by
 /// the server as part of the destroy operation." Call it from
-/// `ChatBackend::on_chat_destroyed`. Each Task is patched with
+/// `ChatEvents::on_chat_destroyed`. Each Task is patched with
 /// `chatId: null`, which removes the property (RFC 8620 §5.3), through
 /// [`TasksBackend::update_object`], which advances the Task state so
 /// `Task/changes` lists it.
@@ -362,7 +362,7 @@ pub fn check_task_chat_id(
 }
 
 /// Remove `chatId` from each of `tasks` whose Chat the reader `caller`
-/// may not view, as [`ChatBackend::may_view_chat`] decides.
+/// may not view, as [`ChatAccessPolicy::may_view_chat`](jmap_chat_server::ChatAccessPolicy::may_view_chat) decides.
 ///
 /// §Chat back-reference leakage: "Deployments MAY hide the `chatId` field
 /// from Task readers who lack access to the referenced Chat. The wire
@@ -413,7 +413,7 @@ pub async fn redact_task_chat_ids<C: ChatBackend>(
 }
 
 /// For each of `tasks` (Tasks of `account_id`) whose `chatId` the reader
-/// `caller` may not view, as [`ChatBackend::may_view_chat`] decides, the
+/// `caller` may not view, as [`ChatAccessPolicy::may_view_chat`](jmap_chat_server::ChatAccessPolicy::may_view_chat) decides, the
 /// Task's id mapped to `["chatId"]`.
 ///
 /// This is the draft-ietf-jmap-conditional-02 §9.1 counterpart of

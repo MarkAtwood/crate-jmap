@@ -12,8 +12,9 @@
 mod common;
 
 use common::{ACCOUNT_ID, MemoryBackend};
+use jmap_chat_server::ChatMessageLifecycle;
 use jmap_chat_server::message::{handle_message_get, handle_message_set};
-use jmap_chat_server::{ChatBackend, handle_chat_changes, handle_chat_get, handle_chat_set};
+use jmap_chat_server::{handle_chat_changes, handle_chat_get, handle_chat_set};
 use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{Value, json};
@@ -236,7 +237,7 @@ async fn burn_on_read_unpins_message() {
 /// "When a pinned Message is hard-deleted, the server MUST remove its id
 /// from this list." (scheduler expiry: `senderExpiresAt`,
 /// `expiresAfterReadSeconds` and `messageExpirySeconds` deadlines all
-/// reach the backend through `ChatBackend::expire_message`)
+/// reach the backend through `ChatMessageLifecycle::expire_message`)
 #[tokio::test]
 async fn scheduled_expiry_unpins_message() {
     let backend = MemoryBackend::new();

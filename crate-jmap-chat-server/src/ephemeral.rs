@@ -215,7 +215,7 @@ impl EphemeralSubscription {
 /// - For a direct or group Chat, its `receiveTypingIndicators` is `true`.
 ///   Other kinds ignore it.
 /// - The sender's ChatContact is not blocked on the recipient's contact
-///   list, per [`ChatBackend::is_contact_blocked`].
+///   list, per [`ChatAccessPolicy::is_contact_blocked`](crate::ChatAccessPolicy::is_contact_blocked).
 ///
 /// # Errors
 ///
@@ -267,7 +267,7 @@ pub async fn should_deliver_typing<B: ChatBackend>(
 ///   (same section: `accountId` is "The id of the account that contains
 ///   the ChatContact").
 /// - If the contact is blocked on the recipient's contact list, per
-///   [`ChatBackend::is_contact_blocked`], the result is `None`
+///   [`ChatAccessPolicy::is_contact_blocked`](crate::ChatAccessPolicy::is_contact_blocked), the result is `None`
 ///   (draft-atwood-jmap-chat-wss-00 §ChatPresenceEvent, L300: "a
 ///   `ChatPresenceEvent` is not delivered for a contact whose `blocked`
 ///   field is `true` on the owner's ChatContact record for that contact").

@@ -415,7 +415,7 @@ pub fn build_chat_message_push(
 /// account owner's total unread message count across all non-muted Chats
 /// at the time this push was generated." Each Chat contributes its
 /// `unreadCount` as `Chat/get` reports it: the stored value when
-/// [`ChatBackend::maintains_unread_count`] is `true`, otherwise the count
+/// [`ChatSettings::maintains_unread_count`](crate::ChatSettings::maintains_unread_count) is `true`, otherwise the count
 /// derived from the owner's ReadPosition (draft-atwood-jmap-chat-00
 /// §Chat `unreadCount`). A Chat is muted as in [`should_push`]: until
 /// `muteUntil` when it is set, otherwise when `muted` is `true`.
@@ -539,7 +539,7 @@ pub fn fit_chat_message_push(
 ///   `muted` is `true`. A `muteUntil` that is not a seconds-precision
 ///   UTCDate, or a system clock before 1970, counts as an active mute.
 /// - The sender's `ChatContact` is not blocked, per
-///   [`ChatBackend::is_contact_blocked`].
+///   [`ChatAccessPolicy::is_contact_blocked`](crate::ChatAccessPolicy::is_contact_blocked).
 ///
 /// # Messages stored before the subscription
 ///

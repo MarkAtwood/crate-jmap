@@ -31,9 +31,9 @@ these functions from its trait methods:
 | `VtcBackend::create_call`, `update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | `sync_active_call_id` |
 | `VtcBackend::is_user_blocked` | `is_blocked_by_contact` |
 | `JmapBackend::get_objects`, `query_objects` and `query_changes`, per VTCCall (`VtcBackend` §Per-call access) | `may_access_call` |
-| `ChatBackend::on_chat_destroyed` | `clear_channel_references` |
-| `ChatBackend::on_space_destroyed` | `clear_space_references` |
-| `ChatBackend::on_space_ban_created` | `contact_identity`, then `eject_banned_user` |
+| `ChatEvents::on_chat_destroyed` | `clear_channel_references` |
+| `ChatEvents::on_space_destroyed` | `clear_space_references` |
+| `ChatEvents::on_space_ban_created` | `contact_identity`, then `eject_banned_user` |
 | WebSocket transport, before sending a VTC event | `should_deliver_vtc` |
 
 ## How to use
@@ -70,7 +70,7 @@ require.
   perspective". The crate cannot enforce this; your backend's transaction
   does.
 - `check_call_create` reads the bound Space's `@everyone` permissions
-  from `ChatBackend::everyone_permissions`. The draft says every member
+  from `ChatSpaces::everyone_permissions`. The draft says every member
   holds that role but puts its permissions on no wire object. Controller
   principals that "bypass this
   resolution" are also deployment-defined; skip the call for them.

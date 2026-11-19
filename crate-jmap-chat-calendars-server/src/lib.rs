@@ -11,9 +11,9 @@
 //! | Where | Call |
 //! |---|---|
 //! | Session object, before advertising `urn:ietf:params:jmap:chat:calendars` on an account | [`may_advertise`] |
-//! | `ChatBackend::space_extension_properties` | [`space_extension_properties`] |
-//! | `ChatBackend::create_object::<Space>` and `ChatBackend::apply_space_metadata_patch`, for a `calendarId` value | [`check_calendar_id`] |
-//! | `ChatBackend::create_object::<Space>`, before the insert, for auto-bind on create | [`create_space_calendar`] |
+//! | `ChatSpaces::space_extension_properties` | [`space_extension_properties`] |
+//! | `ChatStore::create_object::<Space>` and `ChatSpaces::apply_space_metadata_patch`, for a `calendarId` value | [`check_calendar_id`] |
+//! | `ChatStore::create_object::<Space>`, before the insert, for auto-bind on create | [`create_space_calendar`] |
 //!
 //! Space destroy needs no call: this crate never destroys a Calendar
 //! (§Binding and unbinding: "the bound Calendar SHOULD NOT be
@@ -50,7 +50,7 @@ pub fn may_advertise<'a>(account_capabilities: impl IntoIterator<Item = &'a str>
 }
 
 /// The Space extension properties to return from
-/// `ChatBackend::space_extension_properties` for an account advertising
+/// `ChatSpaces::space_extension_properties` for an account advertising
 /// `capability`: `calendarId` when `mayBindCalendar` is `true`, none
 /// otherwise.
 ///
@@ -82,7 +82,7 @@ pub fn space_extension_properties(capability: &ChatCalendarsCapability) -> &'sta
 ///   account that owns the Space" (§calendarId), and "A Space's
 ///   `calendarId` MUST reference a Calendar on the same server"
 ///   (§Federation). Otherwise the result is `invalidProperties` naming
-///   `calendarId`, as `ChatBackend::space_extension_properties` asks.
+///   `calendarId`, as `ChatSpaces::space_extension_properties` asks.
 ///
 /// `caller` is the requesting user's Calendars context, so a Calendar the
 /// user cannot see is refused like a missing one. Call this after the
@@ -131,7 +131,7 @@ pub async fn check_calendar_id<K: CalendarsBackend>(
 /// §Binding and unbinding: "Servers MAY automatically create a new
 /// Calendar when a Space is created and bind it ... When this is done, the
 /// server MUST set `calendarId` to the new Calendar's id at Space creation
-/// time." Call it from `ChatBackend::create_object::<Space>` before the
+/// time." Call it from `ChatStore::create_object::<Space>` before the
 /// insert, so the stored Space and the `Space/set` `created` entry carry
 /// the binding.
 ///

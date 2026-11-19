@@ -13,13 +13,14 @@ use common::{
 use jmap_chat_server::message::{
     handle_message_changes, handle_message_get, handle_message_query, handle_message_set,
 };
+use jmap_chat_server::{ChatMessageLifecycle, ChatSettings, ChatSpaces, ChatStore};
 use jmap_chat_server::{
-    ChatBackend, handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get,
-    handle_chat_query, handle_chat_query_changes, handle_chat_set, handle_contact_changes,
-    handle_contact_get, handle_contact_query, handle_contact_query_changes, handle_contact_set,
-    handle_invite_get, handle_invite_set, handle_position_get, handle_position_set,
-    handle_presence_changes, handle_presence_get, handle_presence_set, handle_space_get,
-    handle_space_join, handle_space_set,
+    handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get, handle_chat_query,
+    handle_chat_query_changes, handle_chat_set, handle_contact_changes, handle_contact_get,
+    handle_contact_query, handle_contact_query_changes, handle_contact_set, handle_invite_get,
+    handle_invite_set, handle_position_get, handle_position_set, handle_presence_changes,
+    handle_presence_get, handle_presence_set, handle_space_get, handle_space_join,
+    handle_space_set,
 };
 use jmap_chat_types::Chat;
 use jmap_server::HandlerOutput;
@@ -2305,7 +2306,7 @@ async fn message_set_burn_on_read_no_fire_on_read_at_null() {
     assert_eq!(get_resp["list"][0]["burnOnRead"], json!(true));
 }
 
-/// Oracle: `ChatBackend::expire_message` on the reference `MemoryBackend`
+/// Oracle: `ChatMessageLifecycle::expire_message` on the reference `MemoryBackend`
 /// hard-deletes the message and records the id in `destroyed` of subsequent
 /// `Message/changes` results. This is the scheduler-side path for
 /// `senderExpiresAt` firing — drivers call this method directly when a
@@ -2387,7 +2388,7 @@ async fn memory_backend_expire_message_direct_call() {
     );
 }
 
-/// Oracle: `ChatBackend::expire_message` on a non-existent message id is a
+/// Oracle: `ChatMessageLifecycle::expire_message` on a non-existent message id is a
 /// no-op success on the reference backend. The contract is idempotent so a
 /// scheduler that re-fires after a crash, or a handler whose atomic
 /// `update_object` already removed the row, does not produce a spurious
@@ -3007,7 +3008,7 @@ async fn message_get_properties_does_not_force_edit_history_when_retention_off()
     );
 }
 
-/// Oracle: `ChatBackend::retains_edit_history()` default impl returns
+/// Oracle: `ChatSettings::retains_edit_history()` default impl returns
 /// `false`. This is the workspace's "kit defines the hook; consumer
 /// enforces the policy" posture — the default is conservative
 /// (no retention) and production backends opt in.
@@ -3059,7 +3060,7 @@ async fn message_set_create_no_slow_mode_on_memory_backend() {
     assert_eq!(resp["notCreated"], json!(null));
 }
 
-/// Oracle: when `ChatBackend::slow_mode_check` returns
+/// Oracle: when `ChatAccessPolicy::slow_mode_check` returns
 /// `Err(SlowModeError)`, the `Message/set` create handler MUST reject the
 /// create with a `rateLimit` SetError carrying `serverRetryAfter` set to
 /// the backend-supplied UTCDate. draft-atwood-jmap-chat-00 (jmap-chat-spec
@@ -4057,7 +4058,7 @@ async fn space_set_update_readonly_fields_rejected() {
 
 /// Oracle: Space/set update accepts well-formed Role/Member structural
 /// mutation keys and dispatches them through
-/// ChatBackend::apply_space_patch (bd:JMAP-g7wu.2.4.2 +
+/// ChatSpaces::apply_space_patch (bd:JMAP-g7wu.2.4.2 +
 /// bd:JMAP-g7wu.2.4.3 implementation).
 ///
 /// Each variant's per-op semantics are exercised in detail by the

@@ -392,7 +392,7 @@ pub async fn handle_message_query<B: ChatBackend>(
     // L1301): "messages in channels the caller cannot view SHOULD be
     // omitted"; done by choice. A query scoped to one Chat the
     // caller cannot view matches nothing; a query without `chatId` relies
-    // on the backend (see `ChatBackend::may_view_chat`).
+    // on the backend (see `ChatAccessPolicy::may_view_chat`).
     let hidden = match top.chat_id.as_ref() {
         Some(chat_id) => !backend
             .may_view_chat(caller, &account_id, chat_id)
@@ -774,7 +774,7 @@ fn apply_create_optionals(
 /// `maxAttachmentsPerMessage` at creation and update time"; it is checked
 /// first, so no entry is resolved past the cap, and is `tooLarge`, the
 /// error §Account-Level Capability Object names for `maxBodyBytes`. An
-/// entry with `filenodeId` goes to [`ChatBackend::filenode_attachment`]
+/// entry with `filenodeId` goes to [`ChatResolvers::filenode_attachment`](crate::ChatResolvers::filenode_attachment)
 /// (draft-atwood-jmap-chat-filenode-00 §filenodeId). Any other entry, or
 /// one the hook leaves unresolved, must carry every Attachment field. Each
 /// result must pass [`valid_attachment`]. A malformed entry is
@@ -842,7 +842,7 @@ fn valid_attachment(a: &Attachment) -> bool {
 /// and `maxAttachmentBytes` at parse time, before any fetch or storage."
 /// The limit is `tooLarge`, the error §Account-Level Capability Object
 /// names for `maxBodyBytes`. Then each Attachment's `size` and `sha256` are
-/// checked against [`ChatBackend::attachment_blob`]; a mismatch is
+/// checked against [`ChatResolvers::attachment_blob`](crate::ChatResolvers::attachment_blob); a mismatch is
 /// `invalidProperties` naming `attachments` (§Input Validation).
 async fn check_attachments<B: ChatBackend>(
     backend: &B,
@@ -924,7 +924,7 @@ fn valid_media_type(s: &str) -> bool {
 /// error is returned at the method level"). A record missed here is
 /// created by the next delivery to that Chat. `alreadyExists` means a
 /// concurrent delivery created it first (see the ReadPosition uniqueness
-/// contract on `ChatBackend::create_object`).
+/// contract on `ChatStore::create_object`).
 ///
 /// ponytail: does not look up the Chat's kind, so `Message/set` also
 /// fills in a missing channel position (for example a channel added
@@ -1003,7 +1003,7 @@ pub enum StoreOutcome {
 /// §application/mimi-fanout) or a federation `Peer/deliver` Message.
 ///
 /// `build` makes the Message for the id the backend assigns, as for
-/// [`ChatBackend::create_object`]. It sets every other field, including
+/// [`ChatStore::create_object`](crate::ChatStore::create_object). It sets every other field, including
 /// the server-set `senderMsgId`, `senderId`, `sentAt` and `receivedAt` and
 /// a body type that [`ChatLimits::server_reserved_body_types`] keeps out
 /// of `Message/set`. Its `chatId` and `senderMsgId` are then overwritten
@@ -1030,8 +1030,8 @@ pub enum StoreOutcome {
 ///
 /// Returns the backend's error from the lookup (as
 /// [`BackendSetError::Other`]) or from
-/// [`ChatBackend::create_object`], unchanged.
-// Same error type as `ChatBackend::create_object`, passed through unboxed.
+/// [`ChatStore::create_object`](crate::ChatStore::create_object), unchanged.
+// Same error type as `ChatStore::create_object`, passed through unboxed.
 pub async fn store_server_message<B, F>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1884,7 +1884,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
 
             // Per-Chat restrictions of extension-bound Chats; see
-            // `ChatBackend::may_update_message`.
+            // `ChatRestrictions::may_update_message`.
             if let Some(chat) = &stored_chat {
                 let patch_keys: Vec<&str> = patch_val
                     .as_object()
@@ -1917,7 +1917,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             let edits = ["body", "bodyType", "mentions", "broadcastMentions"]
                 .iter()
                 .any(|&field| patch_val.get(field).is_some());
-            // The event for `ChatBackend::on_outbound_event`, built from
+            // The event for `ChatEvents::on_outbound_event`, built from
             // the stored Message once the checks below pass.
             let mut outbound: Option<OutboundEvent> = None;
             if deletes_for_all || edits {

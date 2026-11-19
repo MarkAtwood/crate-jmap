@@ -8,7 +8,7 @@
 //! there a member and its clients are not separate."
 //!
 //! This crate has no MIMI room model, so the key reaches
-//! `ChatBackend::kick_chat_members`. The tests use `TrackingBackend` with
+//! `ChatModeration::kick_chat_members`. The tests use `TrackingBackend` with
 //! room restrictions on, which accepts the kick for a Chat whose extension
 //! properties hold `roomId` and records the ids; the plain `MemoryBackend`
 //! binds no Chat to a room.
@@ -185,7 +185,7 @@ async fn empty_kick_is_a_no_op() {
 
 /// The mimi draft adds the key only "for Chats bound to a room". The hook
 /// decides; this test backend rejects it for an unbound Chat with the
-/// `ChatBackend::kick_chat_members` default.
+/// `ChatModeration::kick_chat_members` default.
 #[tokio::test]
 async fn kick_on_an_unbound_chat_is_rejected() {
     let backend = room_backend();

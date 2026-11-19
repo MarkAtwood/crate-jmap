@@ -64,7 +64,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// rejects the operation atomically with the storage write via
 /// [`SetError`](jmap_server::SetError) / [`BackendSetError`].
 ///
-/// The canonical consumer pattern is `ChatBackend::apply_space_patch`
+/// The canonical consumer pattern is `ChatSpaces::apply_space_patch`
 /// in jmap-chat-server (bd:JMAP-g7wu.2.4). Future AddressBook ACL
 /// enforcement work in contacts SHOULD mirror that pattern.
 /// bd:JMAP-qz9v.19 tracks the trait-doc-vs-implementation gap.

@@ -155,7 +155,7 @@ attacker could exploit by guessing — MUST:
    `rand::thread_rng` (which is CSPRNG today on most platforms but is
    not contractually guaranteed to remain so).
 
-Precedent: bd:JMAP-sc1b.78 (`ChatBackend::generate_invite_code` trait
+Precedent: bd:JMAP-sc1b.78 (`ChatSpaces::generate_invite_code` trait
 doc CSPRNG requirement) and the matching reference-impl audit work in
 bd:JMAP-sc1b.93. The RFC 8620 §7.2 verification code carries the same
 requirement in the `PushSubscriptionBackend::create_push_subscription` trait

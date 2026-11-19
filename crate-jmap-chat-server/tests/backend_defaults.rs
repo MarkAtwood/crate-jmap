@@ -13,7 +13,11 @@
 mod common;
 
 use common::{ACCOUNT_ID, FaultyBackend, SPACE_ID};
-use jmap_chat_server::{ChatBackend, EmojiSetOp, OutboundEvent};
+use jmap_chat_server::{
+    ChatAccessPolicy, ChatEvents, ChatMessageLifecycle, ChatModeration, ChatRestrictions,
+    ChatSettings, ChatSpaces, SpacePolicy,
+};
+use jmap_chat_server::{EmojiSetOp, OutboundEvent};
 use jmap_chat_types::{Chat, Message, SpaceBan, SpaceInvite};
 use jmap_types::Id;
 use serde_json::json;

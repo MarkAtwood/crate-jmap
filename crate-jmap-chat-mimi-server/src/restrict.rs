@@ -15,7 +15,7 @@ fn property(patch_key: &str) -> &str {
     patch_key.split('/').next().unwrap_or(patch_key)
 }
 
-/// For `ChatBackend::may_update_chat`.
+/// For `ChatRestrictions::may_update_chat`.
 ///
 /// §Chat.roomId: "The server MUST reject, with `forbidden`, a `Chat/set`
 /// update on such a Chat that sets `name`, `description`, or
@@ -45,7 +45,7 @@ pub fn may_update_room_chat(
     Ok(())
 }
 
-/// For `ChatBackend::may_create_message`.
+/// For `ChatRestrictions::may_create_message`.
 ///
 /// §message/mls: "The server MUST reject a `Message/set` create in a Chat
 /// with a `roomId` with a `forbidden` SetError."
@@ -59,7 +59,7 @@ pub fn may_create_room_message(chat_extra: &Map<String, Value>) -> Result<(), Bo
     Ok(())
 }
 
-/// For `ChatBackend::may_update_message`.
+/// For `ChatRestrictions::may_update_message`.
 ///
 /// §message/mls: "The server MUST reject a `Message/set` update that
 /// changes `body`, `bodyType`, or `reactions` of a Message in a Chat with

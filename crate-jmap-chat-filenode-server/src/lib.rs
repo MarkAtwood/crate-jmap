@@ -17,9 +17,9 @@
 //! | `FileNodeBackend::files_rights`, which `FileNode/get` and the `FileNode/set` and `FileNode/copy` `created` entries report as `myRights` | return [`space_files_rights`] |
 //! | `JmapBackend::get_objects::<FileNode>` and the other FileNode reads, to leave out nodes with no flag | [`space_files_rights`] |
 //! | The same, when advertising `maxSpaceStorageBytes` | [`check_space_quota`] |
-//! | `ChatBackend::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
-//! | `ChatBackend::filenode_attachment` | [`resolve_filenode_attachment`] |
-//! | `ChatBackend::on_space_destroyed` | [`destroy_space_file_tree`] |
+//! | `ChatStore::create_object::<Space>`, after the insert, when advertising `autoCreateFileTree: true` | [`create_space_file_tree`] |
+//! | `ChatResolvers::filenode_attachment` | [`resolve_filenode_attachment`] |
+//! | `ChatEvents::on_space_destroyed` | [`destroy_space_file_tree`] |
 //!
 //! Each function takes the backends it reads, with their own caller
 //! contexts and error types.
@@ -87,7 +87,7 @@ where
 ///   (§Permission Mapping); without it the create fails with `forbidden`.
 ///   The permissions are the union over the member's SpaceRoles plus the
 ///   implicit `@everyone` role's permissions from
-///   [`ChatBackend::everyone_permissions`] (draft-atwood-jmap-chat-00
+///   [`ChatSpaces::everyone_permissions`](jmap_chat_server::ChatSpaces::everyone_permissions) (draft-atwood-jmap-chat-00
 ///   §Space Permission Resolution step 1). ChannelPermission overrides "do
 ///   not restrict file-tree access".
 ///
@@ -293,7 +293,7 @@ impl<E: std::error::Error + 'static> std::error::Error for TreeDestroyError<E> {
 /// draft-atwood-jmap-chat-filenode-00 §Space Deletion: "When a Space is
 /// destroyed via `Space/set` destroy, the server SHOULD also destroy all
 /// of its Space roots and all FileNodes within them." Call it from
-/// `ChatBackend::on_space_destroyed`.
+/// `ChatEvents::on_space_destroyed`.
 ///
 /// No grace period is offered (the draft's "MAY instead retain"), so the
 /// trees go with the Space and no former member can reach them afterwards.
@@ -390,7 +390,7 @@ async fn clear_roles<F: FileNodeBackend>(
 /// Resolve draft-atwood-jmap-chat-filenode-00 §filenodeId for an
 /// Attachment of a `Message/set` create in `message_chat`, filling the
 /// fields the client left out. Call it from
-/// `ChatBackend::filenode_attachment` and return its result.
+/// `ChatResolvers::filenode_attachment` and return its result.
 ///
 /// An `attachment` without `filenodeId` gives `Ok(Ok(None))`. Otherwise,
 /// in this order:
@@ -924,7 +924,7 @@ const TIERS: [ChatPermission; 4] = [
 
 /// The Space permissions `account_id` holds as a member of `space`: the
 /// union over the member's SpaceRoles plus the implicit `@everyone`
-/// role's permissions from [`ChatBackend::everyone_permissions`]
+/// role's permissions from [`ChatSpaces::everyone_permissions`](jmap_chat_server::ChatSpaces::everyone_permissions)
 /// (draft-atwood-jmap-chat-00 §Space Permission Resolution step 1).
 /// `None` if `space` is `None` or `account_id` is not a member, without
 /// asking the backend. ChannelPermission overrides are not applied: they

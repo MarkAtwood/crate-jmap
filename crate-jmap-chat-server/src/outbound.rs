@@ -1,5 +1,5 @@
 //! Outbound federation events reported to
-//! [`ChatBackend::on_outbound_event`](crate::ChatBackend::on_outbound_event).
+//! [`ChatEvents::on_outbound_event`](crate::ChatEvents::on_outbound_event).
 //!
 //! draft-atwood-jmap-chat-00 requires the server to notify other
 //! participants' servers when the owner sends a Message, retracts or edits

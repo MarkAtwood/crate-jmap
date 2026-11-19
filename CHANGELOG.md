@@ -894,6 +894,18 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-server**: `ChatBackend`'s 43 methods move,
+  unchanged, into ten hook traits: `ChatStore`, `ChatSpaces`,
+  `SpacePolicy`, `ChatAccessPolicy`, `ChatRestrictions`, `ChatModeration`,
+  `ChatMessageLifecycle`, `ChatEvents`, `ChatSettings`, `ChatResolvers`
+  (docs/design/chat-backend-split.md, decisions 37 and 39).
+  `ChatBackend` is now their union, implemented for every type that
+  implements all ten, so `B: ChatBackend` bounds and handler calls are
+  unchanged. A backend splits its `impl ChatBackend for X` into the ten
+  `impl ChatX for X` blocks (an empty block keeps every default); code
+  that calls a hook on a concrete type imports that hook trait.
+  (bd:JMAP-it7g.6.1)
+
 - **BREAKING** **jmap-mail-client**, **jmap-calendars-client**,
   **jmap-contacts-client**, **jmap-filenode-client**, **jmap-sharing-client**,
   **jmap-tasks-client**, **jmap-graph-client**, **jmap-scene-client**,

@@ -1,5 +1,5 @@
 //! Per-Chat restriction hooks for extension-bound Chats (bd:JMAP-dfo4):
-//! `ChatBackend::may_create_message`, `may_update_message` and
+//! `ChatRestrictions::may_create_message`, `may_update_message` and
 //! `may_update_chat`.
 //!
 //! Oracles, quoted from jmap-chat-spec draft-atwood-jmap-chat-mimi-00.md
