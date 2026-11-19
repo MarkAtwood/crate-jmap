@@ -14,6 +14,10 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-chat-mimi-types**: `MimiCapability::asset_lifetime`
+  (`assetLifetime`, optional UnsignedInt: seconds a blob stays at
+  `assetUrl`). (bd:JMAP-it7g.8)
+
 - **jmap-vtc-server**: `VtcBackend::playback_endpoints_for`, called by
   `VTCLivestream/get` for each listed livestream to compute its
   `playbackEndpoints` for the caller (§Playback Authorization: per-user

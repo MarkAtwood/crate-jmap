@@ -362,6 +362,7 @@ impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_mimi_types::KeyPackageC
 pub fn jmap_chat_mimi_types::KeyPackageCreated::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 #[non_exhaustive] pub struct jmap_chat_mimi_types::MimiCapability
 pub jmap_chat_mimi_types::MimiCapability::asset_download_url: core::option::Option<alloc::string::String>
+pub jmap_chat_mimi_types::MimiCapability::asset_lifetime: core::option::Option<u64>
 pub jmap_chat_mimi_types::MimiCapability::asset_url: core::option::Option<alloc::string::String>
 pub jmap_chat_mimi_types::MimiCapability::cipher_suites: alloc::vec::Vec<u16>
 pub jmap_chat_mimi_types::MimiCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>

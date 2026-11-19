@@ -89,6 +89,12 @@ pub struct MimiCapability {
     /// [`None`] if the server does not fetch attachments.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub asset_download_url: Option<String>,
+    /// `assetLifetime`: the number of seconds after its upload that a blob
+    /// stays available at `assetUrl`; a client MAY set an ExternalPart's
+    /// `expires` to the upload time plus this value. [`None`] if the server
+    /// states no limit; present only with `assetUrl`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_lifetime: Option<u64>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -202,6 +208,34 @@ mod tests {
         // Absent: None, and not written back.
         let cap: MimiCapability = serde_json::from_value(sample()).unwrap();
         assert_eq!((cap.asset_url, cap.asset_download_url), (None, None));
+    }
+
+    #[test]
+    fn asset_lifetime_round_trips() {
+        // Oracle: draft §Account-Level Capability Object (jmap-chat-spec
+        // 120db2c): `assetLifetime` (UnsignedInt, optional) "The number of
+        // seconds after its upload that a blob stays available at
+        // `assetUrl`"; "Absent if the server states no limit". 2592000 is
+        // 30 days, hand-computed.
+        let mut raw = sample();
+        raw["assetUrl"] = json!("https://a.example/asset/{blobId}");
+        raw["assetLifetime"] = json!(2_592_000);
+        let cap: MimiCapability = serde_json::from_value(raw.clone()).unwrap();
+        assert_eq!(cap.asset_lifetime, Some(2_592_000));
+        assert!(cap.extra.is_empty(), "typed, not in extra");
+        assert_eq!(serde_json::to_value(&cap).unwrap(), raw);
+
+        let cap: MimiCapability = serde_json::from_value(sample()).unwrap();
+        assert_eq!(cap.asset_lifetime, None);
+
+        for bad in [json!("30d"), json!(-1), json!(1.5)] {
+            let mut raw = sample();
+            raw["assetLifetime"] = bad.clone();
+            assert!(
+                serde_json::from_value::<MimiCapability>(raw).is_err(),
+                "{bad}"
+            );
+        }
     }
 
     #[test]
