@@ -2,13 +2,15 @@
   "id": "JMAP-q2wa.47",
   "title": "header parsed-form validation incomplete",
   "description": "project.rs:242-316 validate_header_form never rejects asText on structured fields and allows parsed forms on Subject/Comments/Keywords/List-Id/Received/Return-Path etc. header:Subject:asAddresses accepted. RFC 8621 §4.1.2.x \"may only be fetched or set for the following header fields\"; §4.2 invalidArguments. Affects Email/get, parse, set create, emailpush property check. (probe-confirmed) (mail-server review 2026-11-19)",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "bug",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T05:32:57.934180887Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:32:57.934180887Z",
+  "updated_at": "2026-11-19T06:21:14.402630271Z",
+  "closed_at": "2026-11-19T06:21:14.402630271Z",
+  "close_reason": "Fixed; tests/header_forms.rs.",
   "dependencies": [
     {
       "issue_id": "JMAP-q2wa.47",
