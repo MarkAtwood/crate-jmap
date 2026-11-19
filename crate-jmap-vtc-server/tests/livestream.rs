@@ -495,3 +495,33 @@ async fn stream_uri_must_be_an_rfc3986_uri() {
     // §VTCLivestream: `streamUri` is immutable, so an update never
     // carries a new one (stream_configuration_is_immutable).
 }
+
+#[tokio::test]
+async fn active_livestreams_are_capped_per_account() {
+    // §Livestream States: "The server SHOULD limit the number of livestreams
+    // per account that are in state `"starting"` or `"live"`, rejecting a
+    // create over the limit with `overQuota` (RFC 8620 Section 5.3)."
+    let backend = media_backend();
+    backend.set_max_active_livestreams(Some(2));
+    let first = create(&backend, BOB, start()).await.expect("1 of 2");
+    create(&backend, BOB, start()).await.expect("2 of 2");
+    let err = create(&backend, BOB, start()).await.expect_err("3 of 2");
+    assert_eq!(err["type"], "overQuota", "{err}");
+
+    // A stopped (or failed) livestream no longer counts.
+    let id = first["id"].as_str().expect("id");
+    update(&backend, BOB, id, json!({ "state": "stopped" }))
+        .await
+        .expect("stop");
+    create(&backend, BOB, start())
+        .await
+        .expect("room again after a stop");
+}
+
+#[tokio::test]
+async fn no_cap_by_default() {
+    let backend = media_backend();
+    for _ in 0..5 {
+        create(&backend, BOB, start()).await.expect("unlimited");
+    }
+}

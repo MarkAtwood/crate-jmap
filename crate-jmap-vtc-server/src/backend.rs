@@ -234,6 +234,14 @@ pub trait VtcBackend: JmapBackend {
     ///   to its participants with `joinedAt` set and `leftAt` `null`, and
     ///   refuse with `overQuota` a record that would raise it above
     ///   `maxParticipantsPerCall`, as for [`Self::update_object`];
+    /// - for a livestream, refuse with `overQuota` a record that would raise
+    ///   the account's livestreams in state `"starting"` or `"live"` above
+    ///   the deployment's limit: "The server SHOULD limit the number of
+    ///   livestreams per account that are in state `"starting"` or
+    ///   `"live"`, rejecting a create over the limit with `overQuota`"
+    ///   (§Livestream States). Checked here, atomically with the insert, so
+    ///   an atomic Foo/set that stops one livestream and starts another is
+    ///   judged on its final state;
     /// - for a participant whose `displayName` is its `userId`, the
     ///   handler's placeholder, the backend MAY substitute the name "from
     ///   the user profile or `ChatContact` record";

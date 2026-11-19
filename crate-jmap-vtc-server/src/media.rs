@@ -987,6 +987,13 @@ async fn create_livestream<B: VtcBackend>(
     to_value(&livestream)
 }
 
+/// The `overQuota` SetError for a livestream create over the account's
+/// limit of livestreams in `"starting"` or `"live"` (§Livestream States).
+pub(crate) fn livestream_over_quota() -> jmap_server::SetError {
+    jmap_server::SetError::new(jmap_server::SetErrorType::OverQuota)
+        .with_description("the account has reached its limit of active livestreams")
+}
+
 /// Decode one `update` patch.
 fn parse_patch(patch: Value) -> Result<PatchObject, Value> {
     serde_json::from_value(patch).map_err(|e| {

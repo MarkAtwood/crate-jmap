@@ -4,6 +4,7 @@ pub mod jmap_vtc_server::memory
 #[non_exhaustive] pub struct jmap_vtc_server::memory::MemoryBackend
 impl jmap_vtc_server::memory::MemoryBackend
 pub fn jmap_vtc_server::memory::MemoryBackend::new() -> Self
+pub fn jmap_vtc_server::memory::MemoryBackend::set_max_active_livestreams(&self, core::option::Option<u64>)
 impl jmap_vtc_server::memory::MemoryBackend
 pub fn jmap_vtc_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
 pub fn jmap_vtc_server::memory::MemoryBackend::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self

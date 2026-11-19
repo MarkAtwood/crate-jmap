@@ -225,3 +225,65 @@ fn ready_after_handlers_and_conditional() {
     );
     assert!(d.conditional_ready());
 }
+
+/// §Livestream States: the per-account cap on livestreams in `"starting"`
+/// or `"live"` is judged on the final state under `atomic`: stopping one
+/// and starting another in one call stays within a cap of one, and two
+/// creates over it fail the whole call with `overQuota`.
+#[tokio::test]
+async fn livestream_cap_checked_on_final_state() {
+    let b = room(media_capability());
+    b.set_max_active_livestreams(Some(1));
+    seed_as(
+        &b,
+        "VTCLivestream",
+        stored_livestream("L1", "live", json!("2026-06-05T14:41:00Z")),
+    );
+    let d = dispatcher(&b);
+    let start = json!({
+        "callId": "C1",
+        "streamUri": "rtmp://live.example.com/ingest",
+        "streamKey": "sk_live_abc123def456"
+    });
+
+    let (_, r) = call(
+        &d,
+        BOB,
+        "VTCLivestream/set",
+        json!({"create": {"n": start.clone()}}),
+    )
+    .await;
+    assert_eq!(r["notCreated"]["n"]["type"], "overQuota", "{r}");
+
+    let (name, r) = call(
+        &d,
+        BOB,
+        "VTCLivestream/set",
+        json!({"atomic": true, "create": {"n": start.clone()}, "update": {"L1": {"state": "stopped"}}}),
+    )
+    .await;
+    assert_eq!(name, "VTCLivestream/set", "{r}");
+    assert!(r["created"].get("n").is_some(), "{r}");
+
+    let (name, r) = call(
+        &d,
+        BOB,
+        "VTCLivestream/set",
+        json!({"atomic": true, "create": {"a": start.clone(), "b": start}}),
+    )
+    .await;
+    assert_eq!(name, "error", "{r}");
+    assert_eq!(r["type"], "atomicFailure", "{r}");
+    let failed: Vec<&String> = r["notCreated"]
+        .as_object()
+        .expect("notCreated")
+        .keys()
+        .collect();
+    assert!(!failed.is_empty(), "{r}");
+    assert!(
+        failed
+            .iter()
+            .all(|k| r["notCreated"][k.as_str()]["type"] == "overQuota"),
+        "{r}"
+    );
+}

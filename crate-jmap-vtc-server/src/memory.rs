@@ -113,6 +113,10 @@ struct Inner {
     /// Object history, once `MemoryBackend::with_object_history` turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
+    /// The limit on livestreams in state `"starting"` or `"live"` per
+    /// account (§Livestream States), or `None`; set via
+    /// [`MemoryBackend::set_max_active_livestreams`].
+    max_active_livestreams: Option<u64>,
 }
 
 impl Inner {
@@ -236,6 +240,20 @@ impl Inner {
             .into_iter()
             .flat_map(HashMap::values)
             .filter_map(|v| VtcCall::deserialize(v).ok())
+    }
+
+    /// The livestreams of `account_id` in state `"starting"` or `"live"`.
+    fn active_livestreams(&self, account_id: &Id) -> u64 {
+        self.objects(VtcLivestream::TYPE_NAME, account_id)
+            .into_iter()
+            .flat_map(HashMap::values)
+            .filter(|v| {
+                matches!(
+                    v.get("state").and_then(Value::as_str),
+                    Some("starting" | "live")
+                )
+            })
+            .count() as u64
     }
 
     fn participants(&self, account_id: &Id) -> impl Iterator<Item = VtcParticipant> + '_ + use<'_> {
@@ -430,6 +448,13 @@ impl MemoryBackend {
     /// conditional Foo/set scope is open (docs/design/conditional.md §7).
     async fn locked(&self) -> ScopedGuard<'_, Inner> {
         self.inner.lock().await
+    }
+
+    /// Limit every account to `max` livestreams in state `"starting"` or
+    /// `"live"`: a create over it is `overQuota` (§Livestream States).
+    /// `None`, the default, removes the limit.
+    pub fn set_max_active_livestreams(&self, max: Option<u64>) {
+        self.lock().max_active_livestreams = max;
     }
 
     /// Register `account_id` with the VTC capability object it advertises.
@@ -1032,6 +1057,19 @@ impl VtcBackend for MemoryBackend {
                 )));
             }
         }
+        // §Livestream States: "rejecting a create over the limit with
+        // `overQuota`", rechecked under the lock. Under an atomic scope the
+        // commit checks it on the final state.
+        if O::TYPE_NAME == VtcLivestream::TYPE_NAME
+            && !self.inner.deferring()
+            && inner
+                .max_active_livestreams
+                .is_some_and(|max| inner.active_livestreams(account_id) >= max)
+        {
+            return Err(BackendSetError::SetError(Box::new(
+                crate::media::livestream_over_quota(),
+            )));
+        }
         let stored: O = decode(&value).map_err(BackendSetError::Other)?;
         let participant = (O::TYPE_NAME == VtcParticipant::TYPE_NAME)
             .then(|| decode::<VtcParticipant>(&value))
@@ -1235,6 +1273,30 @@ fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
     let mut failures: Vec<DeferredFailure> = Vec::new();
     for (account, capability) in &after.accounts {
         let account_id = Id::from(account.as_str());
+        // More livestreams in "starting" or "live" than the limit:
+        // `overQuota` on each one the scope created.
+        if let Some(max) = after.max_active_livestreams
+            && after.active_livestreams(&account_id) > max
+        {
+            let old = before.objects(VtcLivestream::TYPE_NAME, &account_id);
+            for (id, _) in after
+                .objects(VtcLivestream::TYPE_NAME, &account_id)
+                .into_iter()
+                .flat_map(HashMap::iter)
+                .filter(|(id, v)| {
+                    !old.is_some_and(|m| m.contains_key(*id))
+                        && matches!(
+                            v.get("state").and_then(Value::as_str),
+                            Some("starting" | "live")
+                        )
+                })
+            {
+                failures.push(DeferredFailure::new(
+                    SetOp::Create(id.clone()),
+                    crate::media::livestream_over_quota(),
+                ));
+            }
+        }
         let old: HashMap<Id, VtcParticipant> = before
             .participants(&account_id)
             .map(|p| (p.id.clone(), p))

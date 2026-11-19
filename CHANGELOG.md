@@ -14,6 +14,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: the per-account cap on livestreams in `"starting"`
+  or `"live"` (draft-atwood-jmap-vtc-00 §Livestream States, `overQuota`).
+  It is a `VtcBackend::create_object` contract, checked atomically with
+  the insert, so an atomic `VTCLivestream/set` is judged on its final
+  state; the memory backend implements it with
+  `MemoryBackend::set_max_active_livestreams` (no limit by default).
+  (bd:JMAP-t8ej.12)
+
 - **jmap-chat-mimi-types**: `MimiCapability::asset_lifetime`
   (`assetLifetime`, optional UnsignedInt: seconds a blob stays at
   `assetUrl`). (bd:JMAP-it7g.8)
