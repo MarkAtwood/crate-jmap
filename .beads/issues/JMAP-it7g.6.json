@@ -2,13 +2,14 @@
   "id": "JMAP-it7g.6",
   "title": "chat-server: ChatBackend has no delegation; add a delegating wrapper or macro for wrapping MemoryBackend",
   "description": "chat-server: ChatBackend has no delegation; add a delegating wrapper or macro for wrapping MemoryBackend. Source: mimid session request 2026-11-19 (mimid-s2qc for embedding items).",
+  "notes": "2026-11-19: deferred for Mark's decision. ChatBackend has ~43 methods plus JmapBackend's 12, and MemoryBackend overrides many defaults, so a wrapper must forward nearly all to keep reference behaviour. Options: (a) a macro_rules delegate_chat_backend! that forwards every method to a field, with overrides written as a separate trait impl is not possible in Rust, so the macro would need an exclusion list; (b) split ChatBackend into smaller hook traits; (c) leave as is. Each adds maintenance in step with the trait.",
   "status": "open",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T15:33:44.314819977Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T15:33:44.314819977Z",
+  "updated_at": "2026-11-19T17:05:05.189204152Z",
   "dependencies": [
     {
       "issue_id": "JMAP-it7g.6",
