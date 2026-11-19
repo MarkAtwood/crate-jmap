@@ -1,1 +1,2 @@
 {"id":"01a1f54c-c502-7b63-b57d-a790dedc20c3","issue_id":"JMAP-98sl.1","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T19:33:31.522747357Z"}
+{"id":"01a1f561-61d4-7be2-91c0-b510629adc78","issue_id":"JMAP-98sl.1","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in f64cb00f.","created_at":"2026-11-19T19:56:02.388779993Z"}
