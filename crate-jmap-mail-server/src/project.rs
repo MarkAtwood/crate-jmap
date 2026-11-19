@@ -205,40 +205,25 @@ pub(crate) fn parse_header_property(prop: &str) -> Result<HeaderPropertyRequest,
     })
 }
 
-/// Return `Err` if `form` is incompatible with the well-known header `name_lower`.
+/// Return `Err` if `form` may not be fetched or set for header `name_lower`.
 ///
-/// RFC 8621 §4.1.2: when a server recognises a header as having a specific
-/// semantic type and the client requests an incompatible form, the server MUST
-/// return `invalidArguments`.
+/// RFC 8621 §4.1.2: each parsed form "may only be fetched or set for" the
+/// fields its subsection lists and "Any header field not defined in
+/// [RFC5322] or [RFC2369]"; Raw is allowed for every field. So a field
+/// RFC 5322 or RFC 2369 defines gets only its own forms (Subject, Comments
+/// and Keywords: Text; From and the other address fields: Addresses and
+/// GroupedAddresses; Received and Return-Path: Raw only), and any other
+/// field, List-Id included, gets every form.
 ///
-/// # Defense notes (bd:JMAP-q2wa.11)
+/// # Defense notes (bd:JMAP-q2wa.11, q2wa.47)
 ///
-/// The four `const` arrays below enumerate the well-known headers whose
-/// permitted forms are spec-pinned by RFC 8621 §4.1.2 subsections:
-///
-///   - `DATE_HEADERS`     — §4.1.2.4 (date-form headers)
-///   - `ADDR_HEADERS`     — §4.1.2.3 (address-form headers)
-///   - `MSGID_HEADERS`    — §4.1.2.5 (message-id-form headers)
-///   - `URL_HEADERS`      — §4.1.2.7 (URL-form headers)
-///
-/// A future contributor might suggest collapsing these into one big
-/// `match name_lower` arm, or moving them into a `HashMap` or `phf`
-/// table for "cleanliness". Do not collapse:
-///
-///   1. Const arrays of `&str` literals are zero runtime overhead and
-///      compile-time discoverable; a code search for `"list-help"`
-///      instantly lands on `URL_HEADERS`.
-///   2. The four-arm `matches!` checks below directly correspond to
-///      the four RFC 8621 §4.1.2.X subsections. Reorganizing breaks
-///      the spec correspondence and makes spec-conformance review
-///      harder.
-///   3. A `HashMap` or `phf` table adds runtime lookup cost (and a
-///      build-time dep for `phf`) for a list that fits in cache and
-///      runs at most once per `Email/get` property selector.
-///   4. The error messages below cite the header class (date /
-///      address / message-id / URL); a one-big-match would have to
-///      recover the class via post-hoc dispatch, losing the spec
-///      traceability the current shape carries naturally.
+/// The `const` arrays below are the RFC 8621 §4.1.2.X lists, one per
+/// subsection (`TEXT_HEADERS` §4.1.2.2, `ADDR_HEADERS` §4.1.2.3 and
+/// §4.1.2.4, `MSGID_HEADERS` §4.1.2.5, `DATE_HEADERS` §4.1.2.6,
+/// `URL_HEADERS` §4.1.2.7), so a code search for `"list-help"` lands on
+/// its list and each array can be checked against its subsection. Keep
+/// them as literal arrays rather than a map: they fit in cache and run at
+/// most once per `header:` property.
 pub(crate) fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), String> {
     use HeaderForm::*;
 
@@ -275,41 +260,37 @@ pub(crate) fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Resul
         "list-owner",
         "list-archive",
     ];
-
-    // RFC 8621 §4.1.2 requires invalidArguments when a recognised header is
-    // requested in an incompatible form (e.g. Date as asAddresses). Silently
-    // returning null would violate the spec and allow clients to receive wrong
-    // data without error.
-    if DATE_HEADERS.contains(&name_lower)
-        && matches!(
-            form,
-            AsAddresses | AsGroupedAddresses | AsMessageIds | AsURLs
-        )
-    {
+    // RFC 8621 §4.1.2.2 — Text-form headers among the defined ones
+    const TEXT_HEADERS: &[&str] = &["subject", "comments", "keywords"];
+    // The fields RFC 5322 §3.6 and RFC 2369 define (plus Resent-Reply-To,
+    // which RFC 8621 lists with the address fields). Each form below "may
+    // only be fetched or set" for its own fields and "Any header field not
+    // defined in [RFC5322] or [RFC2369]"; Raw is always allowed.
+    const OTHER_DEFINED: &[&str] = &["return-path", "received"];
+    let defined = [
+        DATE_HEADERS,
+        ADDR_HEADERS,
+        MSGID_HEADERS,
+        URL_HEADERS,
+        TEXT_HEADERS,
+        OTHER_DEFINED,
+    ]
+    .iter()
+    .any(|set| set.contains(&name_lower));
+    let allowed: &[&str] = match form {
+        Raw => return Ok(()),
+        AsText => TEXT_HEADERS,
+        AsAddresses | AsGroupedAddresses => ADDR_HEADERS,
+        AsMessageIds => MSGID_HEADERS,
+        AsDate => DATE_HEADERS,
+        AsURLs => URL_HEADERS,
+    };
+    // RFC 8621 §4.2: "Attempting to fetch a form that is forbidden (e.g.,
+    // "header:From:asDate") MUST result in the method call being rejected
+    // with an "invalidArguments" error."
+    if defined && !allowed.contains(&name_lower) {
         return Err(format!(
-            "form {form} is not valid for date header '{name_lower}'"
-        ));
-    }
-    if ADDR_HEADERS.contains(&name_lower) && matches!(form, AsDate | AsMessageIds | AsURLs) {
-        return Err(format!(
-            "form {form} is not valid for address header '{name_lower}'"
-        ));
-    }
-    if MSGID_HEADERS.contains(&name_lower)
-        && matches!(form, AsDate | AsAddresses | AsGroupedAddresses | AsURLs)
-    {
-        return Err(format!(
-            "form {form} is not valid for message-id header '{name_lower}'"
-        ));
-    }
-    if URL_HEADERS.contains(&name_lower)
-        && matches!(
-            form,
-            AsDate | AsAddresses | AsGroupedAddresses | AsMessageIds
-        )
-    {
-        return Err(format!(
-            "form {form} is not valid for URL header '{name_lower}'"
+            "form {form} is not valid for header '{name_lower}' (RFC 8621 §4.1.2)"
         ));
     }
     Ok(())
@@ -325,10 +306,8 @@ pub(crate) fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Resul
 fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Result<Value, JmapError> {
     use HeaderForm::*;
     Ok(match form {
-        Raw => {
-            // Replace CRLF with LF; return as string (RFC 8621 §4.1.3).
-            Value::String(raw_value.replace("\r\n", "\n"))
-        }
+        // RFC 8621 §4.1.2.1: the octets as they are, folding included.
+        Raw => Value::String(raw_value.to_owned()),
         AsText => {
             // Unfold: remove CRLF (or LF) followed by WSP, then trim leading whitespace
             // (RFC 8621 §4.1.3 — "unfold then decode encoded-words if possible").

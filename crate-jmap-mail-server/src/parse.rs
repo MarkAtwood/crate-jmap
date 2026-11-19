@@ -47,12 +47,24 @@ pub(crate) fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
 
     // Build raw_headers: fold continuation lines back into the preceding header.
     // A line beginning with whitespace is a continuation of the previous header value.
+    // RFC 8621 §4.1.2.1: the Raw form is "The raw octets of the header
+    // field value ... up to but excluding the header field terminating
+    // CRLF", so a folding line break is kept as it appears in the message.
     let mut raw_headers: Vec<EmailHeader> = Vec::new();
-    for line in header_block.lines() {
+    let mut prev_eol = "";
+    for raw_line in header_block.split_inclusive('\n') {
+        let (line, eol) = if let Some(l) = raw_line.strip_suffix("\r\n") {
+            (l, "\r\n")
+        } else if let Some(l) = raw_line.strip_suffix('\n') {
+            (l, "\n")
+        } else {
+            (raw_line, "")
+        };
+        let folding = std::mem::replace(&mut prev_eol, eol);
         if line.starts_with(' ') || line.starts_with('\t') {
             // Continuation line — append to previous header value.
             if let Some(last) = raw_headers.last_mut() {
-                last.value.push('\n');
+                last.value.push_str(folding);
                 last.value.push_str(line);
             }
         } else if let Some(colon_pos) = line.find(':') {

@@ -857,6 +857,14 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `header:{name}:as{Form}` follows the RFC
+  8621 §4.1.2 tables: a field RFC 5322 or RFC 2369 defines takes only its
+  own forms (`header:From:asText`, `header:Subject:asAddresses` and
+  `header:Received:asDate` are now `invalidArguments`), any other field
+  takes every form, and Raw is always allowed. Applies to Email/get,
+  Email/parse, Email/set create and EmailPush `properties`. The Raw form
+  and `headers` values keep a folding CRLF (RFC 8621 §4.1.2.1); it was
+  turned into LF. (bd:JMAP-q2wa.47, .50)
 - **jmap-mail-server** (wire): `Email/parse` returns `blobId` (it was
   forced to null; RFC 8621 §4.9 nulls only `id`, `mailboxIds`,
   `keywords`, `receivedAt` and an uncomputed `threadId`), no longer adds an
