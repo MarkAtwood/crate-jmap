@@ -857,6 +857,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `Email/parse` returns `blobId` (it was
+  forced to null; RFC 8621 §4.9 nulls only `id`, `mailboxIds`,
+  `keywords`, `receivedAt` and an uncomputed `threadId`), no longer adds an
+  unrequested `"id": null`, and, like `Thread/get`, rejects an unknown
+  `properties` name with `invalidArguments` (RFC 8620 §5.1).
+  (bd:JMAP-q2wa.49)
 - **jmap-mail-server** (wire): `Mailbox/set` destroy with
   `onDestroyRemoveEmails`, on a backend that names a principal, answers
   `forbidden` before removing any Email when the Mailbox's `myRights`

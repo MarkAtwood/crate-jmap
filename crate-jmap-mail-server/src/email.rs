@@ -1916,14 +1916,30 @@ pub(crate) async fn email_parse<B: MailBackend>(
         ),
     };
 
+    // RFC 8620 §5.1: "If an invalid property is requested, the call MUST
+    // be rejected with an "invalidArguments" error." Email/parse takes
+    // Email/get's properties (RFC 8621 §4.9).
+    if let Some(props) = &properties {
+        let metadata = backend
+            .metadata_info::<Email>(caller, &account_id)
+            .is_some();
+        if let Some(bad) = props.iter().find(|p| !is_email_get_property(p, metadata)) {
+            return Err(JmapError::invalid_arguments(format!(
+                "properties: '{bad}' is not an Email property"
+            )));
+        }
+    }
+
     // RFC 8621 §4.9 — body-value fetch arguments (all default to false / 0 / default list).
     let (body_properties, body_fetch_args) = take_body_args(&mut args)?;
     // RFC 8621 §4.1.3 header: properties are validated before touching the
     // backend; the §4.9 default list applies when `properties` is null.
+    // Unlike /get, `id` is not added when not requested: a parsed Email
+    // has none.
     let email_projection = EmailProjection::new(
         properties.as_deref(),
         DEFAULT_EMAIL_PARSE_PROPERTIES,
-        true,
+        false,
         &body_properties,
         body_fetch_args,
     )?;
@@ -1936,25 +1952,25 @@ pub(crate) async fn email_parse<B: MailBackend>(
         match backend.parse_email(caller, &account_id, blob_id).await {
             Ok(email) => {
                 let mut obj = email_projection.project(&email, |_, _| {})?;
-                // RFC 8621 §5.8: id, blobId, threadId, mailboxIds, keywords, and
-                // receivedAt MUST be null in Email/parse responses — these fields have
-                // no meaning for a parsed-but-not-stored blob.  The Email struct carries
-                // them as non-Option so they always serialise to real values; force them
-                // to null here after filter_properties so that explicit client requests
-                // like properties:["mailboxIds"] still get null rather than {}.
-                const PARSE_NULL_FIELDS: &[&str] = &[
-                    "id",
-                    "blobId",
-                    "threadId",
-                    "mailboxIds",
-                    "keywords",
-                    "receivedAt",
-                ];
+                // RFC 8621 §4.9: "The following metadata properties on the
+                // Email objects will be null if requested": id, mailboxIds,
+                // keywords, receivedAt; threadId too, as this server does
+                // not compute the Thread a parsed Email would join. The
+                // Email struct carries them as non-Option, so they are
+                // forced to null here. blobId is the parsed blob.
+                const PARSE_NULL_FIELDS: &[&str] =
+                    &["id", "threadId", "mailboxIds", "keywords", "receivedAt"];
                 if let Value::Object(ref mut map) = obj {
                     for &field in PARSE_NULL_FIELDS {
                         if map.contains_key(field) {
                             map.insert(field.to_owned(), Value::Null);
                         }
+                    }
+                    if map.contains_key("blobId") {
+                        map.insert(
+                            "blobId".to_owned(),
+                            Value::String(blob_id.as_ref().to_owned()),
+                        );
                     }
                 }
                 parsed.insert(requested.clone(), obj);

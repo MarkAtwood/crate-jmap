@@ -73,6 +73,19 @@ pub async fn handle_thread_get<B: MailBackend>(
         ),
     };
 
+    // RFC 8620 §5.1: "If an invalid property is requested, the call MUST
+    // be rejected with an "invalidArguments" error." A Thread has `id` and
+    // `emailIds` (RFC 8621 §3).
+    if let Some(bad) = properties
+        .iter()
+        .flatten()
+        .find(|p| !matches!(p.as_str(), "id" | "emailIds"))
+    {
+        return Err(JmapError::invalid_arguments(format!(
+            "properties: '{bad}' is not a Thread property"
+        )));
+    }
+
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
         .get_objects::<jmap_mail_types::Thread>(
