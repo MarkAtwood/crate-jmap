@@ -1225,6 +1225,24 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                 }
             };
 
+            // Defense in depth before any cascade: when the backend
+            // enforces ACLs (it names a principal), a Mailbox whose
+            // myRights lack mayDelete, or mayRemoveItems for the
+            // onDestroyRemoveEmails cascade, is forbidden here, before any
+            // Email is removed. The backend's destroy stays the canonical
+            // check (MailBackend "Permission enforcement").
+            if B::principal_id(caller).is_some()
+                && let Some(mailbox) = mailboxes_after_mutations.iter().find(|m| m.id == id)
+                && (!mailbox.my_rights.may_delete
+                    || (on_destroy_remove_emails && !mailbox.my_rights.may_remove_items))
+            {
+                not_destroyed.insert(
+                    id_str.to_owned(),
+                    serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
+                );
+                continue;
+            }
+
             // Check for child mailboxes using the post-create snapshot.
             let has_child = mailboxes_after_mutations
                 .iter()

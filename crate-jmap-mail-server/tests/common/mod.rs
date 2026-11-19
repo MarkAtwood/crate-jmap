@@ -104,9 +104,29 @@ impl FaultyBackend {
     }
 }
 
+thread_local! {
+    /// Whether [`FaultyBackend`] reports a principal on this thread (see
+    /// [`with_principal`]). `#[tokio::test]` runs each test on its own
+    /// current-thread runtime, so this does not leak between tests.
+    static PRINCIPAL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+static PRINCIPAL_ID: std::sync::LazyLock<Id> = std::sync::LazyLock::new(|| Id::from("p1"));
+
+/// Make [`FaultyBackend`] name a principal on this thread, as an
+/// ACL-enforcing backend does (`JmapBackend::principal_id`).
+#[allow(dead_code)]
+pub fn with_principal() {
+    PRINCIPAL.with(|p| p.set(true));
+}
+
 impl JmapBackend for FaultyBackend {
     type Error = MemoryError;
     type CallerCtx = ();
+
+    fn principal_id(_caller: &()) -> Option<&Id> {
+        PRINCIPAL.with(std::cell::Cell::get).then(|| &*PRINCIPAL_ID)
+    }
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.inner.account_exists(&(), account_id).await

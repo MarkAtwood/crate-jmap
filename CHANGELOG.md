@@ -857,6 +857,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire): `Mailbox/set` destroy with
+  `onDestroyRemoveEmails`, on a backend that names a principal, answers
+  `forbidden` before removing any Email when the Mailbox's `myRights`
+  lack `mayDelete` (or `mayRemoveItems`); the Emails used to be removed
+  first and the Mailbox then refused. (bd:JMAP-q2wa.38)
 - **jmap-mail-server** (memory backend, wire): `/queryChanges` over
   `maxChanges` is `tooManyChanges` (it was `cannotCalculateChanges`), and
   the `onlyDestroyed` form counts removed plus added items (RFC 8620

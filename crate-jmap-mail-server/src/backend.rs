@@ -319,6 +319,13 @@ pub trait MailBackend: JmapBackend {
     /// with `mailboxHasEmail`, or with `onDestroyRemoveEmails` destroys
     /// the Emails only in that Mailbox and removes it from the other
     /// Emails' `mailboxIds`, before it calls `destroy_object::<Mailbox>`.
+    /// When [`JmapBackend::principal_id`] names a principal, it first
+    /// checks the Mailbox's `myRights` (`mayDelete`, and `mayRemoveItems`
+    /// for the cascade) and answers `forbidden` without removing any
+    /// Email; a backend that can still refuse the Mailbox destroy after
+    /// the cascade (a storage error, a concurrent change) leaves those
+    /// Emails removed, so it SHOULD make the cascade and the destroy one
+    /// atomic step where it can.
     /// `EmailSubmission/set` (RFC 8621 §7.5) `onSuccessDestroyEmail`
     /// calls `destroy_object::<Email>`.
     ///
