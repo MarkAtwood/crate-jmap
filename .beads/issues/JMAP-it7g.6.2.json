@@ -2,13 +2,15 @@
   "id": "JMAP-it7g.6.2",
   "title": "chat-server: Delegate* traits with blanket impls; conformance suite against a delegate-only wrapper (§6 step 2)",
   "description": "docs/design/chat-backend-split.md, decisions 37 and 39.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T18:18:08.874477975Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T18:18:08.874477975Z",
+  "updated_at": "2026-11-19T18:56:22.327509757Z",
+  "closed_at": "2026-11-19T18:56:22.327509757Z",
+  "close_reason": "Done in 2f4ebe6b.",
   "dependencies": [
     {
       "issue_id": "JMAP-it7g.6.2",
