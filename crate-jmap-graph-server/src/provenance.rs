@@ -101,11 +101,29 @@ fn curation_value(m: &Map<String, Value>, key: &str) -> Value {
 }
 
 /// Whether `credentialDigest` is "43 base64url characters" (RFC 4648 §5,
-/// no padding: the unpadded encoding of a 32-octet SHA-256 digest).
+/// no padding) that encode a 32-octet SHA-256 digest: 43 characters carry
+/// 258 bits, so the last one holds the digest's final 4 bits and 2 zero
+/// bits, and is one of the 16 characters whose value is a multiple of 4.
+/// Stricter than the draft's wording, which no correct encoder violates
+/// (decision 41).
 fn is_digest(s: &str) -> bool {
     s.len() == 43
         && s.bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+        && s.bytes()
+            .last()
+            .is_some_and(|b| b"AEIMQUYcgkosw048".contains(&b))
+}
+
+/// Whether PermittedUse `p` passes [`PermittedUse::is_well_formed`] and each
+/// `purposes` entry is an RFC 3987 IRI ("Between 1 and 8 IRIs"). The IRI
+/// check is stricter than the draft's listed rejections (decision 41).
+fn is_permitted_use(p: &PermittedUse) -> bool {
+    p.is_well_formed()
+        && p.purposes
+            .iter()
+            .flatten()
+            .all(|i| iri_string::types::IriStr::new(i.as_str()).is_ok())
 }
 
 /// The §Provenance Properties and §Curation Properties of `m`, the
@@ -118,8 +136,9 @@ fn is_digest(s: &str) -> bool {
 /// - `confidence`: `null` or a Number "from 0 to 1 inclusive".
 /// - `validUntil`: `null` or a UTCDate.
 /// - `validFor`: `null` or a PermittedUse with at least one member and
-///   1 to 8 `purposes` when present.
-/// - `credentialDigest`: `null` or "43 base64url characters".
+///   1 to 8 `purposes`, each an RFC 3987 IRI, when present.
+/// - `credentialDigest`: `null` or "43 base64url characters" that can
+///   encode a SHA-256 digest (see `is_digest`).
 /// - `status`: `active`, `deprecated` or `retracted` (a String, not
 ///   `null`); `pinned`: a Boolean; `curationReason`: `null` or a String.
 ///
@@ -155,7 +174,7 @@ pub fn check_record(m: &Map<String, Value>) -> Result<(), Box<SetError>> {
         bad.push("validUntil");
     }
     if let Some(v) = present("validFor")
-        && !PermittedUse::deserialize_opt(v).is_some_and(|p| p.is_well_formed())
+        && !PermittedUse::deserialize_opt(v).is_some_and(|p| is_permitted_use(&p))
     {
         bad.push("validFor");
     }
@@ -495,6 +514,9 @@ mod tests {
         assert!(!is_digest("htSyDucPJhKUVHKPpzpMNO8bl50vhWucS4VMDVuc_d")); // 42
         assert!(!is_digest("htSyDucPJhKUVHKPpzpMNO8bl50vhWucS4VMDVuc_d=")); // padding
         assert!(!is_digest("htSyDucPJhKUVHKPpzpMNO8bl50vhWucS4VMDVuc+ds")); // base64, not base64url
+        // 43 base64url characters, but the last one has nonzero padding
+        // bits, so no SHA-256 digest encodes to it.
+        assert!(!is_digest("htSyDucPJhKUVHKPpzpMNO8bl50vhWucS4VMDVuc_dt"));
     }
 
     #[test]

@@ -14,6 +14,11 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-graph-server**: `validFor.purposes` entries must be RFC 3987 IRIs and
+  a `credentialDigest` must be a possible SHA-256 encoding (its last
+  character has zero padding bits), both stricter than the draft's wording
+  (decision 41).
+
 - **jmap-graph-server**: draft-atwood-jmap-graph-provenance-00 server rules
   for an account whose `GraphBackend::has_capability` reports
   `urn:ietf:params:jmap:graph:provenance` (new `provenance` module,

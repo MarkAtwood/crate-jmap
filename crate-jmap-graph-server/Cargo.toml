@@ -27,6 +27,10 @@ base64 = "0.22"
 # (draft-atwood-jmap-graph-search-00 §Collation), as in jmap-metadata-server.
 icu_casemap = { workspace = true }
 icu_normalizer = { workspace = true }
+# RFC 3987 IRI syntax for provenance `validFor.purposes`
+# (draft-atwood-jmap-graph-provenance-00 §Provenance Properties). Already in
+# the tree via jmap-base-client.
+iri-string = { workspace = true }
 jmap-types = { workspace = true }
 jmap-graph-types = { workspace = true }
 jmap-server = { workspace = true }

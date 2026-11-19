@@ -212,6 +212,9 @@ async fn invalid_values_name_the_property() {
         ("validFor", json!({})),
         ("validFor", json!({ "purposes": [] })),
         ("validFor", json!({ "purposes": nine })),
+        ("validFor", json!({ "purposes": ["not an iri"] })),
+        // 43 base64url characters whose last one no SHA-256 digest ends in.
+        ("credentialDigest", json!(format!("{}t", &DIGEST[..42]))),
         ("credentialDigest", json!(&DIGEST[..42])),
         ("credentialDigest", json!(format!("{}+", &DIGEST[..42]))),
         ("status", json!("archived")),

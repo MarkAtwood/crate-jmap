@@ -2211,6 +2211,7 @@ dependencies = [
  "base64",
  "icu_casemap",
  "icu_normalizer",
+ "iri-string",
  "jmap-graph-server",
  "jmap-graph-types",
  "jmap-object-history-server",
