@@ -24,8 +24,8 @@ use serde::Deserialize;
 use serde_json::{Map, Value};
 
 use super::{
-    ChangeEntry, Inner, MemoryBackend, MemoryError, email_matches_filter,
-    mailbox_matches_condition, retype, sort_email_ids,
+    ChangeEntry, Inner, MemoryBackend, MemoryError, ThreadIndex, mailbox_matches_condition, retype,
+    sort_email_ids,
 };
 
 impl Inner {
@@ -221,13 +221,17 @@ impl Inner {
             let sort: Vec<EmailComparator> = sort.map(retype).transpose()?.unwrap_or_default();
             let mut kept: Vec<(i64, Id)> = Vec::new();
             let mut snapshots: HashMap<Id, Value> = HashMap::new();
+            let threads = filter
+                .as_ref()
+                .map(|f| ThreadIndex::new(f, self.objects_ref(Email::TYPE_NAME, account.as_ref())));
             for (t, id, v) in rows {
                 let e =
                     Email::deserialize(&v).map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
-                if filter
-                    .as_ref()
-                    .is_none_or(|f| email_matches_filter(&e, f, None))
-                {
+                let keep = match (&filter, &threads) {
+                    (Some(f), Some(t)) => t.matches(&e, f).map_err(BackendQueryError::Method)?,
+                    _ => true,
+                };
+                if keep {
                     kept.push((t, id.clone()));
                     snapshots.insert(id, v);
                 }

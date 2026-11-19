@@ -132,7 +132,8 @@ pub(crate) fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
 /// Fill `email`'s RFC 8621 §4.1.3 header properties from `parsed` and its
 /// §4.1.4 body properties from a MIME parse of `bytes`.
 ///
-/// Leaf parts get the blob ids `{blob_id}-part-{n}`. The preview comes from
+/// Leaf parts get the blob ids `{blob_id}-part-{n}`, and every textBody and
+/// htmlBody part its decoded `bodyValues` entry. The preview comes from
 /// the MIME parse, or from the raw body when mime-tree cannot parse the
 /// message.
 pub(crate) fn fill_from_message(
@@ -162,6 +163,19 @@ pub(crate) fn fill_from_message(
             part_counter.set(i + 1);
             Id::from(format!("{blob_id}-part-{i}"))
         });
+        // RFC 8621 §4.1.4 bodyValues for every textBody and htmlBody part,
+        // so Email/get's fetch*BodyValues and the `body` / `text` filter
+        // conditions have the decoded text. A part that fails to decode
+        // gets no value.
+        email.body_values = body_fields
+            .body_value_part_ids
+            .iter()
+            .filter_map(|part_id| {
+                let part = parsed_msg.part_index.find_by_id(part_id)?;
+                let decoded = mime_tree::decode_body_value(bytes, part, None).ok()?;
+                Some((part_id.to_string(), jmap_mime::body_value_to_jmap(decoded)))
+            })
+            .collect();
         email.text_body = body_fields.text_body;
         email.html_body = body_fields.html_body;
         email.has_attachment = !body_fields.attachments.is_empty();

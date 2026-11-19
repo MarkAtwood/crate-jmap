@@ -85,6 +85,7 @@ pub use blobs::ExternalBlobStore;
 use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use crate::MailBackend;
+use crate::filter::try_rfc3339_to_epoch_secs;
 use jmap_mail_types::{
     ComparatorProperty, Email, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmission,
     EmailSubmissionComparator, EmailSubmissionComparatorProperty, EmailSubmissionFilter,
@@ -1519,62 +1520,50 @@ impl JmapBackend for MemoryBackend {
                 None
             };
 
-        // Pre-build the inMailboxOtherThan exclusion set once for top-level Condition
-        // filters to avoid O(N×k) HashSet allocations inside the per-email loop.
-        let top_level_excluded_set: Option<std::collections::HashSet<&Id>> =
-            email_filter.as_ref().and_then(|ef| {
-                if let Filter::Condition(cond) = ef {
-                    cond.in_mailbox_other_than
-                        .as_ref()
-                        .map(|v| v.iter().collect())
-                } else {
-                    None
-                }
-            });
-
         // Collect the matching ids, then sort them under the same lock.
         let (all_ids, state_n) = {
             let inner = self.inner.lock().await;
             let mut ids: Vec<Id> = if let Some(ref ef) = email_filter {
                 // Apply email filter: deserialize each stored object and check.
-                inner
-                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                    .map(|map| {
-                        map.iter()
-                            .filter_map(|(id, val)| {
-                                // Deserialize the stored JSON back into a typed Email.
-                                // In a well-formed reference-impl backend this never
-                                // fails: the value came from a typed Email written by
-                                // create_object. A failure here would mean the stored
-                                // object's JSON shape drifted from the current Email
-                                // type (e.g. fixture corruption, manual JSON injection,
-                                // or a type-evolution forward-compat gap).
-                                //
-                                // The reference impl logs and skips. A production
-                                // backend that hits this branch should propagate the
-                                // error via its own MemoryError-equivalent type
-                                // (workspace AGENTS.md "library-kit posture": consumers
-                                // bring the persistence + error reporting machinery).
-                                // The debug_assert surfaces fixture/type drift in CI
-                                // without changing release-build behaviour.
-                                let email = match Email::deserialize(val) {
-                                    Ok(e) => e,
-                                    Err(_e) => {
-                                        debug_assert!(
-                                            false,
-                                            "MemoryBackend: stored Email {id} failed to \
-                                             deserialize (fixture drift, type evolution, \
-                                             or manual JSON injection): {_e}"
-                                        );
-                                        return None;
-                                    }
-                                };
-                                email_matches_filter(&email, ef, top_level_excluded_set.as_ref())
-                                    .then(|| id.clone())
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default()
+                let objects = inner.objects_ref(O::TYPE_NAME, account_id.as_ref());
+                let threads = ThreadIndex::new(ef, objects);
+                let mut ids = Vec::new();
+                for (id, val) in objects.into_iter().flatten() {
+                    // Deserialize the stored JSON back into a typed Email.
+                    // In a well-formed reference-impl backend this never
+                    // fails: the value came from a typed Email written by
+                    // create_object. A failure here would mean the stored
+                    // object's JSON shape drifted from the current Email
+                    // type (e.g. fixture corruption, manual JSON injection,
+                    // or a type-evolution forward-compat gap).
+                    //
+                    // The reference impl logs and skips. A production
+                    // backend that hits this branch should propagate the
+                    // error via its own MemoryError-equivalent type
+                    // (workspace AGENTS.md "library-kit posture": consumers
+                    // bring the persistence + error reporting machinery).
+                    // The debug_assert surfaces fixture/type drift in CI
+                    // without changing release-build behaviour.
+                    let email = match Email::deserialize(val) {
+                        Ok(e) => e,
+                        Err(_e) => {
+                            debug_assert!(
+                                false,
+                                "MemoryBackend: stored Email {id} failed to \
+                                 deserialize (fixture drift, type evolution, \
+                                 or manual JSON injection): {_e}"
+                            );
+                            continue;
+                        }
+                    };
+                    if threads
+                        .matches(&email, ef)
+                        .map_err(BackendQueryError::Method)?
+                    {
+                        ids.push(id.clone());
+                    }
+                }
+                ids
             } else if let Some(ref sf) = submission_filter {
                 // Pre-build per-condition sets once before the per-submission loop so
                 // that HashSet allocation is O(1) per filter, not O(N) per submission.
@@ -2524,114 +2513,6 @@ fn utcdate_str_to_epoch_secs(s: &str) -> i64 {
         .unwrap_or(0)
 }
 
-/// Parse an RFC 3339 / RFC 8620 §1.4 `Date` timestamp string to seconds
-/// since the Unix epoch (UTC), returning `None` on any parse failure.
-///
-/// Handles both `Z` suffix and `+HH:MM` / `-HH:MM` offsets so that
-/// timestamps with non-UTC offsets compare correctly by absolute UTC
-/// time. Also accepts optional fractional seconds before the offset.
-///
-/// Limitations (acceptable for test code):
-/// - Does not validate calendar date/time fields (e.g. month 13 is accepted).
-/// - Does not handle leap seconds.
-/// - Year must be in the range 1970–9999.
-///
-/// # When to use vs `UTCDate::to_epoch_seconds`
-///
-/// bd:JMAP-ic0j.72 — call sites whose input is typed `UTCDate` (RFC 8620
-/// §1.4 strict UTC, the wire shape of `Email.receivedAt`) SHOULD use
-/// [`jmap_types::UTCDate::to_epoch_seconds`] directly, or
-/// [`utcdate_str_to_epoch_secs`] when the value is a `&str` from JSON.
-/// Use this helper only when the input is a `Date` (RFC 8620 §1.4)
-/// which permits non-UTC offsets — currently
-/// `EmailFilterCondition.before` / `.after`, where the client may
-/// legitimately send `+05:30` etc.
-///
-/// A future `jmap-types::Date::to_epoch_seconds` would let the `Date`
-/// sites also migrate to the foundation helper; until then this
-/// offset-tolerant parser stays.
-fn try_rfc3339_to_epoch_secs(s: &str) -> Option<i64> {
-    // Expected format: YYYY-MM-DDTHH:MM:SS[.fff](Z|+HH:MM|-HH:MM)
-    // Length with Z offset: 20 chars; with millis+Z: 24 chars; with ±HH:MM: 25 chars.
-    let s = s.trim();
-    if s.len() < 20 {
-        return None;
-    }
-
-    let year: i64 = s[0..4].parse().ok()?;
-    if s.as_bytes()[4] != b'-' {
-        return None;
-    }
-    let month: i64 = s[5..7].parse().ok()?;
-    if s.as_bytes()[7] != b'-' {
-        return None;
-    }
-    let day: i64 = s[8..10].parse().ok()?;
-    if !matches!(s.as_bytes()[10], b'T' | b't') {
-        return None;
-    }
-    let hour: i64 = s[11..13].parse().ok()?;
-    if s.as_bytes()[13] != b':' {
-        return None;
-    }
-    let minute: i64 = s[14..16].parse().ok()?;
-    if s.as_bytes()[16] != b':' {
-        return None;
-    }
-    let second: i64 = s[17..19].parse().ok()?;
-
-    // Skip optional fractional seconds (.NNN or .NNNNNN etc.) before the offset.
-    let frac_skip = if s.as_bytes().get(19) == Some(&b'.') {
-        let frac_end = s[20..]
-            .find(|c: char| !c.is_ascii_digit())
-            .map(|i| 20 + i)
-            .unwrap_or(s.len());
-        frac_end - 19
-    } else {
-        0
-    };
-    let offset_start = 19 + frac_skip;
-
-    let offset_str = &s[offset_start..];
-    let offset_secs: i64 = if offset_str.eq_ignore_ascii_case("z") {
-        0
-    } else if offset_str.len() == 6
-        && (offset_str.starts_with('+') || offset_str.starts_with('-'))
-        && offset_str.as_bytes()[3] == b':'
-    {
-        let sign: i64 = if offset_str.starts_with('-') { -1 } else { 1 };
-        let oh: i64 = offset_str[1..3].parse().ok()?;
-        let om: i64 = offset_str[4..6].parse().ok()?;
-        sign * (oh * 3600 + om * 60)
-    } else {
-        return None;
-    };
-
-    // Days-since-epoch calculation using the proleptic Gregorian calendar.
-    // Number of days from 1970-01-01 to year-01-01 (ignoring this year's months/days).
-    let y = year - 1;
-    let leap_days = y / 4 - y / 100 + y / 400;
-    // 477 = number of leap days from year 1 to year 1969 inclusive (1969/4 - 1969/100 + 1969/400).
-    let days_to_year_start = y * 365 + leap_days - (1969 * 365 + 477);
-
-    // Days within the year up to the start of the month.
-    let is_leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
-    const MONTH_DAYS: [i64; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let mut days_in_year: i64 = 0;
-    for (m, days) in MONTH_DAYS
-        .iter()
-        .enumerate()
-        .take(usize::try_from(month - 1).ok()?)
-    {
-        let extra = if m == 1 && is_leap { 1 } else { 0 };
-        days_in_year += days + extra;
-    }
-
-    let total_days = days_to_year_start + days_in_year + (day - 1);
-    let utc_secs = total_days * 86400 + hour * 3600 + minute * 60 + second - offset_secs;
-    Some(utc_secs)
-}
-
 /// HTML-escape `&`, `<`, `>`.
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -2643,120 +2524,67 @@ fn html_escape(s: &str) -> String {
 // Email filter helpers (used by MemoryBackend::query_objects)
 // ---------------------------------------------------------------------------
 
-/// Apply a single `EmailFilterCondition` to an `Email`.
-///
-/// Only the fields most relevant for integration tests are implemented.
-/// Unimplemented fields are silently treated as "no constraint" (always pass),
-/// consistent with the note in RFC 8621 §4.4.1 that unspecified fields are
-/// ignored.
-///
-/// `excluded_set` is a pre-built `HashSet` for the `inMailboxOtherThan` check,
-/// built once before the per-email loop to avoid O(N×k) allocations.
-/// Pass `None` to have the set built on the spot (correct but not optimal).
-fn email_matches_condition(
-    email: &Email,
-    cond: &EmailFilterCondition,
-    excluded_set: Option<&std::collections::HashSet<&Id>>,
-) -> bool {
-    if let Some(ref mbox_id) = cond.in_mailbox
-        && !email.mailbox_ids.contains_key(mbox_id)
-    {
-        return false;
-    }
-    if let Some(exclude_ids) = &cond.in_mailbox_other_than {
-        // Email must be in at least one mailbox NOT in the exclusion list.
-        // Use the pre-built set when available; build on demand otherwise.
-        let on_demand: std::collections::HashSet<&Id>;
-        let set: &std::collections::HashSet<&Id> = if let Some(s) = excluded_set {
-            s
-        } else {
-            on_demand = exclude_ids.iter().collect();
-            &on_demand
-        };
-        let in_other = email.mailbox_ids.keys().any(|id| !set.contains(id));
-        if !in_other {
-            return false;
-        }
-    }
-    if let Some(ref kw) = cond.has_keyword
-        && !email.keywords.contains_key(kw)
-    {
-        return false;
-    }
-    if let Some(ref kw) = cond.not_keyword
-        && email.keywords.contains_key(kw)
-    {
-        return false;
-    }
-    if let Some(want_attach) = cond.has_attachment
-        && email.has_attachment != want_attach
-    {
-        return false;
-    }
-    if let Some(ref before) = cond.before {
-        // receivedAt must be strictly before `before` (epoch-seconds comparison avoids
-        // the lexicographic trap where "T00:00:00.123Z" < "T00:00:00Z" despite .123 being later).
-        // bd:JMAP-ic0j.72 — `email.received_at` is typed `UTCDate` (RFC 8621 §4.1
-        // strict UTC), so use the foundation `UTCDate::to_epoch_seconds`
-        // helper from `jmap-types` rather than the local offset-tolerant
-        // parser. Filter `before` / `after` remain on the local parser
-        // because RFC 8620 §1.4 `Date` (the filter input type) permits
-        // non-UTC offsets.
-        let recv_epoch = email.received_at.to_epoch_seconds().unwrap_or(0);
-        let before_epoch = try_rfc3339_to_epoch_secs(before.as_ref()).unwrap_or(i64::MAX);
-        if recv_epoch >= before_epoch {
-            return false;
-        }
-    }
-    if let Some(ref after) = cond.after {
-        // receivedAt must be strictly after `after`. bd:JMAP-ic0j.72 — see
-        // the `before` arm above for the typed-vs-string parser split.
-        let recv_epoch = email.received_at.to_epoch_seconds().unwrap_or(0);
-        let after_epoch = try_rfc3339_to_epoch_secs(after.as_ref()).unwrap_or(i64::MIN);
-        if recv_epoch <= after_epoch {
-            return false;
-        }
-    }
-    if let Some(min) = cond.min_size
-        && email.size < min
-    {
-        return false;
-    }
-    metadata_matches(
-        email.metadata.as_ref(),
-        cond.metadata_exists.as_deref(),
-        cond.metadata_text_contains.as_ref(),
-        cond.metadata_text_equals.as_ref(),
-    )
-}
+/// The keywords of the current Emails of each Thread, for the RFC 8621
+/// §4.4.1 thread conditions. Built only when the filter uses one.
+pub(super) struct ThreadIndex(Option<HashMap<Id, ThreadMembers>>);
 
-/// Evaluate a full `EmailFilter` (which may be a logical combination of conditions).
-///
-/// `excluded_set` is a pre-built `HashSet` for `inMailboxOtherThan` in the
-/// top-level condition. Pass `None` for nested conditions.
-fn email_matches_filter(
-    email: &Email,
-    filter: &EmailFilter,
-    excluded_set: Option<&std::collections::HashSet<&Id>>,
-) -> bool {
-    match filter {
-        Filter::Condition(cond) => email_matches_condition(email, cond, excluded_set),
-        Filter::Operator(op) => match op.operator {
-            Operator::And => op
-                .conditions
-                .iter()
-                .all(|f| email_matches_filter(email, f, None)),
-            Operator::Or => op
-                .conditions
-                .iter()
-                .any(|f| email_matches_filter(email, f, None)),
-            Operator::Not => !op
-                .conditions
-                .iter()
-                .any(|f| email_matches_filter(email, f, None)),
-            _ => true, // unknown operator: no constraint
-        },
-        _ => true, // non_exhaustive: unknown variant, no constraint
+/// Each current Email of one Thread, with its keywords.
+type ThreadMembers = Vec<(Id, BTreeMap<Keyword, bool>)>;
+
+impl ThreadIndex {
+    /// Indexes the stored Emails `objects` when `filter` has a thread
+    /// condition.
+    pub(super) fn new(
+        filter: &EmailFilter,
+        objects: Option<&HashMap<Id, serde_json::Value>>,
+    ) -> Self {
+        use crate::filter::EmailCondition as C;
+        let used = crate::filter::conditions_used(filter);
+        if ![
+            C::AllInThreadHaveKeyword,
+            C::SomeInThreadHaveKeyword,
+            C::NoneInThreadHaveKeyword,
+        ]
+        .iter()
+        .any(|c| used.contains(c))
+        {
+            return Self(None);
+        }
+        let mut threads: HashMap<Id, ThreadMembers> = HashMap::new();
+        for (id, val) in objects.into_iter().flatten() {
+            if let Ok(e) = Email::deserialize(val) {
+                threads
+                    .entry(e.thread_id)
+                    .or_default()
+                    .push((id.clone(), e.keywords));
+            }
+        }
+        Self(Some(threads))
+    }
+
+    /// Whether `email` matches `filter`. The Thread is the current Emails
+    /// with `email`'s threadId, plus `email` itself when it is not one of
+    /// them (a destroyed Email in an `onlyDestroyed` query).
+    pub(super) fn matches(
+        &self,
+        email: &Email,
+        filter: &EmailFilter,
+    ) -> Result<bool, jmap_types::JmapError> {
+        let result = match &self.0 {
+            None => crate::filter::email_matches(email, None, filter),
+            Some(threads) => {
+                let members = threads.get(&email.thread_id).map_or(&[][..], Vec::as_slice);
+                let mut kws: Vec<&BTreeMap<Keyword, bool>> =
+                    members.iter().map(|(_, k)| k).collect();
+                if !members.iter().any(|(id, _)| *id == email.id) {
+                    kws.push(&email.keywords);
+                }
+                crate::filter::email_matches(email, Some(&kws), filter)
+            }
+        };
+        // The index is built whenever a thread condition is present, so
+        // only an unknown operator or filter form can fail here.
+        result.map_err(|_| jmap_types::JmapError::unsupported_filter())
     }
 }
 
@@ -3704,19 +3532,6 @@ mod tests {
     use super::*;
     use jmap_mail_types::VacationResponse;
     use jmap_types::PatchObject;
-
-    /// RFC 3339 §5.6: "date-month = 2DIGIT ; 01-12". Month `00` is not a
-    /// date, so it must parse as `None` rather than wrapping `month - 1`
-    /// to `usize::MAX` (bd:JMAP-uqhn.1). Valid-path oracle: January has
-    /// 31 days, so 1970-02-01T00:00:00Z is 31 * 86400 = 2678400 s.
-    #[test]
-    fn rfc3339_month_zero_is_rejected() {
-        assert_eq!(
-            try_rfc3339_to_epoch_secs("1970-02-01T00:00:00Z"),
-            Some(2_678_400)
-        );
-        assert_eq!(try_rfc3339_to_epoch_secs("1970-00-01T00:00:00Z"), None);
-    }
 
     /// A stored submission that fails to deserialize sorts after every one
     /// that does, which keeps the comparator a total order (`slice::sort_by`

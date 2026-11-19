@@ -794,6 +794,17 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-mail-server** (wire, memory backend only): `Email/query` (and the
+  `onlyDestroyed` query) now evaluates every RFC 8621 §4.4.1 condition
+  through one shared evaluator. `maxSize`, `from`, `to`, `cc`, `bcc`,
+  `subject`, `header`, `text`, `body`, the three thread-keyword conditions
+  and the `privateMetadata*` conditions used to match every Email; text
+  conditions are case-insensitive substring tests. `after` now matches a
+  receivedAt equal to the bound ("the same or after"). An unknown filter
+  operator is `unsupportedFilter` instead of matching everything. Stored
+  Emails now carry decoded `bodyValues` for their textBody and htmlBody
+  parts, so `Email/get` with `fetchTextBodyValues` / `fetchHTMLBodyValues`
+  / `fetchAllBodyValues` returns them (previously none). (bd:JMAP-r44n.4)
 - **jmap-server** (wire): with `urn:ietf:params:jmap:object-history` in
   `using`, a history argument (`includeReplaced`/`includeDestroyed` true,
   `onlyDestroyed` true, a non-null `destroyedAfter`/`destroyedBefore`, a

@@ -78,6 +78,8 @@ pub use jmap_mail_types::JMAP_SIEVE_SCRIPTS_URI;
 pub use sieve::SieveBackend;
 #[cfg(feature = "sieve")]
 pub use sieve::{handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate};
+#[cfg(feature = "memory")]
+mod filter;
 mod helpers;
 mod history;
 mod identity;
