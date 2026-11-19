@@ -386,6 +386,34 @@ async fn replace_existing<B: FileNodeBackend>(
     on_destroy_remove_children: bool,
     destroyed: &mut Vec<Id>,
 ) -> Result<(), Value> {
+    let desc_ids = check_replace(
+        backend,
+        caller,
+        account_id,
+        existing,
+        on_destroy_remove_children,
+    )
+    .await?;
+    destroy_replaced(
+        backend,
+        caller,
+        account_id,
+        &existing.id,
+        &desc_ids,
+        destroyed,
+    )
+    .await
+}
+
+/// The checks of [`replace_existing`], without destroying anything.
+/// Returns the existing node's descendant ids, parents first.
+async fn check_replace<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    existing: &FileNode,
+    on_destroy_remove_children: bool,
+) -> Result<Vec<Id>, Value> {
     let existing_id = &existing.id;
     let rights = effective_rights(backend, caller, account_id, existing)
         .await
@@ -429,6 +457,19 @@ async fn replace_existing<B: FileNodeBackend>(
         }
     }
 
+    Ok(desc_ids)
+}
+
+/// Destroy `existing_id` and its descendants `desc_ids` (parents first),
+/// deepest first, appending each destroyed id to `destroyed`.
+async fn destroy_replaced<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    existing_id: &Id,
+    desc_ids: &[Id],
+    destroyed: &mut Vec<Id>,
+) -> Result<(), Value> {
     // Deepest first, then the node itself, as the destroy path does
     // (`get_descendant_ids` lists each id after its parent).
     for id in desc_ids.iter().rev().chain(std::iter::once(existing_id)) {
@@ -2673,6 +2714,8 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
             // renamed name appears in the response (§3.2.3)
             // even if the backend echoes a different name.
             let mut renamed_to: Option<String> = None;
+            // An onExists "replace" waiting for the copy: see `Parked`.
+            let mut parked: Option<Parked> = None;
 
             // -------------------------------------------------------------------
             // Collision detection in the DESTINATION account (-20 §3.2.4:
@@ -2748,21 +2791,50 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
                                     continue;
                                 }
                             };
-                            let mut replaced = Vec::new();
-                            let outcome = replace_existing(
+                            let desc_ids = match check_replace(
                                 backend,
                                 caller,
                                 &account_id,
                                 &existing,
                                 on_destroy_remove_children,
-                                &mut replaced,
                             )
-                            .await;
-                            mutated |= !replaced.is_empty();
-                            destroyed.extend(replaced);
-                            if let Err(err) = outcome {
-                                not_copied.insert(create_id, err);
-                                continue;
+                            .await
+                            {
+                                Ok(d) => d,
+                                Err(err) => {
+                                    not_copied.insert(create_id, err);
+                                    continue;
+                                }
+                            };
+                            // -20 §3.2.4: the copy "succeeds or fails as a
+                            // whole". Move the existing node aside and
+                            // destroy it only once the copy is stored.
+                            match park(backend, caller, &account_id, &existing, case_folding).await
+                            {
+                                Some(p) => {
+                                    mutated = true;
+                                    parked = Some(Parked { desc_ids, ..p });
+                                }
+                                None => {
+                                    // It cannot be moved aside: destroy it
+                                    // first, which a failed copy cannot undo.
+                                    let mut replaced = Vec::new();
+                                    let outcome = destroy_replaced(
+                                        backend,
+                                        caller,
+                                        &account_id,
+                                        &existing.id,
+                                        &desc_ids,
+                                        &mut replaced,
+                                    )
+                                    .await;
+                                    mutated |= !replaced.is_empty();
+                                    destroyed.extend(replaced);
+                                    if let Err(err) = outcome {
+                                        not_copied.insert(create_id, err);
+                                        continue;
+                                    }
+                                }
                             }
                             // Fall through to create the new node.
                         }
@@ -2811,7 +2883,9 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
             {
                 Ok(created) => created,
                 Err(e) => {
-                    not_copied.insert(create_id, backend_set_error_value(e));
+                    let err = backend_set_error_value(e);
+                    let err = unpark(backend, caller, &account_id, parked.as_ref(), err).await;
+                    not_copied.insert(create_id, err);
                     continue;
                 }
             };
@@ -2825,8 +2899,35 @@ pub(crate) async fn filenode_copy<B: FileNodeBackend>(
             )
             .await
             {
+                let err = unpark(backend, caller, &account_id, parked.as_ref(), err).await;
                 not_copied.insert(create_id, err);
                 continue;
+            }
+            if let Some(p) = &parked {
+                let mut replaced = Vec::new();
+                let outcome = destroy_replaced(
+                    backend,
+                    caller,
+                    &account_id,
+                    &p.id,
+                    &p.desc_ids,
+                    &mut replaced,
+                )
+                .await;
+                let untouched = replaced.is_empty();
+                destroyed.extend(replaced);
+                if let Err(err) = outcome {
+                    // Take the copy back out; the existing node gets its
+                    // name back only when none of it was destroyed.
+                    let err = remove_copy(backend, caller, &account_id, &created_obj, err).await;
+                    let err = if untouched {
+                        unpark(backend, caller, &account_id, Some(p), err).await
+                    } else {
+                        err
+                    };
+                    not_copied.insert(create_id, err);
+                    continue;
+                }
             }
 
             // -20 §3.2.4: "The response gives only the id of the new
@@ -3121,6 +3222,150 @@ async fn copy_file_blob<B: FileNodeBackend>(
     Ok(())
 }
 
+/// An existing node that an `onExists` "replace" in `FileNode/copy` has
+/// renamed out of the way while the copy is stored.
+struct Parked {
+    /// The existing node.
+    id: Id,
+    /// Its name before it was moved aside.
+    name: String,
+    /// Its descendants, parents first, from [`check_replace`].
+    desc_ids: Vec<Id>,
+}
+
+/// Rename `existing` to a free sibling name so the copy can take its name.
+/// `None` when no free name is found or the rename fails; the caller then
+/// destroys it first instead.
+async fn park<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    existing: &FileNode,
+    folding: crate::CaseFolding,
+) -> Option<Parked> {
+    let aside = backend
+        .find_unique_name(
+            caller,
+            account_id,
+            existing.parent_id.as_ref(),
+            &existing.name,
+            folding,
+        )
+        .await
+        .ok()??;
+    backend
+        .update_object::<FileNode>(caller, account_id, &existing.id, name_patch(aside))
+        .await
+        .ok()?;
+    Some(Parked {
+        id: existing.id.clone(),
+        name: existing.name.clone(),
+        desc_ids: Vec::new(),
+    })
+}
+
+/// Give a [`Parked`] node its name back after the copy failed, and return
+/// the SetError to report: `failure`, or a `serverFail` when the name
+/// cannot be restored.
+async fn unpark<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    parked: Option<&Parked>,
+    failure: Value,
+) -> Value {
+    let Some(p) = parked else {
+        return failure;
+    };
+    match backend
+        .update_object::<FileNode>(caller, account_id, &p.id, name_patch(p.name.clone()))
+        .await
+    {
+        Ok(_) => failure,
+        Err(_) => json!({
+            "type": "serverFail",
+            "description": "the copy failed and the node it was to replace kept a temporary name",
+        }),
+    }
+}
+
+fn name_patch(name: String) -> PatchObject {
+    PatchObject::from_map(serde_json::Map::from_iter([(
+        "name".to_owned(),
+        Value::String(name),
+    )]))
+}
+
+/// Destroy a stored copy, `root_copy` and its descendants, after a later
+/// step of its entry failed, and return the SetError to report.
+async fn remove_copy<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    root_copy: &FileNode,
+    failure: Value,
+) -> Value {
+    let mut made = vec![root_copy.id.clone()];
+    match backend
+        .get_descendant_ids(caller, account_id, &root_copy.id)
+        .await
+    {
+        Ok(ids) => made.extend(ids),
+        Err(_) => {
+            return json!({
+                "type": "serverFail",
+                "description": "the copy failed and its copied nodes could not be removed",
+            });
+        }
+    }
+    remove_copies(backend, caller, account_id, root_copy, &made, failure).await
+}
+
+/// Destroy `made` (the copies of one entry, parents first, `root_copy`
+/// first of all), deepest first, and return the SetError to report:
+/// `failure`, or a `serverFail` when some copies remain.
+async fn remove_copies<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    root_copy: &FileNode,
+    made: &[Id],
+    failure: Value,
+) -> Value {
+    // A role given by override would make the root's destroy forbidden
+    // (-20 §5), so it is cleared first.
+    if root_copy.role.is_some() {
+        let clear_role = PatchObject::from_map(serde_json::Map::from_iter([(
+            "role".to_owned(),
+            Value::Null,
+        )]));
+        // A failure here shows up as the root's destroy failing below.
+        let _ = backend
+            .update_object::<FileNode>(caller, account_id, &root_copy.id, clear_role)
+            .await;
+    }
+    let mut stranded = 0usize;
+    for id in made.iter().rev() {
+        if backend
+            .destroy_object::<FileNode>(caller, account_id, id)
+            .await
+            .is_err()
+        {
+            stranded += 1;
+        }
+    }
+    if stranded == 0 {
+        failure
+    } else {
+        json!({
+            "type": "serverFail",
+            "description": format!(
+                "the copy failed and {stranded} of its copied nodes could not be removed"
+            ),
+        })
+    }
+}
+
 /// Store the copies in `subtree` (source id and prepared copy, parents
 /// first) in `accounts.1`, each beneath the copy of its parent, where
 /// `roots` pairs the copied source root with the id of its stored copy.
@@ -3131,9 +3376,8 @@ async fn copy_file_blob<B: FileNodeBackend>(
 /// destroys every copy made for the entry, the root's included, deepest
 /// first, and returns the SetError for the entry. Readers of the
 /// destination can see the partial subtree until then, and the state
-/// advances even for a copy that is undone. An `onExists` "replace" made
-/// for the entry has already run and is not undone; the caller still
-/// lists what it destroyed.
+/// advances even for a copy that is undone. The caller gives back the
+/// name of a node an `onExists` "replace" moved aside ([`unpark`]).
 async fn copy_subtree<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -3175,39 +3419,7 @@ async fn copy_subtree<B: FileNodeBackend>(
     let Some(failure) = failure else {
         return Ok(());
     };
-
-    // A role given by override would make the root's destroy forbidden
-    // (-20 §5), so it is cleared first.
-    if root_copy.role.is_some() {
-        let clear_role = PatchObject::from_map(serde_json::Map::from_iter([(
-            "role".to_owned(),
-            Value::Null,
-        )]));
-        // A failure here shows up as the root's destroy failing below.
-        let _ = backend
-            .update_object::<FileNode>(caller, to, &root_copy.id, clear_role)
-            .await;
-    }
-    let mut stranded = 0usize;
-    for id in made.iter().rev() {
-        if backend
-            .destroy_object::<FileNode>(caller, to, id)
-            .await
-            .is_err()
-        {
-            stranded += 1;
-        }
-    }
-    if stranded == 0 {
-        Err(failure)
-    } else {
-        Err(json!({
-            "type": "serverFail",
-            "description": format!(
-                "the copy failed and {stranded} of its copied nodes could not be removed"
-            ),
-        }))
-    }
+    Err(remove_copies(backend, caller, to, root_copy, &made, failure).await)
 }
 
 /// Merge override fields from a FileNode/copy create entry over `source`,
@@ -6769,6 +6981,112 @@ mod tests {
             "the root copy's role is cleared before its destroy"
         );
         assert_eq!(backend.destroy_object_call_count(), 2, "both copies");
+    }
+
+    /// A same-account FileNode/copy of `src` (with child `src-kid`) onto
+    /// "doc" in `p` with onExists "replace", against [`replace_fixture`],
+    /// after `prepare`.
+    async fn copy_replacing_doc(prepare: impl Fn(&FaultyBackend)) -> (FaultyBackend, Value) {
+        let backend = replace_fixture();
+        backend.seed_node("acc1", make_filenode("src-kid", Some("src"), "src-kid"));
+        prepare(&backend);
+        let HandlerOutput { primary: resp, .. } = handle_filenode_copy(
+            &backend,
+            &(),
+            json!({
+                "fromAccountId": "acc1",
+                "accountId": "acc1",
+                "onExists": "replace",
+                "onDestroyRemoveChildren": true,
+                "create": { "c": { "id": "src", "parentId": "p" } }
+            }),
+            "c0",
+            &[],
+        )
+        .await
+        .expect("FileNode/copy must not fail as a whole");
+        (backend, resp)
+    }
+
+    /// `(id, name, parentId)` of every FileNode in `acc1`, sorted.
+    async fn all_nodes(backend: &FaultyBackend) -> Vec<(String, String, Option<String>)> {
+        let (nodes, _) = backend
+            .inner
+            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .await
+            .expect("get_objects");
+        let mut out: Vec<_> = nodes
+            .into_iter()
+            .map(|n| {
+                (
+                    n.id.as_ref().to_owned(),
+                    n.name,
+                    n.parent_id.map(|p| p.as_ref().to_owned()),
+                )
+            })
+            .collect();
+        out.sort();
+        out
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-20 §3.2.4, the copy "succeeds or
+    /// fails as a whole". When storing the copy's root fails, the node
+    /// onExists "replace" was to displace is still there, with its name
+    /// and children, and nothing is listed as destroyed.
+    #[tokio::test]
+    async fn copy_replace_root_failure_keeps_the_existing_node() {
+        let (backend, resp) = copy_replacing_doc(|b| b.fail_copy_object_after(0)).await;
+        assert_eq!(resp["notCreated"]["c"]["type"], "serverFail", "{resp}");
+        assert!(resp.get("destroyed").is_none_or(Value::is_null), "{resp}");
+        let fresh = replace_fixture();
+        fresh.seed_node("acc1", make_filenode("src-kid", Some("src"), "src-kid"));
+        assert_eq!(
+            all_nodes(&backend).await,
+            all_nodes(&fresh).await,
+            "the existing node keeps its name and children"
+        );
+    }
+
+    /// Oracle: as above, when a descendant of the copy fails to store.
+    #[tokio::test]
+    async fn copy_replace_subtree_failure_keeps_the_existing_node() {
+        let (backend, resp) = copy_replacing_doc(|b| b.fail_copy_object_after(1)).await;
+        assert_eq!(resp["notCreated"]["c"]["type"], "serverFail", "{resp}");
+        assert!(resp.get("destroyed").is_none_or(Value::is_null), "{resp}");
+        let fresh = replace_fixture();
+        fresh.seed_node("acc1", make_filenode("src-kid", Some("src"), "src-kid"));
+        assert_eq!(all_nodes(&backend).await, all_nodes(&fresh).await);
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-20 §3.2.4 `destroyed`: "The ids of
+    /// the FileNodes in the destination account that were destroyed
+    /// because onExists replaced them, including any descendants removed
+    /// with onDestroyRemoveChildren". On success the copy holds the name
+    /// and the displaced node and its child are gone.
+    #[tokio::test]
+    async fn copy_replace_success_destroys_after_storing() {
+        let (backend, resp) = copy_replacing_doc(|_| {}).await;
+        let new_id = resp["created"]["c"]["id"]
+            .as_str()
+            .expect("created id")
+            .to_owned();
+        let mut destroyed: Vec<&str> = resp["destroyed"]
+            .as_array()
+            .expect("destroyed")
+            .iter()
+            .filter_map(Value::as_str)
+            .collect();
+        destroyed.sort_unstable();
+        assert_eq!(destroyed, ["doc", "kid"], "{resp}");
+        let nodes = all_nodes(&backend).await;
+        assert!(
+            nodes.contains(&(new_id, "doc".to_owned(), Some("p".to_owned()))),
+            "{nodes:?}"
+        );
+        assert!(
+            !nodes.iter().any(|(id, ..)| id == "doc" || id == "kid"),
+            "{nodes:?}"
+        );
     }
 
     /// Every FileNode id stored in `acc1`, sorted.

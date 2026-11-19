@@ -857,6 +857,12 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-filenode-server** (wire): `FileNode/copy` with `onExists: "replace"`
+  no longer loses the existing node when the copy then fails
+  (draft-ietf-jmap-filenode-20 §3.2.4 "succeeds or fails as a whole"). The
+  existing node is renamed aside, the copy is stored, and the existing
+  node is destroyed last; a failed copy gives it its name back. A backend
+  that refuses the rename gets the old destroy-first order. (bd:JMAP-yin2)
 - **BREAKING** **jmap-chat-client**: `SessionClient::push_subscription_create`,
   `push_subscription_update` and `push_subscription_destroy` lose their
   `if_in_state` argument (RFC 8620 §7.2.2: PushSubscription/set "does *not*
