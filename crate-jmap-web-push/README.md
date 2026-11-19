@@ -50,8 +50,11 @@ match sender.send(&endpoint, &change, &PushOptions::new(Duration::from_secs(8640
   in seconds. A `Retry-After` past the cap ends the send at once with the
   delay in the error. Any other status is `SendError::Rejected`.
 - `Sender::new` follows no redirects and times out after 10 s.
-- Payloads over 3993 octets of JSON are refused before sending (RFC 8291
-  §4).
+- Payloads over 3993 octets of JSON (`MAX_PLAINTEXT`) are refused before
+  sending (RFC 8291 §4). `send` takes any `Serialize` payload, a
+  `jmap_mail_types::EmailPush` included; pass `MAX_PLAINTEXT` as the
+  `max_bytes` of `jmap_mail_server::emailpush::email_pushes_for`, and the
+  returned urgency as `PushOptions::urgency`.
 
 Encryption is a thin layer over [`ece-native`] (RFC 8188, RustCrypto).
 The [`web-push`] crate was not used: it encrypts through OpenSSL. The

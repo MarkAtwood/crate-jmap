@@ -33,7 +33,7 @@ Known consumer: `stoa` (the Usenet/email JMAP server).
 
 ## In-Scope Extensions (future modules in this crate)
 
-Two small RFC 8621-adjacent extensions belong here rather than in their own crates:
+Three small RFC 8621-adjacent extensions belong here rather than in their own crates:
 
 - **Sieve** (`RFC 9661`): `SieveScript/get`, `/set`, `/query`, `/validate`.
   One object type (`SieveScript`: `id`, `name`, `blobId`, `isActive`). Script content
@@ -43,6 +43,13 @@ Two small RFC 8621-adjacent extensions belong here rather than in their own crat
 - **MDN** (`RFC 9007`): `MDN/send`, `MDN/parse`. No stored objects —
   pure send-and-forget read receipts (RFC 8098). Add as `src/mdn.rs` with an `mdn`
   feature flag.
+
+- **EmailPush** (draft-ietf-jmap-emailpush-05): no methods; the `emailPush`
+  PushSubscription property. `src/emailpush/` with an `emailpush` feature flag
+  (validation, pruning, delivery), sharing the Email filter evaluator
+  (`src/filter.rs`) and the Email/get projection (`src/project.rs`). The memory
+  backend's push store and `deliver_email` need `memory` and `emailpush`; its
+  `*_for_test` knobs need `test-helpers`. Design: `docs/design/emailpush.md`.
 
 ## Source Material
 

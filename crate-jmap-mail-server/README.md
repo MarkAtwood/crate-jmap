@@ -471,6 +471,44 @@ there. For that store's reference hook, `current_blob_references`
 the blob (object-history-03 §3.1). `with_scope_gate(gate)` shares one
 conditional scope gate with that store, since the two call each other.
 
+### EmailPush (draft-ietf-jmap-emailpush-05)
+
+The `emailpush` feature adds `pub mod emailpush`. EmailPush adds no
+methods: it rides on `PushSubscription/get` and `/set`, registered with
+`jmap_server::register_push_subscription_handlers`.
+
+- `EmailPushBackend` (over `PushSubscriptionBackend`, not `MailBackend`, so
+  an IMAP-only deployment can implement it) reports each account's
+  `EmailPushAccount`: mail, ObjectID, Email history, and the extra
+  conditions and properties of an account without mail.
+- List `(EMAIL_PUSH_PROPERTY, JMAP_EMAILPUSH_URI)` in
+  `PUSH_SUBSCRIPTION_EXTENSION_CAPABILITIES`, so `emailPush` exists only
+  with the capability in `using` (-05 §4).
+- `create_push_subscription` and `update_push_subscription` MUST call
+  `check_email_push_change` before storing: it applies every -05 §4
+  `invalidProperties` rule with a path per invalid value
+  (`emailPush/{accountId}/filter` ...) and normalizes each config (defaults
+  filled; `objectHistory` accepted where Email/get accepts it, then
+  dropped). The handler echoes the normalized value in `created` /
+  `updated`.
+- `list_push_subscriptions` runs `prune_email_push` on what it returns, and
+  the deployment's revocation path calls it and persists (-05 §4: remove a
+  lost account from the map).
+- On a delivery (SMTP/LMTP, after Sieve; never `Email/import`, `Email/set`
+  or a restore), `email_pushes_for` turns the batch into the EmailPush
+  objects for one subscription: nothing before verification or without
+  keys; the config's filter (every Email/query condition, AND/OR/NOT); its
+  properties projected as Email/get would, `id` only when listed; split
+  across pushes within `max_bytes`, and an Email too large alone cut to a
+  prefix of its properties. Send each with `jmap_web_push::Sender` at the
+  returned urgency, to the subscription URL only.
+
+The memory backend with `emailpush` implements both traits and adds
+`deliver_email` (an SMTP delivery that returns the EmailPush objects) and
+`take_push_verifications`. The `test-helpers` feature adds
+`set_email_push_account_for_test`, `set_push_max_bytes_for_test` and
+`take_email_pushes_for_test`.
+
 ### Handler structure
 
 Each handler function (e.g. `handle_email_get`, `handle_mailbox_set`) receives
@@ -566,6 +604,11 @@ assert_eq!(JMAP_MAIL_URI, "urn:ietf:params:jmap:mail");
 assert_eq!(JMAP_SUBMISSION_URI, "urn:ietf:params:jmap:submission");
 assert_eq!(JMAP_VACATIONRESPONSE_URI, "urn:ietf:params:jmap:vacationresponse");
 ```
+
+With the `emailpush` feature, `JMAP_EMAILPUSH_URI`
+(`"urn:ietf:params:jmap:emailpush"`) is re-exported too; advertise it with
+an empty object, and in `accountCapabilities` exactly for the accounts
+`EmailPushBackend::email_push_accounts` returns (-05 §2.1).
 
 Which URIs to advertise depends on which object types your backend supports.
 Use `MailBackend::supports_type::<O>(caller, account_id)` to check each

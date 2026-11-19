@@ -146,6 +146,8 @@ src/
   identity.rs   Identity/get request/response types
   submission.rs EmailSubmission/set request/response types
   snippet.rs    SearchSnippet/get request/response types
+  methods/push.rs  (feature `emailpush`) EmailPushSubscriptionInput, emailPush
+                   updates, parse_push_payload (draft-ietf-jmap-emailpush-05)
 ```
 
 ## Extras-preservation policy (JMAP-lbdy)

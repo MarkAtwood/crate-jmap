@@ -204,6 +204,24 @@ Every method on `SessionClient` follows the same six-step pipeline:
 6. **`extract_response(&resp, CALL_ID)`** — finds the invocation for call ID
    `"r1"` in the response and deserializes it into the typed return value.
 
+## EmailPush (feature `emailpush`)
+
+draft-ietf-jmap-emailpush-05. `EmailPushSubscriptionInput` builds a
+PushSubscription create whose `keys` are required (-05 §6: the client MUST
+specify encryption keys); `SessionClient::email_push_subscription_create`
+sends it, and `set_email_push` / `patch_email_push` change the `emailPush`
+map, each with `urn:ietf:params:jmap:emailpush` in `using`. Verify the new
+subscription with the PushVerification code through
+`JmapClient::push_subscription_set`.
+
+`parse_push_payload` decodes a push message by `@type` into
+`PushPayload::{StateChange, PushVerification, EmailPush, Other}`. Pass only
+plaintext that decrypted with the subscription's keys: a client MUST ignore
+any other push (-05 §6). EmailPush objects are not a complete record of new
+mail ("Clients MUST NOT rely on EmailPush objects", -05 §3): resynchronize
+with `Email/changes` as usual, and list the properties the notification
+needs first, since a large Email arrives with a prefix of them.
+
 ## Examples
 
 The crate ships one runnable example under `examples/` demonstrating the
