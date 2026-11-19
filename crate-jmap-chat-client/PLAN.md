@@ -185,10 +185,12 @@ test named `*_preserves_vendor_extras` in the defining module):
 - Method-response structs (Deserialize):
   - `ChatCapability`, `ChatPushCapability` in `src/session.rs`
   - `Quota` in `src/methods/quota.rs`
-  - `BlobLookupEntry`, `BlobLookupResponse`, `BlobObject`,
-    `BlobConvertResponse` in `src/methods/blob.rs`
-  - `PushSubscriptionCreateResponse`, `TypingResponse`,
-    `SpaceJoinResponse` in `src/methods/mod.rs`
+  - `TypingResponse`, `SpaceJoinResponse` in `src/methods/mod.rs`
+
+The blob responses (`BlobLookupResponse`, `BlobConvertResponse`) are
+`jmap-blob-types`' and the PushSubscription/set response is
+`jmap-base-client`'s `PushSubscriptionSetResponse`; each keeps its own
+`extra`.
 
 The crate also re-exports standard response wrappers (`GetResponse<T>`,
 `SetResponse<T>`, `ChangesResponse`, `QueryResponse`,

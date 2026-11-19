@@ -857,6 +857,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-client**: `SessionClient::blob_lookup` and
+  `blob_convert` go through `jmap-blob-client` and return its
+  `BlobLookupResponse` / `BlobConvertResponse` (re-exported under the same
+  names); the crate's own `BlobLookupEntry`, `BlobLookupResponse`,
+  `BlobObject` and `BlobConvertResponse` are removed. A converted blob's
+  type is `media_type`, its `expires` is tri-state, and `created` is a map
+  rather than an `Option`. `blob_lookup` with empty `type_names` is now
+  rejected client-side. New `SessionClient::blob_client()` returns a
+  `jmap_blob_client::SessionClient` for the rest of the blob API.
+  jmap-chat-client moves to release layer 5. (bd:JMAP-tna1.12)
 - **jmap-mail-server** (wire): `header:{name}:asText` decodes RFC 2047
   encoded-words and normalizes to NFC (RFC 8621 §4.1.2.2), so it matches
   the `subject` property; it used to only unfold. `Email/query` with an

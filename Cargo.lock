@@ -1870,6 +1870,7 @@ version = "0.5.0"
 dependencies = [
  "futures",
  "jmap-base-client",
+ "jmap-blob-client",
  "jmap-blob-types",
  "jmap-chat-types",
  "jmap-metadata-types",

@@ -131,7 +131,7 @@ crates, never in a support crate.
 jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference, JmapError, JmapUri. No async.
     ├── jmap-server         — dispatcher, parse_request, ResultReference resolution, HTTP helpers.
     ├── jmap-base-client    — RFC 8620 base client: auth, session fetch, blob, SSE, WebSocket.
-    │       ├── jmap-chat-client   — JMAP Chat method implementations.
+    │       ├── jmap-chat-client   — JMAP Chat method implementations (blob methods over jmap-blob-client).
     │       └── jmap-mail-client   — RFC 8621 method implementations.
     ├── jmap-mail-types     — RFC 8621 data types: Email, Mailbox, Thread, etc. No async.
     │       ├── jmap-mime        — MIME parser adapter: mime-tree → jmap-mail-types; RFC 5322 writer. No async.

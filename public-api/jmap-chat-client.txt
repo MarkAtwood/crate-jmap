@@ -1,5 +1,7 @@
 pub mod jmap_chat_client
 pub use jmap_chat_client::AddedItem
+pub use jmap_chat_client::BlobConvertResponse
+pub use jmap_chat_client::BlobLookupResponse
 pub use jmap_chat_client::BodyType
 pub use jmap_chat_client::ChangesResponse
 pub use jmap_chat_client::ChatCapability
@@ -192,52 +194,6 @@ impl core::clone::Clone for jmap_chat_client::BatchResponse
 pub fn jmap_chat_client::BatchResponse::clone(&self) -> jmap_chat_client::BatchResponse
 impl core::fmt::Debug for jmap_chat_client::BatchResponse
 pub fn jmap_chat_client::BatchResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-#[non_exhaustive] pub struct jmap_chat_client::BlobConvertResponse
-pub jmap_chat_client::BlobConvertResponse::account_id: jmap_types::id::Id
-pub jmap_chat_client::BlobConvertResponse::created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_chat_client::BlobObject>>
-pub jmap_chat_client::BlobConvertResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
-pub jmap_chat_client::BlobConvertResponse::not_created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
-impl core::clone::Clone for jmap_chat_client::BlobConvertResponse
-pub fn jmap_chat_client::BlobConvertResponse::clone(&self) -> jmap_chat_client::BlobConvertResponse
-impl core::fmt::Debug for jmap_chat_client::BlobConvertResponse
-pub fn jmap_chat_client::BlobConvertResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobConvertResponse
-pub fn jmap_chat_client::BlobConvertResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-#[non_exhaustive] pub struct jmap_chat_client::BlobLookupEntry
-pub jmap_chat_client::BlobLookupEntry::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
-pub jmap_chat_client::BlobLookupEntry::id: jmap_types::id::Id
-pub jmap_chat_client::BlobLookupEntry::matched_ids: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::vec::Vec<jmap_types::id::Id>>
-impl core::clone::Clone for jmap_chat_client::BlobLookupEntry
-pub fn jmap_chat_client::BlobLookupEntry::clone(&self) -> jmap_chat_client::BlobLookupEntry
-impl core::fmt::Debug for jmap_chat_client::BlobLookupEntry
-pub fn jmap_chat_client::BlobLookupEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobLookupEntry
-pub fn jmap_chat_client::BlobLookupEntry::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-#[non_exhaustive] pub struct jmap_chat_client::BlobLookupResponse
-pub jmap_chat_client::BlobLookupResponse::account_id: jmap_types::id::Id
-pub jmap_chat_client::BlobLookupResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
-pub jmap_chat_client::BlobLookupResponse::list: alloc::vec::Vec<jmap_chat_client::BlobLookupEntry>
-impl core::clone::Clone for jmap_chat_client::BlobLookupResponse
-pub fn jmap_chat_client::BlobLookupResponse::clone(&self) -> jmap_chat_client::BlobLookupResponse
-impl core::fmt::Debug for jmap_chat_client::BlobLookupResponse
-pub fn jmap_chat_client::BlobLookupResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobLookupResponse
-pub fn jmap_chat_client::BlobLookupResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
-#[non_exhaustive] pub struct jmap_chat_client::BlobObject
-pub jmap_chat_client::BlobObject::content_type: core::option::Option<alloc::string::String>
-pub jmap_chat_client::BlobObject::description: core::option::Option<alloc::string::String>
-pub jmap_chat_client::BlobObject::entries: core::option::Option<alloc::vec::Vec<jmap_blob_types::convert::ArchiveEntry>>
-pub jmap_chat_client::BlobObject::expires: core::option::Option<jmap_types::id::UTCDate>
-pub jmap_chat_client::BlobObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
-pub jmap_chat_client::BlobObject::id: jmap_types::id::Id
-pub jmap_chat_client::BlobObject::is_incomplete: bool
-pub jmap_chat_client::BlobObject::size: core::option::Option<u64>
-impl core::clone::Clone for jmap_chat_client::BlobObject
-pub fn jmap_chat_client::BlobObject::clone(&self) -> jmap_chat_client::BlobObject
-impl core::fmt::Debug for jmap_chat_client::BlobObject
-pub fn jmap_chat_client::BlobObject::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::BlobObject
-pub fn jmap_chat_client::BlobObject::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct jmap_chat_client::CallHandle<T>
 impl<T: core::fmt::Debug> core::fmt::Debug for jmap_chat_client::CallHandle<T>
 pub fn jmap_chat_client::CallHandle<T>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
@@ -379,8 +335,9 @@ pub fn jmap_chat_client::SessionClient::batch(&self) -> core::result::Result<jma
 pub async fn jmap_chat_client::SessionClient::send_batch(&self, jmap_chat_client::Batch) -> core::result::Result<jmap_chat_client::BatchResponse, jmap_base_client::error::ClientError>
 impl jmap_chat_client::SessionClient
 pub fn jmap_chat_client::SessionClient::blob_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
-pub async fn jmap_chat_client::SessionClient::blob_convert(&self, &jmap_types::id::Id, &str, core::option::Option<u32>, core::option::Option<u32>) -> core::result::Result<jmap_chat_client::BlobConvertResponse, jmap_base_client::error::ClientError>
-pub async fn jmap_chat_client::SessionClient::blob_lookup(&self, &[jmap_types::id::Id], &[&str]) -> core::result::Result<jmap_chat_client::BlobLookupResponse, jmap_base_client::error::ClientError>
+pub fn jmap_chat_client::SessionClient::blob_client(&self) -> jmap_blob_client::methods::SessionClient
+pub async fn jmap_chat_client::SessionClient::blob_convert(&self, &jmap_types::id::Id, &str, core::option::Option<u32>, core::option::Option<u32>) -> core::result::Result<jmap_blob_types::convert::BlobConvertResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::blob_lookup(&self, &[jmap_types::id::Id], &[&str]) -> core::result::Result<jmap_blob_types::lookup::BlobLookupResponse, jmap_base_client::error::ClientError>
 impl jmap_chat_client::SessionClient
 pub fn jmap_chat_client::SessionClient::chat_account_id(&self) -> core::result::Result<&jmap_types::id::Id, jmap_base_client::error::ClientError>
 pub fn jmap_chat_client::SessionClient::client(&self) -> &jmap_base_client::client::JmapClient
