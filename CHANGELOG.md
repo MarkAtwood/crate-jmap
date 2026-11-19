@@ -66,6 +66,10 @@ wire behaviour that a conforming peer can observe.
   `test-helpers` feature: `set_email_push_account_for_test`,
   `set_push_max_bytes_for_test`, `take_email_pushes_for_test`.
   **jmap-types**: `PushVerification::new`. (bd:JMAP-r44n.12)
+- **jmap-mail-server** memory backend: an account's `EmailPushAccount`
+  has Email history exactly when its object-history capability lists
+  Email, so `objectHistory` is accepted (and dropped) in an EmailPush
+  config there. (bd:JMAP-r44n.16)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,

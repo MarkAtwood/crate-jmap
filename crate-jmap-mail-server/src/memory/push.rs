@@ -24,6 +24,7 @@ use crate::emailpush::{
     DeliveredEmail, EmailPushAccount, EmailPushBackend, EmailPushBatch, OutboundEmailPush,
     check_email_push_change, email_pushes_for, prune_email_push,
 };
+use jmap_server::ObjectHistoryBackend;
 
 /// The most push subscriptions the memory backend stores ("The server MUST
 /// limit the number of push subscriptions any one user may have", RFC 8620
@@ -58,12 +59,6 @@ impl Default for PushState {
             sent: Vec::new(),
         }
     }
-}
-
-/// The EmailPush support of every registered account unless overridden:
-/// mail and ObjectID, without Email history.
-fn default_account() -> EmailPushAccount {
-    EmailPushAccount::new(true).with_object_ids(true)
 }
 
 impl MemoryBackend {
@@ -168,8 +163,8 @@ impl MemoryBackend {
 impl MemoryBackend {
     /// Overrides what `account_id` supports for EmailPush; `None` revokes
     /// it (the user lost access, or the account lost the capability).
-    /// Registered accounts default to mail and ObjectID without Email
-    /// history.
+    /// Registered accounts default to mail and ObjectID, with Email history
+    /// when the object-history capability lists Email.
     pub fn set_email_push_account_for_test(
         &self,
         account_id: &Id,
@@ -276,8 +271,9 @@ impl PushSubscriptionBackend for MemoryBackend {
 }
 
 impl EmailPushBackend for MemoryBackend {
-    /// Every registered account, as mail with ObjectID and without Email
-    /// history, unless a test override changes or revokes it.
+    /// Every registered account, as mail with ObjectID, with Email history
+    /// when its object-history capability lists Email, unless a test
+    /// override changes or revokes it.
     async fn email_push_accounts(
         &self,
         _caller: &(),
@@ -290,12 +286,27 @@ impl EmailPushBackend for MemoryBackend {
             .iter()
             .map(|a| Id::from(a.as_str()))
             .collect();
+        // Email history exactly when this account's object-history
+        // capability lists Email, so `objectHistory` is accepted in a
+        // config where Email/get accepts it (decision 10).
+        let history: Vec<bool> = known
+            .iter()
+            .map(|id| {
+                self.object_history_capability(&(), id)
+                    .is_some_and(|c| c.supports::<Email>())
+            })
+            .collect();
         let push = self.push();
         Ok(known
             .into_iter()
-            .filter_map(|id| {
+            .zip(history)
+            .filter_map(|(id, email_history)| {
                 let account = match push.accounts.get(&id) {
-                    None => Some(default_account()),
+                    None => Some(
+                        EmailPushAccount::new(true)
+                            .with_object_ids(true)
+                            .with_email_history(email_history),
+                    ),
                     Some(over) => over.clone(),
                 };
                 account.map(|a| (id, a))
