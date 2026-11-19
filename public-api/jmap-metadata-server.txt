@@ -47,6 +47,7 @@ impl jmap_metadata_server::ChangedProperties
 pub fn jmap_metadata_server::ChangedProperties::is_metadata_only(&self, &str) -> bool
 pub fn jmap_metadata_server::ChangedProperties::new() -> Self
 pub fn jmap_metadata_server::ChangedProperties::record(&mut self, &str, core::option::Option<&alloc::collections::btree::set::BTreeSet<alloc::string::String>>)
+pub fn jmap_metadata_server::ChangedProperties::record_created(&mut self, &str)
 pub fn jmap_metadata_server::ChangedProperties::updated_properties<S: core::convert::AsRef<str>>(&self, &[S], jmap_metadata_server::MetadataOnlyChanges, &[&str]) -> core::option::Option<alloc::vec::Vec<alloc::string::String>>
 impl core::clone::Clone for jmap_metadata_server::ChangedProperties
 pub fn jmap_metadata_server::ChangedProperties::clone(&self) -> jmap_metadata_server::ChangedProperties
