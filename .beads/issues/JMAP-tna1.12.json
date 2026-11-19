@@ -3,13 +3,15 @@
   "title": "chat-client: deprecate blob methods as thin wrappers over jmap-blob-client",
   "description": "Design: docs/design/blobext.md. Decisions: docs/design/DECISIONS.md.\nNote key: B15. Crates: jmap-chat-client. Size: S.\n\nPer docs/design/DECISIONS.md decision 12 and docs/design/blobext.md §9 step 2: once jmap-blob-client exists, make the chat-client blob methods and their types #[deprecated(note = \"use jmap-blob-client\")] thin wrappers that delegate to jmap-blob-client, keeping the signatures fixed in tna1.1 (non-breaking: repo stability policy deprecates before removing). Add the chat-client -\u003e blob-client dependency; update RELEASING.md (jmap-chat-client moves from layer 4 to 5) and AGENTS.md dependency tree; docs point at jmap-blob-client. Acceptance: wiremock tests show each wrapper sends the same request body as before; deprecation attributes visible in the public-api snapshot; CHANGELOG 'Deprecated' entry; workspace builds without new warnings outside allowed deprecated uses in tests.",
   "notes": "DECISION (Mark, 2026-11-19): break, like r44n.14 (decision 34) — no prod users yet. Replace the chat-client blob methods with the correct shapes over jmap-blob-client rather than #[deprecated] wrappers; BREAKING CHANGELOG entry.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-13T02:52:38.70651525Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T05:21:17.73856534Z",
+  "updated_at": "2026-11-19T06:56:41.229656686Z",
+  "closed_at": "2026-11-19T06:56:41.229656686Z",
+  "close_reason": "Done per decision 35: chat-client blob methods delegate to jmap-blob-client, own types removed, blob_client() accessor; BREAKING CHANGELOG; RELEASING layer 5.",
   "labels": [
     "spec-sync"
   ],
