@@ -83,9 +83,6 @@ pub use sieve::SieveBackend;
 #[cfg(feature = "sieve")]
 pub use sieve::{handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate};
 #[cfg(any(feature = "memory", feature = "emailpush"))]
-// Without `memory`, only EmailPush delivery (bd JMAP-r44n.1) will call the
-// evaluator.
-#[cfg_attr(not(feature = "memory"), allow(dead_code))]
 mod filter;
 mod helpers;
 mod history;

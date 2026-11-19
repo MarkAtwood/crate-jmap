@@ -29,9 +29,11 @@ use std::future::Future;
 use jmap_server::PushSubscriptionBackend;
 use jmap_types::Id;
 
+mod deliver;
 mod validate;
 
 pub use crate::filter::EmailCondition;
+pub use deliver::{DeliveredEmail, EmailPushBatch, OutboundEmailPush, email_pushes_for};
 pub use validate::{InvalidEmailPushConfig, check_email_push_change, check_email_push_config};
 
 /// What one account supports for EmailPush, as the deployment reports it

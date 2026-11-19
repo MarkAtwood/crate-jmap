@@ -26,6 +26,13 @@ wire behaviour that a conforming peer can observe.
   `objectHistory` accepted where Email/get accepts it and dropped); and the
   pure per-config `check_email_push_config` / `InvalidEmailPushConfig`.
   (bd:JMAP-r44n.5)
+- **jmap-mail-server** `emailpush`: `email_pushes_for` builds the EmailPush
+  objects for one delivery batch (`DeliveredEmail`, `EmailPushBatch`,
+  `OutboundEmailPush`): nothing before verification, after expiry or
+  without keys; `types` ignored; the config's filter, then its properties
+  projected as Email/get would, `id` only when listed and never
+  `objectHistory`; `state` null without mail; the config's urgency.
+  (bd:JMAP-r44n.1)
 - **jmap-mail-types**: `emailpush` feature (draft-ietf-jmap-emailpush-05):
   `JMAP_EMAILPUSH_URI`, `EmailPushCapability`, `EmailPushAccountCapability`,
   `EmailPush`, `EmailPushConfig` (normalized: defaults always serialized,

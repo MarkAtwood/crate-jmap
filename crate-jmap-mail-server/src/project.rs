@@ -866,7 +866,7 @@ impl<'a> EmailProjection<'a> {
 /// # Errors
 ///
 /// As [`EmailProjection::new`] and [`EmailProjection::project`].
-#[allow(dead_code)] // EmailPush delivery, bd JMAP-r44n.1
+#[cfg_attr(not(feature = "emailpush"), allow(dead_code))]
 pub(crate) fn project_email(
     email: &Email,
     properties: &[String],
