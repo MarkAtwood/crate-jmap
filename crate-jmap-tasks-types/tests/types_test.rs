@@ -584,26 +584,47 @@ fn principal_tasks_capability_account_id_null_serializes() {
     );
 }
 
-/// `send_to: None` must NOT produce a `"sendTo"` key in the output.
+/// `calendar_address: None` serializes as `"calendarAddress": null`.
 ///
-/// Oracle: draft-ietf-jmap-tasks-06 §2.1 — sendTo is optional (null or absent).
+/// Oracle: draft-ietf-jmap-calendars-34 §2.1 — "calendarAddress:
+/// String|null ... otherwise, this is null" (jmapio/jmap #470 replaces
+/// -06's `sendTo` with it).
 #[test]
-fn principal_tasks_capability_send_to_absent_when_none() {
+fn principal_tasks_capability_calendar_address_null_serializes() {
     // Construct via deserialization (struct is #[non_exhaustive]).
     let cap: PrincipalTasksCapability = serde_json::from_str(&common::fixture(
-        "principal_tasks_capability_send_to_absent_when_none.json",
+        "principal_tasks_capability_calendar_address_null.json",
     ))
     .expect("must deserialize");
     let out = serde_json::to_value(&cap).expect("must serialize");
-    assert!(
-        out.get("sendTo").is_none(),
-        "sendTo must be absent when None, got: {out}"
+    assert_eq!(
+        out.get("calendarAddress"),
+        Some(&serde_json::Value::Null),
+        "calendarAddress must be present as null, got: {out}"
     );
+}
+
+/// `sendTo` is no longer a field: jmapio/jmap #470 replaces it with
+/// `calendarAddress`, so a `sendTo` on input is not read into it.
+///
+/// Oracle: jmapio/jmap #470 "replace sendTo with calendarAddress in the
+/// Principal capability".
+#[test]
+fn principal_tasks_capability_send_to_is_not_calendar_address() {
+    let cap: PrincipalTasksCapability = serde_json::from_value(serde_json::json!({
+        "accountId": null,
+        "mayShareWith": true,
+        "sendTo": { "imip": "mailto:alice@example.com" }
+    }))
+    .expect("must deserialize");
+    assert_eq!(cap.calendar_address, None);
 }
 
 /// Full round-trip: all three fields present, serialized and re-deserialized.
 ///
-/// Oracle: draft-ietf-jmap-tasks-06 §2.1 field definitions.
+/// Oracle: draft-ietf-jmap-tasks-06 §2.1 field definitions, with
+/// draft-ietf-jmap-calendars-34 §2.1 `calendarAddress` for `sendTo`
+/// (jmapio/jmap #470).
 #[test]
 fn principal_tasks_capability_roundtrip_full() {
     let json = &common::fixture("principal_tasks_capability_roundtrip_full.json");
@@ -614,9 +635,8 @@ fn principal_tasks_capability_roundtrip_full() {
         Some("acc001")
     );
     assert!(cap.may_share_with);
-    let send_to = cap.send_to.as_ref().expect("sendTo must be present");
     assert_eq!(
-        send_to.get("imip").map(String::as_str),
+        cap.calendar_address.as_deref(),
         Some("mailto:alice@example.com")
     );
 

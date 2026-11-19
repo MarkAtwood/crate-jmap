@@ -263,7 +263,7 @@ catch-all handles vendor-specific and future IANA-registered values.
 |---|---|---|---|
 | `at_type` | `@type` | `String` | always "Person" |
 | `name` | `name` | `Option<String>` | |
-| `uri` | `uri` | `Option<String>` | scheduleId URI |
+| `uri` | `uri` | `Option<String>` | participant's `calendarAddress` (jmapio/jmap #470; -06 says scheduleId) |
 | `principal_id` | `principalId` | `Option<String>` | either uri or principalId MUST be set |
 
 ### TaskNotification (draft-tasks-06 §5)

@@ -1,7 +1,5 @@
 {
-        "accountId": "acc001",
-        "mayShareWith": true,
-        "sendTo": {
-            "imip": "mailto:alice@example.com"
-        }
-    }
+    "accountId": "acc001",
+    "mayShareWith": true,
+    "calendarAddress": "mailto:alice@example.com"
+}

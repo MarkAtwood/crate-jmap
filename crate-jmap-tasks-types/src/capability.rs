@@ -8,8 +8,6 @@
 //! `accountCapabilities` map).  Session-level values are empty objects for
 //! all Tasks capabilities.
 
-use std::collections::BTreeMap;
-
 use jmap_jscalendar_types::{Duration, LocalDateTime};
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
@@ -149,6 +147,14 @@ pub struct TasksCustomTimeZonesAccountCapability {}
 
 /// Capability placed on a JMAP Sharing Principal's capabilities map
 /// under `"urn:ietf:params:jmap:tasks"` (draft-ietf-jmap-tasks-06 §2.1).
+///
+/// Participant identity follows JMAP Calendars rather than -06. -06 §2.1
+/// gives the principal a `sendTo` map; draft-ietf-jmap-calendars-34
+/// replaced that with a single `calendarAddress` (§2.1) and matches a
+/// participant to a ParticipantIdentity by `calendarAddress` (§3). This
+/// type carries `calendarAddress` in place of `sendTo`, as jmapio/jmap #470
+/// proposes, so a server doing both Tasks and Calendars has one way to
+/// decide whether a participant is the user.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -162,9 +168,13 @@ pub struct PrincipalTasksCapability {
     /// Whether the client may invite this principal to share a task list.
     pub may_share_with: bool,
 
-    /// Method types to which the principal has a send address, and the
-    /// address for each.  `null` or absent when the principal cannot be
-    /// sent to.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub send_to: Option<BTreeMap<String, String>>,
+    /// The `calendarAddress` to give a participant that is this principal,
+    /// or `null` when it may not be added as a participant to a task
+    /// (draft-ietf-jmap-calendars-34 §2.1: "If this Principal may be added
+    /// as a participant to an event, this is the calendarAddress to use to
+    /// receive iTIP scheduling messages; otherwise, this is null").
+    ///
+    /// Required-and-nullable: always present on the wire, as `null` or a
+    /// String, as on the Calendars principal capability.
+    pub calendar_address: Option<String>,
 }

@@ -77,6 +77,13 @@ pub struct TaskRights {
     /// User may modify `participationStatus`, `participationComment`, and
     /// `expectReply` on Participant objects that correspond to their own
     /// ParticipantIdentity objects.
+    ///
+    /// A participant corresponds to an identity when their
+    /// `calendarAddress` values match (draft-ietf-jmap-calendars-34 §3),
+    /// and under `mayInviteSelf` the user may add a participant whose
+    /// `calendarAddress` is one of their identities'; -06 §3 says `sendTo`
+    /// for both, which this crate replaces with `calendarAddress` per
+    /// jmapio/jmap #470.
     #[serde(rename = "mayRSVP")]
     pub may_rsvp: bool,
 

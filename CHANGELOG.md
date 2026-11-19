@@ -1037,6 +1037,13 @@ wire behaviour that a conforming peer can observe.
   draft-ietf-jmap-filenode-20 §3.2.3 has a server destroy "children before
   their parents"; it destroyed parents first. The returned ids follow the
   new order (bd:JMAP-uro2).
+- **jmap-tasks-types**: **BREAKING** `PrincipalTasksCapability.send_to`
+  (`sendTo`, a method-to-address map) is replaced by `calendar_address`
+  (`calendarAddress`, `String|null`, always serialized), the
+  draft-ietf-jmap-calendars-34 §2.1 field, so Tasks and Calendars identify
+  a participant the same way (jmapio/jmap #470). `Person.uri` is documented
+  as the participant's `calendarAddress`, not its `scheduleId`
+  (bd:JMAP-jkl8.8).
 
 - **jmap-tasks-server**: Task `workflowStatus` and `progress` follow decision
   42 (jmapio/jmap #465), in place of -06's "If set, `progress` MUST be null":

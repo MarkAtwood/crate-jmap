@@ -86,7 +86,13 @@ pub struct Person {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
 
-    /// URI (typically the scheduleId of the corresponding Participant).
+    /// A URI that identifies the person: the `calendarAddress` of the
+    /// participant this item was assigned to, when there is one.
+    ///
+    /// -06 §4.2.3 says this "SHOULD be the scheduleId of the participant";
+    /// JSCalendar participants no longer have a `scheduleId`, and JMAP
+    /// Calendars identifies them by `calendarAddress`
+    /// (draft-ietf-jmap-calendars-34 §3), so this follows jmapio/jmap #470.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
 
