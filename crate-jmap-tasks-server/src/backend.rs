@@ -346,12 +346,19 @@ pub trait TasksBackend: JmapBackend {
     /// Implementors MUST verify that the caller may modify per-user properties
     /// on the target Task and MUST return [`BackendSetError::SetError`] with
     /// [`SetErrorType::Forbidden`](jmap_server::SetErrorType::Forbidden) otherwise. That is the TaskList's
-    /// `mayUpdatePrivate` right, which draft-ietf-jmap-tasks-06 §3 defines as:
-    /// "The user may modify the following properties on all tasks in the task
-    /// list, even if they would not otherwise have permission to modify that
-    /// task." The write-access rule of [`Self::update_object`] does NOT apply
-    /// here. See [`Self::create_object`] for the workspace-canonical rationale
-    /// on backend-as-enforcement-point.
+    /// `mayUpdatePrivate` right, which covers exactly the per-user properties
+    /// of draft-ietf-jmap-tasks-06 §4.5.1
+    /// ([`jmap_tasks_types::PER_USER_TASK_PROPERTIES`]), as jmapio/jmap
+    /// #468 / PR #469 words it: "The user may modify the per-user properties
+    /// (see the "Per-user properties" section) on all tasks in the task list,
+    /// even if they would not otherwise have permission to modify that task."
+    /// (-06 §3 says "the following properties" and gives no list.) The
+    /// handler sends only patches whose every key is one of those here, so a
+    /// patch that also touches a shared property goes to
+    /// [`Self::update_object`] and needs write access. The write-access rule
+    /// of [`Self::update_object`] does NOT apply here. See
+    /// [`Self::create_object`] for the workspace-canonical rationale on
+    /// backend-as-enforcement-point.
     fn update_task_per_user(
         &self,
         caller: &Self::CallerCtx,

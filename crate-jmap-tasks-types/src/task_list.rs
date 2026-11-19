@@ -74,8 +74,10 @@ pub struct TaskRights {
     /// [`crate::task_has_owner`].
     pub may_write_own: bool,
 
-    /// User may modify per-user properties (e.g. `keywords`, `color`,
-    /// `useDefaultAlerts`, `alerts`) on all tasks in this task list.
+    /// User may modify the per-user properties of draft-ietf-jmap-tasks-06
+    /// §4.5.1 ([`crate::PER_USER_TASK_PROPERTIES`]: `keywords`, `color`,
+    /// `freeBusyStatus`, `useDefaultAlerts`, `alerts`) on all tasks in this
+    /// task list, and only those (jmapio/jmap #468 / PR #469).
     pub may_update_private: bool,
 
     /// User may modify `participationStatus`, `participationComment`, and

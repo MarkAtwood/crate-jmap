@@ -1045,6 +1045,13 @@ wire behaviour that a conforming peer can observe.
   draft-ietf-jmap-filenode-20 §3.2.3 has a server destroy "children before
   their parents"; it destroyed parents first. The returned ids follow the
   new order (bd:JMAP-uro2).
+- **jmap-tasks-server**, **jmap-tasks-types**: the `mayUpdatePrivate`
+  contract of `TasksBackend::update_task_per_user` and the
+  `TaskRights::may_update_private` doc name exactly the -06 §4.5.1 per-user
+  properties (`PER_USER_TASK_PROPERTIES`) instead of -06 §3's listless "the
+  following properties" (jmapio/jmap #468 / PR #469). No behaviour change; a
+  new test checks a `mayUpdatePrivate`-only sharee (bd:JMAP-jkl8.7).
+
 - **jmap-tasks-server**: **BREAKING** (wire) `Task/get` returns a requested
   `utcStart` / `utcDue` as `null` when the task has no `start` / `due`,
   instead of leaving the key out (`UTCDate|null`, jmapio/jmap PR #464). When
