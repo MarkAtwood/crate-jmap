@@ -641,11 +641,11 @@ pub fn jmap_base_client::request::Session::vapid_public_key(&self) -> core::opti
 pub trait jmap_chat_client::ChatWsExt: jmap_chat_client::ws::sealed::Sealed
 pub fn jmap_chat_client::ChatWsExt::next_chat_frame(&mut self) -> impl core::future::future::Future<Output = core::option::Option<core::result::Result<jmap_chat_client::ChatWsFrame, jmap_base_client::error::ClientError>>> + core::marker::Send
 pub fn jmap_chat_client::ChatWsExt::send_stream_disable(&mut self) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
-pub fn jmap_chat_client::ChatWsExt::send_stream_enable(&mut self, &jmap_chat_types::ephemeral::ChatStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
+pub fn jmap_chat_client::ChatWsExt::send_stream_enable(&mut self, &jmap_base_client::request::Session, &jmap_chat_types::ephemeral::ChatStreamEnable) -> impl core::future::future::Future<Output = core::result::Result<(), jmap_base_client::error::ClientError>> + core::marker::Send
 impl jmap_chat_client::ChatWsExt for jmap_base_client::ws::WsSession
 pub async fn jmap_base_client::ws::WsSession::next_chat_frame(&mut self) -> core::option::Option<core::result::Result<jmap_chat_client::ChatWsFrame, jmap_base_client::error::ClientError>>
 pub async fn jmap_base_client::ws::WsSession::send_stream_disable(&mut self) -> core::result::Result<(), jmap_base_client::error::ClientError>
-pub async fn jmap_base_client::ws::WsSession::send_stream_enable(&mut self, &jmap_chat_types::ephemeral::ChatStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
+pub async fn jmap_base_client::ws::WsSession::send_stream_enable(&mut self, &jmap_base_client::request::Session, &jmap_chat_types::ephemeral::ChatStreamEnable) -> core::result::Result<(), jmap_base_client::error::ClientError>
 pub trait jmap_chat_client::JmapChatExt: jmap_chat_client::sealed::Sealed
 pub fn jmap_chat_client::JmapChatExt::with_chat_session(&self, jmap_base_client::request::Session) -> jmap_chat_client::SessionClient
 impl jmap_chat_client::JmapChatExt for jmap_base_client::client::JmapClient

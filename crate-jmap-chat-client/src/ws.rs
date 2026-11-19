@@ -7,7 +7,8 @@
 //!
 //! Spec: draft-atwood-jmap-chat-wss-00
 
-use jmap_base_client::{ClientError, WsFrame, WsSession};
+use crate::session::ChatSessionExt as _;
+use jmap_base_client::{ClientError, Session, WsFrame, WsSession};
 use jmap_chat_types::{ChatPresenceEvent, ChatStreamEnable, ChatTypingEvent, EphemeralMessage};
 use serde::Deserialize as _;
 
@@ -86,6 +87,14 @@ pub trait ChatWsExt: sealed::Sealed {
     /// the prior subscription entirely; re-send after every reconnect because
     /// subscriptions are session-scoped.
     ///
+    /// `session` is the JMAP Session object this connection was opened
+    /// from. When it does not advertise
+    /// `urn:ietf:params:jmap:chat:websocket`
+    /// ([`ChatSessionExt::supports_chat_websocket`](crate::ChatSessionExt::supports_chat_websocket)),
+    /// the call returns [`ClientError::InvalidArgument`] and sends
+    /// nothing: clients "MUST NOT send `ChatStreamEnable`" without that
+    /// capability (jmap-chat-wss-guide §Checking capabilities).
+    ///
     /// Success is silent; failure arrives later as a `RequestError` frame.
     /// Set [`ChatStreamEnable::id`] to correlate it: the error carries that
     /// value as its `requestId`, readable with
@@ -98,6 +107,7 @@ pub trait ChatWsExt: sealed::Sealed {
     /// Spec: draft-atwood-jmap-chat-wss-00
     fn send_stream_enable(
         &mut self,
+        session: &Session,
         enable: &ChatStreamEnable,
     ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
 
@@ -112,6 +122,21 @@ pub trait ChatWsExt: sealed::Sealed {
     ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
 }
 
+/// Refuse `ChatStreamEnable` on a Session without
+/// `urn:ietf:params:jmap:chat:websocket` (jmap-chat-wss-guide
+/// §Checking capabilities: "clients MUST NOT send `ChatStreamEnable` in
+/// that case").
+fn check_stream_enable_allowed(session: &Session) -> Result<(), ClientError> {
+    if session.supports_chat_websocket() {
+        Ok(())
+    } else {
+        Err(ClientError::InvalidArgument(format!(
+            "ChatStreamEnable requires the Session capability {}",
+            jmap_chat_types::JMAP_CHAT_WEBSOCKET_URI
+        )))
+    }
+}
+
 mod sealed {
     /// Sealing-trait for [`super::ChatWsExt`] — see the trait's rustdoc.
     pub trait Sealed {}
@@ -123,7 +148,12 @@ impl ChatWsExt for WsSession {
         self.next_frame().await.map(|r| r.map(parse_chat_ws_frame))
     }
 
-    async fn send_stream_enable(&mut self, enable: &ChatStreamEnable) -> Result<(), ClientError> {
+    async fn send_stream_enable(
+        &mut self,
+        session: &Session,
+        enable: &ChatStreamEnable,
+    ) -> Result<(), ClientError> {
+        check_stream_enable_allowed(session)?;
         // Wrap in EphemeralMessage::Enable so the @type discriminant is included
         // in the serialized output (ChatStreamEnable itself has no @type field).
         let msg = EphemeralMessage::Enable(enable.clone());
@@ -329,6 +359,54 @@ mod tests {
             }
             other => panic!("expected Other(RequestError), got {other:?}"),
         }
+    }
+
+    /// Build a Session whose `capabilities` is `capabilities`.
+    fn session_with(capabilities: serde_json::Value) -> Session {
+        serde_json::from_value(serde_json::json!({
+            "capabilities": capabilities,
+            "accounts": {},
+            "primaryAccounts": {},
+            "username": "test@example.com",
+            "apiUrl": "https://jmap.example.com/api/",
+            "downloadUrl": "https://jmap.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+            "uploadUrl": "https://jmap.example.com/ul/{accountId}/",
+            "eventSourceUrl": "https://jmap.example.com/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+            "state": "s1"
+        }))
+        .expect("test fixture must deserialize")
+    }
+
+    /// Oracle: jmap-chat-wss-guide §Checking capabilities: with
+    /// `urn:ietf:params:jmap:websocket` but not
+    /// `urn:ietf:params:jmap:chat:websocket`, "clients MUST NOT send
+    /// `ChatStreamEnable`".
+    #[test]
+    fn stream_enable_refused_without_chat_websocket() {
+        let session = session_with(serde_json::json!({
+            "urn:ietf:params:jmap:websocket": {
+                "url": "wss://jmap.example.com/ws",
+                "supportsPush": true
+            }
+        }));
+        assert!(matches!(
+            check_stream_enable_allowed(&session),
+            Err(ClientError::InvalidArgument(_))
+        ));
+    }
+
+    /// Oracle: draft-atwood-jmap-chat-wss-00 §Capability: the capability's
+    /// presence means the server "accepts `ChatStreamEnable`".
+    #[test]
+    fn stream_enable_allowed_with_chat_websocket() {
+        let session = session_with(serde_json::json!({
+            "urn:ietf:params:jmap:websocket": {
+                "url": "wss://jmap.example.com/ws",
+                "supportsPush": true
+            },
+            "urn:ietf:params:jmap:chat:websocket": {}
+        }));
+        assert!(check_stream_enable_allowed(&session).is_ok());
     }
 
     /// Oracle: send_stream_enable serializes to a ChatStreamEnable frame with @type.

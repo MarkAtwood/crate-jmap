@@ -948,6 +948,14 @@ wire behaviour that a conforming peer can observe.
   `"admin"` or `"member"` (draft-atwood-jmap-chat-00 §ChatMember `role`:
   "Either `"admin"` or `"member"`"); it was stored as sent.
   (bd:JMAP-8ar3)
+
+- **BREAKING** **jmap-chat-client**: `ChatWsExt::send_stream_enable` takes
+  the JMAP `Session` the connection came from, and returns
+  `ClientError::InvalidArgument` without sending anything when the Session
+  lacks `urn:ietf:params:jmap:chat:websocket` (jmap-chat-wss-guide
+  §Checking capabilities: clients "MUST NOT send `ChatStreamEnable`" in
+  that case). Pass the Session as the new first argument. (bd:JMAP-c70f)
+
 - **BREAKING** **jmap-vtc-types**: hosted livestreams
   (draft-atwood-jmap-vtc-00 §VTCLivestream). `VtcLivestream` gains `mode`
   (`LivestreamMode`, default push), `failure_reason`

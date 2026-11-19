@@ -9,7 +9,8 @@
 
 use futures::{SinkExt as _, StreamExt as _};
 use jmap_base_client::{
-    ClientError, DEFAULT_WS_MAX_MESSAGE_BYTES, WsFrame, WsSession, connect_ws_allow_plaintext,
+    ClientError, DEFAULT_WS_MAX_MESSAGE_BYTES, Session, WsFrame, WsSession,
+    connect_ws_allow_plaintext,
 };
 use jmap_chat_client::{ChatWsExt, ChatWsFrame};
 use jmap_chat_types::{ChatStreamEnable, Clearable, Presence};
@@ -93,6 +94,33 @@ fn json(text: &str) -> Value {
     serde_json::from_str(text).unwrap()
 }
 
+/// A Session advertising RFC 8887 WebSocket and, when `chat_ws`,
+/// `urn:ietf:params:jmap:chat:websocket` (draft L110: "an empty JSON
+/// object").
+fn session(chat_ws: bool) -> Session {
+    let mut capabilities = serde_json::json!({
+        "urn:ietf:params:jmap:websocket": {
+            "url": "wss://jmap.example.com/ws",
+            "supportsPush": true
+        }
+    });
+    if chat_ws {
+        capabilities["urn:ietf:params:jmap:chat:websocket"] = serde_json::json!({});
+    }
+    serde_json::from_value(serde_json::json!({
+        "capabilities": capabilities,
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "u1@example.com",
+        "apiUrl": "https://jmap.example.com/api/",
+        "downloadUrl": "https://jmap.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+        "uploadUrl": "https://jmap.example.com/ul/{accountId}/",
+        "eventSourceUrl": "https://jmap.example.com/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+        "state": "s1"
+    }))
+    .unwrap()
+}
+
 enum Step {
     Send(&'static str),
     Recv,
@@ -148,7 +176,9 @@ async fn enable_events_state_change_disable() {
     .await;
 
     let enable: ChatStreamEnable = serde_json::from_str(ENABLE).unwrap();
-    ws.send_stream_enable(&enable).await.unwrap();
+    ws.send_stream_enable(&session(true), &enable)
+        .await
+        .unwrap();
 
     match next(&mut ws).await {
         ChatWsFrame::ChatTyping(e) => {
@@ -215,7 +245,9 @@ async fn request_error_unknown_and_malformed_frames_pass_through() {
 
     let enable: ChatStreamEnable =
         serde_json::from_str(r#"{"id":"enable-1","dataTypes":[]}"#).unwrap();
-    ws.send_stream_enable(&enable).await.unwrap();
+    ws.send_stream_enable(&session(true), &enable)
+        .await
+        .unwrap();
 
     match next(&mut ws).await {
         ChatWsFrame::Other(frame @ WsFrame::RequestError(_)) => {
@@ -276,4 +308,25 @@ async fn close_1008_surfaces_ws_closed() {
     }
     drop(ws);
     assert!(server.await.unwrap().is_empty());
+}
+
+/// jmap-chat-wss-guide §Checking capabilities: with
+/// `urn:ietf:params:jmap:websocket` but without
+/// `urn:ietf:params:jmap:chat:websocket`, "clients MUST NOT send
+/// `ChatStreamEnable`". The call fails and no frame reaches the server;
+/// `ChatStreamDisable`, sent next, is the first frame it sees.
+#[tokio::test]
+async fn stream_enable_not_sent_without_chat_websocket() {
+    let (mut ws, server) = serve(vec![Step::Recv], None).await;
+
+    let enable: ChatStreamEnable = serde_json::from_str(ENABLE).unwrap();
+    match ws.send_stream_enable(&session(false), &enable).await {
+        Err(ClientError::InvalidArgument(_)) => {}
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+    ws.send_stream_disable().await.unwrap();
+    assert!(ws.next_chat_frame().await.is_none());
+    drop(ws);
+
+    assert_eq!(server.await.unwrap(), [json(DISABLE)]);
 }
