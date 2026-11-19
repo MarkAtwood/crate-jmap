@@ -123,7 +123,7 @@ async fn task_versions_cascade_and_restore() {
     let q = s
         .one(
             "Task/query",
-            json!({"onlyDestroyed": true, "filter": {"taskListId": &list}}),
+            json!({"onlyDestroyed": true, "filter": {"inTaskLists": [&list]}}),
         )
         .await;
     assert_eq!(q["ids"], json!([&t]), "{q}");

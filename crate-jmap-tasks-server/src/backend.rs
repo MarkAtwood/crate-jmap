@@ -7,7 +7,10 @@
 //! `query_objects`, `query_changes`) are defined on the [`jmap_server::JmapBackend`]
 //! supertrait. Only write operations and type-specific operations are here.
 
-use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
+use jmap_server::{
+    BackendQueryError, BackendSetError, JmapBackend, JmapObject, QueryParams, QueryResult,
+    SetObject,
+};
 use jmap_types::PatchObject;
 
 // ---------------------------------------------------------------------------
@@ -388,21 +391,22 @@ pub trait TasksBackend: JmapBackend {
     /// Backends with full tz support should override this.
     ///
     /// # Parameters
-    /// - `caller` — the caller context. The default implementation ignores it,
-    ///   but backends MAY use [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) to resolve the
-    ///   caller's preferred default time zone when `tz_hint` is `None`.
+    /// - `caller` — the caller context. The default implementation ignores it.
     /// - `account_id` — the target account. The default implementation ignores
-    ///   it, but backends MAY use it to look up an account-scoped tz database
-    ///   or per-account default time zone.
+    ///   it, but backends MAY use it to look up an account-scoped tz database.
     /// - `task` — the task whose `start` and `due` fields are to be converted.
-    /// - `tz_hint` — an optional IANA time-zone override; if `None`, the task's
-    ///   own `time_zone` field (if any) is used.
+    /// - `tz_hint` — the Task/get `timeZone` argument, `None` when the
+    ///   request has none, which means `"Etc/UTC"` (the CalendarEvent/get
+    ///   default, draft-ietf-jmap-calendars-34 §5.7). It applies only to a
+    ///   floating task (a null `timeZone`): "Floating tasks will be
+    ///   interpreted as per the time zone given as a Task/get argument"
+    ///   (draft-tasks-06 §4). A task with a `timeZone` converts with its own
+    ///   zone. The crate does not check the value against the IANA Time
+    ///   Zone Database; an unknown zone converts to `None`.
     ///
     /// Naming and signature mirror the canonical
     /// [`CalendarsBackend::compute_utc_times`](https://docs.rs/jmap-calendars-server/latest/jmap_calendars_server/trait.CalendarsBackend.html#method.compute_utc_times)
     /// (bd:JMAP-ops7.25).
-    ///
-    /// [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id): jmap_server::JmapAccounts::principal_id
     fn compute_utc_times(
         &self,
         _caller: &Self::CallerCtx,
@@ -414,5 +418,138 @@ pub trait TasksBackend: JmapBackend {
     > + Send {
         // Default: no UTC conversion capability; callers omit utcStart/utcDue.
         async { (None, None) }
+    }
+
+    /// Run a `Task/query` request with its Task/query arguments
+    /// (`expandRecurrences`, `timeZone`; jmapio/jmap #456, following
+    /// CalendarEvent/query, draft-ietf-jmap-calendars-34 §5.11).
+    ///
+    /// `params` holds the RFC 8620 §5.5 arguments. `args.time_zone` (or
+    /// `"Etc/UTC"` when `None`) is the zone for the `after` / `before`
+    /// conditions and for the local times of floating tasks, both when
+    /// filtering and when sorting; a `start` sort orders by absolute time.
+    /// The conditions are documented on
+    /// [`TaskFilterCondition`](jmap_tasks_types::TaskFilterCondition): `after`
+    /// tests the task's `due` (or `start` when it has no `due`), `before` its
+    /// `start` (or `due`).
+    ///
+    /// When `args.expand_recurrences` is `true`, return one id per
+    /// instance of a recurring task inside the filter's `after` / `before`
+    /// window; the handler has checked the filter is one FilterCondition
+    /// with both. A synthetic instance id is opaque to the client and must
+    /// resolve in `Task/get` and `Task/set` (calendars-34 §5.11). With
+    /// `expand_recurrences` `false`, a recurring task is one id.
+    ///
+    /// There is no default: one that ignored `args` would answer an
+    /// expansion request with unexpanded ids and read floating tasks in the
+    /// wrong zone (workspace AGENTS.md, "Default bodies on spec-semantic
+    /// backend methods"). A backend that cannot expand says so with
+    /// `cannotCalculateOccurrences`.
+    ///
+    /// # Errors
+    ///
+    /// [`BackendQueryError::Method`](jmap_server::BackendQueryError::Method)
+    /// is returned to the client unchanged:
+    ///
+    /// - `expandDurationTooLarge` (`JmapError::custom`) when expansion is
+    ///   requested and `before - after` exceeds
+    ///   [`TasksLimits::max_expanded_query_duration_seconds`] (the account's
+    ///   `maxExpandedQueryDuration`, draft-tasks-06 §1.6.2). The handler
+    ///   checks this first, but the backend is canonical and MUST check it
+    ///   again (workspace AGENTS.md "Backend caps and limits").
+    /// - `cannotCalculateOccurrences` when a recurrence needed for the
+    ///   result cannot be expanded.
+    /// - The RFC 8620 §5.5 errors (`unsupportedFilter`, `unsupportedSort`,
+    ///   `anchorNotFound`, ...), as for
+    ///   [`query_objects`](jmap_server::JmapReads::query_objects).
+    ///
+    /// [`BackendQueryError::Other`](jmap_server::BackendQueryError::Other)
+    /// becomes a redacted `serverFail`.
+    fn query_tasks(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        params: QueryParams<'_, jmap_tasks_types::Task>,
+        args: &TaskQueryArgs,
+    ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
+
+    /// Implementation-defined caps for `account_id` as seen by `caller`
+    /// (workspace AGENTS.md "Backend caps and limits"). The default is
+    /// [`TasksLimits::default`]; override it to vary caps per account.
+    fn limits(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> TasksLimits {
+        let _ = (caller, account_id);
+        TasksLimits::default()
+    }
+}
+
+/// Per-call `Task/query` arguments beyond RFC 8620 §5.5
+/// (jmapio/jmap #456, following CalendarEvent/query,
+/// draft-ietf-jmap-calendars-34 §5.11).
+///
+/// `#[non_exhaustive]` so a later revision can add arguments; build one
+/// with [`TaskQueryArgs::default`] and the setters.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TaskQueryArgs {
+    /// `expandRecurrences` (default `false`): return one id per instance
+    /// of a recurring task. The handler has checked that the filter is one
+    /// FilterCondition with both `before` and `after`.
+    pub expand_recurrences: bool,
+    /// `timeZone` (default `"Etc/UTC"` when `None`): the zone for the
+    /// `after` / `before` conditions and for floating tasks when filtering
+    /// and sorting. The crate does not check it against the IANA Time Zone
+    /// Database; that is the backend's job.
+    pub time_zone: Option<String>,
+}
+
+impl TaskQueryArgs {
+    /// Set [`Self::expand_recurrences`].
+    #[must_use]
+    pub fn with_expand_recurrences(mut self, expand: bool) -> Self {
+        self.expand_recurrences = expand;
+        self
+    }
+
+    /// Set [`Self::time_zone`].
+    #[must_use]
+    pub fn with_time_zone(mut self, time_zone: Option<String>) -> Self {
+        self.time_zone = time_zone;
+        self
+    }
+}
+
+/// Implementation-defined caps of a [`TasksBackend`], returned by
+/// [`TasksBackend::limits`] (workspace AGENTS.md "Backend caps and limits";
+/// mirrors `CalendarsLimits`).
+///
+/// | Field | Default | Rationale |
+/// |---|---|---|
+/// | `max_expanded_query_duration_seconds` | `31_536_000` (365 days) | As `CalendarsLimits`: a year is the range clients commonly ask for, and longer windows multiply recurrence expansion. |
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TasksLimits {
+    /// Longest `before - after` window, in seconds, that `Task/query`
+    /// expands recurrences over: the account's `maxExpandedQueryDuration`
+    /// (draft-tasks-06 §1.6.2, "The maximum duration the user may query
+    /// over when asking the server to expand recurrences"). A longer window
+    /// is the `expandDurationTooLarge` method error.
+    pub max_expanded_query_duration_seconds: u64,
+}
+
+impl Default for TasksLimits {
+    fn default() -> Self {
+        Self {
+            max_expanded_query_duration_seconds: 31_536_000,
+        }
+    }
+}
+
+impl TasksLimits {
+    /// Limits with the given [`Self::max_expanded_query_duration_seconds`].
+    #[must_use]
+    pub fn new(max_expanded_query_duration_seconds: u64) -> Self {
+        Self {
+            max_expanded_query_duration_seconds,
+        }
     }
 }

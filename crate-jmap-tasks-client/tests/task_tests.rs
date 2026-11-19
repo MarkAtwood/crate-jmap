@@ -56,6 +56,7 @@ async fn task_get_sends_ids_and_properties() {
         .task_get(
             Some(&[Id::from("task1")]),
             Some(&["id", "title", "isDraft"]),
+            None,
         )
         .await
         .expect("task_get_sends_ids_and_properties: must succeed");
@@ -128,7 +129,7 @@ async fn task_get_all_ids_null() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.task_get(None, None)
+    sc.task_get(None, None, None)
         .await
         .expect("task_get_all_ids_null: must succeed");
 
@@ -389,6 +390,7 @@ async fn task_query_with_filter() {
                 limit: Some(20),
                 ..Default::default()
             },
+            None,
         )
         .await
         .expect("task_query_with_filter: must succeed");
@@ -525,7 +527,7 @@ async fn task_query_changes_with_filter_sort_upto_calculatetotal() {
     let since = State::from("qs1");
     let up_to = Id::from("task-100");
     let mut cond = TaskFilterCondition::default();
-    cond.task_list_id = Some(Id::from("tl-1"));
+    cond.in_task_lists = Some(vec![Id::from("tl-1")]);
     let mut cmp = TaskComparator::new(TaskComparatorProperty::Created);
     cmp.is_ascending = false;
     sc.task_query_changes(
@@ -547,9 +549,9 @@ async fn task_query_changes_with_filter_sort_upto_calculatetotal() {
         serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
     let args = &body["methodCalls"][0][1];
     assert_eq!(
-        args["filter"]["taskListId"],
-        json!("tl-1"),
-        "filter.taskListId must be 'tl-1'"
+        args["filter"]["inTaskLists"],
+        json!(["tl-1"]),
+        "filter.inTaskLists must be ['tl-1']"
     );
     assert_eq!(
         args["sort"][0]["property"],
@@ -716,4 +718,91 @@ async fn task_copy_omits_unset_copy_args() {
         task_copy_sent_args(params).await,
         json!({ "accountId": "A13824", "fromAccountId": "src" })
     );
+}
+
+// ---------------------------------------------------------------------------
+// Task/get timeZone and Task/query expandRecurrences / timeZone
+// ---------------------------------------------------------------------------
+
+/// The arguments of the first request `server` received.
+async fn first_args(server: &MockServer) -> serde_json::Value {
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    body["methodCalls"][0][1].clone()
+}
+
+/// Oracle: jmapio/jmap #456 "a Task/get timeZone argument (as
+/// CalendarEvent/get)"; draft-ietf-jmap-calendars-34 §5.7 names it
+/// `timeZone`, a TimeZoneId.
+#[tokio::test]
+async fn task_get_sends_time_zone() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [["Task/get",
+            { "accountId": "A13824", "state": "s5", "list": [], "notFound": [] }, "r1"]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let params = jmap_tasks_client::TaskGetParams {
+        time_zone: Some("Europe/Berlin".to_owned()),
+        ..Default::default()
+    };
+    sc.task_get(None, Some(&["id", "utcStart"]), Some(params))
+        .await
+        .expect("task_get with timeZone must succeed");
+    assert_eq!(
+        first_args(&server).await["timeZone"],
+        json!("Europe/Berlin")
+    );
+}
+
+/// Oracle: jmapio/jmap #456 "Task/query expandRecurrences"; the
+/// CalendarEvent/query arguments (draft-ietf-jmap-calendars-34 §5.11) are
+/// `expandRecurrences` (Boolean) and `timeZone` (TimeZoneId).
+#[tokio::test]
+async fn task_query_sends_expand_recurrences_and_time_zone() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [["Task/query", {
+            "accountId": "A13824", "queryState": "qs1", "canCalculateChanges": true,
+            "position": 0, "ids": []
+        }, "r1"]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let mut cond = TaskFilterCondition::default();
+    cond.after = Some(LocalDateTime::from("2026-01-01T00:00:00"));
+    cond.before = Some(LocalDateTime::from("2026-02-01T00:00:00"));
+    let task_params = jmap_tasks_client::TaskQueryParams {
+        expand_recurrences: Some(true),
+        time_zone: Some("Europe/Berlin".to_owned()),
+        ..Default::default()
+    };
+    sc.task_query(
+        Some(&Filter::Condition(cond)),
+        None,
+        &jmap_base_client::QueryParams::default(),
+        Some(task_params),
+    )
+    .await
+    .expect("task_query with expandRecurrences must succeed");
+    let args = first_args(&server).await;
+    assert_eq!(args["expandRecurrences"], json!(true));
+    assert_eq!(args["timeZone"], json!("Europe/Berlin"));
 }

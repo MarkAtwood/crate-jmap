@@ -4,7 +4,7 @@
 //! Oracle: RFC 8620 §5.5 — a FilterOperator object has the properties
 //! `operator` and `conditions`, and "`unsupportedFilter`: The filter is
 //! syntactically valid, but the server cannot process it." Condition
-//! property names: draft-ietf-jmap-tasks §Task/query (`taskListId`) and §TaskNotification/query (`taskIds`). Without the refusal, each bad filter below
+//! property names: draft-ietf-jmap-tasks §Task/query (`inTaskLists`, jmapio/jmap #456) and §TaskNotification/query (`taskIds`). Without the refusal, each bad filter below
 //! would decode as a condition with every property unset, which matches
 //! every record.
 
@@ -35,14 +35,14 @@ fn cases() -> [(&'static str, Handler, Value, Value); 4] {
         (
             "Task/query",
             |b, c, a| Box::pin(handle_task_query(b, c, a, &[])),
-            json!({ "taskListId": "tl1" }),
-            json!({ "tasklistId": "tl1" }),
+            json!({ "inTaskLists": ["tl1"] }),
+            json!({ "inTasklists": ["tl1"] }),
         ),
         (
             "Task/queryChanges",
             |b, c, a| Box::pin(handle_task_query_changes(b, c, a, &[])),
-            json!({ "taskListId": "tl1" }),
-            json!({ "tasklistId": "tl1" }),
+            json!({ "inTaskLists": ["tl1"] }),
+            json!({ "inTasklists": ["tl1"] }),
         ),
         (
             "TaskNotification/query",

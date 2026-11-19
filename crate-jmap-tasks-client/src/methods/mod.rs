@@ -60,6 +60,71 @@ pub struct TaskListSetParams {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// Extra arguments for `Task/get` (jmapio/jmap #456: "a Task/get timeZone
+/// argument (as CalendarEvent/get)").
+///
+/// Mirrors `CalendarEventGetParams` in `jmap-calendars-client`. All fields
+/// are optional; `None` leaves the argument out.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskGetParams {
+    /// `timeZone` (`TimeZoneId`, default `"Etc/UTC"`): the zone in which
+    /// the server reads floating tasks when computing `utcStart` /
+    /// `utcDue` (draft-ietf-jmap-tasks-06 §4; draft-ietf-jmap-calendars-34
+    /// §5.7).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_zone: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above (workspace AGENTS.md extras-preservation
+    /// policy). On a collision with a typed argument the typed value wins.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Extra arguments for `Task/query` (jmapio/jmap #456, as on
+/// CalendarEvent/query, draft-ietf-jmap-calendars-34 §5.11).
+///
+/// All fields are optional; `None` leaves the argument out.
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskQueryParams {
+    /// `expandRecurrences` (default `false`): one result id per instance
+    /// of a recurring task. With `true` the filter MUST be one
+    /// FilterCondition with both `before` and `after`, or the server
+    /// answers `invalidArguments`; a window over the account's
+    /// `maxExpandedQueryDuration` is `expandDurationTooLarge`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expand_recurrences: Option<bool>,
+    /// `timeZone` (`TimeZoneId`, default `"Etc/UTC"`): the zone for the
+    /// `after` / `before` conditions and for floating tasks.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time_zone: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above (workspace AGENTS.md extras-preservation
+    /// policy). On a collision with a typed argument the typed value wins.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Merge `params` (its `extra` already taken out) into the method
+/// arguments `args`: the typed fields first, then `extra`, never replacing
+/// a key `args` already has (the `calendar_event_get` rule: typed
+/// arguments win on collision). `extra` is taken out first because a
+/// flattened map would overwrite the typed fields inside `to_args`.
+pub(crate) fn merge_params<P: serde::Serialize>(
+    args: &mut serde_json::Value,
+    params: &P,
+    extra: serde_json::Map<String, serde_json::Value>,
+) -> Result<(), jmap_base_client::ClientError> {
+    let typed = jmap_base_client::to_args(params)?;
+    if let (Some(args), serde_json::Value::Object(typed)) = (args.as_object_mut(), typed) {
+        for (k, v) in typed.into_iter().chain(extra) {
+            args.entry(k).or_insert(v);
+        }
+    }
+    Ok(())
+}
+
 /// Arguments for `Task/copy` (draft-ietf-jmap-tasks-06 §4.8).
 ///
 /// Mirrors the canonical `EmailCopyParams` shape in `jmap-mail-client`

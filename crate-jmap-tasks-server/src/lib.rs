@@ -57,7 +57,7 @@ mod task_list;
 mod task_notification;
 pub mod workflow;
 
-pub use backend::TasksBackend;
+pub use backend::{TaskQueryArgs, TasksBackend, TasksLimits};
 pub use history::{
     handle_task_get_with_history, handle_task_list_get_with_history,
     handle_task_list_set_with_history, handle_task_query_changes_with_history,
@@ -624,6 +624,16 @@ pub(crate) mod test_support {
                 .await
         }
 
+        async fn query_tasks(
+            &self,
+            caller: &(),
+            account_id: &Id,
+            params: QueryParams<'_, Task>,
+            _args: &crate::TaskQueryArgs,
+        ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+            self.query_objects::<Task>(caller, account_id, params).await
+        }
+
         async fn task_list_has_tasks(
             &self,
             _caller: &(),
@@ -1140,6 +1150,16 @@ mod tests {
                 _account_id: &jmap_types::Id,
             ) -> bool {
                 true
+            }
+
+            async fn query_tasks(
+                &self,
+                caller: &(),
+                account_id: &Id,
+                params: QueryParams<'_, Task>,
+                _args: &crate::TaskQueryArgs,
+            ) -> Result<QueryResult, BackendQueryError<MockError>> {
+                self.query_objects::<Task>(caller, account_id, params).await
             }
 
             async fn task_list_has_tasks(

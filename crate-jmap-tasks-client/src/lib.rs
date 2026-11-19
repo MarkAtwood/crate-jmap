@@ -28,7 +28,8 @@ mod methods;
 pub use jmap_base_client::ClientError;
 pub use methods::{
     AddedItem, ChangesResponse, CopyResponse, GetResponse, PartialObject, QueryChangesResponse,
-    QueryResponse, SessionClient, SetError, SetResponse, TaskCopyParams, TaskListSetParams,
+    QueryResponse, SessionClient, SetError, SetResponse, TaskCopyParams, TaskGetParams,
+    TaskListSetParams, TaskQueryParams,
 };
 
 // ---------------------------------------------------------------------------

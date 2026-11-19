@@ -118,16 +118,16 @@ fn metadata_condition_names_decode_and_typos_reject() {
 }
 
 /// -05 §3.6: "A MetadataTextMatch object has the following fields:"
-/// `path` and `value`. A leaf combining the draft-ietf-jmap-tasks-06 §4 `taskListId` with
+/// `path` and `value`. A leaf combining the jmapio/jmap #456 `inTaskLists` with
 /// `metadataTextEquals` decodes both.
 #[test]
 fn metadata_text_condition_shape() {
     let c: TaskFilterCondition = serde_json::from_value(json!({
-        "taskListId": "tl1",
+        "inTaskLists": ["tl1"],
         "metadataTextEquals": { "path": "acme.example.com/approvalStatus", "value": "pending" }
     }))
     .expect("decode");
-    assert_eq!(c.task_list_id.as_ref().map(AsRef::as_ref), Some("tl1"));
+    assert_eq!(c.in_task_lists, Some(vec![jmap_types::Id::from("tl1")]));
     assert_eq!(
         c.metadata_text_equals,
         Some(MetadataTextMatch::new(

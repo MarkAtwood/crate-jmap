@@ -1,7 +1,8 @@
 {
-        "taskListId": "list001",
-        "isDraft": false,
-        "progress": "needs-action",
-        "after": "2024-01-01T00:00:00",
-        "before": "2025-01-01T00:00:00"
-    }
+    "inTaskLists": ["list001", "list002"],
+    "isDraft": false,
+    "progress": "needs-action",
+    "workflowStatus": "review",
+    "after": "2024-01-01T00:00:00",
+    "before": "2025-01-01T00:00:00"
+}

@@ -215,6 +215,16 @@ impl jmap_tasks_server::TasksBackend for FaultyBackend {
             .await
     }
 
+    async fn query_tasks(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        params: QueryParams<'_, jmap_tasks_types::Task>,
+        args: &jmap_tasks_server::TaskQueryArgs,
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        self.inner.query_tasks(&(), account_id, params, args).await
+    }
+
     async fn update_task_per_user(
         &self,
         _caller: &(),
@@ -277,6 +287,9 @@ impl UserBackend {
         }
     }
 }
+
+/// The `maxExpandedQueryDuration` a [`UserBackend`] reports: one day.
+pub const USER_BACKEND_MAX_EXPAND_SECONDS: u64 = 86_400;
 
 /// Offset in hours east of UTC of a [`UserBackend`] test zone.
 fn test_zone_offset_hours(zone: &str) -> Option<i64> {
@@ -429,6 +442,21 @@ impl jmap_tasks_server::TasksBackend for UserBackend {
         self.inner
             .task_list_has_tasks(&(), account_id, task_list_id)
             .await
+    }
+
+    async fn query_tasks(
+        &self,
+        _caller: &User,
+        account_id: &Id,
+        params: QueryParams<'_, jmap_tasks_types::Task>,
+        args: &jmap_tasks_server::TaskQueryArgs,
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        self.inner.query_tasks(&(), account_id, params, args).await
+    }
+
+    /// A one-day `maxExpandedQueryDuration`, [`USER_BACKEND_MAX_EXPAND_SECONDS`].
+    fn limits(&self, _caller: &User, _account_id: &Id) -> jmap_tasks_server::TasksLimits {
+        jmap_tasks_server::TasksLimits::new(USER_BACKEND_MAX_EXPAND_SECONDS)
     }
 
     /// Both users may: the owner holds every right, and the sharee holds

@@ -782,7 +782,7 @@ async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
 
     let args = json!({
         "accountId": "acc1",
-        "filter": { "operator": "AND", "conditions": [ { "taskListId": "tl1" } ] }
+        "filter": { "operator": "AND", "conditions": [ { "inTaskLists": ["tl1"] } ] }
     });
     let err = handle_task_query(&backend, &(), args, &[])
         .await
@@ -947,7 +947,7 @@ async fn task_query_largest_position_is_empty_page_not_error() {
 }
 
 // ---------------------------------------------------------------------------
-// Test: Task/queryChanges honours the `taskListId` filter of the query.
+// Test: Task/queryChanges honours the `inTaskLists` filter of the query.
 //
 // Oracle: RFC 8620 §5.6 — `removed`: "The "id" for every Foo that was in
 // the query results in the old state and that is not in the results in
@@ -990,7 +990,7 @@ async fn task_query_changes_honours_task_list_filter() {
         task_fixture("t2", "tl2", "File report"),
     );
 
-    let filter = json!({ "taskListId": "tl1" });
+    let filter = json!({ "inTaskLists": ["tl1"] });
     let HandlerOutput { primary: query, .. } = handle_task_query(
         &backend,
         &(),

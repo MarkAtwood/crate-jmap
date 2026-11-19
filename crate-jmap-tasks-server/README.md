@@ -126,7 +126,17 @@ pub trait TasksBackend: JmapBackend {
         &self, caller: &Self::CallerCtx, account_id: &Id, id: &Id, patch: PatchObject,
     ) -> impl Future<Output = Result<Option<Task>, BackendSetError<Self::Error>>> + Send;
 
+    /// Run Task/query with its expandRecurrences / timeZone arguments
+    /// (jmapio/jmap #456, as CalendarEvent/query). No default.
+    fn query_tasks(
+        &self, caller: &Self::CallerCtx, account_id: &Id,
+        params: QueryParams<'_, Task>, args: &TaskQueryArgs,
+    ) -> impl Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
+
     // --- Optional overrides (have default implementations) ---
+
+    /// Caps such as maxExpandedQueryDuration (default: 365 days).
+    fn limits(&self, caller: &Self::CallerCtx, account_id: &Id) -> TasksLimits;
 
     /// Compute utcStart and utcDue for a Task by converting local-time fields
     /// and time zone into UTC (draft-tasks-06 §4, utcStart/utcDue paragraphs).
@@ -273,8 +283,25 @@ store per-user data separately without changing the shared `updated` timestamp.
 
 `utcStart` and `utcDue` are computed on-demand via `compute_utc_times`. They are only
 included in the response when the client explicitly requests them in the `properties` list.
-The default implementation returns `(None, None)`, so both fields are absent unless the
-backend overrides this method.
+A requested one is `null` when the task has no `start` / `due` (jmapio/jmap PR #464). A
+floating task is read in the Task/get `timeZone` argument (default `Etc/UTC`). The default
+`compute_utc_times` returns `(None, None)`, so for a task that has a `start` / `due` both
+fields are absent unless the backend overrides this method.
+
+### Task/query — filter, expandRecurrences, timeZone
+
+The FilterCondition is jmapio/jmap #456's: `inTaskLists` (replacing a single `taskListId`),
+`workflowStatus`, `progress`, `text`, `title`, and `after` / `before` read as on
+CalendarEvent/query over the span `start`..`due` (after tests the due, before the start).
+`expandRecurrences` needs a single FilterCondition with both bounds (`invalidArguments`)
+and a window within `TasksLimits::max_expanded_query_duration_seconds`
+(`expandDurationTooLarge`); both arguments reach `TasksBackend::query_tasks`.
+
+### Task owners (mayWriteOwn)
+
+A task's owner is a participant with the `owner` role matching one of the user's
+ParticipantIdentity `calendarAddress` values, as Calendars defines it (jmapio/jmap #461);
+use `jmap_tasks_types::is_task_owner` / `task_has_owner` in the backend's write checks.
 
 ### TaskList/set — onDestroyRemoveTasks cascade
 
@@ -368,14 +395,15 @@ dispatcher answers a history argument for it with `invalidArguments`.
 The memory backend's `with_object_history(capability, retention)` keeps
 the history: `onDestroyRemoveTasks` cascades are recorded, a restored Task
 needs a current TaskList and counts toward it again, and destroyed Task
-queries support what Task/query here does (`taskListId`, metadata; no
+queries support what Task/query here does (`inTaskLists`, `workflowStatus`, `progress`, `after`, `before`, metadata; no
 sort). A deployment with chat-tasks redacts `chatId` on history entries
 as on current Tasks.
 
 ## Gotchas
 
-- `compute_utc_times` default returns `(None, None)` — `utcStart`/`utcDue` will be
-  absent from all `Task/get` responses unless the backend overrides this method.
+- `compute_utc_times` default returns `(None, None)` — a requested `utcStart`/`utcDue` will be
+  absent from `Task/get` responses for tasks that have a `start` / `due` unless the backend
+  overrides this method (a task without them still gets `null`).
 - `isDraft` immutability is the backend's job: `update_object` MUST reject a patch that
   sets `isDraft: true` on a Task whose stored value is not `true`; the handler does not
   check it.

@@ -192,7 +192,7 @@ TaskList must be destroyed before the TaskList is destroyed. When false (the
 default), a destroy attempt on a non-empty TaskList must fail with a
 `taskListHasTask` SetError.
 
-The handler calls `query_objects<Task>` (filter by taskListId) to check for
+The handler calls `query_objects<Task>` (filter `inTaskLists`) to check for
 tasks. If `onDestroyRemoveTasks` is true it calls `destroy_object<Task>` for
 each, then `destroy_object<TaskList>`. The backend has no concept of this flag.
 

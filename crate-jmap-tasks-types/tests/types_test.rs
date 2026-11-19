@@ -300,7 +300,8 @@ fn task_progress_other_roundtrip() {
 fn task_filter_condition_empty_defaults() {
     let json = "{}";
     let cond: TaskFilterCondition = serde_json::from_str(json).expect("empty filter");
-    assert!(cond.task_list_id.is_none());
+    assert!(cond.in_task_lists.is_none());
+    assert!(cond.workflow_status.is_none());
     assert!(cond.uid.is_none());
     assert!(cond.has_keyword.is_none());
     assert!(cond.not_keyword.is_none());
@@ -320,15 +321,19 @@ fn task_filter_condition_empty_defaults() {
 /// Task/query "is the "CalendarEvent/query" method"
 /// (draft-ietf-jmap-tasks-06 §4.13), whose FilterCondition defines
 /// "*after*: LocalDateTime" and "*before*: LocalDateTime"
-/// (draft-ietf-jmap-calendars-34 §5.11.1).
+/// (draft-ietf-jmap-calendars-34 §5.11.1). `inTaskLists` is `Id[]` and
+/// `workflowStatus` a String (jmapio/jmap #456).
 #[test]
 fn task_filter_condition_populated() {
     let json = &common::fixture("task_filter_condition_populated.json");
     let cond: TaskFilterCondition = serde_json::from_str(json).expect("filter");
     assert_eq!(
-        cond.task_list_id.as_ref().map(|id| id.as_ref()),
-        Some("list001")
+        cond.in_task_lists
+            .as_deref()
+            .map(|ids| ids.iter().map(AsRef::as_ref).collect::<Vec<&str>>()),
+        Some(vec!["list001", "list002"])
     );
+    assert_eq!(cond.workflow_status.as_deref(), Some("review"));
     assert_eq!(cond.is_draft, Some(false));
     assert_eq!(cond.progress, Some(TaskProgress::NeedsAction));
     assert_eq!(

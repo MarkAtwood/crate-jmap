@@ -20,7 +20,7 @@ use jmap_tasks_types::{Task, TaskList};
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::Value;
 
-use super::{ChangeEntry, Inner, MemoryBackend, MemoryError, metadata_matches};
+use super::{ChangeEntry, Inner, MemoryBackend, MemoryError, task_matches};
 use jmap_tasks_types::TaskFilterCondition;
 
 /// The types this backend keeps history for.
@@ -65,7 +65,8 @@ impl Inner {
     }
 
     /// Destroyed objects in result order: the window, then for Task the
-    /// conditions this backend's Task/query evaluates (`taskListId` and the
+    /// conditions this backend's Task/query evaluates (`inTaskLists`, the
+    /// other jmapio/jmap #456 ones it supports, and the
     /// metadata conditions), over final versions; most recently destroyed
     /// first (§4). Like Task/query here, any other condition is
     /// `unsupportedFilter` and any sort `unsupportedSort` (§4 allows a
@@ -84,7 +85,6 @@ impl Inner {
         if sort.is_some_and(|s| !s.is_empty()) {
             return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
         }
-        let mut list: Option<Id> = None;
         let mut condition: Option<TaskFilterCondition> = None;
         if let Some(f) = filter {
             let v = serde_json::to_value(f)
@@ -93,14 +93,13 @@ impl Inner {
                 && v.as_object().is_some_and(|m| {
                     m.iter().all(|(k, val)| {
                         val.is_null()
-                            || k == "taskListId"
+                            || super::TASK_CONDITION_KEYS.contains(&k.as_str())
                             || super::SHARED_METADATA_CONDITION_KEYS.contains(&k.as_str())
                     })
                 });
             if !supported {
                 return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
             }
-            list = Inner::task_list_id_of(&v);
             condition =
                 Some(serde_json::from_value(v).map_err(|e| {
                     BackendQueryError::Method(JmapError::server_fail(e.to_string()))
@@ -109,22 +108,18 @@ impl Inner {
         let rows = h
             .destroyed(O::TYPE_NAME, account, after, before)
             .map_err(|e| BackendQueryError::Method(JmapError::invalid_arguments(e.to_string())))?;
-        Ok(rows
-            .into_iter()
-            .filter(|d| {
-                let v = &d.snapshot;
-                (list.is_none() || Inner::task_list_id_of(v) == list)
-                    && condition.as_ref().is_none_or(|c| {
-                        metadata_matches(
-                            v.get("metadata").and_then(Value::as_object),
-                            c.metadata_exists.as_deref(),
-                            c.metadata_text_contains.as_ref(),
-                            c.metadata_text_equals.as_ref(),
-                        )
-                    })
-            })
-            .map(|d| d.id)
-            .collect())
+        let mut ids = Vec::new();
+        for d in rows {
+            // The history query has no timeZone argument: Etc/UTC.
+            let keep = match &condition {
+                None => true,
+                Some(c) => task_matches(c, &d.snapshot, "Etc/UTC")?,
+            };
+            if keep {
+                ids.push(d.id);
+            }
+        }
+        Ok(ids)
     }
 }
 

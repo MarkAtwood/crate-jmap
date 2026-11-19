@@ -40,8 +40,8 @@
 
 use std::collections::BTreeMap;
 
-use jmap_tasks_types::{Task, TaskComparator};
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_tasks_types::{Filter, Task, TaskComparator, TaskFilter, TaskFilterCondition};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -51,8 +51,9 @@ use crate::helpers::{
     finalize_set_response, reject_unsupported_sort, resolve_refs,
 };
 use jmap_server::{
-    HandlerOutput, backend_set_error_value, bool_arg, check_read_only_patch, reject_server_set,
-    server_fail_from_backend, server_fail_value_from_backend,
+    HandlerOutput, QueryParams, backend_set_error_value, bool_arg, check_read_only_patch,
+    filter_arg, optional_arg, query_anchor_args, reject_server_set, server_fail_from_backend,
+    server_fail_value_from_backend,
 };
 
 // ---------------------------------------------------------------------------
@@ -78,6 +79,13 @@ use jmap_server::{
 /// fetched for that even when `properties` leaves them out, and dropped
 /// again before the response, so only the requested properties are
 /// returned (RFC 8620 §5.1).
+///
+/// The `timeZone` argument (TimeZoneId, default `"Etc/UTC"`; jmapio/jmap
+/// #456, as CalendarEvent/get, draft-ietf-jmap-calendars-34 §5.7) is the
+/// zone for floating tasks: "Floating tasks will be interpreted as per the
+/// time zone given as a Task/get argument" (draft-tasks-06 §4). It is
+/// passed to `compute_utc_times` as `tz_hint`. A value that is neither a
+/// string nor `null` is `invalidArguments`.
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Task for
@@ -131,6 +139,20 @@ pub async fn handle_task_get<B: TasksBackend>(
             })
         })?;
 
+    // jmapio/jmap #456: a Task/get `timeZone` argument as on CalendarEvent/get
+    // (draft-ietf-jmap-calendars-34 §5.7, "TimeZoneId (default:
+    // "Etc/UTC")"), the zone for floating tasks' utcStart/utcDue.
+    let time_zone: Option<String> = match args.as_object_mut().and_then(|a| a.remove("timeZone")) {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(s),
+        Some(v) => {
+            return Err(JmapError::invalid_arguments(format!(
+                "timeZone: expected a string, got {}",
+                jmap_server::json_type_name(&v)
+            )));
+        }
+    };
+
     // Delegate to the generic get handler.
     let HandlerOutput {
         primary: mut response,
@@ -145,7 +167,7 @@ pub async fn handle_task_get<B: TasksBackend>(
         for item in list.iter_mut() {
             if let Ok(task) = Task::deserialize(&*item) {
                 let (utc_start, utc_due) = backend
-                    .compute_utc_times(caller, &account_id, &task, None)
+                    .compute_utc_times(caller, &account_id, &task, time_zone.as_deref())
                     .await;
                 // jmapio/jmap PR #464: `UTCDate|null`, null when the local
                 // time is not set.
@@ -935,6 +957,25 @@ pub async fn handle_task_copy<B: TasksBackend>(
 /// response shape (`accountId`, `queryState`, `canCalculateChanges`,
 /// `position`, `ids`, optional `total`).
 ///
+/// The Task/query arguments of jmapio/jmap #456, as on CalendarEvent/query
+/// (draft-ietf-jmap-calendars-34 §5.11):
+///
+/// - `expandRecurrences`: Boolean (default `false`). "If true, the filter
+///   MUST be just a FilterCondition (not a FilterOperator) and MUST include
+///   both a "before" and "after" property; otherwise, the server MUST
+///   reject the call with an invalidArguments error." A window longer
+///   than [`TasksLimits::max_expanded_query_duration_seconds`](crate::TasksLimits::max_expanded_query_duration_seconds)
+///   (`maxExpandedQueryDuration`, draft-tasks-06 §1.6.2) is the
+///   `expandDurationTooLarge` method error, checked here and again by the
+///   backend.
+/// - `timeZone`: TimeZoneId (default `"Etc/UTC"`), the zone for the
+///   `after` / `before` conditions and for floating tasks. A value that is
+///   neither a string nor `null` is `invalidArguments`.
+///
+/// Both reach [`TasksBackend::query_tasks`] as a
+/// [`TaskQueryArgs`](crate::TaskQueryArgs). The backend may also return
+/// `cannotCalculateOccurrences`.
+///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
 /// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
@@ -953,7 +994,121 @@ pub async fn handle_task_query<B: TasksBackend>(
         using,
     )?;
     reject_unsupported_sort::<TaskComparator>(args.get("sort"))?;
-    jmap_server::handle_query::<Task, B>(backend, caller, args).await
+    let (account_id, mut args) = extract_account_id(args)?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    // Task has no localizable properties: as in the generic /query handler,
+    // a non-null `language` is invalidArguments (draft-atwood-jmap-updates-00
+    // §4.2).
+    jmap_server::I18nProjection::from_args::<Task>(
+        &mut args,
+        &[],
+        backend.i18n_info(caller, &account_id).as_ref(),
+    )?;
+
+    // RFC 8620 §5.5 arguments.
+    let calculate_total = bool_arg(&args, "calculateTotal", false);
+    let limit: Option<u64> = match args.get("limit") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!(
+                "limit: expected a non-negative integer, got {}",
+                jmap_server::json_type_name(v)
+            ))
+        })?),
+    };
+    let position: i64 = match args.get("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!(
+                "position: expected an integer, got {}",
+                jmap_server::json_type_name(v)
+            ))
+        })?,
+    };
+    let (anchor, anchor_offset) = query_anchor_args(&args)?;
+    let filter: Option<TaskFilter> = filter_arg(&mut args)?;
+    let sort: Option<Vec<TaskComparator>> = optional_arg(&mut args, "sort", || {
+        JmapError::invalid_arguments("sort must be an array")
+    })?;
+
+    // jmapio/jmap #456 arguments.
+    let expand_recurrences = bool_arg(&args, "expandRecurrences", false);
+    let time_zone: Option<String> = optional_arg(&mut args, "timeZone", || {
+        JmapError::invalid_arguments("timeZone must be a string")
+    })?;
+    if expand_recurrences {
+        let condition = match &filter {
+            Some(Filter::Condition(c)) if c.before.is_some() && c.after.is_some() => c,
+            _ => {
+                return Err(JmapError::invalid_arguments(
+                    "expandRecurrences requires a FilterCondition with both 'before' and 'after'",
+                ));
+            }
+        };
+        // Defense in depth; the backend re-checks (TasksBackend::query_tasks).
+        if let Some(secs) = expand_duration_seconds(condition)
+            && u64::try_from(secs).is_ok_and(|secs| {
+                secs > backend
+                    .limits(caller, &account_id)
+                    .max_expanded_query_duration_seconds
+            })
+        {
+            return Err(JmapError::custom("expandDurationTooLarge"));
+        }
+    }
+    let query_args = crate::TaskQueryArgs::default()
+        .with_expand_recurrences(expand_recurrences)
+        .with_time_zone(time_zone);
+
+    let result = backend
+        .query_tasks(
+            caller,
+            &account_id,
+            QueryParams::new()
+                .filter(filter.as_ref())
+                .sort(sort.as_deref())
+                .limit(limit)
+                .position(position)
+                .anchor(anchor.as_ref())
+                .anchor_offset(anchor_offset),
+            &query_args,
+        )
+        .await
+        .map_err(JmapError::from)?;
+
+    let mut resp = json!({
+        "accountId": account_id.as_ref(),
+        "queryState": result.query_state.as_ref(),
+        "canCalculateChanges": result.can_calculate_changes,
+        "position": result.position,
+        "ids": result.ids,
+    });
+    if calculate_total && let Some(t) = result.total {
+        resp["total"] = json!(t);
+    }
+    Ok(HandlerOutput::new(resp))
+}
+
+/// `before - after` of `condition` in seconds, for the
+/// `maxExpandedQueryDuration` pre-check; `None` when a bound is missing or
+/// does not parse.
+///
+/// Both bounds are `LocalDateTime`s read in the same `timeZone`, so their
+/// difference is read as if both were UTC (the calendars-server pre-check
+/// does the same). A time-zone transition inside the window can make the
+/// real span differ by its offset change; the backend's own check is the
+/// exact one.
+pub(crate) fn expand_duration_seconds(condition: &TaskFilterCondition) -> Option<i64> {
+    let epoch = |local: &jmap_tasks_types::LocalDateTime| {
+        UTCDate::from(format!("{local}Z")).to_epoch_seconds().ok()
+    };
+    Some(epoch(condition.before.as_ref()?)? - epoch(condition.after.as_ref()?)?)
 }
 
 // ---------------------------------------------------------------------------

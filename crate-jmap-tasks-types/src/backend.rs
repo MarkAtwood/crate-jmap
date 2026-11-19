@@ -601,8 +601,8 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.5 (line 2368) types the /query `filter` as
     /// "FilterOperator|FilterCondition|null". draft-ietf-jmap-tasks-06
-    /// §4.13 makes Task/query the CalendarEvent/query method (Task
-    /// property `taskListId`, §4) and §5.5.1 names the TaskNotification
+    /// §4.13 makes Task/query the CalendarEvent/query method (condition
+    /// `inTaskLists`, jmapio/jmap #456) and §5.5.1 names the TaskNotification
     /// `taskIds` condition. A hand-written NOT tree decodes as each filter.
     #[test]
     fn query_filters_are_operator_trees() {
@@ -618,7 +618,7 @@ mod tests {
         }
         let not = |cond: serde_json::Value| serde_json::json!({ "operator": "NOT", "conditions": [cond] });
         assert!(decodes_as_operator::<crate::Task, _>(not(
-            serde_json::json!({ "taskListId": "l1" })
+            serde_json::json!({ "inTaskLists": ["l1"] })
         )));
         assert!(decodes_as_operator::<crate::TaskNotification, _>(not(
             serde_json::json!({ "taskIds": ["t1"] })

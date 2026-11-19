@@ -550,6 +550,16 @@ pub struct Task {
 ///
 /// All fields are optional; a condition with no fields set matches every Task.
 ///
+/// -06 §4.13 defines Task/query as CalendarEvent/query and leaves the
+/// filter "TODO". The conditions here are the ones jmapio/jmap #456
+/// proposes (`inTaskLists`, `after` / `before` on due and start,
+/// `progress`, `workflowStatus`, `text`, `title`), plus `uid`, `hasKeyword`,
+/// `notKeyword`, `description`, `isDraft` and the draft-ietf-jmap-metadata-05
+/// conditions. `after` and `before` follow CalendarEvent/query
+/// (draft-ietf-jmap-calendars-34 §5.11.1), with a task's span running from
+/// its `start` to its `due`: `after` tests the end of that span and
+/// `before` its beginning, both in the Task/query `timeZone` argument.
+///
 /// # Excluded from extras preservation
 ///
 /// This type is **out of scope** for the workspace extras-preservation
@@ -581,9 +591,11 @@ pub struct Task {
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TaskFilterCondition {
-    /// Task must belong to this TaskList.
+    /// `inTaskLists`: the task's `taskListId` must be one of these TaskList
+    /// ids (jmapio/jmap #456 "inTaskLists: Id\[\]"). It replaces the
+    /// single-id `taskListId` condition this crate had before.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task_list_id: Option<Id>,
+    pub in_task_lists: Option<Vec<Id>>,
 
     /// Task `uid` must equal this string.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -609,15 +621,27 @@ pub struct TaskFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    /// Task `due` date must be on or after this `LocalDateTime`,
-    /// interpreted in the query's `timeZone` argument (Task/query is
-    /// CalendarEvent/query: draft-ietf-jmap-tasks-06 §4.13,
-    /// draft-ietf-jmap-calendars-34 §5.11.1).
+    /// The end of the task, or of any recurrence of it, must be after this
+    /// date, both read in the Task/query `timeZone` argument. The end is
+    /// the task's `due`, or its `start` when it has no `due`; a task with
+    /// neither does not match. A floating task's local time is read in the
+    /// `timeZone` argument.
+    ///
+    /// CalendarEvent/query `after` (draft-ietf-jmap-calendars-34 §5.11.1:
+    /// "The end of the event ... must be after this date") with the task
+    /// span `start`..`due` (jmapio/jmap #456 "after / before ... on due
+    /// (and start)"). #456 types it `UTCDateTime`; this stays the
+    /// CalendarEvent/query `LocalDateTime` plus `timeZone` argument, which
+    /// -06 §4.13 inherits and `expandRecurrences` assumes.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<LocalDateTime>,
 
-    /// Task `due` date must be before this `LocalDateTime`, interpreted
-    /// in the query's `timeZone` argument.
+    /// The beginning of the task, or of any recurrence of it, must be
+    /// before this date, both read in the Task/query `timeZone` argument.
+    /// The beginning is the task's `start`, or its `due` when it has no
+    /// `start`; a task with neither does not match. See
+    /// [`after`](Self::after) for the source (calendars-34 §5.11.1
+    /// `before`: "The start of the event ... must be before this date").
     #[serde(skip_serializing_if = "Option::is_none")]
     pub before: Option<LocalDateTime>,
 
@@ -625,11 +649,12 @@ pub struct TaskFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_draft: Option<bool>,
 
-    /// Filter by `progress` value.
+    /// The task's `progress` must be this value (jmapio/jmap #456).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub progress: Option<TaskProgress>,
 
-    /// Filter by `workflow_status` value.
+    /// The task's `workflowStatus` must be exactly this string
+    /// (jmapio/jmap #456).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_status: Option<String>,
 

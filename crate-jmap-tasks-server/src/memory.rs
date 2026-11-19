@@ -71,7 +71,7 @@ mod history;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
 
-use crate::TasksBackend;
+use crate::{TaskQueryArgs, TasksBackend};
 use jmap_metadata_server::{
     ChangedProperties, MetadataCondition, MetadataFilterError, MetadataOnlyChanges, SetKind,
     changed_properties, check_metadata_depth, check_metadata_write, is_metadata_property,
@@ -856,9 +856,12 @@ impl JmapReads for MemoryBackend {
     /// # Filter and sort are NOT honored
     ///
     /// This reference implementation supports exactly one filter shape: a
-    /// single Task condition whose only set fields are `taskListId`
-    /// (draft-tasks-06 §4.6), which the `TaskList/set` `onDestroyRemoveTasks`
-    /// cascade (draft-tasks-06 §3.4) needs, and the draft-ietf-jmap-metadata-05
+    /// single Task condition whose only set fields are `inTaskLists` (which
+    /// the `TaskList/set` `onDestroyRemoveTasks` cascade, draft-tasks-06
+    /// §3.4, needs), `workflowStatus`, `progress`, `after` and `before`
+    /// (jmapio/jmap #456; see [`TasksBackend::query_tasks`] for the
+    /// time-zone limit; here the query zone is `Etc/UTC`), and the
+    /// draft-ietf-jmap-metadata-05
     /// §3.6 shared-metadata conditions once [`MemoryBackend::with_metadata_info`]
     /// opts Task in. It does **not** support any other filter or any sort
     /// shape. RFC 8620 §5.5 mandates that an unsupported `filter` produces
@@ -894,123 +897,8 @@ impl JmapReads for MemoryBackend {
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-        let QueryParams {
-            filter,
-            sort,
-            limit,
-            position,
-            anchor,
-            anchor_offset,
-            ..
-        } = params;
-        // Fail loud on any non-trivial filter. A `None` or all-fields-None
-        // filter passes (matches everything); any populated field this
-        // backend cannot evaluate, and any operator tree, is answered with
-        // `unsupportedFilter` (RFC 8620 §5.5: "A server MUST reject the call
-        // with an unsupportedFilter error if it cannot process the given
-        // filter").
-        //
-        // The generic `O::Filter` is the concrete `TaskFilter`,
-        // `TaskNotificationFilter` or (TaskList) `Value` here. A serializer
-        // failure surfaces as serverFail rather than a panic or a silently
-        // dropped filter (see the jmap-mail-server memory backend).
-        //
-        // draft-ietf-jmap-metadata-05 §3.6: on an opted-in Task the shared
-        // `metadata*` conditions are evaluable in the same leaf;
-        // [`check_metadata_filter`] validates them first, also inside an
-        // operator tree, so a malformed path is `invalidArguments`.
-        let inner = self.inner.lock().await;
-        let is_task = O::TYPE_NAME == Task::TYPE_NAME;
-        let mut in_task_list: Option<Id> = None;
-        let mut task_condition: Option<TaskFilterCondition> = None;
-        if let Some(f) = filter {
-            let v = jmap_server::serialize_value(f).map_err(BackendQueryError::Method)?;
-            check_metadata_filter(&v, inner.metadata_info.get(O::TYPE_NAME))?;
-            if v.get("operator").is_some() {
-                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
-            }
-            let any_field_set = match v.as_object() {
-                Some(m) => {
-                    if is_task {
-                        in_task_list = Inner::task_list_id_of(&v);
-                    }
-                    m.iter().any(|(k, val)| {
-                        !val.is_null()
-                            && !(in_task_list.is_some() && k == "taskListId")
-                            && !(is_task && SHARED_METADATA_CONDITION_KEYS.contains(&k.as_str()))
-                    })
-                }
-                // Filter serialized as something other than an object (only
-                // possible for TaskList's untyped `Value`): treat as
-                // non-trivial.
-                None => true,
-            };
-            if any_field_set {
-                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
-            }
-            if is_task {
-                task_condition = Some(serde_json::from_value(v).map_err(|e| {
-                    BackendQueryError::Method(JmapError::server_fail(e.to_string()))
-                })?);
-            }
-        }
-
-        // Fail loud on any non-empty sort: this reference impl returns ids
-        // in id-lexicographic order and honors no comparator. RFC 8620 §5.5:
-        // "A server MUST reject the call with an unsupportedSort error if it
-        // cannot sort by the given properties."
-        if sort.is_some_and(|s| !s.is_empty()) {
-            return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
-        }
-
-        let mut ids: Vec<Id> = inner
-            .objects_ref(O::TYPE_NAME, account_id.as_ref())
-            .map(|m| {
-                let mut keys: Vec<Id> = m
-                    .iter()
-                    .filter(|(_, v)| {
-                        (in_task_list.is_none() || Inner::task_list_id_of(v) == in_task_list)
-                            && task_condition.as_ref().is_none_or(|c| {
-                                metadata_matches(
-                                    v.get("metadata").and_then(serde_json::Value::as_object),
-                                    c.metadata_exists.as_deref(),
-                                    c.metadata_text_contains.as_ref(),
-                                    c.metadata_text_equals.as_ref(),
-                                )
-                            })
-                    })
-                    .map(|(k, _)| k.clone())
-                    .collect();
-                keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                keys
-            })
-            .unwrap_or_default();
-
-        let total = ids.len() as u64;
-        let query_state = State::from(
-            inner
-                .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string()
-                .as_str(),
-        );
-
-        // RFC 8620 §5.5 position / anchor / anchorOffset.
-        let start = resolve_query_start(&ids, position, anchor, anchor_offset)
-            .map_err(BackendQueryError::Method)?;
-
-        ids = ids[start..]
-            .iter()
-            .take(limit_or_max(limit))
-            .cloned()
-            .collect();
-
-        Ok(QueryResult::new(
-            ids,
-            start as u64,
-            Some(total),
-            query_state,
-            true,
-        ))
+        self.query_impl(account_id, params, &TaskQueryArgs::default())
+            .await
     }
 
     /// Returns the changes to a `/query` result set since `since_query_state`.
@@ -1020,7 +908,7 @@ impl JmapReads for MemoryBackend {
     /// `/query` and are applied by re-running [`Self::query_objects`]
     /// (a filter it refuses fails here the same way). `removed` holds the
     /// destroyed ids and the updated ids that no longer match (a Task moved
-    /// out of the queried `taskListId`); `added` holds the created and
+    /// out of the queried `inTaskLists`); `added` holds the created and
     /// updated ids that match now, with their index in the current result.
     /// Mirrors the canonical `jmap-mail-server` `MemoryBackend::query_changes`.
     async fn query_changes<O: QueryObject + Send + Sync>(
@@ -1268,6 +1156,89 @@ const SHARED_METADATA_CONDITION_KEYS: [&str; 3] = [
     "metadataTextEquals",
 ];
 
+/// The Task FilterCondition properties this backend evaluates (jmapio/jmap
+/// #456), besides the shared-metadata ones; any other set property is
+/// `unsupportedFilter`.
+const TASK_CONDITION_KEYS: [&str; 5] = [
+    "inTaskLists",
+    "workflowStatus",
+    "progress",
+    "after",
+    "before",
+];
+
+/// Whether the stored Task `task` matches `c`, the conditions in
+/// [`TASK_CONDITION_KEYS`] and the shared-metadata ones; `query_zone` is
+/// the Task/query `timeZone`.
+///
+/// `after` / `before` follow [`TaskFilterCondition`]: the task's end is its
+/// `due` (or `start`), its beginning its `start` (or `due`), and a task
+/// with neither matches neither. This backend has no time-zone database,
+/// so it compares local times only when the task is floating or in
+/// `query_zone`, where both read in the same zone and the fixed-width
+/// RFC 8984 `LocalDateTime` strings order as the times do. A task in
+/// another zone makes the query `unsupportedFilter` (RFC 8620 §5.5: the
+/// server "cannot process the given filter").
+fn task_matches(
+    c: &TaskFilterCondition,
+    task: &serde_json::Value,
+    query_zone: &str,
+) -> Result<bool, BackendQueryError<MemoryError>> {
+    let str_of = |key: &str| task.get(key).and_then(serde_json::Value::as_str);
+    if let Some(lists) = &c.in_task_lists
+        && !str_of("taskListId").is_some_and(|l| lists.iter().any(|id| id.as_ref() == l))
+    {
+        return Ok(false);
+    }
+    if let Some(status) = &c.workflow_status
+        && str_of("workflowStatus") != Some(status.as_str())
+    {
+        return Ok(false);
+    }
+    if let Some(progress) = &c.progress
+        && str_of("progress") != Some(progress.as_str())
+    {
+        return Ok(false);
+    }
+    if c.after.is_some() || c.before.is_some() {
+        if str_of("timeZone").is_some_and(|z| z != query_zone) {
+            let mut err = JmapError::unsupported_filter();
+            err.description = Some(
+                "after/before on a task in another time zone needs a time-zone database".to_owned(),
+            );
+            return Err(BackendQueryError::Method(err));
+        }
+        let (start, due) = (str_of("start"), str_of("due"));
+        if let Some(after) = &c.after
+            && !due.or(start).is_some_and(|end| end > after.as_ref())
+        {
+            return Ok(false);
+        }
+        if let Some(before) = &c.before
+            && !start.or(due).is_some_and(|begin| begin < before.as_ref())
+        {
+            return Ok(false);
+        }
+    }
+    Ok(metadata_matches(
+        task.get("metadata").and_then(serde_json::Value::as_object),
+        c.metadata_exists.as_deref(),
+        c.metadata_text_contains.as_ref(),
+        c.metadata_text_equals.as_ref(),
+    ))
+}
+
+/// `true` when the stored Task `task` recurs: it has a non-empty
+/// `recurrenceRules` or `recurrenceOverrides` (RFC 8984 §4.3).
+fn is_recurring(task: &serde_json::Value) -> bool {
+    let non_empty = |key: &str| match task.get(key) {
+        Some(serde_json::Value::Array(a)) => !a.is_empty(),
+        Some(serde_json::Value::Object(o)) => !o.is_empty(),
+        _ => false,
+    };
+    non_empty("recurrenceRules") || non_empty("recurrenceOverrides")
+}
+
 /// Validate the draft-ietf-jmap-metadata-05 §3.6 conditions on every leaf
 /// of `filter`, a FilterCondition or FilterOperator tree (RFC 8620 §5.5),
 /// before any object is matched.
@@ -1427,6 +1398,151 @@ impl MemoryBackend {
 // ---------------------------------------------------------------------------
 // TasksBackend impl
 // ---------------------------------------------------------------------------
+
+impl MemoryBackend {
+    /// The body of [`JmapReads::query_objects`] and
+    /// [`TasksBackend::query_tasks`]; `task_args` applies to Task only.
+    async fn query_impl<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        params: QueryParams<'_, O>,
+        task_args: &TaskQueryArgs,
+    ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
+        let QueryParams {
+            filter,
+            sort,
+            limit,
+            position,
+            anchor,
+            anchor_offset,
+            ..
+        } = params;
+        // Fail loud on any non-trivial filter. A `None` or all-fields-None
+        // filter passes (matches everything); any populated field this
+        // backend cannot evaluate, and any operator tree, is answered with
+        // `unsupportedFilter` (RFC 8620 §5.5: "A server MUST reject the call
+        // with an unsupportedFilter error if it cannot process the given
+        // filter").
+        //
+        // The generic `O::Filter` is the concrete `TaskFilter`,
+        // `TaskNotificationFilter` or (TaskList) `Value` here. A serializer
+        // failure surfaces as serverFail rather than a panic or a silently
+        // dropped filter (see the jmap-mail-server memory backend).
+        //
+        // draft-ietf-jmap-metadata-05 §3.6: on an opted-in Task the shared
+        // `metadata*` conditions are evaluable in the same leaf;
+        // [`check_metadata_filter`] validates them first, also inside an
+        // operator tree, so a malformed path is `invalidArguments`.
+        let inner = self.inner.lock().await;
+        let is_task = O::TYPE_NAME == Task::TYPE_NAME;
+        let mut task_condition: Option<TaskFilterCondition> = None;
+        if let Some(f) = filter {
+            let v = jmap_server::serialize_value(f).map_err(BackendQueryError::Method)?;
+            check_metadata_filter(&v, inner.metadata_info.get(O::TYPE_NAME))?;
+            if v.get("operator").is_some() {
+                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
+            }
+            let any_field_set = match v.as_object() {
+                Some(m) => m.iter().any(|(k, val)| {
+                    !val.is_null()
+                        && !(is_task
+                            && (TASK_CONDITION_KEYS.contains(&k.as_str())
+                                || SHARED_METADATA_CONDITION_KEYS.contains(&k.as_str())))
+                }),
+                // Filter serialized as something other than an object (only
+                // possible for TaskList's untyped `Value`): treat as
+                // non-trivial.
+                None => true,
+            };
+            if any_field_set {
+                return Err(BackendQueryError::Method(JmapError::unsupported_filter()));
+            }
+            if is_task {
+                task_condition = Some(serde_json::from_value(v).map_err(|e| {
+                    BackendQueryError::Method(JmapError::server_fail(e.to_string()))
+                })?);
+            }
+        }
+
+        // Fail loud on any non-empty sort: this reference impl returns ids
+        // in id-lexicographic order and honors no comparator. RFC 8620 §5.5:
+        // "A server MUST reject the call with an unsupportedSort error if it
+        // cannot sort by the given properties."
+        if sort.is_some_and(|s| !s.is_empty()) {
+            return Err(BackendQueryError::Method(JmapError::unsupported_sort()));
+        }
+
+        let query_zone = task_args.time_zone.as_deref().unwrap_or("Etc/UTC");
+        let mut matched: Vec<(&Id, &serde_json::Value)> = Vec::new();
+        if let Some(objects) = inner.objects_ref(O::TYPE_NAME, account_id.as_ref()) {
+            for (id, v) in objects {
+                let keep = match &task_condition {
+                    None => true,
+                    Some(c) => task_matches(c, v, query_zone)?,
+                };
+                if keep {
+                    matched.push((id, v));
+                }
+            }
+        }
+
+        if is_task && task_args.expand_recurrences {
+            // TasksBackend::query_tasks: the backend re-checks the
+            // maxExpandedQueryDuration cap the handler pre-checked.
+            let too_long = task_condition
+                .as_ref()
+                .and_then(crate::task::expand_duration_seconds)
+                .is_some_and(|secs| {
+                    u64::try_from(secs).is_ok_and(|secs| {
+                        secs > self
+                            .limits(&(), account_id)
+                            .max_expanded_query_duration_seconds
+                    })
+                });
+            if too_long {
+                return Err(BackendQueryError::Method(JmapError::custom(
+                    "expandDurationTooLarge",
+                )));
+            }
+            // No recurrence engine: a non-recurring task is its own single
+            // instance, so its id stands; a recurring one cannot be expanded.
+            if matched.iter().any(|(_, v)| is_recurring(v)) {
+                return Err(BackendQueryError::Method(JmapError::custom(
+                    "cannotCalculateOccurrences",
+                )));
+            }
+        }
+
+        let mut ids: Vec<Id> = matched.into_iter().map(|(k, _)| k.clone()).collect();
+        ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+
+        let total = ids.len() as u64;
+        let query_state = State::from(
+            inner
+                .current_state(O::TYPE_NAME, account_id.as_ref())
+                .to_string()
+                .as_str(),
+        );
+
+        // RFC 8620 §5.5 position / anchor / anchorOffset.
+        let start = resolve_query_start(&ids, position, anchor, anchor_offset)
+            .map_err(BackendQueryError::Method)?;
+
+        ids = ids[start..]
+            .iter()
+            .take(limit_or_max(limit))
+            .cloned()
+            .collect();
+
+        Ok(QueryResult::new(
+            ids,
+            start as u64,
+            Some(total),
+            query_state,
+            true,
+        ))
+    }
+}
 
 impl TasksBackend for MemoryBackend {
     async fn create_object<O, F>(
@@ -1670,6 +1786,28 @@ impl TasksBackend for MemoryBackend {
         }
 
         Ok(echoed)
+    }
+
+    /// `Task/query` over the stored tasks.
+    ///
+    /// Evaluates `inTaskLists`, `workflowStatus`, `progress`, `after`,
+    /// `before` and the shared-metadata conditions in one FilterCondition;
+    /// anything else, and any operator tree, is `unsupportedFilter`, as is
+    /// `after` / `before` on a task whose `timeZone` is not the query's
+    /// (there is no time-zone database). With `expandRecurrences` the
+    /// `maxExpandedQueryDuration` cap ([`TasksBackend::limits`]) is checked
+    /// again; non-recurring matches keep their ids as their single
+    /// instances, and a recurring match is `cannotCalculateOccurrences`,
+    /// since there is no recurrence engine. Sorting is unsupported, as in
+    /// [`JmapReads::query_objects`].
+    async fn query_tasks(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        params: QueryParams<'_, Task>,
+        args: &TaskQueryArgs,
+    ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
+        self.query_impl(account_id, params, args).await
     }
 
     async fn update_task_per_user(

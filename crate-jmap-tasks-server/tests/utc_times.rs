@@ -81,6 +81,47 @@ async fn floating_task_defaults_to_utc() {
     assert_eq!(task["utcStart"], json!("2026-03-01T09:00:00Z"));
 }
 
+/// A floating task is interpreted in the Task/get `timeZone` argument
+/// (jmapio/jmap #456: "a Task/get timeZone argument (as CalendarEvent/get)").
+#[tokio::test]
+async fn floating_task_uses_time_zone_argument() {
+    let backend = backend_with(json!({
+        "id": "t1", "@type": "Task", "uid": "u1", "title": "x", "taskListId": "tl1",
+        "start": "2026-03-01T09:00:00", "due": "2026-03-01T17:00:00"
+    }));
+    let task = get(&backend, utc_args(json!({ "timeZone": "Test/Plus2" }))).await;
+    assert_eq!(task["utcStart"], json!("2026-03-01T07:00:00Z"));
+    assert_eq!(task["utcDue"], json!("2026-03-01T15:00:00Z"));
+}
+
+/// The Task/get `timeZone` argument does not override a zoned task's own
+/// zone: it is for "Floating tasks (tasks without a time zone)" (-06 §4).
+#[tokio::test]
+async fn time_zone_argument_leaves_zoned_task_alone() {
+    let backend = backend_with(json!({
+        "id": "t1", "@type": "Task", "uid": "u1", "title": "x", "taskListId": "tl1",
+        "timeZone": "Etc/UTC", "start": "2026-03-01T09:00:00"
+    }));
+    let task = get(&backend, utc_args(json!({ "timeZone": "Test/Plus2" }))).await;
+    assert_eq!(task["utcStart"], json!("2026-03-01T09:00:00Z"));
+}
+
+/// A Task/get `timeZone` that is not a string is `invalidArguments`
+/// (calendars-34 §5.7 types it TimeZoneId).
+#[tokio::test]
+async fn time_zone_argument_must_be_a_string() {
+    let backend = backend_with(json!({ "id": "t1", "@type": "Task", "taskListId": "tl1" }));
+    let err = handle_task_get(
+        &backend,
+        &User::Owner,
+        utc_args(json!({ "timeZone": 7 })),
+        &[],
+    )
+    .await
+    .expect_err("non-string timeZone");
+    assert_eq!(err.error_type.to_string(), "invalidArguments");
+}
+
 /// A task without `start` / `due` gets `null`, not an omitted key.
 #[tokio::test]
 async fn absent_start_and_due_are_null() {

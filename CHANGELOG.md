@@ -1045,6 +1045,36 @@ wire behaviour that a conforming peer can observe.
   draft-ietf-jmap-filenode-20 §3.2.3 has a server destroy "children before
   their parents"; it destroyed parents first. The returned ids follow the
   new order (bd:JMAP-uro2).
+- **jmap-tasks-types**, **jmap-tasks-server**, **jmap-tasks-client**: Task/query
+  and Task/get follow jmapio/jmap #456 (bd:JMAP-jkl8.2).
+  - **BREAKING** `TaskFilterCondition.task_list_id` (`taskListId`) is replaced
+    by `in_task_lists` (`inTaskLists`, `Id[]`); a `taskListId` condition is
+    now `unsupportedFilter`. `after` / `before` are documented as
+    CalendarEvent/query's over the task span `start`..`due` (`after` tests
+    `due`, or `start` without one; `before` tests `start`, or `due`), still
+    `LocalDateTime` in the query's `timeZone` (#456 says `UTCDateTime`;
+    kept as -06 §4.13's CalendarEvent/query shape).
+  - **BREAKING** `TasksBackend::query_tasks(caller, account_id, params,
+    &TaskQueryArgs)` is a new required method; `Task/query` calls it instead
+    of `query_objects`. `TaskQueryArgs` carries `expandRecurrences` and
+    `timeZone`. New `TasksBackend::limits` / `TasksLimits`
+    (`max_expanded_query_duration_seconds`, default 365 days).
+    `expandRecurrences` without one FilterCondition holding both `before`
+    and `after` is `invalidArguments`, and a longer window than the limit
+    `expandDurationTooLarge` (the CalendarEvent/query error #456 calls
+    "tooLarge"), checked by the handler and again by the backend.
+  - `Task/get` takes a `timeZone` argument (as CalendarEvent/get), passed to
+    `compute_utc_times` as `tz_hint` for floating tasks (it was always
+    `None`); a non-string value is `invalidArguments`.
+  - The memory backend evaluates `inTaskLists`, `workflowStatus`,
+    `progress`, `after` and `before` (comparing local times only for floating
+    tasks or tasks in the query zone; others are `unsupportedFilter`), and
+    with `expandRecurrences` returns non-recurring tasks as their own
+    instance and `cannotCalculateOccurrences` for a recurring one.
+  - **BREAKING** (client) `SessionClient::task_get` takes a trailing
+    `Option<TaskGetParams>` (`timeZone`) and `task_query` a trailing
+    `Option<TaskQueryParams>` (`expandRecurrences`, `timeZone`).
+
 - **jmap-tasks-server**, **jmap-tasks-types**: the `mayUpdatePrivate`
   contract of `TasksBackend::update_task_per_user` and the
   `TaskRights::may_update_private` doc name exactly the -06 §4.5.1 per-user

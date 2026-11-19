@@ -228,7 +228,7 @@ async fn task_query_combines_task_list_id_and_text_contains() {
     create_task(&backend, &home, json!({ NS: { "memo": "follow up" } })).await;
 
     let filter = json!({
-        "taskListId": work,
+        "inTaskLists": [work],
         "metadataTextContains": { "path": "acme.example.com/memo", "value": "follow up" }
     });
     assert_eq!(task_query(&backend, filter).await.unwrap(), json!([hit]));

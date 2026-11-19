@@ -28,12 +28,25 @@ fn assert_strict<T: DeserializeOwned>(known: Value, typo: Value) {
     }
 }
 
-/// Task property `taskListId` (draft-ietf-jmap-tasks-06 §4).
+/// jmapio/jmap #456 condition `inTaskLists: Id[]`.
 #[test]
 fn task_filter_condition_is_strict() {
     assert_strict::<jmap_tasks_types::TaskFilterCondition>(
-        json!({ "taskListId": "l1" }),
-        json!({ "task_list_id": "l1" }),
+        json!({ "inTaskLists": ["l1"] }),
+        json!({ "in_task_lists": ["l1"] }),
+    );
+}
+
+/// jmapio/jmap #456 replaces the single `taskListId` condition with
+/// `inTaskLists`, so `taskListId` is no longer a condition and must be
+/// rejected rather than match every task.
+#[test]
+fn task_filter_condition_rejects_task_list_id() {
+    assert!(
+        serde_json::from_value::<jmap_tasks_types::TaskFilterCondition>(
+            json!({ "taskListId": "l1" })
+        )
+        .is_err()
     );
 }
 

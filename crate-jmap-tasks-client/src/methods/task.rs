@@ -20,7 +20,9 @@ impl super::SessionClient {
     /// /query method first and pass explicit ids here to avoid
     /// `requestTooLarge` errors when the account holds more objects
     /// than the cap.
-    /// Pass `properties: None` to return all fields.
+    /// Pass `properties: None` to return all fields. `params` carries the
+    /// Task/get `timeZone` argument ([`TaskGetParams`](super::TaskGetParams));
+    /// `None` sends none.
     ///
     /// # Errors
     ///
@@ -45,6 +47,7 @@ impl super::SessionClient {
         &self,
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
+        params: Option<super::TaskGetParams>,
     ) -> Result<GetResponse<jmap_tasks_types::Task>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         // Omit `ids` / `properties` when None — see the matching comment on
@@ -55,6 +58,10 @@ impl super::SessionClient {
         }
         if let Some(props) = properties {
             args["properties"] = jmap_base_client::to_args(props)?;
+        }
+        if let Some(mut p) = params {
+            let extra = std::mem::take(&mut p.extra);
+            super::merge_params(&mut args, &p, extra)?;
         }
         let req = super::build_request("Task/get", args, super::USING_TASKS);
         let resp = self.call_internal(api_url, &req).await?;
@@ -231,6 +238,10 @@ impl super::SessionClient {
     /// conditions.
     /// Pass `None` to omit it; name the type when you do (`None::<&TaskFilter>`).
     ///
+    /// `task_params` carries the Task/query `expandRecurrences` and
+    /// `timeZone` arguments ([`TaskQueryParams`](super::TaskQueryParams));
+    /// `None` sends neither.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::Serialize`](jmap_base_client::ClientError::Serialize)
@@ -243,13 +254,16 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::task_get`]. RFC 8620 §5.5
     ///   defines additional /query method-level errors
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
-    ///   `tooManyChanges`) that surface as
+    ///   `tooManyChanges`), and CalendarEvent/query adds
+    ///   `expandDurationTooLarge` and `cannotCalculateOccurrences`; they
+    ///   surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn task_query<C: Serialize>(
         &self,
         filter: Option<&Filter<C>>,
         sort: Option<&[TaskComparator]>,
         params: &jmap_base_client::QueryParams,
+        task_params: Option<super::TaskQueryParams>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = params.to_arguments(account_id);
@@ -258,6 +272,10 @@ impl super::SessionClient {
         }
         if let Some(s) = sort {
             args["sort"] = jmap_base_client::to_args(s)?;
+        }
+        if let Some(mut p) = task_params {
+            let extra = std::mem::take(&mut p.extra);
+            super::merge_params(&mut args, &p, extra)?;
         }
         let req = super::build_request("Task/query", args, super::USING_TASKS);
         let resp = self.call_internal(api_url, &req).await?;

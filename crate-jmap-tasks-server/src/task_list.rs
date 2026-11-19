@@ -488,7 +488,7 @@ async fn destroy_task_list_tasks<B: TasksBackend>(
     task_list_id: &Id,
 ) -> Result<(), Value> {
     let mut condition = TaskFilterCondition::default();
-    condition.task_list_id = Some(task_list_id.clone());
+    condition.in_task_lists = Some(vec![task_list_id.clone()]);
     let filter = Filter::Condition(condition);
     let ids = backend
         .query_objects::<Task>(caller, account_id, QueryParams::new().filter(Some(&filter)))
