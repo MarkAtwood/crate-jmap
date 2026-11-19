@@ -3,11 +3,13 @@
   "title": "Implement draft-atwood-jmap-graph-provenance-00 (urn:ietf:params:jmap:graph:provenance)",
   "description": "Spec: /data/PROJECT/jmap-chat-spec/draft-atwood-jmap-graph-provenance-00.md (addb3fb). From audit JMAP-t8ej.6: no crate implements it. Required work under Mark's 2026-11-12 rule (crate-jmap is the complete reference implementation). Layout: a provenance module in jmap-graph-types and jmap-graph-server, opt-in like graph-edit/search; client bindings in jmap-graph-client. Adds GraphNode provenance (basis, confidence, validUntil, validFor PermittedUse, credentialDigest) and curation (status, pinned, curationReason) properties, the evidence edge type (max 32 per record), GraphRights.mayCurate, Graph.retention with a server retention sweep, irreversible retraction, and four GraphNode/query filters (basis, status, pinned, validAt). No new methods.",
   "notes": "CHECKPOINT 2026-11-19: .1 types done (f64cb00f). graph-server rejects the 4 filter fields as unsupportedFilter until .7.",
-  "status": "open",
+  "status": "closed",
   "priority": 2,
   "issue_type": "epic",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T19:33:31.168036314Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T19:56:02.699381176Z"
+  "updated_at": "2026-11-19T22:34:17.229136606Z",
+  "closed_at": "2026-11-19T22:34:17.229136606Z",
+  "close_reason": "All children done (3e8b64b4)."
 }

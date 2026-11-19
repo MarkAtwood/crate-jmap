@@ -1,1 +1,2 @@
 {"id":"01a1f54c-cec7-7457-8ad5-5ff8702fdb41","issue_id":"JMAP-98sl.5","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T19:33:34.023285348Z"}
+{"id":"01a1f5f2-3cec-726d-a497-ee8696b96034","issue_id":"JMAP-98sl.5","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in 3e8b64b4 (provenance module + memory re-checks; tests/provenance.rs).","created_at":"2026-11-19T22:34:15.660160043Z"}
