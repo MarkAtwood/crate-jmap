@@ -1,0 +1,12 @@
+{
+  "id": "JMAP-xxnf",
+  "title": "Optional support crate: jmap-platform-push (FCM, APNs, ADM/HPK/MiPush, WNS)",
+  "description": "Decision 40 (Mark 2026-11-19): delivery through FCM, APNs, WNS, ADM, Huawei Push Kit and MiPush belongs to the deploying server, not the core kit; crate-jmap also offers an optional support crate for it, like crate-jmap-web-push for Web Push. Oracle: jmap-push-platform-guide.md, jmap-chat-push-platform-guide.md, jmap-vtc-ring-push-guide.md at jmap-chat-spec 120db2c; the 36 GAP rows in docs/audits/2026-11-19-x3lu/push.md quote each MUST.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "epic",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:45:09.210986148Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:45:09.210986148Z"
+}

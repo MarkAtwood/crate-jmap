@@ -1,0 +1,22 @@
+{
+  "id": "JMAP-xxnf.4",
+  "title": "platform-push: WNS raw notifications (X-WNS-Type wns/raw, octet-stream; X-WNS-NotificationStatus dropped is not success)",
+  "description": "Rows: push:554-628. Today a WNS channel URI registered as PushSubscription.url gets a Web Push request; the crate should own WNS. (docs/audits/2026-11-19-x3lu/push.md). Size M.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T19:45:14.394515415Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T19:45:14.394515415Z",
+  "dependencies": [
+    {
+      "issue_id": "JMAP-xxnf.4",
+      "depends_on_id": "JMAP-xxnf",
+      "type": "parent-child",
+      "created_at": "2026-11-19T19:45:14.614830145Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
