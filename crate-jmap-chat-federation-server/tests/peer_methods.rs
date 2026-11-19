@@ -757,6 +757,64 @@ async fn group_update_roles_by_an_admin() {
     );
 }
 
+/// Compliance §1.9 and §13.3 (jmap-chat-compliance-tests.md, jmap-chat-spec
+/// 120db2c): "Via `Peer/groupUpdate` create, send members with `role:
+/// "owner"` or `role: "guest"`. Verify the server either rejects or
+/// normalizes to "member". Only `"admin"` and `"member"` are valid." chat
+/// §ChatMember `role`: "Either `"admin"` or `"member"`". This crate
+/// rejects, with `invalidArguments` (fed §Error Handling), and the
+/// rejected request creates no placeholder (fed §User References in Peer
+/// Methods: "a rejected request creates none").
+#[tokio::test]
+async fn group_create_with_an_invalid_role_is_invalid_arguments() {
+    for role in ["owner", "guest", "Admin", ""] {
+        let fed = Fed::new();
+        let args = group_args(
+            "create",
+            json!({"members": [peer_member(BOB, "admin"), peer_member(ERIN, role)]}),
+        );
+        assert_error(fed.group_update(args).await, "invalidArguments");
+        assert_eq!(chat(&fed, GROUP).await, None, "{role}");
+        assert_eq!(fed.contacts().await.len(), 1, "{role}");
+    }
+}
+
+/// As above, for `addedMembers`, which fed §Peer/groupUpdate resolves "as
+/// for `members`": the group is left unchanged.
+#[tokio::test]
+async fn group_add_members_with_an_invalid_role_is_invalid_arguments() {
+    let fed = Fed::new();
+    fed.seed("Chat", group(&[(ACCOUNT, "member"), (BOB_ID, "admin")]));
+    let args = group_args(
+        "addMembers",
+        json!({"addedMembers": [peer_member(ERIN, "member"), peer_member(DAVE, "owner")]}),
+    );
+    assert_error(fed.group_update(args).await, "invalidArguments");
+    let chat = chat(&fed, GROUP).await.expect("group");
+    assert_eq!(member_ids(&chat), vec![ACCOUNT, BOB_ID]);
+    assert_eq!(fed.contacts().await.len(), 1);
+}
+
+/// fed §Peer/groupUpdate `updatedRoles`: "`role` (String, the new role
+/// value: `"admin"` or `"member"`)". An entry with any other role rejects
+/// the whole request, valid entries included.
+#[tokio::test]
+async fn group_update_roles_with_an_invalid_role_is_invalid_arguments() {
+    let fed = Fed::new();
+    fed.seed("Chat", group(&[(ACCOUNT, "member"), (BOB_ID, "admin")]));
+    let args = group_args(
+        "updateRoles",
+        json!({"updatedRoles": [
+            {"id": OWNER, "role": "admin"},
+            {"id": BOB, "role": "owner"},
+        ]}),
+    );
+    assert_error(fed.group_update(args).await, "invalidArguments");
+    let chat = chat(&fed, GROUP).await.expect("group");
+    assert_eq!(chat["members"][0]["role"], json!("member"));
+    assert_eq!(chat["members"][1]["role"], json!("admin"));
+}
+
 /// A `Peer/groupUpdate` `avatar` object (fed 6bcd9d8 L668: "the
 /// `contentType`, `size`, and `sha256` fields of an Attachment ... plus
 /// `fetchUrl`") for the "abc" blob the test backend serves at `FETCH_URL`.

@@ -45,8 +45,11 @@ use crate::deliver::{
 ///   `"updateMetadata"` sets the `name`, `description` and `avatar`
 ///   present; `avatar: null` removes `avatarBlobId`. `"leave"` removes
 ///   the sender. `"close"` removes the sender and sets `closedAt`.
-/// - Every rejection, including a missing required array or an empty
-///   identity string, happens before the first write.
+/// - A ChatMember `role` in `members` or `addedMembers`, or an
+///   `updatedRoles` `role`, other than `"admin"` or `"member"` is
+///   `invalidArguments`; it is not normalized.
+/// - Every rejection, including a missing required array, an empty
+///   identity string or an invalid role, happens before the first write.
 ///
 /// An `avatar` object is fetched through [`FederationBackend::fetch_avatar`]
 /// only after the checks above pass: "After the authorization and
@@ -169,7 +172,9 @@ pub async fn handle_peer_group_update<B: FederationBackend>(
             members.retain(|m| !removed.contains(&m.id));
         }
         GroupUpdateAction::UpdateRoles => {
-            for update in required(args.updated_roles.as_deref(), "updatedRoles")? {
+            let updates = required(args.updated_roles.as_deref(), "updatedRoles")?;
+            updates.iter().try_for_each(|u| check_role(&u.role))?;
+            for update in updates {
                 let id = known(&ctx, &update.id);
                 if let Some(m) = members.iter_mut().find(|m| Some(&m.id) == id.as_ref()) {
                     m.role = update.role.clone();
@@ -247,7 +252,8 @@ fn required<'a, T>(value: Option<&'a [T]>, name: &str) -> Result<&'a [T], JmapEr
 
 /// Each member `id` and `invitedBy` must be usable as a placeholder's
 /// `identity` and `login`, which draft-atwood-jmap-chat-00 §ChatContact
-/// requires to hold "at least one non-whitespace character".
+/// requires to hold "at least one non-whitespace character", and each
+/// `role` must pass [`check_role`].
 fn check_members(members: &[PeerChatMember]) -> Result<(), JmapError> {
     let blank = |s: &str| s.trim().is_empty();
     if members
@@ -258,7 +264,26 @@ fn check_members(members: &[PeerChatMember]) -> Result<(), JmapError> {
             "a member id or invitedBy is not an identity string",
         ));
     }
-    Ok(())
+    members.iter().try_for_each(|m| check_role(&m.role))
+}
+
+/// A ChatMember `role` must be `"admin"` or `"member"`, else
+/// `invalidArguments`.
+///
+/// draft-atwood-jmap-chat-00 §ChatMember `role`: "Either `"admin"` or
+/// `"member"`"; draft-atwood-jmap-chat-federation-00 §Peer/groupUpdate
+/// `updatedRoles`: "`role` (String, the new role value: `"admin"` or
+/// `"member"`)". Neither draft maps any other value to one of these, so
+/// it is rejected rather than normalized, with the §Error Handling type
+/// for a malformed request (`invalidArguments`, "permanent — do not
+/// retry").
+fn check_role(role: &ChatMemberRole) -> Result<(), JmapError> {
+    match role {
+        ChatMemberRole::Admin | ChatMemberRole::Member => Ok(()),
+        _ => Err(JmapError::invalid_arguments(
+            "a member role is neither \"admin\" nor \"member\"",
+        )),
+    }
 }
 
 /// Whether the ChatContact `id` is a member of `chat`.

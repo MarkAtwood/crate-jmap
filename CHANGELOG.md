@@ -942,6 +942,12 @@ wire behaviour that a conforming peer can observe.
   Federation: "Servers populate this field at contact creation time").
   Placeholders for identities of other domains and existing ChatContacts
   are unchanged. (bd:JMAP-egy7)
+- **jmap-chat-federation-server**: `Peer/groupUpdate` rejects, with
+  `invalidArguments` and before any write, a ChatMember `role` in
+  `members` or `addedMembers`, or an `updatedRoles` `role`, other than
+  `"admin"` or `"member"` (draft-atwood-jmap-chat-00 §ChatMember `role`:
+  "Either `"admin"` or `"member"`"); it was stored as sent.
+  (bd:JMAP-8ar3)
 - **BREAKING** **jmap-vtc-types**: hosted livestreams
   (draft-atwood-jmap-vtc-00 §VTCLivestream). `VtcLivestream` gains `mode`
   (`LivestreamMode`, default push), `failure_reason`
