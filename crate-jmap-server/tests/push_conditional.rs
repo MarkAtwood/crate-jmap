@@ -12,10 +12,10 @@ use std::sync::{Arc, Mutex};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, BeginSetError, CallContext,
     ChangesResult, ClosureHandler, CommitFuture, ConditionalBackend, Dispatcher, GetObject,
-    HandlerFuture, HandlerOutput, Id, JmapBackend, JmapHandler, JmapObject, JmapRequest,
-    PushSubscriptionBackend, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, RollbackFuture, SetError, SetErrorType, SetMode, SetScope, SetScopeRequest, State,
-    StoredPushSubscription, register_push_subscription_conditional,
+    HandlerFuture, HandlerOutput, Id, JmapAccounts, JmapHandler, JmapObject, JmapReads,
+    JmapRequest, PushSubscriptionBackend, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, RollbackFuture, SetError, SetErrorType, SetMode, SetScope,
+    SetScopeRequest, State, StoredPushSubscription, register_push_subscription_conditional,
     register_push_subscription_handlers,
 };
 use jmap_types::PushSubscription;
@@ -112,13 +112,16 @@ impl ConditionalBackend for MockBackend {
     }
 }
 
-impl JmapBackend for MockBackend {
+impl JmapAccounts for MockBackend {
     type Error = MockError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), _account_id: &Id) -> Result<bool, MockError> {
         unreachable!("PushSubscription methods are not account-scoped")
     }
+}
+
+impl JmapReads for MockBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),

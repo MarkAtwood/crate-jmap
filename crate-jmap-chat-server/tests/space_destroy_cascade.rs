@@ -248,7 +248,7 @@ async fn channel_read_failure_leaves_space_and_channels() {
     .await
     .expect("Chat/get");
     assert_eq!(chats["notFound"], json!([]), "{chats:?}");
-    let space = jmap_server::JmapBackend::get_objects::<jmap_chat_types::Space>(
+    let space = jmap_server::JmapReads::get_objects::<jmap_chat_types::Space>(
         inner,
         &(),
         &Id::from(ACCOUNT_ID),
@@ -305,7 +305,7 @@ async fn destroy_without_manage_space_is_forbidden() {
     .await
     .expect("Chat/get");
     assert_eq!(chats["notFound"], json!([]), "{chats:?}");
-    let space = jmap_server::JmapBackend::get_objects::<jmap_chat_types::Space>(
+    let space = jmap_server::JmapReads::get_objects::<jmap_chat_types::Space>(
         &backend,
         &(),
         &Id::from(ACCOUNT_ID),

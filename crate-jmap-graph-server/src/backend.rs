@@ -49,7 +49,7 @@ impl EditLog {
 /// # Rights (draft §Graph, §Security Considerations)
 ///
 /// "The Graph is the unit of access": a user's rights on a Graph cover
-/// every GraphNode and GraphEdge in it. [`JmapBackend::get_objects`] for
+/// every GraphNode and GraphEdge in it. [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) for
 /// `Graph` MUST return each Graph with `myRights` and `isSubscribed` as
 /// they are for this caller ("The owner of the account that holds the
 /// Graph implicitly has all rights"; `isSubscribed` is per user, RFC 9670
@@ -60,7 +60,7 @@ impl EditLog {
 /// Per the workspace AGENTS.md "Caller identity (foundation seam)" rule the
 /// backend re-verifies every right atomically with the mutation; the
 /// handler checks are defense in depth. `createdBy` and `updatedBy` come
-/// from [`JmapBackend::principal_id`].
+/// from [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id).
 ///
 /// `query_objects` SHOULD omit every Graph the caller may not read and
 /// every GraphNode and GraphEdge in one: "A Graph the user may not read
@@ -73,7 +73,7 @@ impl EditLog {
 /// §Visibility Contract, the Graph draft does not make `/queryChanges`
 /// report changes for the whole account.
 ///
-/// [`JmapBackend::get_changes`] for `Graph`, `GraphNode`, `GraphEdge` and
+/// [`JmapReads::get_changes`](jmap_server::JmapReads::get_changes) for `Graph`, `GraphNode`, `GraphEdge` and
 /// `GraphNodeOp` SHOULD be scoped to the caller the same way: the draft
 /// evaluates rights "for every method call that reads or changes the Graph
 /// or its contents", and of `GraphNodeOp/get` and `/changes`

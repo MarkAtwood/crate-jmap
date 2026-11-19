@@ -12,7 +12,7 @@ use jmap_blob_server::{
     register_blob_handlers,
 };
 use jmap_blob_types::{BlobAccountCapability, DigestAlgorithm};
-use jmap_server::{BackendSetError, Dispatcher, JmapBackend};
+use jmap_server::{BackendSetError, Dispatcher, JmapAccounts};
 use jmap_types::{Id, JmapRequest, SetErrorType, State, UTCDate};
 use serde_json::{Value, json};
 

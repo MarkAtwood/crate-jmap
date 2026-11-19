@@ -22,7 +22,7 @@ use common::MemoryBackend;
 use jmap_mail_server::{
     MailBackend, handle_email_get, handle_email_set, handle_mailbox_get, handle_thread_get,
 };
-use jmap_server::{HandlerOutput, JmapBackend};
+use jmap_server::{HandlerOutput, JmapReads};
 use jmap_types::Id;
 use serde_json::{Value, json};
 

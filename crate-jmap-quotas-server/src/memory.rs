@@ -35,9 +35,9 @@ use jmap_quotas_types::{
     Quota, QuotaComparator, QuotaComparatorProperty, QuotaFilter, QuotaFilterCondition,
 };
 use jmap_server::{
-    AddedItem, BackendChangesError, BackendQueryError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    limit_or_max, resolve_query_start,
+    AddedItem, BackendChangesError, BackendQueryError, ChangesResult, GetObject, JmapAccounts,
+    JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, limit_or_max, resolve_query_start,
 };
 use jmap_types::i18n::localized_value;
 use jmap_types::{Filter, Id, JmapError, Operator, State};
@@ -303,7 +303,7 @@ fn compare(sort: &[QuotaComparator], a: &Quota, b: &Quota) -> Ordering {
     a.id.as_ref().cmp(b.id.as_ref())
 }
 
-impl JmapBackend for MemoryBackend {
+impl JmapAccounts for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
@@ -317,7 +317,9 @@ impl JmapBackend for MemoryBackend {
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self.lock().contains_key(account_id))
     }
+}
 
+impl JmapReads for MemoryBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),

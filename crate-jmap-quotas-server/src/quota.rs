@@ -34,7 +34,7 @@ use crate::QuotasBackend;
 ///   `localizations` are returned and `language` selects a view (§4.2.1);
 ///   Accept-Language changes nothing;
 /// - without it, `description` is the one Accept-Language
-///   ([`JmapBackend::accept_language`](jmap_server::JmapBackend::accept_language))
+///   ([`JmapAccounts::accept_language`](jmap_server::JmapAccounts::accept_language))
 ///   selects by RFC 4647 Lookup, falling back to the stored base value, as
 ///   RFC 9425 §4.1 requires; `name` is the base value, and `locale`,
 ///   `localizations` and `language` are not available.

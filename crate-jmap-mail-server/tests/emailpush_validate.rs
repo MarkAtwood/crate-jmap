@@ -19,7 +19,7 @@ use jmap_mail_types::Email;
 use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, Dispatcher, GetObject,
-    JmapBackend, JmapObject, JmapRequest, PushSubscriptionBackend, QueryChangesParams,
+    JmapAccounts, JmapObject, JmapReads, JmapRequest, PushSubscriptionBackend, QueryChangesParams,
     QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType,
     StoredPushSubscription, register_push_subscription_handlers,
 };
@@ -71,13 +71,25 @@ impl Mock {
     }
 }
 
-impl JmapBackend for Mock {
+impl JmapAccounts for Mock {
     type Error = MockError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _: &(), _: &Id) -> Result<bool, MockError> {
         unreachable!()
     }
+    fn metadata_info<O: JmapObject>(
+        &self,
+        _: &(),
+        account_id: &Id,
+    ) -> Option<DataTypeMetadataInfo> {
+        (O::TYPE_NAME == Email::TYPE_NAME)
+            .then(|| self.metadata.get(account_id).cloned())
+            .flatten()
+    }
+}
+
+impl JmapReads for Mock {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _: &(),
@@ -117,15 +129,6 @@ impl JmapBackend for Mock {
         _: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MockError>> {
         unreachable!()
-    }
-    fn metadata_info<O: JmapObject>(
-        &self,
-        _: &(),
-        account_id: &Id,
-    ) -> Option<DataTypeMetadataInfo> {
-        (O::TYPE_NAME == Email::TYPE_NAME)
-            .then(|| self.metadata.get(account_id).cloned())
-            .flatten()
     }
 }
 

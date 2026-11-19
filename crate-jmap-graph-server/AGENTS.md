@@ -39,7 +39,7 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features -p jmap-graph-serv
 | Rights | from the per-caller `Graph.myRights` the backend's `/get` returns; no extra hook; backend re-verifies atomically |
 | Unreadable Graph | `notFound` on `/get` and `/set` update/destroy, `invalidProperties` `graphId` on create, omitted from `/query` (backend) |
 | `/set` loop | one `helpers::handle_set` over a per-type `SetOps` impl |
-| `createdBy` / `updatedBy` | `JmapBackend::principal_id` |
+| `createdBy` / `updatedBy` | `JmapAccounts::principal_id` |
 | Graph `updated` | bumped by every Graph patch except one touching only the caller's `isSubscribed` |
 | Destroy cascades | `GraphBackend::destroy_object`, atomically |
 | Edge endpoints | handler check plus backend re-check, `invalidProperties` naming the property |

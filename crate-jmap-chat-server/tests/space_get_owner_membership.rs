@@ -1,6 +1,6 @@
 //! `Space/get` membership and visibility key on the owner's member entry
 //! (the accountId) even when the backend wires no caller identity:
-//! `MemoryBackend` uses `CallerCtx = ()`, so `JmapBackend::principal_id`
+//! `MemoryBackend` uses `CallerCtx = ()`, so `JmapAccounts::principal_id`
 //! returns `None` (bd:JMAP-yt1w.36).
 //!
 //! Oracle: draft-atwood-jmap-chat-00 (jmap-chat-spec cefc217),

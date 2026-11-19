@@ -18,7 +18,7 @@
 //! | `TasksBackend::destroy_object::<TaskList>`, after the destroy | [`clear_space_task_list_id`] |
 //! | `ChatEvents::on_chat_destroyed` | [`clear_task_chat_ids`] |
 //! | `TasksBackend::create_object::<Task>` and `TasksBackend::update_object::<Task>`, for a `chatId` value | [`check_task_chat_id`] |
-//! | `JmapBackend::get_objects::<Task>`, on the Tasks returned to the reader | [`redact_task_chat_ids`] |
+//! | `JmapReads::get_objects::<Task>`, on the Tasks returned to the reader | [`redact_task_chat_ids`] |
 //!
 //! Task destroy needs no call: this crate never destroys a Chat
 //! (§Lifecycle: "When a Task is destroyed (via `Task/set` destroy), the
@@ -368,7 +368,7 @@ pub fn check_task_chat_id(
 /// from Task readers who lack access to the referenced Chat. The wire
 /// contract permits this (it is equivalent to the Task not exposing the
 /// field to that reader)". Call it on the Tasks of `account_id` that
-/// `JmapBackend::get_objects::<Task>` returns to a reader, with that
+/// `JmapReads::get_objects::<Task>` returns to a reader, with that
 /// reader's Chat context. Do not call it on Tasks the backend writes back
 /// or on reads made with a server context, such as the one
 /// [`clear_task_chat_ids`] uses, or the redacted `chatId` is lost.

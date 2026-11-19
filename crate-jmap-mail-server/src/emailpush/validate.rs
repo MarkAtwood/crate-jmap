@@ -67,7 +67,7 @@ pub struct InvalidEmailPushConfig {
 /// - `urgency` is an RFC 8030 §5.3 `urgency-option`.
 ///
 /// `metadata` is the account's draft-ietf-jmap-metadata-05 information for
-/// Email (`JmapBackend::metadata_info::<Email>`), `None` when it has none.
+/// Email (`JmapAccounts::metadata_info::<Email>`), `None` when it has none.
 ///
 /// The normalized config has every default filled (`filter` `null`,
 /// `properties` `[]`, `urgency` `"normal"`) and no `objectHistory` in
@@ -242,7 +242,7 @@ fn property_supported(name: &str, account: &EmailPushAccount, metadata: bool) ->
 /// differs from what the client sent (RFC 8620 §5.3).
 ///
 /// A metadata condition needs only
-/// [`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info) for Email on the account, not the
+/// [`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info) for Email on the account, not the
 /// metadata capability in `using`: the filter runs at delivery, outside
 /// any request.
 ///

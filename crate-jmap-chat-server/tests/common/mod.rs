@@ -33,9 +33,9 @@ use jmap_chat_server::{
     SlowModeError, SpacePatchOp, SpacePolicy,
 };
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetError, SetErrorType, SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapBackend, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_types::{Id, PatchObject, State, UTCDate};
 
@@ -47,14 +47,16 @@ use jmap_types::{Id, PatchObject, State, UTCDate};
 #[derive(Clone, Default)]
 pub struct FaultyBackend;
 
-impl JmapBackend for FaultyBackend {
+impl JmapAccounts for FaultyBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), _account_id: &Id) -> Result<bool, Self::Error> {
         Err(MemoryError::new("storage unavailable"))
     }
+}
 
+impl JmapReads for FaultyBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -302,10 +304,10 @@ pub struct TrackingBackend {
     /// draft-atwood-jmap-chat-mimi-00 rules to every Chat whose extension
     /// properties hold `roomId`. When `false`, they forward to `inner`.
     room_restricted: bool,
-    /// [`JmapBackend::get_objects`] calls per object type name, so a test
+    /// [`JmapReads::get_objects`] calls per object type name, so a test
     /// can count the reads a handler makes.
     get_objects_calls: Arc<Mutex<HashMap<&'static str, u64>>>,
-    /// When `Some`, [`JmapBackend::get_objects`] for this type name
+    /// When `Some`, [`JmapReads::get_objects`] for this type name
     /// returns an error. Other types forward to `inner`.
     get_objects_fail: Option<&'static str>,
     /// The `id` of every object the [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object) builder
@@ -427,7 +429,7 @@ impl TrackingBackend {
         }
     }
 
-    /// Configure the wrapper so [`JmapBackend::get_objects`] fails for
+    /// Configure the wrapper so [`JmapReads::get_objects`] fails for
     /// objects of `type_name`. The wrapped `MemoryBackend` is otherwise
     /// functional.
     pub fn with_get_objects_failing(type_name: &'static str) -> Self {
@@ -478,7 +480,7 @@ impl TrackingBackend {
         &self.inner
     }
 
-    /// Return the number of [`JmapBackend::get_objects`] calls for
+    /// Return the number of [`JmapReads::get_objects`] calls for
     /// objects of `type_name`.
     pub fn get_objects_call_count(&self, type_name: &str) -> u64 {
         let calls = self.get_objects_calls.lock().expect("lock poisoned");
@@ -505,14 +507,16 @@ impl TrackingBackend {
     }
 }
 
-impl JmapBackend for TrackingBackend {
+impl JmapAccounts for TrackingBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.inner.account_exists(caller, account_id).await
     }
+}
 
+impl JmapReads for TrackingBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &(),
@@ -943,7 +947,7 @@ impl ChatResolvers for TrackingBackend {
 // ---------------------------------------------------------------------------
 
 /// A test backend with `CallerCtx = Id` that overrides
-/// [`JmapBackend::principal_id`] to return the caller verbatim.
+/// [`JmapAccounts::principal_id`] to return the caller verbatim.
 ///
 /// The reference `MemoryBackend` uses `CallerCtx = ()` and inherits
 /// the default `principal_id` impl returning `None`. Its permission
@@ -989,7 +993,7 @@ impl IdentityBackend {
     }
 }
 
-impl JmapBackend for IdentityBackend {
+impl JmapAccounts for IdentityBackend {
     type Error = MemoryError;
     type CallerCtx = Id;
 
@@ -1000,7 +1004,9 @@ impl JmapBackend for IdentityBackend {
     async fn account_exists(&self, _caller: &Id, account_id: &Id) -> Result<bool, Self::Error> {
         self.inner.account_exists(&(), account_id).await
     }
+}
 
+impl JmapReads for IdentityBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &Id,
@@ -1359,13 +1365,13 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 /// - `(O::TYPE_NAME, "destroy")` — fails the next
 ///   [`ChatStore::destroy_object`](jmap_chat_server::ChatStore::destroy_object) call for type `O`.
 /// - `(O::TYPE_NAME, "get")` — fails the next
-///   [`JmapBackend::get_objects`] call for type `O`.
+///   [`JmapReads::get_objects`] call for type `O`.
 /// - [`InjectableBackend::queue_chat_get_fault_after_create`] — arms
 ///   `("Chat", "get")` after the next successful
 ///   [`ChatStore::create_object`](jmap_chat_server::ChatStore::create_object) call for type `Chat`, so the
 ///   handler's pre-create snapshot read succeeds and its post-create
 ///   race-detection re-fetch fails.
-/// - `(O::TYPE_NAME, "query")` — the next [`JmapBackend::query_objects`]
+/// - `(O::TYPE_NAME, "query")` — the next [`JmapReads::query_objects`]
 ///   call for type `O` returns `BackendQueryError::Method` carrying
 ///   `unsupportedFilter` with description
 ///   [`INJECTED_QUERY_METHOD_ERROR_DESCRIPTION`] (RFC 8620 §5.5).
@@ -1487,14 +1493,16 @@ impl Default for InjectableBackend {
     }
 }
 
-impl JmapBackend for InjectableBackend {
+impl JmapAccounts for InjectableBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.inner.account_exists(caller, account_id).await
     }
+}
 
+impl JmapReads for InjectableBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &(),

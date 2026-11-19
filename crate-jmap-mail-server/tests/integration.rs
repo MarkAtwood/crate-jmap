@@ -22,7 +22,7 @@ use jmap_mail_server::{
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_server::{HandlerOutput, QueryChangesParams, QueryParams};
-use jmap_server::{JmapBackend, JmapObject, SetErrorType};
+use jmap_server::{JmapAccounts, JmapObject, JmapReads, SetErrorType};
 use jmap_types::Id;
 use jmap_types::Invocation;
 
@@ -540,14 +540,16 @@ async fn search_snippet_get_capability_gated() {
     // A thin wrapper around MemoryBackend that returns false for SearchSnippet.
     struct NoSnippetBackend(MemoryBackend);
 
-    impl JmapBackend for NoSnippetBackend {
+    impl JmapAccounts for NoSnippetBackend {
         type Error = common::MemoryError;
         type CallerCtx = ();
 
         async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
             self.0.account_exists(&(), account_id).await
         }
+    }
 
+    impl JmapReads for NoSnippetBackend {
         async fn get_objects<O: jmap_server::GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -6890,7 +6892,7 @@ async fn mailbox_set_sort_order_overflow_rejected() {
 // Per-id /set serverFail redaction tests (bd:JMAP-ic0j.68)
 //
 // The bd:JMAP-ic0j.53 fix removed handler-layer backend-Display leaks by
-// routing JmapBackend::Error through `server_fail_from_backend`, which
+// routing JmapAccounts::Error through `server_fail_from_backend`, which
 // substitutes the constant `SERVER_FAIL_INTERNAL_DESC`. That helper only
 // fits sites that produce a top-level JmapError. The /set per-id
 // `notCreated`/`notUpdated`/`notDestroyed` map entries are a different
@@ -7519,7 +7521,7 @@ Body one.
 
     // Capture thread state before first import.
     let state0 = {
-        use jmap_server::JmapBackend;
+        use jmap_server::JmapReads;
         backend
             .get_state::<jmap_mail_types::Thread>(&(), &account_id)
             .await
@@ -7542,7 +7544,7 @@ Body one.
 
     // Capture thread state after first import.
     let state1 = {
-        use jmap_server::JmapBackend;
+        use jmap_server::JmapReads;
         backend
             .get_state::<jmap_mail_types::Thread>(&(), &account_id)
             .await

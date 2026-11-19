@@ -898,7 +898,7 @@ the caller is". Established by bd:JMAP-ga0q; the foundation method
 landed in bd:JMAP-ga0q.1.
 
 - **The seam**:
-  `JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`
+  `JmapAccounts::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`
   is the ONLY way the JMAP layer asks "who is the caller". No
   alternate path exists, no `caller_identity_blob()` escape hatch,
   no generic claims map. The return type is `Option<&Id>` — typed,

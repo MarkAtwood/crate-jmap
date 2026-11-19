@@ -33,7 +33,7 @@ use jmap_graph_types::{Graph, GraphNode};
 use jmap_types::{Id, JmapError};
 
 use crate::GraphBackend;
-use jmap_server::JmapBackend;
+use jmap_server::JmapAccounts;
 
 /// Capability URI of draft-atwood-jmap-chat-00, which gates the
 /// blocked-sender rule.
@@ -126,7 +126,7 @@ impl GraphEditSubscription {
 /// The recipient must have `mayRead` on the node's Graph "at the time of
 /// delivery". A `GraphCursorEvent` is further not delivered to the
 /// sender's own connections (its `senderId` is the recipient's
-/// [`JmapBackend::principal_id`]) or to a recipient who blocked the sender
+/// [`JmapAccounts::principal_id`]) or to a recipient who blocked the sender
 /// ([`GraphBackend::is_sender_blocked`]). Op events of a blocked user are
 /// delivered: "Ops are shared document state".
 ///
@@ -195,7 +195,7 @@ pub async fn should_deliver<B: GraphBackend>(
     let Some(sender) = &e.sender_id else {
         return Ok(true);
     };
-    if <B as JmapBackend>::principal_id(caller) == Some(sender) {
+    if <B as JmapAccounts>::principal_id(caller) == Some(sender) {
         return Ok(false);
     }
     Ok(

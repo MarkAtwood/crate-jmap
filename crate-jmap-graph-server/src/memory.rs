@@ -9,7 +9,7 @@
 //! # Caller context and rights
 //!
 //! `CallerCtx` is the caller's Principal id, which
-//! [`JmapBackend::principal_id`](jmap_server::JmapBackend::principal_id) returns, so `createdBy` and `updatedBy` are
+//! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) returns, so `createdBy` and `updatedBy` are
 //! the caller. Each account is registered with an owner, who "implicitly
 //! has all rights" on its Graphs and is the only user who may create one.
 //! Every other user has the rights the Graph's `shareWith` gives their id,
@@ -97,9 +97,9 @@ use crate::query::{
 use crate::search::GraphView;
 use crate::{EditLog, GraphBackend};
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetError, SetErrorType, SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 
 /// How one id changed in one state step.
@@ -573,7 +573,7 @@ impl MemoryError {
     ///
     /// Only the error's [`serde_json::error::Category`] is kept. A serde
     /// data error quotes the offending value (`invalid type: string
-    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// "alice@example.com", expected u64`), and the `JmapAccounts::Error`
     /// contract forbids PII and blob content in `Display` output
     /// (bd:JMAP-510h.37).
     pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
@@ -667,7 +667,7 @@ fn graph_of(v: &Value) -> Id {
     Id::from(v.get("graphId").and_then(Value::as_str).unwrap_or_default())
 }
 
-impl JmapBackend for MemoryBackend {
+impl JmapAccounts for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = Id;
 
@@ -682,7 +682,9 @@ impl JmapBackend for MemoryBackend {
             .accounts
             .contains_key(account_id.as_ref()))
     }
+}
 
+impl JmapReads for MemoryBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &Id,
@@ -1335,7 +1337,7 @@ impl ConditionalBackend for MemoryBackend {
 mod memory_error_tests {
     use super::MemoryError;
 
-    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// The `JmapAccounts::Error` contract: "Implementations MUST NOT
     /// include ... PII shaped like an email address" in `Display`
     /// output. serde_json data errors quote the offending value, so
     /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
@@ -1448,7 +1450,7 @@ mod max_changes_tests {
         backend: &MemoryBackend,
         since: &str,
         max: u64,
-    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapBackend>::Error>> {
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
         backend
             .get_changes::<T>(
                 &Id::from("alice"),

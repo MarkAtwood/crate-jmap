@@ -25,9 +25,9 @@ pub use jmap_mail_server::memory::{MemoryBackend, MemoryError, seed};
 
 use jmap_mail_server::MailBackend;
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapBackend, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetObject,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -114,13 +114,13 @@ thread_local! {
 static PRINCIPAL_ID: std::sync::LazyLock<Id> = std::sync::LazyLock::new(|| Id::from("p1"));
 
 /// Make [`FaultyBackend`] name a principal on this thread, as an
-/// ACL-enforcing backend does (`JmapBackend::principal_id`).
+/// ACL-enforcing backend does (`JmapAccounts::principal_id`).
 #[allow(dead_code)]
 pub fn with_principal() {
     PRINCIPAL.with(|p| p.set(true));
 }
 
-impl JmapBackend for FaultyBackend {
+impl JmapAccounts for FaultyBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
@@ -131,7 +131,9 @@ impl JmapBackend for FaultyBackend {
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.inner.account_exists(&(), account_id).await
     }
+}
 
+impl JmapReads for FaultyBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),

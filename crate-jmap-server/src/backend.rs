@@ -101,8 +101,8 @@ pub fn backend_set_error_value<E: std::fmt::Display>(err: BackendSetError<E>) ->
 // Backend error envelopes
 // ---------------------------------------------------------------------------
 
-/// Error type returned by [`JmapBackend::get_changes`] and
-/// [`JmapBackend::query_changes`].
+/// Error type returned by [`JmapReads::get_changes`] and
+/// [`JmapReads::query_changes`].
 ///
 /// The two non-`Other` variants map to the RFC 8620 §5.6 wire errors
 /// `cannotCalculateChanges` and `tooManyChanges`; `/changes` (§5.2) has
@@ -191,7 +191,7 @@ impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapErro
     }
 }
 
-/// Error type returned by [`JmapBackend::query_objects`].
+/// Error type returned by [`JmapReads::query_objects`].
 ///
 /// RFC 8620 §5.5 lets a `/query` fail with method errors that only the
 /// backend can detect (`unsupportedFilter`, `unsupportedSort`,
@@ -431,7 +431,7 @@ impl QueryChangesResult {
 // ---------------------------------------------------------------------------
 
 /// The `/changes` arguments (RFC 8620 §5.2) passed to
-/// [`JmapBackend::get_changes`], after `accountId`.
+/// [`JmapReads::get_changes`], after `accountId`.
 ///
 /// `#[non_exhaustive]` for the same reason as [`QueryParams`]. Build one
 /// with [`ChangesParams::new`], which takes the one required argument,
@@ -492,7 +492,7 @@ impl<'a> ChangesParams<'a> {
 // ---------------------------------------------------------------------------
 
 /// The `/query` arguments (RFC 8620 §5.5) passed to
-/// [`JmapBackend::query_objects`], after `accountId`.
+/// [`JmapReads::query_objects`], after `accountId`.
 ///
 /// `#[non_exhaustive]` so a new RFC or extension argument is a new field,
 /// not a breaking change to every backend (bd:JMAP-wf92.7). Backends read
@@ -530,7 +530,7 @@ pub struct QueryParams<'a, O: QueryObject> {
     /// value `/get` with these ranges returns
     /// ([`jmap_types::i18n::localized_value`]), not the base value. `None`
     /// compares stored values. Set only for an account whose
-    /// [`JmapBackend::i18n_info`] is `Some`; such a backend MUST honour it.
+    /// [`JmapAccounts::i18n_info`] is `Some`; such a backend MUST honour it.
     pub language: Option<&'a [jmap_types::i18n::LanguageRange]>,
 }
 
@@ -633,7 +633,7 @@ where
 }
 
 /// The `/queryChanges` arguments (RFC 8620 §5.6) passed to
-/// [`JmapBackend::query_changes`], after `accountId`.
+/// [`JmapReads::query_changes`], after `accountId`.
 ///
 /// `#[non_exhaustive]` for the same reason as [`QueryParams`]. Build one
 /// with [`QueryChangesParams::new`], which takes the one required
@@ -659,7 +659,7 @@ pub struct QueryChangesParams<'a, O: QueryObject> {
     /// value `/get` with these ranges returns
     /// ([`jmap_types::i18n::localized_value`]), not the base value. `None`
     /// compares stored values. Set only for an account whose
-    /// [`JmapBackend::i18n_info`] is `Some`; such a backend MUST honour it.
+    /// [`JmapAccounts::i18n_info`] is `Some`; such a backend MUST honour it.
     pub language: Option<&'a [jmap_types::i18n::LanguageRange]>,
 }
 
@@ -751,20 +751,36 @@ where
 // JmapBackend — the read-side supertrait
 // ---------------------------------------------------------------------------
 
-/// Read-side backend supertrait shared by all JMAP server crates.
+/// Backend supertrait shared by all JMAP server crates: [`JmapAccounts`]
+/// plus [`JmapReads`].
 ///
 /// Domain-specific backend traits (`MailBackend`, `ChatBackend`, etc.) require
 /// this trait as a supertrait and add write-side methods on top.
+///
+/// Implement [`JmapAccounts`] and [`JmapReads`]; the blanket impl provides
+/// this trait, so it has no methods of its own and is never implemented
+/// directly. A wrapper that forwards the reads to another backend
+/// implements [`DelegateJmapReads`] instead of [`JmapReads`].
 ///
 /// Only the read operations that have an identical signature across all JMAP
 /// object types belong here. Write operations (`create_object`, `update_object`,
 /// `destroy_object`) and domain-specific operations remain in the domain crate.
 ///
-/// [`QueryChangesParams::collapse_threads`] is included for
-/// `Email/queryChanges` (RFC 8621 §4.5). Non-mail backends may ignore it.
-///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl JmapBackend>` when sharing across tasks.
+pub trait JmapBackend: JmapAccounts + JmapReads {}
+
+impl<T: JmapAccounts + JmapReads> JmapBackend for T {}
+
+/// Per-account information every JMAP backend supplies: the error and caller
+/// context types, the account check, the caller's principal and
+/// Accept-Language, the request limits, and the metadata and i18n hooks.
+///
+/// One of the two halves of [`JmapBackend`]; the other is [`JmapReads`].
+/// A backend implements both, and gets [`JmapBackend`] from the blanket
+/// impl. The split lets a wrapper override [`Self::account_exists`] (or
+/// any method here) while forwarding the reads to the backend it wraps
+/// through [`DelegateJmapReads`].
 ///
 /// # CallerCtx
 ///
@@ -777,7 +793,7 @@ where
 /// Implementations that do not need an auth identity can use the unit type:
 ///
 /// ```rust,ignore
-/// impl JmapBackend for MyBackend {
+/// impl JmapAccounts for MyBackend {
 ///     type Error = MyError;
 ///     type CallerCtx = ();
 ///     // ...
@@ -792,7 +808,7 @@ where
 /// The trait bound `Clone + Send + 'static` is what [`crate::Dispatcher`]
 /// requires; the bound is repeated here so the supertrait can stand on its
 /// own without depending on the dispatcher.
-pub trait JmapBackend: Send + Sync + 'static {
+pub trait JmapAccounts: Send + Sync + 'static {
     /// The error type returned by storage operations.
     ///
     /// # Security
@@ -830,7 +846,7 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// `MailBackend::Error`, `ChatBackend::Error`,
     /// `CalendarsBackend::Error`, `TasksBackend::Error`,
     /// `ContactsBackend::Error`, `FileNodeBackend::Error`, and
-    /// `SharingBackend::Error` are all the same `JmapBackend::Error`
+    /// `SharingBackend::Error` are all the same `JmapAccounts::Error`
     /// associated type — the contract here governs all of them.
     ///
     /// Precedent: bd:JMAP-sc1b.79 redacted `BearerAuth` and `BasicAuth`
@@ -886,165 +902,6 @@ pub trait JmapBackend: Send + Sync + 'static {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
-
-    /// Fetch objects by id (or all objects when `ids` is `None`).
-    ///
-    /// `properties` is the list of property names requested by the client
-    /// (RFC 8620 §5.1). `None` means the client did not send a `properties`
-    /// field; the backend should return all properties. When `Some`, the backend
-    /// MAY filter the response to only the named properties, but is not required
-    /// to — implementations that always return all properties are correct.
-    ///
-    /// Returns `(found, not_found)` — objects that exist and ids that do not.
-    ///
-    /// # Unknown `account_id`
-    ///
-    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
-    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
-    /// [`Self::account_exists`] before calling this method and return
-    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
-    /// need not repeat that check. A caller that bypasses those handlers can
-    /// still reach this method with an unknown account; backends SHOULD then
-    /// return `Ok` with an empty `found` list and every requested id in `not_found`. Returning `Err` is permitted but surfaces as
-    /// `serverFail`, not `accountNotFound`.
-    ///
-    /// # Localized properties
-    ///
-    /// For a type with [`JmapObject::LOCALIZABLE`] properties, return the
-    /// stored base values with their `locale` and `localizations`. The
-    /// handlers build the single-language view of the `language` argument
-    /// themselves. Do not let the request's Accept-Language change what
-    /// this method or `query_objects` returns for a localizable property:
-    /// draft-atwood-jmap-updates-00 §4.2.1 says the server MUST NOT, since
-    /// a client that caches objects by id and state could not tell the
-    /// languages apart.
-    fn get_objects<O: GetObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        ids: Option<&[jmap_types::Id]>,
-        properties: Option<&[String]>,
-    ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send;
-
-    /// Return the current state token for an object type in the given account.
-    ///
-    /// # Unknown `account_id`
-    ///
-    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
-    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
-    /// [`Self::account_exists`] before calling this method and return
-    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
-    /// need not repeat that check. A caller that bypasses those handlers can
-    /// still reach this method with an unknown account; backends SHOULD then
-    /// return `Ok` with the state token an empty account would report. Returning `Err` is permitted but surfaces as
-    /// `serverFail`, not `accountNotFound`.
-    fn get_state<O: JmapObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<jmap_types::State, Self::Error>> + Send;
-
-    /// Return changes since `params.since_state`, up to
-    /// `params.max_changes` entries, honouring
-    /// `params.ignore_metadata_only_changes` (see [`ChangesParams`]).
-    ///
-    /// # Unknown `account_id`
-    ///
-    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
-    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
-    /// [`Self::account_exists`] before calling this method and return
-    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
-    /// need not repeat that check. A caller that bypasses those handlers can
-    /// still reach this method with an unknown account; backends SHOULD then
-    /// return `Ok` with a [`ChangesResult`] whose change lists are empty. Returning `Err` is permitted but surfaces as
-    /// `serverFail`, not `accountNotFound`.
-    fn get_changes<O: JmapObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        params: ChangesParams<'_>,
-    ) -> impl std::future::Future<Output = Result<ChangesResult, BackendChangesError<Self::Error>>> + Send;
-
-    /// Execute a `/query` and return a page of matching ids.
-    ///
-    /// `params.position` may be negative — negative values are relative to
-    /// the end of the result set per RFC 8620 §5.5 (e.g. -1 means the last
-    /// result).
-    ///
-    /// `params.anchor` and `params.anchor_offset` are the RFC 8620 §5.5
-    /// `anchor` and `anchorOffset` arguments. With an `anchor`, `position` MUST be
-    /// ignored and the page starts at the anchor's index in the filtered,
-    /// sorted results plus `anchor_offset`, clamped to 0; an anchor not in
-    /// the results is [`JmapError::anchor_not_found`] via
-    /// [`BackendQueryError::Method`]. Without one, `anchor_offset` MUST be
-    /// ignored. [`QueryResult::position`] is the page's actual start index.
-    /// [`crate::resolve_query_start`] implements this over an in-memory id
-    /// list.
-    ///
-    /// [`JmapError::anchor_not_found`]: jmap_types::JmapError::anchor_not_found
-    ///
-    /// # Filter and sort handling
-    ///
-    /// Implementations MUST honour the supplied `filter` and `sort` arguments
-    /// efficiently — typically by pushing both into the indexed storage layer
-    /// (database WHERE / ORDER BY, search index, etc.). Returning every
-    /// matching id and relying on the caller to paginate after the fact
-    /// degenerates to O(n) per page for IMAP-migration accounts.
-    ///
-    /// Handler implementations in `jmap-*-server` crates SHOULD NOT
-    /// post-filter or post-sort the backend's result; doing so re-introduces
-    /// the O(n) cost this method exists to avoid. The Mailbox handler in
-    /// `jmap-mail-server` is the canonical example of pushing filter/sort
-    /// fully into the backend.
-    ///
-    /// # Errors
-    ///
-    /// Return [`BackendQueryError::Method`] for an RFC 8620 §5.5 method
-    /// error (`unsupportedFilter`, `unsupportedSort`, `anchorNotFound`,
-    /// ...); handlers pass it to the client unchanged. Return
-    /// [`BackendQueryError::Other`] (or use `?` on `Self::Error`) for an
-    /// internal failure; handlers surface it as a redacted `serverFail`.
-    ///
-    /// # Unknown `account_id`
-    ///
-    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
-    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
-    /// [`Self::account_exists`] before calling this method and return
-    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
-    /// need not repeat that check. A caller that bypasses those handlers can
-    /// still reach this method with an unknown account; backends SHOULD then
-    /// return `Ok` with an empty [`QueryResult`] page. Returning `Err` is permitted but surfaces as
-    /// `serverFail`, not `accountNotFound`.
-    fn query_objects<O: QueryObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        params: QueryParams<'_, O>,
-    ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
-
-    /// Execute a `/queryChanges` and return deltas since `since_query_state`.
-    ///
-    /// `params.collapse_threads` is only meaningful for `Email/queryChanges`
-    /// (RFC 8621 §4.5); it is `false` for all other object types.
-    ///
-    /// # Unknown `account_id`
-    ///
-    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
-    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
-    /// [`Self::account_exists`] before calling this method and return
-    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
-    /// need not repeat that check. A caller that bypasses those handlers can
-    /// still reach this method with an unknown account; backends SHOULD then
-    /// return `Ok` with a [`QueryChangesResult`] whose `removed` and `added` lists are empty. Returning `Err` is permitted but surfaces as
-    /// `serverFail`, not `accountNotFound`.
-    fn query_changes<O: QueryObject + Send + Sync>(
-        &self,
-        caller: &Self::CallerCtx,
-        account_id: &jmap_types::Id,
-        params: QueryChangesParams<'_, O>,
-    ) -> impl std::future::Future<
-        Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
-    > + Send;
 
     /// The caller's stable identity within this account namespace.
     ///
@@ -1167,7 +1024,7 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// all) is not counted.
     ///
     /// The default value `500` is the RFC 8620 §2 suggested minimum and
-    /// mirrors [`JmapBackend::max_objects_in_set`]. Backends MAY override
+    /// mirrors [`JmapAccounts::max_objects_in_set`]. Backends MAY override
     /// per account; the `caller` and `account_id` arguments exist for
     /// that. Keep the value in step with the `maxObjectsInGet` advertised
     /// in the Session object.
@@ -1232,6 +1089,258 @@ pub trait JmapBackend: Send + Sync + 'static {
     }
 }
 
+/// The five standard reads (RFC 8620 §5.1, §5.2, §5.5, §5.6), the half of
+/// [`JmapBackend`] that a wrapper can forward with [`DelegateJmapReads`].
+///
+/// [`QueryChangesParams::collapse_threads`] is included for
+/// `Email/queryChanges` (RFC 8621 §4.5). Non-mail backends may ignore it.
+pub trait JmapReads: JmapAccounts {
+    /// Fetch objects by id (or all objects when `ids` is `None`).
+    ///
+    /// `properties` is the list of property names requested by the client
+    /// (RFC 8620 §5.1). `None` means the client did not send a `properties`
+    /// field; the backend should return all properties. When `Some`, the backend
+    /// MAY filter the response to only the named properties, but is not required
+    /// to — implementations that always return all properties are correct.
+    ///
+    /// Returns `(found, not_found)` — objects that exist and ids that do not.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`JmapAccounts::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with an empty `found` list and every requested id in `not_found`. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
+    ///
+    /// # Localized properties
+    ///
+    /// For a type with [`JmapObject::LOCALIZABLE`] properties, return the
+    /// stored base values with their `locale` and `localizations`. The
+    /// handlers build the single-language view of the `language` argument
+    /// themselves. Do not let the request's Accept-Language change what
+    /// this method or `query_objects` returns for a localizable property:
+    /// draft-atwood-jmap-updates-00 §4.2.1 says the server MUST NOT, since
+    /// a client that caches objects by id and state could not tell the
+    /// languages apart.
+    fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        ids: Option<&[jmap_types::Id]>,
+        properties: Option<&[String]>,
+    ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send;
+
+    /// Return the current state token for an object type in the given account.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`JmapAccounts::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with the state token an empty account would report. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
+    fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<jmap_types::State, Self::Error>> + Send;
+
+    /// Return changes since `params.since_state`, up to
+    /// `params.max_changes` entries, honouring
+    /// `params.ignore_metadata_only_changes` (see [`ChangesParams`]).
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`JmapAccounts::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with a [`ChangesResult`] whose change lists are empty. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
+    fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        params: ChangesParams<'_>,
+    ) -> impl std::future::Future<Output = Result<ChangesResult, BackendChangesError<Self::Error>>> + Send;
+
+    /// Execute a `/query` and return a page of matching ids.
+    ///
+    /// `params.position` may be negative — negative values are relative to
+    /// the end of the result set per RFC 8620 §5.5 (e.g. -1 means the last
+    /// result).
+    ///
+    /// `params.anchor` and `params.anchor_offset` are the RFC 8620 §5.5
+    /// `anchor` and `anchorOffset` arguments. With an `anchor`, `position` MUST be
+    /// ignored and the page starts at the anchor's index in the filtered,
+    /// sorted results plus `anchor_offset`, clamped to 0; an anchor not in
+    /// the results is [`JmapError::anchor_not_found`] via
+    /// [`BackendQueryError::Method`]. Without one, `anchor_offset` MUST be
+    /// ignored. [`QueryResult::position`] is the page's actual start index.
+    /// [`crate::resolve_query_start`] implements this over an in-memory id
+    /// list.
+    ///
+    /// [`JmapError::anchor_not_found`]: jmap_types::JmapError::anchor_not_found
+    ///
+    /// # Filter and sort handling
+    ///
+    /// Implementations MUST honour the supplied `filter` and `sort` arguments
+    /// efficiently — typically by pushing both into the indexed storage layer
+    /// (database WHERE / ORDER BY, search index, etc.). Returning every
+    /// matching id and relying on the caller to paginate after the fact
+    /// degenerates to O(n) per page for IMAP-migration accounts.
+    ///
+    /// Handler implementations in `jmap-*-server` crates SHOULD NOT
+    /// post-filter or post-sort the backend's result; doing so re-introduces
+    /// the O(n) cost this method exists to avoid. The Mailbox handler in
+    /// `jmap-mail-server` is the canonical example of pushing filter/sort
+    /// fully into the backend.
+    ///
+    /// # Errors
+    ///
+    /// Return [`BackendQueryError::Method`] for an RFC 8620 §5.5 method
+    /// error (`unsupportedFilter`, `unsupportedSort`, `anchorNotFound`,
+    /// ...); handlers pass it to the client unchanged. Return
+    /// [`BackendQueryError::Other`] (or use `?` on `Self::Error`) for an
+    /// internal failure; handlers surface it as a redacted `serverFail`.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`JmapAccounts::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with an empty [`QueryResult`] page. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
+    fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        params: QueryParams<'_, O>,
+    ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send;
+
+    /// Execute a `/queryChanges` and return deltas since `since_query_state`.
+    ///
+    /// `params.collapse_threads` is only meaningful for `Email/queryChanges`
+    /// (RFC 8621 §4.5); it is `false` for all other object types.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The standard handlers ([`crate::handle_get`], [`crate::handle_changes`],
+    /// [`crate::handle_query`], [`crate::handle_query_changes`]) check
+    /// [`JmapAccounts::account_exists`] before calling this method and return
+    /// `accountNotFound` (RFC 8620 §3.6.2) themselves, so implementations
+    /// need not repeat that check. A caller that bypasses those handlers can
+    /// still reach this method with an unknown account; backends SHOULD then
+    /// return `Ok` with a [`QueryChangesResult`] whose `removed` and `added` lists are empty. Returning `Err` is permitted but surfaces as
+    /// `serverFail`, not `accountNotFound`.
+    fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        params: QueryChangesParams<'_, O>,
+    ) -> impl std::future::Future<
+        Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
+    > + Send;
+}
+
+/// Forward [`JmapReads`] to another backend: implement this instead of
+/// [`JmapReads`], and the blanket impl sends every read to
+/// [`Self::jmap_reads`].
+///
+/// For a wrapper that overrides [`JmapAccounts`] methods (an
+/// `account_exists` that consults a directory, say) but serves the reads
+/// from the backend it wraps. The target has the same `Error` and
+/// `CallerCtx` as the wrapper.
+///
+/// ```rust,ignore
+/// impl JmapAccounts for Wrapper {
+///     type Error = <Inner as JmapAccounts>::Error;
+///     type CallerCtx = <Inner as JmapAccounts>::CallerCtx;
+///     async fn account_exists(&self, caller: &Self::CallerCtx, id: &Id) -> Result<bool, Self::Error> {
+///         // ...
+///     }
+/// }
+///
+/// impl DelegateJmapReads for Wrapper {
+///     type Target = Inner;
+///     fn jmap_reads(&self) -> &Inner {
+///         &self.inner
+///     }
+/// }
+/// ```
+pub trait DelegateJmapReads: JmapAccounts {
+    /// The backend the reads go to.
+    type Target: JmapReads<Error = Self::Error, CallerCtx = Self::CallerCtx>;
+
+    /// The backend the reads go to.
+    fn jmap_reads(&self) -> &Self::Target;
+}
+
+impl<T: DelegateJmapReads> JmapReads for T {
+    fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        ids: Option<&[jmap_types::Id]>,
+        properties: Option<&[String]>,
+    ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send
+    {
+        self.jmap_reads()
+            .get_objects(caller, account_id, ids, properties)
+    }
+    fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<jmap_types::State, Self::Error>> + Send {
+        self.jmap_reads().get_state::<O>(caller, account_id)
+    }
+
+    fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        params: ChangesParams<'_>,
+    ) -> impl std::future::Future<Output = Result<ChangesResult, BackendChangesError<Self::Error>>> + Send
+    {
+        self.jmap_reads()
+            .get_changes::<O>(caller, account_id, params)
+    }
+
+    fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        params: QueryParams<'_, O>,
+    ) -> impl std::future::Future<Output = Result<QueryResult, BackendQueryError<Self::Error>>> + Send
+    {
+        self.jmap_reads().query_objects(caller, account_id, params)
+    }
+
+    fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        params: QueryChangesParams<'_, O>,
+    ) -> impl std::future::Future<
+        Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
+    > + Send {
+        self.jmap_reads().query_changes(caller, account_id, params)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -1289,7 +1398,7 @@ mod tests {
     /// the wrapped backend error's `Display` text into the resulting
     /// `JmapError`'s description. The defence-in-depth contract is that
     /// even if a backend implementor accidentally violates the
-    /// [`JmapBackend::Error`] Display MUST-NOT (credential / blob /
+    /// [`JmapAccounts::Error`] Display MUST-NOT (credential / blob /
     /// PII), the leaked text never reaches the wire — and the
     /// ergonomic `.map_err(JmapError::from)?` path that
     /// `handle_changes` / `handle_query_changes` take on
@@ -1433,7 +1542,7 @@ mod tests {
     /// are never invoked.
     struct StubBackend;
 
-    impl JmapBackend for StubBackend {
+    impl JmapAccounts for StubBackend {
         type Error = StubError;
         type CallerCtx = ();
 
@@ -1444,7 +1553,9 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             unreachable!("stub backend: only default methods are exercised")
         }
+    }
 
+    impl JmapReads for StubBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -1491,15 +1602,15 @@ mod tests {
         }
     }
 
-    /// Oracle (bd:JMAP-ga0q.1): `JmapBackend::principal_id` has a default impl
+    /// Oracle (bd:JMAP-ga0q.1): `JmapAccounts::principal_id` has a default impl
     /// that returns `None`. A backend whose `CallerCtx = ()` and that does NOT
     /// override `principal_id` inherits that default and signals "identity not
     /// wired" to callers. JMAP semantics that depend on caller identity must
     /// treat `None` as a hard "cannot honor".
     #[test]
     fn principal_id_default_impl_returns_none_for_unit_caller_ctx() {
-        let caller: <StubBackend as JmapBackend>::CallerCtx = ();
-        let id = <StubBackend as JmapBackend>::principal_id(&caller);
+        let caller: <StubBackend as JmapAccounts>::CallerCtx = ();
+        let id = <StubBackend as JmapAccounts>::principal_id(&caller);
         assert!(
             id.is_none(),
             "default principal_id impl must return None; got Some({:?})",
@@ -1507,7 +1618,7 @@ mod tests {
         );
     }
 
-    /// Oracle (bd:JMAP-ayoz.41.1): `JmapBackend::max_objects_in_set`
+    /// Oracle (bd:JMAP-ayoz.41.1): `JmapAccounts::max_objects_in_set`
     /// has a default impl that returns `500`. The constant is the
     /// workspace's testjig Session JSON advertised cap; a backend that
     /// does not override the method inherits a sane DoS-defence
@@ -1515,7 +1626,7 @@ mod tests {
     #[test]
     fn max_objects_in_set_default_impl_returns_500() {
         let backend = StubBackend;
-        let caller: <StubBackend as JmapBackend>::CallerCtx = ();
+        let caller: <StubBackend as JmapAccounts>::CallerCtx = ();
         let id = jmap_types::Id::from("any-account");
         assert_eq!(
             backend.max_objects_in_set(&caller, &id),
@@ -1525,12 +1636,12 @@ mod tests {
     }
 
     /// Oracle (trait docs, same rationale as `max_objects_in_set`): the
-    /// default `JmapBackend::max_objects_in_get` cap is `500`, so a backend
+    /// default `JmapAccounts::max_objects_in_get` cap is `500`, so a backend
     /// that does not override it keeps the RFC 8620 §5.1 `requestTooLarge`
     /// guard enabled.
     #[test]
     fn max_objects_in_get_default_impl_returns_500() {
-        let caller: <StubBackend as JmapBackend>::CallerCtx = ();
+        let caller: <StubBackend as JmapAccounts>::CallerCtx = ();
         let id = jmap_types::Id::from("any-account");
         assert_eq!(StubBackend.max_objects_in_get(&caller, &id), 500);
     }

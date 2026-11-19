@@ -17,9 +17,9 @@ use jmap_contacts_server::{
 };
 use jmap_server::HandlerOutput;
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetObject,
 };
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
@@ -50,14 +50,16 @@ impl FailingBackend {
     }
 }
 
-impl JmapBackend for FailingBackend {
+impl JmapAccounts for FailingBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
         self.inner.account_exists(caller, account_id).await
     }
+}
 
+impl JmapReads for FailingBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &(),

@@ -33,7 +33,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 ///
 /// Per the workspace AGENTS.md "Caller identity (foundation seam)" section,
 /// the canonical (and only) way for a method to learn who is asking is
-/// [`JmapBackend::principal_id`] on the `caller: &Self::CallerCtx`
+/// [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) on the `caller: &Self::CallerCtx`
 /// parameter. `ContactsBackend` extends [`JmapBackend`], so the seam is
 /// inherited; no contacts-specific identity method exists or should
 /// exist.
@@ -83,7 +83,7 @@ pub trait ContactsBackend: JmapBackend {
     /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
-    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write access to the target
+    /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write access to the target
     /// account / AddressBook / ContactCard
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
@@ -143,9 +143,9 @@ pub trait ContactsBackend: JmapBackend {
     /// change." Every successful `create_object`,
     /// [`update_object`](Self::update_object) and
     /// [`destroy_object`](Self::destroy_object) MUST advance
-    /// [`get_state`](JmapBackend::get_state) for `O` in `account_id` and
+    /// [`get_state`](jmap_server::JmapReads::get_state) for `O` in `account_id` and
     /// record the id as created, updated or destroyed so
-    /// [`get_changes`](JmapBackend::get_changes) reports it.
+    /// [`get_changes`](jmap_server::JmapReads::get_changes) reports it.
     ///
     /// The write, the state advance and the change record MUST be atomic
     /// with respect to other callers: the reference `MemoryBackend` does

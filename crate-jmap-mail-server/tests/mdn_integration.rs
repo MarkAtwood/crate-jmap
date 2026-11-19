@@ -12,7 +12,7 @@ use jmap_mail_server::MailBackend;
 use jmap_mail_server::mdn::{handle_mdn_parse, handle_mdn_send};
 use jmap_mail_types::Identity;
 use jmap_server::HandlerOutput;
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::Id;
 use jmap_types::Invocation;
 

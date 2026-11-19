@@ -2,7 +2,7 @@
 //! (draft-atwood-jmap-updates-00 §3 and §4).
 //!
 //! A backend says which accounts support localizations through
-//! [`JmapBackend::i18n_info`](crate::JmapBackend::i18n_info). `/get`
+//! [`JmapAccounts::i18n_info`](crate::JmapAccounts::i18n_info). `/get`
 //! handlers build an [`I18nProjection`] per request; it reads the
 //! `language` argument, rejects it where the draft says to, and shapes
 //! `locale` and `localizations` on every returned object. `/set` handlers
@@ -20,7 +20,7 @@ use jmap_types::{JmapError, PatchObject};
 use serde_json::{Map, Value};
 
 /// What a backend supports for `urn:ietf:params:jmap:i18n` in one
-/// account, as [`JmapBackend::i18n_info`](crate::JmapBackend::i18n_info)
+/// account, as [`JmapAccounts::i18n_info`](crate::JmapAccounts::i18n_info)
 /// returns it.
 ///
 /// Build one with [`I18nInfo::new`] and the `with_*` setters.
@@ -89,7 +89,7 @@ impl I18nProjection {
     /// `Foo/query` or `Foo/queryChanges` for type `O`.
     ///
     /// `using` is the request's capability list and `info` the account's
-    /// [`JmapBackend::i18n_info`](crate::JmapBackend::i18n_info). A
+    /// [`JmapAccounts::i18n_info`](crate::JmapAccounts::i18n_info). A
     /// missing or `null` `language` is the default and always accepted.
     ///
     /// # Errors
@@ -249,7 +249,7 @@ pub struct I18nSet {
 
 impl I18nSet {
     /// The handling for type `O`, given the request's `using` and the
-    /// account's [`JmapBackend::i18n_info`](crate::JmapBackend::i18n_info).
+    /// account's [`JmapAccounts::i18n_info`](crate::JmapAccounts::i18n_info).
     pub fn new<O: JmapObject>(using: &[String], info: Option<&I18nInfo>) -> Self {
         Self {
             properties: (!O::LOCALIZABLE.is_empty()).then_some(O::LOCALIZABLE),

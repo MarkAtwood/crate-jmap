@@ -66,7 +66,7 @@ use jmap_server::{SetError, SetErrorType};
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Mailbox
-/// for draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// for draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
 /// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
@@ -74,7 +74,7 @@ use jmap_server::{SetError, SetErrorType};
 ///
 /// `name` is localizable (draft-atwood-jmap-updates-00 §5.1): with
 /// `urn:ietf:params:jmap:i18n` in `using` and
-/// [`JmapBackend::i18n_info`](jmap_server::JmapBackend::i18n_info) `Some`,
+/// [`JmapAccounts::i18n_info`](jmap_server::JmapAccounts::i18n_info) `Some`,
 /// `locale` and `localizations` are returned, and a `language` argument
 /// returns each Mailbox's single-language view
 /// ([`jmap_server::I18nProjection`]).

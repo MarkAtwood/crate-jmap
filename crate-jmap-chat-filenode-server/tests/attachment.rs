@@ -37,7 +37,7 @@ use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_chat_types::{AttachmentCreate, Chat};
 use jmap_filenode_server::memory::MemoryBackend as FilesMemory;
 use jmap_filenode_types::FileNode;
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
 

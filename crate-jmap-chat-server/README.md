@@ -176,7 +176,7 @@ in this crate runs the suite on `MemoryBackend`.
 The handlers in this crate do **no** caller-identity checking. Per the
 workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
 are canonical for authorization. Caller identity is read via
-`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+`JmapAccounts::principal_id` on the `caller: &Self::CallerCtx`
 parameter every backend method receives. In JMAP Chat the caller
 acts as the account's owner, whose Space member entry is the
 accountId (draft-atwood-jmap-chat-00 §Terminology), so authorization
@@ -332,7 +332,7 @@ does not check account access (fail-open, bd:JMAP-bghk) — it is
 suitable for single-user dev servers, fixtures, and the workspace's
 own integration tests, but NOT for any deployment where more than one
 principal can reach the JMAP dispatcher. A deployment that needs
-access control MUST override `JmapBackend::principal_id` and implement
+access control MUST override `JmapAccounts::principal_id` and implement
 each of the checks above; the workspace ships no production-grade
 reference impl.
 

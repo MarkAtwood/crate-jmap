@@ -120,7 +120,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
-    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write access to the target
+    /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write access to the target
     /// account / Calendar / CalendarEvent
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
@@ -170,9 +170,9 @@ pub trait CalendarsBackend: JmapBackend {
     /// change." Every successful `create_object`,
     /// [`update_object`](Self::update_object) and
     /// [`destroy_object`](Self::destroy_object) MUST advance
-    /// [`get_state`](JmapBackend::get_state) for `O` in `account_id` and
+    /// [`get_state`](jmap_server::JmapReads::get_state) for `O` in `account_id` and
     /// record the id as created, updated or destroyed so
-    /// [`get_changes`](JmapBackend::get_changes) reports it.
+    /// [`get_changes`](jmap_server::JmapReads::get_changes) reports it.
     ///
     /// The write, the state advance and the change record MUST be atomic
     /// with respect to other callers: the reference `MemoryBackend` does
@@ -817,7 +817,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// `utcEnd` are absent from every response. Backends MUST override this
     /// method to provide real §5.2 semantics.
     ///
-    /// [`get_objects`]: jmap_server::JmapBackend::get_objects
+    /// [`get_objects`]: jmap_server::JmapReads::get_objects
     fn compute_utc_times(
         &self,
         _caller: &Self::CallerCtx,
@@ -856,7 +856,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///   [`compute_utc_times`](Self::compute_utc_times) for consistency.
     ///
     /// Returns `(found, not_found)` like
-    /// [`get_objects`](JmapBackend::get_objects).
+    /// [`get_objects`](jmap_server::JmapReads::get_objects).
     ///
     /// Whatever `args` says, the backend MUST apply the §5.7 per-user
     /// view: for a user without `mayWriteAll` / `mayWriteOwn` on an event
@@ -867,7 +867,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// user's `"private"` event, return only the §5.7 permitted
     /// properties, which now include per-user properties. The same view
     /// applies to every caller-scoped
-    /// [`get_objects`](JmapBackend::get_objects) read of a CalendarEvent,
+    /// [`get_objects`](jmap_server::JmapReads::get_objects) read of a CalendarEvent,
     /// including the source read of `CalendarEvent/copy` (§5.10).
     ///
     /// The default implementation ignores `args` and delegates to
@@ -923,7 +923,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// `serverFail`.
     ///
     /// The default implementation ignores `args` and delegates to
-    /// [`query_objects`](JmapBackend::query_objects). Backends that support
+    /// [`query_objects`](jmap_server::JmapReads::query_objects). Backends that support
     /// recurrence expansion MUST override this method.
     fn query_calendar_events(
         &self,

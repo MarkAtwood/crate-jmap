@@ -41,9 +41,9 @@ mod i18n;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, ReservedExtrasKey, SetError, SetErrorType, SetObject,
-    backend_set_error_value,
+    ChangesResult, DelegateJmapReads, GetObject, JmapAccounts, JmapBackend, JmapObject, JmapReads,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    ReservedExtrasKey, SetError, SetErrorType, SetObject, backend_set_error_value,
 };
 pub use conditional::{
     BeginSetError, CommitError, CommitFuture, ConditionalBackend, DeferredFailure,

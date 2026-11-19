@@ -1075,6 +1075,7 @@ mod tests {
         QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
     };
     use crate::{CallContext, HandlerFuture, HandlerOutput, JmapHandler};
+    use crate::{JmapAccounts, JmapReads};
 
     #[derive(Debug, Serialize, Deserialize)]
     struct Probe;
@@ -1109,14 +1110,16 @@ mod tests {
         fail: bool,
     }
 
-    impl JmapBackend for Backend {
+    impl JmapAccounts for Backend {
         type Error = StubError;
         type CallerCtx = ();
 
         async fn account_exists(&self, _: &(), _: &Id) -> Result<bool, StubError> {
             unreachable!("not used")
         }
+    }
 
+    impl JmapReads for Backend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _: &(),

@@ -60,9 +60,9 @@ use std::sync::Arc;
 use jmap_blob_types::{BlobAccountCapability, BlobRef, DigestAlgorithm, Recipe, errors};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, BeginSetError, ChangesParams,
-    ChangesResult, ConditionalBackend, GetObject, JmapBackend, JmapObject, QueryChangesParams,
-    QueryChangesResult, QueryObject, QueryParams, QueryResult, ScopeGate, ScopedGuard, ScopedState,
-    SetScope, SetScopeRequest, utc_date_from_epoch_seconds,
+    ChangesResult, ConditionalBackend, GetObject, JmapAccounts, JmapObject, JmapReads,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, ScopeGate,
+    ScopedGuard, ScopedState, SetScope, SetScopeRequest, utc_date_from_epoch_seconds,
 };
 use jmap_types::{Id, SetError, SetErrorType, State, UTCDate};
 
@@ -1096,14 +1096,16 @@ fn not_an_object_store<T>(type_name: &str) -> Result<T, MemoryError> {
     )))
 }
 
-impl JmapBackend for MemoryBackend {
+impl JmapAccounts for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self.locked().await.accounts.contains_key(account_id))
     }
+}
 
+impl JmapReads for MemoryBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),

@@ -11,7 +11,7 @@ use jmap_chat_server::message::handle_message_set;
 use jmap_chat_server::{handle_invite_set, handle_space_get, handle_space_join, handle_space_set};
 use jmap_chat_types::Space;
 use jmap_server::HandlerOutput;
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::Id;
 use serde_json::{Value, json};
 

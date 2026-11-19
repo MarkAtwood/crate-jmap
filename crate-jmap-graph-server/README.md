@@ -75,7 +75,7 @@ in the core `collationAlgorithms`.
 - GraphNode and GraphEdge `/query` need a single condition with `graphId`
   (`unsupportedFilter` otherwise); unknown sort properties are
   `unsupportedSort`.
-- `createdBy` and `updatedBy` are `JmapBackend::principal_id`.
+- `createdBy` and `updatedBy` are `JmapAccounts::principal_id`.
 - Live editing: `GraphNode/set` enforces the `editFormat` and
   `snapshotSeq` rules (set once; a snapshot changes `blobId` and
   `snapshotSeq` together; `snapshotSeq` never decreases and never passes

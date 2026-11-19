@@ -1,7 +1,7 @@
 //! RFC 8621 §5.1 `SearchSnippet/get` `requestTooLarge` enforcement on
 //! `emailIds` (bd:JMAP-yt1w.38).
 //!
-//! The cap is the default `JmapBackend::max_objects_in_get` of 500 used by
+//! The cap is the default `JmapAccounts::max_objects_in_get` of 500 used by
 //! every other /get handler (bd:JMAP-yt1w.31). The oracle is the RFC error
 //! type string and the requested id list; the handler under test is never
 //! its own oracle.
@@ -16,7 +16,7 @@ use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-// Default cap value returned by `JmapBackend::max_objects_in_get` in the
+// Default cap value returned by `JmapAccounts::max_objects_in_get` in the
 // foundation crate.
 const DEFAULT_CAP: usize = 500;
 

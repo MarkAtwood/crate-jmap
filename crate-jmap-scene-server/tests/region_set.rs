@@ -14,7 +14,7 @@ use jmap_scene_server::{
     handle_scene_region_get, handle_scene_region_set,
 };
 use jmap_scene_types::{SceneAvatar, SceneObject};
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::Id;
 use serde_json::{Value, json};
 

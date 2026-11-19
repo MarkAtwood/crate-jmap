@@ -50,7 +50,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 /// [`copy_object`](Self::copy_object), [`import_email`](Self::import_email)
 /// and [`batch_destroy_emails`](Self::batch_destroy_emails).
 ///
-/// The caller is known only through [`JmapBackend::principal_id`]. A backend
+/// The caller is known only through [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id). A backend
 /// whose `principal_id` returns `None` honors no per-user ACL and permits
 /// every write (fail-open, bd:JMAP-bghk); that suits test fixtures and
 /// single-user servers, not multi-user deployments.
@@ -73,7 +73,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 ///
 /// Reads apply the same rights: "Email objects may be fetched if they are in
 /// *at least one* Mailbox with" `mayReadItems` (RFC 8621 §2), so
-/// [`JmapBackend::get_objects`] and [`JmapBackend::query_objects`] leave out
+/// [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) and [`JmapReads::query_objects`](jmap_server::JmapReads::query_objects) leave out
 /// the others, and `Email/copy` treats an unreadable source Email in
 /// `fromAccountId` as not found.
 ///
@@ -96,7 +96,7 @@ pub trait MailBackend: JmapBackend {
     /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
-    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) holds the RFC 8621 §2 `myRights` the write needs, as listed under
+    /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) holds the RFC 8621 §2 `myRights` the write needs, as listed under
     /// "Permission enforcement (backend canonical)" on [`MailBackend`],
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
@@ -158,9 +158,9 @@ pub trait MailBackend: JmapBackend {
     /// change." Every successful `create_object`,
     /// [`update_object`](Self::update_object) and
     /// [`destroy_object`](Self::destroy_object) MUST advance
-    /// [`get_state`](JmapBackend::get_state) for `O` in `account_id` and
+    /// [`get_state`](jmap_server::JmapReads::get_state) for `O` in `account_id` and
     /// record the id as created, updated or destroyed so
-    /// [`get_changes`](JmapBackend::get_changes) reports it.
+    /// [`get_changes`](jmap_server::JmapReads::get_changes) reports it.
     ///
     /// The write, the state advance and the change record MUST be atomic
     /// with respect to other callers: the reference `MemoryBackend` does
@@ -319,7 +319,7 @@ pub trait MailBackend: JmapBackend {
     /// with `mailboxHasEmail`, or with `onDestroyRemoveEmails` destroys
     /// the Emails only in that Mailbox and removes it from the other
     /// Emails' `mailboxIds`, before it calls `destroy_object::<Mailbox>`.
-    /// When [`JmapBackend::principal_id`] names a principal, it first
+    /// When [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) names a principal, it first
     /// checks the Mailbox's `myRights` (`mayDelete`, and `mayRemoveItems`
     /// for the cascade) and answers `forbidden` without removing any
     /// Email; a backend that can still refuse the Mailbox destroy after

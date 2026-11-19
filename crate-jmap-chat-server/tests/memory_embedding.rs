@@ -8,7 +8,7 @@
 
 use jmap_chat_server::memory::MemoryBackend;
 use jmap_chat_types::ChatContact;
-use jmap_server::{BackendSetError, ChangesParams, JmapBackend, SetErrorType};
+use jmap_server::{BackendSetError, ChangesParams, JmapReads, SetErrorType};
 use jmap_types::{Id, UTCDate};
 
 fn contact(id: &str, identity: &str) -> ChatContact {

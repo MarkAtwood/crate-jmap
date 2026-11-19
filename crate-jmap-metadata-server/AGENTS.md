@@ -66,7 +66,7 @@ The metadata-specific implication: `privateMetadata` is per-user
 `/queryChanges` must filter `privateMetadata` against the caller's
 identity, and a private write advances state only for the writer
 (§2.2). That enforcement lives in each extension server's backend,
-read via `JmapBackend::principal_id`. Backends returning `None` cannot
+read via `JmapAccounts::principal_id`. Backends returning `None` cannot
 implement it and must not advertise `supportsPrivate: true` (§2.2).
 
 ## Non-Interactive Shell Commands

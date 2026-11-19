@@ -28,13 +28,13 @@ use jmap_object_history_types::{
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, CallContext, ChangesParams,
     ChangesResult, ClosureHandler, DestroyedQueryChangesParams, DestroyedQueryParams, Dispatcher,
-    GetObject, HandlerFuture, HandlerOutput, HistoryGetParams, HistoryGetResult, JmapBackend,
-    JmapHandler, JmapObject, ObjectHistoryBackend, ParentRestoreHooks, QueryChangesParams,
-    QueryChangesResult, QueryObject, QueryParams, QueryResult, Restored, SetObject,
-    append_restore_results, apply_restore_patch, enforce_max_objects_in_set_with_restore,
-    extract_account_id, handle_get_with_history, handle_query_changes_with_history,
-    handle_query_with_history, history_set, names_object_history, object_history_set_error,
-    parse_restore_argument, run_restore_phase,
+    GetObject, HandlerFuture, HandlerOutput, HistoryGetParams, HistoryGetResult, JmapAccounts,
+    JmapHandler, JmapObject, JmapReads, ObjectHistoryBackend, ParentRestoreHooks,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, Restored,
+    SetObject, append_restore_results, apply_restore_patch,
+    enforce_max_objects_in_set_with_restore, extract_account_id, handle_get_with_history,
+    handle_query_changes_with_history, handle_query_with_history, history_set,
+    names_object_history, object_history_set_error, parse_restore_argument, run_restore_phase,
 };
 use jmap_types::{Id, JmapError, PatchObject, SetError, SetErrorType, State, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -123,7 +123,7 @@ impl Mock {
     }
 }
 
-impl JmapBackend for Mock {
+impl JmapAccounts for Mock {
     type Error = StubError;
     type CallerCtx = ();
 
@@ -131,6 +131,16 @@ impl JmapBackend for Mock {
         Ok(matches!(a.as_ref(), "A1" | "A2"))
     }
 
+    fn max_objects_in_get(&self, _: &(), _: &Id) -> u64 {
+        2
+    }
+
+    fn max_objects_in_set(&self, _: &(), _: &Id) -> u64 {
+        6
+    }
+}
+
+impl JmapReads for Mock {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _: &(),
@@ -204,14 +214,6 @@ impl JmapBackend for Mock {
             vec![],
             vec![],
         ))
-    }
-
-    fn max_objects_in_get(&self, _: &(), _: &Id) -> u64 {
-        2
-    }
-
-    fn max_objects_in_set(&self, _: &(), _: &Id) -> u64 {
-        6
     }
 }
 

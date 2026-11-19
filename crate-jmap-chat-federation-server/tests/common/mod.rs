@@ -25,9 +25,9 @@ use jmap_chat_types::{
 };
 use jmap_peer_auth::PeerDomain;
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetError, SetErrorType, SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{Value, json};
@@ -359,14 +359,16 @@ pub fn assert_error(result: Result<Value, JmapError>, error_type: &str) {
     }
 }
 
-impl JmapBackend for Fed {
+impl JmapAccounts for Fed {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
         self.chat.account_exists(caller, account_id).await
     }
+}
 
+impl JmapReads for Fed {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &(),

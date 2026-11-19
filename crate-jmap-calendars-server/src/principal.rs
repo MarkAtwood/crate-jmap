@@ -309,9 +309,9 @@ mod tests {
     async fn get_availability_other_error_is_redacted_on_the_wire() {
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-            JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-            QueryParams, QueryResult, SERVER_FAIL_INTERNAL_DESC, SetError as JsSetError,
-            SetErrorType as JsSetErrorType, SetObject,
+            JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult,
+            QueryObject, QueryParams, QueryResult, SERVER_FAIL_INTERNAL_DESC,
+            SetError as JsSetError, SetErrorType as JsSetErrorType, SetObject,
         };
         use jmap_types::State;
 
@@ -328,7 +328,7 @@ mod tests {
 
         struct FaultyBackend;
 
-        impl JmapBackend for FaultyBackend {
+        impl JmapAccounts for FaultyBackend {
             type Error = FaultyError;
             type CallerCtx = ();
 
@@ -339,7 +339,9 @@ mod tests {
             ) -> Result<bool, Self::Error> {
                 Ok(true)
             }
+        }
 
+        impl JmapReads for FaultyBackend {
             async fn get_objects<O: GetObject + Send + Sync>(
                 &self,
                 _caller: &(),

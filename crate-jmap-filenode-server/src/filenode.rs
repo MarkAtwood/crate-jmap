@@ -281,7 +281,7 @@ fn role_forbidden(id: &Id, action: &str) -> Value {
 /// The backend leaves undiscoverable nodes out of its reads (see
 /// [`FileNodeBackend::files_rights`]), so a sibling that
 /// [`FileNodeBackend::find_sibling_by_name`] reports but
-/// [`JmapBackend::get_objects`](jmap_server::JmapBackend::get_objects)
+/// [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects)
 /// does not return is one the caller cannot discover.
 async fn discoverable_sibling<B: FileNodeBackend>(
     backend: &B,
@@ -541,7 +541,7 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists FileNode for
-/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
 /// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
@@ -2306,7 +2306,7 @@ async fn destroy_one<B: FileNodeBackend>(
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
-/// not list FileNode ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)).
+/// not list FileNode ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and
@@ -3813,8 +3813,9 @@ mod tests {
     use crate::memory::{MemoryBackend, MemoryError};
     use jmap_server::BackendSetError;
     use jmap_server::{
-        BackendChangesError, BackendQueryError, ChangesResult, GetObject, JmapBackend, JmapObject,
-        QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetObject,
+        BackendChangesError, BackendQueryError, ChangesResult, GetObject, JmapAccounts, JmapObject,
+        JmapReads, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+        SetObject,
     };
     use jmap_types::State;
 
@@ -4077,14 +4078,16 @@ mod tests {
         }
     }
 
-    impl JmapBackend for FaultyBackend {
+    impl JmapAccounts for FaultyBackend {
         type Error = MemoryError;
         type CallerCtx = ();
 
         async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
             self.inner.account_exists(&(), account_id).await
         }
+    }
 
+    impl JmapReads for FaultyBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -4589,14 +4592,16 @@ mod tests {
     /// pattern (tests/integration.rs:490).
     struct NoFileNodeBackend(MemoryBackend);
 
-    impl JmapBackend for NoFileNodeBackend {
+    impl JmapAccounts for NoFileNodeBackend {
         type Error = MemoryError;
         type CallerCtx = ();
 
         async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
             self.0.account_exists(&(), account_id).await
         }
+    }
 
+    impl JmapReads for NoFileNodeBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),

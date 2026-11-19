@@ -55,7 +55,7 @@ use jmap_server::{HandlerOutput, filter_arg, server_fail_from_backend};
 /// # Request size
 ///
 /// If `emailIds` has more entries than
-/// [`max_objects_in_get`](jmap_server::JmapBackend::max_objects_in_get)
+/// [`max_objects_in_get`](jmap_server::JmapAccounts::max_objects_in_get)
 /// returns for the account, the handler returns `requestTooLarge`
 /// (description `"maxObjectsInGet"`) per RFC 8621 §5.1, before calling the
 /// backend.

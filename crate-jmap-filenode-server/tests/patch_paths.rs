@@ -12,7 +12,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_filenode_server::handle_filenode_set;
 use jmap_filenode_types::FileNode;
-use jmap_server::{HandlerOutput, JmapBackend};
+use jmap_server::{HandlerOutput, JmapReads};
 use jmap_types::Id;
 use serde_json::{Value, json};
 

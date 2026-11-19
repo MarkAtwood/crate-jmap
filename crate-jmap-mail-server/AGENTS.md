@@ -135,7 +135,7 @@ atomically with the mutation. A handler that "trusts" a handler-side
 check and skips the backend re-check is a bug.
 
 Caller identity is read via the foundation seam
-`JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
+`JmapAccounts::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
 Backends that have not wired identity (test fixtures, single-user
 dev servers) return `None`; such backends CANNOT correctly implement
 shared-mailbox ACLs or per-user keyword state. Multi-user

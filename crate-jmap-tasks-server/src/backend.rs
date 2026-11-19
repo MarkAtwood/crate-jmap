@@ -34,7 +34,7 @@ pub trait TasksBackend: JmapBackend {
     /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// verify that the principal identified by
-    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write
+    /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write
     /// access to the target account / TaskList / Task before performing the
     /// mutation, and MUST return
     /// [`BackendSetError::SetError`] carrying
@@ -74,9 +74,9 @@ pub trait TasksBackend: JmapBackend {
     /// change." Every successful `create_object`,
     /// [`update_object`](Self::update_object) and
     /// [`destroy_object`](Self::destroy_object) MUST advance
-    /// [`get_state`](JmapBackend::get_state) for `O` in `account_id` and
+    /// [`get_state`](jmap_server::JmapReads::get_state) for `O` in `account_id` and
     /// record the id as created, updated or destroyed so
-    /// [`get_changes`](JmapBackend::get_changes) reports it.
+    /// [`get_changes`](jmap_server::JmapReads::get_changes) reports it.
     ///
     /// The write, the state advance and the change record MUST be atomic
     /// with respect to other callers: the reference `MemoryBackend` does
@@ -344,7 +344,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// # Parameters
     /// - `caller` — the caller context. The default implementation ignores it,
-    ///   but backends MAY use [`JmapBackend::principal_id`] to resolve the
+    ///   but backends MAY use [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) to resolve the
     ///   caller's preferred default time zone when `tz_hint` is `None`.
     /// - `account_id` — the target account. The default implementation ignores
     ///   it, but backends MAY use it to look up an account-scoped tz database
@@ -357,7 +357,7 @@ pub trait TasksBackend: JmapBackend {
     /// [`CalendarsBackend::compute_utc_times`](https://docs.rs/jmap-calendars-server/latest/jmap_calendars_server/trait.CalendarsBackend.html#method.compute_utc_times)
     /// (bd:JMAP-ops7.25).
     ///
-    /// [`JmapBackend::principal_id`]: jmap_server::JmapBackend::principal_id
+    /// [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id): jmap_server::JmapAccounts::principal_id
     fn compute_utc_times(
         &self,
         _caller: &Self::CallerCtx,

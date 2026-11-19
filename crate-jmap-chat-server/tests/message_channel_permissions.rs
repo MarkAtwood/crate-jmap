@@ -18,7 +18,7 @@ use jmap_chat_server::message::{
 };
 use jmap_chat_types::Message;
 use jmap_server::HandlerOutput;
-use jmap_server::{JmapBackend, QueryChangesParams};
+use jmap_server::{JmapReads, QueryChangesParams};
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
 use std::collections::HashSet;

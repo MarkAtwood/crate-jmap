@@ -9,7 +9,7 @@
 use jmap_chat_server::memory::MemoryBackend;
 use jmap_chat_server::{ChatEvents, ChatStore};
 use jmap_chat_types::CustomEmoji;
-use jmap_server::{BackendChangesError, ChangesParams, JmapBackend};
+use jmap_server::{BackendChangesError, ChangesParams, JmapReads};
 use jmap_types::{Id, State};
 
 fn emoji(id: &Id, name: &str) -> CustomEmoji {

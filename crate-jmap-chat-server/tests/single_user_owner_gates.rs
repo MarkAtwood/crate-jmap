@@ -1,7 +1,7 @@
 //! Chat permission and role-hierarchy gates are enforced against the
 //! owner's member entry (the accountId) even when the backend wires no
 //! caller identity: `MemoryBackend` uses `CallerCtx = ()`, so
-//! `JmapBackend::principal_id` returns `None` (bd:JMAP-yt1w.33).
+//! `JmapAccounts::principal_id` returns `None` (bd:JMAP-yt1w.33).
 //!
 //! Oracle: draft-atwood-jmap-chat-00 (jmap-chat-spec cefc217),
 //! §SpaceMember: "The participant's ChatContact.id, or the accountId for

@@ -73,7 +73,7 @@ pub trait ConformanceBackend: ChatBackend {
 
     /// Provision `account_id`, owned by `owner_user_id` (the `ownerUserId`
     /// Session field, as returned by [`ChatSettings::owner_user_id`](crate::ChatSettings::owner_user_id)), so
-    /// [`JmapBackend::account_exists`](jmap_server::JmapBackend::account_exists)
+    /// [`JmapAccounts::account_exists`](jmap_server::JmapAccounts::account_exists)
     /// reports it and it holds no objects.
     fn add_account(&self, account_id: &Id, owner_user_id: &str) -> impl Future<Output = ()> + Send;
 

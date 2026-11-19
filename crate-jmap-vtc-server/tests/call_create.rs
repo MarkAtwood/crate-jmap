@@ -6,7 +6,7 @@
 mod common;
 
 use common::*;
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::Id;
 use jmap_vtc_types::{CallResponse, CallRole, VtcParticipant};
 use serde_json::{Value, json};

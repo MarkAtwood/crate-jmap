@@ -208,7 +208,7 @@ async fn policy_flags_have_documented_defaults() {
 }
 
 /// `is_contact_blocked` rustdoc: the default "Fetches `contact_id` from
-/// `account_id` with [`JmapBackend::get_objects`]", so a storage failure
+/// `account_id` with [`JmapReads::get_objects`]", so a storage failure
 /// there surfaces as the hook's error rather than as "not blocked".
 #[tokio::test]
 async fn is_contact_blocked_default_propagates_storage_error() {

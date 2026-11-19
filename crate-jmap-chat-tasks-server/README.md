@@ -33,7 +33,7 @@ these functions:
 | `TasksBackend::destroy_object::<TaskList>`, after the destroy | `clear_space_task_list_id` |
 | `ChatEvents::on_chat_destroyed` | `clear_task_chat_ids` |
 | `TasksBackend::create_object::<Task>` and `update_object::<Task>`, for a `chatId` value | `check_task_chat_id` |
-| `JmapBackend::get_objects::<Task>`, on the Tasks returned to the reader | `redact_task_chat_ids` |
+| `JmapReads::get_objects::<Task>`, on the Tasks returned to the reader | `redact_task_chat_ids` |
 | `ObjectHistoryBackend::get_object_history::<Task>`, on every history entry (draft-ietf-jmap-object-history §8.2: no version shows what the current one hides) | `redact_task_chat_ids` |
 | `ConditionalBackend::hidden_properties` for `"Task"`, on the Tasks read unredacted | `task_hidden_properties` |
 

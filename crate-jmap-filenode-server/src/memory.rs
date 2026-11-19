@@ -77,9 +77,9 @@ use jmap_metadata_server::{
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetError, SetErrorType, SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, PatchPathError, ScopedState, SetOp,
@@ -131,7 +131,7 @@ impl MemoryError {
     ///
     /// Only the error's [`serde_json::error::Category`] is kept. A serde
     /// data error quotes the offending value (`invalid type: string
-    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// "alice@example.com", expected u64`), and the `JmapAccounts::Error`
     /// contract forbids PII and blob content in `Display` output
     /// (bd:JMAP-510h.37).
     pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
@@ -582,7 +582,7 @@ impl MemoryBackend {
 // JmapBackend impl
 // ---------------------------------------------------------------------------
 
-impl JmapBackend for MemoryBackend {
+impl JmapAccounts for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
@@ -607,7 +607,9 @@ impl JmapBackend for MemoryBackend {
             .accounts
             .contains_key(account_id.as_ref()))
     }
+}
 
+impl JmapReads for MemoryBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -2655,7 +2657,7 @@ mod tests {
 mod memory_error_tests {
     use super::MemoryError;
 
-    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// The `JmapAccounts::Error` contract: "Implementations MUST NOT
     /// include ... PII shaped like an email address" in `Display`
     /// output. serde_json data errors quote the offending value, so
     /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).

@@ -23,7 +23,7 @@ use crate::helpers::{
     not_found, patched, patched_properties, readable_rights, string_or_null, to_map,
 };
 use crate::{EditLog, GraphBackend};
-use jmap_server::JmapBackend;
+use jmap_server::JmapAccounts;
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_read_only_patch,
     reject_server_set,
@@ -161,11 +161,11 @@ fn require_write(rights: &GraphRights) -> Result<(), Value> {
 
 /// Fill the server-set properties of create `m`: `id` ([`jmap_server::CREATE_ID_PLACEHOLDER`]; the
 /// `create_object` builder overwrites it with the minted id), `created`, `updated`, and `createdBy`/`updatedBy` from
-/// [`JmapBackend::principal_id`] ("or `null` if the server does not
+/// [`JmapAccounts::principal_id`] ("or `null` if the server does not
 /// support Principals or cannot determine it").
 pub(crate) fn fill_server_set<B: GraphBackend>(caller: &B::CallerCtx, m: &mut Map<String, Value>) {
     let now = now_utc_string();
-    let principal = json!(<B as JmapBackend>::principal_id(caller));
+    let principal = json!(<B as JmapAccounts>::principal_id(caller));
     m.insert("id".to_owned(), json!(jmap_server::CREATE_ID_PLACEHOLDER));
     m.insert("created".to_owned(), json!(now));
     m.insert("updated".to_owned(), json!(now));
@@ -181,7 +181,7 @@ pub(crate) fn touch<B: GraphBackend>(
 ) -> Value {
     let echo = json!({
         "updated": now_utc_string(),
-        "updatedBy": <B as JmapBackend>::principal_id(caller),
+        "updatedBy": <B as JmapAccounts>::principal_id(caller),
     });
     let map = patch.as_map_mut();
     map.insert("updated".to_owned(), echo["updated"].clone());

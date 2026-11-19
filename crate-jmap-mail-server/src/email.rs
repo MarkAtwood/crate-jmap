@@ -77,7 +77,7 @@ use jmap_server::{SetError, SetErrorType};
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Email for
-/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)), a
+/// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)), a
 /// requested `metadata` is returned as an object, and with
 /// `urn:ietf:params:jmap:metadata` in `using` `properties` may hold
 /// `metadata/<namespace>` subselectors; the default property list is
@@ -2027,7 +2027,7 @@ pub(crate) async fn email_parse<B: MailBackend>(
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
-/// not list Email ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)). The create object
+/// not list Email ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)). The create object
 /// "MAY include metadata and privateMetadata to override the copied
 /// values, with the same rules as a create in Foo/set": the handler
 /// rejects them without the capability and rejects `null`, and

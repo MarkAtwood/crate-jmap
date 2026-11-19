@@ -33,9 +33,9 @@ use jmap_chat_server::{
 use jmap_chat_tasks_server::{check_task_chat_id, redact_task_chat_ids};
 use jmap_chat_types::ChatTasksCapability;
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetObject,
 };
 
 use jmap_server::SetErrorType;
@@ -204,14 +204,16 @@ impl ViewGate {
     }
 }
 
-impl JmapBackend for ViewGate {
+impl JmapAccounts for ViewGate {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.inner.account_exists(caller, account_id).await
     }
+}
 
+impl JmapReads for ViewGate {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &(),
@@ -478,13 +480,16 @@ struct Deployment {
 
 type TasksError = jmap_tasks_server::memory::MemoryError;
 
-impl JmapBackend for Deployment {
+impl JmapAccounts for Deployment {
     type Error = TasksError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, TasksError> {
         self.tasks.account_exists(caller, account_id).await
     }
+}
+
+impl JmapReads for Deployment {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &(),

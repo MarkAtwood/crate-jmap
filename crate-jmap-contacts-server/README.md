@@ -162,7 +162,7 @@ workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
 are canonical for authorization: the handler computes the candidate
 mutation and the backend's `/set` impl is the canonical point of
 enforcement. Caller identity is read via
-`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+`JmapAccounts::principal_id` on the `caller: &Self::CallerCtx`
 parameter every backend method receives.
 
 The reference `memory::MemoryBackend` does **not** implement any of
@@ -240,7 +240,7 @@ is intentionally permissive — it is suitable for single-user dev
 servers, fixtures, and the workspace's own integration tests, but
 NOT for any deployment where more than one principal can reach the
 JMAP dispatcher. A deployment that needs ACL enforcement MUST
-override `JmapBackend::principal_id` and implement each of the
+override `JmapAccounts::principal_id` and implement each of the
 checks above; the workspace ships no production-grade reference
 impl.
 

@@ -11,8 +11,8 @@ use jmap_chat_server::{handle_chat_changes, handle_chat_get};
 use jmap_chat_vtc_server::{check_call_create, is_blocked_by_contact, sync_active_call_id};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    HandlerOutput, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetObject,
+    HandlerOutput, JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetObject,
 };
 use jmap_types::{Id, State};
 use jmap_vtc_server::memory::{MemoryBackend as VtcMemory, MemoryError as VtcError};
@@ -92,14 +92,16 @@ fn chat_set_error(e: BackendSetError<ChatError>) -> BackendSetError<VtcError> {
     }
 }
 
-impl JmapBackend for Bound {
+impl JmapAccounts for Bound {
     type Error = VtcError;
     type CallerCtx = String;
 
     async fn account_exists(&self, caller: &String, account_id: &Id) -> Result<bool, VtcError> {
         self.vtc.account_exists(caller, account_id).await
     }
+}
 
+impl JmapReads for Bound {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &String,

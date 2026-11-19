@@ -18,9 +18,9 @@ use std::sync::Mutex;
 
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, Dispatcher, GetObject,
-    Id, JmapBackend, JmapObject, JmapRequest, PushSubscriptionBackend, QueryChangesParams,
-    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType, State,
-    StoredPushSubscription, register_push_subscription_handlers,
+    Id, JmapAccounts, JmapObject, JmapReads, JmapRequest, PushSubscriptionBackend,
+    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError,
+    SetErrorType, State, StoredPushSubscription, register_push_subscription_handlers,
 };
 use jmap_types::PushSubscription;
 use serde_json::{Value, json};
@@ -86,13 +86,16 @@ impl MockBackend {
     }
 }
 
-impl JmapBackend for MockBackend {
+impl JmapAccounts for MockBackend {
     type Error = MockError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), _account_id: &Id) -> Result<bool, MockError> {
         unreachable!("PushSubscription methods are not account-scoped")
     }
+}
+
+impl JmapReads for MockBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),

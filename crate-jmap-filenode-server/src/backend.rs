@@ -82,7 +82,7 @@ impl CaseFolding {
 /// [`destroy_object`](Self::destroy_object); `FileNode/copy` writes through
 /// the same three methods.
 ///
-/// The caller is known only through [`JmapBackend::principal_id`]. A backend
+/// The caller is known only through [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id). A backend
 /// whose `principal_id` returns `None` honors no per-user ACL and permits
 /// every write (fail-open, bd:JMAP-bghk); that suits test fixtures and
 /// single-user servers, not multi-user deployments.
@@ -118,7 +118,7 @@ impl CaseFolding {
 ///   only then its children (`nodeHasChildren`, or `forbidden` when a
 ///   cascade would remove an undiscoverable descendant). The handlers make
 ///   these checks before any destroy: a node or descendant that
-///   [`JmapBackend::get_objects`] leaves out is undiscoverable, and the
+///   [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) leaves out is undiscoverable, and the
 ///   rights are [`files_rights`](Self::files_rights) where it is `Some`,
 ///   else the stored `myRights` (a parent's, for a File or SymLink). When
 ///   neither states rights the handler proceeds, and
@@ -156,8 +156,8 @@ impl CaseFolding {
 /// the rule itself, such as with a unique index, checks it when the whole
 /// call commits, not per write.
 ///
-/// Reads apply §Access Control discoverability: [`JmapBackend::get_objects`]
-/// and [`JmapBackend::query_objects`] leave out nodes the caller cannot
+/// Reads apply §Access Control discoverability: [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects)
+/// and [`JmapReads::query_objects`](jmap_server::JmapReads::query_objects) leave out nodes the caller cannot
 /// discover, which "MUST return notFound errors if fetched with
 /// FileNode/get and MUST NOT be returned in response to FileNode/query".
 ///
@@ -176,7 +176,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
-    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) holds the draft-ietf-jmap-filenode-20 `myRights` the write needs, as listed under
+    /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) holds the draft-ietf-jmap-filenode-20 `myRights` the write needs, as listed under
     /// "Permission enforcement (backend canonical)" on [`FileNodeBackend`],
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
@@ -250,9 +250,9 @@ pub trait FileNodeBackend: JmapBackend {
     /// change." Every successful `create_object`,
     /// [`update_object`](Self::update_object) and
     /// [`destroy_object`](Self::destroy_object) MUST advance
-    /// [`get_state`](JmapBackend::get_state) for `O` in `account_id` and
+    /// [`get_state`](jmap_server::JmapReads::get_state) for `O` in `account_id` and
     /// record the id as created, updated or destroyed so
-    /// [`get_changes`](JmapBackend::get_changes) reports it.
+    /// [`get_changes`](jmap_server::JmapReads::get_changes) reports it.
     ///
     /// The write, the state advance and the change record MUST be atomic
     /// with respect to other callers: the reference `MemoryBackend` does
@@ -808,7 +808,7 @@ pub trait FileNodeBackend: JmapBackend {
     ///   `myRights`, and `FileNode/set` and `FileNode/copy` report them in
     ///   the node's `created` entry.
     /// - `Ok(None)`: no policy applies to this node; `FileNode/get` reports
-    ///   the `myRights` that [`JmapBackend::get_objects`] returned, and
+    ///   the `myRights` that [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) returned, and
     ///   `created` reports the `myRights` that [`Self::create_object`]
     ///   returned.
     /// - `Err(e)`: the `FileNode/get` call fails with `serverFail`. After a

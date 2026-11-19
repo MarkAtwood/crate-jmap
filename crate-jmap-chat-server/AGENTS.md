@@ -133,7 +133,7 @@ atomically with the mutation. A handler that "trusts" a handler-side
 check and skips the backend re-check is a bug.
 
 Caller identity is read via the foundation seam
-`JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
+`JmapAccounts::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
 Chat permission and role-hierarchy gates do not depend on it: the
 caller of a chat account is its owner, whose Space member entry is the
 accountId (draft-atwood-jmap-chat §Terminology), so every gate

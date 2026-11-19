@@ -135,7 +135,7 @@ enforcement, returning
 `BackendSetError::SetError(SetError::new(SetErrorType::Forbidden))`
 from `create_object`, `update_object` or `destroy_object`; the handler
 routes it to `notCreated`, `notUpdated` or `notDestroyed`. Caller
-identity is read via `JmapBackend::principal_id` on the
+identity is read via `JmapAccounts::principal_id` on the
 `caller: &Self::CallerCtx` parameter every backend method receives.
 
 The reference `memory::MemoryBackend` does **not** implement any of
@@ -188,7 +188,7 @@ is intentionally permissive (fail-open, bd:JMAP-bghk) — it is suitable
 for single-user dev servers, fixtures, and the workspace's own
 integration tests, but NOT for any deployment where more than one
 principal can reach the JMAP dispatcher. A deployment that needs ACL
-enforcement MUST override `JmapBackend::principal_id` and implement
+enforcement MUST override `JmapAccounts::principal_id` and implement
 each of the checks above; the workspace ships no production-grade
 reference impl.
 

@@ -173,7 +173,7 @@ Extension-specific write and structural operations live on the extension trait.
 
 Every backend method takes `caller: &Self::CallerCtx` as its first argument
 after `&self`. This is the foundation seam for caller identity:
-`JmapBackend::principal_id(caller) -> Option<&Id>` is the canonical way the
+`JmapAccounts::principal_id(caller) -> Option<&Id>` is the canonical way the
 JMAP layer asks "who is the caller", and backends are canonical for permission
 enforcement using that value. See workspace `AGENTS.md` "Caller identity
 (foundation seam)" for the full rule set.
@@ -288,7 +288,7 @@ Identity flows as follows:
 2. `Dispatcher::dispatch(request, caller, session_state).await` clones it
    into every handler invocation.
 3. Each handler forwards `&caller` to every backend method.
-4. The backend asks `JmapBackend::principal_id(caller) -> Option<&Id>` for
+4. The backend asks `JmapAccounts::principal_id(caller) -> Option<&Id>` for
    the canonical identity, and is the sole authority on permission
    enforcement (handlers may pre-check defensively, but the backend MUST
    re-verify atomically with the mutation).

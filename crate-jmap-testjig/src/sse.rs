@@ -82,7 +82,7 @@ use axum::{
     extract::{Query, State as AxumState},
     response::sse::{Event, Sse},
 };
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::Id;
 use serde::Deserialize;
 use serde_json::json;

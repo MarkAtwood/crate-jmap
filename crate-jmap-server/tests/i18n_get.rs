@@ -10,8 +10,8 @@ use std::sync::Mutex;
 
 use jmap_server::{
     BackendChangesError, BackendQueryError, ChangesParams, ChangesResult, GetObject, I18nInfo, Id,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, State, handle_get, handle_get_with_metadata,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, State, handle_get, handle_get_with_metadata,
 };
 use jmap_types::MethodErrorType;
 use jmap_types::i18n::{JMAP_I18N_URI, LocalizableProperty};
@@ -72,7 +72,7 @@ struct Backend {
     asked: Mutex<Option<Option<Vec<String>>>>,
 }
 
-impl JmapBackend for Backend {
+impl JmapAccounts for Backend {
     type Error = MockError;
     type CallerCtx = ();
 
@@ -80,6 +80,12 @@ impl JmapBackend for Backend {
         Ok(matches!(account_id.as_ref(), "a1" | "a2"))
     }
 
+    fn i18n_info(&self, _: &(), account_id: &Id) -> Option<I18nInfo> {
+        (account_id.as_ref() == "a1").then(I18nInfo::new)
+    }
+}
+
+impl JmapReads for Backend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _: &(),
@@ -141,10 +147,6 @@ impl JmapBackend for Backend {
         _: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MockError>> {
         unreachable!("only /get is exercised")
-    }
-
-    fn i18n_info(&self, _: &(), account_id: &Id) -> Option<I18nInfo> {
-        (account_id.as_ref() == "a1").then(I18nInfo::new)
     }
 }
 

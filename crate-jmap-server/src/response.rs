@@ -16,7 +16,7 @@ use jmap_types::problem::ProblemDetails;
 ///
 /// The `Content-Type` is `application/problem+json`. When the caller
 /// localized `title` or `detail` from the request's Accept-Language
-/// (see [`JmapBackend::accept_language`](crate::JmapBackend::accept_language)),
+/// (see [`JmapAccounts::accept_language`](crate::JmapAccounts::accept_language)),
 /// pass the language as `content_language`: it labels the response with
 /// `Content-Language` (RFC 8620 §3.8).
 ///

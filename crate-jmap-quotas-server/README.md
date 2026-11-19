@@ -56,7 +56,7 @@ are no types recognized by the client."
 stored values with `locale` and `localizations`, `language` selects a
 single-language view, and `/query` filters and sorts `name` by `language`;
 Accept-Language changes nothing. Without the capability, `description` is
-the one the request's Accept-Language selects (`JmapBackend::accept_language`
+the one the request's Accept-Language selects (`JmapAccounts::accept_language`
 on the caller context), as RFC 9425 §4.1 requires.
 
 A type is recognized when the "JMAP Data Types" registry

@@ -25,7 +25,7 @@ use jmap_chat_server::{
     handle_presence_changes, handle_presence_get, handle_space_get, handle_space_join,
     handle_space_query,
 };
-use jmap_server::JmapBackend;
+use jmap_server::JmapAccounts;
 use jmap_types::Id;
 use serde_json::json;
 

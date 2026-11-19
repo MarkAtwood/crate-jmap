@@ -62,7 +62,7 @@ use jmap_server::{SetError, SetErrorType};
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Calendar for
-/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
 /// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
@@ -568,11 +568,11 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
 /// failing fast keeps the data store consistent.
 ///
 /// The helper owns its own error wire shape end-to-end so that the
-/// `JmapBackend::Error` Display contract (workspace AGENTS.md "Backend trait
+/// `JmapAccounts::Error` Display contract (workspace AGENTS.md "Backend trait
 /// rule") is honoured at a single chokepoint rather than at every call site.
 /// Inner `BackendSetError::SetError(set_err)` failures preserve the typed
 /// JMAP error variant via `From<&SetError> for Value`; inner
-/// `BackendSetError::Other(_)` and `JmapBackend::Error` failures collapse to
+/// `BackendSetError::Other(_)` and `JmapAccounts::Error` failures collapse to
 /// the static [`server_fail_value_from_backend`] wire shape.
 async fn cleanup_calendar_events<B: CalendarsBackend>(
     backend: &B,
@@ -720,8 +720,9 @@ mod tests {
     async fn set_destroy_calendar_has_events_error_returns_server_fail() {
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-            JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-            QueryResult, SetError as JsSetError, SetErrorType as JsSetErrorType, SetObject,
+            JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult,
+            QueryObject, QueryResult, SetError as JsSetError, SetErrorType as JsSetErrorType,
+            SetObject,
         };
         use jmap_types::{Id, PatchObject, State};
 
@@ -742,7 +743,7 @@ mod tests {
         #[derive(Clone)]
         struct FaultyBackend;
 
-        impl JmapBackend for FaultyBackend {
+        impl JmapAccounts for FaultyBackend {
             type Error = FaultyError;
             type CallerCtx = ();
 
@@ -753,7 +754,9 @@ mod tests {
             ) -> Result<bool, Self::Error> {
                 Ok(true)
             }
+        }
 
+        impl JmapReads for FaultyBackend {
             async fn get_objects<O: GetObject + Send + Sync>(
                 &self,
                 _caller: &(),
@@ -1049,7 +1052,7 @@ mod tests {
         );
 
         // Event also destroyed — query MockBackend's CalendarEvent store directly.
-        use jmap_server::JmapBackend;
+        use jmap_server::JmapReads;
         let (events, not_found) = backend
             .get_objects::<jmap_calendars_types::CalendarEvent>(
                 &(),
@@ -1111,7 +1114,7 @@ mod tests {
 
         // Event still exists, but cal1 must be gone from calendarIds and cal2
         // must remain.
-        use jmap_server::JmapBackend;
+        use jmap_server::JmapReads;
         let (events, _) = backend
             .get_objects::<jmap_calendars_types::CalendarEvent>(
                 &(),

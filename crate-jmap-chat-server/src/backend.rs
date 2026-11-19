@@ -726,9 +726,9 @@ pub trait ChatStore: ChatEvents {
     /// change." Every successful `create_object`,
     /// [`update_object`](Self::update_object) and
     /// [`destroy_object`](Self::destroy_object) MUST advance
-    /// [`get_state`](JmapBackend::get_state) for `O` in `account_id` and
+    /// [`get_state`](jmap_server::JmapReads::get_state) for `O` in `account_id` and
     /// record the id as created, updated or destroyed so
-    /// [`get_changes`](JmapBackend::get_changes) reports it.
+    /// [`get_changes`](jmap_server::JmapReads::get_changes) reports it.
     ///
     /// When [`ChatLimits::supports_threads`] is `true`, `Message/get`
     /// returns the server-computed `replyCount` and `unreadReplyCount`
@@ -1358,7 +1358,7 @@ pub trait ChatSpaces: JmapBackend {
     /// [`SetErrorType::Forbidden`] if not. The caller is the owner, whose
     /// `members` entry is the `account_id` (draft §Terminology), so look
     /// the caller up by `account_id`, not by the principal, whether or
-    /// not [`JmapBackend::principal_id`] returns `Some`; the same holds
+    /// not [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) returns `Some`; the same holds
     /// for every caller-membership or permission check in this trait.
     ///
     /// The check fires inside this method atomically with the
@@ -1672,7 +1672,7 @@ pub trait SpacePolicy: JmapBackend {
     /// # Foundation seam
     ///
     /// Backends that wish to identify the caller call
-    /// [`jmap_server::JmapBackend::principal_id`] on `caller` to learn
+    /// [`jmap_server::JmapAccounts::principal_id`] on `caller` to learn
     /// whether identity is wired, and compare `account_id` (the owner's
     /// member entry, draft §Terminology) against the Space's `members`
     /// list, or consult ACLs or whatever permission model the
@@ -1848,7 +1848,7 @@ pub trait ChatAccessPolicy: JmapBackend {
     /// # Default implementation
     ///
     /// Fetches `contact_id` from `account_id` with
-    /// [`JmapBackend::get_objects`] and returns its `blocked` field, or
+    /// [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) and returns its `blocked` field, or
     /// `Ok(false)` when `account_id` holds no such ChatContact. The
     /// callers pass the recipient's `caller`, the same one they use to
     /// read the recipient's Chat. Override this only when ChatContacts are
@@ -2075,7 +2075,7 @@ pub trait ChatAccessPolicy: JmapBackend {
     ///
     /// # Default implementation
     ///
-    /// Fetches `added` with [`JmapBackend::get_objects`] and accepts only
+    /// Fetches `added` with [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) and accepts only
     /// when every id comes back as a Message whose `chatId` is `chat_id`.
     /// Override this only when Messages are not stored behind
     /// `get_objects` or a cheaper lookup exists.

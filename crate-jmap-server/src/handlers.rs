@@ -6,11 +6,11 @@
 //!
 //! # Backend-error leak policy (bd:JMAP-wlip.2)
 //!
-//! Every handler in this module that maps a [`JmapBackend::Error`] to a
+//! Every handler in this module that maps a [`JmapAccounts::Error`](crate::JmapAccounts::Error) to a
 //! wire-format [`JmapError::server_fail`] MUST use the static description
 //! [`SERVER_FAIL_INTERNAL_DESC`] rather than interpolating the backend
 //! error's [`Display`](std::fmt::Display) output. The backend-error
-//! contract on [`JmapBackend::Error`] (`crate::backend::JmapBackend`'s
+//! contract on [`JmapAccounts::Error`](crate::JmapAccounts::Error) (`crate::backend::JmapBackend`'s
 //! associated-type doc comment) forbids credential / blob / PII in
 //! `Display`, but a single accidental violation by a backend implementor
 //! would land the leaked text in `serverFail.description` on every
@@ -38,11 +38,11 @@ use crate::helpers::{
 };
 
 /// Static description used for every `serverFail` invocation that wraps a
-/// [`JmapBackend::Error`] (bd:JMAP-wlip.2).
+/// [`JmapAccounts::Error`](crate::JmapAccounts::Error) (bd:JMAP-wlip.2).
 ///
 /// RFC 8620 §3.6.2 explicitly permits omitting the description; a static
 /// "internal error" is RFC-compliant and forecloses the backend-error
-/// Display leak path documented on `JmapBackend::Error`.
+/// Display leak path documented on `JmapAccounts::Error`.
 pub const SERVER_FAIL_INTERNAL_DESC: &str = "internal error";
 
 /// Construct a [`JmapError::server_fail`] for a backend-originated error
@@ -64,8 +64,8 @@ pub const SERVER_FAIL_INTERNAL_DESC: &str = "internal error";
 /// reaches the wire from this helper.
 ///
 /// The function is generic over any `Display` (not just
-/// `JmapBackend::Error`) so the extension `*-server` crates' own per-method
-/// handlers — which mix [`JmapBackend::Error`], domain-specific error
+/// `JmapAccounts::Error`) so the extension `*-server` crates' own per-method
+/// handlers — which mix [`JmapAccounts::Error`](crate::JmapAccounts::Error), domain-specific error
 /// envelopes (`BackendSetError::Other`, `BackendChangesError::Other`), and
 /// trait-method errors — can call it uniformly.
 ///
@@ -86,7 +86,7 @@ pub fn server_fail_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -> Jmap
     JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)
 }
 
-/// Map a [`JmapBackend::get_changes`](crate::JmapBackend::get_changes)
+/// Map a [`JmapReads::get_changes`](crate::JmapReads::get_changes)
 /// error to the `Foo/changes` method error (RFC 8620 §5.2).
 ///
 /// `tooManyChanges` is a `Foo/queryChanges` error only (§5.6); §5.2 lists
@@ -118,7 +118,7 @@ pub fn changes_error_from_backend<E: std::error::Error>(err: BackendChangesError
 /// previously hand-rolled
 /// `json!({ "type": "serverFail", "description": e.to_string() })` —
 /// every one of which leaks the backend error's `Display` onto the wire,
-/// in direct violation of the [`JmapBackend::Error`](crate::JmapBackend)
+/// in direct violation of the [`JmapAccounts::Error`](crate::JmapBackend)
 /// Display MUST-NOT contract.
 ///
 /// **The `err` parameter is intentionally discarded** (bd:JMAP-jfia.22),
@@ -129,7 +129,7 @@ pub fn changes_error_from_backend<E: std::error::Error>(err: BackendChangesError
 /// this helper.
 ///
 /// The function is generic over any [`Display`](std::fmt::Display) so it
-/// applies uniformly to [`JmapBackend::Error`](crate::JmapBackend),
+/// applies uniformly to [`JmapAccounts::Error`](crate::JmapBackend),
 /// [`BackendSetError::Other`](crate::BackendSetError),
 /// [`BackendChangesError::Other`](crate::BackendChangesError), and any
 /// extension-trait-specific error envelope. It also accepts the
@@ -165,7 +165,7 @@ pub fn server_fail_value_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -
 /// Fetches objects by id (or all objects when `ids` is absent or `null`) and
 /// returns the standard `get` response shape. Returns the method-level
 /// `requestTooLarge` error when `ids` holds more entries than
-/// [`JmapBackend::max_objects_in_get`] allows; a null `ids` is not counted.
+/// [`JmapAccounts::max_objects_in_get`](crate::JmapAccounts::max_objects_in_get) allows; a null `ids` is not counted.
 ///
 /// It does not see the request's `using`, so it treats
 /// `urn:ietf:params:jmap:i18n` as absent: a non-null `language` argument
@@ -269,7 +269,7 @@ async fn get_impl<O: GetObject, B: JmapBackend>(
 }
 
 /// [`handle_get`] for a type the backend may list for
-/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`]).
+/// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](crate::JmapAccounts::metadata_info)).
 ///
 /// `using` is the request's capability list ([`crate::CallContext::using`]).
 /// When `O` is listed in `accountId`, `metadata` and `privateMetadata`
@@ -285,7 +285,7 @@ async fn get_impl<O: GetObject, B: JmapBackend>(
 /// For a type with [`JmapObject::LOCALIZABLE`](crate::JmapObject::LOCALIZABLE)
 /// properties it also handles draft-atwood-jmap-updates-00 through
 /// [`I18nProjection`]: with `urn:ietf:params:jmap:i18n` in `using` and
-/// [`JmapBackend::i18n_info`] `Some` for the account, `locale` and
+/// [`JmapAccounts::i18n_info`](crate::JmapAccounts::i18n_info) `Some` for the account, `locale` and
 /// `localizations` are returned (`null` when absent), and a non-null
 /// `language` returns each object's single-language view (§4.2.1)
 /// without changing `state`. Otherwise the two properties are not
@@ -439,7 +439,7 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 ///
 /// Parses filter and sort from args as `O::Filter` and `O::Comparator`, and
 /// `anchor`/`anchorOffset` via [`query_anchor_args`], then delegates to
-/// [`JmapBackend::query_objects`]. A
+/// [`JmapReads::query_objects`](crate::JmapReads::query_objects). A
 /// [`BackendQueryError::Method`](crate::backend::BackendQueryError::Method)
 /// is returned to the client unchanged; any other backend error becomes the
 /// redacted `serverFail`.
@@ -462,7 +462,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 ///
 /// `using` is the request's capability list ([`crate::CallContext::using`]).
 /// With `urn:ietf:params:jmap:i18n` in it and
-/// [`JmapBackend::i18n_info`] `Some` for the account, a `language` argument
+/// [`JmapAccounts::i18n_info`](crate::JmapAccounts::i18n_info) `Some` for the account, a `language` argument
 /// is passed to the backend as [`QueryParams::language`] and recorded in
 /// the `queryState` ([`crate::localized_query_state`]); otherwise a
 /// non-null `language` is `invalidArguments` (§3).
@@ -579,7 +579,7 @@ async fn query_impl<O: QueryObject, B: JmapBackend>(
 /// Generic `*/queryChanges` handler (RFC 8620 §5.6).
 ///
 /// Parses filter and sort from args, then delegates to
-/// [`JmapBackend::query_changes`] with `collapse_threads: false`. For
+/// [`JmapReads::query_changes`](crate::JmapReads::query_changes) with `collapse_threads: false`. For
 /// `Email/queryChanges` (which may need `collapseThreads: true`), use the
 /// domain-specific handler in jmap-mail-server instead.
 ///
@@ -714,12 +714,13 @@ async fn query_changes_impl<O: QueryObject, B: JmapBackend>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{JmapAccounts, JmapReads};
 
     /// Oracle (bd:JMAP-wlip.2): [`server_fail_from_backend`] MUST NOT echo
     /// the backend error's `Display` text into the resulting JmapError's
     /// description. The defence-in-depth contract is that even if a
     /// backend implementor accidentally violates the
-    /// [`JmapBackend::Error`](crate::JmapBackend) Display MUST-NOT
+    /// [`JmapAccounts::Error`](crate::JmapBackend) Display MUST-NOT
     /// (credential / blob / PII), the leaked text never reaches the wire.
     ///
     /// Test vector: an error whose Display contains a canary string
@@ -761,7 +762,7 @@ mod tests {
     }
 
     /// Oracle: the helper accepts any `Display` — not just
-    /// [`JmapBackend::Error`](crate::JmapBackend) — so the extension
+    /// [`JmapAccounts::Error`](crate::JmapBackend) — so the extension
     /// `*-server` crates' per-method handlers can use the same call
     /// site for `BackendSetError`, `BackendChangesError`, and any
     /// trait-method-specific error envelope.
@@ -816,7 +817,7 @@ mod tests {
     }
 
     /// Oracle: the helper accepts any `Display` — not just
-    /// [`JmapBackend::Error`](crate::JmapBackend) — so the extension
+    /// [`JmapAccounts::Error`](crate::JmapBackend) — so the extension
     /// `*-server` crates' per-method handlers can use the same call
     /// site for `BackendSetError::Other`, `BackendChangesError::Other`,
     /// and the `&String` shape produced by some legacy helpers.
@@ -878,7 +879,7 @@ mod tests {
     /// with the configured [`QueryFailure`]. Every other method is unused.
     struct QueryFailBackend(QueryFailure);
 
-    impl JmapBackend for QueryFailBackend {
+    impl JmapAccounts for QueryFailBackend {
         type Error = LeakyQueryError;
         type CallerCtx = ();
 
@@ -889,7 +890,9 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
+    }
 
+    impl JmapReads for QueryFailBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -1041,7 +1044,7 @@ mod tests {
     /// is `notFound`), and keeps the default [`JmapBackend`] caps.
     struct GetProbeBackend;
 
-    impl JmapBackend for GetProbeBackend {
+    impl JmapAccounts for GetProbeBackend {
         type Error = LeakyQueryError;
         type CallerCtx = ();
 
@@ -1052,7 +1055,9 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
+    }
 
+    impl JmapReads for GetProbeBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -1152,10 +1157,10 @@ mod tests {
 
     /// Backend whose account exists and which returns one fixed object for
     /// every `/get`, ignoring `properties` (which
-    /// [`JmapBackend::get_objects`] permits).
+    /// [`JmapReads::get_objects`] permits).
     struct FullObjectBackend;
 
-    impl JmapBackend for FullObjectBackend {
+    impl JmapAccounts for FullObjectBackend {
         type Error = LeakyQueryError;
         type CallerCtx = ();
 
@@ -1166,7 +1171,9 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
+    }
 
+    impl JmapReads for FullObjectBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -1281,7 +1288,7 @@ mod tests {
         }
     }
 
-    impl JmapBackend for RecordingQueryBackend {
+    impl JmapAccounts for RecordingQueryBackend {
         type Error = LeakyQueryError;
         type CallerCtx = ();
 
@@ -1292,7 +1299,9 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
+    }
 
+    impl JmapReads for RecordingQueryBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -1530,7 +1539,7 @@ mod tests {
         outcome: Canned::Ok,
     };
 
-    impl JmapBackend for CannedBackend {
+    impl JmapAccounts for CannedBackend {
         type Error = LeakyQueryError;
         type CallerCtx = ();
 
@@ -1541,7 +1550,9 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(self.account_exists)
         }
+    }
 
+    impl JmapReads for CannedBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -1670,7 +1681,7 @@ mod tests {
         }
     }
 
-    impl JmapBackend for MetadataChangesBackend {
+    impl JmapAccounts for MetadataChangesBackend {
         type Error = LeakyQueryError;
         type CallerCtx = ();
 
@@ -1681,7 +1692,9 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             Ok(true)
         }
+    }
 
+    impl JmapReads for MetadataChangesBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),

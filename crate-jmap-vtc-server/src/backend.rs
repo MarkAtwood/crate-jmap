@@ -462,7 +462,7 @@ pub trait VtcBackend: JmapBackend {
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<u64, Self::Error>> + Send;
 
-    /// [`JmapBackend::get_objects`] without §Per-call access: the `O`
+    /// [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects) without §Per-call access: the `O`
     /// records of `ids`, or every `O` record of `account_id` when `ids` is
     /// `None`, whether or not the caller may access their call. The second
     /// list holds the requested ids that are not stored.
@@ -544,7 +544,7 @@ pub trait VtcBackend: JmapBackend {
     /// authorize to view, even when that user may retrieve the livestream."
     ///
     /// Called for each listed livestream whose `playbackEndpoints` the
-    /// request returns, after [`JmapBackend::get_objects`]. Not called for
+    /// request returns, after [`JmapReads::get_objects`](jmap_server::JmapReads::get_objects). Not called for
     /// object-history versions, whose endpoints are history as stored.
     ///
     /// # Default implementation

@@ -75,7 +75,7 @@ use jmap_server::{
 ///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists Task for
-/// draft-ietf-jmap-metadata-05 ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)),
+/// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
 /// `metadata` is returned as an object, by default only with
 /// `urn:ietf:params:jmap:metadata` in `using`, and with that capability
 /// `properties` may hold `metadata/<namespace>` subselectors (-05 §2,
@@ -532,7 +532,7 @@ pub async fn handle_task_set<B: TasksBackend>(
 /// the copy keeps the source's `metadata`, and its `privateMetadata` only
 /// with `urn:ietf:params:jmap:metadata` in `using` and when the
 /// destination supports it; neither is copied when the destination does
-/// not list Task ([`JmapBackend::metadata_info`](jmap_server::JmapBackend::metadata_info)).
+/// not list Task ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)).
 /// The create object "MAY include metadata and privateMetadata to override
 /// the copied values, with the same rules as a create in Foo/set": the
 /// handler rejects them without the capability and rejects `null`, and

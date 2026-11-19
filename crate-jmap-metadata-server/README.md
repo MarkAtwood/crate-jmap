@@ -70,7 +70,7 @@ for everything that needs state or identity:
 - **Per-viewer `privateMetadata`** (§2.2, §4): each user sees only
   their own private metadata, and a private write advances the state
   string only for the writer. This needs caller identity via
-  `JmapBackend::principal_id`; a backend returning `None` cannot honor
+  `JmapAccounts::principal_id`; a backend returning `None` cannot honor
   it, and per §2.2 must not advertise the capability with
   `supportsPrivate: true`.
 - **`updatedProperties`** (§3.3): computed per viewer. Record only the

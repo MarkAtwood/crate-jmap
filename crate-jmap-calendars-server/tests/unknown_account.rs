@@ -11,7 +11,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_calendars_server::CalendarsBackend;
 use jmap_calendars_types::Calendar;
-use jmap_server::{BackendSetError, JmapBackend, SetErrorType};
+use jmap_server::{BackendSetError, JmapAccounts, SetErrorType};
 use jmap_types::Id;
 
 fn object(id: &Id) -> Calendar {

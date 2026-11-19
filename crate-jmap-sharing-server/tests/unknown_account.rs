@@ -9,7 +9,7 @@
 mod common;
 
 use common::MemoryBackend;
-use jmap_server::{BackendSetError, JmapBackend, SetErrorType};
+use jmap_server::{BackendSetError, JmapAccounts, SetErrorType};
 use jmap_sharing_server::SharingBackend;
 use jmap_sharing_types::Principal;
 use jmap_types::Id;

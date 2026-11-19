@@ -25,9 +25,9 @@ use jmap_filenode_server::memory::{MemoryBackend as FilesMemory, MemoryError};
 use jmap_filenode_server::{CaseFolding, FileNodeBackend};
 use jmap_filenode_types::{FileNode, FilesRights};
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetObject,
 };
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
@@ -83,14 +83,16 @@ impl Deployment {
     }
 }
 
-impl JmapBackend for Deployment {
+impl JmapAccounts for Deployment {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.files.account_exists(&(), account_id).await
     }
+}
 
+impl JmapReads for Deployment {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),

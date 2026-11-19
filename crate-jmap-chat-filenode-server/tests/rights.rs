@@ -52,7 +52,7 @@ use jmap_chat_filenode_server::{
 use jmap_chat_server::memory::MemoryBackend as ChatMemory;
 use jmap_filenode_server::memory::MemoryBackend as FilesMemory;
 use jmap_filenode_types::FileNode;
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::{Id, PatchObject};
 use serde_json::{Value, json};
 

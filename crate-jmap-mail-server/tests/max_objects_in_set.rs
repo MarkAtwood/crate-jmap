@@ -4,7 +4,7 @@
 //! Every test asserts the wire-format method error `requestTooLarge`
 //! (description `"maxObjectsInSet"`) against a hand-built independent
 //! oracle — the helper under test is never the oracle. Oversize batches use 501 entries against the
-//! default `JmapBackend::max_objects_in_set` cap of 500.
+//! default `JmapAccounts::max_objects_in_set` cap of 500.
 
 #![allow(async_fn_in_trait)]
 
@@ -20,7 +20,7 @@ use jmap_mail_server::{
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-// Default cap value returned by `JmapBackend::max_objects_in_set` in the
+// Default cap value returned by `JmapAccounts::max_objects_in_set` in the
 // foundation crate. Tests below construct batches relative to this value
 // rather than hardcoding 500 in multiple places.
 const DEFAULT_CAP: usize = 500;

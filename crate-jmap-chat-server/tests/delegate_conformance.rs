@@ -10,70 +10,24 @@ use jmap_chat_server::{
     DelegateChatModeration, DelegateChatResolvers, DelegateChatRestrictions, DelegateChatSettings,
     DelegateChatSpaces, DelegateChatStore, DelegateSpacePolicy, OutboundEvent,
 };
-use jmap_server::{
-    BackendChangesError, BackendQueryError, ChangesParams, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-};
-use jmap_types::{Id, State};
+use jmap_server::{DelegateJmapReads, JmapAccounts, JmapObject};
+use jmap_types::Id;
 use serde_json::Value;
 
-/// Delegates every hook trait to `inner`; forwards `JmapBackend` by hand
-/// (phase 2 of the design splits that out).
+/// Delegates every hook trait and the `JmapReads` to `inner`; forwards
+/// the two `JmapAccounts` methods `MemoryBackend` overrides by hand
+/// (`JmapAccounts` has no delegate: a wrapper owns its accounts).
 #[derive(Clone, Default)]
 struct Wrapper {
     inner: MemoryBackend,
 }
 
-impl JmapBackend for Wrapper {
+impl JmapAccounts for Wrapper {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
         self.inner.account_exists(caller, account_id).await
-    }
-    async fn get_objects<O: GetObject + Send + Sync>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        ids: Option<&[Id]>,
-        properties: Option<&[String]>,
-    ) -> Result<(Vec<O>, Vec<Id>), MemoryError> {
-        self.inner
-            .get_objects(caller, account_id, ids, properties)
-            .await
-    }
-    async fn get_state<O: JmapObject + Send + Sync>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-    ) -> Result<State, MemoryError> {
-        self.inner.get_state::<O>(caller, account_id).await
-    }
-    async fn get_changes<O: JmapObject + Send + Sync>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        params: ChangesParams<'_>,
-    ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
-        self.inner
-            .get_changes::<O>(caller, account_id, params)
-            .await
-    }
-    async fn query_objects<O: QueryObject + Send + Sync>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        params: QueryParams<'_, O>,
-    ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
-        self.inner.query_objects(caller, account_id, params).await
-    }
-    async fn query_changes<O: QueryObject + Send + Sync>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-        params: QueryChangesParams<'_, O>,
-    ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
-        self.inner.query_changes(caller, account_id, params).await
     }
     fn metadata_info<O: JmapObject>(
         &self,
@@ -96,6 +50,7 @@ macro_rules! delegate {
 }
 
 delegate!(
+    DelegateJmapReads => jmap_reads,
     DelegateChatStore => chat_store,
     DelegateChatSpaces => chat_spaces,
     DelegateSpacePolicy => space_policy,

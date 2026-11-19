@@ -23,7 +23,7 @@ use jmap_chat_server::{
 };
 use jmap_chat_types::Space;
 use jmap_server::HandlerOutput;
-use jmap_server::JmapBackend;
+use jmap_server::JmapReads;
 use jmap_types::Id;
 use serde_json::{Value, json};
 

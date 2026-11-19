@@ -106,8 +106,8 @@ use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, PatchPathError, ScopedState, SetOp,
@@ -1018,7 +1018,7 @@ impl MemoryError {
     ///
     /// Only the error's [`serde_json::error::Category`] is kept. A serde
     /// data error quotes the offending value (`invalid type: string
-    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// "alice@example.com", expected u64`), and the `JmapAccounts::Error`
     /// contract forbids PII and blob content in `Display` output
     /// (bd:JMAP-510h.37).
     pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
@@ -1307,7 +1307,7 @@ fn retype<A: serde::Serialize, B: serde::de::DeserializeOwned>(
 /// (draft-atwood-jmap-updates-00 §4.1 MAY).
 const MAX_LOCALIZATIONS: usize = 32;
 
-impl JmapBackend for MemoryBackend {
+impl JmapAccounts for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
@@ -1336,7 +1336,9 @@ impl JmapBackend for MemoryBackend {
         let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
+}
 
+impl JmapReads for MemoryBackend {
     // -----------------------------------------------------------------------
     // get_objects
     // -----------------------------------------------------------------------
@@ -1414,7 +1416,7 @@ impl JmapBackend for MemoryBackend {
         } else {
             MetadataOnlyChanges::Report
         };
-        // The token is client text; the `JmapBackend::Error` contract keeps
+        // The token is client text; the `JmapAccounts::Error` contract keeps
         // it out of `Display` (bd:JMAP-gfqj).
         let since: u64 = since_state
             .as_ref()
@@ -3801,7 +3803,7 @@ mod tests {
     #[tokio::test]
     async fn mutations_never_register_an_account() {
         use crate::MailBackend;
-        use jmap_server::JmapBackend;
+        use jmap_server::JmapAccounts;
         let backend = MemoryBackend::new();
         let ghost = Id::from("ghost");
         let mailbox = |id: &Id| {
@@ -3933,14 +3935,14 @@ mod memory_error_tests {
     use super::{MemoryBackend, MemoryError};
     use crate::MailBackend;
     use jmap_mail_types::Email;
-    use jmap_server::{BackendChangesError, ChangesParams, JmapBackend};
+    use jmap_server::{BackendChangesError, ChangesParams, JmapReads};
     use jmap_types::{Id, State};
 
     /// Client-chosen text that must never reach operator logs.
     const CANARY: &str = "alice@example.com";
 
     /// RFC 8620 §5.2: `sinceState` is client-supplied. The
-    /// `JmapBackend::Error` contract forbids "PII shaped like an email
+    /// `JmapAccounts::Error` contract forbids "PII shaped like an email
     /// address" in `Display`, so an unparseable token must not be echoed
     /// (bd:JMAP-gfqj).
     #[tokio::test]
@@ -3973,7 +3975,7 @@ mod memory_error_tests {
         assert!(shown.contains("blob not found"), "{shown}");
     }
 
-    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// The `JmapAccounts::Error` contract: "Implementations MUST NOT
     /// include ... PII shaped like an email address" in `Display`
     /// output. serde_json data errors quote the offending value, so
     /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
@@ -4141,7 +4143,7 @@ mod empty_account_id_tests {
 mod email_sort_tests {
     use super::{MemoryBackend, base_subject};
     use jmap_mail_types::{ComparatorProperty, Email, EmailComparator, Keyword};
-    use jmap_server::{BackendQueryError, JmapBackend, JmapObject, QueryParams};
+    use jmap_server::{BackendQueryError, JmapObject, JmapReads, QueryParams};
     use jmap_types::Id;
     use serde_json::json;
 

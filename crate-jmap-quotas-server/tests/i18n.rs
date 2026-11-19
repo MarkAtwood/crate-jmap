@@ -12,8 +12,9 @@
 use jmap_quotas_server::memory::{MemoryBackend, MemoryError};
 use jmap_quotas_server::{QuotasBackend, handle_quota_get, handle_quota_query};
 use jmap_server::{
-    BackendChangesError, BackendQueryError, ChangesParams, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    BackendChangesError, BackendQueryError, ChangesParams, ChangesResult, GetObject, JmapAccounts,
+    JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult,
 };
 use jmap_types::{Id, State};
 use serde_json::{Value, json};
@@ -26,7 +27,7 @@ const I18N: &str = "urn:ietf:params:jmap:i18n";
 /// context.
 struct WithAcceptLanguage(MemoryBackend);
 
-impl JmapBackend for WithAcceptLanguage {
+impl JmapAccounts for WithAcceptLanguage {
     type Error = MemoryError;
     type CallerCtx = Option<String>;
 
@@ -39,6 +40,9 @@ impl JmapBackend for WithAcceptLanguage {
     async fn account_exists(&self, _: &Option<String>, a: &Id) -> Result<bool, MemoryError> {
         self.0.account_exists(&(), a).await
     }
+}
+
+impl JmapReads for WithAcceptLanguage {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _: &Option<String>,

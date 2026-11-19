@@ -44,14 +44,16 @@ impl Racing {
     }
 }
 
-impl jmap_server::JmapBackend for Racing {
+impl jmap_server::JmapAccounts for Racing {
     type Error = MemoryError;
     type CallerCtx = String;
 
     async fn account_exists(&self, caller: &String, account_id: &Id) -> Result<bool, MemoryError> {
         self.0.account_exists(caller, account_id).await
     }
+}
 
+impl jmap_server::JmapReads for Racing {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &String,

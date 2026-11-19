@@ -79,8 +79,8 @@ use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, MergePatchError, PatchPathError,
@@ -1042,7 +1042,7 @@ impl MemoryError {
     ///
     /// Only the error's [`serde_json::error::Category`] is kept. A serde
     /// data error quotes the offending value (`invalid type: string
-    /// "alice@example.com", expected u64`), and the `JmapBackend::Error`
+    /// "alice@example.com", expected u64`), and the `JmapAccounts::Error`
     /// contract forbids PII and blob content in `Display` output
     /// (bd:JMAP-510h.37).
     pub(crate) fn serde(context: impl std::fmt::Display, e: &serde_json::Error) -> Self {
@@ -1058,7 +1058,7 @@ impl std::fmt::Display for MemoryError {
 
 impl std::error::Error for MemoryError {}
 
-impl JmapBackend for MemoryBackend {
+impl JmapAccounts for MemoryBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
@@ -1080,7 +1080,9 @@ impl JmapBackend for MemoryBackend {
         let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
+}
 
+impl JmapReads for MemoryBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -1924,7 +1926,7 @@ impl ChatSpaces for MemoryBackend {
     /// The caller is the owner, whose member entry is the accountId
     /// (draft-atwood-jmap-chat-00 §Terminology), so permission and
     /// role-hierarchy gates resolve against `account_id`. They apply
-    /// whether or not [`JmapBackend::principal_id`] resolves an
+    /// whether or not [`JmapAccounts::principal_id`] resolves an
     /// identity; `MemoryBackend`'s `CallerCtx = ()` resolves none.
     ///
     /// # Change-log emission
@@ -1999,7 +2001,7 @@ impl SpacePolicy for MemoryBackend {
     ///
     /// Demonstration-only: returns `Ok(Ok(()))` unconditionally. The
     /// reference backend does not honor identity-scoped permissions
-    /// because `JmapBackend::principal_id(&())` returns `None` for the
+    /// because `JmapAccounts::principal_id(&())` returns `None` for the
     /// workspace's `CallerCtx = ()` default. A meaningful permission
     /// model — e.g. "only members of the target Space may modify a
     /// Space-scoped emoji" — requires the production backend to
@@ -2261,7 +2263,7 @@ impl ChatAccessPolicy for MemoryBackend {
     ///
     /// The caller is the owner, whose member entry is the accountId
     /// (draft §Terminology), so the gate looks up `account_id` in
-    /// `members` whether or not [`JmapBackend::principal_id`] resolves
+    /// `members` whether or not [`JmapAccounts::principal_id`] resolves
     /// an identity.
     async fn may_set_pinned_messages(
         &self,
@@ -6486,7 +6488,7 @@ mod tests {
 mod memory_error_tests {
     use super::MemoryError;
 
-    /// The `JmapBackend::Error` contract: "Implementations MUST NOT
+    /// The `JmapAccounts::Error` contract: "Implementations MUST NOT
     /// include ... PII shaped like an email address" in `Display`
     /// output. serde_json data errors quote the offending value, so
     /// [`MemoryError::serde`] must drop the message (bd:JMAP-510h.37).
@@ -6691,7 +6693,7 @@ mod max_changes_tests {
         backend: &MemoryBackend,
         since: &str,
         max: u64,
-    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapBackend>::Error>> {
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
         backend
             .get_changes::<T>(
                 &CALLER,

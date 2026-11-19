@@ -112,7 +112,7 @@ impl SetError {
     /// response (RFC 8620 §5.3 `notCreated` / `notUpdated` /
     /// `notDestroyed` maps) and is visible to any client that can
     /// dispatch the failing `/set` call. The MUST-NOT rules that apply
-    /// to the `Display` output of `jmap_server::JmapBackend::Error`
+    /// to the `Display` output of `jmap_server::JmapAccounts::Error`
     /// also apply to this string:
     ///
     /// - **Credential material** — auth tokens, passwords, push
@@ -136,7 +136,7 @@ impl SetError {
     /// fine; backend-error interpolations are not.
     ///
     /// Precedent: the parallel contract on
-    /// `jmap_server::JmapBackend::Error` (bd:JMAP-sc1b.100) and the matching
+    /// `jmap_server::JmapAccounts::Error` (bd:JMAP-sc1b.100) and the matching
     /// handler-side leak path closed in bd:JMAP-wlip.2. This warning
     /// added in bd:JMAP-wlip.26.
     pub fn with_description(mut self, desc: impl Into<String>) -> Self {

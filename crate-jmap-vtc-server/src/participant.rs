@@ -1012,7 +1012,7 @@ fn gateway_signal(
 ///
 /// ponytail: loads every VTCParticipant of the account, O(participants)
 /// per leave or decline. Upgrade path: a `callId` filtered
-/// [`jmap_server::JmapBackend::query_objects`].
+/// [`jmap_server::JmapReads::query_objects`].
 async fn call_participants<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,

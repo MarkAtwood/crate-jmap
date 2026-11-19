@@ -259,8 +259,8 @@ pub(crate) mod test_support {
 
     use jmap_server::{
         BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-        JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-        QueryResult, SetError, SetErrorType, SetObject,
+        JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+        QueryParams, QueryResult, SetError, SetErrorType, SetObject,
     };
     use jmap_tasks_types::{Task, TaskList, TaskNotification};
     use jmap_types::{Id, State};
@@ -405,14 +405,16 @@ pub(crate) mod test_support {
         }
     }
 
-    impl JmapBackend for MockBackend {
+    impl JmapAccounts for MockBackend {
         type Error = MockError;
         type CallerCtx = ();
 
         async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
             Ok(self.state.lock().unwrap().contains_key(account_id.as_ref()))
         }
+    }
 
+    impl JmapReads for MockBackend {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
@@ -962,8 +964,8 @@ mod tests {
 
         use jmap_server::{
             BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-            JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-            QueryParams, QueryResult, SetObject,
+            JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult,
+            QueryObject, QueryParams, QueryResult, SetObject,
         };
         use jmap_tasks_types::Task;
         use jmap_types::{Id, UTCDate};
@@ -979,7 +981,7 @@ mod tests {
             observed: Mutex<Vec<Id>>,
         }
 
-        impl JmapBackend for AccountIdRecorder {
+        impl JmapAccounts for AccountIdRecorder {
             type Error = MockError;
             type CallerCtx = ();
 
@@ -990,7 +992,9 @@ mod tests {
             ) -> Result<bool, Self::Error> {
                 Ok(true)
             }
+        }
 
+        impl JmapReads for AccountIdRecorder {
             async fn get_objects<O: GetObject + Send + Sync>(
                 &self,
                 _caller: &(),

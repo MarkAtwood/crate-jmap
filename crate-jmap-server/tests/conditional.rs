@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BeginSetError, CallContext, ChangesParams,
     ChangesResult, CommitError, CommitFuture, ConditionalBackend, DeferredFailure, Dispatcher,
-    GetObject, HandlerFuture, HandlerOutput, JmapBackend, JmapHandler, JmapObject,
+    GetObject, HandlerFuture, HandlerOutput, JmapAccounts, JmapHandler, JmapObject, JmapReads,
     QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, RollbackFuture,
     SetMode, SetObject, SetOp, SetScope, SetScopeRequest, SetSupport, current_set_scope,
 };
@@ -95,14 +95,16 @@ impl std::error::Error for StubError {}
 
 struct Backend(Shared);
 
-impl JmapBackend for Backend {
+impl JmapAccounts for Backend {
     type Error = StubError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _: &(), _: &Id) -> Result<bool, StubError> {
         unreachable!("the probe handlers do not call the backend")
     }
+}
 
+impl JmapReads for Backend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _: &(),

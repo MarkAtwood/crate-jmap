@@ -79,7 +79,7 @@ pub enum BindingTarget {
 ///
 /// # Changes
 ///
-/// Unlike `/get` and `/query`, [`JmapBackend::get_changes`] is not scoped to
+/// Unlike `/get` and `/query`, [`JmapReads::get_changes`](jmap_server::JmapReads::get_changes) is not scoped to
 /// the caller. Visibility filtering "does not change the JMAP state model:
 /// each data type has one state string per account", and `/changes` reports
 /// the account's changes (draft-atwood-jmap-scene-00 §Visibility Contract).

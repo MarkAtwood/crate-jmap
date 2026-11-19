@@ -13,9 +13,9 @@ use jmap_types::Invocation;
 use std::sync::Arc;
 
 use jmap_server::{
-    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
-    SetObject,
+    BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, SetObject,
 };
 use jmap_server::{Dispatcher, JmapRequest, State};
 use jmap_sharing_server::{SharingBackend, register_sharing_handlers};
@@ -85,14 +85,16 @@ impl FilteringBackend {
 }
 
 #[allow(async_fn_in_trait)]
-impl JmapBackend for FilteringBackend {
+impl JmapAccounts for FilteringBackend {
     type Error = common::MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.0.account_exists(caller, account_id).await
     }
+}
 
+impl JmapReads for FilteringBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         caller: &(),

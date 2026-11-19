@@ -4,7 +4,7 @@
 //! Every test asserts the wire-format method error `requestTooLarge`
 //! (description `"maxObjectsInSet"`) against a hand-built independent
 //! oracle — the helper under test is never the oracle. Oversize batches use 501 entries against the
-//! default `JmapBackend::max_objects_in_set` cap of 500.
+//! default `JmapAccounts::max_objects_in_set` cap of 500.
 
 #![allow(async_fn_in_trait)]
 

@@ -22,8 +22,8 @@ pub use jmap_tasks_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesParams, ChangesResult,
-    GetObject, JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetObject,
+    GetObject, JmapAccounts, JmapBackend, JmapObject, JmapReads, QueryChangesParams,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetObject,
 };
 use jmap_types::{Id, State};
 
@@ -79,14 +79,16 @@ impl FaultyBackend {
     }
 }
 
-impl JmapBackend for FaultyBackend {
+impl JmapAccounts for FaultyBackend {
     type Error = MemoryError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         self.inner.account_exists(&(), account_id).await
     }
+}
 
+impl JmapReads for FaultyBackend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _caller: &(),

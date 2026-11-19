@@ -30,7 +30,7 @@ these functions from its trait methods:
 | `ObjectHistoryBackend::restore_object::<VTCCall>`, before the restore (draft-ietf-jmap-object-history §5.1: a restore may fail as a create would) | `check_call_create` |
 | `VtcBackend::create_call`, `update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | `sync_active_call_id` |
 | `VtcBackend::is_user_blocked` | `is_blocked_by_contact` |
-| `JmapBackend::get_objects`, `query_objects` and `query_changes`, per VTCCall (`VtcBackend` §Per-call access) | `may_access_call` |
+| `JmapReads::get_objects`, `query_objects` and `query_changes`, per VTCCall (`VtcBackend` §Per-call access) | `may_access_call` |
 | `ChatEvents::on_chat_destroyed` | `clear_channel_references` |
 | `ChatEvents::on_space_destroyed` | `clear_space_references` |
 | `ChatEvents::on_space_ban_created` | `contact_identity`, then `eject_banned_user` |

@@ -947,6 +947,22 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-server** (**BREAKING**): `JmapBackend` is now the union of two
+  traits, with a blanket impl. `JmapAccounts` holds `Error`, `CallerCtx`,
+  `account_exists`, `principal_id`, `accept_language`, `max_objects_in_set`,
+  `max_objects_in_get`, `metadata_info` and `i18n_info`; `JmapReads:
+  JmapAccounts` holds `get_objects`, `get_state`, `get_changes`,
+  `query_objects` and `query_changes`. New `DelegateJmapReads` (`type
+  Target`, `fn jmap_reads`) forwards the reads to a wrapped backend with the
+  same `Error` and `CallerCtx`, so a wrapper can override `account_exists`
+  without forwarding the reads by hand (docs/design/chat-backend-split.md
+  phase 2, decision 39). Migration: split `impl JmapBackend for X { .. }`
+  into `impl JmapAccounts for X` and `impl JmapReads for X`, with the method
+  bodies unchanged; bounds `B: JmapBackend` are unaffected. Paths such as
+  `<B as JmapBackend>::CallerCtx` or `JmapBackend::principal_id` name the
+  defining trait instead (`JmapAccounts`), and code that calls a read on a
+  concrete type imports `JmapReads`. Every backend in the workspace moved.
+
 - **jmap-types**: the `icu_segmenter` requirement is now `2.2` (any 2.x from
   2.2) instead of `~2.2`, like `icu_casemap` and `icu_normalizer`, so
   dependents can use a newer ICU4X 2.x. The lockfile moves every `icu_*`

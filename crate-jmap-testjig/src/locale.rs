@@ -9,7 +9,7 @@
 //!
 //! One gap follows: without the capability, RFC 9425 §4.1 selects the
 //! Quota `description` by Accept-Language, but the jig's caller context is
-//! `()`, so `JmapBackend::accept_language` is `None` and the base
+//! `()`, so `JmapAccounts::accept_language` is `None` and the base
 //! `description` is returned.
 
 use jmap_types::i18n::{LanguageTag, accept_language_ranges, lookup};

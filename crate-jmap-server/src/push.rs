@@ -4,8 +4,8 @@
 //! [`is_deliverable`] and [`state_change_for`].
 //!
 //! Push subscriptions are not tied to an account (RFC 8620 §7.2.1), so the
-//! handlers here do not use `accountId`, [`JmapBackend::account_exists`],
-//! or [`JmapBackend::get_state`]. Instead they scope every lookup to the
+//! handlers here do not use `accountId`, [`JmapAccounts::account_exists`],
+//! or [`JmapReads::get_state`]. Instead they scope every lookup to the
 //! caller's credentials through [`PushSubscriptionBackend`].
 //!
 //! Sending the `PushVerification` and `StateChange` requests is the
@@ -53,7 +53,7 @@ const RFC_PROPERTIES: [&str; 5] = [
 /// The `ids` cap for `PushSubscription/get`.
 ///
 /// ponytail: a fixed RFC 8620 §2 suggested minimum.
-/// [`JmapBackend::max_objects_in_get`] is per account and this method has
+/// [`JmapAccounts::max_objects_in_get`] is per account and this method has
 /// no account, so a backend override of that method does not apply here.
 /// The upgrade path is a caller-scoped limit method on
 /// [`PushSubscriptionBackend`].

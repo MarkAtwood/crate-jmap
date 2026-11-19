@@ -14,7 +14,7 @@ use common::*;
 use jmap_scene_server::memory::MemoryBackend;
 use jmap_scene_server::{handle_scene_object_interact, register_scene_handlers};
 use jmap_scene_types::SceneObject;
-use jmap_server::{Dispatcher, JmapBackend};
+use jmap_server::{Dispatcher, JmapAccounts, JmapReads};
 use jmap_types::{Id, JmapRequest, State};
 use serde_json::{Value, json};
 
@@ -368,7 +368,7 @@ async fn method_level_errors() {
 async fn interactions_over_max_objects_in_set_are_request_too_large() {
     let backend = scene();
     let caller = ALICE.to_owned();
-    let cap = JmapBackend::max_objects_in_set(&backend, &caller, &Id::from(ACCOUNT));
+    let cap = JmapAccounts::max_objects_in_set(&backend, &caller, &Id::from(ACCOUNT));
     let args = |n: u64| {
         let interactions: serde_json::Map<String, Value> =
             (0..n).map(|i| (format!("i{i}"), click(R1, OBJ2))).collect();

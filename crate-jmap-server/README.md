@@ -112,11 +112,22 @@ method calls (a `(method, args, callId)` tuple); `ResultReference` and
 
 ```rust
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, DelegateJmapReads,
+    GetObject, JmapAccounts, JmapBackend, JmapObject, JmapReads, QueryChangesResult,
+    QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 ```
+
+`JmapBackend` is the union of two traits, with a blanket impl:
+`JmapAccounts` (the `Error` and `CallerCtx` types, `account_exists`,
+`principal_id`, `accept_language`, the `max_objects_*` limits,
+`metadata_info`, `i18n_info`) and `JmapReads` (`get_objects`, `get_state`,
+`get_changes`, `query_objects`, `query_changes`). A backend implements
+both; it never implements `JmapBackend` itself. A wrapper that keeps its
+own `JmapAccounts` (an `account_exists` against a directory, say) and
+serves the reads from the backend it wraps implements `DelegateJmapReads`
+(`type Target`, `fn jmap_reads(&self) -> &Self::Target`) instead of
+`JmapReads`. The target has the wrapper's `Error` and `CallerCtx`.
 
 Generic backend traits (`JmapBackend`, `GetObject`, `QueryObject`, `SetObject`),
 result and error envelopes (`ChangesResult`, `QueryResult`, `QueryChangesResult`,
@@ -234,7 +245,7 @@ and the typed access paths a real server would consume.
 
 - **`CallerCtx` is cloned per method call.** `Dispatcher::dispatch` performs one `Clone` of the `CallerCtx` value per method in the batch, plus two `String` clones for the method name and call_id (bd:JMAP-jfia.8). Heavy `CallerCtx` values — auth profiles, permission vectors, session tokens, anything embedding more than a pointer or a small POD — should be wrapped in `Arc<T>` so the per-call clone is a pointer bump rather than a deep copy. A 16-call batch over a non-`Arc`-wrapped `CallerCtx` pays 16 deep clones.
 - **`sortAsTree` and `filterAsTree` are RFC 8621-specific.** Those two args are defined by RFC 8621 §5 for `Email/query`, not by the base protocol. The generic `handle_query` handler in this crate has no knowledge of them and per RFC 8620 §3.6 silently ignores unknown args. Tree-mode traversal, when needed, must be implemented in a domain-specific handler (see `handle_email_query` in jmap-mail-server).
-- **Filter / sort are delegated to the backend.** `handle_query` parses `filter` and `sort` from method args into the backend trait's `O::Filter` and `O::Comparator` types and passes them through to [`JmapBackend::query_objects`]. The handler does no in-process re-filtering or re-sorting. The backend MUST push filter and sort into indexed storage — that contract is documented on `JmapBackend::query_objects` and a backend that ignores it degenerates to O(n) per page.
+- **Filter / sort are delegated to the backend.** `handle_query` parses `filter` and `sort` from method args into the backend trait's `O::Filter` and `O::Comparator` types and passes them through to [`JmapReads::query_objects`]. The handler does no in-process re-filtering or re-sorting. The backend MUST push filter and sort into indexed storage — that contract is documented on `JmapReads::query_objects` and a backend that ignores it degenerates to O(n) per page.
 - **History arguments need the object-history URI and a history-aware
   method.** Without `urn:ietf:params:jmap:object-history` in `using`, the
   dispatcher answers `includeReplaced`/`includeDestroyed` true,

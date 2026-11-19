@@ -7,8 +7,8 @@
 
 use jmap_server::{
     BackendChangesError, BackendQueryError, ChangesParams, ChangesResult, GetObject, Id,
-    JmapBackend, JmapObject, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, State, handle_query, handle_query_changes, localized_query_state,
+    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, State, handle_query, handle_query_changes, localized_query_state,
     unwrap_query_state,
 };
 use jmap_types::MethodErrorType;
@@ -96,14 +96,16 @@ impl QueryObject for Thing {
 /// One empty account; /query and /queryChanges answer with nothing.
 struct Backend;
 
-impl JmapBackend for Backend {
+impl JmapAccounts for Backend {
     type Error = MockError;
     type CallerCtx = ();
 
     async fn account_exists(&self, _: &(), _: &Id) -> Result<bool, MockError> {
         Ok(true)
     }
+}
 
+impl JmapReads for Backend {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
         _: &(),

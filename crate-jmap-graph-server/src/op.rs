@@ -31,7 +31,7 @@ use crate::edit::base64url_len;
 use crate::helpers::{
     SetOps, fetch_one, forbidden, handle_get_visible, handle_set, invalid, readable_rights, to_map,
 };
-use jmap_server::{JmapBackend, SetError, SetErrorType};
+use jmap_server::{JmapAccounts, SetError, SetErrorType};
 
 /// The edit capability of the call's account: `accountNotFound` for an
 /// unknown account, `accountNotSupportedByMethod` without the capability.
@@ -300,7 +300,7 @@ impl<B: GraphBackend> SetOps<B> for OpSet {
         m.insert("created".to_owned(), json!(now_utc_string()));
         m.insert(
             "createdBy".to_owned(),
-            json!(<B as JmapBackend>::principal_id(caller)),
+            json!(<B as JmapAccounts>::principal_id(caller)),
         );
         let mut op: GraphNodeOp = serde_json::from_value(Value::Object(m))
             .map_err(|e| invalid(&[], &format!("invalid GraphNodeOp: {e}")))?;
@@ -359,7 +359,7 @@ fn immutable() -> Value {
 /// `data` is not valid base64url, or if its decoded size exceeds
 /// `maxCursorSize`; one error covers missing and unreadable nodes". The
 /// accepted call becomes a [`GraphCursorEvent`] whose `senderId` is
-/// [`JmapBackend::principal_id`], handed to
+/// [`JmapAccounts::principal_id`], handed to
 /// [`GraphBackend::publish_cursor`]. "The response has the arguments
 /// `accountId` and `nodeId` only."
 pub async fn handle_graph_node_cursor<B: GraphBackend>(
@@ -394,7 +394,7 @@ pub async fn handle_graph_node_cursor<B: GraphBackend>(
     let event = GraphCursorEvent::new(
         req.account_id.clone(),
         req.node_id.clone(),
-        <B as JmapBackend>::principal_id(caller).cloned(),
+        <B as JmapAccounts>::principal_id(caller).cloned(),
         req.data,
     );
     backend

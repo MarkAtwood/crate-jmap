@@ -10,12 +10,12 @@ use jmap_types::data_types::DATA_TYPES;
 
 /// Storage for Quota objects.
 ///
-/// A backend's [`JmapBackend::get_changes`] for Quota should set
+/// A backend's [`JmapReads::get_changes`](jmap_server::JmapReads::get_changes) for Quota should set
 /// [`ChangesResult::updated_properties`](jmap_server::ChangesResult::updated_properties)
 /// to `["used"]` when only `used` changed on every updated quota, and leave
 /// it `None` when it cannot tell (RFC 9425 §4.3).
 ///
-/// Its [`JmapBackend::query_objects`] must evaluate the `type` condition
+/// Its [`JmapReads::query_objects`](jmap_server::JmapReads::query_objects) must evaluate the `type` condition
 /// and `OR` / `AND` / `NOT` operators even when the client sent no filter:
 /// the handlers add a filter on the recognized types to every query.
 pub trait QuotasBackend: JmapBackend {

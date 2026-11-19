@@ -33,7 +33,7 @@ use jmap_server::{BackendSetError, JmapBackend, JmapObject, SetObject};
 ///
 /// Per the workspace AGENTS.md "Caller identity (foundation seam)" rule,
 /// this trait reads caller identity exclusively via
-/// [`JmapBackend::principal_id`] on the supertrait. The returned
+/// [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) on the supertrait. The returned
 /// `Option<&jmap_types::Id>` is the canonical input to every per-object
 /// permission decision made inside `create_object`, `update_object`, and
 /// `destroy_object` — there is no alternate path, no
@@ -79,7 +79,7 @@ pub trait SharingBackend: JmapBackend {
     /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
     /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
     /// check that the principal identified by
-    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write access to the target
+    /// [`JmapAccounts::principal_id(caller)`](jmap_server::JmapAccounts::principal_id) has write access to the target
     /// account / Principal / ShareNotification
     /// inside the same atomic boundary as the write, and MUST return
     /// [`BackendSetError::SetError`] carrying
@@ -97,7 +97,7 @@ pub trait SharingBackend: JmapBackend {
     /// - **`account_id` unknown**: the handler at
     ///   `principal.rs::handle_principal_set` /
     ///   `notification.rs::handle_share_notification_set` calls
-    ///   [`JmapBackend::account_exists`] before reaching this method
+    ///   [`JmapAccounts::account_exists`](jmap_server::JmapAccounts::account_exists) before reaching this method
     ///   and returns `accountNotFound` at the top level on a `false`
     ///   result. Backend implementors MAY treat `account_id` as
     ///   "verified to exist" when invoked through the standard
@@ -243,7 +243,7 @@ pub trait SharingBackend: JmapBackend {
     /// - **`account_id` unknown**: the handler at
     ///   `principal.rs::handle_principal_set` /
     ///   `notification.rs::handle_share_notification_set` calls
-    ///   [`JmapBackend::account_exists`] before reaching this method
+    ///   [`JmapAccounts::account_exists`](jmap_server::JmapAccounts::account_exists) before reaching this method
     ///   and returns `accountNotFound` at the top level on a `false`
     ///   result. Backend implementors MAY treat `account_id` as
     ///   "verified to exist" when invoked through the standard
@@ -356,7 +356,7 @@ pub trait SharingBackend: JmapBackend {
     /// - **`account_id` unknown**: the handler at
     ///   `notification.rs::handle_share_notification_set` /
     ///   `principal.rs::handle_principal_set` calls
-    ///   [`JmapBackend::account_exists`] before reaching this method
+    ///   [`JmapAccounts::account_exists`](jmap_server::JmapAccounts::account_exists) before reaching this method
     ///   and returns `accountNotFound` at the top level on a `false`
     ///   result. Backend implementors MAY treat this method's
     ///   `account_id` argument as "verified to exist" when invoked

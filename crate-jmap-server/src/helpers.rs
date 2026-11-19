@@ -965,7 +965,7 @@ pub fn query_anchor_args(args: &Map<String, Value>) -> Result<(Option<Id>, i64),
 }
 
 /// Start index of a `/query` page within the filtered, sorted `ids`
-/// (RFC 8620 §5.5), for [`JmapBackend::query_objects`] implementations.
+/// (RFC 8620 §5.5), for [`JmapReads::query_objects`] implementations.
 ///
 /// With an `anchor`, `position` is ignored and the start is the
 /// anchor's index plus `anchor_offset`, clamped to `0..=ids.len()`.
@@ -976,7 +976,7 @@ pub fn query_anchor_args(args: &Map<String, Value>) -> Result<(Option<Id>, i64),
 ///
 /// [`JmapError::anchor_not_found`] when `anchor` is not in `ids`.
 ///
-/// [`JmapBackend::query_objects`]: crate::JmapBackend::query_objects
+/// [`JmapReads::query_objects`]: crate::JmapReads::query_objects
 pub fn resolve_query_start(
     ids: &[Id],
     position: i64,
@@ -1711,7 +1711,7 @@ impl MetadataProjection {
     /// list), `default_includes` is `false` for `Email/get`, whose
     /// "default property list ... is unchanged" (-05 §3.1), and `true` for
     /// every other type; `info` is the type's DataTypeMetadataInfo
-    /// ([`JmapBackend::metadata_info`](crate::JmapBackend::metadata_info)),
+    /// ([`JmapAccounts::metadata_info`](crate::JmapAccounts::metadata_info)),
     /// `None` when the type is not listed and so "does not gain the
     /// metadata or privateMetadata properties" (-05 §1.2.1). The rules:
     ///
