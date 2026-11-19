@@ -1,0 +1,25 @@
+{
+  "id": "JMAP-r44n.18",
+  "title": "testjig: register PushSubscription/EmailPush on the mail memory backend; object-history EmailPush cases over HTTP",
+  "description": "Follow-up of JMAP-r44n.16 / tna1.3.15. The jig registers no PushSubscription methods. Register jmap_server::register_push_subscription_handlers with the mail MemoryBackend (emailpush feature), advertise urn:ietf:params:jmap:emailpush in Session capabilities and accountCapabilities (empty objects, -05 §2.1), and add HTTP tests in crate-jmap-testjig/tests/object_history_e2e.rs: an EmailPushConfig with objectHistory in properties is echoed and stored without it; a restored Email sends no EmailPush (the jig needs a delivery hook, e.g. a test-only deliver endpoint or direct MemoryBackend::deliver_email). Memory-level coverage already in crate-jmap-mail-server/tests/emailpush_history.rs.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-19T01:06:46.975339605Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-19T01:06:46.975339605Z",
+  "labels": [
+    "spec-sync"
+  ],
+  "dependencies": [
+    {
+      "issue_id": "JMAP-r44n.18",
+      "depends_on_id": "JMAP-r44n",
+      "type": "parent-child",
+      "created_at": "2026-11-19T01:06:47.187369044Z",
+      "created_by": "Mark Atwood",
+      "metadata": "{}"
+    }
+  ]
+}
