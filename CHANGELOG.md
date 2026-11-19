@@ -857,6 +857,16 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-chat-client**: `SessionClient::push_subscription_create`,
+  `push_subscription_update` and `push_subscription_destroy` lose their
+  `if_in_state` argument (RFC 8620 §7.2.2: PushSubscription/set "does *not*
+  take an `ifInState` argument") and return
+  `jmap_base_client::PushSubscriptionSetResponse` (re-exported), which has
+  no `accountId`, `oldState` or `newState`. `update` and `destroy` used to
+  return `SetResponse`, whose required `accountId` and `newState` a
+  compliant server's response lacks. The calls go through
+  `JmapClient::push_subscription_set`. `PushSubscriptionCreateResponse` is
+  removed. (bd:JMAP-r44n.14)
 - **jmap-mail-server** (wire): `Email/get` rejects a `properties` name that
   is not an Email property with `invalidArguments` (RFC 8620 §5.1 MUST);
   it used to drop it. `metadata` / `privateMetadata` count only when the

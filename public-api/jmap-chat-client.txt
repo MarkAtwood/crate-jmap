@@ -11,6 +11,7 @@ pub use jmap_chat_client::ClientError
 pub use jmap_chat_client::Endpoint
 pub use jmap_chat_client::GetResponse
 pub use jmap_chat_client::PartialObject
+pub use jmap_chat_client::PushSubscriptionSetResponse
 pub use jmap_chat_client::QueryChangesResponse
 pub use jmap_chat_client::QueryResponse
 pub use jmap_chat_client::SetError
@@ -345,17 +346,6 @@ impl<'a> core::clone::Clone for jmap_chat_client::PushSubscriptionCreateInput<'a
 pub fn jmap_chat_client::PushSubscriptionCreateInput<'a>::clone(&self) -> jmap_chat_client::PushSubscriptionCreateInput<'a>
 impl<'a> core::fmt::Debug for jmap_chat_client::PushSubscriptionCreateInput<'a>
 pub fn jmap_chat_client::PushSubscriptionCreateInput<'a>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-#[non_exhaustive] pub struct jmap_chat_client::PushSubscriptionCreateResponse
-pub jmap_chat_client::PushSubscriptionCreateResponse::account_id: core::option::Option<jmap_types::id::Id>
-pub jmap_chat_client::PushSubscriptionCreateResponse::created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, serde_json::value::Value>>
-pub jmap_chat_client::PushSubscriptionCreateResponse::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
-pub jmap_chat_client::PushSubscriptionCreateResponse::not_created: core::option::Option<alloc::collections::btree::map::BTreeMap<alloc::string::String, jmap_types::set_error::SetError>>
-impl core::clone::Clone for jmap_chat_client::PushSubscriptionCreateResponse
-pub fn jmap_chat_client::PushSubscriptionCreateResponse::clone(&self) -> jmap_chat_client::PushSubscriptionCreateResponse
-impl core::fmt::Debug for jmap_chat_client::PushSubscriptionCreateResponse
-pub fn jmap_chat_client::PushSubscriptionCreateResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl<'de> serde_core::de::Deserialize<'de> for jmap_chat_client::PushSubscriptionCreateResponse
-pub fn jmap_chat_client::PushSubscriptionCreateResponse::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
 pub struct jmap_chat_client::PushSubscriptionPatch<'a>
 pub jmap_chat_client::PushSubscriptionPatch::chat_push: jmap_chat_client::Patch<&'a [(&'a jmap_types::id::Id, jmap_chat_types::push::ChatPushConfig)]>
 pub jmap_chat_client::PushSubscriptionPatch::expires: jmap_chat_client::Patch<&'a jmap_types::id::UTCDate>
@@ -417,9 +407,9 @@ pub async fn jmap_chat_client::SessionClient::core_echo(&self, serde_json::map::
 pub async fn jmap_chat_client::SessionClient::presence_status_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::presence_status_get(&self) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::presence::PresenceStatus>, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::presence_status_update(&self, &jmap_types::id::Id, &jmap_chat_client::PresenceStatusPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
-pub async fn jmap_chat_client::SessionClient::push_subscription_create(&self, &jmap_chat_client::PushSubscriptionCreateInput<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_chat_client::PushSubscriptionCreateResponse, jmap_base_client::error::ClientError>
-pub async fn jmap_chat_client::SessionClient::push_subscription_destroy(&self, &[jmap_types::id::Id], core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
-pub async fn jmap_chat_client::SessionClient::push_subscription_update(&self, &jmap_types::id::Id, &jmap_chat_client::PushSubscriptionPatch<'_>, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::push_subscription_create(&self, &jmap_chat_client::PushSubscriptionCreateInput<'_>) -> core::result::Result<jmap_base_client::push_methods::PushSubscriptionSetResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::push_subscription_destroy(&self, &[jmap_types::id::Id]) -> core::result::Result<jmap_base_client::push_methods::PushSubscriptionSetResponse, jmap_base_client::error::ClientError>
+pub async fn jmap_chat_client::SessionClient::push_subscription_update(&self, &jmap_types::id::Id, &jmap_chat_client::PushSubscriptionPatch<'_>) -> core::result::Result<jmap_base_client::push_methods::PushSubscriptionSetResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::read_position_changes(&self, &jmap_types::id::State, core::option::Option<u64>) -> core::result::Result<jmap_types::methods::ChangesResponse, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::read_position_get(&self, core::option::Option<&[jmap_types::id::Id]>) -> core::result::Result<jmap_types::methods::GetResponse<jmap_chat_types::position::ReadPosition>, jmap_base_client::error::ClientError>
 pub async fn jmap_chat_client::SessionClient::read_position_update(&self, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<&jmap_types::id::State>) -> core::result::Result<jmap_types::methods::SetResponse<jmap_types::methods::PartialObject>, jmap_base_client::error::ClientError>

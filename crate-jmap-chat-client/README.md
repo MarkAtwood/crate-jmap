@@ -143,7 +143,13 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `push_subscription_create` | `input: &PushSubscriptionCreateInput<'_>` | `PushSubscriptionCreateResponse` |
+| `push_subscription_create` | `input: &PushSubscriptionCreateInput<'_>` | `PushSubscriptionSetResponse` |
+| `push_subscription_update` | `id: &Id, patch: &PushSubscriptionPatch<'_>` | `PushSubscriptionSetResponse` |
+| `push_subscription_destroy` | `ids: &[Id]` | `PushSubscriptionSetResponse` |
+
+These wrap `JmapClient::push_subscription_set` from jmap-base-client. They
+take no `ifInState` and the response has no `accountId` or state (RFC 8620
+§7.2.2).
 
 ## Push transport
 

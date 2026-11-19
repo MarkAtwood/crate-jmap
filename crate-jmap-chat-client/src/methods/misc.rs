@@ -4,12 +4,14 @@
 //! `PushSubscription/*` (RFC 8620 §7.2 plus the JMAP Chat Push extension,
 //! draft-atwood-jmap-chat-push-00), and `Core/echo` (RFC 8620 §4.1).
 
-use jmap_types::{Id, PatchObject, State};
+use std::collections::BTreeMap;
+
+use jmap_base_client::PushSubscriptionSetResponse;
+use jmap_types::{Id, PatchObject, PushSubscription, State};
 
 use super::{
     ChangesResponse, GetResponse, PartialObject, Patch, PresenceStatusPatch,
-    PushSubscriptionCreateInput, PushSubscriptionCreateResponse, PushSubscriptionPatch,
-    SetResponse,
+    PushSubscriptionCreateInput, PushSubscriptionPatch, SetResponse,
 };
 
 impl super::SessionClient {
@@ -280,9 +282,9 @@ impl super::SessionClient {
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     ///
-    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
-    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
-    /// `stateMismatch` unless its current state matches.
+    /// There is no `ifInState`: RFC 8620 §7.2.2 says PushSubscription/set
+    /// "does *not* take an `ifInState` argument", and its response has no
+    /// `accountId`, `oldState` or `newState`.
     ///
     /// # Errors
     ///
@@ -315,8 +317,7 @@ impl super::SessionClient {
     pub async fn push_subscription_create(
         &self,
         input: &PushSubscriptionCreateInput<'_>,
-        if_in_state: Option<&State>,
-    ) -> Result<PushSubscriptionCreateResponse, jmap_base_client::ClientError> {
+    ) -> Result<PushSubscriptionSetResponse, jmap_base_client::ClientError> {
         if input.device_client_id.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "push_subscription_create: device_client_id may not be empty".into(),
@@ -327,8 +328,6 @@ impl super::SessionClient {
                 "push_subscription_create: url may not be empty".into(),
             ));
         }
-        // PushSubscriptions are not account-scoped; use api_url without session_parts().
-        let api_url = self.api_url();
         let client_id = super::resolve_client_id(input.client_id);
         let mut create_obj = serde_json::json!({
             "deviceClientId": input.device_client_id,
@@ -345,21 +344,17 @@ impl super::SessionClient {
             let chat_push_map = build_chat_push_map(cp, "push_subscription_create")?;
             create_obj["chatPush"] = serde_json::Value::Object(chat_push_map);
         }
-        let mut args = serde_json::json!({
-            "create": { client_id: create_obj }
-        });
-        if let Some(s) = if_in_state {
-            args["ifInState"] = s.as_ref().into();
-        }
-        // RFC 8620 §3.3: only declare the chatPush capability when it is actually used.
-        let using = if has_chat_push {
-            super::USING_CHAT_PUSH
-        } else {
-            super::USING_CORE
-        };
-        let req = super::build_request("PushSubscription/set", args, using);
-        let resp = self.call_internal(api_url, &req).await?;
-        jmap_base_client::extract_response(&resp, super::CALL_ID)
+        let subscription: PushSubscription = serde_json::from_value(create_obj)
+            .map_err(jmap_base_client::ClientError::from_serialize)?;
+        self.client
+            .push_subscription_set(
+                &self.session,
+                &BTreeMap::from([(client_id, subscription)]),
+                &BTreeMap::new(),
+                &[],
+                chat_push_using(has_chat_push),
+            )
+            .await
     }
 
     /// Update a PushSubscription (RFC 8620 §7.2.2 `PushSubscription/set` update).
@@ -377,9 +372,9 @@ impl super::SessionClient {
     /// `urn:ietf:params:jmap:chat:push`; otherwise only
     /// `urn:ietf:params:jmap:core` is declared (RFC 8620 §3.3).
     ///
-    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
-    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
-    /// `stateMismatch` unless its current state matches.
+    /// There is no `ifInState`: RFC 8620 §7.2.2 says PushSubscription/set
+    /// "does *not* take an `ifInState` argument", and its response has no
+    /// `accountId`, `oldState` or `newState`.
     ///
     /// # Errors
     ///
@@ -393,14 +388,13 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::push_subscription_create`].
-    ///   /set update errors appear in [`SetResponse::not_updated`]
+    ///   /set update errors appear in [`PushSubscriptionSetResponse::not_updated`]
     ///   rather than as [`Err`].
     pub async fn push_subscription_update(
         &self,
         id: &Id,
         patch: &PushSubscriptionPatch<'_>,
-        if_in_state: Option<&State>,
-    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
+    ) -> Result<PushSubscriptionSetResponse, jmap_base_client::ClientError> {
         // Defence-in-depth: typed &Id does not prevent empty Id values.
         if id.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -408,7 +402,6 @@ impl super::SessionClient {
             ));
         }
 
-        let api_url = self.api_url();
         let mut patch_map = serde_json::Map::new();
         if let Some(code) = patch.verification_code {
             patch_map.insert("verificationCode".into(), code.into());
@@ -436,21 +429,15 @@ impl super::SessionClient {
             }
         }
 
-        let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
-        let mut args = serde_json::json!({
-            "update": { id.as_ref(): patch_value }
-        });
-        if let Some(s) = if_in_state {
-            args["ifInState"] = s.as_ref().into();
-        }
-        let using = if patch.chat_push.is_keep() {
-            super::USING_CORE
-        } else {
-            super::USING_CHAT_PUSH
-        };
-        let req = super::build_request("PushSubscription/set", args, using);
-        let resp = self.call_internal(api_url, &req).await?;
-        jmap_base_client::extract_response(&resp, super::CALL_ID)
+        self.client
+            .push_subscription_set(
+                &self.session,
+                &BTreeMap::new(),
+                &BTreeMap::from([(id.clone(), PatchObject::from_map(patch_map))]),
+                &[],
+                chat_push_using(!patch.chat_push.is_keep()),
+            )
+            .await
     }
 
     /// Destroy one or more PushSubscriptions (RFC 8620 §7.2.2 `PushSubscription/set` destroy).
@@ -466,9 +453,9 @@ impl super::SessionClient {
     /// `deviceClientId`. This client does not enforce that rule; the server
     /// may reject the call.
     ///
-    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency guard
-    /// (RFC 8620 §5.3 `ifInState`): the server rejects the whole call with
-    /// `stateMismatch` unless its current state matches.
+    /// There is no `ifInState`: RFC 8620 §7.2.2 says PushSubscription/set
+    /// "does *not* take an `ifInState` argument", and its response has no
+    /// `accountId`, `oldState` or `newState`.
     ///
     /// # Errors
     ///
@@ -478,28 +465,20 @@ impl super::SessionClient {
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::push_subscription_create`].
-    ///   /set destroy errors appear in [`SetResponse::not_destroyed`]
+    ///   /set destroy errors appear in [`PushSubscriptionSetResponse::not_destroyed`]
     ///   rather than as [`Err`].
     pub async fn push_subscription_destroy(
         &self,
         ids: &[Id],
-        if_in_state: Option<&State>,
-    ) -> Result<SetResponse<PartialObject>, jmap_base_client::ClientError> {
+    ) -> Result<PushSubscriptionSetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "push_subscription_destroy: ids may not be empty".into(),
             ));
         }
-        let api_url = self.api_url();
-        let mut args = serde_json::json!({
-            "destroy": ids,
-        });
-        if let Some(s) = if_in_state {
-            args["ifInState"] = s.as_ref().into();
-        }
-        let req = super::build_request("PushSubscription/set", args, super::USING_CORE);
-        let resp = self.call_internal(api_url, &req).await?;
-        jmap_base_client::extract_response(&resp, super::CALL_ID)
+        self.client
+            .push_subscription_set(&self.session, &BTreeMap::new(), &BTreeMap::new(), ids, &[])
+            .await
     }
 
     /// Send `Core/echo` (RFC 8620 §4.1), which "returns exactly the same
@@ -546,6 +525,16 @@ impl super::SessionClient {
 /// value, replacing the previous two-pass (HashSet duplicate check then
 /// serialize-and-insert) idiom that was hand-duplicated across two
 /// call sites (bd:JMAP-26di.55).
+/// Extra `using` for a PushSubscription/set: the chat push capability only
+/// when the call carries `chatPush` (RFC 8620 §3.3).
+fn chat_push_using(has_chat_push: bool) -> &'static [&'static str] {
+    if has_chat_push {
+        &[jmap_chat_types::JMAP_CHAT_PUSH_URI]
+    } else {
+        &[]
+    }
+}
+
 fn build_chat_push_map(
     cp: &[(&Id, jmap_chat_types::ChatPushConfig)],
     context: &'static str,

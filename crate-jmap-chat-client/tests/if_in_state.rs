@@ -13,9 +13,8 @@ mod helpers;
 use jmap_chat_client::BodyType;
 use jmap_chat_client::{
     ChatContactPatch, ChatCreateInput, ChatPatch, CustomEmojiCreateInput, CustomEmojiPatch,
-    MessageCreateInput, MessagePatch, PresenceStatusPatch, PushSubscriptionCreateInput,
-    PushSubscriptionPatch, SpaceBanCreateInput, SpaceBanPatch, SpaceCreateInput,
-    SpaceInviteCreateInput, SpacePatch,
+    MessageCreateInput, MessagePatch, PresenceStatusPatch, SpaceBanCreateInput, SpaceBanPatch,
+    SpaceCreateInput, SpaceInviteCreateInput, SpacePatch,
 };
 use jmap_types::{Id, State, UTCDate};
 use serde_json::{Value, json};
@@ -177,29 +176,9 @@ async fn send_all(server: &MockServer, s: Option<&State>) {
         ..Default::default()
     };
     let _ = sc.presence_status_update(&id, &presence_patch, s).await;
-
-    let _ = sc
-        .push_subscription_create(
-            &PushSubscriptionCreateInput {
-                client_id: Some("p1"),
-                device_client_id: "device-abc",
-                url: "https://push.example.com/endpoint",
-                expires: None,
-                types: None,
-                chat_push: None,
-            },
-            s,
-        )
-        .await;
-    let push_patch = PushSubscriptionPatch {
-        verification_code: Some("code"),
-        ..Default::default()
-    };
-    let _ = sc.push_subscription_update(&id, &push_patch, s).await;
-    let _ = sc.push_subscription_destroy(&ids, s).await;
 }
 
-const METHODS: [&str; 24] = [
+const METHODS: [&str; 21] = [
     "Chat/set",
     "Chat/set",
     "Chat/set",
@@ -221,9 +200,6 @@ const METHODS: [&str; 24] = [
     "CustomEmoji/set",
     "ReadPosition/set",
     "PresenceStatus/set",
-    "PushSubscription/set",
-    "PushSubscription/set",
-    "PushSubscription/set",
 ];
 
 #[tokio::test]

@@ -710,13 +710,11 @@ validation called from the backend's create/update, non-breaking echo), the deli
 type (decision 20: keep `&Email`, document placeholder ids). All in
 `docs/design/DECISIONS.md`.
 
-Remaining:
+Also decided 2026-11-19: `objectHistory` gating, confirmed as built (decision 33); the
+chat-client PushSubscription methods change breaking rather than deprecate (decision 34,
+r44n.14).
 
-1. **`objectHistory` gating.** This note reads decision 10's "matching Email/get" as: accept
-   `objectHistory` only where this deployment's Email/get accepts it (`mail && email_history`,
-   i.e. the account's object-history capability lists `Email`), and reject it elsewhere as an
-   unsupported property (§4 rule 3). The alternative is to accept it on every account. Confirm
-   the gated reading.
+None remaining.
 
 ### Upstream list (emailpush; from `docs/design/DECISIONS.md`)
 

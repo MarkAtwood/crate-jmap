@@ -16,8 +16,6 @@ pub mod custom_emoji;
 pub mod filenode;
 pub mod quota;
 
-use std::collections::BTreeMap;
-
 use serde::Deserialize;
 
 use jmap_types::Id;
@@ -39,40 +37,6 @@ pub use jmap_types::{
     AddedItem, ChangesResponse, GetResponse, PartialObject, QueryChangesResponse, QueryResponse,
     SetError, SetResponse,
 };
-
-/// Response to a `PushSubscription/set` create call (RFC 8620 §7.2).
-///
-/// `account_id` is always `null` for PushSubscription objects (they are not
-/// account-scoped). `Option<Id>` handles both the null case and servers that
-/// echo the session accountId anyway.
-#[non_exhaustive]
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct PushSubscriptionCreateResponse {
-    /// The account this response refers to. Always `None` for `PushSubscription`
-    /// (not account-scoped); preserved as `Option<Id>` for servers that echo it.
-    #[serde(default)]
-    pub account_id: Option<Id>,
-    /// Successfully created subscriptions, keyed by the caller-supplied creation key.
-    pub created: Option<BTreeMap<String, serde_json::Value>>,
-    /// Creation failures, keyed by the caller-supplied creation key.
-    #[serde(default)]
-    pub not_created: Option<BTreeMap<String, SetError>>,
-    /// Catch-all for vendor / site / private extension fields not covered
-    /// by the typed fields above. Preserves unknown fields across
-    /// deserialize/serialize round-trip per workspace extras-preservation
-    /// policy (see workspace AGENTS.md).
-    ///
-    /// **Constraint**: keys in `extra` MUST NOT collide with the
-    /// typed-field wire names above (the camelCase spelling — e.g.
-    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
-    /// `"fromAccountId"`, etc.). On collision the typed-field value
-    /// wins on the wire and the `extra` value is silently dropped at
-    /// serialization. Place vendor extensions under vendor-prefixed
-    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
-    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
-    pub extra: serde_json::Map<String, serde_json::Value>,
-}
 
 /// Response to a `Chat/typing` call (JMAP Chat §Chat/typing).
 ///
@@ -346,14 +310,8 @@ pub(crate) const USING_CHAT_FILENODE: &[&str] = &[
     jmap_chat_types::JMAP_CHAT_FILENODE_URI,
 ];
 
-/// Capability URIs for PushSubscription method calls (RFC 8620 §7.2).
+/// `using` for calls that need only the core capability (`Core/echo`).
 pub(crate) const USING_CORE: &[&str] = &["urn:ietf:params:jmap:core"];
-
-/// Capability URIs for PushSubscription/set with chat push extension.
-pub(crate) const USING_CHAT_PUSH: &[&str] = &[
-    "urn:ietf:params:jmap:core",
-    jmap_chat_types::JMAP_CHAT_PUSH_URI,
-];
 
 // ---------------------------------------------------------------------------
 // build_request helper
@@ -1580,25 +1538,6 @@ mod tests {
     // names cannot collide with any field defined in RFC 8620 §7.2 or in
     // the draft-atwood-jmap-chat-00 method responses, so the tests are
     // independent of the code under test (workspace test-integrity rule).
-
-    /// `PushSubscriptionCreateResponse.extra` captures unknown fields on deserialize.
-    #[test]
-    fn push_subscription_create_response_preserves_vendor_extras() {
-        let raw = serde_json::json!({
-            "accountId": null,
-            "created": {},
-            "notCreated": {},
-            "acmeCorpPushBackend": "fcm"
-        });
-        let obj: PushSubscriptionCreateResponse =
-            serde_json::from_value(raw).expect("PushSubscriptionCreateResponse must deserialize");
-        assert_eq!(
-            obj.extra
-                .get("acmeCorpPushBackend")
-                .and_then(|v| v.as_str()),
-            Some("fcm")
-        );
-    }
 
     /// `TypingResponse.extra` captures unknown fields on deserialize.
     #[test]

@@ -4,8 +4,8 @@
 //! PushSubscriptions are NOT account-scoped (RFC 8620 §7.2): no
 //! `accountId` field appears in the wire arguments. The `using` array
 //! depends on whether the call touches the JMAP Chat Push extension:
-//! when it does, [`USING_CHAT_PUSH`] (`core` + `chat:push`); otherwise
-//! [`USING_CORE`] (just `core`).
+//! when it does, `core` + `chat:push`; otherwise
+//! just `core`.
 //!
 //! Spec oracles:
 //!   - RFC 8620 §7.2 (PushSubscription object, set semantics, push
@@ -16,10 +16,20 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use helpers::{jmap_response, mock_jmap_post, recorded_args, recorded_body, set_response};
+use helpers::{mock_jmap_post, recorded_args, recorded_body};
 use jmap_types::{Id, UTCDate};
 use serde_json::json;
 use wiremock::MockServer;
+
+/// A `PushSubscription/set` response as RFC 8620 §7.2.2 shapes it: no
+/// `accountId`, `oldState` or `newState`. Call id "0" is the one
+/// `JmapClient::push_subscription_set` sends.
+fn push_response(args: serde_json::Value) -> serde_json::Value {
+    json!({
+        "sessionState": "s1",
+        "methodResponses": [["PushSubscription/set", args, "0"]]
+    })
+}
 
 /// `PushSubscription/set` create without `chat_push` MUST emit only
 /// `core` in the `using` array (RFC 8620 §3.3 — capabilities only when
@@ -30,17 +40,12 @@ use wiremock::MockServer;
 #[tokio::test]
 async fn push_subscription_create_without_chat_push_uses_core_only() {
     let server = MockServer::start().await;
-    // PushSubscription/set response shape: created map keyed by creation
-    // id. accountId may be null per RFC 8620 §7.2 (response type is
-    // PushSubscriptionCreateResponse with Option<Id> account_id).
-    let resp_body = jmap_response(
-        "PushSubscription/set",
-        json!({
-            "accountId": null,
-            "created": { "my-sub-1": { "id": "ps-server-1" } },
-            "notCreated": null
-        }),
-    );
+    // PushSubscription/set response shape (RFC 8620 §7.2.2): created map
+    // keyed by creation id, no accountId and no state.
+    let resp_body = push_response(json!({
+        "created": { "my-sub-1": { "id": "ps-server-1" } },
+        "notCreated": null
+    }));
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
@@ -53,12 +58,11 @@ async fn push_subscription_create_without_chat_push_uses_core_only() {
         chat_push: None,
     };
     let resp = sc
-        .push_subscription_create(&input, None)
+        .push_subscription_create(&input)
         .await
         .expect("push_subscription_create: must succeed");
-    let created = resp.created.expect("created must be present");
     assert!(
-        created.contains_key("my-sub-1"),
+        resp.created.contains_key("my-sub-1"),
         "created must contain my-sub-1"
     );
 
@@ -100,14 +104,10 @@ async fn push_subscription_create_without_chat_push_uses_core_only() {
 #[tokio::test]
 async fn push_subscription_create_with_chat_push_declares_extension() {
     let server = MockServer::start().await;
-    let resp_body = jmap_response(
-        "PushSubscription/set",
-        json!({
-            "accountId": null,
-            "created": { "my-sub-1": { "id": "ps-server-1" } },
-            "notCreated": null
-        }),
-    );
+    let resp_body = push_response(json!({
+        "created": { "my-sub-1": { "id": "ps-server-1" } },
+        "notCreated": null
+    }));
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
@@ -127,7 +127,7 @@ async fn push_subscription_create_with_chat_push_declares_extension() {
         chat_push: Some(&chat_push_entries),
     };
     let _ = sc
-        .push_subscription_create(&input, None)
+        .push_subscription_create(&input)
         .await
         .expect("push_subscription_create: must succeed");
 
@@ -148,7 +148,7 @@ async fn push_subscription_create_with_chat_push_declares_extension() {
             "urn:ietf:params:jmap:core",
             "urn:ietf:params:jmap:chat:push"
         ]),
-        "using must equal USING_CHAT_PUSH exactly when chat_push is set"
+        "using must equal core + chat:push exactly when chat_push is set"
     );
 }
 
@@ -158,10 +158,7 @@ async fn push_subscription_create_with_chat_push_declares_extension() {
 #[tokio::test]
 async fn push_subscription_create_types_serialises_string_array() {
     let server = MockServer::start().await;
-    let resp_body = jmap_response(
-        "PushSubscription/set",
-        json!({ "created": { "my-sub-1": { "id": "ps-server-1" } } }),
-    );
+    let resp_body = push_response(json!({ "created": { "my-sub-1": { "id": "ps-server-1" } } }));
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
@@ -175,7 +172,7 @@ async fn push_subscription_create_types_serialises_string_array() {
         chat_push: None,
     };
     let _ = sc
-        .push_subscription_create(&input, None)
+        .push_subscription_create(&input)
         .await
         .expect("push_subscription_create: must succeed");
 
@@ -204,7 +201,7 @@ async fn push_subscription_create_empty_device_id_or_url_rejected() {
         chat_push: None,
     };
     let err = sc
-        .push_subscription_create(&bad_device, None)
+        .push_subscription_create(&bad_device)
         .await
         .expect_err("must reject empty device_client_id");
     match err {
@@ -227,7 +224,7 @@ async fn push_subscription_create_empty_device_id_or_url_rejected() {
         chat_push: None,
     };
     let err = sc
-        .push_subscription_create(&bad_url, None)
+        .push_subscription_create(&bad_url)
         .await
         .expect_err("must reject empty url");
     match err {
@@ -266,7 +263,7 @@ async fn push_subscription_create_duplicate_chat_push_account_id_rejected() {
         chat_push: Some(&chat_push),
     };
     let err = sc
-        .push_subscription_create(&input, None)
+        .push_subscription_create(&input)
         .await
         .expect_err("must reject duplicate accountId");
     match err {
@@ -291,19 +288,14 @@ async fn push_subscription_create_duplicate_chat_push_account_id_rejected() {
 }
 
 /// `PushSubscription/set` update with `verification_code` + `types`
-/// `Patch::Set` must thread both through the per-id patch object
-/// (misc.rs:282-306). The update path uses USING_CORE because
+/// `Patch::Set` must thread both through the per-id patch object.
+/// The update path uses core only because
 /// `chat_push` is left at `Patch::Keep` (RFC 8620 §3.3 — declare
 /// chat:push only when actually used).
 #[tokio::test]
 async fn push_subscription_update_verification_and_types_serialises() {
     let server = MockServer::start().await;
-    let resp_body = set_response(
-        "PushSubscription/set",
-        "ps-1",
-        "ps-2",
-        json!({ "updated": { "ps-1": null } }),
-    );
+    let resp_body = push_response(json!({ "updated": { "ps-1": null } }));
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
@@ -315,7 +307,7 @@ async fn push_subscription_update_verification_and_types_serialises() {
         ..Default::default()
     };
     let _ = sc
-        .push_subscription_update(&id, &patch, None)
+        .push_subscription_update(&id, &patch)
         .await
         .expect("push_subscription_update: must succeed");
 
@@ -341,11 +333,11 @@ async fn push_subscription_update_verification_and_types_serialises() {
         patch_obj.get("chatPush").is_none(),
         "chatPush must be absent when Patch::Keep (default)"
     );
-    // USING_CORE only — chat:push not used by this patch.
+    // core only — chat:push not used by this patch.
     assert_eq!(
         body["using"],
         json!(["urn:ietf:params:jmap:core"]),
-        "using must be USING_CORE only when chat_push is Patch::Keep"
+        "using must be core only when chat_push is Patch::Keep"
     );
 }
 
@@ -354,17 +346,12 @@ async fn push_subscription_update_verification_and_types_serialises() {
 /// and with `chat_push: Patch::Clear` must emit `"chatPush": null` so
 /// the server removes all inline push config
 /// (draft-atwood-jmap-chat-push-00 §3.1). Confirms the
-/// USING_CHAT_PUSH switch happens for any non-`Keep` chat_push value
+/// core + chat:push switch happens for any non-`Keep` chat_push value
 /// (including `Clear`).
 #[tokio::test]
 async fn push_subscription_update_clear_emits_nulls_and_declares_chat_push() {
     let server = MockServer::start().await;
-    let resp_body = set_response(
-        "PushSubscription/set",
-        "ps-1",
-        "ps-2",
-        json!({ "updated": { "ps-1": null } }),
-    );
+    let resp_body = push_response(json!({ "updated": { "ps-1": null } }));
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
@@ -375,7 +362,7 @@ async fn push_subscription_update_clear_emits_nulls_and_declares_chat_push() {
         ..Default::default()
     };
     let _ = sc
-        .push_subscription_update(&id, &patch, None)
+        .push_subscription_update(&id, &patch)
         .await
         .expect("push_subscription_update: must succeed");
 
@@ -392,14 +379,14 @@ async fn push_subscription_update_clear_emits_nulls_and_declares_chat_push() {
         json!(null),
         "Patch::Clear must serialise chatPush as JSON null"
     );
-    // USING_CHAT_PUSH because chat_push is touched (even by Clear).
+    // core + chat:push because chat_push is touched (even by Clear).
     assert_eq!(
         body["using"],
         json!([
             "urn:ietf:params:jmap:core",
             "urn:ietf:params:jmap:chat:push"
         ]),
-        "using must equal USING_CHAT_PUSH when chat_push is touched"
+        "using must equal core + chat:push when chat_push is touched"
     );
 }
 
@@ -408,12 +395,7 @@ async fn push_subscription_update_clear_emits_nulls_and_declares_chat_push() {
 #[tokio::test]
 async fn push_subscription_update_expires_set_emits_value() {
     let server = MockServer::start().await;
-    let resp_body = set_response(
-        "PushSubscription/set",
-        "ps-1",
-        "ps-2",
-        json!({ "updated": { "ps-1": null } }),
-    );
+    let resp_body = push_response(json!({ "updated": { "ps-1": null } }));
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
@@ -424,7 +406,7 @@ async fn push_subscription_update_expires_set_emits_value() {
         ..Default::default()
     };
     let _ = sc
-        .push_subscription_update(&id, &patch, None)
+        .push_subscription_update(&id, &patch)
         .await
         .expect("push_subscription_update: must succeed");
 
@@ -447,7 +429,7 @@ async fn push_subscription_update_empty_id_rejected() {
     let empty_id = Id::from("");
     let patch = jmap_chat_client::PushSubscriptionPatch::default();
     let err = sc
-        .push_subscription_update(&empty_id, &patch, None)
+        .push_subscription_update(&empty_id, &patch)
         .await
         .expect_err("must reject empty id");
     match err {
@@ -465,24 +447,19 @@ async fn push_subscription_update_empty_id_rejected() {
 }
 
 /// `PushSubscription/set` destroy must thread `ids` to the wire and
-/// reject the empty slice client-side. Always USING_CORE — destroy is
+/// reject the empty slice client-side. Always core — destroy is
 /// property-blind so it never requires the chat:push capability
 /// (misc.rs:336-338).
 #[tokio::test]
 async fn push_subscription_destroy_threads_ids_and_rejects_empty() {
     let server = MockServer::start().await;
-    let resp_body = set_response(
-        "PushSubscription/set",
-        "ps-1",
-        "ps-2",
-        json!({ "destroyed": ["ps-1"] }),
-    );
+    let resp_body = push_response(json!({ "destroyed": ["ps-1"] }));
     mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let ids = [Id::from("ps-1")];
     let _ = sc
-        .push_subscription_destroy(&ids, None)
+        .push_subscription_destroy(&ids)
         .await
         .expect("push_subscription_destroy: must succeed");
 
@@ -493,17 +470,17 @@ async fn push_subscription_destroy_threads_ids_and_rejects_empty() {
         "accountId must be absent for PushSubscription methods"
     );
     assert_eq!(args["destroy"], json!(["ps-1"]), "destroy must thread");
-    // USING_CORE — destroy never requires chat:push.
+    // core — destroy never requires chat:push.
     assert_eq!(
         body["using"],
         json!(["urn:ietf:params:jmap:core"]),
-        "using must be USING_CORE only for destroy"
+        "using must be core only for destroy"
     );
 
     // Empty-slice guard.
     let empty: [Id; 0] = [];
     let err = sc
-        .push_subscription_destroy(&empty, None)
+        .push_subscription_destroy(&empty)
         .await
         .expect_err("must reject empty ids");
     match err {
