@@ -1967,6 +1967,7 @@ dependencies = [
  "jmap-base-client",
  "jmap-chat-types",
  "jmap-cid-types",
+ "jmap-object-uri",
  "jmap-types",
  "serde",
  "serde_json",
@@ -2075,6 +2076,7 @@ version = "0.5.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
+ "jmap-object-uri",
  "jmap-server",
  "jmap-types",
  "reqwest",
@@ -2109,6 +2111,7 @@ dependencies = [
  "jmap-did-types",
  "jmap-metadata-types",
  "jmap-object-history-types",
+ "jmap-object-uri",
  "jmap-types",
  "serde",
  "serde_json",
@@ -2340,6 +2343,7 @@ dependencies = [
  "jmap-graph-types",
  "jmap-mail-server",
  "jmap-mail-types",
+ "jmap-object-uri",
  "jmap-server",
  "jmap-types",
  "serde_json",
@@ -2370,6 +2374,7 @@ name = "jmap-graph-types"
 version = "0.5.0"
 dependencies = [
  "jmap-object-history-types",
+ "jmap-object-uri",
  "jmap-search",
  "jmap-types",
  "serde",

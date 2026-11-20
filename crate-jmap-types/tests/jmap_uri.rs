@@ -72,11 +72,11 @@ fn malformed_uris_rejected() {
         ("https://example.com/e1", JmapUriError::NotJmapScheme),
         ("webcal:calendarevent:a1:e1", JmapUriError::NotJmapScheme),
         ("calendarevent:a1:e1", JmapUriError::NotJmapScheme),
-        ("jmap", JmapUriError::InvalidDataType),
+        ("jmap", JmapUriError::NotJmapScheme),
         ("jmap::a1:e1", JmapUriError::InvalidDataType),
         ("jmap:CalendarEvent:a1:e1", JmapUriError::InvalidDataType),
         ("jmap:calendar-event:a1:e1", JmapUriError::InvalidDataType),
-        ("jmap://host/x", JmapUriError::InvalidDataType),
+        ("jmap://host/x", JmapUriError::ReservedForm),
         ("jmap:calendarevent", JmapUriError::InvalidAccountId(None)),
         ("jmap:calendarevent:a1", JmapUriError::MissingObjectId),
     ];
@@ -130,5 +130,29 @@ fn builder_validates_parts() {
     assert_eq!(
         JmapUri::new("Task", Id::from("a1"), Id::from("t1")),
         Err(JmapUriError::InvalidDataType)
+    );
+}
+
+/// The URI serializes as its wire string and deserialization validates it.
+#[test]
+fn serde_uses_the_wire_string() {
+    let uri: JmapUri = "JMAP:email:a1:m2".parse().unwrap();
+    let json = serde_json::to_string(&uri).unwrap();
+    assert_eq!(json, r#""jmap:email:a1:m2""#);
+    assert_eq!(serde_json::from_str::<JmapUri>(&json).unwrap(), uri);
+    assert!(serde_json::from_str::<JmapUri>(r#""jmap://host/x""#).is_err());
+    assert!(serde_json::from_str::<JmapUri>("42").is_err());
+}
+
+/// Ordering agrees with equality: type, then account, then object.
+#[test]
+fn ordering_is_by_parts() {
+    let a: JmapUri = "jmap:email:a1:m1".parse().unwrap();
+    let b: JmapUri = "JMAP:email:a1:m2".parse().unwrap();
+    let c: JmapUri = "jmap:mailbox:a0:m0".parse().unwrap();
+    assert!(a < b && b < c);
+    assert_eq!(
+        a.cmp(&"Jmap:email:a1:m1".parse().unwrap()),
+        std::cmp::Ordering::Equal
     );
 }

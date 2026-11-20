@@ -29,7 +29,12 @@ use std::str::FromStr;
 /// assert_eq!(uri.object_id().as_ref(), "e42");
 /// assert_eq!(uri.to_string(), "jmap:calendarevent:a1:e42");
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+///
+/// It serializes as its wire string and deserializes by parsing one, so a
+/// malformed value fails deserialization. Ordering compares the type, then
+/// the account id, then the object id, consistently with equality (the
+/// scheme is case-insensitive and not stored).
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct JmapUri {
     data_type: String,
     account_id: Id,
@@ -40,8 +45,11 @@ pub struct JmapUri {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum JmapUriError {
-    /// The URI scheme is not `jmap`.
+    /// The URI scheme is not `jmap`, or the string has no scheme at all.
     NotJmapScheme,
+    /// A `jmap://` authority form, which §Other Forms reserves and which is
+    /// not a JMAP object URI.
+    ReservedForm,
     /// The `<type>` segment is empty or not lowercase ASCII alphanumeric.
     InvalidDataType,
     /// The `<accountId>` segment is missing or not a valid `Id`.
@@ -57,6 +65,9 @@ impl fmt::Display for JmapUriError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NotJmapScheme => f.write_str("URI scheme is not `jmap`"),
+            Self::ReservedForm => {
+                f.write_str("jmap:// URI is a reserved form, not a JMAP object URI")
+            }
             Self::InvalidDataType => {
                 f.write_str("jmap: URI type is not a lowercased JMAP data type name")
             }
@@ -139,10 +150,13 @@ impl FromStr for JmapUri {
         // fails `Id` validation, since `:` is not an `id-char`.
         let mut parts = s.splitn(4, ':');
         let scheme = parts.next().unwrap_or_default();
-        if !scheme.eq_ignore_ascii_case("jmap") {
+        // No `:` at all: not a URI with the `jmap` scheme.
+        let Some(data_type) = parts.next().filter(|_| scheme.eq_ignore_ascii_case("jmap")) else {
             return Err(JmapUriError::NotJmapScheme);
+        };
+        if data_type.starts_with("//") {
+            return Err(JmapUriError::ReservedForm);
         }
-        let data_type = parts.next().ok_or(JmapUriError::InvalidDataType)?;
         validate_data_type(data_type)?;
         let account_id = parts.next().ok_or(JmapUriError::InvalidAccountId(None))?;
         let account_id =
@@ -160,5 +174,18 @@ impl fmt::Display for JmapUri {
             "jmap:{}:{}:{}",
             self.data_type, self.account_id, self.object_id
         )
+    }
+}
+
+impl serde::Serialize for JmapUri {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(self)
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for JmapUri {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let s = <std::borrow::Cow<'de, str>>::deserialize(deserializer)?;
+        s.parse().map_err(serde::de::Error::custom)
     }
 }

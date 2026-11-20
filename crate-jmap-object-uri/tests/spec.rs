@@ -113,7 +113,7 @@ fn malformed_inputs_are_rejected_with_the_failing_component() {
         }),
         // §Other Forms: `//` authority forms never match jmap-object-uri.
         ("jmap://example.com/A1/M1".into(), |e| {
-            matches!(e, InvalidDataType)
+            matches!(e, ReservedForm)
         }),
         ("jmap:email".into(), |e| matches!(e, InvalidAccountId(None))),
         ("jmap:email::M1".into(), |e| {

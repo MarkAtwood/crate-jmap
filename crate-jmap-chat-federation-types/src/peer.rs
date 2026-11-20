@@ -1017,6 +1017,5 @@ impl PeerAck {
 /// assert!(!is_jmap_object_uri("https://tracker.example/T-1"));
 /// ```
 pub fn is_jmap_object_uri(uri: &str) -> bool {
-    uri.get(..5)
-        .is_some_and(|s| s.eq_ignore_ascii_case("jmap:"))
+    jmap_object_uri::is_jmap_uri(uri)
 }

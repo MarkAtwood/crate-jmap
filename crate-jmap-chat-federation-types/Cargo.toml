@@ -12,6 +12,7 @@ categories = ["encoding", "network-programming"]
 exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 
 [dependencies]
+jmap-object-uri = { workspace = true }
 jmap-chat-types = { workspace = true }
 jmap-cid-types = { workspace = true }
 jmap-types = { workspace = true }

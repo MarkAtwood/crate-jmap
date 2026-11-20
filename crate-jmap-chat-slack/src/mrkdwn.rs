@@ -390,7 +390,7 @@ fn entity(content: &str, dir: &dyn Directory, out: &mut Out) {
     } else {
         let uri = unescape(target);
         let text = label.unwrap_or_else(|| uri.clone());
-        if uri.to_ascii_lowercase().starts_with("jmap:") {
+        if jmap_object_uri::is_jmap_uri(&uri) {
             // §Span Object: `uri` MUST NOT be a JMAP object URI.
             out.text(&text);
         } else {
