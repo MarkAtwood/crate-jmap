@@ -101,6 +101,39 @@
 //! let chat: Chat = serde_json::from_str(json).unwrap();
 //! assert_eq!(chat.kind, ChatKind::Direct);
 //! ```
+//!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types ([`Message`],
+//! [`Chat`], [`ChatContact`], [`Endpoint`], [`Space`], [`SpaceMember`],
+//! [`SpaceBan`], [`Attachment`], [`Mention`], [`Reaction`],
+//! [`MessageRevision`], [`PresenceStatus`], [`ReadPosition`],
+//! [`ChatMessagePush`], and the ephemeral [`ChatTypingEvent`] /
+//! [`ChatPresenceEvent`]). `tracing` or `log` macros that interpolate one of
+//! these values with `?` (debug) or `%` (display) emit its full contents to the
+//! configured sink: message bodies and edit history, attachment file names,
+//! contact names and addresses, presence and status text, and who read what
+//! when. That data is typically regulated as personal data under GDPR, CCPA,
+//! and similar privacy frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the message body and its mentions.
+//! tracing::debug!(msg = ?message, "delivered message");
+//!
+//! // GOOD — emits only the opaque ids.
+//! tracing::debug!(msg_id = ?message.id, chat_id = ?message.chat_id, "delivered message");
+//! ```
+//!
+//! [`SpaceInvite`] is the exception: its invite code is a credential, so its
+//! `Debug` impl redacts the code.
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]

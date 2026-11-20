@@ -12,6 +12,32 @@
 //! `jmap-blob-server` / `jmap-blob-client`. The JMAP Data Types registry
 //! that `Blob/lookup` reads is `jmap_types::data_types`.
 //!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types
+//! ([`BlobGetItem`], [`DataSourceObject`], [`ImageData`], and [`ImageGps`]).
+//! `tracing` or `log` macros that interpolate one of these values with `?`
+//! (debug) or `%` (display) emit its full contents to the configured sink: blob
+//! contents read as text, and image metadata such as GPS coordinates, capture
+//! time, and embedded comments. That data is typically regulated as personal
+//! data under GDPR, CCPA, and similar privacy frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the blob text and where the photo was taken.
+//! tracing::debug!(item = ?item, "Blob/get item");
+//!
+//! // GOOD — emits only the opaque id.
+//! tracing::debug!(blob_id = ?item.id, "Blob/get item");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
+//!
 //! # Example
 //!
 //! ```rust

@@ -19,6 +19,33 @@
 //!
 //! All public types and functions are re-exported at the crate root.
 //!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types
+//! ([`MetadataTextMatch`] and [`WithMetadata`], whose `metadata` /
+//! `privateMetadata` match values are user-chosen text). `tracing` or `log`
+//! macros that interpolate one of these values with `?` (debug) or `%`
+//! (display) emit its full contents to the configured sink: the text a user
+//! searches their (possibly private) metadata for, which can be names,
+//! addresses, or other personal notes. That data is typically regulated as
+//! personal data under GDPR, CCPA, and similar privacy frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the searched-for metadata text.
+//! tracing::debug!(filter = ?condition, "running query");
+//!
+//! // GOOD — emits only which namespace path was matched.
+//! tracing::debug!(path = %text_match.path, "running query");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
+//!
 //! # Example
 //!
 //! ```rust

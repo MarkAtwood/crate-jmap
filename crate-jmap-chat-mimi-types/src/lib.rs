@@ -46,6 +46,33 @@
 //!   [`may_record_alias`], [`topic_id`], [`is_media_reaction`] and
 //!   [`never_sets_read`] (draft §Message Identifiers through §Message
 //!   Status, §Security Considerations).
+//!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types
+//! ([`MimiCapability`], [`ClientKeyMaterial`], and
+//! [`KeyMaterialFetchResponse`]). `tracing` or `log` macros that interpolate
+//! one of these values with `?` (debug) or `%` (display) emit its full contents
+//! to the configured sink: MIMI user and client URIs, which identify people
+//! and are typically regulated as personal data under GDPR, CCPA, and similar
+//! privacy frameworks. (Key packages and MLS messages are opaque base64url
+//! here.)
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the user URI.
+//! tracing::debug!(resp = ?response, "fetched key material");
+//!
+//! // GOOD — emits only the status code.
+//! tracing::debug!(status = ?response.user_status, "fetched key material");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]

@@ -11,6 +11,35 @@
 //! All types implement [`serde::Serialize`] and [`serde::Deserialize`] with the
 //! camelCase field names required by the JMAP wire format.
 //!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types ([`Email`],
+//! [`EmailAddress`], [`EmailAddressGroup`], [`EmailHeader`], [`EmailBodyPart`],
+//! [`EmailBodyValue`], [`SearchSnippet`], [`Identity`], [`EmailSubmission`] and
+//! its [`Envelope`] / [`Address`], [`VacationResponse`], and, behind their
+//! features, `Mdn`, `SieveScript` and `EmailPush`). `tracing` or `log` macros
+//! that interpolate one of these values with `?` (debug) or `%` (display) emit
+//! its full contents to the configured sink: names and email addresses,
+//! subjects, header values, body text, SMTP envelope addresses, signatures, and
+//! auto-reply text. That data is typically regulated as personal data under
+//! GDPR, CCPA, and similar privacy frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks sender, recipients, subject, headers, and body text.
+//! tracing::debug!(email = ?email, "fetched email");
+//!
+//! // GOOD — emits only the opaque id.
+//! tracing::debug!(email_id = ?email.id, "fetched email");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
+//!
 //! # Example
 //!
 //! ```rust

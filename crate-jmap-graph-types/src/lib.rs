@@ -42,6 +42,33 @@
 //!   [`GraphSearchCapability`], the built-in filter language
 //!   [`Expression`] carried in the GraphNode and
 //!   GraphEdge filter conditions' `where`, and `queryTooComplex`.
+//!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types ([`Graph`],
+//! [`GraphNode`], [`GraphEdge`], [`GraphNodeOp`], [`GraphNodeOpEvent`], and
+//! [`GraphCursorEvent`]). `tracing` or `log` macros that interpolate one of
+//! these values with `?` (debug) or `%` (display) emit its full contents to the
+//! configured sink: graph and node annotations, edit-op payloads, and who is
+//! editing where. The draft assigns no meaning to that content, but
+//! applications commonly store facts about people in it. That data is typically
+//! regulated as personal data under GDPR, CCPA, and similar privacy frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the node's annotations.
+//! tracing::debug!(node = ?node, "stored node");
+//!
+//! // GOOD — emits only the opaque ids.
+//! tracing::debug!(node_id = ?node.id, graph_id = ?node.graph_id, "stored node");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]

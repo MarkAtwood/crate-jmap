@@ -34,6 +34,35 @@
 //! - [`owner_endpoints`] — the `endpoints` of a ChatContact, from the
 //!   `ownerEndpoints` its server's Session publishes
 //!   (draft-atwood-jmap-chat-00 §ChatContact).
+//!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types
+//! ([`PeerMessage`], [`PeerEdit`], [`PeerMention`], [`PeerAttachment`],
+//! [`PeerAvatar`], [`PeerChatMember`], [`PeerDeliverArgs`],
+//! [`PeerReceiptArgs`], [`PeerTypingArgs`], [`PeerPresenceArgs`], and
+//! [`FederationSession`]). `tracing` or `log` macros that interpolate one of
+//! these values with `?` (debug) or `%` (display) emit its full contents to the
+//! configured sink: message bodies, sender and recipient user ids, direct
+//! addresses, read receipts, and typing and presence signals. That data is
+//! typically regulated as personal data under GDPR, CCPA, and similar privacy
+//! frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the message body.
+//! tracing::debug!(msg = ?peer_message, "peer deliver");
+//!
+//! // GOOD — emits only the opaque message id.
+//! tracing::debug!(msg_id = ?peer_message.sender_msg_id, "peer deliver");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]

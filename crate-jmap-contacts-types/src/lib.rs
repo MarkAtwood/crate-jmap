@@ -64,10 +64,9 @@
 //!
 //! The workspace has a Debug-redaction precedent in `jmap-base-client`
 //! for credential-bearing types ([`BearerAuth`], [`BasicAuth`],
-//! `Session`, `AccountInfo`) but **not** for PII-bearing types. The
-//! decision whether to propagate that precedent workspace-wide is
-//! tracked by a separate workspace-policy bead; this crate's current
-//! posture is plain `Debug` plus this safety contract. JMAP-glx8.26.
+//! `Session`, `AccountInfo`) but **not** for PII-bearing types. Plain
+//! `Debug` plus this safety contract is the workspace policy for
+//! PII-bearing types (decision 53, bd:JMAP-5rmi). JMAP-glx8.26.
 //!
 //! [`BearerAuth`]: https://docs.rs/jmap-base-client
 //! [`BasicAuth`]: https://docs.rs/jmap-base-client

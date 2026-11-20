@@ -68,6 +68,33 @@
 //! under test.  Do NOT replace fixture construction with "build a typed
 //! struct, serialize, deserialize, compare" — that pattern uses the code
 //! under test as its own oracle.
+//!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types
+//! ([`Participant`], [`Location`], [`VirtualLocation`], [`Link`], [`Alert`],
+//! and the other RFC 8984 sub-objects embedded in events and tasks). `tracing`
+//! or `log` macros that interpolate one of these values with `?` (debug) or `%`
+//! (display) emit its full contents to the configured sink: participant names,
+//! email and calendar addresses, physical locations and coordinates, meeting
+//! URIs, and link targets. That data is typically regulated as personal data
+//! under GDPR, CCPA, and similar privacy frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the participant's name and addresses.
+//! tracing::debug!(participant = ?participant, "adding participant");
+//!
+//! // GOOD — emits only the participant's map key.
+//! tracing::debug!(participant_key = %key, "adding participant");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]

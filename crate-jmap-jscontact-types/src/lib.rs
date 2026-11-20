@@ -133,6 +133,34 @@
 //! Each embeds the common fields directly because the RFC defines the
 //! inheritance for documentation only — the wire format is a flat
 //! object per concrete type.
+//!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on its PII-bearing types ([`Name`],
+//! [`Nickname`], [`Organization`], [`EmailAddress`], [`OnlineService`],
+//! [`Phone`], [`Address`], [`SchedulingAddress`], [`CryptoKey`],
+//! [`Anniversary`], [`PersonalInfo`], [`Pronouns`], [`Note`], [`Media`], and
+//! the other RFC 9553 sub-objects of a Card). `tracing` or `log` macros that
+//! interpolate one of these values with `?` (debug) or `%` (display) emit its
+//! full contents to the configured sink: names, phone numbers, email and postal
+//! addresses, birthdays, notes, photos, and key URIs. That data is typically
+//! regulated as personal data under GDPR, CCPA, and similar privacy frameworks.
+//!
+//! Consumers SHOULD log ids rather than whole values, or wrap PII-bearing
+//! values in a redacting newtype before logging:
+//!
+//! ```ignore
+//! // BAD — leaks the phone number.
+//! tracing::debug!(phone = ?phone, "normalizing phone");
+//!
+//! // GOOD — emits only the map key.
+//! tracing::debug!(phone_key = %key, "normalizing phone");
+//! ```
+//!
+//! Plain `Debug` plus this section is the workspace policy for PII-bearing
+//! types (decision 53, bd:JMAP-5rmi). Redacting `Debug` impls and log-capture
+//! canaries are reserved for credential-grade secrets, such as `BearerAuth` and
+//! `BasicAuth` in `jmap-base-client`.
 
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
