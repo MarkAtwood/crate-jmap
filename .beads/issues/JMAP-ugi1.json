@@ -3,11 +3,13 @@
   "title": "jmap-chat-spec: compliance doc errors (PushSubscription/changes; push default spaceId/spaceName)",
   "description": "For Mark (no spec commits without approval): compliance §12.1 asks for PushSubscription/changes, which RFC 8620 §7.2 does not define; §6.3 expects spaceId and spaceName by default, which the push draft leaves out of the default properties. Also reconcile §3.1/§13.1 (COVERED via testjig) with §3.2-3.5 (consumer builds the Session). From audit JMAP-x3lu (docs/audits/2026-11-19-x3lu/, jmap-chat-spec 120db2c).",
   "notes": "2026-11-19: spec patch drafted for Mark's review in docs/upstream/2026-11-19/spec-patches/ (see README there); not committed to jmap-chat-spec.\nMark 2026-11-20: decision 51: commit the patch to jmap-chat-spec.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T19:41:07.660820053Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T00:37:25.272481306Z"
+  "updated_at": "2026-11-20T00:39:44.95019971Z",
+  "closed_at": "2026-11-20T00:39:44.95019971Z",
+  "close_reason": "Spec patch committed to jmap-chat-spec (2818b85 / 4ba3aac / 03a4b76), pushed 2026-11-20."
 }

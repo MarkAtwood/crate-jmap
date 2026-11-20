@@ -1,5 +1,5 @@
 <!--
-DRAFT, not sent. Message to the JMAP WG list (jmap@ietf.org), from Mark.
+Gmail draft created 2026-11-20 (not sent; Mark sends it). Message to the JMAP WG list (jmap@ietf.org), from Mark.
 crate-jmap decision 38; bd JMAP-76tz. Quotes checked against RFC 8620 and
 draft-ietf-jmap-blobext-03 on 2026-11-19.
 -->

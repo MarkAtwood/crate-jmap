@@ -1,4 +1,4 @@
-# Draft issue for JMAP-Net/JMAP.Net (not sent; Mark's call)
+# JMAP-Net/JMAP.Net issue (filed 2026-11-20 as https://github.com/JMAP-Net/JMAP.Net/issues/1)
 
 **Title:** CalendarRights has `mayAdmin` instead of `mayShare`
 
