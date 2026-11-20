@@ -1333,40 +1333,12 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
         .get("onDestroyRemoveChildren")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-
-    // Parse onExists collision-handling policy (§3.2.3).
-    let on_exists: OnExists = {
-        let v = args.remove("onExists");
-        match v.as_ref() {
-            None | Some(Value::Null) => OnExists::Reject,
-            Some(Value::String(s)) if s == "replace" => OnExists::Replace,
-            Some(Value::String(s)) if s == "rename" => OnExists::Rename,
-            Some(other) => {
-                return Err(JmapError::invalid_arguments(format!(
-                    "invalid onExists value: expected \"replace\", \"rename\" or null; got {}",
-                    jmap_server::json_type_name(other)
-                )));
-            }
-        }
-    };
-
+    let on_exists = parse_on_exists(&mut args)?;
     let case_folding = crate::CaseFolding::from_wire_bool(
         args.get("compareCaseInsensitively")
             .and_then(|v| v.as_bool())
             .unwrap_or(false),
     );
-    let defer_tree_checks = atomic && case_folding == crate::CaseFolding::Sensitive;
-
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
-    // RFC 8620 §5.3: creates of this call join the request-wide map so
-    // later creates and updates in this call can reference them.
-    let mut created_ids = created_ids.clone();
 
     let conflicting = conflicting_roles(
         backend,
@@ -1376,991 +1348,1004 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
         args.get("update"),
     )
     .await?;
-
     // Collect the full set of IDs being destroyed in this request before
     // the creates, so the nodeHasChildren check can inspect it and a
     // create or update can take the name of a node this call destroys
     // (-20 §3.2.3).
-    let mut destroy_plan = DestroyPlan {
-        ids: if let Some(Value::Array(arr)) = args.get("destroy") {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(Id::from))
-                .collect()
-        } else {
-            HashSet::new()
-        },
-        cascade: on_destroy_remove_children,
-        early: HashMap::new(),
+    let mut destroy_plan = DestroyPlan::new(&args, on_destroy_remove_children);
+
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        using,
+        on_destroy_remove_children,
+        on_exists,
+        case_folding,
+        defer_tree_checks: atomic && case_folding == crate::CaseFolding::Sensitive,
+        conflicting: &conflicting,
+    };
+    let mut acc = SetAccumulators::default();
+    // RFC 8620 §5.3: creates of this call join the request-wide map so
+    // later creates and updates in this call can reference them.
+    let mut created_ids = created_ids.clone();
+    set_create(
+        &ctx,
+        &mut args,
+        &mut acc,
+        &mut created_ids,
+        &mut destroy_plan,
+    )
+    .await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &created_ids, &acc.created);
+    set_update(&ctx, &mut args, &mut acc, &created_ids, &mut destroy_plan).await?;
+    set_destroy(&ctx, &mut args, &mut acc, destroy_plan).await?;
+
+    // Every successful create and update, and every node destroyed (by a
+    // destroy, an onExists replacement or a cascade), wrote the backend.
+    let mutated = !acc.created.is_empty() || !acc.updated.is_empty() || !acc.destroyed.is_empty();
+    finalize_set_response::<B, FileNode>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `FileNode/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: FileNodeBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// `onDestroyRemoveChildren`.
+    on_destroy_remove_children: bool,
+    /// `onExists` (-20 §3.2.3).
+    on_exists: OnExists,
+    /// `compareCaseInsensitively`.
+    case_folding: crate::CaseFolding,
+    /// An atomic Foo/set with case-sensitive names: a sibling-name
+    /// collision with `onExists` null and a move under the node's own
+    /// subtree are left to the backend's final-state check at commit
+    /// (draft-ietf-jmap-conditional-02 §4.2).
+    defer_tree_checks: bool,
+    /// The Directory roles two Directories would hold after this call
+    /// (-20 §3.1.4), from [`conflicting_roles`].
+    conflicting: &'a HashSet<String>,
+}
+
+/// Parse the `onExists` collision-handling policy (-20 §3.2.3), taking it
+/// out of `args`.
+fn parse_on_exists(args: &mut serde_json::Map<String, Value>) -> Result<OnExists, JmapError> {
+    let v = args.remove("onExists");
+    match v.as_ref() {
+        None | Some(Value::Null) => Ok(OnExists::Reject),
+        Some(Value::String(s)) if s == "replace" => Ok(OnExists::Replace),
+        Some(Value::String(s)) if s == "rename" => Ok(OnExists::Rename),
+        Some(other) => Err(JmapError::invalid_arguments(format!(
+            "invalid onExists value: expected \"replace\", \"rename\" or null; got {}",
+            jmap_server::json_type_name(other)
+        ))),
+    }
+}
+
+/// The `create` part of `FileNode/set`, parents first. Each created node
+/// joins `created_ids`.
+async fn set_create<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+    created_ids: &mut BTreeMap<Id, Id>,
+    destroy_plan: &mut DestroyPlan,
+) -> Result<(), JmapError> {
+    let Some(Value::Object(create_map)) = args.remove("create") else {
+        return Ok(());
+    };
+    // draft-atwood-jmap-cid-00 §FileNode Extension: with the capability,
+    // FileNode objects "MUST include" `sha256`, which "MUST be `null`
+    // for directory FileNodes"; RFC 8620 §5.3 puts server-set properties
+    // in `created`. Asked once, before any create mutates state, so an
+    // Err is a clean top-level serverFail.
+    let cid_advertised = ctx
+        .backend
+        .cid_advertised(ctx.caller, ctx.account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    for (create_id, obj_val) in parents_first(create_map, "parentId") {
+        create_one(
+            ctx,
+            create_id,
+            obj_val,
+            acc,
+            created_ids,
+            destroy_plan,
+            cid_advertised,
+        )
+        .await?;
+    }
+    Ok(())
+}
+
+/// One entry of the `FileNode/set` `create` map.
+async fn create_one<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: String,
+    obj_val: Value,
+    acc: &mut SetAccumulators,
+    created_ids: &mut BTreeMap<Id, Id>,
+    destroy_plan: &mut DestroyPlan,
+    cid_advertised: bool,
+) -> Result<(), JmapError> {
+    let mut node = match node_from_create(ctx, obj_val, created_ids) {
+        Ok(node) => node,
+        Err(err) => {
+            acc.not_created.insert(create_id, err);
+            return Ok(());
+        }
+    };
+    if let Some(err) = create_store_error(ctx, &mut node).await? {
+        acc.not_created.insert(create_id, err);
+        return Ok(());
+    }
+
+    // Tracks the rename applied by OnExists::Rename so the
+    // post-create response can enforce the spec's MUST that the
+    // renamed name appears in the response (-20 §3.2.3)
+    // even if the backend echoes a different name.
+    let mut renamed_to: Option<String> = None;
+    // Collision detection (onExists — §3.2.3).
+    if !node.name.is_empty() {
+        let node_name = node.name.clone();
+        let parent = node.parent_id.clone();
+        match name_collision(ctx, parent.as_ref(), &node_name, None, acc, destroy_plan).await {
+            Ok(Some(candidate)) => {
+                node.name = candidate.clone();
+                renamed_to = Some(candidate);
+            }
+            Ok(None) => {}
+            Err(err) => {
+                acc.not_created.insert(create_id, err);
+                return Ok(());
+            }
+        }
+    }
+
+    default_dates_to_now(&mut node);
+
+    let build = move |id: &Id| {
+        node.id = id.clone();
+        node
+    };
+    match ctx
+        .backend
+        .create_object::<FileNode, _>(ctx.caller, ctx.account_id, &create_id, build)
+        .await
+    {
+        Ok((new_id, created_obj)) => {
+            created_ids.insert(Id::from(create_id.as_str()), new_id);
+            let mut value = jmap_server::serialize_value(&created_obj)?;
+            // draft-ietf-jmap-filenode-20 §3.2.3: for
+            // "rename" the server "MUST include the new name in
+            // the "created" or "updated" entry for that id".
+            // Enforce regardless of whether the backend echoed
+            // the supplied name.
+            if let Value::Object(ref mut m) = value {
+                if let Some(name) = renamed_to.as_deref() {
+                    m.insert("name".to_owned(), Value::String(name.to_owned()));
+                }
+                if cid_advertised {
+                    m.entry("sha256").or_insert(Value::Null);
+                }
+            }
+            report_created_files_rights(
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
+                &created_obj,
+                &mut value,
+            )
+            .await;
+            acc.created.insert(create_id, value);
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id, backend_set_error_value(e));
+        }
+    }
+    Ok(())
+}
+
+/// Check one `FileNode/set` create object and parse it into the FileNode
+/// to store, or return the SetError value for `notCreated`. Needs no
+/// backend fact.
+fn node_from_create<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    mut obj_val: Value,
+    created_ids: &BTreeMap<Id, Id>,
+) -> Result<FileNode, Value> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<FileNode>) {
+        return Err(serde_json::Value::from(&err));
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // draft-ietf-jmap-filenode-20 `shareWith`: Id[FilesRights], keyed
+    // by Principal id.
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_map_key_ids(o, "shareWith"))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    if let Err(err) = resolve_refs(&mut obj_val, FILENODE_ID_PROPERTIES, created_ids) {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // `FileNode.id` is required, so the parse fills it with
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
+    let obj_with_id = match obj_val {
+        Value::Object(mut m) => {
+            m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
+            Value::Object(m)
+        }
+        other => other,
+    };
+    if let Some(err) = create_shape_error(&obj_with_id) {
+        return Err(err);
+    }
+
+    // Validate fully before acting on onExists, so an invalid create
+    // cannot destroy the colliding node (RFC 8620 §5.3: each creation
+    // is an atomic unit).
+    let node: FileNode = serde_path_to_error::deserialize(obj_with_id).map_err(|e| {
+        // RFC 8620 §5.3: invalidProperties SHOULD list the
+        // invalid properties; the first path segment is the
+        // top-level property whose value failed to parse.
+        let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+        if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+            err["properties"] = json!([key]);
+        }
+        err
+    })?;
+
+    if let Some(err) = create_type_error(&node) {
+        return Err(err);
+    }
+    if let Some(role) = node.role.as_ref().map(NodeRole::to_wire_str)
+        && ctx.conflicting.contains(role)
+    {
+        return Err(role_taken(role));
+    }
+    Ok(node)
+}
+
+/// The `invalidProperties` SetError for a create entry that is not an
+/// object, or lacks `@type` or `name`.
+fn create_shape_error(obj_with_id: &Value) -> Option<Value> {
+    // RFC 8620 §5.3: a create entry that is not an object has no
+    // properties to name, so report it without a `properties` list.
+    if !obj_with_id.is_object() {
+        return Some(json!({
+            "type": "invalidProperties",
+            "description": "a create entry must be an object",
+        }));
+    }
+
+    // draft-ietf-jmap-filenode-20 §3.1.1: `@type` MUST be provided on
+    // creation; the server does not infer it.
+    if obj_with_id.get("@type").is_none_or(Value::is_null) {
+        return Some(json!({
+            "type": "invalidProperties",
+            "properties": ["@type"],
+            "description": "@type is required on create",
+        }));
+    }
+
+    // draft-ietf-jmap-filenode-20 §3.1: `name` is required. serde
+    // reports a missing field at the root, not on a property path,
+    // so name it here (RFC 8620 §5.3 invalidProperties).
+    if obj_with_id.get("name").is_none() {
+        return Some(json!({
+            "type": "invalidProperties",
+            "properties": ["name"],
+            "description": "name is required on create",
+        }));
+    }
+    None
+}
+
+/// The create checks that need the store: the File's blob (filling
+/// `sha256`), `maxFileNodeDepth` and the parent. Returns the SetError
+/// value for `notCreated`, or `None` to go on. A transient error looking
+/// the blob up is a top-level `serverFail`.
+async fn create_store_error<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    node: &mut FileNode,
+) -> Result<Option<Value>, JmapError> {
+    let (backend, caller, account_id) = (ctx.backend, ctx.caller, ctx.account_id);
+    // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is
+    // server-set ("MUST be `null` for directory FileNodes"; for a
+    // file, the digest of the stored blob). The client could not send
+    // it, so only the File branch below fills it.
+
+    // For file nodes, verify the blob exists. A transient backend
+    // error propagates as a top-level serverFail so the client
+    // retries instead of silently mis-classifying as blob-not-found.
+    if matches!(node.node_type.as_ref(), Some(NodeType::File))
+        && let Some(ref blob_id) = node.blob_id
+    {
+        match backend.blob_exists(caller, account_id, blob_id).await {
+            Ok(true) => {}
+            Ok(false) => {
+                return Ok(Some(
+                    json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
+                ));
+            }
+            Err(e) => return Err(server_fail_from_backend(&e)),
+        }
+        // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256`
+        // is server-set from the stored blob, and exists only
+        // when urn:ietf:params:jmap:cid is advertised.
+        match backend.blob_sha256(caller, account_id, blob_id).await {
+            Ok(digest) => node.sha256 = digest,
+            Err(e) => return Ok(Some(server_fail_value_from_backend(&e))),
+        }
+    }
+
+    // draft-ietf-jmap-filenode-20 maxFileNodeDepth, checked before
+    // any onExists destroy so a rejected create has no side effects.
+    if let Some(max) = backend.max_file_node_depth(caller, account_id) {
+        match exceeds_max_depth(backend, caller, account_id, node.parent_id.as_ref(), 0, max).await
+        {
+            Ok(false) => {}
+            Ok(true) => return Ok(Some(max_depth_exceeded())),
+            Err(e) => return Ok(Some(server_fail_value_from_backend(&e))),
+        }
+    }
+
+    // -20 §3.1.1: the parent must exist and permit children.
+    if let Some(parent) = node.parent_id.as_ref() {
+        match parent_problem(backend, caller, account_id, parent).await {
+            Ok(None) => {}
+            Ok(Some(err)) => return Ok(Some(err)),
+            Err(e) => return Ok(Some(server_fail_value_from_backend(&e))),
+        }
+    }
+    Ok(None)
+}
+
+/// -20 §3.2.3: sibling-name uniqueness and `onExists` for a create, or an
+/// update that renames or moves `own_id`, that puts `name` under
+/// `parent`. Uniqueness is judged on the result of the whole /set, so a
+/// sibling this call destroys gives up its name first; every node so
+/// destroyed, or replaced, joins `acc.destroyed`.
+///
+/// Returns the new name for "rename", `None` to go on unchanged, or the
+/// SetError value.
+async fn name_collision<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    parent: Option<&Id>,
+    name: &str,
+    own_id: Option<&Id>,
+    acc: &mut SetAccumulators,
+    destroy_plan: &mut DestroyPlan,
+) -> Result<Option<String>, Value> {
+    let find = || async {
+        ctx.backend
+            .find_sibling_by_name(ctx.caller, ctx.account_id, parent, name, ctx.case_folding)
+            .await
+            // Under case folding an updated node can match itself.
+            .map(|found| found.filter(|existing| Some(existing) != own_id))
+    };
+    let found = match find().await {
+        Ok(Some(existing_id)) => {
+            let freed = destroy_plan
+                .take_name_from(
+                    ctx.backend,
+                    ctx.caller,
+                    ctx.account_id,
+                    &existing_id,
+                    &mut acc.destroyed,
+                )
+                .await;
+            if freed {
+                find().await
+            } else {
+                Ok(Some(existing_id))
+            }
+        }
+        other => other,
+    };
+    match found {
+        Ok(Some(existing_id)) => on_exists_outcome(ctx, &existing_id, parent, name, acc).await,
+        // No collision, proceed normally.
+        Ok(None) => Ok(None),
+        Err(e) => Err(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// Apply `onExists` to a collision with the sibling `existing_id`
+/// (-20 §3.2.3), as [`name_collision`] returns it.
+async fn on_exists_outcome<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    existing_id: &Id,
+    parent: Option<&Id>,
+    name: &str,
+    acc: &mut SetAccumulators,
+) -> Result<Option<String>, Value> {
+    let (backend, caller, account_id) = (ctx.backend, ctx.caller, ctx.account_id);
+    match ctx.on_exists {
+        // Under atomic the final state decides (conditional-02 §4.2).
+        OnExists::Reject if ctx.defer_tree_checks => Ok(None),
+        OnExists::Reject => {
+            // -20 §3.2.3: "alreadyExists" is for a collision "with a
+            // discoverable sibling"; one the user cannot discover is
+            // "forbidden", without its id.
+            Err(
+                match discoverable_sibling(backend, caller, account_id, existing_id).await {
+                    Ok(Some(_)) => {
+                        json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
+                    }
+                    Ok(None) => undiscoverable_collision(),
+                    Err(e) => server_fail_value_from_backend(&e),
+                },
+            )
+        }
+        OnExists::Replace => {
+            // -20 §3.2.3 step 1: "If the existing node is not
+            // discoverable by the user ..., the operation fails with
+            // "forbidden", and the server MUST NOT destroy that node or
+            // reveal its id." replace_existing makes steps 2 and 3.
+            let existing =
+                match discoverable_sibling(backend, caller, account_id, existing_id).await {
+                    Ok(Some(node)) => node,
+                    Ok(None) => return Err(undiscoverable_collision()),
+                    Err(e) => return Err(server_fail_value_from_backend(&e)),
+                };
+            let mut replaced = Vec::new();
+            let outcome = replace_existing(
+                backend,
+                caller,
+                account_id,
+                &existing,
+                ctx.on_destroy_remove_children,
+                &mut replaced,
+            )
+            .await;
+            acc.destroyed.extend(
+                replaced
+                    .into_iter()
+                    .map(|id| Value::String(id.as_ref().to_owned())),
+            );
+            // Go on to create or update the node.
+            outcome.map(|()| None)
+        }
+        OnExists::Rename => {
+            match backend
+                .find_unique_name(caller, account_id, parent, name, ctx.case_folding)
+                .await
+            {
+                Ok(Some(candidate)) => Ok(Some(candidate)),
+                Ok(None) => Err(
+                    json!({ "type": "serverFail", "description": "backend found no unique name" }),
+                ),
+                Err(e) => Err(server_fail_value_from_backend(&e)),
+            }
+        }
+    }
+}
+
+/// The `update` part of `FileNode/set`.
+async fn set_update<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+    created_ids: &BTreeMap<Id, Id>,
+    destroy_plan: &mut DestroyPlan,
+) -> Result<(), JmapError> {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
+        for (id_str, patch_val) in update_map {
+            update_one(ctx, id_str, patch_val, acc, created_ids, destroy_plan).await?;
+        }
+    }
+    Ok(())
+}
+
+/// One entry of the `FileNode/set` `update` map.
+async fn update_one<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+    created_ids: &BTreeMap<Id, Id>,
+    destroy_plan: &mut DestroyPlan,
+) -> Result<(), JmapError> {
+    let (id, mut patch) = match parse_update(ctx, &id_str, patch_val, created_ids) {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(());
+        }
+    };
+    let stored_node = match update_stored_node(ctx, &id, &patch).await {
+        Ok(stored_node) => stored_node,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(());
+        }
     };
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
-    if let Some(Value::Object(create_map)) = args.remove("create") {
-        // draft-atwood-jmap-cid-00 §FileNode Extension: with the capability,
-        // FileNode objects "MUST include" `sha256`, which "MUST be `null`
-        // for directory FileNodes"; RFC 8620 §5.3 puts server-set properties
-        // in `created`. Asked once, before any create mutates state, so an
-        // Err is a clean top-level serverFail.
-        let cid_advertised = backend
-            .cid_advertised(caller, &account_id)
+    // §3.1.1: a null modified or accessed is set to the current
+    // server time, as is a null created (its default, RFC 8620 §5.3).
+    for key in ["created", "modified", "accessed"] {
+        if let Some(v) = patch.as_map_mut().get_mut(key).filter(|v| v.is_null()) {
+            *v = json!(now_utc_string());
+        }
+    }
+
+    if let Some(err) = update_parent_error(ctx, &id, &patch).await {
+        acc.not_updated.insert(id_str, err);
+        return Ok(());
+    }
+
+    // -20 §3.2.3: sibling-name uniqueness and onExists apply to an
+    // update that renames or moves the node, judged on the result of
+    // the whole /set like a create's.
+    let mut renamed_to: Option<String> = None;
+    if let Some(node) = stored_node.as_ref().filter(|_| renames_or_moves(&patch)) {
+        match update_collision(ctx, &id, node, &mut patch, acc, destroy_plan).await {
+            Ok(renamed) => renamed_to = renamed,
+            Err(err) => {
+                acc.not_updated.insert(id_str, err);
+                return Ok(());
+            }
+        }
+    }
+
+    let new_sha256 = match update_sha256(ctx, &mut patch).await {
+        Ok(new_sha256) => new_sha256,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(());
+        }
+    };
+
+    match ctx
+        .backend
+        .update_object::<FileNode>(ctx.caller, ctx.account_id, &id, patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            let mut value = jmap_server::serialize_value(&obj)?;
+            // -20 §3.2.3: "rename" MUST include the new name in the
+            // "updated" entry.
+            if let (Some(name), Value::Object(m)) = (renamed_to, &mut value) {
+                m.insert("name".to_owned(), Value::String(name));
+            }
+            acc.updated.insert(id_str, value);
+        }
+        // RFC 8620 §5.3: the updated entry carries any property
+        // "that changed that were not explicitly requested by the
+        // client"; a server-set sha256 is one, a "rename" name
+        // another.
+        Ok(None) => {
+            let mut changed = serde_json::Map::new();
+            if let Some(digest) = new_sha256 {
+                changed.insert("sha256".to_owned(), json!(digest));
+            }
+            if let Some(name) = renamed_to {
+                changed.insert("name".to_owned(), Value::String(name));
+            }
+            acc.updated.insert(
+                id_str,
+                if changed.is_empty() {
+                    Value::Null
+                } else {
+                    Value::Object(changed)
+                },
+            );
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+        }
+    }
+    Ok(())
+}
+
+/// Parse one `FileNode/set` update entry into its id and PatchObject,
+/// with the checks that need no backend fact, or return the SetError
+/// value for `notUpdated`.
+fn parse_update<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: &str,
+    mut patch_val: Value,
+    created_ids: &BTreeMap<Id, Id>,
+) -> Result<(Id, PatchObject), Value> {
+    let id = jmap_server::parse_wire_id(id_str, "id").map_err(|err| Value::from(&*err))?;
+    if let Err(err) = resolve_refs(&mut patch_val, FILENODE_ID_PROPERTIES, created_ids) {
+        return Err(serde_json::Value::from(&*err));
+    }
+
+    // Convert wire-format Value into a typed PatchObject FIRST so
+    // the subsequent cycle check sees the same key view the backend
+    // will eventually receive. RFC 8620 §5.3 mandates a PatchObject
+    // is a JSON Object; non-object values produce an `invalidPatch`
+    // SetError. Doing the typed parse up front avoids a class of
+    // bug where the handler's introspection sees a different shape
+    // than the backend (bd:JMAP-510h.13).
+    let patch = serde_json::from_value::<PatchObject>(patch_val)
+        .map_err(|e| json!({ "type": "invalidPatch", "description": e.to_string() }))?;
+    if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using) {
+        return Err(serde_json::Value::from(&*err));
+    }
+    if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
+        return Err(serde_json::Value::from(&*err));
+    }
+    if let Some(role) = patch.as_map().get("role").and_then(Value::as_str)
+        && ctx.conflicting.contains(role)
+    {
+        return Err(role_taken(role));
+    }
+    Ok((id, patch))
+}
+
+/// Whether `patch` sets `name` or `parentId`: draft-ietf-jmap-filenode-20
+/// §5 (a Directory with a role "cannot be destroyed, renamed or moved")
+/// and §3.2.3 (sibling-name uniqueness) apply.
+fn renames_or_moves(patch: &PatchObject) -> bool {
+    ["name", "parentId"]
+        .iter()
+        .any(|p| patch.as_map().contains_key(*p))
+}
+
+/// The properties `patch` sets that are defined for one `@type` only,
+/// with that type and whether the entry is a null pointer patch.
+///
+/// draft-ietf-jmap-filenode-20 §3.1: setting a property not
+/// defined for the node's @type to a non-null value is
+/// invalidProperties; a null value is ignored. The stored node
+/// is fetched only when the patch sets a type-specific property
+/// or @type. A JSON-pointer key ("mediaType/x") patches the
+/// property named by its first segment (RFC 8620 §5.3). A null
+/// pointer patch is kept: §5.3 requires its leading parts to
+/// exist, so one into another type's property is invalidPatch.
+fn typed_patch_properties(patch: &PatchObject) -> Vec<(&str, NodeType, bool)> {
+    patch
+        .as_map()
+        .iter()
+        .filter_map(|(k, v)| {
+            let (prop, pointer) = k
+                .split_once('/')
+                .map_or((k.as_str(), false), |(head, _)| (head, true));
+            if v.is_null() && !pointer {
+                return None;
+            }
+            property_owner(prop).map(|owner| (prop, owner, v.is_null()))
+        })
+        .collect()
+}
+
+/// The update checks against the stored node: fetch it when `patch`
+/// needs it, then the role, read-only, per-`@type` and null checks.
+/// Returns the stored node, if fetched and found, or the SetError value
+/// for `notUpdated`. A missing node goes on, so `update_object` reports
+/// `notFound`.
+async fn update_stored_node<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    patch: &PatchObject,
+) -> Result<Option<FileNode>, Value> {
+    let typed = typed_patch_properties(patch);
+    // -20 §3.1.1, §3.1.3, §3.1.5: name, blobId and target are not
+    // nullable and have no default; a null one defined for the
+    // node's @type is invalidProperties (other types' nulls are
+    // ignored, above). Defaulted properties reset on null (RFC 8620
+    // §5.3; draft-ietf-jmap-filenode-20 §3.1): a removed mediaType,
+    // executable or isSubscribed reads back as its default; created
+    // is filled in below. mediaType was invalidProperties until
+    // filenode-17 (bd JMAP-wkfn).
+    let mut nulled: Vec<&str> = ["name", "blobId", "target"]
+        .into_iter()
+        .filter(|p| patch.as_map().get(*p).is_some_and(Value::is_null))
+        .collect();
+    // A server-set or immutable property (`@type`, `sha256`,
+    // `spaceId`, ...) may appear only with its stored value (RFC 8620
+    // §5.3), so the check below needs the stored node.
+    let read_only_patched = patch.as_map().keys().any(|k| {
+        let head = k.split('/').next();
+        FileNode::SERVER_SET
+            .iter()
+            .chain(FileNode::IMMUTABLE)
+            .any(|p| Some(*p) == head)
+    });
+    // The stored node, when one of the checks below needed it.
+    let mut stored_node: Option<FileNode> = None;
+    if !typed.is_empty()
+        || read_only_patched
+        || renames_or_moves(patch)
+        || nulled.iter().any(|p| property_owner(p).is_some())
+    {
+        let stored = match ctx
+            .backend
+            .get_objects::<FileNode>(
+                ctx.caller,
+                ctx.account_id,
+                Some(std::slice::from_ref(id)),
+                None,
+            )
             .await
-            .map_err(|e| server_fail_from_backend(&e))?;
-        for (create_id, mut obj_val) in parents_first(create_map, "parentId") {
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<FileNode>) {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // draft-ietf-jmap-filenode-20 `shareWith`: Id[FilesRights], keyed
-            // by Principal id.
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_map_key_ids(o, "shareWith"))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Err(err) = resolve_refs(&mut obj_val, FILENODE_ID_PROPERTIES, &created_ids) {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // `FileNode.id` is required, so the parse fills it with
-            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
-                    Value::Object(m)
-                }
-                other => other,
-            };
-
-            // RFC 8620 §5.3: a create entry that is not an object has no
-            // properties to name, so report it without a `properties` list.
-            if !obj_with_id.is_object() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "description": "a create entry must be an object",
-                    }),
-                );
-                continue;
-            }
-
-            // draft-ietf-jmap-filenode-20 §3.1.1: `@type` MUST be provided on
-            // creation; the server does not infer it.
-            if obj_with_id.get("@type").is_none_or(Value::is_null) {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["@type"],
-                        "description": "@type is required on create",
-                    }),
-                );
-                continue;
-            }
-
-            // draft-ietf-jmap-filenode-20 §3.1: `name` is required. serde
-            // reports a missing field at the root, not on a property path,
-            // so name it here (RFC 8620 §5.3 invalidProperties).
-            if obj_with_id.get("name").is_none() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["name"],
-                        "description": "name is required on create",
-                    }),
-                );
-                continue;
-            }
-
-            // Validate fully before acting on onExists, so an invalid create
-            // cannot destroy the colliding node (RFC 8620 §5.3: each creation
-            // is an atomic unit).
-            let mut node: FileNode = match serde_path_to_error::deserialize(obj_with_id) {
-                Ok(n) => n,
-                Err(e) => {
-                    // RFC 8620 §5.3: invalidProperties SHOULD list the
-                    // invalid properties; the first path segment is the
-                    // top-level property whose value failed to parse.
-                    let mut err =
-                        json!({ "type": "invalidProperties", "description": e.to_string() });
-                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
-                    {
-                        err["properties"] = json!([key]);
-                    }
-                    not_created.insert(create_id, err);
-                    continue;
-                }
-            };
-
-            if let Some(err) = create_type_error(&node) {
-                not_created.insert(create_id, err);
-                continue;
-            }
-            if let Some(role) = node.role.as_ref().map(NodeRole::to_wire_str)
-                && conflicting.contains(role)
-            {
-                not_created.insert(create_id, role_taken(role));
-                continue;
-            }
-
-            // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256` is
-            // server-set ("MUST be `null` for directory FileNodes"; for a
-            // file, the digest of the stored blob). The client could not send
-            // it, so only the File branch below fills it.
-
-            // For file nodes, verify the blob exists. A transient backend
-            // error propagates as a top-level serverFail so the client
-            // retries instead of silently mis-classifying as blob-not-found.
-            if matches!(node.node_type.as_ref(), Some(NodeType::File))
-                && let Some(ref blob_id) = node.blob_id
-            {
-                match backend.blob_exists(caller, &account_id, blob_id).await {
-                    Ok(true) => {}
-                    Ok(false) => {
-                        not_created.insert(
-                                create_id,
-                                json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
-                            );
-                        continue;
-                    }
-                    Err(e) => return Err(server_fail_from_backend(&e)),
-                }
-                // draft-atwood-jmap-cid-00 §FileNode Extension: `sha256`
-                // is server-set from the stored blob, and exists only
-                // when urn:ietf:params:jmap:cid is advertised.
-                match backend.blob_sha256(caller, &account_id, blob_id).await {
-                    Ok(digest) => node.sha256 = digest,
-                    Err(e) => {
-                        not_created.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
-
-            // draft-ietf-jmap-filenode-20 maxFileNodeDepth, checked before
-            // any onExists destroy so a rejected create has no side effects.
-            if let Some(max) = backend.max_file_node_depth(caller, &account_id) {
-                match exceeds_max_depth(
-                    backend,
-                    caller,
-                    &account_id,
-                    node.parent_id.as_ref(),
-                    0,
-                    max,
-                )
-                .await
-                {
-                    Ok(false) => {}
-                    Ok(true) => {
-                        not_created.insert(create_id, max_depth_exceeded());
-                        continue;
-                    }
-                    Err(e) => {
-                        not_created.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
-
-            // -20 §3.1.1: the parent must exist and permit children.
-            if let Some(parent) = node.parent_id.as_ref() {
-                match parent_problem(backend, caller, &account_id, parent).await {
-                    Ok(None) => {}
-                    Ok(Some(err)) => {
-                        not_created.insert(create_id, err);
-                        continue;
-                    }
-                    Err(e) => {
-                        not_created.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
-
-            // Tracks the rename applied by OnExists::Rename so the
-            // post-create response can enforce the spec's MUST that the
-            // renamed name appears in the response (-20 §3.2.3)
-            // even if the backend echoes a different name.
-            let mut renamed_to: Option<String> = None;
-
-            // -------------------------------------------------------------------
-            // Collision detection (onExists — §3.2.3).
-            // -------------------------------------------------------------------
-            let node_name = node.name.clone();
-            let parent_id_for_collision: Option<Id> = node.parent_id.clone();
-
-            if !node_name.is_empty() {
-                let find = || {
-                    backend.find_sibling_by_name(
-                        caller,
-                        &account_id,
-                        parent_id_for_collision.as_ref(),
-                        &node_name,
-                        case_folding,
-                    )
-                };
-                // -20 §3.2.3: uniqueness is judged on the result of the
-                // whole /set, so a sibling this call destroys gives up its
-                // name first.
-                let found = match find().await {
-                    Ok(Some(existing_id)) => {
-                        let before = destroyed_list.len();
-                        let freed = destroy_plan
-                            .take_name_from(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing_id,
-                                &mut destroyed_list,
-                            )
-                            .await;
-                        mutated |= destroyed_list.len() > before;
-                        if freed {
-                            find().await
-                        } else {
-                            Ok(Some(existing_id))
-                        }
-                    }
-                    other => other,
-                };
-                match found {
-                    Ok(Some(existing_id)) => {
-                        match on_exists {
-                            // Under atomic the final state decides (conditional-02 §4.2).
-                            OnExists::Reject if defer_tree_checks => {}
-                            OnExists::Reject => {
-                                // -20 §3.2.3: "alreadyExists" is for a collision "with a
-                                // discoverable sibling"; one the user cannot discover is
-                                // "forbidden", without its id.
-                                let err = match discoverable_sibling(
-                                    backend,
-                                    caller,
-                                    &account_id,
-                                    &existing_id,
-                                )
-                                .await
-                                {
-                                    Ok(Some(_)) => {
-                                        json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
-                                    }
-                                    Ok(None) => undiscoverable_collision(),
-                                    Err(e) => server_fail_value_from_backend(&e),
-                                };
-                                not_created.insert(create_id, err);
-                                continue;
-                            }
-                            OnExists::Replace => {
-                                // -20 §3.2.3 step 1: "If the existing node is not
-                                // discoverable by the user ..., the operation fails with
-                                // "forbidden", and the server MUST NOT destroy that node or
-                                // reveal its id." replace_existing makes steps 2 and 3.
-                                let existing = match discoverable_sibling(
-                                    backend,
-                                    caller,
-                                    &account_id,
-                                    &existing_id,
-                                )
-                                .await
-                                {
-                                    Ok(Some(node)) => node,
-                                    Ok(None) => {
-                                        not_created.insert(create_id, undiscoverable_collision());
-                                        continue;
-                                    }
-                                    Err(e) => {
-                                        not_created
-                                            .insert(create_id, server_fail_value_from_backend(&e));
-                                        continue;
-                                    }
-                                };
-                                let mut replaced = Vec::new();
-                                let outcome = replace_existing(
-                                    backend,
-                                    caller,
-                                    &account_id,
-                                    &existing,
-                                    on_destroy_remove_children,
-                                    &mut replaced,
-                                )
-                                .await;
-                                mutated |= !replaced.is_empty();
-                                destroyed_list.extend(
-                                    replaced
-                                        .into_iter()
-                                        .map(|id| Value::String(id.as_ref().to_owned())),
-                                );
-                                if let Err(err) = outcome {
-                                    not_created.insert(create_id, err);
-                                    continue;
-                                }
-                                // Fall through to create the new node.
-                            }
-                            OnExists::Rename => {
-                                match backend
-                                    .find_unique_name(
-                                        caller,
-                                        &account_id,
-                                        parent_id_for_collision.as_ref(),
-                                        &node_name,
-                                        case_folding,
-                                    )
-                                    .await
-                                {
-                                    Ok(Some(candidate)) => {
-                                        node.name = candidate.clone();
-                                        renamed_to = Some(candidate);
-                                    }
-                                    Ok(None) => {
-                                        not_created.insert(
-                                            create_id,
-                                            json!({ "type": "serverFail", "description": "backend found no unique name" }),
-                                        );
-                                        continue;
-                                    }
-                                    Err(e) => {
-                                        not_created
-                                            .insert(create_id, server_fail_value_from_backend(&e));
-                                        continue;
-                                    }
-                                }
-                                // Fall through to create the renamed node.
-                            }
-                        }
-                    }
-                    Ok(None) => {} // No collision, proceed normally.
-                    Err(e) => {
-                        not_created.insert(create_id, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
-
-            default_dates_to_now(&mut node);
-
-            let build = move |id: &Id| {
-                node.id = id.clone();
-                node
-            };
-            match backend
-                .create_object::<FileNode, _>(caller, &account_id, &create_id, build)
-                .await
-            {
-                Ok((new_id, created_obj)) => {
-                    mutated = true;
-                    created_ids.insert(Id::from(create_id.as_str()), new_id);
-                    let mut value = jmap_server::serialize_value(&created_obj)?;
-                    // draft-ietf-jmap-filenode-20 §3.2.3: for
-                    // "rename" the server "MUST include the new name in
-                    // the "created" or "updated" entry for that id".
-                    // Enforce regardless of whether the backend echoed
-                    // the supplied name.
-                    if let Value::Object(ref mut m) = value {
-                        if let Some(name) = renamed_to.as_deref() {
-                            m.insert("name".to_owned(), Value::String(name.to_owned()));
-                        }
-                        if cid_advertised {
-                            m.entry("sha256").or_insert(Value::Null);
-                        }
-                    }
-                    report_created_files_rights(
-                        backend,
-                        caller,
-                        &account_id,
-                        &created_obj,
-                        &mut value,
-                    )
-                    .await;
-                    created.insert(create_id, value);
-                }
-                Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
-                }
-            }
+        {
+            Ok((nodes, _)) => nodes.into_iter().next(),
+            Err(e) => return Err(server_fail_value_from_backend(&e)),
+        };
+        nulled.retain(|p| {
+            property_owner(p).is_none_or(|owner| {
+                stored
+                    .as_ref()
+                    .is_some_and(|n| n.node_type.as_ref() == Some(&owner))
+            })
+        });
+        if let Some(err) = stored
+            .as_ref()
+            .and_then(|n| stored_node_error(n, patch, &typed))
+        {
+            return Err(err);
         }
+        stored_node = stored;
     }
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &created_ids, &created);
-    if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            if let Err(err) = resolve_refs(&mut patch_val, FILENODE_ID_PROPERTIES, &created_ids) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
+    if !nulled.is_empty() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": nulled,
+            "description": "property cannot be null",
+        }));
+    }
+    Ok(stored_node)
+}
 
-            // Convert wire-format Value into a typed PatchObject FIRST so
-            // the subsequent cycle check sees the same key view the backend
-            // will eventually receive. RFC 8620 §5.3 mandates a PatchObject
-            // is a JSON Object; non-object values produce an `invalidPatch`
-            // SetError. Doing the typed parse up front avoids a class of
-            // bug where the handler's introspection sees a different shape
-            // than the backend (bd:JMAP-510h.13).
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Some(role) = patch.as_map().get("role").and_then(Value::as_str)
-                && conflicting.contains(role)
-            {
-                not_updated.insert(id_str, role_taken(role));
-                continue;
-            }
-
-            // draft-ietf-jmap-filenode-20 §3.1: setting a property not
-            // defined for the node's @type to a non-null value is
-            // invalidProperties; a null value is ignored. The stored node
-            // is fetched only when the patch sets a type-specific property
-            // or @type. A JSON-pointer key ("mediaType/x") patches the
-            // property named by its first segment (RFC 8620 §5.3). A null
-            // pointer patch is kept: §5.3 requires its leading parts to
-            // exist, so one into another type's property is invalidPatch.
-            let typed: Vec<(&str, NodeType, bool)> = patch
-                .as_map()
-                .iter()
-                .filter_map(|(k, v)| {
-                    let (prop, pointer) = k
-                        .split_once('/')
-                        .map_or((k.as_str(), false), |(head, _)| (head, true));
-                    if v.is_null() && !pointer {
-                        return None;
-                    }
-                    property_owner(prop).map(|owner| (prop, owner, v.is_null()))
-                })
-                .collect();
-            // -20 §3.1.1, §3.1.3, §3.1.5: name, blobId and target are not
-            // nullable and have no default; a null one defined for the
-            // node's @type is invalidProperties (other types' nulls are
-            // ignored, above). Defaulted properties reset on null (RFC 8620
-            // §5.3; draft-ietf-jmap-filenode-20 §3.1): a removed mediaType,
-            // executable or isSubscribed reads back as its default; created
-            // is filled in below. mediaType was invalidProperties until
-            // filenode-17 (bd JMAP-wkfn).
-            let mut nulled: Vec<&str> = ["name", "blobId", "target"]
-                .into_iter()
-                .filter(|p| patch.as_map().get(*p).is_some_and(Value::is_null))
-                .collect();
-            // A server-set or immutable property (`@type`, `sha256`,
-            // `spaceId`, ...) may appear only with its stored value (RFC 8620
-            // §5.3), so the check below needs the stored node.
-            let read_only_patched = patch.as_map().keys().any(|k| {
-                let head = k.split('/').next();
-                FileNode::SERVER_SET
-                    .iter()
-                    .chain(FileNode::IMMUTABLE)
-                    .any(|p| Some(*p) == head)
-            });
-            // draft-ietf-jmap-filenode-20 §5: a Directory with a role
-            // "cannot be destroyed, renamed or moved", which needs its stored
-            // role, name and parentId.
-            let renames_or_moves = ["name", "parentId"]
-                .iter()
-                .any(|p| patch.as_map().contains_key(*p));
-            // The stored node, when one of the checks below needed it.
-            let mut stored_node: Option<FileNode> = None;
-            if !typed.is_empty()
-                || read_only_patched
-                || renames_or_moves
-                || nulled.iter().any(|p| property_owner(p).is_some())
-            {
-                let stored = match backend
-                    .get_objects::<FileNode>(
-                        caller,
-                        &account_id,
-                        Some(std::slice::from_ref(&id)),
-                        None,
-                    )
-                    .await
-                {
-                    Ok((nodes, _)) => nodes.into_iter().next(),
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                };
-                nulled.retain(|p| {
-                    property_owner(p).is_none_or(|owner| {
-                        stored
-                            .as_ref()
-                            .is_some_and(|n| n.node_type.as_ref() == Some(&owner))
-                    })
-                });
-                stored_node.clone_from(&stored);
-                // A missing node falls through so update_object reports
-                // notFound.
-                if let Some(node) = stored {
-                    // -20 §5 checks the stored role: a client that "needs
-                    // to destroy, rename or move such a Directory first
-                    // clears its role", so clearing it in the same patch
-                    // does not count.
-                    if node.role.is_some() {
-                        let map = patch.as_map();
-                        let moved = map
-                            .get("parentId")
-                            .is_some_and(|v| v.as_str() != node.parent_id.as_ref().map(Id::as_ref));
-                        let renamed = map
-                            .get("name")
-                            .is_some_and(|v| v.as_str() != Some(node.name.as_str()));
-                        if moved || renamed {
-                            let action = if moved { "moving" } else { "renaming" };
-                            not_updated.insert(id_str, role_forbidden(&node.id, action));
-                            continue;
-                        }
-                    }
-                    // After the role check: permission before shape
-                    // (DECISIONS.md 44). §3.1.1 `@type` is immutable;
-                    // draft-atwood-jmap-cid-00 `sha256` and the other
-                    // server-set properties may repeat only their stored
-                    // value (RFC 8620 §5.3).
-                    let current = match json!(node) {
-                        Value::Object(m) => Some(m),
-                        _ => None,
-                    };
-                    if let Some(err) =
-                        reject_read_only_patch::<FileNode>(patch.as_map(), current.as_ref())
-                    {
-                        not_updated.insert(id_str, serde_json::Value::from(&err));
-                        continue;
-                    }
-                    let bad: Vec<(&str, bool)> = typed
-                        .iter()
-                        .filter(|(_, owner, _)| node.node_type.as_ref() != Some(owner))
-                        .map(|(k, _, null_pointer)| (*k, *null_pointer))
-                        .collect();
-                    if bad.iter().any(|(_, null_pointer)| *null_pointer) {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidPatch",
-                                "description": "patch path into a property not defined for this node's @type",
-                            }),
-                        );
-                        continue;
-                    }
-                    if !bad.is_empty() {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": bad.iter().map(|(k, _)| *k).collect::<Vec<_>>(),
-                                "description": "property not defined for this node's @type",
-                            }),
-                        );
-                        continue;
-                    }
-                }
-            }
-
-            if !nulled.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": nulled,
-                        "description": "property cannot be null",
-                    }),
-                );
-                continue;
-            }
-
-            // §3.1.1: a null modified or accessed is set to the current
-            // server time, as is a null created (its default, RFC 8620 §5.3).
-            for key in ["created", "modified", "accessed"] {
-                if let Some(v) = patch.as_map_mut().get_mut(key).filter(|v| v.is_null()) {
-                    *v = json!(now_utc_string());
-                }
-            }
-
-            // Circular reference check: if the patch touches `parentId`,
-            // verify the move would not create a cycle. Introspection is
-            // on PatchObject's underlying typed map so what the cycle
-            // guard sees is byte-identical to what the backend will see
-            // via `update_object`.
-            //
-            // RFC 8620 §5.3: a property value of the wrong type is an
-            // invalidProperties SetError. parentId is `Id|null`
-            // (draft-ietf-jmap-filenode-20 §3.1.1), so reject anything else
-            // here instead of skipping the cycle guard and relying on each
-            // backend to catch the bad type.
-            if let Some(new_parent_val) = patch.as_map().get("parentId") {
-                if !new_parent_val.is_null() && !new_parent_val.is_string() {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["parentId"],
-                            "description": "parentId must be a string or null"
-                        }),
-                    );
-                    continue;
-                }
-                if let Some(new_parent_str) = new_parent_val.as_str() {
-                    let new_parent_id = match jmap_server::parse_wire_id(new_parent_str, "parentId")
-                    {
-                        Ok(id) => id,
-                        Err(err) => {
-                            not_updated.insert(id_str, serde_json::Value::from(&*err));
-                            continue;
-                        }
-                    };
-                    // A node is trivially an ancestor of itself
-                    // (draft-ietf-jmap-filenode-20 §3.2.3), and
-                    // `get_descendant_ids` documents that the
-                    // returned set excludes the node itself — so
-                    // the descendant check below cannot catch
-                    // `parentId == id`. Reject it explicitly.
-                    if new_parent_id == id {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["parentId"],
-                                "description": "a node cannot be its own parent"
-                            }),
-                        );
-                        continue;
-                    }
-                    // -20 §3.1.1: the new parent must exist and permit
-                    // children.
-                    match parent_problem(backend, caller, &account_id, &new_parent_id).await {
-                        Ok(None) => {}
-                        Ok(Some(err)) => {
-                            not_updated.insert(id_str, err);
-                            continue;
-                        }
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
-                        }
-                    }
-                    let descendant_ids =
-                        match backend.get_descendant_ids(caller, &account_id, &id).await {
-                            Ok(descendant_ids) => descendant_ids,
-                            Err(e) => {
-                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                                continue;
-                            }
-                        };
-                    // Deferred under atomic: a later move in this call may
-                    // take the parent out from under the node (§4.2).
-                    if !defer_tree_checks && descendant_ids.iter().any(|did| did == &new_parent_id)
-                    {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["parentId"],
-                                "description": "moving this node to the proposed parent would create a cycle"
-                            }),
-                        );
-                        continue;
-                    }
-                    // draft-ietf-jmap-filenode-20 maxFileNodeDepth applies to
-                    // every node of the moved subtree. A move to the top
-                    // level (parentId null) cannot deepen it.
-                    if let Some(max) = backend.max_file_node_depth(caller, &account_id) {
-                        let exceeds = match stored_subtree_height(
-                            backend,
-                            caller,
-                            &account_id,
-                            &id,
-                            &descendant_ids,
-                        )
-                        .await
-                        {
-                            Ok(height) => {
-                                exceeds_max_depth(
-                                    backend,
-                                    caller,
-                                    &account_id,
-                                    Some(&new_parent_id),
-                                    height,
-                                    max,
-                                )
-                                .await
-                            }
-                            Err(e) => Err(e),
-                        };
-                        match exceeds {
-                            Ok(false) => {}
-                            Ok(true) => {
-                                not_updated.insert(id_str, max_depth_exceeded());
-                                continue;
-                            }
-                            Err(e) => {
-                                not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                                continue;
-                            }
-                        }
-                    }
-                }
-            }
-
-            // -20 §3.2.3: sibling-name uniqueness and onExists apply to an
-            // update that renames or moves the node, judged on the result of
-            // the whole /set like a create's.
-            let mut renamed_to: Option<String> = None;
-            if let Some(node) = stored_node.as_ref().filter(|_| renames_or_moves) {
-                let map = patch.as_map();
-                let new_name = match map.get("name") {
-                    Some(Value::String(name)) => name.clone(),
-                    _ => node.name.clone(),
-                };
-                let new_parent: Option<Id> = match map.get("parentId") {
-                    Some(Value::String(parent)) => Some(Id::from(parent.as_str())),
-                    Some(Value::Null) => None,
-                    _ => node.parent_id.clone(),
-                };
-                let find = || async {
-                    backend
-                        .find_sibling_by_name(
-                            caller,
-                            &account_id,
-                            new_parent.as_ref(),
-                            &new_name,
-                            case_folding,
-                        )
-                        .await
-                        // Under case folding the node can match itself.
-                        .map(|found| found.filter(|existing| *existing != id))
-                };
-                let found = match find().await {
-                    Ok(Some(existing_id)) => {
-                        let before = destroyed_list.len();
-                        let freed = destroy_plan
-                            .take_name_from(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing_id,
-                                &mut destroyed_list,
-                            )
-                            .await;
-                        mutated |= destroyed_list.len() > before;
-                        if freed {
-                            find().await
-                        } else {
-                            Ok(Some(existing_id))
-                        }
-                    }
-                    other => other,
-                };
-                match found {
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                    Ok(None) => {}
-                    Ok(Some(existing_id)) => match on_exists {
-                        // Under atomic the final state decides (conditional-02 §4.2).
-                        OnExists::Reject if defer_tree_checks => {}
-                        OnExists::Reject => {
-                            // "alreadyExists" only for a discoverable
-                            // sibling; otherwise "forbidden", without its id.
-                            let err = match discoverable_sibling(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing_id,
-                            )
-                            .await
-                            {
-                                Ok(Some(_)) => {
-                                    json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() })
-                                }
-                                Ok(None) => undiscoverable_collision(),
-                                Err(e) => server_fail_value_from_backend(&e),
-                            };
-                            not_updated.insert(id_str, err);
-                            continue;
-                        }
-                        OnExists::Replace => {
-                            let existing = match discoverable_sibling(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing_id,
-                            )
-                            .await
-                            {
-                                Ok(Some(existing)) => existing,
-                                Ok(None) => {
-                                    not_updated.insert(id_str, undiscoverable_collision());
-                                    continue;
-                                }
-                                Err(e) => {
-                                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                            };
-                            let mut replaced = Vec::new();
-                            let outcome = replace_existing(
-                                backend,
-                                caller,
-                                &account_id,
-                                &existing,
-                                on_destroy_remove_children,
-                                &mut replaced,
-                            )
-                            .await;
-                            mutated |= !replaced.is_empty();
-                            destroyed_list.extend(
-                                replaced
-                                    .into_iter()
-                                    .map(|id| Value::String(id.as_ref().to_owned())),
-                            );
-                            if let Err(err) = outcome {
-                                not_updated.insert(id_str, err);
-                                continue;
-                            }
-                        }
-                        OnExists::Rename => {
-                            match backend
-                                .find_unique_name(
-                                    caller,
-                                    &account_id,
-                                    new_parent.as_ref(),
-                                    &new_name,
-                                    case_folding,
-                                )
-                                .await
-                            {
-                                Ok(Some(candidate)) => {
-                                    patch
-                                        .as_map_mut()
-                                        .insert("name".to_owned(), json!(candidate));
-                                    renamed_to = Some(candidate);
-                                }
-                                Ok(None) => {
-                                    not_updated.insert(
-                                        id_str,
-                                        json!({ "type": "serverFail", "description": "backend found no unique name" }),
-                                    );
-                                    continue;
-                                }
-                                Err(e) => {
-                                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                                    continue;
-                                }
-                            }
-                        }
-                    },
-                }
-            }
-
-            // draft-atwood-jmap-cid-00 §FileNode Extension: "When a
-            // `FileNode/set` ({{JMAP-FILENODE}}) create or update changes
-            // the associated blob, the server MUST update `sha256` to
-            // reflect the new blob content before returning the response."
-            // A null blobId was rejected above, so only a string is left.
-            // Without the capability the patch nulls sha256, so a digest of
-            // the old blob cannot outlive it.
-            let new_sha256 = match patch.as_map().get("blobId").and_then(Value::as_str) {
-                Some(blob_id) => {
-                    let blob_id = match jmap_server::parse_wire_id(blob_id, "blobId") {
-                        Ok(id) => id,
-                        Err(err) => {
-                            not_updated.insert(id_str, serde_json::Value::from(&*err));
-                            continue;
-                        }
-                    };
-                    match backend.blob_sha256(caller, &account_id, &blob_id).await {
-                        Ok(digest) => {
-                            patch
-                                .as_map_mut()
-                                .insert("sha256".to_owned(), json!(digest));
-                            digest
-                        }
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
-                        }
-                    }
-                }
-                None => None,
-            };
-
-            match backend
-                .update_object::<FileNode>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    let mut value = jmap_server::serialize_value(&obj)?;
-                    // -20 §3.2.3: "rename" MUST include the new name in the
-                    // "updated" entry.
-                    if let (Some(name), Value::Object(m)) = (renamed_to, &mut value) {
-                        m.insert("name".to_owned(), Value::String(name));
-                    }
-                    updated.insert(id_str, value);
-                }
-                // RFC 8620 §5.3: the updated entry carries any property
-                // "that changed that were not explicitly requested by the
-                // client"; a server-set sha256 is one, a "rename" name
-                // another.
-                Ok(None) => {
-                    mutated = true;
-                    let mut changed = serde_json::Map::new();
-                    if let Some(digest) = new_sha256 {
-                        changed.insert("sha256".to_owned(), json!(digest));
-                    }
-                    if let Some(name) = renamed_to {
-                        changed.insert("name".to_owned(), Value::String(name));
-                    }
-                    updated.insert(
-                        id_str,
-                        if changed.is_empty() {
-                            Value::Null
-                        } else {
-                            Value::Object(changed)
-                        },
-                    );
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
+/// The SetError value for an update of the stored `node` by `patch` that
+/// breaks the role, read-only or per-`@type` rules, or `None`. `typed` is
+/// [`typed_patch_properties`] of `patch`.
+fn stored_node_error(
+    node: &FileNode,
+    patch: &PatchObject,
+    typed: &[(&str, NodeType, bool)],
+) -> Option<Value> {
+    // -20 §5 checks the stored role: a client that "needs
+    // to destroy, rename or move such a Directory first
+    // clears its role", so clearing it in the same patch
+    // does not count.
+    if node.role.is_some() {
+        let map = patch.as_map();
+        let moved = map
+            .get("parentId")
+            .is_some_and(|v| v.as_str() != node.parent_id.as_ref().map(Id::as_ref));
+        let renamed = map
+            .get("name")
+            .is_some_and(|v| v.as_str() != Some(node.name.as_str()));
+        if moved || renamed {
+            let action = if moved { "moving" } else { "renaming" };
+            return Some(role_forbidden(&node.id, action));
         }
     }
+    // After the role check: permission before shape
+    // (DECISIONS.md 44). §3.1.1 `@type` is immutable;
+    // draft-atwood-jmap-cid-00 `sha256` and the other
+    // server-set properties may repeat only their stored
+    // value (RFC 8620 §5.3).
+    let current = match json!(node) {
+        Value::Object(m) => Some(m),
+        _ => None,
+    };
+    if let Some(err) = reject_read_only_patch::<FileNode>(patch.as_map(), current.as_ref()) {
+        return Some(serde_json::Value::from(&err));
+    }
+    let bad: Vec<(&str, bool)> = typed
+        .iter()
+        .filter(|(_, owner, _)| node.node_type.as_ref() != Some(owner))
+        .map(|(k, _, null_pointer)| (*k, *null_pointer))
+        .collect();
+    if bad.iter().any(|(_, null_pointer)| *null_pointer) {
+        return Some(json!({
+            "type": "invalidPatch",
+            "description": "patch path into a property not defined for this node's @type",
+        }));
+    }
+    if !bad.is_empty() {
+        return Some(json!({
+            "type": "invalidProperties",
+            "properties": bad.iter().map(|(k, _)| *k).collect::<Vec<_>>(),
+            "description": "property not defined for this node's @type",
+        }));
+    }
+    None
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// The SetError value for an update of `id` whose `parentId` is not
+/// `Id|null`, names the node itself or a parent that does not permit
+/// children, would create a cycle, or would break `maxFileNodeDepth`; or
+/// `None`.
+///
+/// Introspection is on PatchObject's underlying typed map so what the
+/// cycle guard sees is byte-identical to what the backend will see via
+/// `update_object`.
+async fn update_parent_error<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    patch: &PatchObject,
+) -> Option<Value> {
+    let new_parent_val = patch.as_map().get("parentId")?;
+    // RFC 8620 §5.3: a property value of the wrong type is an
+    // invalidProperties SetError. parentId is `Id|null`
+    // (draft-ietf-jmap-filenode-20 §3.1.1), so reject anything else
+    // here instead of skipping the cycle guard and relying on each
+    // backend to catch the bad type.
+    if !new_parent_val.is_null() && !new_parent_val.is_string() {
+        return Some(json!({
+            "type": "invalidProperties",
+            "properties": ["parentId"],
+            "description": "parentId must be a string or null"
+        }));
+    }
+    let new_parent_str = new_parent_val.as_str()?;
+    let new_parent_id = match jmap_server::parse_wire_id(new_parent_str, "parentId") {
+        Ok(id) => id,
+        Err(err) => return Some(serde_json::Value::from(&*err)),
+    };
+    // A node is trivially an ancestor of itself
+    // (draft-ietf-jmap-filenode-20 §3.2.3), and
+    // `get_descendant_ids` documents that the
+    // returned set excludes the node itself — so
+    // the descendant check below cannot catch
+    // `parentId == id`. Reject it explicitly.
+    if new_parent_id == *id {
+        return Some(json!({
+            "type": "invalidProperties",
+            "properties": ["parentId"],
+            "description": "a node cannot be its own parent"
+        }));
+    }
+    let (backend, caller, account_id) = (ctx.backend, ctx.caller, ctx.account_id);
+    // -20 §3.1.1: the new parent must exist and permit
+    // children.
+    match parent_problem(backend, caller, account_id, &new_parent_id).await {
+        Ok(None) => {}
+        Ok(Some(err)) => return Some(err),
+        Err(e) => return Some(server_fail_value_from_backend(&e)),
+    }
+    let descendant_ids = match backend.get_descendant_ids(caller, account_id, id).await {
+        Ok(descendant_ids) => descendant_ids,
+        Err(e) => return Some(server_fail_value_from_backend(&e)),
+    };
+    // Deferred under atomic: a later move in this call may
+    // take the parent out from under the node (§4.2).
+    if !ctx.defer_tree_checks && descendant_ids.iter().any(|did| did == &new_parent_id) {
+        return Some(json!({
+            "type": "invalidProperties",
+            "properties": ["parentId"],
+            "description": "moving this node to the proposed parent would create a cycle"
+        }));
+    }
+    move_depth_error(ctx, id, &new_parent_id, &descendant_ids).await
+}
 
+/// draft-ietf-jmap-filenode-20 maxFileNodeDepth applies to every node of
+/// the subtree of `id` moved under `new_parent_id`: the SetError value if
+/// it would be broken, or `None`. A move to the top level (parentId null)
+/// cannot deepen it, so it never gets here.
+async fn move_depth_error<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    new_parent_id: &Id,
+    descendant_ids: &[Id],
+) -> Option<Value> {
+    let (backend, caller, account_id) = (ctx.backend, ctx.caller, ctx.account_id);
+    let max = backend.max_file_node_depth(caller, account_id)?;
+    let exceeds = match stored_subtree_height(backend, caller, account_id, id, descendant_ids).await
+    {
+        Ok(height) => {
+            exceeds_max_depth(
+                backend,
+                caller,
+                account_id,
+                Some(new_parent_id),
+                height,
+                max,
+            )
+            .await
+        }
+        Err(e) => Err(e),
+    };
+    match exceeds {
+        Ok(false) => None,
+        Ok(true) => Some(max_depth_exceeded()),
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// -20 §3.2.3 for an update of `id` (stored as `node`) that renames or
+/// moves it: [`name_collision`] for its new name and parent. For
+/// "rename", sets the new name in `patch` and returns it.
+async fn update_collision<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    node: &FileNode,
+    patch: &mut PatchObject,
+    acc: &mut SetAccumulators,
+    destroy_plan: &mut DestroyPlan,
+) -> Result<Option<String>, Value> {
+    let map = patch.as_map();
+    let new_name = match map.get("name") {
+        Some(Value::String(name)) => name.clone(),
+        _ => node.name.clone(),
+    };
+    let new_parent: Option<Id> = match map.get("parentId") {
+        Some(Value::String(parent)) => Some(Id::from(parent.as_str())),
+        Some(Value::Null) => None,
+        _ => node.parent_id.clone(),
+    };
+    let renamed = name_collision(
+        ctx,
+        new_parent.as_ref(),
+        &new_name,
+        Some(id),
+        acc,
+        destroy_plan,
+    )
+    .await?;
+    if let Some(candidate) = &renamed {
+        patch
+            .as_map_mut()
+            .insert("name".to_owned(), json!(candidate));
+    }
+    Ok(renamed)
+}
+
+/// draft-atwood-jmap-cid-00 §FileNode Extension: "When a
+/// `FileNode/set` ({{JMAP-FILENODE}}) create or update changes
+/// the associated blob, the server MUST update `sha256` to
+/// reflect the new blob content before returning the response."
+/// Sets `sha256` in `patch` when it sets `blobId`, and returns the new
+/// digest, or the SetError value for `notUpdated`.
+///
+/// A null blobId was rejected before, so only a string is left. Without
+/// the capability the patch nulls sha256, so a digest of the old blob
+/// cannot outlive it.
+async fn update_sha256<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    patch: &mut PatchObject,
+) -> Result<Option<jmap_cid_types::Sha256>, Value> {
+    let Some(blob_id) = patch.as_map().get("blobId").and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    let blob_id =
+        jmap_server::parse_wire_id(blob_id, "blobId").map_err(|err| Value::from(&*err))?;
+    match ctx
+        .backend
+        .blob_sha256(ctx.caller, ctx.account_id, &blob_id)
+        .await
+    {
+        Ok(digest) => {
+            patch
+                .as_map_mut()
+                .insert("sha256".to_owned(), json!(digest));
+            Ok(digest)
+        }
+        Err(e) => Err(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// The `destroy` part of `FileNode/set`, including the whole-request
+/// `invalidArguments` for a non-string element. A destroy that a create
+/// or update already ran to take the node's name reports that outcome.
+async fn set_destroy<B: FileNodeBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+    destroy_plan: DestroyPlan,
+) -> Result<(), JmapError> {
     let DestroyPlan {
         ids: destroy_id_set,
         early: mut early_destroys,
@@ -2387,7 +2372,8 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -2398,47 +2384,30 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
                 match outcome {
                     Ok(()) => {}
                     Err(err) => {
-                        not_destroyed.insert(id_str, err);
+                        acc.not_destroyed.insert(id_str, err);
                     }
                 }
                 continue;
             }
             let (gone, outcome) = destroy_one(
-                backend,
-                caller,
-                &account_id,
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
                 &id,
                 &destroy_id_set,
-                on_destroy_remove_children,
+                ctx.on_destroy_remove_children,
             )
             .await;
-            mutated |= !gone.is_empty();
-            destroyed_list.extend(
+            acc.destroyed.extend(
                 gone.into_iter()
                     .map(|g| Value::String(g.as_ref().to_owned())),
             );
             if let Err(err) = outcome {
-                not_destroyed.insert(id_str, err);
+                acc.not_destroyed.insert(id_str, err);
             }
         }
     }
-
-    finalize_set_response::<B, FileNode>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(())
 }
 
 /// The `destroy` list of one FileNode/set, and the destroys a create or
@@ -2453,6 +2422,22 @@ struct DestroyPlan {
 }
 
 impl DestroyPlan {
+    /// The plan for the `destroy` of `args`, with `cascade` as
+    /// `onDestroyRemoveChildren`; nothing has run yet.
+    fn new(args: &serde_json::Map<String, Value>, cascade: bool) -> Self {
+        DestroyPlan {
+            ids: if let Some(Value::Array(arr)) = args.get("destroy") {
+                arr.iter()
+                    .filter_map(|v| v.as_str().map(Id::from))
+                    .collect()
+            } else {
+                HashSet::new()
+            },
+            cascade,
+            early: HashMap::new(),
+        }
+    }
+
     /// If this call destroys `existing`, destroy it now, appending what was
     /// destroyed to `destroyed_list`; whether `existing` is gone.
     ///

@@ -192,3 +192,16 @@ orchestrator, in lines.
   `finalize_set_response`, copied from jmap-scene-server. The wire output does not change:
   `updated` is always empty, so it is `null` as before. `set_update` (every entry `forbidden`)
   takes no `ctx`.
+- **jmap-filenode-server** (`filenode_set` behind `handle_filenode_set` 1151 → 99). `mutated`
+  was tracked by hand, but every place that set it also pushed to `created`, `updated` or
+  `destroyed` (a destroy, an `onExists` replacement, or a destroy run early to free a name), and
+  no other place did. So the split works it out from the accumulators, as Mailbox does, and the
+  sub-functions return `Result<(), JmapError>`. Create and update had two copies of the
+  sibling-name and `onExists` logic. Both now call `name_collision` (with `on_exists_outcome`),
+  which takes the updated node's own id so that the node does not collide with itself under case
+  folding. The other helpers are `parse_on_exists`, `DestroyPlan::new`, `node_from_create`,
+  `create_shape_error`, `create_store_error` (blob, depth, parent), `parse_update`,
+  `update_stored_node`, `stored_node_error`, `typed_patch_properties`, `update_parent_error`,
+  `move_depth_error`, `update_collision` and `update_sha256`. Still over 100 lines:
+  `destroy_one` (129), which existed before, and `filenode_copy` (795), which is FileNode/copy,
+  not a `/set`.
