@@ -215,3 +215,47 @@ orchestrator, in lines.
   jmap-object-history-server, jmap-quotas-server, jmap-metadata-server,
   jmap-graph-projection-server, jmap-chat-scene-server, jmap-scene-vtc-server,
   jmap-chat-vtc-server, jmap-chat-filenode-server, jmap-chat-federation-server.
+
+## 9. In jmap-chat-server
+
+| Handler | Before (lines) | After (orchestrator) |
+|---|---|---|
+| `handle_message_set` | 1277 | 55 |
+| `handle_chat_set` | 1053 | 53 |
+| `handle_space_set` | 698 | 78 |
+| `handle_emoji_set` | 440 | 54 |
+| `handle_chat_ban_set` | 326 | 46 |
+| `handle_ban_set` | 318 | 48 |
+| `handle_invite_set` | 294 | 48 |
+| `handle_contact_set` | 245 | 46 |
+| `handle_position_set` | 197 | 46 |
+| `handle_presence_set` | 179 | 51 |
+
+The chat crate has its own `SetAccumulators` and `finalize_set_response` (helpers.rs), with the
+same shape as the mail ones. Every chat handler tracked `mutated` by hand, so every phase that
+writes returns `Result<bool, JmapError>`. Where the chat handlers differ from §1 to §3:
+
+- A phase that only answers `forbidden` (PresenceStatus create and destroy, ReadPosition create
+  and destroy, ChatContact destroy, SpaceInvite update) is a plain `fn` taking `(args, acc)`,
+  with no `ctx`.
+- PresenceStatus/set and ReadPosition/set never called `resolve_set_id_refs`, and still do not.
+- Most per-entry functions push their checks into helpers that return the SetError value:
+  `Result<T, Value>` for a value the entry goes on with (`create_fields`, `update_patch`),
+  `Option<Value>` for a gate (`create_send_error`, `update_policy_error`). A helper that can also
+  fail the whole method returns `Result<Result<T, Value>, JmapError>`, the shape the backend
+  policy hooks already use (`direct_contact_id`, `apply_member_keys`).
+- `helpers::refusal_value` maps a policy hook's `Result<Result<(), SetError>, E>` to the
+  SetError value or a redacted `serverFail`, the match each gate used to repeat.
+- The create loops of Chat/set and Message/set carry state in a `CreateRun`, as SieveScript
+  does: the Direct-chat contact ids for Chat, and the request's `created_ids` plus this call's
+  creates and the delivered Chat ids for Message. CustomEmoji passes its per-Space counts as an
+  extra `&mut` after `acc`.
+- Space/set reads `limits` between create and update, as before, so the orchestrator passes it
+  to `set_update` as an extra argument rather than through `SetCtx`.
+- Message/set builds a create the way Identity/set does: `message_builder` runs every check and
+  returns the closure for `create_message`.
+- An update whose writes are split over several backend calls returns `true` when an earlier
+  one succeeded, even if the target ends in `notUpdated` (Space/set `apply_update`).
+
+Three sub-functions are a few lines over 100: SpaceInvite `create_one` (104), CustomEmoji
+`update_one` (103) and Space `update_one` (102).
