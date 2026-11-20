@@ -3022,6 +3022,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-websocket"
+version = "0.5.0"
+dependencies = [
+ "futures",
+ "jmap-mail-server",
+ "jmap-server",
+ "jmap-types",
+ "jmap-websocket",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-tungstenite",
+]
+
+[[package]]
 name = "jni"
 version = "0.22.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"

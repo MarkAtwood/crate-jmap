@@ -44,7 +44,7 @@ below). A crate's own self-dev-dependency is not an ordering edge.
 | 3 | `jmap-base-client`, `jmap-calendars-types`, `jmap-chat-types`, `jmap-contacts-types`, `jmap-did`, `jmap-did-resolver`, `jmap-filenode-types`, `jmap-graph-types`, `jmap-mail-types`, `jmap-metadata`, `jmap-object-history-server`, `jmap-peer-auth`, `jmap-scene-types`, `jmap-server`, `jmap-tasks-types`, `jmap-vtc-types` |
 | 4 | `jmap-blob-client`, `jmap-blob-server`, `jmap-calendars-client`, `jmap-calendars-server`, `jmap-chat-federation-types`, `jmap-chat-mimi-types`, `jmap-chat-server`, `jmap-conditional`, `jmap-contacts-client`, `jmap-contacts-server`, `jmap-filenode-client`, `jmap-filenode-server`, `jmap-graph-client`, `jmap-graph-server`, `jmap-mail-client`, `jmap-mime`, `jmap-object-history-client`, `jmap-peer-auth-io`, `jmap-quotas-client`, `jmap-quotas-server`, `jmap-scene-client`, `jmap-scene-server`, `jmap-sharing-client`, `jmap-sharing-server`, `jmap-tasks-client`, `jmap-tasks-server`, `jmap-vtc-client`, `jmap-vtc-server` |
 | 5 | `jmap-blob`, `jmap-calendars`, `jmap-chat-calendars-server`, `jmap-chat-client`, `jmap-chat-federation-server`, `jmap-chat-filenode-server`, `jmap-chat-mimi-client`, `jmap-chat-mimi-server`, `jmap-chat-scene-server`, `jmap-chat-slack`, `jmap-chat-tasks-server`, `jmap-chat-vtc-server`, `jmap-contacts`, `jmap-filenode`, `jmap-graph`, `jmap-mail-server`, `jmap-mail-sharing`, `jmap-object-history`, `jmap-quotas`, `jmap-scene`, `jmap-scene-vtc-server`, `jmap-sharing`, `jmap-tasks`, `jmap-vtc`, `jmap-vtc-aws` |
-| 6 | `jmap-chat`, `jmap-emailpush`, `jmap-graph-projection-server`, `jmap-mail`, `jmap-mdn`, `jmap-sieve` |
+| 6 | `jmap-chat`, `jmap-emailpush`, `jmap-graph-projection-server`, `jmap-mail`, `jmap-mdn`, `jmap-sieve`, `jmap-websocket` |
 
 Crates within the same layer have no dependencies on each other. Direct
 `jmap-*` edges per crate (dev-dependencies that are not also normal
@@ -144,6 +144,7 @@ dependencies are listed separately):
 | `jmap-mail` | 6 | `jmap-mail-client`, `jmap-mail-server`, `jmap-mail-types` | (none) |
 | `jmap-mdn` | 6 | `jmap-mail-server`, `jmap-mail-types` | (none) |
 | `jmap-sieve` | 6 | `jmap-mail-server`, `jmap-mail-types` | (none) |
+| `jmap-websocket` | 6 | `jmap-server`, `jmap-types` | `jmap-mail-server` |
 
 To recheck after a manifest change, list each publishable crate's
 `jmap-*` edges:

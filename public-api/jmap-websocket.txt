@@ -1,0 +1,289 @@
+pub mod jmap_websocket
+pub use jmap_websocket::futures
+pub use jmap_websocket::jmap_server
+pub use jmap_websocket::jmap_types
+pub use jmap_websocket::tokio_tungstenite
+pub mod jmap_websocket::server
+#[non_exhaustive] pub enum jmap_websocket::server::BinaryFrames
+pub jmap_websocket::server::BinaryFrames::Close
+pub jmap_websocket::server::BinaryFrames::Ignore
+impl core::clone::Clone for jmap_websocket::server::BinaryFrames
+pub fn jmap_websocket::server::BinaryFrames::clone(&self) -> jmap_websocket::server::BinaryFrames
+impl core::cmp::Eq for jmap_websocket::server::BinaryFrames
+impl core::cmp::PartialEq for jmap_websocket::server::BinaryFrames
+pub fn jmap_websocket::server::BinaryFrames::eq(&self, &jmap_websocket::server::BinaryFrames) -> bool
+impl core::default::Default for jmap_websocket::server::BinaryFrames
+pub fn jmap_websocket::server::BinaryFrames::default() -> jmap_websocket::server::BinaryFrames
+impl core::fmt::Debug for jmap_websocket::server::BinaryFrames
+pub fn jmap_websocket::server::BinaryFrames::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_websocket::server::BinaryFrames
+impl core::marker::StructuralPartialEq for jmap_websocket::server::BinaryFrames
+#[non_exhaustive] pub enum jmap_websocket::server::ConnectionError
+pub jmap_websocket::server::ConnectionError::Receive(alloc::boxed::Box<(dyn core::error::Error + core::marker::Send + core::marker::Sync)>)
+pub jmap_websocket::server::ConnectionError::Send(alloc::boxed::Box<(dyn core::error::Error + core::marker::Send + core::marker::Sync)>)
+pub jmap_websocket::server::ConnectionError::Serialize(serde_json::error::Error)
+impl core::error::Error for jmap_websocket::server::ConnectionError
+pub fn jmap_websocket::server::ConnectionError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_websocket::server::ConnectionError
+pub fn jmap_websocket::server::ConnectionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_websocket::server::ConnectionError
+pub fn jmap_websocket::server::ConnectionError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_websocket::server::Inbound
+pub jmap_websocket::server::Inbound::Binary
+pub jmap_websocket::server::Inbound::Close
+pub jmap_websocket::server::Inbound::Text(alloc::string::String)
+impl core::clone::Clone for jmap_websocket::server::Inbound
+pub fn jmap_websocket::server::Inbound::clone(&self) -> jmap_websocket::server::Inbound
+impl core::cmp::Eq for jmap_websocket::server::Inbound
+impl core::cmp::PartialEq for jmap_websocket::server::Inbound
+pub fn jmap_websocket::server::Inbound::eq(&self, &jmap_websocket::server::Inbound) -> bool
+impl core::fmt::Debug for jmap_websocket::server::Inbound
+pub fn jmap_websocket::server::Inbound::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::server::Inbound
+#[non_exhaustive] pub enum jmap_websocket::server::Outbound
+pub jmap_websocket::server::Outbound::Close
+pub jmap_websocket::server::Outbound::Close::code: u16
+pub jmap_websocket::server::Outbound::Close::reason: alloc::string::String
+pub jmap_websocket::server::Outbound::Text(alloc::string::String)
+impl core::clone::Clone for jmap_websocket::server::Outbound
+pub fn jmap_websocket::server::Outbound::clone(&self) -> jmap_websocket::server::Outbound
+impl core::cmp::Eq for jmap_websocket::server::Outbound
+impl core::cmp::PartialEq for jmap_websocket::server::Outbound
+pub fn jmap_websocket::server::Outbound::eq(&self, &jmap_websocket::server::Outbound) -> bool
+impl core::fmt::Debug for jmap_websocket::server::Outbound
+pub fn jmap_websocket::server::Outbound::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::server::Outbound
+pub struct jmap_websocket::server::Connection<H, P>
+impl<H: jmap_websocket::server::RequestHandler, P: jmap_websocket::server::PushSource> jmap_websocket::server::Connection<H, P>
+pub async fn jmap_websocket::server::Connection<H, P>::run<S, K, E>(self, S, K) -> core::result::Result<(), jmap_websocket::server::ConnectionError> where S: futures_core::stream::Stream<Item = core::result::Result<jmap_websocket::server::Inbound, E>> + core::marker::Unpin, E: core::error::Error + core::marker::Send + core::marker::Sync + 'static, K: futures_sink::Sink<jmap_websocket::server::Outbound> + core::marker::Unpin, <K as futures_sink::Sink>::Error: core::error::Error + core::marker::Send + core::marker::Sync + 'static
+pub fn jmap_websocket::server::Connection<H, P>::with_config(self, jmap_websocket::server::ConnectionConfig) -> Self
+pub fn jmap_websocket::server::Connection<H, P>::with_push<Q: jmap_websocket::server::PushSource>(self, Q) -> jmap_websocket::server::Connection<H, Q>
+pub fn jmap_websocket::server::Connection<H, P>::with_shared_limit(self, alloc::sync::Arc<tokio::sync::semaphore::Semaphore>) -> Self
+impl<H: jmap_websocket::server::RequestHandler> jmap_websocket::server::Connection<H, jmap_websocket::server::NoPush>
+pub fn jmap_websocket::server::Connection<H, jmap_websocket::server::NoPush>::new(alloc::sync::Arc<H>) -> Self
+impl<H, P> core::fmt::Debug for jmap_websocket::server::Connection<H, P>
+pub fn jmap_websocket::server::Connection<H, P>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_websocket::server::ConnectionConfig
+impl jmap_websocket::server::ConnectionConfig
+pub fn jmap_websocket::server::ConnectionConfig::binary_frames(self, jmap_websocket::server::BinaryFrames) -> Self
+pub fn jmap_websocket::server::ConnectionConfig::binary_frames_value(&self) -> jmap_websocket::server::BinaryFrames
+pub fn jmap_websocket::server::ConnectionConfig::max_calls_in_request(self, usize) -> Self
+pub fn jmap_websocket::server::ConnectionConfig::max_calls_in_request_value(&self) -> usize
+pub fn jmap_websocket::server::ConnectionConfig::max_concurrent_requests(self, usize) -> Self
+pub fn jmap_websocket::server::ConnectionConfig::max_concurrent_requests_value(&self) -> usize
+pub fn jmap_websocket::server::ConnectionConfig::max_size_request(self, core::option::Option<usize>) -> Self
+pub fn jmap_websocket::server::ConnectionConfig::max_size_request_value(&self) -> core::option::Option<usize>
+impl core::clone::Clone for jmap_websocket::server::ConnectionConfig
+pub fn jmap_websocket::server::ConnectionConfig::clone(&self) -> jmap_websocket::server::ConnectionConfig
+impl core::cmp::Eq for jmap_websocket::server::ConnectionConfig
+impl core::cmp::PartialEq for jmap_websocket::server::ConnectionConfig
+pub fn jmap_websocket::server::ConnectionConfig::eq(&self, &jmap_websocket::server::ConnectionConfig) -> bool
+impl core::default::Default for jmap_websocket::server::ConnectionConfig
+pub fn jmap_websocket::server::ConnectionConfig::default() -> Self
+impl core::fmt::Debug for jmap_websocket::server::ConnectionConfig
+pub fn jmap_websocket::server::ConnectionConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::server::ConnectionConfig
+pub struct jmap_websocket::server::DispatcherHandler<C>
+impl<C: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static> jmap_websocket::server::DispatcherHandler<C>
+pub fn jmap_websocket::server::DispatcherHandler<C>::new(alloc::sync::Arc<jmap_server::Dispatcher<C>>, C, impl core::ops::function::Fn() -> jmap_types::id::State + core::marker::Send + core::marker::Sync + 'static) -> Self
+pub fn jmap_websocket::server::DispatcherHandler<C>::with_known_capabilities<I, S>(self, I) -> Self where I: core::iter::traits::collect::IntoIterator<Item = S>, S: core::convert::Into<alloc::string::String>
+impl<C: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static> jmap_websocket::server::RequestHandler for jmap_websocket::server::DispatcherHandler<C>
+pub async fn jmap_websocket::server::DispatcherHandler<C>::handle(&self, jmap_types::wire::JmapRequest) -> core::result::Result<jmap_types::wire::JmapResponse, jmap_types::error::JmapError>
+pub fn jmap_websocket::server::DispatcherHandler<C>::prepare_problem(&self, &mut jmap_types::problem::ProblemDetails)
+impl<C> core::fmt::Debug for jmap_websocket::server::DispatcherHandler<C>
+pub fn jmap_websocket::server::DispatcherHandler<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_websocket::server::NoPush
+impl core::clone::Clone for jmap_websocket::server::NoPush
+pub fn jmap_websocket::server::NoPush::clone(&self) -> jmap_websocket::server::NoPush
+impl core::default::Default for jmap_websocket::server::NoPush
+pub fn jmap_websocket::server::NoPush::default() -> jmap_websocket::server::NoPush
+impl core::fmt::Debug for jmap_websocket::server::NoPush
+pub fn jmap_websocket::server::NoPush::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_websocket::server::NoPush
+impl jmap_websocket::server::PushSource for jmap_websocket::server::NoPush
+pub fn jmap_websocket::server::NoPush::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
+pub struct jmap_websocket::server::PushHub
+impl jmap_websocket::server::PushHub
+pub fn jmap_websocket::server::PushHub::new(usize) -> Self
+pub fn jmap_websocket::server::PushHub::publish(&self, jmap_types::push::StateChange)
+pub fn jmap_websocket::server::PushHub::push_state(&self) -> alloc::string::String
+impl core::clone::Clone for jmap_websocket::server::PushHub
+pub fn jmap_websocket::server::PushHub::clone(&self) -> jmap_websocket::server::PushHub
+impl core::fmt::Debug for jmap_websocket::server::PushHub
+pub fn jmap_websocket::server::PushHub::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_websocket::server::PushSource for jmap_websocket::server::PushHub
+pub fn jmap_websocket::server::PushHub::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
+pub const jmap_websocket::server::CLOSE_UNSUPPORTED_DATA: u16
+pub trait jmap_websocket::server::PushSource: core::marker::Send + 'static
+pub fn jmap_websocket::server::PushSource::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
+impl jmap_websocket::server::PushSource for jmap_websocket::server::NoPush
+pub fn jmap_websocket::server::NoPush::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
+impl jmap_websocket::server::PushSource for jmap_websocket::server::PushHub
+pub fn jmap_websocket::server::PushHub::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
+pub trait jmap_websocket::server::RequestHandler: core::marker::Send + core::marker::Sync + 'static
+pub fn jmap_websocket::server::RequestHandler::handle(&self, jmap_types::wire::JmapRequest) -> impl core::future::future::Future<Output = core::result::Result<jmap_types::wire::JmapResponse, jmap_types::error::JmapError>> + core::marker::Send
+pub fn jmap_websocket::server::RequestHandler::prepare_problem(&self, &mut jmap_types::problem::ProblemDetails)
+impl<C: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static> jmap_websocket::server::RequestHandler for jmap_websocket::server::DispatcherHandler<C>
+pub async fn jmap_websocket::server::DispatcherHandler<C>::handle(&self, jmap_types::wire::JmapRequest) -> core::result::Result<jmap_types::wire::JmapResponse, jmap_types::error::JmapError>
+pub fn jmap_websocket::server::DispatcherHandler<C>::prepare_problem(&self, &mut jmap_types::problem::ProblemDetails)
+pub fn jmap_websocket::server::filter_state_change(jmap_websocket::WsStateChange, core::option::Option<&[alloc::string::String]>) -> core::option::Option<jmap_websocket::WsStateChange>
+pub fn jmap_websocket::server::parse_client_message(&str, &jmap_websocket::server::ConnectionConfig) -> core::result::Result<jmap_websocket::ClientMessage, jmap_websocket::WsRequestError>
+pub fn jmap_websocket::server::request_error(&jmap_types::error::JmapError, core::option::Option<alloc::string::String>) -> jmap_websocket::WsRequestError
+pub mod jmap_websocket::tungstenite
+pub fn jmap_websocket::tungstenite::inbound(tungstenite::protocol::message::Message) -> core::option::Option<jmap_websocket::server::Inbound>
+pub fn jmap_websocket::tungstenite::outbound(jmap_websocket::server::Outbound) -> tungstenite::protocol::message::Message
+pub async fn jmap_websocket::tungstenite::serve<H, P, S>(jmap_websocket::server::Connection<H, P>, tokio_tungstenite::WebSocketStream<S>) -> core::result::Result<(), jmap_websocket::server::ConnectionError> where H: jmap_websocket::server::RequestHandler, P: jmap_websocket::server::PushSource, S: tokio::io::async_read::AsyncRead + tokio::io::async_write::AsyncWrite + core::marker::Unpin
+#[non_exhaustive] pub enum jmap_websocket::ClientMessage
+pub jmap_websocket::ClientMessage::PushDisable(jmap_websocket::WebSocketPushDisable)
+pub jmap_websocket::ClientMessage::PushEnable(jmap_websocket::WebSocketPushEnable)
+pub jmap_websocket::ClientMessage::Request(jmap_websocket::WsRequest)
+impl core::clone::Clone for jmap_websocket::ClientMessage
+pub fn jmap_websocket::ClientMessage::clone(&self) -> jmap_websocket::ClientMessage
+impl core::cmp::PartialEq for jmap_websocket::ClientMessage
+pub fn jmap_websocket::ClientMessage::eq(&self, &jmap_websocket::ClientMessage) -> bool
+impl core::fmt::Debug for jmap_websocket::ClientMessage
+pub fn jmap_websocket::ClientMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::ClientMessage
+impl serde_core::ser::Serialize for jmap_websocket::ClientMessage
+pub fn jmap_websocket::ClientMessage::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::ClientMessage
+pub fn jmap_websocket::ClientMessage::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_websocket::ServerMessage
+pub jmap_websocket::ServerMessage::RequestError(jmap_websocket::WsRequestError)
+pub jmap_websocket::ServerMessage::Response(jmap_websocket::WsResponse)
+pub jmap_websocket::ServerMessage::StateChange(jmap_websocket::WsStateChange)
+impl core::clone::Clone for jmap_websocket::ServerMessage
+pub fn jmap_websocket::ServerMessage::clone(&self) -> jmap_websocket::ServerMessage
+impl core::cmp::PartialEq for jmap_websocket::ServerMessage
+pub fn jmap_websocket::ServerMessage::eq(&self, &jmap_websocket::ServerMessage) -> bool
+impl core::fmt::Debug for jmap_websocket::ServerMessage
+pub fn jmap_websocket::ServerMessage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::ServerMessage
+impl serde_core::ser::Serialize for jmap_websocket::ServerMessage
+pub fn jmap_websocket::ServerMessage::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::ServerMessage
+pub fn jmap_websocket::ServerMessage::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_websocket::WebSocketCapability
+pub jmap_websocket::WebSocketCapability::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_websocket::WebSocketCapability::supports_push: bool
+pub jmap_websocket::WebSocketCapability::url: alloc::string::String
+impl jmap_websocket::WebSocketCapability
+pub fn jmap_websocket::WebSocketCapability::new(impl core::convert::Into<alloc::string::String>, bool) -> Self
+impl core::clone::Clone for jmap_websocket::WebSocketCapability
+pub fn jmap_websocket::WebSocketCapability::clone(&self) -> jmap_websocket::WebSocketCapability
+impl core::cmp::Eq for jmap_websocket::WebSocketCapability
+impl core::cmp::PartialEq for jmap_websocket::WebSocketCapability
+pub fn jmap_websocket::WebSocketCapability::eq(&self, &jmap_websocket::WebSocketCapability) -> bool
+impl core::fmt::Debug for jmap_websocket::WebSocketCapability
+pub fn jmap_websocket::WebSocketCapability::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::WebSocketCapability
+impl serde_core::ser::Serialize for jmap_websocket::WebSocketCapability
+pub fn jmap_websocket::WebSocketCapability::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::WebSocketCapability
+pub fn jmap_websocket::WebSocketCapability::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_websocket::WebSocketPushDisable
+pub jmap_websocket::WebSocketPushDisable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+impl jmap_websocket::WebSocketPushDisable
+pub fn jmap_websocket::WebSocketPushDisable::new() -> Self
+impl core::clone::Clone for jmap_websocket::WebSocketPushDisable
+pub fn jmap_websocket::WebSocketPushDisable::clone(&self) -> jmap_websocket::WebSocketPushDisable
+impl core::cmp::Eq for jmap_websocket::WebSocketPushDisable
+impl core::cmp::PartialEq for jmap_websocket::WebSocketPushDisable
+pub fn jmap_websocket::WebSocketPushDisable::eq(&self, &jmap_websocket::WebSocketPushDisable) -> bool
+impl core::default::Default for jmap_websocket::WebSocketPushDisable
+pub fn jmap_websocket::WebSocketPushDisable::default() -> jmap_websocket::WebSocketPushDisable
+impl core::fmt::Debug for jmap_websocket::WebSocketPushDisable
+pub fn jmap_websocket::WebSocketPushDisable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::WebSocketPushDisable
+impl serde_core::ser::Serialize for jmap_websocket::WebSocketPushDisable
+pub fn jmap_websocket::WebSocketPushDisable::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::WebSocketPushDisable
+pub fn jmap_websocket::WebSocketPushDisable::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_websocket::WebSocketPushEnable
+pub jmap_websocket::WebSocketPushEnable::data_types: core::option::Option<alloc::vec::Vec<alloc::string::String>>
+pub jmap_websocket::WebSocketPushEnable::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
+pub jmap_websocket::WebSocketPushEnable::push_state: core::option::Option<alloc::string::String>
+impl jmap_websocket::WebSocketPushEnable
+pub fn jmap_websocket::WebSocketPushEnable::new(core::option::Option<alloc::vec::Vec<alloc::string::String>>, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_websocket::WebSocketPushEnable
+pub fn jmap_websocket::WebSocketPushEnable::clone(&self) -> jmap_websocket::WebSocketPushEnable
+impl core::cmp::Eq for jmap_websocket::WebSocketPushEnable
+impl core::cmp::PartialEq for jmap_websocket::WebSocketPushEnable
+pub fn jmap_websocket::WebSocketPushEnable::eq(&self, &jmap_websocket::WebSocketPushEnable) -> bool
+impl core::default::Default for jmap_websocket::WebSocketPushEnable
+pub fn jmap_websocket::WebSocketPushEnable::default() -> jmap_websocket::WebSocketPushEnable
+impl core::fmt::Debug for jmap_websocket::WebSocketPushEnable
+pub fn jmap_websocket::WebSocketPushEnable::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::WebSocketPushEnable
+impl serde_core::ser::Serialize for jmap_websocket::WebSocketPushEnable
+pub fn jmap_websocket::WebSocketPushEnable::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::WebSocketPushEnable
+pub fn jmap_websocket::WebSocketPushEnable::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_websocket::WsRequest
+pub jmap_websocket::WsRequest::id: core::option::Option<alloc::string::String>
+pub jmap_websocket::WsRequest::request: jmap_types::wire::JmapRequest
+impl jmap_websocket::WsRequest
+pub fn jmap_websocket::WsRequest::new(jmap_types::wire::JmapRequest, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_websocket::WsRequest
+pub fn jmap_websocket::WsRequest::clone(&self) -> jmap_websocket::WsRequest
+impl core::cmp::PartialEq for jmap_websocket::WsRequest
+pub fn jmap_websocket::WsRequest::eq(&self, &jmap_websocket::WsRequest) -> bool
+impl core::fmt::Debug for jmap_websocket::WsRequest
+pub fn jmap_websocket::WsRequest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::WsRequest
+impl serde_core::ser::Serialize for jmap_websocket::WsRequest
+pub fn jmap_websocket::WsRequest::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::WsRequest
+pub fn jmap_websocket::WsRequest::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_websocket::WsRequestError
+pub jmap_websocket::WsRequestError::problem: jmap_types::problem::ProblemDetails
+pub jmap_websocket::WsRequestError::request_id: core::option::Option<alloc::string::String>
+impl jmap_websocket::WsRequestError
+pub fn jmap_websocket::WsRequestError::new(jmap_types::problem::ProblemDetails, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_websocket::WsRequestError
+pub fn jmap_websocket::WsRequestError::clone(&self) -> jmap_websocket::WsRequestError
+impl core::cmp::PartialEq for jmap_websocket::WsRequestError
+pub fn jmap_websocket::WsRequestError::eq(&self, &jmap_websocket::WsRequestError) -> bool
+impl core::fmt::Debug for jmap_websocket::WsRequestError
+pub fn jmap_websocket::WsRequestError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::WsRequestError
+impl serde_core::ser::Serialize for jmap_websocket::WsRequestError
+pub fn jmap_websocket::WsRequestError::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::WsRequestError
+pub fn jmap_websocket::WsRequestError::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_websocket::WsResponse
+pub jmap_websocket::WsResponse::request_id: core::option::Option<alloc::string::String>
+pub jmap_websocket::WsResponse::response: jmap_types::wire::JmapResponse
+impl jmap_websocket::WsResponse
+pub fn jmap_websocket::WsResponse::new(jmap_types::wire::JmapResponse, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_websocket::WsResponse
+pub fn jmap_websocket::WsResponse::clone(&self) -> jmap_websocket::WsResponse
+impl core::cmp::PartialEq for jmap_websocket::WsResponse
+pub fn jmap_websocket::WsResponse::eq(&self, &jmap_websocket::WsResponse) -> bool
+impl core::fmt::Debug for jmap_websocket::WsResponse
+pub fn jmap_websocket::WsResponse::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::WsResponse
+impl serde_core::ser::Serialize for jmap_websocket::WsResponse
+pub fn jmap_websocket::WsResponse::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::WsResponse
+pub fn jmap_websocket::WsResponse::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub struct jmap_websocket::WsStateChange
+pub jmap_websocket::WsStateChange::push_state: core::option::Option<alloc::string::String>
+pub jmap_websocket::WsStateChange::state_change: jmap_types::push::StateChange
+impl jmap_websocket::WsStateChange
+pub fn jmap_websocket::WsStateChange::new(jmap_types::push::StateChange, core::option::Option<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_websocket::WsStateChange
+pub fn jmap_websocket::WsStateChange::clone(&self) -> jmap_websocket::WsStateChange
+impl core::cmp::Eq for jmap_websocket::WsStateChange
+impl core::cmp::PartialEq for jmap_websocket::WsStateChange
+pub fn jmap_websocket::WsStateChange::eq(&self, &jmap_websocket::WsStateChange) -> bool
+impl core::fmt::Debug for jmap_websocket::WsStateChange
+pub fn jmap_websocket::WsStateChange::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_websocket::WsStateChange
+impl serde_core::ser::Serialize for jmap_websocket::WsStateChange
+pub fn jmap_websocket::WsStateChange::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_websocket::WsStateChange
+pub fn jmap_websocket::WsStateChange::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+pub const jmap_websocket::CAPABILITY: &str
+pub const jmap_websocket::SUBPROTOCOL: &str
+pub fn jmap_websocket::offers_jmap(&str) -> bool

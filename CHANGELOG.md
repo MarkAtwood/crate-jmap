@@ -14,6 +14,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-websocket**: 0.5.0 replaces the 0.0.1 name-claim placeholder
+  with RFC 8887 JMAP over WebSocket (bd:JMAP-tzcc). Keeps `CAPABILITY`;
+  adds `SUBPROTOCOL`, `offers_jmap`, `WebSocketCapability` and the §4.3
+  messages `WsRequest`, `WsResponse`, `WsRequestError`, `WsStateChange`,
+  `WebSocketPushEnable`, `WebSocketPushDisable` with the `ClientMessage`
+  and `ServerMessage` enums. Feature `server`: `server::Connection`, a
+  framework-agnostic driver that reads text messages from any `Stream`,
+  dispatches Requests through a `RequestHandler` (`DispatcherHandler`
+  wraps a `jmap_server::Dispatcher` and a caller) concurrently up to
+  `maxConcurrentRequests`, answers with `Response` / `RequestError`
+  frames carrying `requestId`, applies `parse_client_message`'s
+  `notJSON` / `notRequest` / `limit` rules, closes on binary messages
+  with 1003, and pushes `StateChange`s from a `PushSource` cut to
+  `dataTypes`; `PushHub` is an in-memory source with `pushState` replay.
+  Feature `tungstenite`: `tungstenite::serve`.
 - **jmap-vtc-aws**: new support crate, an AWS media backend for hosted
   `VTCLivestream`s on Amazon IVS low-latency channels (bd:JMAP-po6q.2,
   docs/design/vtc-broadcast-research.md Recommendation 4).

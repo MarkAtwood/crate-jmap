@@ -92,6 +92,7 @@ members = [
     "crate-jmap-mdn",
     "crate-jmap-sieve",
     "crate-jmap-mail-sharing",
+    "crate-jmap-websocket",
     "crate-jmap-testjig",
 ]
 # Toy-consumer probes (AGENTS.md "End of each feature wave: toy-consumer
