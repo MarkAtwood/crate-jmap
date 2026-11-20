@@ -1,0 +1,91 @@
+# Design: per-operation sub-functions for `Foo/set` handlers (bd:JMAP-eedw)
+
+Status: implemented in `jmap-mail-server`, the canonical template (decision 54, Mark). The other
+extension servers copy this shape when they next touch a long `*_set` handler, or in a sweep.
+
+## 1. Shape
+
+A `Foo/set` handler is a short orchestrator, aiming at under about 80 lines. It does, in order:
+
+1. `extract_account_id`, the `accountExists` check, `enforce_max_objects_in_set`.
+2. Any request-wide setup that the checks below need: `old_state`, the `ifInState` check,
+   method-specific arguments (`onDestroyRemoveEmails`, `onSuccessActivateScript` and the like),
+   snapshots taken before any write.
+3. Builds the context struct (§3) and `let mut acc = SetAccumulators::default();`.
+4. Calls the sub-functions in the RFC 8620 §5.3 order the handler already used. Between create
+   and update, the orchestrator calls `jmap_server::resolve_set_id_refs` itself, so the
+   `#creationId` step is visible in one place.
+5. Works out `mutated` and ends with `finalize_set_response(...)`.
+
+The refactor does not change behaviour. Error precedence (decision 44: existence and permission
+before shape), the order of backend calls, the order of entries in the response, state handling
+and wire output all stay the same. A `?` inside a sub-function stops the whole method, as the
+inline `?` did before.
+
+## 2. Names
+
+All private to the module:
+
+| Name | What it does |
+|---|---|
+| `set_create(ctx, args, acc)` | The `create` map. |
+| `set_update(ctx, args, acc)` | The `update` map. |
+| `set_destroy(ctx, args, acc)` | The `destroy` array, including the whole-request `invalidArguments` for a non-string element. |
+| `create_one`, `update_one` | One entry of `create` or `update`, when the loop body would push its function over about 100 lines. They return early where the loop had `continue`. |
+| `set_<side effect>` | A method-specific phase after the three: `set_on_success` (EmailSubmission `onSuccess*Email`), `set_activate` (SieveScript activation). |
+
+Each sub-function takes its own key out of `args` (`get` or `remove`, whichever the inline code
+used) so that the orchestrator stays uniform. Extra state goes after `acc`, for example Mailbox's
+`created_ids` or the email-id map that EmailSubmission keeps for `onSuccess*`. Small checks that
+return `Option<Value>` (the SetError value, or `None` to go on) are named after what they find:
+`create_conflict`, `create_name_error`, `last_mailbox_removed`, `update_blob_error`.
+
+`mutated` follows what the handler did before. Where it was tracked by hand (Email, Identity,
+VacationResponse), each sub-function returns `Result<bool, JmapError>`, meaning that the backend
+was written, and the orchestrator does `mutated |= set_update(...).await?;`. `|=` is not
+short-circuiting, so every phase still runs. Where it was worked out from the accumulators
+(Mailbox, SieveScript, EmailSubmission), the sub-functions return `Result<(), JmapError>` and the
+orchestrator computes `!acc.created.is_empty() || ...` at the end. The two are not
+interchangeable: a no-op update lands in `updated` without a write.
+
+## 3. Context struct
+
+Each module has its own private struct holding what every sub-function reads:
+
+```rust
+/// What every `Foo/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: MailBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    // Module-specific, read-only: created_ids, using, atomic, snapshots, limits ...
+}
+```
+
+The struct is per module and never `pub`, so it is not public API and each family adds the fields
+it needs. It holds only borrowed, read-only request state. Anything a sub-function changes is
+passed as `&mut` beside it: `acc: &mut SetAccumulators`, and per-call state such as Mailbox's
+`created_ids` clone. When the create loop carries several counters from one entry to the next,
+keep them in a second small struct, as SieveScript's `CreateRun` does.
+
+Accumulators are the crate's `SetAccumulators` (helpers.rs), not six loose maps.
+`finalize_set_response` then takes `acc` as it is. EmailSubmission uses it too now, and attaches
+the implicit `Email/set` with `HandlerOutput::with_extra`. Its implicit `Email/set` body also
+goes through `finalize_set_response`, with `mutated = true` so that `newState` is always read
+again, as before.
+
+## 4. In jmap-mail-server
+
+| Handler | Before (lines) | After (orchestrator) |
+|---|---|---|
+| `handle_submission_set` | 408 | 78 |
+| `handle_identity_set` | 319 | 53 |
+| `handle_email_set` | 299 | 46 |
+| `handle_vacation_set` | 221 | 57 |
+| `mailbox_set` (behind `handle_mailbox_set`) | 770 | 81 |
+| `sieve_set` (behind `handle_sieve_set`) | 665 | 88 |
+
+Each new sub-function is at most 100 lines. One function is still longer:
+EmailSubmission's `create_one` (the former `process_create`) has 141 lines. It was 196 before
+`derive_envelope` and `check_envelope` were split out of it.

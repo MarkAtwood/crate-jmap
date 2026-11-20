@@ -424,6 +424,19 @@ per-item `#[cfg_attr(docsrs, doc(cfg(...)))]`. Check with
 
 JMAP PatchObject path application (RFC 8620 §5.3) lives in `jmap-server::helpers` (`apply_jmap_patch`); extension servers must call it rather than reimplement it.
 
+**`Foo/set` handler shape** (decision 54, bd:JMAP-eedw). In
+`jmap-mail-server`, every `handle_*_set` is a short orchestrator. It
+runs the shared pre-checks (account, `maxObjectsInSet`, `ifInState`,
+method-specific options), builds a private per-module `SetCtx` (backend,
+caller, account id, plus read-only request state) and a
+`SetAccumulators`, then calls the private sub-functions `set_create`,
+`set_update` and `set_destroy` (with `create_one` / `update_one` per
+entry where needed, and a `set_<side effect>` phase such as
+`set_on_success` or `set_activate`). It ends with
+`finalize_set_response`. Sibling servers copy this shape, with the same
+names, when they split their own long `*_set` handlers. See
+`docs/design/set-handler-split.md`.
+
 **Recorded divergence: `jmap-chat-server`'s `testkit` feature.** The
 backend conformance suite (`jmap_chat_server::testkit`, the
 `ConformanceBackend` trait and the `chat_backend_conformance!` macro) exists
