@@ -53,7 +53,7 @@ async fn external_references_count_and_destroys_are_reported() {
     let acc = Id::from("A");
     let blob = Id::from("shared-1");
     let fake = Arc::new(Fake::default());
-    let b = MemoryBackend::new()
+    let b = MemoryBackend::<()>::default()
         .with_account(&acc)
         .with_external_references(Arc::clone(&fake) as Arc<dyn ExternalReferences>);
     assert!(b.store_blob(&acc, &blob, b"hello".to_vec(), Some("text/plain".into())));

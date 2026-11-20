@@ -35,7 +35,7 @@ macro_rules! account_not_found_test {
     ($name:ident, $handler:ident $(, using = $using:expr)?, { $($arg:tt)* }) => {
         #[tokio::test]
         async fn $name() {
-            let backend = MemoryBackend::new();
+            let backend = MemoryBackend::<()>::default();
             let args = json!({ "accountId": UNKNOWN_ACCOUNT, $($arg)* });
             let err = $handler(&backend, &(), args $(, $using)?)
                 .await

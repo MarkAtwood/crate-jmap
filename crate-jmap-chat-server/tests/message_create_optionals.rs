@@ -22,7 +22,7 @@ use serde_json::{Map, Value, json};
 
 const SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 
-async fn create_group(backend: &MemoryBackend) -> String {
+async fn create_group(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
@@ -44,7 +44,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
 /// Send one Message/set create whose object is the required properties
 /// plus `extra`, and return the whole response. `bodyType` defaults to
 /// `text/plain` unless `extra` sets it.
-async fn create(backend: &MemoryBackend, chat_id: &str, extra: Value) -> Value {
+async fn create(backend: &MemoryBackend<()>, chat_id: &str, extra: Value) -> Value {
     let mut obj: Map<String, Value> = extra.as_object().expect("extra object").clone();
     obj.insert("chatId".into(), json!(chat_id));
     obj.insert("body".into(), json!("hi @bob"));

@@ -34,7 +34,7 @@ use jmap_types::Invocation;
 /// # Panics
 ///
 /// Panics on any backend error — this is test fixture setup code.
-async fn setup_mdn_email(backend: &MemoryBackend, account_id: &Id) -> Id {
+async fn setup_mdn_email(backend: &MemoryBackend<()>, account_id: &Id) -> Id {
     // Raw RFC 5322 bytes with the required MDN-related headers.
     // These specific header values are from RFC 9007 §3.1 example.
     let raw = b"From: Jane Sender <Jane_Sender@example.org>\r\n\
@@ -63,7 +63,7 @@ The email body.\r\n";
 /// # Panics
 ///
 /// Panics on any backend error — this is test fixture setup code.
-async fn setup_identity(backend: &MemoryBackend, account_id: &Id) -> Id {
+async fn setup_identity(backend: &MemoryBackend<()>, account_id: &Id) -> Id {
     backend.register_account(account_id);
     let identity = |id: &Id| Identity::new(id.clone(), "Jane_Sender@example.org", true);
     let (identity_id, _) = backend
@@ -88,7 +88,7 @@ async fn setup_identity(backend: &MemoryBackend, account_id: &Id) -> Id {
 /// - After the call, fetching the email shows `$mdnsent: true`.
 #[tokio::test]
 async fn mdn_send_success() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let email_id = setup_mdn_email(&backend, &account_id).await;
@@ -189,7 +189,7 @@ async fn mdn_send_success() {
 /// Wire error type: `mdnAlreadySent` (spec §2.1).
 #[tokio::test]
 async fn mdn_send_already_sent() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let email_id = setup_mdn_email(&backend, &account_id).await;
@@ -255,7 +255,7 @@ async fn mdn_send_already_sent() {
 /// in `notSent` for any entry whose referenced email does not exist.
 #[tokio::test]
 async fn mdn_send_email_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let identity_id = setup_identity(&backend, &account_id).await;
@@ -310,7 +310,7 @@ async fn mdn_send_email_not_found() {
 #[tokio::test]
 async fn mdn_send_unknown_account_returns_account_not_found() {
     // Fresh backend with no data — "ghost-account" has never had any objects stored.
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = serde_json::json!({
         "accountId": "ghost-account",
@@ -349,7 +349,7 @@ async fn mdn_send_unknown_account_returns_account_not_found() {
 /// `accountId` in a method call does not correspond to a valid account.
 #[tokio::test]
 async fn mdn_parse_unknown_account_returns_account_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = serde_json::json!({
         "accountId": "ghost-account",
@@ -375,7 +375,7 @@ async fn mdn_parse_unknown_account_returns_account_not_found() {
 /// for each entry in `send`.  The whole request is rejected with `invalidArguments`.
 #[tokio::test]
 async fn mdn_send_missing_mdnsent_patch() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let email_id = setup_mdn_email(&backend, &account_id).await;
@@ -422,7 +422,7 @@ async fn mdn_send_missing_mdnsent_patch() {
 /// `send` is non-empty.  The whole request is rejected with `invalidArguments`.
 #[tokio::test]
 async fn mdn_send_null_on_success() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let email_id = setup_mdn_email(&backend, &account_id).await;
@@ -476,7 +476,7 @@ async fn mdn_send_null_on_success() {
 /// - `Reporting-UA: joes-pc.cs.example.com; Foomail 97.1`
 #[tokio::test]
 async fn mdn_parse_valid() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     setup_identity(&backend, &account_id).await;
 
@@ -549,7 +549,7 @@ async fn mdn_parse_valid() {
 /// appear in `notFound`; `parsed` and `notParsable` are absent (null).
 #[tokio::test]
 async fn mdn_parse_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     setup_identity(&backend, &account_id).await;
 
@@ -600,7 +600,7 @@ async fn mdn_parse_not_found() {
 /// not parsable.
 #[tokio::test]
 async fn mdn_parse_not_parsable() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     setup_identity(&backend, &account_id).await;
 
@@ -652,7 +652,7 @@ async fn mdn_parse_not_parsable() {
 /// A null/absent forEmailId must produce per-entry invalidProperties, not a whole-request error.
 #[tokio::test]
 async fn mdn_send_null_for_email_id() {
-    let backend = MemoryBackend::default();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     // Identity must exist so the request passes the identity check and reaches
@@ -706,7 +706,7 @@ async fn mdn_send_null_for_email_id() {
 /// exceed the cap; the handler MUST short-circuit before any per-blob work.
 #[tokio::test]
 async fn mdn_parse_blob_ids_over_default_cap_returns_request_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     // Ensure the account exists so we don't hit accountNotFound first.
     let _ = setup_mdn_email(&backend, &account_id).await;
@@ -736,7 +736,7 @@ async fn mdn_parse_blob_ids_over_default_cap_returns_request_too_large() {
 #[tokio::test]
 async fn mdn_send_multiline_text_body() {
     async fn send(text_body: &str, subject: &str) -> serde_json::Value {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let account_id = Id::from("account1");
         let email_id = setup_mdn_email(&backend, &account_id).await;
         let identity_id = setup_identity(&backend, &account_id).await;

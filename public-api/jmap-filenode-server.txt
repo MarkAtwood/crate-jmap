@@ -19,7 +19,7 @@ pub fn jmap_filenode_server::memory::MemoryBackend<C>::with_account(self, &jmap_
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::with_account_owner(self, &jmap_types::id::Id, &jmap_types::id::Id) -> Self
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::with_max_file_node_depth(self, u64) -> Self
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::with_metadata_info(self, &str, jmap_metadata_types::capability::DataTypeMetadataInfo) -> Self
-impl<C: jmap_filenode_server::memory::MemoryCaller> jmap_filenode_server::FileNodeBackend for jmap_filenode_server::memory::MemoryBackend<C>
+impl<C: jmap_server::caller::MemoryCaller> jmap_filenode_server::FileNodeBackend for jmap_filenode_server::memory::MemoryBackend<C>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::blob_exists(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::blob_sha256(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_cid_types::digest::Sha256>, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::cid_advertised(&self, &C, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
@@ -37,21 +37,21 @@ pub async fn jmap_filenode_server::memory::MemoryBackend<C>::may_destroy(&self, 
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::query_subtree(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id], u64) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>
-impl<C: jmap_filenode_server::memory::MemoryCaller> jmap_server::backend::JmapAccounts for jmap_filenode_server::memory::MemoryBackend<C>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapAccounts for jmap_filenode_server::memory::MemoryBackend<C>
 pub type jmap_filenode_server::memory::MemoryBackend<C>::CallerCtx = C
 pub type jmap_filenode_server::memory::MemoryBackend<C>::Error = jmap_filenode_server::memory::MemoryError
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::account_exists(&self, &C, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::metadata_info<O: jmap_types::backend::JmapObject>(&self, &C, &jmap_types::id::Id) -> core::option::Option<jmap_metadata_types::capability::DataTypeMetadataInfo>
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::principal_id(&C) -> core::option::Option<&jmap_types::id::Id>
-impl<C: jmap_filenode_server::memory::MemoryCaller> jmap_server::backend::JmapReads for jmap_filenode_server::memory::MemoryBackend<C>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapReads for jmap_filenode_server::memory::MemoryBackend<C>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<Self::Error>>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<Self::Error>>
-impl<C: jmap_filenode_server::memory::MemoryCaller> jmap_server::conditional::ConditionalBackend for jmap_filenode_server::memory::MemoryBackend<C>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::conditional::ConditionalBackend for jmap_filenode_server::memory::MemoryBackend<C>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::begin_set(&self, &C, jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_filenode_server::memory::MemoryError>>
-impl<C: jmap_filenode_server::memory::MemoryCaller> jmap_server::history::ObjectHistoryBackend for jmap_filenode_server::memory::MemoryBackend<C>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::history::ObjectHistoryBackend for jmap_filenode_server::memory::MemoryBackend<C>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::get_object_history<O: jmap_object_history_types::HistoryObject>(&self, &C, &jmap_types::id::Id, jmap_server::history::HistoryGetParams<'_>) -> core::result::Result<jmap_server::history::HistoryGetResult<O>, jmap_server::backend::BackendQueryError<jmap_filenode_server::memory::MemoryError>>
 pub fn jmap_filenode_server::memory::MemoryBackend<C>::object_history_capability(&self, &C, &jmap_types::id::Id) -> core::option::Option<jmap_object_history_types::ObjectHistoryAccountCapability>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::query_destroyed<O: jmap_object_history_types::HistoryObject + jmap_types::backend::QueryObject>(&self, &C, &jmap_types::id::Id, jmap_server::history::DestroyedQueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_filenode_server::memory::MemoryError>>
@@ -70,12 +70,6 @@ impl core::fmt::Debug for jmap_filenode_server::memory::MemoryError
 pub fn jmap_filenode_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_filenode_server::memory::MemoryError
 pub fn jmap_filenode_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-pub trait jmap_filenode_server::memory::MemoryCaller: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static
-pub fn jmap_filenode_server::memory::MemoryCaller::principal(&self) -> core::option::Option<&jmap_types::id::Id>
-impl jmap_filenode_server::memory::MemoryCaller for ()
-pub fn ()::principal(&self) -> core::option::Option<&jmap_types::id::Id>
-impl jmap_filenode_server::memory::MemoryCaller for jmap_types::id::Id
-pub fn jmap_types::id::Id::principal(&self) -> core::option::Option<&jmap_types::id::Id>
 #[non_exhaustive] pub enum jmap_filenode_server::CaseFolding
 pub jmap_filenode_server::CaseFolding::Insensitive
 pub jmap_filenode_server::CaseFolding::Sensitive
@@ -110,7 +104,7 @@ pub fn jmap_filenode_server::FileNodeBackend::may_destroy(&self, &Self::CallerCt
 pub fn jmap_filenode_server::FileNodeBackend::query_subtree(&self, &Self::CallerCtx, &jmap_types::id::Id, &[jmap_types::id::Id], u64) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_types::id::Id>, jmap_server::backend::BackendQueryError<Self::Error>>> + core::marker::Send
 pub fn jmap_filenode_server::FileNodeBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub fn jmap_filenode_server::FileNodeBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
-impl<C: jmap_filenode_server::memory::MemoryCaller> jmap_filenode_server::FileNodeBackend for jmap_filenode_server::memory::MemoryBackend<C>
+impl<C: jmap_server::caller::MemoryCaller> jmap_filenode_server::FileNodeBackend for jmap_filenode_server::memory::MemoryBackend<C>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::blob_exists(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::blob_sha256(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_cid_types::digest::Sha256>, Self::Error>
 pub async fn jmap_filenode_server::memory::MemoryBackend<C>::cid_advertised(&self, &C, &jmap_types::id::Id) -> core::result::Result<bool, Self::Error>

@@ -19,8 +19,8 @@ use serde_json::{Value, json};
 
 /// A backend holding one Space whose only member is someone other than
 /// the owner, so the owner (accountId) is a non-member.
-fn foreign_space(previewable: bool) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn foreign_space(previewable: bool) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",
@@ -43,7 +43,7 @@ fn foreign_space(previewable: bool) -> MemoryBackend {
     backend
 }
 
-async fn get_space(backend: &MemoryBackend, id: &str) -> Value {
+async fn get_space(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &(),
@@ -111,7 +111,7 @@ async fn owner_without_identity_non_member_previewable_space_is_restricted() {
 /// and `roles`, is returned.
 #[tokio::test]
 async fn owner_without_identity_sees_full_view_of_created_space() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let HandlerOutput {
         primary: created, ..

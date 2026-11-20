@@ -32,22 +32,26 @@ fn using_without_i18n() -> Vec<String> {
     ]
 }
 
-fn backend() -> MemoryBackend {
-    MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID))
+fn backend() -> MemoryBackend<()> {
+    MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT_ID))
 }
 
 fn error_type(err: JmapError) -> Value {
     serde_json::to_value(&err).unwrap()["type"].clone()
 }
 
-async fn set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     handle_address_book_set(backend, &(), args, using)
         .await
         .unwrap()
         .primary
 }
 
-async fn get(backend: &MemoryBackend, args: Value, using: &[String]) -> Result<Value, JmapError> {
+async fn get(
+    backend: &MemoryBackend<()>,
+    args: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     handle_address_book_get(backend, &(), args, using)
@@ -58,7 +62,7 @@ async fn get(backend: &MemoryBackend, args: Value, using: &[String]) -> Result<V
 /// Create the book of Appendix A ("Team contacts", which the draft does
 /// not name; the base name is this test's choice) and run the Appendix
 /// A.1 update on it. Returns its id.
-async fn appendix_a_book(backend: &MemoryBackend) -> String {
+async fn appendix_a_book(backend: &MemoryBackend<()>) -> String {
     let resp = set(
         backend,
         json!({ "accountId": ACCOUNT_ID, "create": { "c": { "name": "Team contacts" } } }),

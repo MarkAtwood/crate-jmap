@@ -62,7 +62,7 @@ const OWN_REPLY: &str = "01J0000000000000000000000F";
 /// accountId as `senderId`.
 const OTHER_SENDER: &str = "contact-bob";
 
-async fn create_group(backend: &MemoryBackend) -> String {
+async fn create_group(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
@@ -83,7 +83,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
 
 /// Seed one stored Message with a fixed id.
 fn seed_message(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     id: &str,
     chat_id: &str,
     reply_to: Option<&str>,
@@ -93,7 +93,7 @@ fn seed_message(
 }
 
 fn seed_message_from(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     sender_id: &str,
     id: &str,
     chat_id: &str,
@@ -132,7 +132,7 @@ fn seed_message_from(
 ///
 /// plus OTHER_CHAT_MSG in a second Chat, and a ReadPosition for the
 /// first Chat with `lastReadMessageId` = A.
-async fn fixture(backend: &MemoryBackend) -> (String, String) {
+async fn fixture(backend: &MemoryBackend<()>) -> (String, String) {
     let chat = create_group(backend).await;
     let other = create_group(backend).await;
     seed_message(backend, ROOT, &chat, None, None);
@@ -154,11 +154,11 @@ async fn fixture(backend: &MemoryBackend) -> (String, String) {
     (chat, other)
 }
 
-fn threads_on(backend: &MemoryBackend) {
+fn threads_on(backend: &MemoryBackend<()>) {
     backend.set_limits_for_test(Some(ChatLimits::default().with_supports_threads(true)));
 }
 
-async fn create(backend: &MemoryBackend, obj: Value) -> Value {
+async fn create(backend: &MemoryBackend<()>, obj: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
@@ -185,7 +185,7 @@ fn reply(chat: &str, reply_to: &str, root: Option<&str>) -> Value {
     obj
 }
 
-async fn get(backend: &MemoryBackend, ids: &[&str]) -> Vec<Value> {
+async fn get(backend: &MemoryBackend<()>, ids: &[&str]) -> Vec<Value> {
     let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
@@ -323,7 +323,7 @@ async fn thread_root_id_filter_with_supports_threads() {
 // (L638-642), so a write that changes them must list the Message.
 // ---------------------------------------------------------------------------
 
-async fn message_state(backend: &MemoryBackend) -> String {
+async fn message_state(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
@@ -335,7 +335,7 @@ async fn message_state(backend: &MemoryBackend) -> String {
     resp["state"].as_str().expect("state").to_owned()
 }
 
-async fn message_changes(backend: &MemoryBackend, since: &str) -> Value {
+async fn message_changes(backend: &MemoryBackend<()>, since: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_changes(
         backend,
         &(),

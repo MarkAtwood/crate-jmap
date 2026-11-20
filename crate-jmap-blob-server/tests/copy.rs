@@ -21,15 +21,15 @@ use serde_json::{Value, json};
 const CORE: &str = "urn:ietf:params:jmap:core";
 const BLOB2: &str = "urn:ietf:params:jmap:blob2";
 
-fn backend() -> Arc<MemoryBackend> {
+fn backend() -> Arc<MemoryBackend<()>> {
     Arc::new(
-        MemoryBackend::new()
+        MemoryBackend::<()>::default()
             .with_account(&Id::from("A1"))
             .with_account(&Id::from("A2")),
     )
 }
 
-async fn dispatch(b: Arc<MemoryBackend>, using: &[&str], calls: Value) -> Vec<Value> {
+async fn dispatch(b: Arc<MemoryBackend<()>>, using: &[&str], calls: Value) -> Vec<Value> {
     let mut d = Dispatcher::new();
     register_blob_handlers(&mut d, b);
     let req: JmapRequest =
@@ -45,7 +45,7 @@ fn args<'a>(resp: &'a [Value], i: usize, name: &str) -> &'a Value {
 }
 
 /// Blob/get of `id` in A2 (a later request on the same store).
-async fn get_in_a2(b: &Arc<MemoryBackend>, id: &Value) -> Value {
+async fn get_in_a2(b: &Arc<MemoryBackend<()>>, id: &Value) -> Value {
     let resp = dispatch(
         Arc::clone(b),
         &[CORE, BLOB2],

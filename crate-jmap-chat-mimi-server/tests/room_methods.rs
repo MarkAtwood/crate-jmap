@@ -199,7 +199,7 @@ fn capability(user_uri: &str) -> MimiCapability {
 
 /// Publish a fresh KeyPackage for `account` and hand it out through
 /// `claim_key_packages`, as the hub's key material request would.
-async fn claimed_key_package(backend: &MemoryBackend<RustCrypto>, account: &str) -> KeyPackage {
+async fn claimed_key_package(backend: &MemoryBackend<RustCrypto, ()>, account: &str) -> KeyPackage {
     let user = backend
         .mimi_capability(&(), &Id::from(account))
         .await
@@ -253,8 +253,8 @@ async fn claimed_key_package(backend: &MemoryBackend<RustCrypto>, account: &str)
 /// Local accounts b1 (Bob), c1 (Carol) and d1 (Dave). A remote member of
 /// the room hosted by HUB adds Bob and Carol, so b1 and c1 each have a
 /// Chat bound to ROOM holding the Welcome; d1 has no Chat for it.
-async fn backend() -> MemoryBackend<RustCrypto> {
-    let backend = MemoryBackend::new(RustCrypto::default());
+async fn backend() -> MemoryBackend<RustCrypto, ()> {
+    let backend = MemoryBackend::<_, ()>::with_crypto(RustCrypto::default());
     for (id, user) in [
         ("b1", BOB),
         ("c1", CAROL),
@@ -290,7 +290,7 @@ async fn backend() -> MemoryBackend<RustCrypto> {
     backend
 }
 
-fn messages(backend: &MemoryBackend<RustCrypto>, account: &str) -> Vec<Value> {
+fn messages(backend: &MemoryBackend<RustCrypto, ()>, account: &str) -> Vec<Value> {
     backend
         .room_chat_id(&Id::from(account), ROOM)
         .map(|id| backend.room_messages(&id))
@@ -302,7 +302,7 @@ fn reply(body: Vec<u8>) -> Result<HubReply, HubUnavailable> {
 }
 
 async fn update(
-    backend: &MemoryBackend<RustCrypto>,
+    backend: &MemoryBackend<RustCrypto, ()>,
     account: &str,
     request: &[u8],
 ) -> Result<Value, String> {
@@ -317,7 +317,7 @@ async fn update(
 }
 
 async fn send(
-    backend: &MemoryBackend<RustCrypto>,
+    backend: &MemoryBackend<RustCrypto, ()>,
     account: &str,
     message: &[u8],
 ) -> Result<Value, String> {
@@ -332,7 +332,7 @@ async fn send(
 }
 
 async fn group_info(
-    backend: &MemoryBackend<RustCrypto>,
+    backend: &MemoryBackend<RustCrypto, ()>,
     account: &str,
     request: &[u8],
 ) -> Result<Value, String> {
@@ -347,7 +347,7 @@ async fn group_info(
 }
 
 async fn key_material(
-    backend: &MemoryBackend<RustCrypto>,
+    backend: &MemoryBackend<RustCrypto, ()>,
     account: &str,
     request: &[u8],
 ) -> Result<Value, String> {
@@ -361,7 +361,7 @@ async fn key_material(
     .map_err(|e| e.error_type.to_string())
 }
 
-async fn unbind(backend: &MemoryBackend<RustCrypto>, account: &str) -> Result<Value, String> {
+async fn unbind(backend: &MemoryBackend<RustCrypto, ()>, account: &str) -> Result<Value, String> {
     handle_room_unbind(
         backend,
         &(),

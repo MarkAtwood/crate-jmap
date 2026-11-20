@@ -3,36 +3,39 @@ pub use jmap_chat_mimi_server::JMAP_CHAT_MIMI_URI
 pub use jmap_chat_mimi_server::openmls
 pub use jmap_chat_mimi_server::openmls_rust_crypto
 pub mod jmap_chat_mimi_server::memory
-#[non_exhaustive] pub struct jmap_chat_mimi_server::memory::MemoryBackend<C>
-impl<C> jmap_chat_mimi_server::memory::MemoryBackend<C>
-pub fn jmap_chat_mimi_server::memory::MemoryBackend<C>::new(C) -> Self
-impl<C: core::marker::Send + core::marker::Sync + 'static> jmap_server::backend::JmapAccounts for jmap_chat_mimi_server::memory::MemoryBackend<C>
-pub type jmap_chat_mimi_server::memory::MemoryBackend<C>::CallerCtx = ()
-pub type jmap_chat_mimi_server::memory::MemoryBackend<C>::Error = jmap_chat_mimi_server::memory::MemoryError
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::account_exists(&self, &(), &jmap_types::id::Id) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
-impl<C: core::marker::Send + core::marker::Sync + 'static> jmap_server::backend::JmapReads for jmap_chat_mimi_server::memory::MemoryBackend<C>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_chat_mimi_server::memory::MemoryError>>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_chat_mimi_server::memory::MemoryError>>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_chat_mimi_server::memory::MemoryError>>
-impl<C: core::marker::Send + core::marker::Sync + 'static> jmap_server::conditional::ConditionalBackend for jmap_chat_mimi_server::memory::MemoryBackend<C> where jmap_chat_mimi_server::memory::MemoryBackend<C>: jmap_server::backend::JmapBackend<CallerCtx = (), Error = jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::begin_set(&self, &(), jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_chat_mimi_server::memory::MemoryError>>
-impl<C: openmls_traits::crypto::OpenMlsCrypto + core::marker::Send + core::marker::Sync + 'static> jmap_chat_mimi_server::MimiBackend for jmap_chat_mimi_server::memory::MemoryBackend<C>
-pub type jmap_chat_mimi_server::memory::MemoryBackend<C>::Crypto = C
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::claim_key_packages(&self, &(), &jmap_types::id::Id, &jmap_chat_mimi_server::KeyMaterialRequirements) -> core::result::Result<alloc::vec::Vec<jmap_chat_mimi_types::keymaterial::ClientKeyMaterial>, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::create_key_package(&self, &(), &jmap_types::id::Id, jmap_chat_mimi_server::NewKeyPackage, u64) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::create_room(&self, &(), &jmap_types::id::Id, jmap_chat_mimi_server::NewRoom) -> core::result::Result<core::result::Result<jmap_types::id::Id, jmap_types::error::JmapError>, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::destroy_key_package(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::local_key_material_account(&self, &(), &str, &str) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::mimi_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_chat_mimi_types::capability::MimiCapability, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::mimi_request(&self, &(), &jmap_types::id::Id, &str, &jmap_chat_mimi_server::MimiEndpoint, &[u8]) -> core::result::Result<core::result::Result<jmap_chat_mimi_server::HubReply, jmap_chat_mimi_server::HubUnavailable>, jmap_chat_mimi_server::memory::MemoryError>
-pub fn jmap_chat_mimi_server::memory::MemoryBackend<C>::mls_crypto(&self) -> &C
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::room_bound(&self, &(), &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::store_fanout(&self, &str, &str, &jmap_chat_mimi_server::Fanout) -> core::result::Result<(), jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::unbind_room(&self, &(), &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
-impl<C> core::clone::Clone for jmap_chat_mimi_server::memory::MemoryBackend<C>
-pub fn jmap_chat_mimi_server::memory::MemoryBackend<C>::clone(&self) -> Self
+#[non_exhaustive] pub struct jmap_chat_mimi_server::memory::MemoryBackend<P, C>
+impl<P, C> jmap_chat_mimi_server::memory::MemoryBackend<P, C>
+pub fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::with_crypto(P) -> Self
+impl<P> jmap_chat_mimi_server::memory::MemoryBackend<P>
+pub fn jmap_chat_mimi_server::memory::MemoryBackend<P>::new(P) -> Self
+impl<P, C> core::clone::Clone for jmap_chat_mimi_server::memory::MemoryBackend<P, C>
+pub fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::clone(&self) -> Self
+impl<P: core::marker::Send + core::marker::Sync + 'static, C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapAccounts for jmap_chat_mimi_server::memory::MemoryBackend<P, C>
+pub type jmap_chat_mimi_server::memory::MemoryBackend<P, C>::CallerCtx = C
+pub type jmap_chat_mimi_server::memory::MemoryBackend<P, C>::Error = jmap_chat_mimi_server::memory::MemoryError
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::account_exists(&self, &C, &jmap_types::id::Id) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
+pub fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::principal_id(&C) -> core::option::Option<&jmap_types::id::Id>
+impl<P: core::marker::Send + core::marker::Sync + 'static, C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapReads for jmap_chat_mimi_server::memory::MemoryBackend<P, C>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_chat_mimi_server::memory::MemoryError>>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_chat_mimi_server::memory::MemoryError>>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_chat_mimi_server::memory::MemoryError>>
+impl<P: core::marker::Send + core::marker::Sync + 'static, C: jmap_server::caller::MemoryCaller> jmap_server::conditional::ConditionalBackend for jmap_chat_mimi_server::memory::MemoryBackend<P, C> where jmap_chat_mimi_server::memory::MemoryBackend<P, C>: jmap_server::backend::JmapBackend<CallerCtx = C, Error = jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::begin_set(&self, &C, jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_chat_mimi_server::memory::MemoryError>>
+impl<P: openmls_traits::crypto::OpenMlsCrypto + core::marker::Send + core::marker::Sync + 'static, C: jmap_server::caller::MemoryCaller> jmap_chat_mimi_server::MimiBackend for jmap_chat_mimi_server::memory::MemoryBackend<P, C>
+pub type jmap_chat_mimi_server::memory::MemoryBackend<P, C>::Crypto = P
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::claim_key_packages(&self, &C, &jmap_types::id::Id, &jmap_chat_mimi_server::KeyMaterialRequirements) -> core::result::Result<alloc::vec::Vec<jmap_chat_mimi_types::keymaterial::ClientKeyMaterial>, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::create_key_package(&self, &C, &jmap_types::id::Id, jmap_chat_mimi_server::NewKeyPackage, u64) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::create_room(&self, &C, &jmap_types::id::Id, jmap_chat_mimi_server::NewRoom) -> core::result::Result<core::result::Result<jmap_types::id::Id, jmap_types::error::JmapError>, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::destroy_key_package(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::local_key_material_account(&self, &C, &str, &str) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::mimi_capability(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_chat_mimi_types::capability::MimiCapability, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::mimi_request(&self, &C, &jmap_types::id::Id, &str, &jmap_chat_mimi_server::MimiEndpoint, &[u8]) -> core::result::Result<core::result::Result<jmap_chat_mimi_server::HubReply, jmap_chat_mimi_server::HubUnavailable>, jmap_chat_mimi_server::memory::MemoryError>
+pub fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::mls_crypto(&self) -> &P
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::room_bound(&self, &C, &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::store_fanout(&self, &str, &str, &jmap_chat_mimi_server::Fanout) -> core::result::Result<(), jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::unbind_room(&self, &C, &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
 #[non_exhaustive] pub struct jmap_chat_mimi_server::memory::MemoryError
 impl jmap_chat_mimi_server::memory::MemoryError
 pub fn jmap_chat_mimi_server::memory::MemoryError::description(&self) -> &str
@@ -188,19 +191,19 @@ pub fn jmap_chat_mimi_server::MimiBackend::mls_crypto(&self) -> &Self::Crypto
 pub fn jmap_chat_mimi_server::MimiBackend::room_bound(&self, &Self::CallerCtx, &jmap_types::id::Id, &str) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_chat_mimi_server::MimiBackend::store_fanout(&self, &str, &str, &jmap_chat_mimi_server::Fanout) -> impl core::future::future::Future<Output = core::result::Result<(), Self::Error>> + core::marker::Send
 pub fn jmap_chat_mimi_server::MimiBackend::unbind_room(&self, &Self::CallerCtx, &jmap_types::id::Id, &str) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
-impl<C: openmls_traits::crypto::OpenMlsCrypto + core::marker::Send + core::marker::Sync + 'static> jmap_chat_mimi_server::MimiBackend for jmap_chat_mimi_server::memory::MemoryBackend<C>
-pub type jmap_chat_mimi_server::memory::MemoryBackend<C>::Crypto = C
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::claim_key_packages(&self, &(), &jmap_types::id::Id, &jmap_chat_mimi_server::KeyMaterialRequirements) -> core::result::Result<alloc::vec::Vec<jmap_chat_mimi_types::keymaterial::ClientKeyMaterial>, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::create_key_package(&self, &(), &jmap_types::id::Id, jmap_chat_mimi_server::NewKeyPackage, u64) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::create_room(&self, &(), &jmap_types::id::Id, jmap_chat_mimi_server::NewRoom) -> core::result::Result<core::result::Result<jmap_types::id::Id, jmap_types::error::JmapError>, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::destroy_key_package(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::local_key_material_account(&self, &(), &str, &str) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::mimi_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_chat_mimi_types::capability::MimiCapability, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::mimi_request(&self, &(), &jmap_types::id::Id, &str, &jmap_chat_mimi_server::MimiEndpoint, &[u8]) -> core::result::Result<core::result::Result<jmap_chat_mimi_server::HubReply, jmap_chat_mimi_server::HubUnavailable>, jmap_chat_mimi_server::memory::MemoryError>
-pub fn jmap_chat_mimi_server::memory::MemoryBackend<C>::mls_crypto(&self) -> &C
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::room_bound(&self, &(), &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::store_fanout(&self, &str, &str, &jmap_chat_mimi_server::Fanout) -> core::result::Result<(), jmap_chat_mimi_server::memory::MemoryError>
-pub async fn jmap_chat_mimi_server::memory::MemoryBackend<C>::unbind_room(&self, &(), &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
+impl<P: openmls_traits::crypto::OpenMlsCrypto + core::marker::Send + core::marker::Sync + 'static, C: jmap_server::caller::MemoryCaller> jmap_chat_mimi_server::MimiBackend for jmap_chat_mimi_server::memory::MemoryBackend<P, C>
+pub type jmap_chat_mimi_server::memory::MemoryBackend<P, C>::Crypto = P
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::claim_key_packages(&self, &C, &jmap_types::id::Id, &jmap_chat_mimi_server::KeyMaterialRequirements) -> core::result::Result<alloc::vec::Vec<jmap_chat_mimi_types::keymaterial::ClientKeyMaterial>, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::create_key_package(&self, &C, &jmap_types::id::Id, jmap_chat_mimi_server::NewKeyPackage, u64) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::create_room(&self, &C, &jmap_types::id::Id, jmap_chat_mimi_server::NewRoom) -> core::result::Result<core::result::Result<jmap_types::id::Id, jmap_types::error::JmapError>, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::destroy_key_package(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_chat_mimi_server::memory::MemoryError>>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::local_key_material_account(&self, &C, &str, &str) -> core::result::Result<core::option::Option<jmap_types::id::Id>, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::mimi_capability(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_chat_mimi_types::capability::MimiCapability, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::mimi_request(&self, &C, &jmap_types::id::Id, &str, &jmap_chat_mimi_server::MimiEndpoint, &[u8]) -> core::result::Result<core::result::Result<jmap_chat_mimi_server::HubReply, jmap_chat_mimi_server::HubUnavailable>, jmap_chat_mimi_server::memory::MemoryError>
+pub fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::mls_crypto(&self) -> &P
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::room_bound(&self, &C, &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::store_fanout(&self, &str, &str, &jmap_chat_mimi_server::Fanout) -> core::result::Result<(), jmap_chat_mimi_server::memory::MemoryError>
+pub async fn jmap_chat_mimi_server::memory::MemoryBackend<P, C>::unbind_room(&self, &C, &jmap_types::id::Id, &str) -> core::result::Result<bool, jmap_chat_mimi_server::memory::MemoryError>
 pub fn jmap_chat_mimi_server::check_key_package_create<C: openmls_traits::crypto::OpenMlsCrypto>(&C, &jmap_chat_mimi_types::capability::MimiCapability, &jmap_chat_mimi_types::keypackage::KeyPackageCreate) -> core::result::Result<jmap_chat_mimi_server::NewKeyPackage, alloc::boxed::Box<jmap_types::set_error::SetError>>
 pub fn jmap_chat_mimi_server::check_room_create<C: openmls_traits::crypto::OpenMlsCrypto>(&C, &jmap_chat_mimi_types::capability::MimiCapability, &jmap_chat_mimi_types::base64url::Base64Url, &jmap_chat_mimi_types::base64url::Base64Url) -> core::result::Result<jmap_chat_mimi_server::NewRoom, jmap_types::error::JmapError>
 pub fn jmap_chat_mimi_server::group_id_in_use() -> jmap_types::error::JmapError

@@ -18,14 +18,14 @@ use serde_json::Value;
 /// `inner`.
 #[derive(Clone, Default)]
 struct Wrapper {
-    inner: MemoryBackend,
+    inner: MemoryBackend<()>,
 }
 
 macro_rules! delegate {
     ($($tr:ident => $acc:ident),* $(,)?) => {$(
         impl $tr for Wrapper {
-            type Target = MemoryBackend;
-            fn $acc(&self) -> &MemoryBackend {
+            type Target = MemoryBackend<()>;
+            fn $acc(&self) -> &MemoryBackend<()> {
                 &self.inner
             }
         }

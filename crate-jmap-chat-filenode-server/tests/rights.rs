@@ -138,7 +138,7 @@ impl Fixture {
         let node = self.node(id).await;
         space_files_rights(
             &self.chat,
-            &(),
+            &owner(),
             &self.files,
             &owner(),
             &Id::from(ACCOUNT),
@@ -154,7 +154,7 @@ impl Fixture {
         let node: FileNode = serde_json::from_value(node).expect("FileNode fixture");
         let result = check_space_create(
             &self.chat,
-            &(),
+            &owner(),
             &self.files,
             &owner(),
             &Id::from(ACCOUNT),
@@ -173,7 +173,7 @@ impl Fixture {
         };
         let result = check_space_update(
             &self.chat,
-            &(),
+            &owner(),
             &self.files,
             &owner(),
             &Id::from(ACCOUNT),
@@ -190,7 +190,7 @@ impl Fixture {
         let node = self.node(id).await;
         let result = check_space_destroy(
             &self.chat,
-            &(),
+            &owner(),
             &self.files,
             &owner(),
             &Id::from(ACCOUNT),
@@ -340,8 +340,15 @@ async fn chat_backend_error_is_root_check_error_chat() {
     f.chat
         .insert_object_for_test("Space", ACCOUNT, SPACE, json!({ "id": SPACE }));
     let node = f.node("docs").await;
-    let result =
-        space_files_rights(&f.chat, &(), &f.files, &owner(), &Id::from(ACCOUNT), &node).await;
+    let result = space_files_rights(
+        &f.chat,
+        &owner(),
+        &f.files,
+        &owner(),
+        &Id::from(ACCOUNT),
+        &node,
+    )
+    .await;
     assert!(matches!(result, Err(RootCheckError::Chat(_))), "{result:?}");
 }
 

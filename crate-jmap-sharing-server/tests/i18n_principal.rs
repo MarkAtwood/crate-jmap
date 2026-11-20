@@ -38,7 +38,7 @@ fn error_type(err: JmapError) -> Value {
 }
 
 /// A room with a French name and no French description.
-async fn room(backend: &MemoryBackend) -> String {
+async fn room(backend: &MemoryBackend<()>) -> String {
     let principal = |id: &Id| -> Principal {
         serde_json::from_value(json!({
             "id": id,
@@ -64,7 +64,7 @@ async fn room(backend: &MemoryBackend) -> String {
 /// §4.2.1 on Principal/get, including a null localized `description`.
 #[tokio::test]
 async fn get_with_language() {
-    let backend = MemoryBackend::new_with_accounts(&[ACCOUNT_ID]);
+    let backend = MemoryBackend::<()>::new_with_accounts(&[ACCOUNT_ID]);
     let id = room(&backend).await;
     let resp = handle_principal_get(
         &backend,
@@ -88,7 +88,7 @@ async fn get_with_language() {
 /// the language and a mismatch is cannotCalculateChanges.
 #[tokio::test]
 async fn query_state_records_language() {
-    let backend = MemoryBackend::new_with_accounts(&[ACCOUNT_ID]);
+    let backend = MemoryBackend::<()>::new_with_accounts(&[ACCOUNT_ID]);
     room(&backend).await;
     let q = handle_principal_query(
         &backend,
@@ -127,7 +127,7 @@ async fn query_state_records_language() {
 /// Principal/query, and `/set` naming `localizations` is invalidProperties.
 #[tokio::test]
 async fn without_capability() {
-    let backend = MemoryBackend::new_with_accounts(&[ACCOUNT_ID]);
+    let backend = MemoryBackend::<()>::new_with_accounts(&[ACCOUNT_ID]);
     let id = room(&backend).await;
     let err = handle_principal_query(
         &backend,
@@ -157,7 +157,7 @@ async fn without_capability() {
 /// French (null) description; an i18n client gets `localizations` back.
 #[tokio::test]
 async fn rename_prunes_and_echoes() {
-    let backend = MemoryBackend::new_with_accounts(&[ACCOUNT_ID]);
+    let backend = MemoryBackend::<()>::new_with_accounts(&[ACCOUNT_ID]);
     let id = room(&backend).await;
     let resp = handle_principal_set(
         &backend,

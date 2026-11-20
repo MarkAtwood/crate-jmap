@@ -59,7 +59,7 @@ async fn call(d: &Dispatcher<()>, method: &str, mut args: Value) -> Value {
 async fn shared_store_references_and_destroy() {
     let acc = Id::from(A);
     let store = Arc::new(Store::default());
-    let b = MemoryBackend::new()
+    let b = MemoryBackend::<()>::default()
         .with_blob_store(Arc::clone(&store) as Arc<dyn ExternalBlobStore>)
         .with_account(&acc)
         .with_object_history(

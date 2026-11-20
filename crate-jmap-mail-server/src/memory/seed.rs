@@ -13,6 +13,8 @@ use std::collections::HashMap;
 use jmap_mail_types::{Keyword, Mailbox, MailboxRights, MailboxRole};
 use jmap_types::{Id, UTCDate};
 
+use jmap_server::MemoryCaller;
+
 use super::MemoryBackend;
 use crate::MailBackend;
 
@@ -248,11 +250,18 @@ fn multipart_alternative(headers: &[(&str, &str)], plain_body: &str, html_body: 
 /// emails. Returns the assigned Ids for all objects so callers can
 /// reference them in assertions.
 ///
+/// The fixture is written as the account owner, whatever the backend's
+/// caller context `C`.
+///
 /// # Panics
 ///
 /// Panics if any backend operation fails — this is test fixture setup code
 /// where a failure is a bug in the test environment, not in the code under test.
-pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedData {
+pub async fn setup_seed_data<C: MemoryCaller>(
+    backend: &MemoryBackend<C>,
+    account_id: &Id,
+) -> SeedData {
+    let backend = &backend.owner_view();
     let mut mailboxes: HashMap<&'static str, Id> = HashMap::new();
     let mut emails: HashMap<&'static str, Id> = HashMap::new();
     let mut threads: HashMap<&'static str, Id> = HashMap::new();

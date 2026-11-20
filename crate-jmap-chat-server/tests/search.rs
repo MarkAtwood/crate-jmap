@@ -48,8 +48,8 @@ fn message_search(max_depth: u64, supports_text: bool) -> SearchCapability {
 
 /// A backend with Chat `C1` holding three Messages: plain, Markdown, and
 /// plain with a reaction. Returns their ids in that order.
-async fn setup(cap: Option<SearchCapability>) -> (MemoryBackend, [String; 3]) {
-    let mut backend = MemoryBackend::new();
+async fn setup(cap: Option<SearchCapability>) -> (MemoryBackend<()>, [String; 3]) {
+    let mut backend = MemoryBackend::<()>::default();
     if let Some(cap) = cap {
         backend = backend.with_search_capability(cap);
     }
@@ -98,7 +98,7 @@ async fn setup(cap: Option<SearchCapability>) -> (MemoryBackend, [String; 3]) {
     (backend, ids)
 }
 
-async fn query(b: &MemoryBackend, filter: Value, using: &[String]) -> Result<Value, JmapError> {
+async fn query(b: &MemoryBackend<()>, filter: Value, using: &[String]) -> Result<Value, JmapError> {
     handle_message_query(
         b,
         &(),

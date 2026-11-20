@@ -21,7 +21,7 @@ fn emoji(id: &Id, name: &str) -> CustomEmoji {
     serde_json::from_value(v).expect("fixture must decode")
 }
 
-async fn create_n(backend: &MemoryBackend, account: &Id, n: usize) -> Vec<State> {
+async fn create_n(backend: &MemoryBackend<()>, account: &Id, n: usize) -> Vec<State> {
     let mut states = Vec::new();
     for i in 0..n {
         states.push(
@@ -43,7 +43,7 @@ async fn create_n(backend: &MemoryBackend, account: &Id, n: usize) -> Vec<State>
 #[tokio::test]
 async fn change_log_limit_drops_the_oldest_states() {
     let account = Id::from("a1");
-    let backend = MemoryBackend::new()
+    let backend = MemoryBackend::<()>::default()
         .with_account(&account)
         .with_change_log_limit(2);
     let states = create_n(&backend, &account, 4).await;
@@ -71,7 +71,7 @@ async fn change_log_limit_drops_the_oldest_states() {
 #[tokio::test]
 async fn without_a_limit_every_state_is_kept() {
     let account = Id::from("a1");
-    let backend = MemoryBackend::new().with_account(&account);
+    let backend = MemoryBackend::<()>::default().with_account(&account);
     let states = create_n(&backend, &account, 4).await;
     let all = backend
         .get_changes::<CustomEmoji>(&(), &account, ChangesParams::new(&states[0]))
@@ -82,7 +82,7 @@ async fn without_a_limit_every_state_is_kept() {
 
 #[tokio::test]
 async fn event_limit_keeps_the_newest_and_drains_are_public() {
-    let backend = MemoryBackend::new().with_event_limit(0);
+    let backend = MemoryBackend::<()>::default().with_event_limit(0);
     let account = Id::from("a1");
     backend.register_account(&account);
     let event = jmap_chat_server::OutboundEvent::NewMessage {
@@ -93,7 +93,7 @@ async fn event_limit_keeps_the_newest_and_drains_are_public() {
     backend.on_outbound_event(&(), &account, &event).await;
     assert!(backend.drain_outbound_events().is_empty());
 
-    let backend = MemoryBackend::new().with_event_limit(1);
+    let backend = MemoryBackend::<()>::default().with_event_limit(1);
     backend.on_outbound_event(&(), &account, &event).await;
     backend.on_outbound_event(&(), &account, &event).await;
     assert_eq!(backend.drain_outbound_events().len(), 1);

@@ -31,7 +31,7 @@ fn assert_invalid_property(entry: &Value, resp: &Value, property: &str) {
 
 #[tokio::test]
 async fn task_list_set_rejects_malformed_update_and_destroy_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args_with_account = |mut args: Value| {
@@ -52,7 +52,7 @@ async fn task_list_set_rejects_malformed_update_and_destroy_ids() {
 
 #[tokio::test]
 async fn task_set_rejects_malformed_task_list_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args = json!({
@@ -75,7 +75,7 @@ async fn task_set_rejects_malformed_task_list_id() {
 /// the backend, which reports RFC 8620 §5.3 `notFound` for the missing list.
 #[tokio::test]
 async fn task_list_set_rejects_malformed_share_with_keys() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args = json!({

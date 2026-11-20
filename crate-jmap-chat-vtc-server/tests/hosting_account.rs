@@ -114,7 +114,7 @@ fn event(mut raw: Value) -> VtcEvent {
 async fn delivers(ev: &VtcEvent) -> bool {
     should_deliver_vtc(
         &fixture(),
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(HOST),
         &Id::from(ACCOUNT),
         true,

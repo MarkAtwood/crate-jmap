@@ -716,7 +716,7 @@ async fn chat_typing_returns_success_when_contact_blocked() {
 }
 
 /// Seed a group chat `id` whose only member is `member_id`.
-fn seed_group_chat(backend: &MemoryBackend, id: &str, member_id: &str) {
+fn seed_group_chat(backend: &MemoryBackend<()>, id: &str, member_id: &str) {
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -1314,7 +1314,7 @@ async fn message_set_update_delete_for_all_purges_content() {
 
 /// Seed Message `m1` from `sender_id` with a body, an attachment, and one
 /// prior revision, so a delete has content to purge.
-fn insert_deletable_message(backend: &MemoryBackend, sender_id: &str) {
+fn insert_deletable_message(backend: &MemoryBackend<()>, sender_id: &str) {
     backend.set_retains_edit_history_for_test(true);
     backend.insert_object_for_test(
         "Message",
@@ -4611,7 +4611,7 @@ async fn space_set_update_unknown_property_rejected() {
 /// Chat/set channel-create path (which is part of bd:JMAP-g7wu.2.4.4 and
 /// not yet implemented).
 fn seed_channel(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     account_id: &str,
     chat_id: &str,
     space_id: &str,
@@ -5167,7 +5167,7 @@ async fn space_set_category_update_rename_and_reassign_channels() {
 
 /// Seed `space_id` with categories `cat-a` (holding channel `ch-m`) and
 /// `cat-b` (empty), consistent on both sides.
-async fn seed_two_categories(backend: &MemoryBackend, space_id: &str) {
+async fn seed_two_categories(backend: &MemoryBackend<()>, space_id: &str) {
     seed_channel(backend, ACCOUNT_ID, "ch-m", space_id, Some("cat-a"));
     let HandlerOutput {
         primary: get_resp, ..
@@ -8475,7 +8475,7 @@ async fn space_join_public_space_success() {
 
 /// Create a SpaceBan on the caller (`ACCOUNT_ID`, the owner's accountId)
 /// in `space_id`, optionally expiring at `expires_at`.
-async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<&str>) {
+async fn ban_caller(backend: &MemoryBackend<()>, space_id: &str, expires_at: Option<&str>) {
     let mut ban = json!({ "spaceId": space_id, "userId": ACCOUNT_ID });
     if let Some(e) = expires_at {
         ban["expiresAt"] = json!(e);
@@ -8495,7 +8495,7 @@ async fn ban_caller(backend: &MemoryBackend, space_id: &str, expires_at: Option<
 /// `Space/set` create makes the creator a member (draft-atwood-jmap-chat-00
 /// §Space/set "Creating a Space"), and `Space/join` rejects a caller who
 /// is already one.
-async fn clear_members(backend: &MemoryBackend, space_id: &str) {
+async fn clear_members(backend: &MemoryBackend<()>, space_id: &str) {
     let HandlerOutput {
         primary: get_resp, ..
     } = handle_space_get(
@@ -9372,7 +9372,7 @@ async fn apply_space_patch_direct_call_overquota_description_does_not_leak_count
 /// Helper: seed a Chat and a Message for hasMention filter tests.
 /// Returns the message id.
 fn seed_message_for_mention_test(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     msg_id: &str,
     mentions: serde_json::Value,
     broadcast_mentions: serde_json::Value,

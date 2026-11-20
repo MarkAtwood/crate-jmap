@@ -32,7 +32,7 @@ const FANOUT: &str = "application/mimi-fanout";
 const HUB: &str = "contact-hub";
 const SMID: &str = "01J00000000000000000000001";
 
-fn seed_group(backend: &MemoryBackend, id: &str) {
+fn seed_group(backend: &MemoryBackend<()>, id: &str) {
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -49,8 +49,8 @@ fn seed_group(backend: &MemoryBackend, id: &str) {
     );
 }
 
-fn setup() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn setup() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     seed_group(&backend, "g");
     seed_group(&backend, "h");
@@ -82,7 +82,7 @@ fn fanout(
     }
 }
 
-async fn messages(backend: &MemoryBackend) -> Value {
+async fn messages(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary, .. } = handle_message_get(
         backend,
         &(),
@@ -94,7 +94,7 @@ async fn messages(backend: &MemoryBackend) -> Value {
     primary
 }
 
-async fn positions(backend: &MemoryBackend) -> Vec<Value> {
+async fn positions(backend: &MemoryBackend<()>) -> Vec<Value> {
     let HandlerOutput { primary, .. } = handle_position_get(
         backend,
         &(),
@@ -106,7 +106,7 @@ async fn positions(backend: &MemoryBackend) -> Vec<Value> {
 }
 
 async fn store(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     chat_id: &str,
     sender_msg_id: &str,
     body: &str,

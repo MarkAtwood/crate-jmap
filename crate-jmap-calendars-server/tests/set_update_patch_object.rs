@@ -15,8 +15,8 @@ use serde_json::{Value, json};
 
 /// Seed `acc1` with event `ev1` holding one participant and one alert,
 /// and no `locations`.
-fn seeded_backend() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+fn seeded_backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "CalendarEvent",
@@ -48,7 +48,7 @@ fn seeded_backend() -> MemoryBackend {
 }
 
 /// Send one `update` for `ev1` and return the `/set` response.
-async fn update_ev1(backend: &MemoryBackend, patch: Value) -> Value {
+async fn update_ev1(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "ev1": patch } });
     handle_calendar_event_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
@@ -57,7 +57,7 @@ async fn update_ev1(backend: &MemoryBackend, patch: Value) -> Value {
 }
 
 /// Fetch `ev1` from the store via `CalendarEvent/get`.
-async fn get_ev1(backend: &MemoryBackend) -> Value {
+async fn get_ev1(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["ev1"] });
     let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(backend, &(), args, &[])
         .await
@@ -208,7 +208,7 @@ async fn wrong_typed_sequence_is_invalid_properties() {
 /// not set `updated` therefore reads back the base event's `updated`.
 #[tokio::test]
 async fn per_user_only_patch_keeps_base_updated() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "CalendarEvent",

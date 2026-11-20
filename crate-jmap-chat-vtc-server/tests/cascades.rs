@@ -42,7 +42,7 @@ async fn room_call(backend: &Bound, space_id: &str) -> String {
 async fn vtc_state(backend: &Bound) -> String {
     let HandlerOutput { primary, .. } = jmap_vtc_server::handle_vtc_call_get(
         backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": [] }),
     )
     .await
@@ -53,7 +53,7 @@ async fn vtc_state(backend: &Bound) -> String {
 async fn vtc_updated_since(backend: &Bound, since: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_vtc_call_changes(
         backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
     )
     .await
@@ -75,7 +75,7 @@ async fn space_destroy_clears_space_id_with_state_change() {
 
     clear_space_references(
         &backend.vtc,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(SPACE),
     )
@@ -102,7 +102,7 @@ async fn channel_destroy_clears_channel_id_with_state_change() {
 
     clear_channel_references(
         &backend.vtc,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(CHANNEL),
     )
@@ -130,17 +130,32 @@ async fn contact_identity_maps_contacts_and_the_owner() {
     backend.seed_chat_object("ChatContact", contact("c-bob", BOB, false));
     let account = Id::from(ACCOUNT);
 
-    let bob = contact_identity(&backend.chat, &(), &account, &Id::from("c-bob"))
-        .await
-        .expect("contact read");
+    let bob = contact_identity(
+        &backend.chat,
+        &jmap_types::Id::from(ACCOUNT),
+        &account,
+        &Id::from("c-bob"),
+    )
+    .await
+    .expect("contact read");
     assert_eq!(bob.as_deref(), Some(BOB));
-    let owner = contact_identity(&backend.chat, &(), &account, &account)
-        .await
-        .expect("owner read");
+    let owner = contact_identity(
+        &backend.chat,
+        &jmap_types::Id::from(ACCOUNT),
+        &account,
+        &account,
+    )
+    .await
+    .expect("owner read");
     assert_eq!(owner.as_deref(), Some(OWNER));
-    let missing = contact_identity(&backend.chat, &(), &account, &Id::from("c-nobody"))
-        .await
-        .expect("contact read");
+    let missing = contact_identity(
+        &backend.chat,
+        &jmap_types::Id::from(ACCOUNT),
+        &account,
+        &Id::from("c-nobody"),
+    )
+    .await
+    .expect("contact read");
     assert_eq!(missing, None);
 }
 
@@ -171,7 +186,7 @@ fn participant(id: &str, call_id: &str, user_id: &str, joined_at: Value) -> Valu
 async fn participant_state(backend: &Bound) -> String {
     let HandlerOutput { primary, .. } = handle_vtc_participant_get(
         backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": [] }),
     )
     .await
@@ -182,7 +197,7 @@ async fn participant_state(backend: &Bound) -> String {
 async fn left_at(backend: &Bound, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_vtc_participant_get(
         backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
     )
     .await
@@ -222,7 +237,7 @@ async fn space_ban_ejects_only_active_in_space_records() {
 
     let events = eject_banned_user(
         &backend.vtc,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(SPACE),
         BOB,
@@ -251,7 +266,7 @@ async fn space_ban_ejects_only_active_in_space_records() {
     }
     let HandlerOutput { primary, .. } = handle_vtc_participant_changes(
         &backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "sinceState": before }),
     )
     .await
@@ -299,7 +314,7 @@ async fn space_ban_of_last_participant_ends_scheduled_call() {
 
     eject_banned_user(
         &backend.vtc,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(SPACE),
         BOB,
@@ -335,7 +350,7 @@ async fn space_ban_of_last_moderator_hands_on_the_role() {
 
     let events = eject_banned_user(
         &backend.vtc,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(SPACE),
         BOB,
@@ -346,7 +361,7 @@ async fn space_ban_of_last_moderator_hands_on_the_role() {
     assert_eq!(events.len(), 1);
     let HandlerOutput { primary, .. } = handle_vtc_participant_get(
         &backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": ["P-alice", "P-owner"] }),
     )
     .await
@@ -389,7 +404,7 @@ async fn space_ban_of_ringing_initiator_cancels_ring_call() {
 
     let events = eject_banned_user(
         &backend.vtc,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(SPACE),
         BOB,
@@ -425,7 +440,7 @@ async fn space_ban_skips_ended_calls() {
 
     let events = eject_banned_user(
         &backend.vtc,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         &Id::from(ACCOUNT),
         &Id::from(SPACE),
         BOB,

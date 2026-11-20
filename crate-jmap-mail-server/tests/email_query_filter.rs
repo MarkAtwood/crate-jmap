@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "account1";
 
-async fn create(b: &MemoryBackend, from: &str, subject: &str, body: &str) -> String {
+async fn create(b: &MemoryBackend<()>, from: &str, subject: &str, body: &str) -> String {
     let out = handle_email_set(
         b,
         &(),
@@ -37,7 +37,7 @@ async fn create(b: &MemoryBackend, from: &str, subject: &str, body: &str) -> Str
         .to_owned()
 }
 
-async fn query(b: &MemoryBackend, filter: Value) -> Vec<String> {
+async fn query(b: &MemoryBackend<()>, filter: Value) -> Vec<String> {
     let out = handle_email_query(b, &(), json!({"accountId": ACCOUNT, "filter": filter}), &[])
         .await
         .unwrap();
@@ -56,8 +56,8 @@ fn sorted(mut ids: Vec<String>) -> Vec<String> {
     ids
 }
 
-async fn setup() -> (MemoryBackend, String, String) {
-    let b = MemoryBackend::new();
+async fn setup() -> (MemoryBackend<()>, String, String) {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from(ACCOUNT));
     let alice = create(&b, "Alice", "Quarterly report", "short").await;
     let bob = create(&b, "Bob", "Lunch?", &"long body ".repeat(200)).await;
@@ -154,7 +154,7 @@ async fn get_fetches_text_body_values() {
 /// to panic.
 #[tokio::test]
 async fn malformed_date_is_invalid_arguments() {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from(ACCOUNT));
     for filter in [
         json!({"before": "202\u{e9}-01-02T03:04:05Z"}),

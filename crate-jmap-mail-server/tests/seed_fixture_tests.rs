@@ -18,8 +18,8 @@ use jmap_types::Id;
 const ACCOUNT: &str = "acct1";
 
 /// Create a fresh backend and run setup_seed_data; return both.
-async fn mk() -> (MemoryBackend, common::seed::SeedData) {
-    let backend = MemoryBackend::new();
+async fn mk() -> (MemoryBackend<()>, common::seed::SeedData) {
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from(ACCOUNT);
     let seed = setup_seed_data(&backend, &account_id).await;
     (backend, seed)

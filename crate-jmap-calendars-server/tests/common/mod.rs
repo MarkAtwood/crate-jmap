@@ -51,7 +51,7 @@ pub const FAULTY_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3a2";
 /// that `account_receives_at` reports without any ParticipantIdentity.
 /// Every other method delegates to `inner`.
 pub struct FaultyBackend {
-    pub inner: MemoryBackend,
+    pub inner: MemoryBackend<()>,
     failures:
         std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
     extra_receives_at: std::sync::Mutex<Vec<String>>,
@@ -60,7 +60,7 @@ pub struct FaultyBackend {
 impl FaultyBackend {
     pub fn new() -> Self {
         Self {
-            inner: MemoryBackend::new(),
+            inner: MemoryBackend::<()>::default(),
             failures: Default::default(),
             extra_receives_at: Default::default(),
         }

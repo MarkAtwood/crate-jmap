@@ -20,7 +20,7 @@ const RICH: &str = "application/jmap-chat-rich";
 const RICH_BROADCAST: &str = r#"{"spans":[{"type":"text","text":"hi "},{"type":"broadcast","text":"@here","scope":"here"}]}"#;
 const RICH_PLAIN: &str = r#"{"spans":[{"type":"text","text":"hi"}]}"#;
 
-async fn create_channel(backend: &MemoryBackend) -> String {
+async fn create_channel(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),

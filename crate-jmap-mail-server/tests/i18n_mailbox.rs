@@ -32,8 +32,8 @@ fn using_without_i18n() -> Vec<String> {
     ]
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }
@@ -42,7 +42,7 @@ fn error_type(err: JmapError) -> Value {
     serde_json::to_value(&err).unwrap()["type"].clone()
 }
 
-async fn set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     handle_mailbox_set(backend, &(), &BTreeMap::new(), args, using)
         .await
         .unwrap()
@@ -50,7 +50,7 @@ async fn set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
 }
 
 /// Create a Mailbox with `extra` properties and return its id.
-async fn create(backend: &MemoryBackend, extra: Value) -> String {
+async fn create(backend: &MemoryBackend<()>, extra: Value) -> String {
     let mut props = json!({ "name": "x" });
     props
         .as_object_mut()
@@ -68,7 +68,11 @@ async fn create(backend: &MemoryBackend, extra: Value) -> String {
         .to_owned()
 }
 
-async fn get(backend: &MemoryBackend, args: Value, using: &[String]) -> Result<Value, JmapError> {
+async fn get(
+    backend: &MemoryBackend<()>,
+    args: Value,
+    using: &[String],
+) -> Result<Value, JmapError> {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     handle_mailbox_get(backend, &(), args, using)
@@ -78,7 +82,7 @@ async fn get(backend: &MemoryBackend, args: Value, using: &[String]) -> Result<V
 
 /// Three mailboxes whose base names sort A, B, C and whose German names
 /// sort the other way round.
-async fn three(backend: &MemoryBackend) -> [String; 3] {
+async fn three(backend: &MemoryBackend<()>) -> [String; 3] {
     [
         create(
             backend,

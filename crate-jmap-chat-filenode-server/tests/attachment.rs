@@ -110,7 +110,7 @@ impl Fixture {
             serde_json::from_value(attachment).expect("AttachmentCreate fixture");
         resolve_filenode_attachment(
             &self.chat,
-            &(),
+            &owner(),
             &self.files,
             &owner(),
             &Id::from(ACCOUNT),

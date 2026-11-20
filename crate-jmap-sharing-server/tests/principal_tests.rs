@@ -45,7 +45,7 @@ fn alice_json() -> serde_json::Value {
 /// Seed a Principal into `backend` for `account_id` using the backend directly.
 ///
 /// Returns the server-assigned [`Id`].
-async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json::Value) -> Id {
+async fn seed_principal(backend: &MemoryBackend<()>, account_id: &str, p: serde_json::Value) -> Id {
     let principal = move |id: &Id| -> Principal {
         let mut with_id = p;
         with_id["id"] = json!(id);
@@ -68,7 +68,7 @@ async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json
 /// are present in the response list.
 #[tokio::test]
 async fn principal_get_all_returns_list() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
 
     seed_principal(
         &backend,
@@ -115,7 +115,7 @@ async fn principal_get_all_returns_list() {
 /// is present and has a non-empty, non-placeholder id.
 #[tokio::test]
 async fn principal_set_create_succeeds() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
     register_sharing_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -161,7 +161,7 @@ async fn principal_set_create_succeeds() {
 /// assert destroyed contains the id; then get by that id and assert notFound.
 #[tokio::test]
 async fn principal_set_destroy_succeeds() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
 
     let id = seed_principal(
         &backend,
@@ -223,7 +223,7 @@ async fn principal_set_destroy_succeeds() {
 /// sinceState; assert the new id appears in `created`.
 #[tokio::test]
 async fn principal_changes_after_create() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
     register_sharing_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -297,8 +297,8 @@ async fn principal_changes_after_create() {
 // ---------------------------------------------------------------------------
 
 /// Seeds two Principals into "acc1"; returns the backend and their ids.
-async fn backend_with_two_principals() -> (Arc<MemoryBackend>, Vec<Id>) {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+async fn backend_with_two_principals() -> (Arc<MemoryBackend<()>>, Vec<Id>) {
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let a = seed_principal(&backend, "acc1", alice_json()).await;
     let mut bob = alice_json();
     bob["name"] = json!("Bob Jones");
@@ -308,7 +308,7 @@ async fn backend_with_two_principals() -> (Arc<MemoryBackend>, Vec<Id>) {
 }
 
 async fn principal_query(
-    backend: &Arc<MemoryBackend>,
+    backend: &Arc<MemoryBackend<()>>,
     args: serde_json::Value,
 ) -> serde_json::Value {
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
@@ -370,7 +370,7 @@ async fn principal_query_largest_position_is_empty_page_not_error() {
 // ---------------------------------------------------------------------------
 
 async fn query_error_type(
-    backend: &Arc<MemoryBackend>,
+    backend: &Arc<MemoryBackend<()>>,
     method: &str,
     args: serde_json::Value,
 ) -> serde_json::Value {
@@ -445,7 +445,7 @@ async fn principal_query_empty_filter_matches_all() {
 // ---------------------------------------------------------------------------
 
 async fn call(
-    backend: &Arc<MemoryBackend>,
+    backend: &Arc<MemoryBackend<()>>,
     method: &str,
     args: serde_json::Value,
 ) -> (String, serde_json::Value) {

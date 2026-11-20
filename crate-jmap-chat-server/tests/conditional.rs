@@ -28,13 +28,13 @@ const USING: &[&str] = &[
     "urn:ietf:params:jmap:conditional",
 ];
 
-fn backend() -> Arc<MemoryBackend> {
-    let b = MemoryBackend::new();
+fn backend() -> Arc<MemoryBackend<()>> {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from(ACCOUNT_ID));
     Arc::new(b)
 }
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend<()>>) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     register_chat_handlers(&mut d, Arc::clone(b));
     register_push_subscription_handlers(&mut d, Arc::clone(b));
@@ -57,7 +57,7 @@ async fn call(d: &Dispatcher<()>, method: &str, mut args: Value) -> (String, Val
     (inv[0].as_str().unwrap().to_owned(), inv[1].clone())
 }
 
-fn seed_emoji(b: &MemoryBackend, id: &str, name: &str) {
+fn seed_emoji(b: &MemoryBackend<()>, id: &str, name: &str) {
     b.insert_object_for_test(
         "CustomEmoji",
         ACCOUNT_ID,

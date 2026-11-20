@@ -54,8 +54,8 @@ fn info() -> DataTypeMetadataInfo {
     .unwrap()
 }
 
-fn backend() -> MemoryBackend {
-    MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    MemoryBackend::<()>::default()
         .with_account(&Id::from(ACCOUNT_ID))
         .with_metadata_info("Calendar", info())
         .with_metadata_info("CalendarEvent", info())
@@ -67,7 +67,11 @@ fn error_type(err: JmapError) -> Value {
 
 /// Store a Calendar whose `myRights.maySetMetadata` is `may_set_metadata`
 /// (server-set, so not writable through Calendar/set) and return its id.
-async fn calendar_fixture(backend: &MemoryBackend, name: &str, may_set_metadata: bool) -> String {
+async fn calendar_fixture(
+    backend: &MemoryBackend<()>,
+    name: &str,
+    may_set_metadata: bool,
+) -> String {
     let name = name.to_owned();
     let (id, _) = CalendarsBackend::create_object::<Calendar, _>(
         backend,
@@ -96,7 +100,7 @@ async fn calendar_fixture(backend: &MemoryBackend, name: &str, may_set_metadata:
     id.to_string()
 }
 
-async fn calendar_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn calendar_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } = handle_calendar_set(backend, &(), args, using)
@@ -105,7 +109,7 @@ async fn calendar_set(backend: &MemoryBackend, args: Value, using: &[String]) ->
     primary
 }
 
-async fn event_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn event_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
@@ -115,7 +119,7 @@ async fn event_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Va
     primary
 }
 
-async fn create_calendar(backend: &MemoryBackend, create: Value) -> String {
+async fn create_calendar(backend: &MemoryBackend<()>, create: Value) -> String {
     let resp = calendar_set(backend, json!({ "create": { "c": create } }), &using()).await;
     resp["created"]["c"]["id"]
         .as_str()
@@ -124,13 +128,13 @@ async fn create_calendar(backend: &MemoryBackend, create: Value) -> String {
 }
 
 /// Apply a Calendar/set update that must succeed; returns the response.
-async fn update_calendar(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update_calendar(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let resp = calendar_set(backend, json!({ "update": { id: patch } }), &using()).await;
     assert_eq!(resp["updated"], json!({ id: null }), "{resp}");
     resp
 }
 
-async fn create_event(backend: &MemoryBackend, calendar: &str, metadata: Value) -> String {
+async fn create_event(backend: &MemoryBackend<()>, calendar: &str, metadata: Value) -> String {
     let create = json!({
         "calendarIds": { calendar: true },
         "title": "t",
@@ -143,7 +147,7 @@ async fn create_event(backend: &MemoryBackend, calendar: &str, metadata: Value) 
         .to_owned()
 }
 
-async fn calendar_property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
+async fn calendar_property(backend: &MemoryBackend<()>, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": [property] });
     let HandlerOutput { primary, .. } = handle_calendar_get(backend, &(), args, &using())
         .await
@@ -151,7 +155,7 @@ async fn calendar_property(backend: &MemoryBackend, id: &str, property: &str) ->
     primary["list"][0][property].clone()
 }
 
-async fn event_property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
+async fn event_property(backend: &MemoryBackend<()>, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": [property] });
     let HandlerOutput { primary, .. } = handle_calendar_event_get(backend, &(), args, &using())
         .await
@@ -159,14 +163,14 @@ async fn event_property(backend: &MemoryBackend, id: &str, property: &str) -> Va
     primary["list"][0][property].clone()
 }
 
-async fn event_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
+async fn event_query(backend: &MemoryBackend<()>, filter: Value) -> Result<Value, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
     handle_calendar_event_query(backend, &(), args, &using())
         .await
         .map(|o| o.primary["ids"].clone())
 }
 
-async fn calendar_changes(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn calendar_changes(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     handle_calendar_changes(backend, &(), args, using)
@@ -298,7 +302,7 @@ async fn invalid_conditions_are_rejected() {
 /// (RFC 8620 §5.5 `unsupportedFilter`).
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_condition() {
-    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT_ID));
     let err = event_query(&backend, json!({ "metadataExists": NS }))
         .await
         .unwrap_err();
@@ -497,7 +501,7 @@ async fn invalid_metadata_writes_are_invalid_properties() {
 /// backend that did not opt in rejects the write.
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
-    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT_ID));
     let resp = calendar_set(
         &backend,
         json!({ "create": { "c": {
@@ -824,7 +828,7 @@ fn method_error_type(err: &JmapError) -> Value {
 
 /// Run Calendar/get with `properties` on `id` and return its one list entry.
 async fn calendar_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],
@@ -939,7 +943,7 @@ async fn calendar_get_metadata_subselectors() {
 
 /// Run CalendarEvent/get with `properties` on `id` and return its one list entry.
 async fn event_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],
@@ -1089,7 +1093,7 @@ const OTHER_ID: &str = "a2";
 
 /// Run CalendarEvent/copy of one create entry from [`ACCOUNT_ID`] into
 /// [`OTHER_ID`] and return the response.
-async fn event_copy(b: &MemoryBackend, entry: Value, using: &[String]) -> Value {
+async fn event_copy(b: &MemoryBackend<()>, entry: Value, using: &[String]) -> Value {
     let args = json!({
         "fromAccountId": ACCOUNT_ID,
         "accountId": OTHER_ID,

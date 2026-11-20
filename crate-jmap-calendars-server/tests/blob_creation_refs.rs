@@ -44,7 +44,7 @@ fn dispatcher() -> Dispatcher<()> {
     register_calendars_handlers(
         &mut dispatcher,
         Arc::new(
-            MemoryBackend::new()
+            MemoryBackend::<()>::default()
                 .with_account(&Id::from(ACCOUNT))
                 .with_account(&Id::from(OTHER)),
         ),

@@ -31,7 +31,7 @@ const SHA256: &str = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b78
 
 /// Dispatch the upload of `b1`, then `calls`, on a fresh backend.
 async fn run(calls: Value) -> JmapResponse {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let mut dispatcher = Dispatcher::new();
     let upload = ClosureHandler::new(Arc::new(()), |_: Arc<()>, _: CallContext<()>| {

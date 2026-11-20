@@ -26,8 +26,8 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// A backend with AddressBook `ab1` and ContactCard `card1` in it.
-fn seeded_backend() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+fn seeded_backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "AddressBook",
@@ -73,7 +73,7 @@ fn assert_noop(resp: &Value, id: &str) {
     assert_eq!(resp["oldState"], resp["newState"], "{resp}");
 }
 
-async fn book_set(backend: &MemoryBackend, patch: Value) -> Value {
+async fn book_set(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "ab1": patch } });
     handle_address_book_set(backend, &(), args, &[])
         .await
@@ -81,7 +81,7 @@ async fn book_set(backend: &MemoryBackend, patch: Value) -> Value {
         .primary
 }
 
-async fn book_get(backend: &MemoryBackend) -> Value {
+async fn book_get(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
     handle_address_book_get(backend, &(), args, &[])
         .await
@@ -90,7 +90,7 @@ async fn book_get(backend: &MemoryBackend) -> Value {
         .clone()
 }
 
-async fn card_set(backend: &MemoryBackend, patch: Value) -> Value {
+async fn card_set(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "card1": patch } });
     handle_contact_card_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
@@ -98,7 +98,7 @@ async fn card_set(backend: &MemoryBackend, patch: Value) -> Value {
         .primary
 }
 
-async fn card_get(backend: &MemoryBackend) -> Value {
+async fn card_get(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["card1"] });
     handle_contact_card_get(backend, &(), args, &[])
         .await

@@ -2,33 +2,35 @@ pub mod jmap_quotas_server
 pub use jmap_quotas_server::JMAP_QUOTA_URI
 pub use jmap_quotas_server::QuotaProperty
 pub mod jmap_quotas_server::memory
-#[non_exhaustive] pub struct jmap_quotas_server::memory::MemoryBackend
+#[non_exhaustive] pub struct jmap_quotas_server::memory::MemoryBackend<C>
 impl jmap_quotas_server::memory::MemoryBackend
 pub fn jmap_quotas_server::memory::MemoryBackend::new() -> Self
-pub fn jmap_quotas_server::memory::MemoryBackend::put_quota(&self, &jmap_types::id::Id, serde_json::value::Value)
-pub fn jmap_quotas_server::memory::MemoryBackend::remove_quota(&self, &jmap_types::id::Id, &jmap_types::id::Id)
-pub fn jmap_quotas_server::memory::MemoryBackend::seed_quota(&self, &jmap_types::id::Id, serde_json::value::Value)
-pub fn jmap_quotas_server::memory::MemoryBackend::set_used(&self, &jmap_types::id::Id, &jmap_types::id::Id, u64)
-pub fn jmap_quotas_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
-impl core::clone::Clone for jmap_quotas_server::memory::MemoryBackend
-pub fn jmap_quotas_server::memory::MemoryBackend::clone(&self) -> jmap_quotas_server::memory::MemoryBackend
-impl core::default::Default for jmap_quotas_server::memory::MemoryBackend
-pub fn jmap_quotas_server::memory::MemoryBackend::default() -> jmap_quotas_server::memory::MemoryBackend
-impl core::fmt::Debug for jmap_quotas_server::memory::MemoryBackend
-pub fn jmap_quotas_server::memory::MemoryBackend::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl jmap_quotas_server::QuotasBackend for jmap_quotas_server::memory::MemoryBackend
-pub fn jmap_quotas_server::memory::MemoryBackend::recognized_types(&self, &Self::CallerCtx, &[alloc::string::String]) -> alloc::vec::Vec<alloc::string::String>
-impl jmap_server::backend::JmapAccounts for jmap_quotas_server::memory::MemoryBackend
-pub type jmap_quotas_server::memory::MemoryBackend::CallerCtx = ()
-pub type jmap_quotas_server::memory::MemoryBackend::Error = jmap_quotas_server::memory::MemoryError
-pub async fn jmap_quotas_server::memory::MemoryBackend::account_exists(&self, &(), &jmap_types::id::Id) -> core::result::Result<bool, jmap_quotas_server::memory::MemoryError>
-pub fn jmap_quotas_server::memory::MemoryBackend::i18n_info(&self, &(), &jmap_types::id::Id) -> core::option::Option<jmap_server::i18n::I18nInfo>
-impl jmap_server::backend::JmapReads for jmap_quotas_server::memory::MemoryBackend
-pub async fn jmap_quotas_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_quotas_server::memory::MemoryError>>
-pub async fn jmap_quotas_server::memory::MemoryBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_quotas_server::memory::MemoryError>
-pub async fn jmap_quotas_server::memory::MemoryBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_quotas_server::memory::MemoryError>
-pub async fn jmap_quotas_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_quotas_server::memory::MemoryError>>
-pub async fn jmap_quotas_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_quotas_server::memory::MemoryError>>
+impl<C: jmap_server::caller::MemoryCaller> jmap_quotas_server::memory::MemoryBackend<C>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::put_quota(&self, &jmap_types::id::Id, serde_json::value::Value)
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::remove_quota(&self, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::seed_quota(&self, &jmap_types::id::Id, serde_json::value::Value)
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::set_used(&self, &jmap_types::id::Id, &jmap_types::id::Id, u64)
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::with_account(self, &jmap_types::id::Id) -> Self
+impl<C: core::fmt::Debug> core::fmt::Debug for jmap_quotas_server::memory::MemoryBackend<C>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<C: jmap_server::caller::MemoryCaller> jmap_quotas_server::QuotasBackend for jmap_quotas_server::memory::MemoryBackend<C>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::recognized_types(&self, &Self::CallerCtx, &[alloc::string::String]) -> alloc::vec::Vec<alloc::string::String>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapAccounts for jmap_quotas_server::memory::MemoryBackend<C>
+pub type jmap_quotas_server::memory::MemoryBackend<C>::CallerCtx = C
+pub type jmap_quotas_server::memory::MemoryBackend<C>::Error = jmap_quotas_server::memory::MemoryError
+pub async fn jmap_quotas_server::memory::MemoryBackend<C>::account_exists(&self, &C, &jmap_types::id::Id) -> core::result::Result<bool, jmap_quotas_server::memory::MemoryError>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::i18n_info(&self, &C, &jmap_types::id::Id) -> core::option::Option<jmap_server::i18n::I18nInfo>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::principal_id(&C) -> core::option::Option<&jmap_types::id::Id>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapReads for jmap_quotas_server::memory::MemoryBackend<C>
+pub async fn jmap_quotas_server::memory::MemoryBackend<C>::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_quotas_server::memory::MemoryError>>
+pub async fn jmap_quotas_server::memory::MemoryBackend<C>::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_quotas_server::memory::MemoryError>
+pub async fn jmap_quotas_server::memory::MemoryBackend<C>::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_quotas_server::memory::MemoryError>
+pub async fn jmap_quotas_server::memory::MemoryBackend<C>::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_quotas_server::memory::MemoryError>>
+pub async fn jmap_quotas_server::memory::MemoryBackend<C>::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_quotas_server::memory::MemoryError>>
+impl<C> core::clone::Clone for jmap_quotas_server::memory::MemoryBackend<C>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::clone(&self) -> Self
+impl<C> core::default::Default for jmap_quotas_server::memory::MemoryBackend<C>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::default() -> Self
 #[non_exhaustive] pub struct jmap_quotas_server::memory::MemoryError
 impl jmap_quotas_server::memory::MemoryError
 pub fn jmap_quotas_server::memory::MemoryError::description(&self) -> &str
@@ -39,8 +41,8 @@ impl core::fmt::Display for jmap_quotas_server::memory::MemoryError
 pub fn jmap_quotas_server::memory::MemoryError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 pub trait jmap_quotas_server::QuotasBackend: jmap_server::backend::JmapBackend
 pub fn jmap_quotas_server::QuotasBackend::recognized_types(&self, &Self::CallerCtx, &[alloc::string::String]) -> alloc::vec::Vec<alloc::string::String>
-impl jmap_quotas_server::QuotasBackend for jmap_quotas_server::memory::MemoryBackend
-pub fn jmap_quotas_server::memory::MemoryBackend::recognized_types(&self, &Self::CallerCtx, &[alloc::string::String]) -> alloc::vec::Vec<alloc::string::String>
+impl<C: jmap_server::caller::MemoryCaller> jmap_quotas_server::QuotasBackend for jmap_quotas_server::memory::MemoryBackend<C>
+pub fn jmap_quotas_server::memory::MemoryBackend<C>::recognized_types(&self, &Self::CallerCtx, &[alloc::string::String]) -> alloc::vec::Vec<alloc::string::String>
 pub async fn jmap_quotas_server::handle_quota_changes<B: jmap_quotas_server::QuotasBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_quotas_server::handle_quota_get<B: jmap_quotas_server::QuotasBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_quotas_server::handle_quota_query<B: jmap_quotas_server::QuotasBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>

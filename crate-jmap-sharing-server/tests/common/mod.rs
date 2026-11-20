@@ -46,7 +46,7 @@ pub const FAULTY_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3a2";
 /// [`FAULTY_BACKEND_CANARY`]; the fault is then cleared so later calls go
 /// to the inner backend. Every other method delegates to `inner`.
 pub struct FaultyBackend {
-    pub inner: MemoryBackend,
+    pub inner: MemoryBackend<()>,
     failures:
         std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
 }
@@ -54,7 +54,7 @@ pub struct FaultyBackend {
 impl FaultyBackend {
     pub fn new() -> Self {
         Self {
-            inner: MemoryBackend::new(),
+            inner: MemoryBackend::<()>::default(),
             failures: Default::default(),
         }
     }

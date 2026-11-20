@@ -25,7 +25,7 @@ const I18N: &str = "urn:ietf:params:jmap:i18n";
 
 /// The memory backend with the request's Accept-Language as caller
 /// context.
-struct WithAcceptLanguage(MemoryBackend);
+struct WithAcceptLanguage(MemoryBackend<()>);
 
 impl JmapAccounts for WithAcceptLanguage {
     type Error = MemoryError;
@@ -101,7 +101,7 @@ fn quota(id: &str, name: &str, de_name: &str) -> Value {
 }
 
 fn backend() -> WithAcceptLanguage {
-    let b = MemoryBackend::new().with_account(&Id::from(ACC));
+    let b = MemoryBackend::<()>::default().with_account(&Id::from(ACC));
     b.seed_quota(&Id::from(ACC), quota("q1", "Mail", "Post"));
     b.seed_quota(&Id::from(ACC), quota("q2", "Attachments", "Anhänge"));
     WithAcceptLanguage(b)

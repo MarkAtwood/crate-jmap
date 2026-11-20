@@ -32,18 +32,18 @@ fn id(s: &str) -> Id {
     Id::new_validated(s).unwrap()
 }
 
-fn backend() -> Arc<MemoryBackend> {
-    let b = MemoryBackend::new().with_account(&id("account1"));
+fn backend() -> Arc<MemoryBackend<()>> {
+    let b = MemoryBackend::<()>::default().with_account(&id("account1"));
     b.set_clock_for_test(NOW);
     Arc::new(b)
 }
 
 /// Run `calls` with `using` and return the whole response.
-async fn request(b: &Arc<MemoryBackend>, using: &[&str], calls: Value) -> Value {
+async fn request(b: &Arc<MemoryBackend<()>>, using: &[&str], calls: Value) -> Value {
     request_with(b, json!({"using": using, "methodCalls": calls})).await
 }
 
-async fn request_with(b: &Arc<MemoryBackend>, request: Value) -> Value {
+async fn request_with(b: &Arc<MemoryBackend<()>>, request: Value) -> Value {
     let mut d = Dispatcher::new();
     register_blob_handlers(&mut d, Arc::clone(b));
     let req: JmapRequest = serde_json::from_value(request).unwrap();
@@ -61,7 +61,7 @@ fn results(resp: &Value) -> Vec<Value> {
 }
 
 /// The single method response's arguments.
-async fn one(b: &Arc<MemoryBackend>, using: &[&str], call: Value) -> Value {
+async fn one(b: &Arc<MemoryBackend<()>>, using: &[&str], call: Value) -> Value {
     results(&request(b, using, json!([call])).await).remove(0)
 }
 

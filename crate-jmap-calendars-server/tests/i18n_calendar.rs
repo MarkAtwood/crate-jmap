@@ -26,15 +26,15 @@ fn using_without_i18n() -> Vec<String> {
     using()[..2].to_vec()
 }
 
-fn backend() -> MemoryBackend {
-    MemoryBackend::new().with_account(&Id::from(ACC))
+fn backend() -> MemoryBackend<()> {
+    MemoryBackend::<()>::default().with_account(&Id::from(ACC))
 }
 
 fn error_type(err: JmapError) -> Value {
     serde_json::to_value(&err).unwrap()["type"].clone()
 }
 
-async fn set(b: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn set(b: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACC);
     handle_calendar_set(b, &(), args, using)
@@ -43,7 +43,7 @@ async fn set(b: &MemoryBackend, args: Value, using: &[String]) -> Value {
         .primary
 }
 
-async fn get(b: &MemoryBackend, args: Value, using: &[String]) -> Result<Value, JmapError> {
+async fn get(b: &MemoryBackend<()>, args: Value, using: &[String]) -> Result<Value, JmapError> {
     let mut args = args;
     args["accountId"] = json!(ACC);
     handle_calendar_get(b, &(), args, using)
@@ -51,7 +51,7 @@ async fn get(b: &MemoryBackend, args: Value, using: &[String]) -> Result<Value, 
         .map(|o| o.primary)
 }
 
-async fn work_calendar(b: &MemoryBackend) -> String {
+async fn work_calendar(b: &MemoryBackend<()>) -> String {
     let resp = set(
         b,
         json!({ "create": { "c": {

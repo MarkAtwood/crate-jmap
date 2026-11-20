@@ -241,7 +241,7 @@ pub(crate) struct Shared {
 /// Cloning is cheap and shares all state.
 #[derive(Clone)]
 pub struct SlackBridge {
-    pub(crate) inner: MemoryBackend,
+    pub(crate) inner: MemoryBackend<()>,
     pub(crate) shared: Arc<Shared>,
 }
 
@@ -279,7 +279,7 @@ impl SlackBridge {
             return Err(BridgeError::AppToken);
         }
         let auth = client.auth_test().await?;
-        let inner = MemoryBackend::new().with_account(&config.account_id);
+        let inner = MemoryBackend::<()>::default().with_account(&config.account_id);
         let space_id = inner.mint_id();
         let now = now_utc();
         let owner = from_value(json!({
@@ -330,7 +330,7 @@ impl SlackBridge {
     /// The embedded store, for draining its outbound and lifecycle events
     /// and for push state. Writes made on it directly are not sent to
     /// Slack.
-    pub fn memory(&self) -> &MemoryBackend {
+    pub fn memory(&self) -> &MemoryBackend<()> {
         &self.inner
     }
 

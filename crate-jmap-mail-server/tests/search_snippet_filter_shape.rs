@@ -17,8 +17,8 @@ use jmap_mail_server::handle_search_snippet_get;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-fn one_account_backend() -> (MemoryBackend, Id) {
-    let backend = MemoryBackend::new();
+fn one_account_backend() -> (MemoryBackend<()>, Id) {
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     (backend, account_id)

@@ -11,7 +11,7 @@ use jmap_object_history_server::HistoryRetention;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-async fn set(b: &MemoryBackend, patch: Value) -> Value {
+async fn set(b: &MemoryBackend<()>, patch: Value) -> Value {
     handle_vacation_set(
         b,
         &(),
@@ -27,7 +27,7 @@ async fn set(b: &MemoryBackend, patch: Value) -> Value {
 /// singleton used to trip the never-destroyed assertion).
 #[tokio::test]
 async fn rejected_first_update_then_valid_update() {
-    let b = MemoryBackend::new()
+    let b = MemoryBackend::<()>::default()
         .with_account(&Id::from("acc"))
         .with_object_history(
             serde_json::from_value(

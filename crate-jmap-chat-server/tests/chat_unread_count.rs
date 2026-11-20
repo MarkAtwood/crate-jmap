@@ -54,7 +54,7 @@ const OTHER_SENDER: &str = "contact-bob";
 
 const SEEDED_READ_AT: &str = "2000-01-01T00:00:00Z";
 
-fn seed_chat(backend: &MemoryBackend, id: &str, extra: Value) {
+fn seed_chat(backend: &MemoryBackend<()>, id: &str, extra: Value) {
     let mut chat = json!({
         "id": id,
         "createdAt": "2026-01-01T00:00:00Z",
@@ -68,7 +68,7 @@ fn seed_chat(backend: &MemoryBackend, id: &str, extra: Value) {
     backend.insert_object_for_test("Chat", ACCOUNT_ID, id, chat);
 }
 
-fn seed_group(backend: &MemoryBackend, id: &str) {
+fn seed_group(backend: &MemoryBackend<()>, id: &str) {
     seed_chat(
         backend,
         id,
@@ -80,11 +80,11 @@ fn seed_group(backend: &MemoryBackend, id: &str) {
     );
 }
 
-fn seed_message(backend: &MemoryBackend, id: &str, chat_id: &str) {
+fn seed_message(backend: &MemoryBackend<()>, id: &str, chat_id: &str) {
     seed_message_from(backend, OTHER_SENDER, id, chat_id);
 }
 
-fn seed_message_from(backend: &MemoryBackend, sender_id: &str, id: &str, chat_id: &str) {
+fn seed_message_from(backend: &MemoryBackend<()>, sender_id: &str, id: &str, chat_id: &str) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -104,7 +104,7 @@ fn seed_message_from(backend: &MemoryBackend, sender_id: &str, id: &str, chat_id
     );
 }
 
-fn seed_position(backend: &MemoryBackend, id: &str, chat_id: &str) {
+fn seed_position(backend: &MemoryBackend<()>, id: &str, chat_id: &str) {
     backend.insert_object_for_test(
         "ReadPosition",
         ACCOUNT_ID,
@@ -115,7 +115,7 @@ fn seed_position(backend: &MemoryBackend, id: &str, chat_id: &str) {
 
 /// Group Chat `g` with M1..M5 and its ReadPosition `rp-g` (no
 /// `lastReadMessageId`), plus group Chat `h` with OTHER_MSG.
-fn seed_five(backend: &MemoryBackend) {
+fn seed_five(backend: &MemoryBackend<()>) {
     backend.register_account(&Id::from(ACCOUNT_ID));
     seed_group(backend, "g");
     seed_group(backend, "h");
@@ -126,14 +126,14 @@ fn seed_five(backend: &MemoryBackend) {
     seed_position(backend, "rp-g", "g");
 }
 
-async fn unread_counts(backend: &MemoryBackend, args: Value) -> Vec<Value> {
+async fn unread_counts(backend: &MemoryBackend<()>, args: Value) -> Vec<Value> {
     let HandlerOutput { primary: resp, .. } = handle_chat_get(backend, &(), args, &[])
         .await
         .expect("Chat/get");
     resp["list"].as_array().expect("list").clone()
 }
 
-async fn unread_of(backend: &MemoryBackend, chat_id: &str) -> Value {
+async fn unread_of(backend: &MemoryBackend<()>, chat_id: &str) -> Value {
     let list = unread_counts(
         backend,
         json!({ "accountId": ACCOUNT_ID, "ids": [chat_id] }),
@@ -143,7 +143,7 @@ async fn unread_of(backend: &MemoryBackend, chat_id: &str) -> Value {
     list[0]["unreadCount"].clone()
 }
 
-async fn set_last_read(backend: &MemoryBackend, rp: &str, patch: Value) -> Value {
+async fn set_last_read(backend: &MemoryBackend<()>, rp: &str, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_position_set(
         backend,
         &(),
@@ -155,7 +155,7 @@ async fn set_last_read(backend: &MemoryBackend, rp: &str, patch: Value) -> Value
     resp
 }
 
-async fn chat_state(backend: &MemoryBackend) -> String {
+async fn chat_state(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &(),
@@ -167,7 +167,7 @@ async fn chat_state(backend: &MemoryBackend) -> String {
     resp["state"].as_str().expect("state").to_owned()
 }
 
-async fn chats_updated_since(backend: &MemoryBackend, since: &str) -> Vec<Value> {
+async fn chats_updated_since(backend: &MemoryBackend<()>, since: &str) -> Vec<Value> {
     let HandlerOutput { primary: resp, .. } = handle_chat_changes(
         backend,
         &(),
@@ -179,7 +179,7 @@ async fn chats_updated_since(backend: &MemoryBackend, since: &str) -> Vec<Value>
     resp["updated"].as_array().expect("updated").clone()
 }
 
-async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn message_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary: resp, .. } =
@@ -195,7 +195,7 @@ async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
 /// (RFC 8620 §5.2).
 #[tokio::test]
 async fn message_create_advances_chat_state() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_five(&backend);
     let since = chat_state(&backend).await;
 
@@ -226,7 +226,7 @@ async fn message_create_advances_chat_state() {
 /// state alone too (RFC 8620 §5.1).
 #[tokio::test]
 async fn backend_maintained_unread_count_is_not_recomputed() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_five(&backend);
     seed_chat(
         &backend,
@@ -266,7 +266,7 @@ const X5: &str = "01J00000000000000000000015";
 const X6: &str = "01J00000000000000000000016";
 const X7: &str = "01J00000000000000000000017";
 
-fn seed_mixed(backend: &MemoryBackend) {
+fn seed_mixed(backend: &MemoryBackend<()>) {
     backend.register_account(&Id::from(ACCOUNT_ID));
     seed_group(backend, "x");
     for (id, sender) in [
@@ -287,7 +287,7 @@ fn seed_mixed(backend: &MemoryBackend) {
 /// OTHER_SENDER (X1, X3, X5, X7) count; the owner's 3 do not.
 #[tokio::test]
 async fn owner_messages_not_counted_without_last_read() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_mixed(&backend);
     assert_eq!(unread_of(&backend, "x").await, 4);
 }
@@ -296,7 +296,7 @@ async fn owner_messages_not_counted_without_last_read() {
 /// OTHER_SENDER (X3, X5, X7) and 2 from the owner (X4, X6), so 3.
 #[tokio::test]
 async fn owner_messages_not_counted_after_last_read() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_mixed(&backend);
     set_last_read(&backend, "rp-x", json!({ "lastReadMessageId": X2 })).await;
     assert_eq!(unread_of(&backend, "x").await, 3);
@@ -307,7 +307,7 @@ async fn owner_messages_not_counted_after_last_read() {
 /// (`maintains_unread_count`), `Chat/get` still returns 3 (X3, X5, X7).
 #[tokio::test]
 async fn stored_unread_count_excludes_owner_messages() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_mixed(&backend);
     set_last_read(&backend, "rp-x", json!({ "lastReadMessageId": X2 })).await;
     backend.set_maintains_unread_count_for_test(true);
@@ -319,7 +319,7 @@ async fn stored_unread_count_excludes_owner_messages() {
 /// has 3 (X3, X5, X7).
 #[tokio::test]
 async fn push_badge_excludes_owner_messages() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_mixed(&backend);
     set_last_read(&backend, "rp-x", json!({ "lastReadMessageId": X2 })).await;
     let total = owner_unread_count(&backend, &(), &Id::from(ACCOUNT_ID))
@@ -337,7 +337,7 @@ async fn push_badge_excludes_owner_messages() {
 /// not.
 #[tokio::test]
 async fn echoing_the_computed_unread_count_is_accepted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.set_maintains_unread_count_for_test(false);
     seed_five(&backend);
     let shown = unread_of(&backend, "g").await;

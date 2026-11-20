@@ -32,7 +32,7 @@ async fn dispatch(method_calls: Value) -> JmapResponse {
     let mut dispatcher = Dispatcher::new();
     register_tasks_handlers(
         &mut dispatcher,
-        Arc::new(MemoryBackend::new().with_account(&Id::from(ACCOUNT))),
+        Arc::new(MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT))),
     );
     let request: JmapRequest = serde_json::from_value(json!({
         "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:tasks"],
@@ -66,7 +66,7 @@ async fn task_list_id_resolves_on_update() {
     // An update names the Task by its id as a map key, so the Task is
     // created by a first request and updated by a second against the same
     // backend.
-    let backend = Arc::new(MemoryBackend::new().with_account(&Id::from(ACCOUNT)));
+    let backend = Arc::new(MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT)));
     let mut dispatcher = Dispatcher::new();
     register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
     let run = |calls: Value| {

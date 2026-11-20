@@ -24,20 +24,20 @@ use jmap_types::Id;
 /// Register a fresh account in the backend.
 ///
 /// Each test calls this on its own `MemoryBackend::new()` — no shared state.
-async fn setup_account(backend: &MemoryBackend) -> Id {
+async fn setup_account(backend: &MemoryBackend<()>) -> Id {
     let account_id = Id::from("sieve-test-account");
     backend.register_account(&account_id);
     account_id
 }
 
 /// Store a blob and return its Id.
-fn store_valid_blob(backend: &MemoryBackend) -> Id {
+fn store_valid_blob(backend: &MemoryBackend<()>) -> Id {
     let blob_id = Id::from("valid-script-blob");
     backend.store_blob(&blob_id, VALID_SIEVE_SCRIPT.to_vec());
     blob_id
 }
 
-fn store_invalid_blob(backend: &MemoryBackend) -> Id {
+fn store_invalid_blob(backend: &MemoryBackend<()>) -> Id {
     let blob_id = Id::from("invalid-script-blob");
     backend.store_blob(&blob_id, INVALID_SIEVE_SCRIPT.to_vec());
     blob_id
@@ -53,7 +53,7 @@ fn store_invalid_blob(backend: &MemoryBackend) -> Id {
 /// empty and notFound is [].
 #[tokio::test]
 async fn sieve_get_empty_account() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
 
     let args = serde_json::json!({
@@ -86,7 +86,7 @@ async fn sieve_get_empty_account() {
 /// Oracle: RFC 9661 §2.3 — get by ids returns matching entry.
 #[tokio::test]
 async fn sieve_get_by_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -147,7 +147,7 @@ async fn sieve_get_by_id() {
 /// in notFound; list is empty.
 #[tokio::test]
 async fn sieve_get_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
 
     let args = serde_json::json!({
@@ -185,7 +185,7 @@ async fn sieve_get_not_found() {
 /// Oracle: RFC 8620 §3.6.2 — unknown accountId → accountNotFound.
 #[tokio::test]
 async fn sieve_get_unknown_account() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = serde_json::json!({
         "accountId": "no-such-account"
@@ -213,7 +213,7 @@ async fn sieve_get_unknown_account() {
 /// unless onSuccessActivateScript is set.
 #[tokio::test]
 async fn sieve_set_create_basic() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -255,7 +255,7 @@ async fn sieve_set_create_basic() {
 /// the script's isActive becomes true (visible via updated map or re-fetch).
 #[tokio::test]
 async fn sieve_set_create_and_activate() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -313,7 +313,7 @@ async fn sieve_set_create_and_activate() {
 /// currently active script when onSuccessActivateScript targets a different script.
 #[tokio::test]
 async fn sieve_set_at_most_one_active() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -379,7 +379,7 @@ async fn sieve_set_at_most_one_active() {
 /// active script; returns sieveIsActive SetError.
 #[tokio::test]
 async fn sieve_set_destroy_active_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -428,7 +428,7 @@ async fn sieve_set_destroy_active_rejected() {
 /// already exists returns alreadyExists with existingId.
 #[tokio::test]
 async fn sieve_set_duplicate_name() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -475,7 +475,7 @@ async fn sieve_set_duplicate_name() {
 /// deactivates the currently active script.
 #[tokio::test]
 async fn sieve_set_deactivate_only() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -520,7 +520,7 @@ async fn sieve_set_deactivate_only() {
 /// bare id (not a #creation-id reference) activates an existing script.
 #[tokio::test]
 async fn sieve_set_reactivate() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -573,7 +573,7 @@ async fn sieve_set_reactivate() {
 /// Oracle: RFC 8620 §3.6.2.
 #[tokio::test]
 async fn sieve_set_unknown_account() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = serde_json::json!({
         "accountId": "no-such-account"
@@ -601,7 +601,7 @@ async fn sieve_set_unknown_account() {
 /// active (or inactive) scripts.
 #[tokio::test]
 async fn sieve_query_filter_active() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -650,7 +650,7 @@ async fn sieve_query_filter_active() {
 /// name-ascending order.
 #[tokio::test]
 async fn sieve_query_filter_operator_trees() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -731,7 +731,7 @@ async fn sieve_query_filter_operator_trees() {
 /// the script is valid. VALID_SIEVE_SCRIPT is `b"keep;"` from RFC 5228 §8.
 #[tokio::test]
 async fn sieve_validate_valid() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -765,7 +765,7 @@ async fn sieve_validate_valid() {
 /// INVALID_SIEVE_SCRIPT is `b""` — empty bytes fail the MemoryBackend validator.
 #[tokio::test]
 async fn sieve_validate_invalid() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_invalid_blob(&backend);
 
@@ -802,7 +802,7 @@ async fn sieve_validate_invalid() {
 /// the backend does not designate any script as VR-backed (RFC 9661 §4).
 #[tokio::test]
 async fn sieve_set_vr_script_destroy_no_protection_by_default() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -860,7 +860,7 @@ async fn sieve_set_vr_script_destroy_no_protection_by_default() {
 /// (RFC 9661 §4 guard does not fire).
 #[tokio::test]
 async fn sieve_set_vr_script_blob_update_no_protection_by_default() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -922,7 +922,7 @@ async fn sieve_set_vr_script_blob_update_no_protection_by_default() {
 /// entirely → C is created but NOT activated.
 #[tokio::test]
 async fn sieve_set_on_success_suppressed_on_partial_failure() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -994,7 +994,7 @@ async fn sieve_set_on_success_suppressed_on_partial_failure() {
 /// Oracle: RFC 8620 §3.6.2.
 #[tokio::test]
 async fn sieve_validate_unknown_account() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = serde_json::json!({
         "accountId": "no-such-account",
@@ -1023,7 +1023,7 @@ async fn sieve_validate_unknown_account() {
 /// create must fail with tooLarge.
 #[tokio::test]
 async fn sieve_set_create_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
 
     // VALID_SIEVE_SCRIPT is b"keep;" — 5 bytes. Limit is 4 bytes → too large.
@@ -1065,7 +1065,7 @@ async fn sieve_set_create_too_large() {
 /// Oracle: RFC 9661 §2.4 — same tooLarge rule applies to updates.
 #[tokio::test]
 async fn sieve_set_update_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
 
     // First, create a script with no size limit so it succeeds.
@@ -1139,7 +1139,7 @@ async fn sieve_set_update_too_large() {
 /// cap and the handler honours it.
 #[tokio::test]
 async fn sieve_set_create_overquota_respects_backend_cap() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
     // Cap at 1 — the second create in the same request must overQuota.
@@ -1197,7 +1197,7 @@ async fn sieve_set_create_overquota_respects_backend_cap() {
 /// `validate_sieve_script` was invoked.
 #[tokio::test]
 async fn sieve_validate_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
 
     let blob_id = store_valid_blob(&backend);
@@ -1243,7 +1243,7 @@ async fn sieve_validate_too_large() {
 /// stored blobId.
 #[tokio::test]
 async fn sieve_set_update_null_blob_id_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -1414,7 +1414,7 @@ async fn sieve_set_create_blob_fetch_failure_is_per_item() {
 /// on"; RFC 9661 §2.5 lists only `name` and `isActive` for sorting.
 #[tokio::test]
 async fn sieve_query_unknown_sort_property_returns_unsupported_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
 
     let query_args = serde_json::json!({
@@ -1437,7 +1437,7 @@ async fn sieve_query_unknown_sort_property_returns_unsupported_sort() {
 /// are worked out by hand from `alpha` (active), `beta`, `gamma`.
 #[tokio::test]
 async fn sieve_query_sort_by_name_and_is_active() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
     store_valid_blob(&backend);
 
@@ -1506,7 +1506,7 @@ async fn sieve_query_sort_by_name_and_is_active() {
 /// so only `i;octet` (RFC 4790 §9.3) is recognised.
 #[tokio::test]
 async fn sieve_query_unrecognised_collation_returns_unsupported_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = setup_account(&backend).await;
 
     let err = handle_sieve_query(

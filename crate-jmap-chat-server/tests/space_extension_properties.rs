@@ -35,14 +35,14 @@ use serde_json::{Value, json};
 
 /// A backend with the account registered and `keys` registered as
 /// extension properties.
-fn backend_with(keys: &'static [&'static str]) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend_with(keys: &'static [&'static str]) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.set_space_extension_properties_for_test(keys);
     backend
 }
 
-async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn space_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let HandlerOutput { primary, .. } =
         handle_space_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
@@ -51,7 +51,7 @@ async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
 }
 
 /// Create a Space from `props` (merged with a name) and return its id.
-async fn create_space(backend: &MemoryBackend, props: Value) -> String {
+async fn create_space(backend: &MemoryBackend<()>, props: Value) -> String {
     let mut obj = json!({ "name": "Team" });
     obj.as_object_mut()
         .expect("object")
@@ -67,7 +67,7 @@ async fn create_space(backend: &MemoryBackend, props: Value) -> String {
         .to_owned()
 }
 
-async fn get_space(backend: &MemoryBackend, id: &str) -> Value {
+async fn get_space(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_space_get(
         backend,
         &(),

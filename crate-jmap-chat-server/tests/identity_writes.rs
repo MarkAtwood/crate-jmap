@@ -49,7 +49,7 @@ const SPACE_ID: &str = "s1";
 /// member whose id deliberately differs from both `ACCOUNT_ID` and
 /// `PRINCIPAL_ID` — the join paths must add a NEW member, not match
 /// an existing one.
-fn seed_public_space_on_memory(backend: &MemoryBackend) {
+fn seed_public_space_on_memory(backend: &MemoryBackend<()>) {
     let space_val = json!({
         "id": SPACE_ID,
         "name": "Atlas",
@@ -83,7 +83,7 @@ fn seed_public_space_on_identity(backend: &IdentityBackend) {
 /// the new `SpaceMember.id` equals the JMAP `accountId`.
 #[tokio::test]
 async fn space_join_single_user_writes_account_id_into_member_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_public_space_on_memory(&backend);
 
     let HandlerOutput { primary: resp, .. } = handle_space_join(
@@ -260,7 +260,7 @@ async fn invite_set_with_identity_writes_account_id_into_created_by() {
 /// the historical fallback for `createdBy`.
 #[tokio::test]
 async fn invite_set_single_user_writes_account_id_into_created_by() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
     let HandlerOutput { primary: resp, .. } = handle_invite_set(
@@ -330,7 +330,7 @@ async fn ban_set_with_identity_writes_account_id_into_banned_by() {
 /// the historical fallback for `bannedBy`.
 #[tokio::test]
 async fn ban_set_single_user_writes_account_id_into_banned_by() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
     let HandlerOutput { primary: resp, .. } = handle_ban_set(
@@ -403,7 +403,7 @@ async fn emoji_set_with_identity_writes_account_id_into_created_by() {
 /// the historical fallback for emoji `createdBy`.
 #[tokio::test]
 async fn emoji_set_single_user_writes_account_id_into_created_by() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
     let HandlerOutput { primary: resp, .. } = handle_emoji_set(

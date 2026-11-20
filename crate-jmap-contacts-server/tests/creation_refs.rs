@@ -33,7 +33,7 @@ fn dispatcher() -> Dispatcher<()> {
     let mut dispatcher = Dispatcher::new();
     register_contacts_handlers(
         &mut dispatcher,
-        Arc::new(MemoryBackend::new().with_account(&Id::from(ACCOUNT))),
+        Arc::new(MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT))),
     );
     dispatcher
 }

@@ -25,7 +25,7 @@ fn assert_invalid_id(entry: &Value, resp: &Value) {
 
 #[tokio::test]
 async fn address_book_set_rejects_malformed_update_and_destroy_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args_with_account = |mut args: Value| {
@@ -48,7 +48,7 @@ async fn address_book_set_rejects_malformed_update_and_destroy_ids() {
 /// the method-level `invalidArguments` error (RFC 8620 §3.6.2).
 #[tokio::test]
 async fn contact_card_copy_rejects_malformed_from_account_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args = json!({
@@ -70,7 +70,7 @@ async fn contact_card_copy_rejects_malformed_from_account_id() {
 /// address book.
 #[tokio::test]
 async fn address_book_set_rejects_malformed_share_with_keys() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args = json!({

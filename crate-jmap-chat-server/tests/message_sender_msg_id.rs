@@ -16,8 +16,8 @@ use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-fn setup() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn setup() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Chat",
@@ -36,7 +36,7 @@ fn setup() -> MemoryBackend {
     backend
 }
 
-async fn create_m1(backend: &MemoryBackend) -> Value {
+async fn create_m1(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),

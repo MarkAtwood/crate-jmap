@@ -411,7 +411,7 @@ async fn space_set_all_twelve_ops_in_one_call() {
 /// (bd:JMAP-yt1w.33).
 #[tokio::test]
 async fn space_set_all_twelve_ops_single_user_mode() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",

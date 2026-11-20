@@ -67,8 +67,8 @@ fn sender_contact(blocked: bool) -> Value {
 
 /// A backend holding `chat` (if any) in the recipient's account and the
 /// sender's ChatContact on the recipient's contact list.
-fn backend_with(chat: Option<Value>, sender_blocked: bool) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend_with(chat: Option<Value>, sender_blocked: bool) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&recipient());
     if let Some(chat) = chat {
         backend.insert_object_for_test("Chat", RECIPIENT, CHAT, chat);
@@ -95,7 +95,7 @@ fn event(chat_id: &str, sender_id: &str) -> ChatTypingEvent {
     .expect("valid ChatTypingEvent")
 }
 
-async fn decide(backend: &MemoryBackend, event: &ChatTypingEvent) -> bool {
+async fn decide(backend: &MemoryBackend<()>, event: &ChatTypingEvent) -> bool {
     should_deliver_typing(backend, &(), &recipient(), event)
         .await
         .expect("should_deliver_typing")

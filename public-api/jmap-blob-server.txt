@@ -1,57 +1,59 @@
 pub mod jmap_blob_server
 pub mod jmap_blob_server::memory
-#[non_exhaustive] pub struct jmap_blob_server::memory::MemoryBackend
+#[non_exhaustive] pub struct jmap_blob_server::memory::MemoryBackend<C>
 impl jmap_blob_server::memory::MemoryBackend
-pub fn jmap_blob_server::memory::MemoryBackend::add_reference_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id, &jmap_types::id::Id)
-pub fn jmap_blob_server::memory::MemoryBackend::advertise_for_test(&self, &jmap_types::id::Id, jmap_blob_types::capability::BlobAccountCapability)
-pub fn jmap_blob_server::memory::MemoryBackend::blob_bytes(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<alloc::vec::Vec<u8>>
 pub fn jmap_blob_server::memory::MemoryBackend::default_capability() -> jmap_blob_types::capability::BlobAccountCapability
-pub fn jmap_blob_server::memory::MemoryBackend::fail_deferred_for_test(&self, &jmap_types::id::Id, &jmap_types::id::Id)
-pub fn jmap_blob_server::memory::MemoryBackend::hide_object_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id)
 pub fn jmap_blob_server::memory::MemoryBackend::new() -> Self
-pub fn jmap_blob_server::memory::MemoryBackend::omit_no_persist_for_test(&self, bool)
-pub fn jmap_blob_server::memory::MemoryBackend::register_account(&self, &jmap_types::id::Id)
-pub fn jmap_blob_server::memory::MemoryBackend::scope_gate(&self) -> alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>
-pub fn jmap_blob_server::memory::MemoryBackend::set_clock_for_test(&self, i64)
-pub fn jmap_blob_server::memory::MemoryBackend::store_blob(&self, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<u8>, core::option::Option<alloc::string::String>) -> bool
-pub fn jmap_blob_server::memory::MemoryBackend::stub_converter_for_test(&self, impl core::ops::function::Fn(&jmap_blob_types::convert::Recipe) -> core::result::Result<alloc::vec::Vec<u8>, alloc::boxed::Box<jmap_types::set_error::SetError>> + core::marker::Send + core::marker::Sync + 'static)
-pub fn jmap_blob_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id) -> Self
-pub fn jmap_blob_server::memory::MemoryBackend::with_account_capability(self, &jmap_types::id::Id, jmap_blob_types::capability::BlobAccountCapability) -> Self
-pub fn jmap_blob_server::memory::MemoryBackend::with_external_references(self, alloc::sync::Arc<dyn jmap_blob_server::memory::ExternalReferences>) -> Self
-pub fn jmap_blob_server::memory::MemoryBackend::with_scope_gate(alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>) -> Self
-impl core::clone::Clone for jmap_blob_server::memory::MemoryBackend
-pub fn jmap_blob_server::memory::MemoryBackend::clone(&self) -> jmap_blob_server::memory::MemoryBackend
-impl core::default::Default for jmap_blob_server::memory::MemoryBackend
-pub fn jmap_blob_server::memory::MemoryBackend::default() -> Self
-impl core::fmt::Debug for jmap_blob_server::memory::MemoryBackend
-pub fn jmap_blob_server::memory::MemoryBackend::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
-impl jmap_blob_server::BlobBackend for jmap_blob_server::memory::MemoryBackend
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_types::capability::BlobAccountCapability>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_chunks(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::vec::Vec<jmap_blob_server::ChunkRef>>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_info(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_server::BlobMeta>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_references(&self, &(), &jmap_types::id::Id, &str, &[jmap_types::id::Id]) -> core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::convert(&self, &(), &jmap_types::id::Id, jmap_blob_server::ConvertParams) -> core::result::Result<jmap_blob_server::ConvertOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::copy_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::create_blob(&self, &(), &jmap_types::id::Id, jmap_blob_server::BlobCreate) -> core::result::Result<jmap_blob_server::CreatedBlob, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::destroy_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub fn jmap_blob_server::memory::MemoryBackend::digester(&self, &jmap_blob_types::digest::DigestAlgorithm) -> core::option::Option<alloc::boxed::Box<(dyn jmap_blob_types::digest::Digest + core::marker::Send)>>
-pub fn jmap_blob_server::memory::MemoryBackend::image_data(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_blob_types::get::ImageData>, Self::Error>> + core::marker::Send
-pub fn jmap_blob_server::memory::MemoryBackend::lookup_type_capability(&self, &str) -> core::option::Option<&str>
-pub async fn jmap_blob_server::memory::MemoryBackend::read_blob_range(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, core::ops::range::Range<u64>) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::stored_digest(&self, &(), &jmap_types::id::Id, &jmap_blob_server::DigestQuery) -> core::result::Result<core::option::Option<alloc::string::String>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::touch_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::id::UTCDate>) -> core::result::Result<jmap_blob_server::TouchOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-impl jmap_server::backend::JmapAccounts for jmap_blob_server::memory::MemoryBackend
-pub type jmap_blob_server::memory::MemoryBackend::CallerCtx = ()
-pub type jmap_blob_server::memory::MemoryBackend::Error = jmap_blob_server::memory::MemoryError
-pub async fn jmap_blob_server::memory::MemoryBackend::account_exists(&self, &(), &jmap_types::id::Id) -> core::result::Result<bool, jmap_blob_server::memory::MemoryError>
-impl jmap_server::backend::JmapReads for jmap_blob_server::memory::MemoryBackend
-pub async fn jmap_blob_server::memory::MemoryBackend::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_blob_server::memory::MemoryError>>
-impl jmap_server::conditional::ConditionalBackend for jmap_blob_server::memory::MemoryBackend
-pub async fn jmap_blob_server::memory::MemoryBackend::begin_set(&self, &(), jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_blob_server::memory::MemoryError>>
+impl<C> jmap_blob_server::memory::MemoryBackend<C>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::add_reference_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::advertise_for_test(&self, &jmap_types::id::Id, jmap_blob_types::capability::BlobAccountCapability)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::blob_bytes(&self, &jmap_types::id::Id, &jmap_types::id::Id) -> core::option::Option<alloc::vec::Vec<u8>>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::fail_deferred_for_test(&self, &jmap_types::id::Id, &jmap_types::id::Id)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::hide_object_for_test(&self, &jmap_types::id::Id, &str, &jmap_types::id::Id)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::omit_no_persist_for_test(&self, bool)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::register_account(&self, &jmap_types::id::Id)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::scope_gate(&self) -> alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::set_clock_for_test(&self, i64)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::store_blob(&self, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<u8>, core::option::Option<alloc::string::String>) -> bool
+pub fn jmap_blob_server::memory::MemoryBackend<C>::stub_converter_for_test(&self, impl core::ops::function::Fn(&jmap_blob_types::convert::Recipe) -> core::result::Result<alloc::vec::Vec<u8>, alloc::boxed::Box<jmap_types::set_error::SetError>> + core::marker::Send + core::marker::Sync + 'static)
+pub fn jmap_blob_server::memory::MemoryBackend<C>::with_account(self, &jmap_types::id::Id) -> Self
+pub fn jmap_blob_server::memory::MemoryBackend<C>::with_account_capability(self, &jmap_types::id::Id, jmap_blob_types::capability::BlobAccountCapability) -> Self
+pub fn jmap_blob_server::memory::MemoryBackend<C>::with_external_references(self, alloc::sync::Arc<dyn jmap_blob_server::memory::ExternalReferences>) -> Self
+pub fn jmap_blob_server::memory::MemoryBackend<C>::with_scope_gate(alloc::sync::Arc<jmap_server::scoped_state::ScopeGate>) -> Self
+impl<C: core::fmt::Debug> core::fmt::Debug for jmap_blob_server::memory::MemoryBackend<C>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<C: jmap_server::caller::MemoryCaller> jmap_blob_server::BlobBackend for jmap_blob_server::memory::MemoryBackend<C>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_capability(&self, &C, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_types::capability::BlobAccountCapability>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_chunks(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::vec::Vec<jmap_blob_server::ChunkRef>>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_info(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_server::BlobMeta>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_references(&self, &C, &jmap_types::id::Id, &str, &[jmap_types::id::Id]) -> core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::convert(&self, &C, &jmap_types::id::Id, jmap_blob_server::ConvertParams) -> core::result::Result<jmap_blob_server::ConvertOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::copy_blob(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::create_blob(&self, &C, &jmap_types::id::Id, jmap_blob_server::BlobCreate) -> core::result::Result<jmap_blob_server::CreatedBlob, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::destroy_blob(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::digester(&self, &jmap_blob_types::digest::DigestAlgorithm) -> core::option::Option<alloc::boxed::Box<(dyn jmap_blob_types::digest::Digest + core::marker::Send)>>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::image_data(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_blob_types::get::ImageData>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::memory::MemoryBackend<C>::lookup_type_capability(&self, &str) -> core::option::Option<&str>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::read_blob_range(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, core::ops::range::Range<u64>) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::stored_digest(&self, &C, &jmap_types::id::Id, &jmap_blob_server::DigestQuery) -> core::result::Result<core::option::Option<alloc::string::String>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::touch_blob(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::id::UTCDate>) -> core::result::Result<jmap_blob_server::TouchOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapAccounts for jmap_blob_server::memory::MemoryBackend<C>
+pub type jmap_blob_server::memory::MemoryBackend<C>::CallerCtx = C
+pub type jmap_blob_server::memory::MemoryBackend<C>::Error = jmap_blob_server::memory::MemoryError
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::account_exists(&self, &C, &jmap_types::id::Id) -> core::result::Result<bool, jmap_blob_server::memory::MemoryError>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::principal_id(&C) -> core::option::Option<&jmap_types::id::Id>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::backend::JmapReads for jmap_blob_server::memory::MemoryBackend<C>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::get_changes<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::ChangesParams<'_>) -> core::result::Result<jmap_server::backend::ChangesResult, jmap_server::backend::BackendChangesError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::get_objects<O: jmap_types::backend::GetObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, core::option::Option<&[jmap_types::id::Id]>, core::option::Option<&[alloc::string::String]>) -> core::result::Result<(alloc::vec::Vec<O>, alloc::vec::Vec<jmap_types::id::Id>), jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::get_state<O: jmap_types::backend::JmapObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::State, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::query_changes<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryChangesParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryChangesResult, jmap_server::backend::BackendChangesError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::query_objects<O: jmap_types::backend::QueryObject + core::marker::Send + core::marker::Sync>(&self, &C, &jmap_types::id::Id, jmap_server::backend::QueryParams<'_, O>) -> core::result::Result<jmap_server::backend::QueryResult, jmap_server::backend::BackendQueryError<jmap_blob_server::memory::MemoryError>>
+impl<C: jmap_server::caller::MemoryCaller> jmap_server::conditional::ConditionalBackend for jmap_blob_server::memory::MemoryBackend<C>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::begin_set(&self, &C, jmap_server::conditional::SetScopeRequest<'_>) -> core::result::Result<alloc::boxed::Box<dyn jmap_server::conditional::SetScope>, jmap_server::conditional::BeginSetError<jmap_blob_server::memory::MemoryError>>
+impl<C> core::clone::Clone for jmap_blob_server::memory::MemoryBackend<C>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::clone(&self) -> Self
+impl<C> core::default::Default for jmap_blob_server::memory::MemoryBackend<C>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::default() -> Self
 #[non_exhaustive] pub struct jmap_blob_server::memory::MemoryError
 impl jmap_blob_server::memory::MemoryError
 pub fn jmap_blob_server::memory::MemoryError::description(&self) -> &str
@@ -224,21 +226,21 @@ pub fn jmap_blob_server::BlobBackend::lookup_type_capability(&self, &str) -> cor
 pub fn jmap_blob_server::BlobBackend::read_blob_range(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, core::ops::range::Range<u64>) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, Self::Error>> + core::marker::Send
 pub fn jmap_blob_server::BlobBackend::stored_digest(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_blob_server::DigestQuery) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<alloc::string::String>, Self::Error>> + core::marker::Send
 pub fn jmap_blob_server::BlobBackend::touch_blob(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::id::UTCDate>) -> impl core::future::future::Future<Output = core::result::Result<jmap_blob_server::TouchOutcome, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
-impl jmap_blob_server::BlobBackend for jmap_blob_server::memory::MemoryBackend
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_capability(&self, &(), &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_types::capability::BlobAccountCapability>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_chunks(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::vec::Vec<jmap_blob_server::ChunkRef>>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_info(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_server::BlobMeta>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::blob_references(&self, &(), &jmap_types::id::Id, &str, &[jmap_types::id::Id]) -> core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::convert(&self, &(), &jmap_types::id::Id, jmap_blob_server::ConvertParams) -> core::result::Result<jmap_blob_server::ConvertOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::copy_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::create_blob(&self, &(), &jmap_types::id::Id, jmap_blob_server::BlobCreate) -> core::result::Result<jmap_blob_server::CreatedBlob, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub async fn jmap_blob_server::memory::MemoryBackend::destroy_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
-pub fn jmap_blob_server::memory::MemoryBackend::digester(&self, &jmap_blob_types::digest::DigestAlgorithm) -> core::option::Option<alloc::boxed::Box<(dyn jmap_blob_types::digest::Digest + core::marker::Send)>>
-pub fn jmap_blob_server::memory::MemoryBackend::image_data(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_blob_types::get::ImageData>, Self::Error>> + core::marker::Send
-pub fn jmap_blob_server::memory::MemoryBackend::lookup_type_capability(&self, &str) -> core::option::Option<&str>
-pub async fn jmap_blob_server::memory::MemoryBackend::read_blob_range(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, core::ops::range::Range<u64>) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::stored_digest(&self, &(), &jmap_types::id::Id, &jmap_blob_server::DigestQuery) -> core::result::Result<core::option::Option<alloc::string::String>, jmap_blob_server::memory::MemoryError>
-pub async fn jmap_blob_server::memory::MemoryBackend::touch_blob(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::id::UTCDate>) -> core::result::Result<jmap_blob_server::TouchOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+impl<C: jmap_server::caller::MemoryCaller> jmap_blob_server::BlobBackend for jmap_blob_server::memory::MemoryBackend<C>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_capability(&self, &C, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_types::capability::BlobAccountCapability>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_chunks(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<alloc::vec::Vec<jmap_blob_server::ChunkRef>>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_info(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<core::option::Option<jmap_blob_server::BlobMeta>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::blob_references(&self, &C, &jmap_types::id::Id, &str, &[jmap_types::id::Id]) -> core::result::Result<alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, alloc::vec::Vec<jmap_types::id::Id>>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::convert(&self, &C, &jmap_types::id::Id, jmap_blob_server::ConvertParams) -> core::result::Result<jmap_blob_server::ConvertOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::copy_blob(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<jmap_types::id::Id, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::create_blob(&self, &C, &jmap_types::id::Id, jmap_blob_server::BlobCreate) -> core::result::Result<jmap_blob_server::CreatedBlob, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::destroy_blob(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id) -> core::result::Result<(), jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::digester(&self, &jmap_blob_types::digest::DigestAlgorithm) -> core::option::Option<alloc::boxed::Box<(dyn jmap_blob_types::digest::Digest + core::marker::Send)>>
+pub fn jmap_blob_server::memory::MemoryBackend<C>::image_data(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<jmap_blob_types::get::ImageData>, Self::Error>> + core::marker::Send
+pub fn jmap_blob_server::memory::MemoryBackend<C>::lookup_type_capability(&self, &str) -> core::option::Option<&str>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::read_blob_range(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, core::ops::range::Range<u64>) -> core::result::Result<core::option::Option<alloc::vec::Vec<u8>>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::stored_digest(&self, &C, &jmap_types::id::Id, &jmap_blob_server::DigestQuery) -> core::result::Result<core::option::Option<alloc::string::String>, jmap_blob_server::memory::MemoryError>
+pub async fn jmap_blob_server::memory::MemoryBackend<C>::touch_blob(&self, &C, &jmap_types::id::Id, &jmap_types::id::Id, core::option::Option<jmap_types::id::UTCDate>) -> core::result::Result<jmap_blob_server::TouchOutcome, jmap_server::backend::BackendSetError<jmap_blob_server::memory::MemoryError>>
 pub async fn jmap_blob_server::handle_blob_convert<B: jmap_blob_server::BlobBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_blob_server::handle_blob_copy<B: jmap_blob_server::BlobBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>
 pub async fn jmap_blob_server::handle_blob_get<B: jmap_blob_server::BlobBackend>(&B, &<B as jmap_server::backend::JmapAccounts>::CallerCtx, serde_json::value::Value, &alloc::collections::btree::map::BTreeMap<jmap_types::id::Id, jmap_types::id::Id>, &[alloc::string::String]) -> core::result::Result<jmap_server::HandlerOutput, jmap_types::error::JmapError>

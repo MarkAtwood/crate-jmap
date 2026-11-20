@@ -53,7 +53,7 @@
 //!
 //! # Caller context and rights
 //!
-//! `CallerCtx` is a type implementing [`MemoryCaller`](crate::memory::MemoryCaller):
+//! `CallerCtx` is a type implementing [`MemoryCaller`](jmap_server::MemoryCaller):
 //! the caller's Principal id ([`Id`](jmap_types::Id), the default), which
 //! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id)
 //! returns, or `()` for a single-user deployment with no identity. Each
@@ -111,8 +111,8 @@ use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, MemoryCaller, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, PatchPathError, ScopedState, SetOp,
@@ -183,34 +183,6 @@ impl std::error::Error for MemoryError {}
 // ---------------------------------------------------------------------------
 // Caller context
 // ---------------------------------------------------------------------------
-
-/// A caller context the memory backend accepts as its
-/// [`JmapAccounts::CallerCtx`]: anything that names the caller's Principal,
-/// or names none.
-///
-/// [`JmapAccounts::principal_id`] returns [`MemoryCaller::principal`]. A
-/// caller that names the account owner, or names no principal, has all
-/// rights; any other has the rights its id is given in `shareWith`
-/// (draft-ietf-jmap-filenode-20 §5).
-pub trait MemoryCaller: Clone + Send + Sync + 'static {
-    /// The caller's Principal id, or `None` for a deployment without
-    /// identity, whose every caller acts as the account owner.
-    fn principal(&self) -> Option<&Id>;
-}
-
-/// The caller is the Principal with this id.
-impl MemoryCaller for Id {
-    fn principal(&self) -> Option<&Id> {
-        Some(self)
-    }
-}
-
-/// A single-user deployment: every caller acts as the account owner.
-impl MemoryCaller for () {
-    fn principal(&self) -> Option<&Id> {
-        None
-    }
-}
 
 /// The Principal that owns every account the unit tests register.
 #[cfg(test)]

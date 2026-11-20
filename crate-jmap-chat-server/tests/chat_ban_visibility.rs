@@ -20,7 +20,7 @@ const OTHER_IN_MEMBER_CHAT: &str = "ban-other";
 /// A ban on the owner (`userId` is the accountId).
 const OF_OWNER: &str = "ban-owner";
 
-fn seeded() -> MemoryBackend {
+fn seeded() -> MemoryBackend<()> {
     let backend = account_backend();
     for (id, owner_role) in [("g-admin", "admin"), ("g-member", "member")] {
         backend.insert_object_for_test(
@@ -61,7 +61,7 @@ fn seeded() -> MemoryBackend {
     backend
 }
 
-async fn get(backend: &MemoryBackend, ids: Value) -> Value {
+async fn get(backend: &MemoryBackend<()>, ids: Value) -> Value {
     let HandlerOutput { primary, .. } =
         handle_chat_ban_get(backend, &(), json!({ "accountId": ACCOUNT_ID, "ids": ids }))
             .await

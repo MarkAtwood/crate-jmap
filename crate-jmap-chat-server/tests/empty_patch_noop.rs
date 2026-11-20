@@ -75,8 +75,8 @@ impl Kind {
 }
 
 /// A backend holding one object of `kind`, and that object's id.
-async fn seeded(kind: Kind) -> (MemoryBackend, String) {
-    let backend = MemoryBackend::new();
+async fn seeded(kind: Kind) -> (MemoryBackend<()>, String) {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let (ty, id, obj) = match kind {
         Kind::Space => {
@@ -146,7 +146,7 @@ async fn seeded(kind: Kind) -> (MemoryBackend, String) {
     (backend, id.to_owned())
 }
 
-async fn set(backend: &MemoryBackend, kind: Kind, body: Value) -> Value {
+async fn set(backend: &MemoryBackend<()>, kind: Kind, body: Value) -> Value {
     let mut args = body;
     args["accountId"] = json!(ACCOUNT_ID);
     let refs = BTreeMap::new();
@@ -163,7 +163,7 @@ async fn set(backend: &MemoryBackend, kind: Kind, body: Value) -> Value {
 }
 
 /// The stored object `id` as `/get` returns it.
-async fn stored(backend: &MemoryBackend, kind: Kind, id: &str) -> Value {
+async fn stored(backend: &MemoryBackend<()>, kind: Kind, id: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id] });
     let out = match kind {
         Kind::Space => handle_space_get(backend, &(), args, &[]).await,

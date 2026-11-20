@@ -31,8 +31,8 @@ fn contact(blocked: bool) -> Value {
 }
 
 /// A backend whose `account` lists the contact with `blocked`.
-fn backend_with(account: &str, blocked: bool) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend_with(account: &str, blocked: bool) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(RECIPIENT));
     backend.register_account(&Id::from(OTHER_ACCOUNT));
     backend.insert_object_for_test("ChatContact", account, CONTACT, contact(blocked));
@@ -57,7 +57,7 @@ fn event(presence: &str) -> ChatPresenceEvent {
     serde_json::from_value(frame(presence)).expect("valid ChatPresenceEvent")
 }
 
-async fn project(backend: &MemoryBackend, event: &ChatPresenceEvent) -> Option<Value> {
+async fn project(backend: &MemoryBackend<()>, event: &ChatPresenceEvent) -> Option<Value> {
     project_presence(backend, &(), &Id::from(RECIPIENT), event)
         .await
         .expect("project_presence")

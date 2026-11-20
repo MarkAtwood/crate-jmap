@@ -20,7 +20,7 @@ use jmap_types::{Id, JmapError};
 use serde_json::{Value, json};
 
 type Handler = for<'a> fn(
-    &'a MemoryBackend,
+    &'a MemoryBackend<()>,
     &'a (),
     Value,
 ) -> std::pin::Pin<
@@ -48,8 +48,8 @@ fn handlers() -> [(&'static str, Handler); 5] {
     ]
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }

@@ -72,8 +72,8 @@ fn calendar_json(id: &str) -> Value {
 }
 
 /// Calendar `C1` on `A1`, Calendar `C2` on `A2`.
-fn calendars() -> CalendarsMemory {
-    let calendars = CalendarsMemory::new()
+fn calendars() -> CalendarsMemory<()> {
+    let calendars = CalendarsMemory::<()>::default()
         .with_account(&Id::from(ACCOUNT))
         .with_account(&Id::from(OTHER_ACCOUNT));
     calendars.seed_object(
@@ -117,7 +117,7 @@ fn capability(may_bind_calendar: bool) -> ChatCalendarsCapability {
 
 /// `Calendar/get` of `ids` on `account`: the ids listed and not found.
 async fn calendar_get(
-    calendars: &CalendarsMemory,
+    calendars: &CalendarsMemory<()>,
     account: &str,
     ids: Value,
 ) -> (Vec<String>, Value) {
@@ -138,7 +138,7 @@ async fn calendar_get(
     (listed, out.primary["notFound"].clone())
 }
 
-async fn check(calendars: &CalendarsMemory, value: Value) -> Result<(), (Value, Value)> {
+async fn check(calendars: &CalendarsMemory<()>, value: Value) -> Result<(), (Value, Value)> {
     check_calendar_id(calendars, &(), &Id::from(ACCOUNT), &value)
         .await
         .expect("Calendar read")
@@ -171,8 +171,8 @@ fn no_advertise_without_both() {
 
 /// A chat backend whose Space extension properties come from
 /// [`space_extension_properties`] for `mayBindCalendar`.
-fn chat(may_bind_calendar: bool) -> ChatMemory {
-    let chat = ChatMemory::new();
+fn chat(may_bind_calendar: bool) -> ChatMemory<()> {
+    let chat = ChatMemory::<()>::default();
     chat.register_account(&Id::from(ACCOUNT));
     chat.set_space_extension_properties_for_test(space_extension_properties(&capability(
         may_bind_calendar,
@@ -180,7 +180,7 @@ fn chat(may_bind_calendar: bool) -> ChatMemory {
     chat
 }
 
-async fn space_set(chat: &ChatMemory, args: Value) -> Value {
+async fn space_set(chat: &ChatMemory<()>, args: Value) -> Value {
     handle_space_set(chat, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("Space/set")
@@ -189,7 +189,7 @@ async fn space_set(chat: &ChatMemory, args: Value) -> Value {
 
 /// Create a Space with `calendarId: "C1"`; return its id and its
 /// `calendarId` as `Space/get` returns it.
-async fn create_bound_space(chat: &ChatMemory) -> (String, Value) {
+async fn create_bound_space(chat: &ChatMemory<()>) -> (String, Value) {
     let out = space_set(
         chat,
         json!({ "accountId": ACCOUNT,

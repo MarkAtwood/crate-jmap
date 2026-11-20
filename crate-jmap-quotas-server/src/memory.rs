@@ -29,6 +29,7 @@
 
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
 use jmap_quotas_types::{
@@ -36,8 +37,8 @@ use jmap_quotas_types::{
 };
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, ChangesResult, GetObject, JmapAccounts,
-    JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
-    QueryResult, limit_or_max, resolve_query_start,
+    JmapObject, JmapReads, MemoryCaller, QueryChangesParams, QueryChangesResult, QueryObject,
+    QueryParams, QueryResult, limit_or_max, resolve_query_start,
 };
 use jmap_types::i18n::localized_value;
 use jmap_types::{Filter, Id, JmapError, Operator, State};
@@ -64,10 +65,37 @@ struct Account {
 }
 
 /// In-memory Quota storage. Cloning shares the storage.
-#[derive(Debug, Default, Clone)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity. Quotas are
+/// per account, not per user, so every caller sees the account's quotas;
+/// [`JmapAccounts::principal_id`] returns [`MemoryCaller::principal`].
+#[derive(Debug)]
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     accounts: Arc<Mutex<HashMap<Id, Account>>>,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            accounts: Arc::default(),
+            caller: PhantomData,
+        }
+    }
+}
+
+/// Cloning shares the storage.
+impl<C> Clone for MemoryBackend<C> {
+    fn clone(&self) -> Self {
+        Self {
+            accounts: Arc::clone(&self.accounts),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// The error type of [`MemoryBackend`].
@@ -99,11 +127,14 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 impl MemoryBackend {
-    /// An empty backend with no accounts.
+    /// An empty backend with no accounts, whose callers are Principal ids
+    /// (`C = Id`). Equivalent to [`Self::default`].
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Add an empty account, at state `0`.
     #[must_use]
     pub fn with_account(self, account_id: &Id) -> Self {
@@ -303,26 +334,31 @@ fn compare(sort: &[QuotaComparator], a: &Quota, b: &Quota) -> Ordering {
     a.id.as_ref().cmp(b.id.as_ref())
 }
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
+
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
 
     /// Every account supports `urn:ietf:params:jmap:i18n`: Quota `name`
     /// and `description` are returned with the `locale` and
     /// `localizations` the backend's owner stored.
-    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+    fn i18n_info(&self, _caller: &C, _account_id: &Id) -> Option<jmap_server::I18nInfo> {
         Some(jmap_server::I18nInfo::new())
     }
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self.lock().contains_key(account_id))
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -358,7 +394,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         only_quota::<O>()?;
@@ -368,7 +404,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
@@ -452,7 +488,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
@@ -518,7 +554,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -581,4 +617,4 @@ impl JmapReads for MemoryBackend {
     }
 }
 
-impl QuotasBackend for MemoryBackend {}
+impl<C: MemoryCaller> QuotasBackend for MemoryBackend<C> {}

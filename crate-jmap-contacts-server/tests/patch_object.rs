@@ -34,8 +34,8 @@ fn address_book(id: &str) -> Value {
 
 /// A backend with AddressBooks `ab1` and `ab2` and ContactCard `card1`,
 /// which belongs to `ab1` and has `name.full` "Alice".
-fn seeded_backend() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+fn seeded_backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "AddressBook",
@@ -65,7 +65,7 @@ fn seeded_backend() -> MemoryBackend {
 }
 
 /// Send `ContactCard/set` with `update: { "card1": patch }`.
-async fn update_card1(backend: &MemoryBackend, patch: Value) -> Value {
+async fn update_card1(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "card1": patch } });
     handle_contact_card_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
@@ -74,7 +74,7 @@ async fn update_card1(backend: &MemoryBackend, patch: Value) -> Value {
 }
 
 /// Fetch `card1` with `ContactCard/get`.
-async fn get_card1(backend: &MemoryBackend) -> Value {
+async fn get_card1(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["card1"] });
     let HandlerOutput { primary: resp, .. } = handle_contact_card_get(backend, &(), args, &[])
         .await

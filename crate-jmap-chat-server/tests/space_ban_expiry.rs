@@ -14,7 +14,7 @@ use jmap_server::HandlerOutput;
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-async fn ban_set(backend: &MemoryBackend, body: Value) -> Value {
+async fn ban_set(backend: &MemoryBackend<()>, body: Value) -> Value {
     let mut args = body;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } = handle_ban_set(backend, &(), &BTreeMap::new(), args)
@@ -23,7 +23,7 @@ async fn ban_set(backend: &MemoryBackend, body: Value) -> Value {
     primary
 }
 
-async fn ban_get(backend: &MemoryBackend, ids: Value) -> Value {
+async fn ban_get(backend: &MemoryBackend<()>, ids: Value) -> Value {
     let HandlerOutput { primary, .. } =
         handle_ban_get(backend, &(), json!({ "accountId": ACCOUNT_ID, "ids": ids }))
             .await
@@ -31,7 +31,7 @@ async fn ban_get(backend: &MemoryBackend, ids: Value) -> Value {
     primary
 }
 
-async fn sweep(backend: &MemoryBackend) {
+async fn sweep(backend: &MemoryBackend<()>) {
     sweep_expired(backend, &(), &Id::from(ACCOUNT_ID), SystemTime::now())
         .await
         .expect("sweep");

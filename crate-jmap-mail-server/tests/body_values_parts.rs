@@ -30,7 +30,7 @@ Notes.\r\n\
 --b--\r\n";
 
 async fn body_values(flag: &str) -> (Value, Value) {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     b.store_blob(&Id::from("B1"), MESSAGE.to_vec());
     let resp = handle_email_parse(

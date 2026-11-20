@@ -25,7 +25,7 @@ fn assert_invalid_id(entry: &Value, resp: &Value) {
 
 #[tokio::test]
 async fn principal_set_rejects_malformed_update_and_destroy_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args_with_account = |mut args: Value| {

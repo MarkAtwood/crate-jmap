@@ -21,8 +21,8 @@ fn id(s: &str) -> Id {
     Id::new_validated(s).unwrap()
 }
 
-fn backend() -> MemoryBackend {
-    MemoryBackend::new().with_account(&id("a1"))
+fn backend() -> MemoryBackend<()> {
+    MemoryBackend::<()>::default().with_account(&id("a1"))
 }
 
 fn using(uris: &[&str]) -> Vec<String> {
@@ -31,7 +31,7 @@ fn using(uris: &[&str]) -> Vec<String> {
     v
 }
 
-async fn put(b: &MemoryBackend, bytes: &[u8]) -> Id {
+async fn put(b: &MemoryBackend<()>, bytes: &[u8]) -> Id {
     b.create_blob(
         &(),
         &id("a1"),
@@ -43,7 +43,7 @@ async fn put(b: &MemoryBackend, bytes: &[u8]) -> Id {
 }
 
 async fn call_with(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     args: Value,
     created: &BTreeMap<Id, Id>,
     uris: &[&str],
@@ -53,16 +53,16 @@ async fn call_with(
         .map(|out| out.primary)
 }
 
-async fn call(b: &MemoryBackend, args: Value) -> Result<Value, JmapError> {
+async fn call(b: &MemoryBackend<()>, args: Value) -> Result<Value, JmapError> {
     call_with(b, args, &BTreeMap::new(), &[BLOB2]).await
 }
 
-async fn ok(b: &MemoryBackend, args: Value) -> Value {
+async fn ok(b: &MemoryBackend<()>, args: Value) -> Value {
     call(b, args).await.unwrap()
 }
 
 /// The method-level error type of a failed call.
-async fn err(b: &MemoryBackend, args: Value) -> String {
+async fn err(b: &MemoryBackend<()>, args: Value) -> String {
     error_type(call(b, args).await)
 }
 

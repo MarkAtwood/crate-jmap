@@ -51,13 +51,13 @@ fn quota(id: &str, name: &str, scope: &str, rt: &str, used: u64, types: &[&str])
             "scope": scope, "name": name, "types": types })
 }
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&Id::from(ACC));
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&Id::from(ACC));
     b.seed_quota(&Id::from(ACC), q1());
     b
 }
 
-async fn get(b: &MemoryBackend, args: Value, caps: &[&str]) -> Value {
+async fn get(b: &MemoryBackend<()>, args: Value, caps: &[&str]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACC);
     handle_quota_get(b, &(), args, &using(caps))
@@ -66,7 +66,7 @@ async fn get(b: &MemoryBackend, args: Value, caps: &[&str]) -> Value {
         .primary
 }
 
-async fn query(b: &MemoryBackend, args: Value, caps: &[&str]) -> Result<Value, String> {
+async fn query(b: &MemoryBackend<()>, args: Value, caps: &[&str]) -> Result<Value, String> {
     let mut args = args;
     args["accountId"] = json!(ACC);
     handle_quota_query(b, &(), args, &using(caps))
@@ -196,8 +196,8 @@ async fn other_changes_give_null_updated_properties() {
     assert_eq!(changes["updated"], json!([Q1]));
 }
 
-fn query_backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&Id::from(ACC));
+fn query_backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&Id::from(ACC));
     for q in [
         quota("a", "Mail storage", "account", "octets", 300, &["Email"]),
         quota(

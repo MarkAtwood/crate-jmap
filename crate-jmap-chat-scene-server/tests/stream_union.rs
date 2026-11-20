@@ -121,7 +121,7 @@ fn bob_entered(region: &str) -> SceneEvent {
 async fn delivers(chat_scene: bool, sub: &SceneEphemeralSubscription, ev: &SceneEvent) -> bool {
     should_deliver_scene(
         &fixture(),
-        &ALICE.to_owned(),
+        &jmap_types::Id::from(ALICE),
         &Id::from(ACCOUNT),
         &Id::from(ACCOUNT),
         chat_scene,

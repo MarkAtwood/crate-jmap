@@ -14,8 +14,8 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// A backend holding Task `t1` with one participant `p1`.
-fn backend_with_participant() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+fn backend_with_participant() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "Task",
@@ -37,7 +37,7 @@ fn backend_with_participant() -> MemoryBackend {
     backend
 }
 
-async fn set_update(backend: &MemoryBackend, patch: Value) -> Value {
+async fn set_update(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "t1": patch } });
     handle_task_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
@@ -45,7 +45,7 @@ async fn set_update(backend: &MemoryBackend, patch: Value) -> Value {
         .primary
 }
 
-async fn get_t1(backend: &MemoryBackend) -> Value {
+async fn get_t1(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["t1"] });
     let HandlerOutput { primary: resp, .. } = handle_task_get(backend, &(), args, &[])
         .await
@@ -151,7 +151,7 @@ async fn prefix_conflict_is_invalid_patch() {
 /// set `updated` therefore reads back the base task's `updated`.
 #[tokio::test]
 async fn per_user_only_patch_keeps_base_updated() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "Task",

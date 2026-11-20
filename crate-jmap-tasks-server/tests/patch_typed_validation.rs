@@ -21,7 +21,7 @@ use serde_json::json;
 /// of the task list." No default is specified, so `null` removes it.
 #[tokio::test]
 async fn task_list_null_name_rejected_and_get_still_succeeds() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -68,7 +68,7 @@ async fn task_list_null_name_rejected_and_get_still_succeeds() {
 /// free text value of this comment."
 #[tokio::test]
 async fn task_null_comment_message_rejected_and_get_still_succeeds() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "Task",
@@ -121,7 +121,7 @@ async fn task_null_comment_message_rejected_and_get_still_succeeds() {
 /// back to true.
 #[tokio::test]
 async fn task_is_draft_null_then_true_rejected() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "Task",

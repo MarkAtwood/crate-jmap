@@ -272,7 +272,7 @@ impl ChatResolvers for FaultyBackend {
 /// inventing a fresh test backend per method.
 #[derive(Clone, Default)]
 pub struct TrackingBackend {
-    inner: MemoryBackend,
+    inner: MemoryBackend<()>,
     /// When `Some`, [`ChatAccessPolicy::slow_mode_check`](jmap_chat_server::ChatAccessPolicy::slow_mode_check) returns
     /// `Err(SlowModeError::new(<this>))`. When `None`, forwards to
     /// `inner` (which is a no-op).
@@ -476,7 +476,7 @@ impl TrackingBackend {
 
     /// Borrow the underlying `MemoryBackend` for test seeding (e.g.
     /// `register_account`).
-    pub fn inner(&self) -> &MemoryBackend {
+    pub fn inner(&self) -> &MemoryBackend<()> {
         &self.inner
     }
 
@@ -872,8 +872,8 @@ impl ChatModeration for TrackingBackend {
 }
 
 impl DelegateChatMessageLifecycle for TrackingBackend {
-    type Target = MemoryBackend;
-    fn chat_message_lifecycle(&self) -> &MemoryBackend {
+    type Target = MemoryBackend<()>;
+    fn chat_message_lifecycle(&self) -> &MemoryBackend<()> {
         &self.inner
     }
 }
@@ -968,7 +968,7 @@ impl ChatResolvers for TrackingBackend {
 /// their own. See `bd:JMAP-g7wu.2.4.3`.
 #[derive(Clone, Default)]
 pub struct IdentityBackend {
-    inner: MemoryBackend,
+    inner: MemoryBackend<()>,
     invite_code_fails: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
@@ -988,7 +988,7 @@ impl IdentityBackend {
     /// Borrow the wrapped `MemoryBackend` for test seeding (e.g.
     /// `register_account`, `insert_object_for_test`,
     /// `set_protect_last_admin_for_test`).
-    pub fn inner(&self) -> &MemoryBackend {
+    pub fn inner(&self) -> &MemoryBackend<()> {
         &self.inner
     }
 }
@@ -1398,7 +1398,7 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 pub const INJECTED_QUERY_METHOD_ERROR_DESCRIPTION: &str = "backend cannot process this filter";
 
 pub struct InjectableBackend {
-    pub inner: MemoryBackend,
+    pub inner: MemoryBackend<()>,
     failures:
         std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
     /// Pending race-phantom seed: when set, the next `create_object::<Chat>`
@@ -1806,8 +1806,8 @@ impl ChatSettings for InjectableBackend {
 }
 
 impl DelegateChatResolvers for InjectableBackend {
-    type Target = MemoryBackend;
-    fn chat_resolvers(&self) -> &MemoryBackend {
+    type Target = MemoryBackend<()>;
+    fn chat_resolvers(&self) -> &MemoryBackend<()> {
         &self.inner
     }
 }
@@ -1832,8 +1832,8 @@ pub const ACCOUNT_ID_B: &str = "a2";
 
 /// A [`MemoryBackend`] with [`ACCOUNT_ID`] registered, so `/set` calls
 /// on it pass the RFC 8620 §3.6.2 `accountNotFound` gate (bd:JMAP-fo38).
-pub fn account_backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+pub fn account_backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }
@@ -1942,7 +1942,7 @@ pub fn seed_with_non_admin_caller(backend: &IdentityBackend, caller_id: &str) {
 /// The placeholder client id is `"s0"`. Only `name` is set on the
 /// create object. For non-default props (e.g. `isPublic: true`), see
 /// [`make_space_with_props`].
-pub async fn make_space(backend: &MemoryBackend, name: &str) -> String {
+pub async fn make_space(backend: &MemoryBackend<()>, name: &str) -> String {
     let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_space_set(
         backend,
         &(),
@@ -1966,7 +1966,10 @@ pub async fn make_space(backend: &MemoryBackend, name: &str) -> String {
 /// example `serde_json::json!({"name": "X", "isPublic": true})`.
 ///
 /// Use this when [`make_space`]'s name-only shape is insufficient.
-pub async fn make_space_with_props(backend: &MemoryBackend, props: serde_json::Value) -> String {
+pub async fn make_space_with_props(
+    backend: &MemoryBackend<()>,
+    props: serde_json::Value,
+) -> String {
     let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_space_set(
         backend,
         &(),
@@ -1993,7 +1996,7 @@ pub async fn make_space_with_props(backend: &MemoryBackend, props: serde_json::V
 /// (`"direct"` / `"channel"`) or extra props (`contactId`, `spaceId`),
 /// call `handle_chat_set` directly so the JSON shape under test
 /// remains visible at the call site.
-pub async fn make_chat_group(backend: &MemoryBackend, name: &str) -> String {
+pub async fn make_chat_group(backend: &MemoryBackend<()>, name: &str) -> String {
     let HandlerOutput { primary: resp, .. } = jmap_chat_server::handle_chat_set(
         backend,
         &(),
@@ -2016,7 +2019,7 @@ pub async fn make_chat_group(backend: &MemoryBackend, name: &str) -> String {
 /// account as its admin member, so a `Message/set` create naming that
 /// `chatId` passes the draft-atwood-jmap-chat-00 §Input Validation
 /// `chatId` check. Overwrites any Chat already stored under `id`.
-pub fn seed_group_chat(backend: &MemoryBackend, id: &str) {
+pub fn seed_group_chat(backend: &MemoryBackend<()>, id: &str) {
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -2037,7 +2040,7 @@ pub fn seed_group_chat(backend: &MemoryBackend, id: &str) {
 /// received from another participant. draft-atwood-jmap-chat-00
 /// §Message `burnOnRead`: "Applies only to the receiving mailbox; the
 /// sender's own copy is not affected."
-pub async fn make_received(backend: &MemoryBackend, id: &str) {
+pub async fn make_received(backend: &MemoryBackend<()>, id: &str) {
     let HandlerOutput { primary: get, .. } = jmap_chat_server::message::handle_message_get(
         backend,
         &(),

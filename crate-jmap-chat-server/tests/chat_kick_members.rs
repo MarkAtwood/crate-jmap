@@ -47,7 +47,7 @@ fn group(id: &str, room: bool) -> Value {
     chat
 }
 
-fn seed(inner: &MemoryBackend) {
+fn seed(inner: &MemoryBackend<()>) {
     inner.insert_object_for_test("Chat", ACCOUNT_ID, ROOM_CHAT, group(ROOM_CHAT, true));
     inner.insert_object_for_test("Chat", ACCOUNT_ID, PLAIN_CHAT, group(PLAIN_CHAT, false));
 }

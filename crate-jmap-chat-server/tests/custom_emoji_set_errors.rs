@@ -25,7 +25,7 @@ const SPACE_EMOJI: &str = "emojiSpace";
 const GLOBAL_EMOJI: &str = "emojiGlobal";
 
 /// Seed one Space-scoped and one server-global CustomEmoji.
-fn seed(inner: &MemoryBackend) {
+fn seed(inner: &MemoryBackend<()>) {
     for (id, space_id) in [(SPACE_EMOJI, Some(SPACE_ID)), (GLOBAL_EMOJI, None)] {
         let mut emoji = json!({
             "id": id,

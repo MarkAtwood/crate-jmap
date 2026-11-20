@@ -113,7 +113,7 @@ pub struct TestjigHandle {
     /// The mail memory backend behind the jig, for what HTTP cannot do,
     /// such as an SMTP-style delivery
     /// ([`MemoryBackend::deliver_email`](jmap_mail_server::memory::MemoryBackend::deliver_email)).
-    pub mail: std::sync::Arc<jmap_mail_server::memory::MemoryBackend>,
+    pub mail: std::sync::Arc<jmap_mail_server::memory::MemoryBackend<()>>,
 
     /// The tokio task running the axum server. Held inside an
     /// [`Option`] so [`Self::shutdown`] can take it, abort it, and

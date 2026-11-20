@@ -24,13 +24,13 @@ use serde_json::{Value, json};
 const DID_A: &str = "did:example:123456789abcdefghi";
 const DID_B: &str = "did:web:w3c-ccg.github.io:user:alice";
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }
 
-async fn create(backend: &MemoryBackend, obj: Value) -> Value {
+async fn create(backend: &MemoryBackend<()>, obj: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_contact_set(
         backend,
         &(),
@@ -41,7 +41,7 @@ async fn create(backend: &MemoryBackend, obj: Value) -> Value {
     resp
 }
 
-async fn get_all(backend: &MemoryBackend) -> Value {
+async fn get_all(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_contact_get(
         backend,
         &(),

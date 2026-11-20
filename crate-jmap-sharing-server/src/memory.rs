@@ -61,6 +61,7 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::marker::PhantomData;
 
 use crate::SharingBackend;
 use jmap_metadata_server::{
@@ -71,8 +72,8 @@ use jmap_metadata_server::{
 use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, MemoryCaller, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, PatchPathError, ScopedState, SetScope, SetScopeRequest,
@@ -230,10 +231,27 @@ enum IdFate {
 /// To build an independent backend (e.g. for parameterized tests that need
 /// distinct state per case), construct a new instance with
 /// [`Self::new`] / [`Self::default`] rather than calling `.clone()`.
-#[derive(Default)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity. This
+/// backend keeps no per-user state, so every caller acts as the account
+/// owner; [`JmapAccounts::principal_id`] returns
+/// [`MemoryCaller::principal`].
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            inner: ScopedState::default(),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -243,10 +261,11 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
@@ -254,10 +273,15 @@ impl Clone for MemoryBackend {
 impl MemoryBackend {
     /// Construct an empty [`MemoryBackend`] with no accounts or stored
     /// objects. Equivalent to [`Self::default`].
+    ///
+    /// Its callers are Principal ids (`C = Id`);
+    /// `MemoryBackend::<()>::default()` takes callers without identity.
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Test-only entry point that registers an account as known even
     /// if it has no objects yet. Production callers must not use this
     /// method; the API stability disclaimer on the `memory` feature
@@ -329,7 +353,7 @@ impl MemoryBackend {
     ///
     /// Panics if `data_type` is not `"Principal"` or if
     /// `info.supports_private` is true: this backend has no per-user
-    /// identity (`CallerCtx` is `()`) to own `privateMetadata` (-05 §2).
+    /// state to own `privateMetadata` (-05 §2).
     /// ShareNotification is not supported: RFC 9670 §3.3 rejects every
     /// create and update of it with `forbidden`, so its metadata could
     /// never be written.
@@ -402,14 +426,14 @@ impl MemoryBackend {
 
     /// Register one or more accounts as known even if they have no objects yet.
     ///
-    /// Convenience constructor, equivalent to `Self::new()` followed by
+    /// Convenience constructor, equivalent to `Self::default()` followed by
     /// [`with_account`](Self::with_account) for each id. The canonical
     /// sibling `jmap-mail-server` does NOT ship this shape — it only ships
     /// `with_account`. This crate keeps `new_with_accounts` for ergonomic
     /// test fixture construction; new code SHOULD prefer `with_account`
     /// for canonical-template alignment.
     pub fn new_with_accounts(account_ids: &[&str]) -> Self {
-        let b = Self::new();
+        let b = Self::default();
         for id in account_ids {
             b.register_account(&Id::from(*id));
         }
@@ -499,15 +523,20 @@ fn invalid_patched_properties(
 /// (draft-atwood-jmap-updates-00 §4.1 MAY).
 const MAX_LOCALIZATIONS: usize = 32;
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
+
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
 
     /// Every account supports localizations
     /// (draft-atwood-jmap-updates-00), with at most 32 localizations per
     /// Principal. This backend evaluates no `name` filter or sort, so the
     /// `language` of a `/query` changes only its `queryState`.
-    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+    fn i18n_info(&self, _caller: &C, _account_id: &Id) -> Option<jmap_server::I18nInfo> {
         Some(jmap_server::I18nInfo::new().with_max_localizations(Some(MAX_LOCALIZATIONS)))
     }
 
@@ -515,22 +544,22 @@ impl JmapAccounts for MemoryBackend {
     /// the same for every account; `None` for any other type.
     fn metadata_info<O: JmapObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         metadata_info_for::<O>(&self.inner.lock_unscoped()).cloned()
     }
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -580,7 +609,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().await;
@@ -590,7 +619,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
@@ -742,7 +771,7 @@ impl JmapReads for MemoryBackend {
     /// when `accountIds` evaluation is required.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
@@ -855,7 +884,7 @@ impl JmapReads for MemoryBackend {
     /// `jmap-tasks-server` `MemoryBackend::query_changes`.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
@@ -928,10 +957,10 @@ impl JmapReads for MemoryBackend {
     }
 }
 
-impl SharingBackend for MemoryBackend {
+impl<C: MemoryCaller> SharingBackend for MemoryBackend<C> {
     async fn create_object<O, F>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -983,7 +1012,7 @@ impl SharingBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -1132,7 +1161,7 @@ impl SharingBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -1172,11 +1201,7 @@ impl SharingBackend for MemoryBackend {
         }
     }
 
-    fn supports_type<O: JmapObject>(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-    ) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &C, _account_id: &jmap_types::Id) -> bool {
         true
     }
 }
@@ -1392,10 +1417,10 @@ fn metadata_matches(
 ///
 /// Commit checks nothing beyond what the handlers already check (see the
 /// crate README's conditional section).
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self
@@ -1416,7 +1441,7 @@ mod tests {
     /// retrieve it with the server-assigned id.
     #[tokio::test]
     async fn memory_backend_principal_create_get_roundtrip() {
-        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let backend = MemoryBackend::<()>::new_with_accounts(&["acc1"]);
         let principal = |id: &Id| -> Principal {
             serde_json::from_value(serde_json::json!({
                 "type": "individual",
@@ -1464,7 +1489,7 @@ mod tests {
     /// present in the final state so it MUST appear in `created`.
     #[tokio::test]
     async fn get_changes_recycled_id_lands_in_created() {
-        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let backend = MemoryBackend::<()>::new_with_accounts(&["acc1"]);
         let recycled = Id::from("recycled");
 
         {
@@ -1526,7 +1551,7 @@ mod tests {
     /// Regression guard for bd:JMAP-3t94.17.
     #[tokio::test]
     async fn create_object_returned_o_carries_server_assigned_id() {
-        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let backend = MemoryBackend::<()>::new_with_accounts(&["acc1"]);
         let principal = |id: &Id| -> Principal {
             serde_json::from_value(serde_json::json!({
                 "type": "individual",
@@ -1568,7 +1593,7 @@ mod tests {
     /// the canonical jmap-mail-server `IdFate` rules.
     #[tokio::test]
     async fn get_changes_create_then_destroy_is_omitted() {
-        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let backend = MemoryBackend::<()>::new_with_accounts(&["acc1"]);
         let ephemeral = Id::from("ephemeral");
 
         {
@@ -1656,11 +1681,11 @@ mod clone_tests {
     /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
-        let a = MemoryBackend::new();
+        let a = MemoryBackend::<()>::default();
         let clone = a.clone();
-        let fresh = MemoryBackend::new();
+        let fresh = MemoryBackend::<()>::default();
         a.register_account(&Id::from("acc"));
-        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        let known = |b: &MemoryBackend<()>| b.inner.lock_unscoped().known_accounts.contains("acc");
         assert!(known(&clone), "a clone sees the original's writes");
         assert!(!known(&fresh), "a fresh backend does not");
     }
@@ -1677,7 +1702,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn with_account_registers_account() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new().with_account(&acc);
+        let backend = MemoryBackend::<()>::default().with_account(&acc);
         assert!(backend.account_exists(&(), &acc).await.unwrap());
         assert!(
             !backend
@@ -1692,7 +1717,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn seed_object_is_readable_without_state_change() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let before = backend
             .get_state::<jmap_sharing_types::Principal>(&(), &acc)
             .await
@@ -1722,7 +1747,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "NoSuchType",
             &Id::from("x1"),
@@ -1733,7 +1758,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             jmap_sharing_types::Principal::TYPE_NAME,
             &Id::from("x1"),
@@ -1751,7 +1776,7 @@ mod empty_account_id_tests {
     #[test]
     #[should_panic(expected = "account_id must not be the empty string")]
     fn register_account_rejects_empty_id() {
-        MemoryBackend::new().register_account(&Id::from(""));
+        MemoryBackend::<()>::default().register_account(&Id::from(""));
     }
 }
 
@@ -1764,8 +1789,8 @@ mod max_changes_tests {
 
     /// A backend whose `T` log holds one state per element of `states`,
     /// each creating the listed ids.
-    fn with_creates(states: &[&[&str]]) -> MemoryBackend {
-        let backend = MemoryBackend::new();
+    fn with_creates(states: &[&[&str]]) -> MemoryBackend<()> {
+        let backend = MemoryBackend::<()>::default();
         let mut inner = backend.inner.lock_unscoped();
         for ids in states {
             let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
@@ -1824,10 +1849,11 @@ mod max_changes_tests {
     }
 
     async fn changes(
-        backend: &MemoryBackend,
+        backend: &MemoryBackend<()>,
         since: &str,
         max: u64,
-    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend<()> as JmapAccounts>::Error>>
+    {
         backend
             .get_changes::<T>(
                 &CALLER,

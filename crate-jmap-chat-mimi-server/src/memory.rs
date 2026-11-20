@@ -62,6 +62,7 @@
 #![deny(clippy::await_holding_lock)]
 
 use std::collections::{HashMap, VecDeque};
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 use jmap_chat_mimi_types::{
@@ -69,8 +70,8 @@ use jmap_chat_mimi_types::{
 };
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapAccounts, JmapBackend, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult,
-    QueryObject, QueryParams, QueryResult, SetError, SetErrorType,
+    JmapAccounts, JmapBackend, JmapObject, JmapReads, MemoryCaller, QueryChangesParams,
+    QueryChangesResult, QueryObject, QueryParams, QueryResult, SetError, SetErrorType,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, ScopedGuard, ScopedState, SetOp, SetScope,
@@ -246,30 +247,50 @@ impl Inner {
 }
 
 /// A fully in-memory implementation of [`MimiBackend`] over the MLS
-/// crypto provider `C`.
+/// crypto provider `P`.
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity. This backend
+/// keeps no per-user state, so every caller acts as the account owner;
+/// [`JmapAccounts::principal_id`] returns [`MemoryCaller::principal`].
 ///
 /// `Clone` is a cheap handle clone: every clone shares the same state.
 #[non_exhaustive]
-pub struct MemoryBackend<C> {
-    crypto: Arc<C>,
+pub struct MemoryBackend<P, C = Id> {
+    crypto: Arc<P>,
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
 }
 
-impl<C> Clone for MemoryBackend<C> {
+impl<P, C> Clone for MemoryBackend<P, C> {
     fn clone(&self) -> Self {
         Self {
             crypto: Arc::clone(&self.crypto),
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
-impl<C> MemoryBackend<C> {
-    /// An empty backend with no accounts that verifies with `crypto`.
-    pub fn new(crypto: C) -> Self {
+impl<P> MemoryBackend<P> {
+    /// An empty backend with no accounts that verifies with `crypto`,
+    /// whose callers are Principal ids (`C = Id`). [`Self::with_crypto`]
+    /// takes any caller context.
+    pub fn new(crypto: P) -> Self {
+        Self::with_crypto(crypto)
+    }
+}
+
+impl<P, C> MemoryBackend<P, C> {
+    /// An empty backend with no accounts that verifies with `crypto`, for
+    /// any caller context, such as
+    /// `MemoryBackend::<_, ()>::with_crypto(crypto)` for a deployment
+    /// without identity.
+    pub fn with_crypto(crypto: P) -> Self {
         Self {
             crypto: Arc::new(crypto),
             inner: ScopedState::default(),
+            caller: PhantomData,
         }
     }
 
@@ -397,11 +418,16 @@ impl std::fmt::Display for MemoryError {
 
 impl std::error::Error for MemoryError {}
 
-impl<C: Send + Sync + 'static> JmapAccounts for MemoryBackend<C> {
+impl<P: Send + Sync + 'static, C: MemoryCaller> JmapAccounts for MemoryBackend<P, C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
+
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self
             .locked()
             .await
@@ -410,10 +436,10 @@ impl<C: Send + Sync + 'static> JmapAccounts for MemoryBackend<C> {
     }
 }
 
-impl<C: Send + Sync + 'static> JmapReads for MemoryBackend<C> {
+impl<P: Send + Sync + 'static, C: MemoryCaller> JmapReads for MemoryBackend<P, C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -453,7 +479,7 @@ impl<C: Send + Sync + 'static> JmapReads for MemoryBackend<C> {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, MemoryError> {
         Ok(State::from(
@@ -463,7 +489,7 @@ impl<C: Send + Sync + 'static> JmapReads for MemoryBackend<C> {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
@@ -472,7 +498,7 @@ impl<C: Send + Sync + 'static> JmapReads for MemoryBackend<C> {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
@@ -481,7 +507,7 @@ impl<C: Send + Sync + 'static> JmapReads for MemoryBackend<C> {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -489,16 +515,18 @@ impl<C: Send + Sync + 'static> JmapReads for MemoryBackend<C> {
     }
 }
 
-impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> {
-    type Crypto = C;
+impl<P: OpenMlsCrypto + Send + Sync + 'static, C: MemoryCaller> MimiBackend
+    for MemoryBackend<P, C>
+{
+    type Crypto = P;
 
-    fn mls_crypto(&self) -> &C {
+    fn mls_crypto(&self) -> &P {
         &self.crypto
     }
 
     async fn mimi_capability(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<MimiCapability, MemoryError> {
         self.locked()
@@ -511,7 +539,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn create_key_package(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         key_package: NewKeyPackage,
         max_key_packages: u64,
@@ -599,7 +627,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn claim_key_packages(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         requirements: &KeyMaterialRequirements,
     ) -> Result<Vec<ClientKeyMaterial>, MemoryError> {
@@ -662,7 +690,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn create_room(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         room: NewRoom,
     ) -> Result<Result<Id, JmapError>, MemoryError> {
@@ -757,7 +785,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn unbind_room(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         room_id: &str,
     ) -> Result<bool, MemoryError> {
@@ -773,7 +801,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn room_bound(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         room_id: &str,
     ) -> Result<bool, MemoryError> {
@@ -786,7 +814,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn local_key_material_account(
         &self,
-        _caller: &(),
+        _caller: &C,
         room_id: &str,
         target_user: &str,
     ) -> Result<Option<Id>, MemoryError> {
@@ -803,7 +831,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn mimi_request(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         room_id: &str,
         endpoint: &MimiEndpoint,
@@ -821,7 +849,7 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 
     async fn destroy_key_package(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
@@ -849,13 +877,13 @@ impl<C: OpenMlsCrypto + Send + Sync + 'static> MimiBackend for MemoryBackend<C> 
 /// change that never happened (§4.3). Under an atomic scope the
 /// KeyPackageRef and `maxKeyPackages` checks move to the commit, which
 /// checks the final state (`final_state_failures`).
-impl<C: Send + Sync + 'static> ConditionalBackend for MemoryBackend<C>
+impl<P: Send + Sync + 'static, C: MemoryCaller> ConditionalBackend for MemoryBackend<P, C>
 where
-    MemoryBackend<C>: JmapBackend<CallerCtx = (), Error = MemoryError>,
+    MemoryBackend<P, C>: JmapBackend<CallerCtx = C, Error = MemoryError>,
 {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self.inner.open(request, final_state_failures).await)

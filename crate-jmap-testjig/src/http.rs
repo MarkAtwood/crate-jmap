@@ -93,18 +93,18 @@ pub struct AppState {
 pub(crate) struct AppStateInner {
     /// The JMAP method dispatcher. Caller context is `()` because the
     /// testjig is single-user — there is no per-request identity to
-    /// thread through. Extension MemoryBackends use
-    /// `type CallerCtx = ();` so this dispatcher is compatible with
-    /// every handler the testjig will mount in later slices.
+    /// thread through. Every reference `MemoryBackend` is generic over
+    /// `jmap_server::MemoryCaller`; the testjig builds each as
+    /// `MemoryBackend<()>`, so this dispatcher hosts all their handlers.
     pub(crate) dispatcher: Dispatcher<()>,
-    pub(crate) mail: Arc<jmap_mail_server::memory::MemoryBackend>,
-    pub(crate) chat: Arc<jmap_chat_server::memory::MemoryBackend>,
-    pub(crate) calendars: Arc<jmap_calendars_server::memory::MemoryBackend>,
-    pub(crate) tasks: Arc<jmap_tasks_server::memory::MemoryBackend>,
-    pub(crate) contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
+    pub(crate) mail: Arc<jmap_mail_server::memory::MemoryBackend<()>>,
+    pub(crate) chat: Arc<jmap_chat_server::memory::MemoryBackend<()>>,
+    pub(crate) calendars: Arc<jmap_calendars_server::memory::MemoryBackend<()>>,
+    pub(crate) tasks: Arc<jmap_tasks_server::memory::MemoryBackend<()>>,
+    pub(crate) contacts: Arc<jmap_contacts_server::memory::MemoryBackend<()>>,
     pub(crate) filenode: Arc<jmap_filenode_server::memory::MemoryBackend<()>>,
-    pub(crate) sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
-    pub(crate) quotas: Arc<jmap_quotas_server::memory::MemoryBackend>,
+    pub(crate) sharing: Arc<jmap_sharing_server::memory::MemoryBackend<()>>,
+    pub(crate) quotas: Arc<jmap_quotas_server::memory::MemoryBackend<()>>,
     /// Testjig-internal state-change signal for signal-driven SSE / WS
     /// push (bd:JMAP-cf7p.9).
     ///
@@ -187,7 +187,7 @@ impl AppStateInner {
 
 impl AppState {
     /// The mail memory backend the dispatcher serves.
-    pub(crate) fn mail_backend(&self) -> Arc<jmap_mail_server::memory::MemoryBackend> {
+    pub(crate) fn mail_backend(&self) -> Arc<jmap_mail_server::memory::MemoryBackend<()>> {
         Arc::clone(&self.inner.mail)
     }
 
@@ -210,8 +210,9 @@ impl AppState {
     /// crate's `register_*_handlers` function on a single dispatcher
     /// alongside the built-in `Core/echo` handler.
     ///
-    /// All 7 reference backends use `type CallerCtx = ();`, which
-    /// lines up with the testjig's single-hardcoded-principal posture.
+    /// Each reference backend is a `MemoryBackend<()>`, whose callers act
+    /// as the account owner: the testjig's single-hardcoded-principal
+    /// posture.
     pub fn with_token(token: impl Into<String>) -> Self {
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         dispatcher.register("Core/echo", Arc::new(EchoHandler));
@@ -498,14 +499,14 @@ async fn not_found(headers: axum::http::HeaderMap) -> Response {
 ///
 /// [`JmapObject`]: jmap_server::JmapObject
 struct ExtensionBackends {
-    mail: Arc<jmap_mail_server::memory::MemoryBackend>,
-    chat: Arc<jmap_chat_server::memory::MemoryBackend>,
-    calendars: Arc<jmap_calendars_server::memory::MemoryBackend>,
-    tasks: Arc<jmap_tasks_server::memory::MemoryBackend>,
-    contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
+    mail: Arc<jmap_mail_server::memory::MemoryBackend<()>>,
+    chat: Arc<jmap_chat_server::memory::MemoryBackend<()>>,
+    calendars: Arc<jmap_calendars_server::memory::MemoryBackend<()>>,
+    tasks: Arc<jmap_tasks_server::memory::MemoryBackend<()>>,
+    contacts: Arc<jmap_contacts_server::memory::MemoryBackend<()>>,
     filenode: Arc<jmap_filenode_server::memory::MemoryBackend<()>>,
-    sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
-    quotas: Arc<jmap_quotas_server::memory::MemoryBackend>,
+    sharing: Arc<jmap_sharing_server::memory::MemoryBackend<()>>,
+    quotas: Arc<jmap_quotas_server::memory::MemoryBackend<()>>,
 }
 
 /// Construct one reference [`MemoryBackend`] from each extension-server
@@ -530,7 +531,7 @@ struct ExtensionBackends {
 /// (`jmap_mail_server::memory`).
 ///
 /// [`ExternalBlobStore`]: jmap_mail_server::memory::ExternalBlobStore
-struct SharedBlobs(jmap_blob_server::memory::MemoryBackend);
+struct SharedBlobs(jmap_blob_server::memory::MemoryBackend<()>);
 
 impl jmap_mail_server::memory::ExternalBlobStore for SharedBlobs {
     fn read(&self, account_id: &Id, blob_id: &Id) -> Option<Vec<u8>> {
@@ -546,7 +547,7 @@ impl jmap_mail_server::memory::ExternalBlobStore for SharedBlobs {
 /// Mail's current objects, as the blob store's [`ExternalReferences`].
 ///
 /// [`ExternalReferences`]: jmap_blob_server::memory::ExternalReferences
-struct MailReferences(Arc<jmap_mail_server::memory::MemoryBackend>);
+struct MailReferences(Arc<jmap_mail_server::memory::MemoryBackend<()>>);
 
 impl jmap_blob_server::memory::ExternalReferences for MailReferences {
     fn references(
@@ -592,10 +593,11 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     // history versions using that blob (object-history-03 §3.1). Calling
     // each other, they share one conditional scope gate.
     let gate = jmap_server::ScopeGate::new();
-    let blob_store = jmap_blob_server::memory::MemoryBackend::with_scope_gate(Arc::clone(&gate))
-        .with_account_capability(&account, session::blob_capability());
+    let blob_store =
+        jmap_blob_server::memory::MemoryBackend::<()>::with_scope_gate(Arc::clone(&gate))
+            .with_account_capability(&account, session::blob_capability());
     let mail = Arc::new(
-        jmap_mail_server::memory::MemoryBackend::new()
+        jmap_mail_server::memory::MemoryBackend::<()>::default()
             .with_scope_gate(gate)
             .with_blob_store(Arc::new(SharedBlobs(blob_store.clone())))
             .with_object_history(history("mail"), retention()),
@@ -616,7 +618,7 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     // SpaceBan, ChatBan, ChatContact, ReadPosition, CustomEmoji, SpaceInvite,
     // PresenceStatus.
     let chat = Arc::new(
-        jmap_chat_server::memory::MemoryBackend::new()
+        jmap_chat_server::memory::MemoryBackend::<()>::default()
             .with_object_history(history("chat"), retention()),
     );
     chat.register_account(&account);
@@ -625,7 +627,7 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     // Calendars (draft-ietf-jmap-calendars): Calendar, CalendarEvent,
     // Participant, ParticipantIdentity.
     let calendars = Arc::new(
-        jmap_calendars_server::memory::MemoryBackend::new()
+        jmap_calendars_server::memory::MemoryBackend::<()>::default()
             .with_object_history(history("calendars"), retention()),
     );
     calendars.register_account(&account);
@@ -636,7 +638,7 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
 
     // Tasks (draft-ietf-jmap-tasks): Task, TaskList.
     let tasks = Arc::new(
-        jmap_tasks_server::memory::MemoryBackend::new()
+        jmap_tasks_server::memory::MemoryBackend::<()>::default()
             .with_object_history(history("tasks"), retention()),
     );
     tasks.register_account(&account);
@@ -644,7 +646,7 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
 
     // Contacts (draft-ietf-jmap-contacts): ContactCard, AddressBook.
     let contacts = Arc::new(
-        jmap_contacts_server::memory::MemoryBackend::new()
+        jmap_contacts_server::memory::MemoryBackend::<()>::default()
             .with_object_history(history("contacts"), retention()),
     );
     contacts.register_account(&account);
@@ -670,7 +672,7 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
 
     // Sharing (RFC 9670): Principal, ShareNotification.
     let sharing = Arc::new(
-        jmap_sharing_server::memory::MemoryBackend::new_with_accounts(&[session::ACCOUNT_ID]),
+        jmap_sharing_server::memory::MemoryBackend::<()>::new_with_accounts(&[session::ACCOUNT_ID]),
     );
     // The user's own Principal, named by the Session's principals
     // capabilities (RFC 9670 §1.5, §2).
@@ -694,7 +696,8 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends
     // Quotas (RFC 9425): Quota, read-only. One account quota on the mail,
     // calendar, contacts and file data, so a client sees a Quota whatever
     // of those capabilities it uses (RFC 9425 §4.1).
-    let quotas = Arc::new(jmap_quotas_server::memory::MemoryBackend::new().with_account(&account));
+    let quotas =
+        Arc::new(jmap_quotas_server::memory::MemoryBackend::<()>::default().with_account(&account));
     quotas.seed_quota(
         &account,
         serde_json::json!({

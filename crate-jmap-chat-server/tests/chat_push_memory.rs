@@ -16,8 +16,8 @@ const ACCOUNT: &str = "acct-push";
 
 /// A backend whose `ACCOUNT` advertises `urn:ietf:params:jmap:chat:push`
 /// with the minimum urgency set the draft requires.
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     let cap: ChatPushCapability = serde_json::from_value(json!({
         "maxSnippetBytes": 256,
         "supportedUrgencyValues": ["normal", "high"],
@@ -133,7 +133,7 @@ async fn list_strips_entry_after_capability_is_withdrawn() {
 #[test]
 fn chat_push_is_a_declared_push_subscription_property() {
     assert_eq!(
-        MemoryBackend::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES,
+        MemoryBackend::<()>::PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES,
         &["chatPush"]
     );
 }

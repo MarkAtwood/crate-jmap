@@ -18,7 +18,7 @@ use serde_json::json;
 /// "*sortOrder*: UnsignedInt (default: 0)".
 #[tokio::test]
 async fn task_list_sort_order_null_resets_to_zero() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",

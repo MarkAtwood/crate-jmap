@@ -30,7 +30,7 @@ Subject: Hi\r\n\
 \r\n\
 Body.\r\n";
 
-async fn email(b: &MemoryBackend, account: &Id) -> Id {
+async fn email(b: &MemoryBackend<()>, account: &Id) -> Id {
     let blob = Id::from("blob-e");
     b.register_account(account);
     b.store_blob(&blob, MESSAGE.to_vec());
@@ -40,7 +40,7 @@ async fn email(b: &MemoryBackend, account: &Id) -> Id {
         .0
 }
 
-async fn identity(b: &MemoryBackend, account: &Id, addr: &'static str) -> Id {
+async fn identity(b: &MemoryBackend<()>, account: &Id, addr: &'static str) -> Id {
     b.create_object::<Identity, _>(&(), account, "i", move |id: &Id| {
         Identity::new(id.clone(), addr, true)
     })
@@ -49,7 +49,7 @@ async fn identity(b: &MemoryBackend, account: &Id, addr: &'static str) -> Id {
     .0
 }
 
-async fn submit(b: &MemoryBackend, args: Value) -> jmap_server::HandlerOutput {
+async fn submit(b: &MemoryBackend<()>, args: Value) -> jmap_server::HandlerOutput {
     handle_submission_set(b, &(), &BTreeMap::new(), args, "c0")
         .await
         .unwrap()
@@ -57,7 +57,7 @@ async fn submit(b: &MemoryBackend, args: Value) -> jmap_server::HandlerOutput {
 
 /// The derived envelope of a submission of [`MESSAGE`] as `identity_addr`.
 async fn derived_envelope(identity_addr: &'static str) -> Value {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     let account = Id::from("acc");
     let e = email(&b, &account).await;
     let i = identity(&b, &account, identity_addr).await;
@@ -97,7 +97,7 @@ async fn rcpt_to_is_deduplicated() {
 /// in onSuccessDestroyEmail: nothing succeeded, so its Email stays.
 #[tokio::test]
 async fn on_success_ignores_submissions_the_call_did_not_touch() {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     let account = Id::from("acc");
     let e = email(&b, &account).await;
     let i = identity(&b, &account, "Jane_Sender@example.org").await;

@@ -74,6 +74,7 @@
 mod history;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::marker::PhantomData;
 
 use crate::{CalendarsBackend, SetDefaultResult};
 use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilter};
@@ -86,8 +87,8 @@ use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, MemoryCaller, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, PatchPathError, ScopedState, SetScope, SetScopeRequest,
@@ -525,10 +526,27 @@ impl Inner {
 /// All four caveats are out of scope for the reference impl's purpose —
 /// they are the *reason* production deployments override the backend
 /// trait rather than reusing `MemoryBackend`.
-#[derive(Default)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity. This
+/// backend keeps no per-user state, so every caller acts as the account
+/// owner; [`JmapAccounts::principal_id`] returns
+/// [`MemoryCaller::principal`].
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            inner: ScopedState::default(),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -538,20 +556,26 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
 impl MemoryBackend {
     /// Create a new, empty `MemoryBackend`.
+    ///
+    /// Its callers are Principal ids (`C = Id`);
+    /// `MemoryBackend::<()>::default()` takes callers without identity.
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Register `account_id` as known and return `self`, for
     /// builder-style fixture setup. Until then the account is unknown
     /// (`accountNotFound`, RFC 8620 §3.6.2). Idempotent; the id is stored
@@ -594,7 +618,7 @@ impl MemoryBackend {
     /// Panics if `data_type` is not `"Calendar"` or `"CalendarEvent"`, the
     /// two types draft-ietf-jmap-metadata-05 §4.1 names for this
     /// extension, or if `info.supports_private` is true: this backend has
-    /// no per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
+    /// no per-user state to own `privateMetadata`
     /// (-05 §2).
     #[must_use]
     pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
@@ -753,14 +777,19 @@ impl MemoryBackend {
 /// (draft-atwood-jmap-updates-00 §4.1 MAY).
 const MAX_LOCALIZATIONS: usize = 32;
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
+
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
 
     /// Every account supports localizations
     /// (draft-atwood-jmap-updates-00), with at most 32 localizations per
     /// Calendar.
-    fn i18n_info(&self, _caller: &(), _account_id: &Id) -> Option<jmap_server::I18nInfo> {
+    fn i18n_info(&self, _caller: &C, _account_id: &Id) -> Option<jmap_server::I18nInfo> {
         Some(jmap_server::I18nInfo::new().with_max_localizations(Some(MAX_LOCALIZATIONS)))
     }
 
@@ -768,7 +797,7 @@ impl JmapAccounts for MemoryBackend {
     /// every account.
     fn metadata_info<O: JmapObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         self.inner
@@ -778,16 +807,16 @@ impl JmapAccounts for MemoryBackend {
             .cloned()
     }
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -838,7 +867,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().await;
@@ -848,7 +877,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
@@ -1074,7 +1103,7 @@ impl JmapReads for MemoryBackend {
     /// reference impl does NOT honor.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
@@ -1207,7 +1236,7 @@ impl JmapReads for MemoryBackend {
     /// `jmap-tasks-server` `MemoryBackend::query_changes`.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
@@ -1558,7 +1587,7 @@ fn with_id<O: SetObject>(obj: &O, id: &Id) -> Result<O, BackendSetError<MemoryEr
         .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize copied object", &e)))
 }
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Store the object `build` returns for a new id in `account_id`: the
     /// body of [`CalendarsBackend::create_object`] and
     /// [`CalendarsBackend::copy_object`]. `supplied` is the `/copy` create
@@ -1622,10 +1651,10 @@ impl MemoryBackend {
 // CalendarsBackend impl
 // ---------------------------------------------------------------------------
 
-impl CalendarsBackend for MemoryBackend {
+impl<C: MemoryCaller> CalendarsBackend for MemoryBackend<C> {
     async fn create_object<O, F>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1640,7 +1669,7 @@ impl CalendarsBackend for MemoryBackend {
 
     async fn copy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
@@ -1654,7 +1683,7 @@ impl CalendarsBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -1808,12 +1837,12 @@ impl CalendarsBackend for MemoryBackend {
 
     async fn update_per_user_properties(
         &self,
-        caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
         patch: jmap_types::PatchObject,
     ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>> {
-        // ponytail: single-user backend (CallerCtx = ()), so per-user state is
+        // ponytail: single-user backend (every caller is the owner), so per-user state is
         // the shared object. `update_object` never writes `updated`, so a
         // per-user-only patch leaves the shared timestamp alone. A multi-user
         // backend stores per-user properties separately.
@@ -1823,7 +1852,7 @@ impl CalendarsBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -1866,11 +1895,7 @@ impl CalendarsBackend for MemoryBackend {
         }
     }
 
-    fn supports_type<O: JmapObject>(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-    ) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &C, _account_id: &jmap_types::Id) -> bool {
         matches!(
             O::TYPE_NAME,
             "Calendar" | "CalendarEvent" | "CalendarEventNotification" | "ParticipantIdentity"
@@ -1879,7 +1904,7 @@ impl CalendarsBackend for MemoryBackend {
 
     async fn calendar_has_events(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         calendar_id: &Id,
     ) -> Result<bool, Self::Error> {
@@ -1894,7 +1919,7 @@ impl CalendarsBackend for MemoryBackend {
 
     async fn set_default_calendar(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         calendar_id: &Id,
     ) -> Result<SetDefaultResult, Self::Error> {
@@ -1926,7 +1951,7 @@ impl CalendarsBackend for MemoryBackend {
 
     async fn set_default_participant_identity(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         identity_id: &Id,
     ) -> Result<SetDefaultResult, Self::Error> {
@@ -1965,7 +1990,7 @@ impl CalendarsBackend for MemoryBackend {
     // "not supported" shape (bd:JMAP-ic0j.26).
     async fn parse_calendar_event_blobs(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &jmap_types::Id,
         blob_ids: &[jmap_types::Id],
         _properties: Option<&[String]>,
@@ -1995,7 +2020,7 @@ impl CalendarsBackend for MemoryBackend {
     /// it out would report the Principal free when it is not.
     async fn get_availability(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &jmap_types::Id,
         principal_id: &jmap_types::Id,
         utc_start: &jmap_types::UTCDate,
@@ -2265,7 +2290,7 @@ mod change_log_dedup_tests {
     /// Seed a `MemoryBackend` with a synthetic change_log so the dedup
     /// loop can be exercised against arbitrary patterns. The state
     /// counter is set to the highest `new_state` in `entries`.
-    fn seed_change_log(backend: &MemoryBackend, account_id: &str, entries: Vec<ChangeEntry>) {
+    fn seed_change_log(backend: &MemoryBackend<()>, account_id: &str, entries: Vec<ChangeEntry>) {
         let mut inner = backend.inner.lock_unscoped();
         inner.known_accounts.insert(account_id.to_owned());
         let max_state = entries.iter().map(|e| e.new_state).max().unwrap_or(0);
@@ -2297,7 +2322,7 @@ mod change_log_dedup_tests {
     #[tokio::test]
     #[should_panic(expected = "MemoryBackend change_log invariant violated")]
     async fn dedup_pass_panics_on_recycled_id_in_created() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let acc_id = Id::from("acc1");
         let recycled = Id::from("calendar0000000000000001");
 
@@ -2356,7 +2381,7 @@ mod change_log_dedup_tests {
     #[tokio::test]
     #[should_panic(expected = "MemoryBackend change_log invariant violated")]
     async fn dedup_pass_panics_on_recycled_id_in_updated() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let acc_id = Id::from("acc1");
         let recycled = Id::from("calendar0000000000000001");
 
@@ -2406,7 +2431,7 @@ mod change_log_dedup_tests {
     /// destroy and re-create, end up correctly classified.
     #[tokio::test]
     async fn dedup_pass_does_not_panic_on_distinct_recreated_ids() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let acc_id = Id::from("acc1");
         let id_a = Id::from("calendar0000000000000001");
         let id_b = Id::from("calendar0000000000000002");
@@ -2494,7 +2519,7 @@ mod seed_object_validation_tests {
     #[test]
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.seed_object(
             &Id::from("acc1"),
             "calendarevent",
@@ -2509,7 +2534,7 @@ mod seed_object_validation_tests {
     #[test]
     #[should_panic(expected = "must be a JSON object")]
     fn seed_object_rejects_non_object_value() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.seed_object(&Id::from("acc1"), "Calendar", &Id::from("cal1"), json!(42));
     }
 
@@ -2519,7 +2544,7 @@ mod seed_object_validation_tests {
     #[test]
     #[should_panic(expected = "must contain an `id` string field")]
     fn seed_object_rejects_value_without_id_field() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.seed_object(
             &Id::from("acc1"),
             "Calendar",
@@ -2534,7 +2559,7 @@ mod seed_object_validation_tests {
     #[test]
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.seed_object(
             &Id::from("acc1"),
             "Calendar",
@@ -2547,7 +2572,7 @@ mod seed_object_validation_tests {
     /// four known type_name values.
     #[test]
     fn seed_object_accepts_known_type_names() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.seed_object(
             &Id::from("acc1"),
             "Calendar",
@@ -2592,7 +2617,7 @@ mod limits_default_tests {
     /// per-account; the reference impl pegs every account to defaults.
     #[test]
     fn memory_backend_limits_returns_default() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let account = Id::from("acc1");
         let got = backend.limits(&(), &account);
         assert_eq!(
@@ -2608,7 +2633,7 @@ mod limits_default_tests {
     /// observing the identical Default-shaped result.
     #[test]
     fn memory_backend_limits_ignores_account_in_default_impl() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let a = backend.limits(&(), &Id::from("acc1"));
         let b = backend.limits(&(), &Id::from("acc2"));
         assert_eq!(
@@ -2636,7 +2661,7 @@ mod limits_default_tests {
 mod calendar_event_counts_tests {
     use super::*;
 
-    fn count(backend: &MemoryBackend, account_id: &str, calendar_id: &str) -> u32 {
+    fn count(backend: &MemoryBackend<()>, account_id: &str, calendar_id: &str) -> u32 {
         let inner = backend.inner.lock_unscoped();
         inner
             .aux_ref(account_id)
@@ -2645,7 +2670,7 @@ mod calendar_event_counts_tests {
             .unwrap_or(0)
     }
 
-    fn has_key(backend: &MemoryBackend, account_id: &str, calendar_id: &str) -> bool {
+    fn has_key(backend: &MemoryBackend<()>, account_id: &str, calendar_id: &str) -> bool {
         let inner = backend.inner.lock_unscoped();
         inner
             .aux_ref(account_id)
@@ -2656,7 +2681,7 @@ mod calendar_event_counts_tests {
     /// exactly 1 under cal1, and no entry for any other calendar.
     #[test]
     fn seed_single_event_single_calendar_count_is_one() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         backend.seed_object(
             &Id::from("acc1"),
             "CalendarEvent",
@@ -2671,7 +2696,7 @@ mod calendar_event_counts_tests {
     /// of 2 — verifies the counter accumulates rather than overwriting.
     #[test]
     fn seed_two_events_same_calendar_count_is_two() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         backend.seed_object(
             &Id::from("acc1"),
             "CalendarEvent",
@@ -2692,7 +2717,7 @@ mod calendar_event_counts_tests {
     /// "event-in-multiple-calendars" case (§5.2 multi-calendar events).
     #[test]
     fn seed_event_with_multiple_calendars_each_gets_one() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         backend.seed_object(
             &Id::from("acc1"),
             "CalendarEvent",
@@ -2718,7 +2743,7 @@ mod calendar_event_counts_tests {
     /// oracle used elsewhere in this module is itself sound.
     #[test]
     fn seed_then_seed_yields_correct_counts() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         backend.seed_object(
             &Id::from("acc1"),
             "CalendarEvent",
@@ -2779,7 +2804,7 @@ mod calendar_event_counts_tests {
     /// equality check fails.
     #[tokio::test]
     async fn incremental_matches_full_rescan_under_mixed_workload() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
 
         // Seed two events: one in cal1, one in cal2. Seed triggers a
         // full rescan, so after this the index is whatever rescan
@@ -2855,7 +2880,7 @@ mod calendar_event_counts_tests {
     /// incremental path through both production code branches.
     #[tokio::test]
     async fn create_then_destroy_removes_entry() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         let (id, _) = backend
             .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
@@ -2882,7 +2907,7 @@ mod calendar_event_counts_tests {
     /// retained. Verifies the counter doesn't collapse to 0 prematurely.
     #[tokio::test]
     async fn create_two_destroy_one_keeps_entry() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         let (id1, _) = backend
             .create_object::<jmap_calendars_types::CalendarEvent, _>(
                 &(),
@@ -2919,7 +2944,7 @@ mod calendar_event_counts_tests {
     /// removed; cal2 count rises to 1.
     #[test]
     fn apply_delta_old_to_new_swaps_calendar_ids() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         let old = serde_json::json!({"calendarIds": {"cal1": true}});
         let new = serde_json::json!({"calendarIds": {"cal2": true}});
 
@@ -2943,7 +2968,7 @@ mod calendar_event_counts_tests {
     /// calendarIds, the delta is empty and counters are unchanged.
     #[test]
     fn apply_delta_identical_old_new_is_noop() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         let v = serde_json::json!({"calendarIds": {"cal1": true, "cal2": true}});
 
         // Establish baseline.
@@ -2968,7 +2993,7 @@ mod calendar_event_counts_tests {
     /// JSON without panicking.
     #[test]
     fn apply_delta_value_without_calendar_ids_contributes_nothing() {
-        let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+        let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
         let bare = serde_json::json!({"id": "evt1"}); // no calendarIds
         let with_ids = serde_json::json!({"calendarIds": {"cal1": true}});
 
@@ -3031,10 +3056,10 @@ mod memory_error_tests {
 /// Calendar/set, which moves no events; and this backend has no
 /// cross-object caps. It refuses `sendSchedulingMessages`
 /// (`noSupportedScheduleMethods`), so no iTIP message needs deferring.
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self
@@ -3054,11 +3079,11 @@ mod clone_tests {
     /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
-        let a = MemoryBackend::new();
+        let a = MemoryBackend::<()>::default();
         let clone = a.clone();
-        let fresh = MemoryBackend::new();
+        let fresh = MemoryBackend::<()>::default();
         a.register_account(&Id::from("acc"));
-        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        let known = |b: &MemoryBackend<()>| b.inner.lock_unscoped().known_accounts.contains("acc");
         assert!(known(&clone), "a clone sees the original's writes");
         assert!(!known(&fresh), "a fresh backend does not");
     }
@@ -3073,7 +3098,7 @@ mod empty_account_id_tests {
     #[test]
     #[should_panic(expected = "account_id must not be the empty string")]
     fn register_account_rejects_empty_id() {
-        MemoryBackend::new().register_account(&Id::from(""));
+        MemoryBackend::<()>::default().register_account(&Id::from(""));
     }
 }
 
@@ -3086,8 +3111,8 @@ mod max_changes_tests {
 
     /// A backend whose `T` log holds one state per element of `states`,
     /// each creating the listed ids.
-    fn with_creates(states: &[&[&str]]) -> MemoryBackend {
-        let backend = MemoryBackend::new();
+    fn with_creates(states: &[&[&str]]) -> MemoryBackend<()> {
+        let backend = MemoryBackend::<()>::default();
         let mut inner = backend.inner.lock_unscoped();
         for ids in states {
             let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
@@ -3147,10 +3172,11 @@ mod max_changes_tests {
     }
 
     async fn changes(
-        backend: &MemoryBackend,
+        backend: &MemoryBackend<()>,
         since: &str,
         max: u64,
-    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend<()> as JmapAccounts>::Error>>
+    {
         backend
             .get_changes::<T>(
                 &CALLER,

@@ -20,13 +20,13 @@ const ACCOUNT: &str = "A1412";
 const INBOX: &str = "674cc240-95db-49ce-a8a2-054f4f733095";
 
 struct Server {
-    b: MemoryBackend,
+    b: MemoryBackend<()>,
     d: Dispatcher<()>,
 }
 
 impl Server {
     fn new() -> Self {
-        let b = MemoryBackend::new();
+        let b = MemoryBackend::<()>::default();
         b.register_account(&Id::from(ACCOUNT));
         let mut d = Dispatcher::new();
         register_mail_handlers(&mut d, Arc::new(b.clone()));
@@ -387,7 +387,7 @@ async fn thread_conditions_see_the_thread() {
 /// create stores nothing and queues no PushVerification.
 #[tokio::test]
 async fn atomic_set_rolls_back_creates() {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from(ACCOUNT));
     let mut d = Dispatcher::new();
     register_push_subscription_handlers(&mut d, Arc::new(b.clone()));

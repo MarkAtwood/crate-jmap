@@ -18,8 +18,8 @@ use serde_json::{Value, json};
 
 const A: &str = "A1";
 
-fn server(types: &[&str]) -> (MemoryBackend, Dispatcher<()>) {
-    let b = MemoryBackend::new().with_object_history(
+fn server(types: &[&str]) -> (MemoryBackend<()>, Dispatcher<()>) {
+    let b = MemoryBackend::<()>::default().with_object_history(
         serde_json::from_value(json!({"maxHistoryDuration": null, "supportedTypes": types}))
             .unwrap(),
         HistoryRetention::new(),
@@ -54,7 +54,7 @@ fn create(properties: Value) -> Value {
 }
 
 /// Creates and verifies a subscription; its `created` entry.
-async fn subscribe(b: &MemoryBackend, d: &Dispatcher<()>, properties: Value) -> Value {
+async fn subscribe(b: &MemoryBackend<()>, d: &Dispatcher<()>, properties: Value) -> Value {
     let r = call(d, "PushSubscription/set", create(properties)).await;
     let created = r["created"]["c"].clone();
     let id = created["id"]
@@ -86,7 +86,7 @@ async fn mailbox(d: &Dispatcher<()>) -> Id {
     )
 }
 
-async fn deliver(b: &MemoryBackend, mailbox: &Id, subject: &str) -> (Id, Vec<Value>) {
+async fn deliver(b: &MemoryBackend<()>, mailbox: &Id, subject: &str) -> (Id, Vec<Value>) {
     let raw = format!("From: a@example.com\r\nSubject: {subject}\r\n\r\nx\r\n");
     let (id, pushes) = b
         .deliver_email(

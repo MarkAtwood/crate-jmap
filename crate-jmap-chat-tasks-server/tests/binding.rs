@@ -88,8 +88,8 @@ fn task_list_json(id: &str) -> Value {
 }
 
 /// TaskList `T1` on `A1`, TaskList `T2` on `A2`.
-fn tasks() -> TasksMemory {
-    let tasks = TasksMemory::new()
+fn tasks() -> TasksMemory<()> {
+    let tasks = TasksMemory::<()>::default()
         .with_account(&Id::from(ACCOUNT))
         .with_account(&Id::from(OTHER_ACCOUNT));
     tasks.seed_object(
@@ -131,7 +131,7 @@ fn capability(may_bind_task_list: bool) -> ChatTasksCapability {
 }
 
 /// `TaskList/get` of `ids` on `account`: the ids listed and not found.
-async fn task_list_get(tasks: &TasksMemory, account: &str, ids: Value) -> (Vec<String>, Value) {
+async fn task_list_get(tasks: &TasksMemory<()>, account: &str, ids: Value) -> (Vec<String>, Value) {
     let out = handle_task_list_get(tasks, &(), json!({ "accountId": account, "ids": ids }), &[])
         .await
         .expect("TaskList/get");
@@ -144,7 +144,7 @@ async fn task_list_get(tasks: &TasksMemory, account: &str, ids: Value) -> (Vec<S
     (listed, out.primary["notFound"].clone())
 }
 
-async fn check(tasks: &TasksMemory, value: Value) -> Result<(), (Value, Value)> {
+async fn check(tasks: &TasksMemory<()>, value: Value) -> Result<(), (Value, Value)> {
     check_task_list_id(tasks, &(), &Id::from(ACCOUNT), &value)
         .await
         .expect("TaskList read")
@@ -156,8 +156,8 @@ async fn check(tasks: &TasksMemory, value: Value) -> Result<(), (Value, Value)> 
 
 /// A chat backend whose Space extension properties come from
 /// [`space_extension_properties`] for `mayBindTaskList`.
-fn chat(may_bind_task_list: bool) -> ChatMemory {
-    let chat = ChatMemory::new();
+fn chat(may_bind_task_list: bool) -> ChatMemory<()> {
+    let chat = ChatMemory::<()>::default();
     chat.register_account(&Id::from(ACCOUNT));
     chat.set_space_extension_properties_for_test(space_extension_properties(&capability(
         may_bind_task_list,
@@ -165,7 +165,7 @@ fn chat(may_bind_task_list: bool) -> ChatMemory {
     chat
 }
 
-async fn space_set(chat: &ChatMemory, args: Value) -> Value {
+async fn space_set(chat: &ChatMemory<()>, args: Value) -> Value {
     handle_space_set(chat, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("Space/set")
@@ -174,7 +174,7 @@ async fn space_set(chat: &ChatMemory, args: Value) -> Value {
 
 /// Create a Space with `taskListId: "T1"`; return its id and its
 /// `taskListId` as `Space/get` returns it.
-async fn create_bound_space(chat: &ChatMemory) -> (String, Value) {
+async fn create_bound_space(chat: &ChatMemory<()>) -> (String, Value) {
     let out = space_set(
         chat,
         json!({ "accountId": ACCOUNT,

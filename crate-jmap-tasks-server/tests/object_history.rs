@@ -26,8 +26,8 @@ const USING: [&str; 3] = [
     "urn:ietf:params:jmap:object-history",
 ];
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default()
         .with_account(&Id::from(A))
         .with_object_history(
             serde_json::from_value(
@@ -41,7 +41,7 @@ fn backend() -> MemoryBackend {
 }
 
 struct Server {
-    b: MemoryBackend,
+    b: MemoryBackend<()>,
     d: Dispatcher<()>,
 }
 

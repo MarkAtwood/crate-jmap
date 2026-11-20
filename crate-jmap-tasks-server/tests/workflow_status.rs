@@ -21,8 +21,8 @@ const ACCOUNT: &str = "acc1";
 
 /// A backend with list `L1` (default statuses) and `L2` (a custom list
 /// with "in-review" but no "pending").
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&Id::from(ACCOUNT));
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT));
     for (id, statuses) in [
         ("L1", Value::Null),
         ("L2", json!(["needs-action", "in-review", "completed"])),
@@ -43,7 +43,7 @@ fn backend() -> MemoryBackend {
     b
 }
 
-async fn set(b: &MemoryBackend, args: Value) -> Value {
+async fn set(b: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT);
     handle_task_set(b, &(), &BTreeMap::new(), args, &[])
@@ -53,7 +53,7 @@ async fn set(b: &MemoryBackend, args: Value) -> Value {
 }
 
 /// Create one Task; the `created` entry, or `notCreated` as `Err`.
-async fn create(b: &MemoryBackend, task: Value) -> Result<Value, Value> {
+async fn create(b: &MemoryBackend<()>, task: Value) -> Result<Value, Value> {
     let mut task = task;
     task["@type"] = json!("Task");
     task["uid"] = json!("u1");
@@ -65,7 +65,7 @@ async fn create(b: &MemoryBackend, task: Value) -> Result<Value, Value> {
     }
 }
 
-async fn update(b: &MemoryBackend, id: &str, patch: Value) -> Result<Value, Value> {
+async fn update(b: &MemoryBackend<()>, id: &str, patch: Value) -> Result<Value, Value> {
     let out = set(b, json!({ "update": { id: patch } })).await;
     match out["notUpdated"].get(id) {
         Some(e) => Err(e.clone()),
@@ -73,7 +73,7 @@ async fn update(b: &MemoryBackend, id: &str, patch: Value) -> Result<Value, Valu
     }
 }
 
-async fn stored(b: &MemoryBackend, id: &str) -> Value {
+async fn stored(b: &MemoryBackend<()>, id: &str) -> Value {
     let out = handle_task_get(b, &(), json!({ "accountId": ACCOUNT, "ids": [id] }), &[])
         .await
         .expect("Task/get")
@@ -221,7 +221,7 @@ async fn a_list_change_leaves_tasks_alone() {
     assert_eq!(stored(&b, id).await["workflowStatus"], "in-review");
 }
 
-async fn handle_task_set_list(b: &MemoryBackend, update: Value) -> Value {
+async fn handle_task_set_list(b: &MemoryBackend<()>, update: Value) -> Value {
     jmap_tasks_server::handle_task_list_set(
         b,
         &(),

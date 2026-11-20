@@ -30,7 +30,7 @@ async fn create(object: Value) -> JmapResponse {
     let mut dispatcher = Dispatcher::new();
     register_tasks_handlers(
         &mut dispatcher,
-        Arc::new(MemoryBackend::new().with_account(&Id::from(ACCOUNT))),
+        Arc::new(MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT))),
     );
     let request: JmapRequest = serde_json::from_value(json!({
         "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:tasks"],

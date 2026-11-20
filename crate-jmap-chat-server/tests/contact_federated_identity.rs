@@ -27,7 +27,7 @@ use serde_json::{Value, json};
 const OWNER: &str = "owner@home.example";
 const FEDERATED: &str = "dave@far.example";
 
-async fn contact_set(backend: &MemoryBackend, create: Value) -> Value {
+async fn contact_set(backend: &MemoryBackend<()>, create: Value) -> Value {
     let HandlerOutput { primary, .. } = handle_contact_set(
         backend,
         &(),
@@ -38,7 +38,7 @@ async fn contact_set(backend: &MemoryBackend, create: Value) -> Value {
     primary
 }
 
-async fn contact_ids_with_identity(backend: &MemoryBackend, identity: &str) -> Value {
+async fn contact_ids_with_identity(backend: &MemoryBackend<()>, identity: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_contact_query(
         backend,
         &(),
@@ -64,7 +64,7 @@ async fn contact_ids_with_identity(backend: &MemoryBackend, identity: &str) -> V
 /// that `identity` exists afterwards."
 #[tokio::test]
 async fn direct_chat_with_a_federated_user_by_identity() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
     backend.set_owner_user_id_for_test(&account_id, OWNER);

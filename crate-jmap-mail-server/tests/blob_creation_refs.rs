@@ -32,10 +32,10 @@ const UPLOADED: &str = "Gupload1";
 
 /// A `Blob/upload` stand-in: stores `create.<cid>.data` (text) under the
 /// fixed id [`UPLOADED`] and reports it in `created`.
-fn register_upload(dispatcher: &mut Dispatcher<()>, backend: &MemoryBackend) {
+fn register_upload(dispatcher: &mut Dispatcher<()>, backend: &MemoryBackend<()>) {
     let handler = ClosureHandler::new(
         Arc::new(backend.clone()),
-        |b: Arc<MemoryBackend>, cx: CallContext<()>| {
+        |b: Arc<MemoryBackend<()>>, cx: CallContext<()>| {
             Box::pin(async move {
                 let mut created = serde_json::Map::new();
                 for (cid, obj) in cx.args["create"].as_object().expect("create") {
@@ -53,7 +53,7 @@ fn register_upload(dispatcher: &mut Dispatcher<()>, backend: &MemoryBackend) {
 }
 
 /// Dispatch `Blob/upload` creating `b1` from `data`, then `calls`.
-async fn dispatch(backend: MemoryBackend, data: &str, calls: Value) -> JmapResponse {
+async fn dispatch(backend: MemoryBackend<()>, data: &str, calls: Value) -> JmapResponse {
     let mut dispatcher = Dispatcher::new();
     register_upload(&mut dispatcher, &backend);
     #[cfg(feature = "sieve")]
@@ -83,8 +83,8 @@ async fn dispatch(backend: MemoryBackend, data: &str, calls: Value) -> JmapRespo
     resp
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT));
     backend
 }
@@ -125,7 +125,7 @@ async fn email_import_blob_id_resolves_upload_and_unknown_ref_fails() {
 }
 
 /// The bytes of the Email `created` names, as stored.
-async fn stored(backend: &MemoryBackend, created: &Value) -> String {
+async fn stored(backend: &MemoryBackend<()>, created: &Value) -> String {
     let blob = Id::from(created["blobId"].as_str().expect("blobId"));
     let bytes = backend
         .read_blob(&(), &Id::from(ACCOUNT), &blob)
@@ -231,7 +231,7 @@ mod sieve {
     use super::*;
 
     /// A script stored from a literal blob; returns its id.
-    async fn seed_script(backend: &MemoryBackend) -> String {
+    async fn seed_script(backend: &MemoryBackend<()>) -> String {
         backend.store_blob(&Id::from("script"), b"keep;".to_vec());
         let resp = dispatch(
             backend.clone(),

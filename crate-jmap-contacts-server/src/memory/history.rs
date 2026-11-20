@@ -14,8 +14,9 @@ use jmap_object_history_types::{HistoryEntry, HistoryObject, ObjectHistoryAccoun
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError,
     DestroyedQueryChangesParams, DestroyedQueryParams, HistoryGetParams, HistoryGetResult,
-    JmapObject, ObjectHistoryBackend, QueryChangesResult, QueryObject, QueryResult, Restored,
-    SetError, SetErrorType, SetObject, apply_restore_patch, limit_or_max, resolve_query_start,
+    JmapObject, MemoryCaller, ObjectHistoryBackend, QueryChangesResult, QueryObject, QueryResult,
+    Restored, SetError, SetErrorType, SetObject, apply_restore_patch, limit_or_max,
+    resolve_query_start,
 };
 use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::{Map, Value};
@@ -131,7 +132,7 @@ impl Inner {
     }
 }
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Keep object history for the types `capability.supportedTypes` lists
     /// (AddressBook, ContactCard), in every account, with `retention`;
     /// `capability` is also what
@@ -196,10 +197,10 @@ fn invalid(property: &str) -> BackendSetError<MemoryError> {
     ))
 }
 
-impl ObjectHistoryBackend for MemoryBackend {
+impl<C: MemoryCaller> ObjectHistoryBackend for MemoryBackend<C> {
     fn object_history_capability(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Option<ObjectHistoryAccountCapability> {
         let inner = self.inner.lock_unscoped();
@@ -211,7 +212,7 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn get_object_history<O: HistoryObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: HistoryGetParams<'_>,
     ) -> Result<HistoryGetResult<O>, BackendQueryError<MemoryError>> {
@@ -241,7 +242,7 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn query_destroyed<O: HistoryObject + QueryObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: DestroyedQueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
@@ -281,7 +282,7 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn query_destroyed_changes<O: HistoryObject + QueryObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: DestroyedQueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -342,7 +343,7 @@ impl ObjectHistoryBackend for MemoryBackend {
 
     async fn restore_object<O: HistoryObject + SetObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         patch: Option<PatchObject>,

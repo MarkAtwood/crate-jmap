@@ -114,7 +114,7 @@ impl Fixture {
         let node: FileNode = serde_json::from_value(node).expect("FileNode fixture");
         check_root_create(
             &self.chat,
-            &(),
+            &owner(),
             &self.files,
             &owner(),
             &Id::from(ACCOUNT),

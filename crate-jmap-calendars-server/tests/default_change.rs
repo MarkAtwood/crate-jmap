@@ -15,7 +15,7 @@ use jmap_types::{Id, JmapRequest, State};
 use serde_json::{Value, json};
 
 fn dispatcher() -> Dispatcher<()> {
-    let b = Arc::new(MemoryBackend::new().with_account(&Id::from("acc1")));
+    let b = Arc::new(MemoryBackend::<()>::default().with_account(&Id::from("acc1")));
     let mut d = Dispatcher::new();
     register_calendars_handlers(&mut d, b);
     d

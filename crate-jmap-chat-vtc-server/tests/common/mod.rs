@@ -94,9 +94,13 @@ fn chat_set_error(e: BackendSetError<ChatError>) -> BackendSetError<VtcError> {
 
 impl JmapAccounts for Bound {
     type Error = VtcError;
-    type CallerCtx = String;
+    type CallerCtx = jmap_types::Id;
 
-    async fn account_exists(&self, caller: &String, account_id: &Id) -> Result<bool, VtcError> {
+    async fn account_exists(
+        &self,
+        caller: &jmap_types::Id,
+        account_id: &Id,
+    ) -> Result<bool, VtcError> {
         self.vtc.account_exists(caller, account_id).await
     }
 }
@@ -104,7 +108,7 @@ impl JmapAccounts for Bound {
 impl JmapReads for Bound {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
@@ -116,7 +120,7 @@ impl JmapReads for Bound {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<State, VtcError> {
         self.vtc.get_state::<O>(caller, account_id).await
@@ -124,7 +128,7 @@ impl JmapReads for Bound {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<VtcError>> {
@@ -133,7 +137,7 @@ impl JmapReads for Bound {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<VtcError>> {
@@ -144,7 +148,7 @@ impl JmapReads for Bound {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<VtcError>> {
@@ -157,23 +161,27 @@ impl JmapReads for Bound {
 impl VtcBackend for Bound {
     async fn vtc_capability(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
     ) -> Result<VtcCapability, VtcError> {
         self.vtc.vtc_capability(caller, account_id).await
     }
 
-    fn has_capability(&self, caller: &String, account_id: &Id, uri: &str) -> bool {
+    fn has_capability(&self, caller: &jmap_types::Id, account_id: &Id, uri: &str) -> bool {
         self.vtc.has_capability(caller, account_id, uri)
     }
 
-    async fn caller_user_id(&self, caller: &String, account_id: &Id) -> Result<String, VtcError> {
+    async fn caller_user_id(
+        &self,
+        caller: &jmap_types::Id,
+        account_id: &Id,
+    ) -> Result<String, VtcError> {
         self.vtc.caller_user_id(caller, account_id).await
     }
 
     async fn create_call<F>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         build: F,
         ring_targets: &[String],
@@ -186,10 +194,15 @@ impl VtcBackend for Bound {
         // builds the call for the gate first and the wrapped backend stores
         // it under the id it mints.
         let mut call = build(&Id::from(""));
-        check_call_create(&self.chat, &(), account_id, &call)
-            .await
-            .map_err(|e| BackendSetError::Other(chat_error(e)))?
-            .map_err(BackendSetError::from)?;
+        check_call_create(
+            &self.chat,
+            &jmap_types::Id::from(ACCOUNT),
+            account_id,
+            &call,
+        )
+        .await
+        .map_err(|e| BackendSetError::Other(chat_error(e)))?
+        .map_err(BackendSetError::from)?;
         let build = move |id: &Id| {
             call.id = id.clone();
             call
@@ -198,15 +211,20 @@ impl VtcBackend for Bound {
             .vtc
             .create_call(caller, account_id, build, ring_targets)
             .await?;
-        sync_active_call_id(&self.chat, &(), account_id, &stored)
-            .await
-            .map_err(chat_set_error)?;
+        sync_active_call_id(
+            &self.chat,
+            &jmap_types::Id::from(ACCOUNT),
+            account_id,
+            &stored,
+        )
+        .await
+        .map_err(chat_set_error)?;
         Ok(stored)
     }
 
     async fn create_object<O, F>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         create_id: &str,
         build: F,
@@ -222,7 +240,7 @@ impl VtcBackend for Bound {
 
     async fn deliver_recording_state_event(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         event: VtcRecordingStateEvent,
     ) {
@@ -231,13 +249,13 @@ impl VtcBackend for Bound {
             .await
     }
 
-    async fn deliver_event(&self, caller: &String, account_id: &Id, event: VtcEvent) {
+    async fn deliver_event(&self, caller: &jmap_types::Id, account_id: &Id, event: VtcEvent) {
         self.vtc.deliver_event(caller, account_id, event).await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -253,7 +271,7 @@ impl VtcBackend for Bound {
                 .await
                 .map_err(BackendSetError::Other)?;
             for call in &found {
-                sync_active_call_id(&self.chat, &(), account_id, call)
+                sync_active_call_id(&self.chat, &jmap_types::Id::from(ACCOUNT), account_id, call)
                     .await
                     .map_err(chat_set_error)?;
             }
@@ -263,7 +281,7 @@ impl VtcBackend for Bound {
 
     async fn update_object_if<O: StatefulObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
         expected: &[O::State],
@@ -280,7 +298,7 @@ impl VtcBackend for Bound {
                 .await
                 .map_err(BackendSetError::Other)?;
             for call in &found {
-                sync_active_call_id(&self.chat, &(), account_id, call)
+                sync_active_call_id(&self.chat, &jmap_types::Id::from(ACCOUNT), account_id, call)
                     .await
                     .map_err(chat_set_error)?;
             }
@@ -290,7 +308,7 @@ impl VtcBackend for Bound {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<VtcError>> {
@@ -298,19 +316,32 @@ impl VtcBackend for Bound {
     }
 
     /// Every caller's own account is [`ACCOUNT`] in this fixture.
-    async fn is_user_blocked(&self, _caller: &String, user_id: &str) -> Result<bool, VtcError> {
-        is_blocked_by_contact(&self.chat, &(), &Id::from(ACCOUNT), user_id)
-            .await
-            .map_err(chat_error)
+    async fn is_user_blocked(
+        &self,
+        _caller: &jmap_types::Id,
+        user_id: &str,
+    ) -> Result<bool, VtcError> {
+        is_blocked_by_contact(
+            &self.chat,
+            &jmap_types::Id::from(ACCOUNT),
+            &Id::from(ACCOUNT),
+            user_id,
+        )
+        .await
+        .map_err(chat_error)
     }
 
-    async fn active_call_count(&self, caller: &String, account_id: &Id) -> Result<u64, VtcError> {
+    async fn active_call_count(
+        &self,
+        caller: &jmap_types::Id,
+        account_id: &Id,
+    ) -> Result<u64, VtcError> {
         self.vtc.active_call_count(caller, account_id).await
     }
 
     async fn get_objects_unscoped<O: GetObject + Send + Sync>(
         &self,
-        caller: &String,
+        caller: &jmap_types::Id,
         account_id: &Id,
         ids: Option<&[Id]>,
     ) -> Result<(Vec<O>, Vec<Id>), VtcError> {
@@ -319,7 +350,7 @@ impl VtcBackend for Bound {
             .await
     }
 
-    fn supports_type<O: JmapObject>(&self, caller: &String, account_id: &Id) -> bool {
+    fn supports_type<O: JmapObject>(&self, caller: &jmap_types::Id, account_id: &Id) -> bool {
         self.vtc.supports_type::<O>(caller, account_id)
     }
 }
@@ -330,7 +361,7 @@ pub async fn vtc_set(backend: &Bound, caller: &str, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
     let HandlerOutput { primary, .. } = handle_vtc_call_set(
         backend,
-        &caller.to_owned(),
+        &jmap_types::Id::from(caller),
         &std::collections::BTreeMap::new(),
         args,
     )
@@ -357,7 +388,7 @@ pub async fn create_call_error(backend: &Bound, call: Value) -> Value {
 pub async fn get_call(backend: &Bound, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_vtc_call_get(
         backend,
-        &OWNER.to_owned(),
+        &jmap_types::Id::from(OWNER),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
     )
     .await
@@ -369,7 +400,7 @@ pub async fn get_call(backend: &Bound, id: &str) -> Value {
 pub async fn get_chat(backend: &Bound, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_chat_get(
         &backend.chat,
-        &(),
+        &jmap_types::Id::from(ACCOUNT),
         json!({ "accountId": ACCOUNT, "ids": [id] }),
         &[],
     )
@@ -382,7 +413,7 @@ pub async fn get_chat(backend: &Bound, id: &str) -> Value {
 pub async fn chat_state(backend: &Bound) -> String {
     let HandlerOutput { primary, .. } = handle_chat_get(
         &backend.chat,
-        &(),
+        &jmap_types::Id::from(ACCOUNT),
         json!({ "accountId": ACCOUNT, "ids": [] }),
         &[],
     )
@@ -395,7 +426,7 @@ pub async fn chat_state(backend: &Bound) -> String {
 pub async fn chat_updated_since(backend: &Bound, since: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_chat_changes(
         &backend.chat,
-        &(),
+        &jmap_types::Id::from(ACCOUNT),
         json!({ "accountId": ACCOUNT, "sinceState": since }),
         &[],
     )

@@ -70,7 +70,7 @@ pub fn hex32(s: &str) -> [u8; 32] {
 /// A deployment backend: chat storage in a `MemoryBackend`, plus the
 /// federation hooks with test-controlled state.
 pub struct Fed {
-    pub chat: MemoryBackend,
+    pub chat: MemoryBackend<()>,
     pub peer: Option<AuthenticatedPeer>,
     /// The mailbox accounts `mailbox_account` searches by owner.
     pub mailboxes: Vec<Id>,
@@ -109,7 +109,7 @@ impl Fed {
     /// [`ACCOUNT`]. No DID is verified. "abc" is fetchable at
     /// [`FETCH_URL`].
     pub fn new() -> Self {
-        let chat = MemoryBackend::new();
+        let chat = MemoryBackend::<()>::default();
         for (account, owner) in [(ACCOUNT, OWNER), (ACCOUNT2, OWNER2)] {
             chat.register_account(&Id::from(account));
             chat.set_owner_user_id_for_test(&Id::from(account), owner);

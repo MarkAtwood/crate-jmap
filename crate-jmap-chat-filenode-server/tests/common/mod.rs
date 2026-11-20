@@ -203,7 +203,7 @@ impl FileNodeBackend for Deployment {
             .await
             .map_err(BackendSetError::Other)?
         {
-            check_space_destroy(&self.chat, &(), &self.files, caller, account_id, &node)
+            check_space_destroy(&self.chat, &owner(), &self.files, caller, account_id, &node)
                 .await
                 .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?
                 .map_err(|e| BackendSetError::SetError(Box::new(e)))?;
@@ -248,7 +248,7 @@ impl FileNodeBackend for Deployment {
         account_id: &Id,
         node: &FileNode,
     ) -> Result<Option<FilesRights>, Self::Error> {
-        space_files_rights(&self.chat, &(), &self.files, caller, account_id, node)
+        space_files_rights(&self.chat, &owner(), &self.files, caller, account_id, node)
             .await
             .map_err(|e| MemoryError::new(e.to_string()))
     }
@@ -259,7 +259,7 @@ impl FileNodeBackend for Deployment {
         account_id: &Id,
         node: &FileNode,
     ) -> Result<bool, Self::Error> {
-        check_space_destroy(&self.chat, &(), &self.files, caller, account_id, node)
+        check_space_destroy(&self.chat, &owner(), &self.files, caller, account_id, node)
             .await
             .map(|r| r.is_ok())
             .map_err(|e| MemoryError::new(e.to_string()))

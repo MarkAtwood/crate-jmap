@@ -407,7 +407,7 @@ pub fn jmap_chat_slack::SlackBridge::account_id(&self) -> &jmap_types::id::Id
 pub async fn jmap_chat_slack::SlackBridge::apply_event(&self, &serde_json::value::Value) -> core::result::Result<jmap_chat_slack::EventOutcome, jmap_chat_slack::BridgeError>
 pub async fn jmap_chat_slack::SlackBridge::connect(jmap_chat_slack::client::SlackClient, jmap_chat_slack::BridgeConfig) -> core::result::Result<Self, jmap_chat_slack::BridgeError>
 pub async fn jmap_chat_slack::SlackBridge::initial_sync(&self) -> core::result::Result<jmap_chat_slack::SyncReport, jmap_chat_slack::BridgeError>
-pub fn jmap_chat_slack::SlackBridge::memory(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub fn jmap_chat_slack::SlackBridge::memory(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 pub fn jmap_chat_slack::SlackBridge::owner_identity(&self) -> alloc::string::String
 pub fn jmap_chat_slack::SlackBridge::owner_user(&self) -> &str
 pub fn jmap_chat_slack::SlackBridge::space_id(&self) -> &jmap_types::id::Id
@@ -443,26 +443,26 @@ pub async fn jmap_chat_slack::SlackBridge::destroy_object<O: jmap_types::backend
 pub fn jmap_chat_slack::SlackBridge::supports_type<O: jmap_types::backend::JmapObject>(&self, &(), &jmap_types::id::Id) -> bool
 pub async fn jmap_chat_slack::SlackBridge::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &(), &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_chat_server::memory::MemoryError>>
 impl jmap_chat_server::backend::delegate::DelegateChatAccessPolicy for jmap_chat_slack::SlackBridge
-pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_slack::SlackBridge::chat_access_policy(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend<()>
+pub fn jmap_chat_slack::SlackBridge::chat_access_policy(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 impl jmap_chat_server::backend::delegate::DelegateChatEvents for jmap_chat_slack::SlackBridge
-pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_slack::SlackBridge::chat_events(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend<()>
+pub fn jmap_chat_slack::SlackBridge::chat_events(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 impl jmap_chat_server::backend::delegate::DelegateChatMessageLifecycle for jmap_chat_slack::SlackBridge
-pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_slack::SlackBridge::chat_message_lifecycle(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend<()>
+pub fn jmap_chat_slack::SlackBridge::chat_message_lifecycle(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 impl jmap_chat_server::backend::delegate::DelegateChatResolvers for jmap_chat_slack::SlackBridge
-pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_slack::SlackBridge::chat_resolvers(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend<()>
+pub fn jmap_chat_slack::SlackBridge::chat_resolvers(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 impl jmap_chat_server::backend::delegate::DelegateSpacePolicy for jmap_chat_slack::SlackBridge
-pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_slack::SlackBridge::space_policy(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend<()>
+pub fn jmap_chat_slack::SlackBridge::space_policy(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 impl jmap_server::backend::DelegateJmapAccounts for jmap_chat_slack::SlackBridge
-pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_slack::SlackBridge::jmap_accounts(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend<()>
+pub fn jmap_chat_slack::SlackBridge::jmap_accounts(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 impl jmap_server::backend::DelegateJmapReads for jmap_chat_slack::SlackBridge
-pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend
-pub fn jmap_chat_slack::SlackBridge::jmap_reads(&self) -> &jmap_chat_server::memory::MemoryBackend
+pub type jmap_chat_slack::SlackBridge::Target = jmap_chat_server::memory::MemoryBackend<()>
+pub fn jmap_chat_slack::SlackBridge::jmap_reads(&self) -> &jmap_chat_server::memory::MemoryBackend<()>
 pub struct jmap_chat_slack::SlackToken
 impl jmap_chat_slack::SlackToken
 pub fn jmap_chat_slack::SlackToken::kind(&self) -> jmap_chat_slack::TokenKind

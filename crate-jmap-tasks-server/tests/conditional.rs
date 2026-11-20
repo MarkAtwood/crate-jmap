@@ -33,9 +33,9 @@ fn rights() -> Value {
 }
 
 /// Account acc1 with TaskList tl1 "Chores" holding Task t1.
-fn backend() -> Arc<MemoryBackend> {
+fn backend() -> Arc<MemoryBackend<()>> {
     let acc = Id::from("acc1");
-    let b = MemoryBackend::new().with_account(&acc);
+    let b = MemoryBackend::<()>::default().with_account(&acc);
     b.seed_object(
         &acc,
         "TaskList",
@@ -53,7 +53,7 @@ fn backend() -> Arc<MemoryBackend> {
     Arc::new(b)
 }
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend<()>>) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     register_tasks_handlers(&mut d, Arc::clone(b));
     register_tasks_conditional(&mut d, Arc::clone(b));

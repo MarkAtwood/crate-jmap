@@ -30,8 +30,8 @@ const A: &str = "abc";
 const T0: i64 = 1_772_323_200_000;
 const TYPES: [&str; 3] = ["Calendar", "CalendarEvent", "ParticipantIdentity"];
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default()
         .with_account(&Id::from(A))
         .with_object_history(
             serde_json::from_value(json!({"maxHistoryDuration": null, "supportedTypes": TYPES}))
@@ -43,7 +43,7 @@ fn backend() -> MemoryBackend {
 }
 
 struct Server {
-    b: MemoryBackend,
+    b: MemoryBackend<()>,
     d: Dispatcher<()>,
 }
 

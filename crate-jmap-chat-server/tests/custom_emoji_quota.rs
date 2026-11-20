@@ -25,7 +25,7 @@ use jmap_types::{Id, JmapRequest, State, UTCDate};
 use serde_json::{Value, json};
 
 /// A backend whose emoji caps are `count` per Space and `bytes` per image.
-fn capped(count: Option<u32>, bytes: Option<u64>) -> MemoryBackend {
+fn capped(count: Option<u32>, bytes: Option<u64>) -> MemoryBackend<()> {
     let backend = account_backend();
     backend.set_limits_for_test(Some(
         ChatLimits::default()
@@ -35,7 +35,7 @@ fn capped(count: Option<u32>, bytes: Option<u64>) -> MemoryBackend {
     backend
 }
 
-fn blob(backend: &MemoryBackend, blob_id: &str, size: u64) {
+fn blob(backend: &MemoryBackend<()>, blob_id: &str, size: u64) {
     backend.set_attachment_blob_for_test(
         ACCOUNT_ID,
         blob_id,
@@ -43,7 +43,7 @@ fn blob(backend: &MemoryBackend, blob_id: &str, size: u64) {
     );
 }
 
-async fn set(backend: &MemoryBackend, body: Value) -> Value {
+async fn set(backend: &MemoryBackend<()>, body: Value) -> Value {
     let mut args = body;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } = handle_emoji_set(backend, &(), &BTreeMap::new(), args)
@@ -191,7 +191,7 @@ const USING: &[&str] = &[
     "urn:ietf:params:jmap:conditional",
 ];
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend<()>>) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     register_chat_handlers(&mut d, Arc::clone(b));
     register_chat_conditional(&mut d, Arc::clone(b));
@@ -210,7 +210,7 @@ async fn call(d: &Dispatcher<()>, mut args: Value) -> (String, Value) {
 }
 
 /// A Space at its cap of 1 with emoji `e1`.
-fn full_space() -> Arc<MemoryBackend> {
+fn full_space() -> Arc<MemoryBackend<()>> {
     let b = capped(Some(1), None);
     b.insert_object_for_test(
         "CustomEmoji",

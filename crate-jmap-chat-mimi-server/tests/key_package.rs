@@ -51,15 +51,15 @@ fn capability(user_uri: &str, suites: &[u16], max: u64) -> MimiCapability {
     .expect("capability")
 }
 
-fn backend_with(accounts: &[(&str, MimiCapability)]) -> MemoryBackend<RustCrypto> {
-    let backend = MemoryBackend::new(RustCrypto::default());
+fn backend_with(accounts: &[(&str, MimiCapability)]) -> MemoryBackend<RustCrypto, ()> {
+    let backend = MemoryBackend::<_, ()>::with_crypto(RustCrypto::default());
     for (id, cap) in accounts {
         backend.register_account(&Id::from(*id), cap.clone());
     }
     backend
 }
 
-fn alice_backend(max: u64) -> MemoryBackend<RustCrypto> {
+fn alice_backend(max: u64) -> MemoryBackend<RustCrypto, ()> {
     backend_with(&[("a1", capability(ALICE, &[1], max))])
 }
 
@@ -132,7 +132,7 @@ fn expected_ref(key_package: &[u8]) -> String {
     b64(&out)
 }
 
-async fn set(backend: &MemoryBackend<RustCrypto>, account: &str, args: Value) -> Value {
+async fn set(backend: &MemoryBackend<RustCrypto, ()>, account: &str, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(account);
     handle_key_package_set(backend, &(), args)
@@ -141,7 +141,7 @@ async fn set(backend: &MemoryBackend<RustCrypto>, account: &str, args: Value) ->
         .primary
 }
 
-async fn create(backend: &MemoryBackend<RustCrypto>, account: &str, kp: &[u8]) -> Value {
+async fn create(backend: &MemoryBackend<RustCrypto, ()>, account: &str, kp: &[u8]) -> Value {
     set(
         backend,
         account,
@@ -150,7 +150,7 @@ async fn create(backend: &MemoryBackend<RustCrypto>, account: &str, kp: &[u8]) -
     .await
 }
 
-async fn get_all(backend: &MemoryBackend<RustCrypto>, account: &str) -> Vec<Value> {
+async fn get_all(backend: &MemoryBackend<RustCrypto, ()>, account: &str) -> Vec<Value> {
     let out = handle_key_package_get(backend, &(), json!({ "accountId": account, "ids": null }))
         .await
         .expect("KeyPackage/get")
@@ -477,7 +477,7 @@ mod conditional {
     use super::{ALICE, alice_backend, b64, basic, key_package, signer};
     use jmap_chat_mimi_server::memory::MemoryBackend;
 
-    fn dispatcher(b: &Arc<MemoryBackend<RustCrypto>>) -> Dispatcher<()> {
+    fn dispatcher(b: &Arc<MemoryBackend<RustCrypto, ()>>) -> Dispatcher<()> {
         let mut d = Dispatcher::new();
         register_mimi_handlers(&mut d, Arc::clone(b));
         register_mimi_conditional(&mut d, Arc::clone(b));

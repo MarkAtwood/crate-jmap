@@ -42,8 +42,8 @@ fn mailbox(id: &str, name: &str, parent: Option<&str>, role: Option<&str>) -> Va
 }
 
 /// Account u1 with mailboxes m1 "Inbox" (role inbox) and m2 "Work".
-fn backend() -> Arc<MemoryBackend> {
-    let b = MemoryBackend::new().with_account(&u1());
+fn backend() -> Arc<MemoryBackend<()>> {
+    let b = MemoryBackend::<()>::default().with_account(&u1());
     b.seed_object(
         &u1(),
         "Mailbox",
@@ -59,7 +59,7 @@ fn backend() -> Arc<MemoryBackend> {
     Arc::new(b)
 }
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend<()>>) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     register_mail_handlers(&mut d, Arc::clone(b));
     register_sieve_handlers(&mut d, Arc::clone(b));
@@ -98,7 +98,7 @@ fn by_id<'a>(list: &'a [Value], id: &str) -> &'a Value {
 }
 
 /// Import a message into m1; its id.
-async fn import(b: &MemoryBackend, n: u32) -> String {
+async fn import(b: &MemoryBackend<()>, n: u32) -> String {
     let blob = Id::from(format!("blob{n}"));
     b.store_blob(
         &blob,

@@ -29,8 +29,8 @@ fn using() -> Vec<String> {
     vec!["urn:ietf:params:jmap:metadata".to_owned()]
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }

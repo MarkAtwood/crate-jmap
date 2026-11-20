@@ -38,7 +38,7 @@ fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequ
 }
 
 /// Seed a Principal into `backend` for `account_id` and return the server id.
-async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json::Value) -> Id {
+async fn seed_principal(backend: &MemoryBackend<()>, account_id: &str, p: serde_json::Value) -> Id {
     let principal = move |id: &Id| -> Principal {
         let mut with_id = p;
         with_id["id"] = json!(id);
@@ -52,7 +52,11 @@ async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json
 }
 
 /// Seed a ShareNotification into `backend` for `account_id` and return the server id.
-async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_json::Value) -> Id {
+async fn seed_notification(
+    backend: &MemoryBackend<()>,
+    account_id: &str,
+    v: serde_json::Value,
+) -> Id {
     let notif = move |id: &Id| -> ShareNotification {
         let mut v = v;
         v["id"] = json!(id);
@@ -76,10 +80,10 @@ async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_j
 // ---------------------------------------------------------------------------
 
 #[allow(dead_code)]
-struct FilteringBackend(Arc<MemoryBackend>);
+struct FilteringBackend(Arc<MemoryBackend<()>>);
 
 impl FilteringBackend {
-    fn new(inner: Arc<MemoryBackend>) -> Self {
+    fn new(inner: Arc<MemoryBackend<()>>) -> Self {
         Self(inner)
     }
 }
@@ -283,7 +287,7 @@ impl SharingBackend for FilteringBackend {
 /// dispatcher maps to `cannotCalculateChanges`.
 #[tokio::test]
 async fn principal_query_changes_cannot_calculate() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
     register_sharing_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -314,7 +318,7 @@ async fn principal_query_changes_cannot_calculate() {
 /// MemoryBackend and produces `BackendChangesError::CannotCalculate`.
 #[tokio::test]
 async fn notification_query_changes_cannot_calculate() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
     register_sharing_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -370,7 +374,7 @@ async fn notification_query_changes_cannot_calculate() {
 /// Assert only one result is returned and its id matches Alice's.
 #[tokio::test]
 async fn principal_query_filter_by_account_ids() {
-    let inner = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let inner = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
 
     let alice_id = seed_principal(
         &inner,

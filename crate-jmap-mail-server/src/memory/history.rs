@@ -25,9 +25,10 @@ use serde_json::{Map, Value};
 
 use super::sharing::{Audience, MailboxChange};
 use super::{
-    ChangeEntry, Inner, MemoryBackend, MemoryCaller, MemoryError, ThreadIndex,
-    mailbox_matches_condition, retype, sort_email_ids,
+    ChangeEntry, Inner, MemoryBackend, MemoryError, ThreadIndex, mailbox_matches_condition, retype,
+    sort_email_ids,
 };
+use jmap_server::MemoryCaller;
 
 impl Inner {
     /// Record the update of `id` from `previous`, when the type keeps

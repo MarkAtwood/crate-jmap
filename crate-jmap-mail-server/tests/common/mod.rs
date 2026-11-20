@@ -68,7 +68,7 @@ pub const FAULTY_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3a2";
 pub const INJECTED_QUERY_METHOD_ERROR_DESCRIPTION: &str = "backend cannot process this filter";
 
 pub struct FaultyBackend {
-    pub inner: MemoryBackend,
+    pub inner: MemoryBackend<()>,
     failures:
         std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
     blob_reads: std::sync::Arc<std::sync::atomic::AtomicUsize>,
@@ -77,7 +77,7 @@ pub struct FaultyBackend {
 impl FaultyBackend {
     pub fn new() -> Self {
         Self {
-            inner: MemoryBackend::new(),
+            inner: MemoryBackend::<()>::default(),
             failures: Default::default(),
             blob_reads: Default::default(),
         }

@@ -26,13 +26,13 @@ use jmap_server::{HandlerOutput, JmapReads};
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
     backend
 }
 
-async fn set(backend: &MemoryBackend, create: Value) -> Value {
+async fn set(backend: &MemoryBackend<()>, create: Value) -> Value {
     let args = json!({ "accountId": "a1", "create": { "c0": create } });
     let HandlerOutput { primary, .. } = handle_email_set(backend, &(), &BTreeMap::new(), args, &[])
         .await
@@ -40,7 +40,7 @@ async fn set(backend: &MemoryBackend, create: Value) -> Value {
     primary
 }
 
-async fn get(backend: &MemoryBackend, id: &str, properties: &[&str]) -> Value {
+async fn get(backend: &MemoryBackend<()>, id: &str, properties: &[&str]) -> Value {
     let args = json!({ "accountId": "a1", "ids": [id], "properties": properties });
     let HandlerOutput { primary, .. } = handle_email_get(backend, &(), args, &[])
         .await
@@ -48,7 +48,7 @@ async fn get(backend: &MemoryBackend, id: &str, properties: &[&str]) -> Value {
     primary["list"][0].clone()
 }
 
-async fn stored_message(backend: &MemoryBackend, blob_id: &str) -> String {
+async fn stored_message(backend: &MemoryBackend<()>, blob_id: &str) -> String {
     let bytes = MailBackend::read_blob(backend, &(), &Id::from("a1"), &Id::from(blob_id))
         .await
         .unwrap()

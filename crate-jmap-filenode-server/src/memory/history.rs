@@ -23,9 +23,10 @@ use jmap_types::{Id, JmapError, PatchObject, State, UTCDate};
 use serde_json::Value;
 
 use super::{
-    ChangeType, MemoryBackend, MemoryCaller, MemoryError, MemoryState, check_metadata_filter,
-    check_sort, compare_nodes, node_matches_tree,
+    ChangeType, MemoryBackend, MemoryError, MemoryState, check_metadata_filter, check_sort,
+    compare_nodes, node_matches_tree,
 };
+use jmap_server::MemoryCaller;
 
 const FILE_NODE: &str = "FileNode";
 

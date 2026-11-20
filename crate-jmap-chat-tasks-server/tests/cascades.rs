@@ -59,19 +59,19 @@ fn task_json(id: &str, extra: Value) -> Value {
 
 /// A chat backend storing the Space `taskListId` extension (L103
 /// `mayBindTaskList: true`).
-fn chat() -> ChatMemory {
+fn chat() -> ChatMemory<()> {
     let capability: ChatTasksCapability = serde_json::from_value(json!({
         "mayBindTaskList": true,
         "mayBackReferenceChat": true
     }))
     .expect("capability fixture");
-    let chat = ChatMemory::new();
+    let chat = ChatMemory::<()>::default();
     chat.register_account(&Id::from(ACCOUNT));
     chat.set_space_extension_properties_for_test(space_extension_properties(&capability));
     chat
 }
 
-async fn space_set(chat: &ChatMemory, args: Value) -> Value {
+async fn space_set(chat: &ChatMemory<()>, args: Value) -> Value {
     handle_space_set(chat, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("Space/set")
@@ -79,7 +79,7 @@ async fn space_set(chat: &ChatMemory, args: Value) -> Value {
 }
 
 /// Create a Space bound to `task_list_id`; return its id.
-async fn create_space(chat: &ChatMemory, task_list_id: &str) -> String {
+async fn create_space(chat: &ChatMemory<()>, task_list_id: &str) -> String {
     let out = space_set(
         chat,
         json!({ "accountId": ACCOUNT,
@@ -93,7 +93,7 @@ async fn create_space(chat: &ChatMemory, task_list_id: &str) -> String {
 }
 
 /// `Space/get` of `id`.
-async fn space_get(chat: &ChatMemory, id: &str) -> (Value, String) {
+async fn space_get(chat: &ChatMemory<()>, id: &str) -> (Value, String) {
     let out = handle_space_get(chat, &(), json!({ "accountId": ACCOUNT, "ids": [id] }), &[])
         .await
         .expect("Space/get")
@@ -105,7 +105,7 @@ async fn space_get(chat: &ChatMemory, id: &str) -> (Value, String) {
 }
 
 /// `Task/get` of every Task: the Tasks by id, and the state.
-async fn task_get(tasks: &TasksMemory) -> (serde_json::Map<String, Value>, String) {
+async fn task_get(tasks: &TasksMemory<()>) -> (serde_json::Map<String, Value>, String) {
     let out = handle_task_get(
         tasks,
         &(),
@@ -139,7 +139,7 @@ async fn chat_exists<C: ChatBackend<CallerCtx = ()>>(chat: &C, id: &str) -> bool
 /// updated. A Space bound to another TaskList keeps its binding.
 #[tokio::test]
 async fn task_list_destroy_clears_space_task_list_id() {
-    let tasks = TasksMemory::new().with_account(&Id::from(ACCOUNT));
+    let tasks = TasksMemory::<()>::default().with_account(&Id::from(ACCOUNT));
     tasks.seed_object(
         &Id::from(ACCOUNT),
         "TaskList",
@@ -193,7 +193,7 @@ async fn task_list_destroy_clears_space_task_list_id() {
 /// or none, are unchanged.
 #[tokio::test]
 async fn chat_destroy_clears_task_chat_ids() {
-    let tasks = TasksMemory::new().with_account(&Id::from(ACCOUNT));
+    let tasks = TasksMemory::<()>::default().with_account(&Id::from(ACCOUNT));
     tasks.seed_object(
         &Id::from(ACCOUNT),
         "TaskList",
@@ -258,7 +258,7 @@ async fn chat_destroy_clears_task_chat_ids() {
 /// `C1` in place ("The Chat persists independently").
 #[tokio::test]
 async fn task_destroy_leaves_its_chat() {
-    let tasks = TasksMemory::new().with_account(&Id::from(ACCOUNT));
+    let tasks = TasksMemory::<()>::default().with_account(&Id::from(ACCOUNT));
     tasks.seed_object(
         &Id::from(ACCOUNT),
         "TaskList",

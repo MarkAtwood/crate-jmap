@@ -48,7 +48,7 @@ use jmap_types::{Id, JmapRequest, JmapResponse, State};
 use serde_json::{Value, json};
 
 fn dispatcher() -> Dispatcher<()> {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let mut dispatcher = Dispatcher::new();
     register_chat_handlers(&mut dispatcher, Arc::new(backend));
@@ -324,7 +324,7 @@ const SHA256_ABC: &str = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff
 /// One Message/set create in `chat_id` whose single Attachment has
 /// `filenodeId`, resolved against `created_ids`; returns the response.
 async fn create_with_filenode(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     chat_id: &str,
     filenode_id: &str,
     created_ids: &BTreeMap<Id, Id>,

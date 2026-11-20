@@ -49,8 +49,8 @@ fn info() -> DataTypeMetadataInfo {
     .unwrap()
 }
 
-fn backend() -> MemoryBackend {
-    MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    MemoryBackend::<()>::default()
         .with_account(&Id::from(ACCOUNT_ID))
         .with_metadata_info("Principal", info())
 }
@@ -59,7 +59,7 @@ fn error_type(err: JmapError) -> Value {
     serde_json::to_value(&err).unwrap()["type"].clone()
 }
 
-async fn principal_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn principal_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } = handle_principal_set(backend, &(), args, using)
@@ -69,7 +69,7 @@ async fn principal_set(backend: &MemoryBackend, args: Value, using: &[String]) -
 }
 
 /// Create an individual Principal named `name` carrying `metadata`.
-async fn create(backend: &MemoryBackend, name: &str, metadata: Value) -> String {
+async fn create(backend: &MemoryBackend<()>, name: &str, metadata: Value) -> String {
     let create = json!({ "type": "individual", "name": name, "metadata": metadata });
     let resp = principal_set(backend, json!({ "create": { "c": create } }), &using()).await;
     resp["created"]["c"]["id"]
@@ -79,18 +79,18 @@ async fn create(backend: &MemoryBackend, name: &str, metadata: Value) -> String 
 }
 
 /// Apply a Principal/set update that must succeed.
-async fn update(backend: &MemoryBackend, id: &str, patch: Value) {
+async fn update(backend: &MemoryBackend<()>, id: &str, patch: Value) {
     let resp = principal_set(backend, json!({ "update": { id: patch } }), &using()).await;
     assert!(resp["updated"].get(id).is_some(), "{resp}");
 }
 
 /// The SetError type of a Principal/set update that must fail.
-async fn update_error(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update_error(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let resp = principal_set(backend, json!({ "update": { id: patch } }), &using()).await;
     resp["notUpdated"][id]["type"].clone()
 }
 
-async fn property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
+async fn property(backend: &MemoryBackend<()>, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id] });
     let HandlerOutput { primary, .. } = handle_principal_get(backend, &(), args, &using())
         .await
@@ -98,7 +98,7 @@ async fn property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
     primary["list"][0][property].clone()
 }
 
-async fn query(backend: &MemoryBackend, filter: Value) -> Result<Vec<String>, JmapError> {
+async fn query(backend: &MemoryBackend<()>, filter: Value) -> Result<Vec<String>, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
     handle_principal_query(backend, &(), args, &using())
         .await
@@ -120,7 +120,7 @@ fn sorted(mut ids: Vec<String>) -> Vec<String> {
 }
 
 async fn changes(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     args: Value,
     using: &[String],
 ) -> Result<Value, JmapError> {
@@ -131,7 +131,7 @@ async fn changes(
         .map(|o| o.primary)
 }
 
-async fn state(backend: &MemoryBackend) -> String {
+async fn state(backend: &MemoryBackend<()>) -> String {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [] });
     let HandlerOutput { primary, .. } = handle_principal_get(backend, &(), args, &using())
         .await
@@ -245,7 +245,7 @@ async fn invalid_conditions_are_rejected() {
 /// metadata condition (RFC 8620 §5.5 `unsupportedFilter`).
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_condition() {
-    let b = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let b = MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT_ID));
     assert_eq!(
         error_type(
             query(&b, json!({ "metadataExists": NS }))
@@ -362,7 +362,7 @@ async fn rule_order_invalid_patch_then_not_found() {
 /// create and on update.
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
-    let b = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let b = MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT_ID));
     let create_meta = json!({ "create": { "c": {
         "type": "individual", "name": "X", "metadata": { NS: {} }
     } } });
@@ -538,7 +538,7 @@ fn method_error_type(err: &JmapError) -> Value {
 
 /// Run Principal/get with `properties` on `id` and return its one list entry.
 async fn principal_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],

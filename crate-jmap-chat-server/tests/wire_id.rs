@@ -48,7 +48,7 @@ macro_rules! create_entry {
     }};
 }
 
-async fn create_group(backend: &MemoryBackend) -> String {
+async fn create_group(backend: &MemoryBackend<()>) -> String {
     let resp = handle_chat_set(
         backend,
         &(),

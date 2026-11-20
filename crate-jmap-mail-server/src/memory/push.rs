@@ -1,7 +1,7 @@
 //! PushSubscription and EmailPush for the memory backend
 //! (RFC 8620 §7.2, draft-ietf-jmap-emailpush-05).
 //!
-//! Single owner (`CallerCtx = ()`): every subscription belongs to the one
+//! Single owner: every subscription belongs to the one
 //! caller, and [`MAX_PUSH_SUBSCRIPTIONS`] caps them all. Nothing is sent:
 //! PushVerification objects queue in an outbox
 //! ([`MemoryBackend::take_push_verifications`]) and
@@ -18,11 +18,12 @@ use jmap_server::{
 use jmap_types::{Id, PushSubscription, PushVerification, State, UTCDate};
 use serde::Deserialize;
 
-use super::{MemoryBackend, MemoryCaller, MemoryError};
+use super::{MemoryBackend, MemoryError};
 use crate::emailpush::{
     DeliveredEmail, EmailPushAccount, EmailPushBackend, EmailPushBatch, OutboundEmailPush,
     check_email_push_change, email_pushes_for, prune_email_push,
 };
+use jmap_server::MemoryCaller;
 
 /// The most push subscriptions the memory backend stores ("The server MUST
 /// limit the number of push subscriptions any one user may have", RFC 8620

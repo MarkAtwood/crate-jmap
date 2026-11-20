@@ -106,7 +106,7 @@ async fn last_admin_self_removal_bypasses_last_admin_protection() {
 /// ids makes it more than self-removal.
 #[tokio::test]
 async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.set_protect_last_admin_for_test(true);
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
@@ -157,7 +157,7 @@ async fn last_admin_refusal_is_invalid_properties_naming_remove_members() {
 /// above every other role, so the role-position hierarchy never refuses)
 /// and `admin-user` is the only member holding `manage_members`, via
 /// `r-admin`. `r-admin2` grants `manage_space` and is held by nobody.
-fn sole_admin_space(backend: &MemoryBackend) {
+fn sole_admin_space(backend: &MemoryBackend<()>) {
     backend.set_protect_last_admin_for_test(true);
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
@@ -187,7 +187,7 @@ fn sole_admin_space(backend: &MemoryBackend) {
 }
 
 async fn patch_sole_admin_space(patch: serde_json::Value) -> serde_json::Value {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     sole_admin_space(&backend);
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         &backend,

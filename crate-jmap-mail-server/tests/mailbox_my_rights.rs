@@ -33,7 +33,7 @@ fn all_rights() -> Value {
     })
 }
 
-async fn create(backend: &MemoryBackend, props: Value) -> Value {
+async fn create(backend: &MemoryBackend<()>, props: Value) -> Value {
     handle_mailbox_set(
         backend,
         &(),
@@ -46,7 +46,7 @@ async fn create(backend: &MemoryBackend, props: Value) -> Value {
     .primary
 }
 
-async fn get(backend: &MemoryBackend, id: &str) -> Value {
+async fn get(backend: &MemoryBackend<()>, id: &str) -> Value {
     handle_mailbox_get(backend, &(), json!({"accountId": "acc", "ids": [id]}), &[])
         .await
         .unwrap()
@@ -56,7 +56,7 @@ async fn get(backend: &MemoryBackend, id: &str) -> Value {
 
 #[tokio::test]
 async fn owner_has_every_right_on_create_echo_and_get() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc"));
     let resp = create(&backend, json!({"name": "Projects"})).await;
     let created = &resp["created"]["m"];
     assert_eq!(created["myRights"], all_rights(), "{resp}");
@@ -66,7 +66,7 @@ async fn owner_has_every_right_on_create_echo_and_get() {
 
 #[tokio::test]
 async fn new_mailbox_is_subscribed_by_default() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc"));
     let resp = create(&backend, json!({"name": "Projects"})).await;
     let id = resp["created"]["m"]["id"].as_str().unwrap();
     assert_eq!(get(&backend, id).await["isSubscribed"], true);
@@ -86,7 +86,7 @@ async fn owner_has_may_set_metadata_when_metadata_is_on() {
         "supportsPrivate": false, "maxDepth": 4
     }))
     .unwrap();
-    let backend = MemoryBackend::new()
+    let backend = MemoryBackend::<()>::default()
         .with_metadata_info("Mailbox", info)
         .with_account(&Id::from("acc"));
     let resp = create(&backend, json!({"name": "Projects"})).await;

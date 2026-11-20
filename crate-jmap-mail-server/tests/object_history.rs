@@ -38,8 +38,8 @@ fn supported() -> Vec<&'static str> {
     t
 }
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default()
         .with_account(&Id::from(A))
         .with_object_history(
             serde_json::from_value(json!({
@@ -54,7 +54,7 @@ fn backend() -> MemoryBackend {
 }
 
 struct Server {
-    b: MemoryBackend,
+    b: MemoryBackend<()>,
     d: Dispatcher<()>,
 }
 
@@ -507,7 +507,7 @@ async fn plain_and_history_registration_agree_without_history_arguments() {
 /// `invalidArguments`; here the backend keeps no history at all.
 #[tokio::test]
 async fn without_history_configured_flags_are_invalid_arguments() {
-    let b = MemoryBackend::new().with_account(&Id::from(A));
+    let b = MemoryBackend::<()>::default().with_account(&Id::from(A));
     let mut d = Dispatcher::new();
     register_mail_handlers_with_history(&mut d, Arc::new(b.clone()));
     let s = Server { b, d };

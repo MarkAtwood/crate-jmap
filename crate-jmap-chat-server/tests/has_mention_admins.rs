@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 
 const CHAT_ID: &str = "c1";
 
-fn seed_admins_message(backend: &MemoryBackend) {
+fn seed_admins_message(backend: &MemoryBackend<()>) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -49,7 +49,7 @@ fn seed_admins_message(backend: &MemoryBackend) {
     );
 }
 
-fn seed_group(backend: &MemoryBackend, owner_role: &str) {
+fn seed_group(backend: &MemoryBackend<()>, owner_role: &str) {
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -69,7 +69,7 @@ fn seed_group(backend: &MemoryBackend, owner_role: &str) {
 
 /// A channel in `SPACE_ID` where the owner holds role `r1` with
 /// `owner_perms`, and another member holds `manage_space`.
-fn seed_channel(backend: &MemoryBackend, owner_perms: Value) {
+fn seed_channel(backend: &MemoryBackend<()>, owner_perms: Value) {
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",
@@ -112,7 +112,7 @@ fn seed_channel(backend: &MemoryBackend, owner_perms: Value) {
     );
 }
 
-async fn has_mention_ids(backend: &MemoryBackend) -> Value {
+async fn has_mention_ids(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_query(
         backend,
         &(),
@@ -126,7 +126,7 @@ async fn has_mention_ids(backend: &MemoryBackend) -> Value {
 
 #[tokio::test]
 async fn group_admin_owner_matches_admins() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_group(&backend, "admin");
     seed_admins_message(&backend);
     assert_eq!(has_mention_ids(&backend).await, json!(["m1"]));
@@ -134,7 +134,7 @@ async fn group_admin_owner_matches_admins() {
 
 #[tokio::test]
 async fn group_member_owner_does_not_match_admins() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_group(&backend, "member");
     seed_admins_message(&backend);
     assert_eq!(has_mention_ids(&backend).await, json!([]));
@@ -142,7 +142,7 @@ async fn group_member_owner_does_not_match_admins() {
 
 #[tokio::test]
 async fn channel_manage_space_owner_matches_admins() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view", "manage_space"]));
     seed_admins_message(&backend);
     assert_eq!(has_mention_ids(&backend).await, json!(["m1"]));
@@ -150,7 +150,7 @@ async fn channel_manage_space_owner_matches_admins() {
 
 #[tokio::test]
 async fn channel_manage_members_owner_matches_admins() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view", "manage_members"]));
     seed_admins_message(&backend);
     assert_eq!(has_mention_ids(&backend).await, json!(["m1"]));
@@ -158,7 +158,7 @@ async fn channel_manage_members_owner_matches_admins() {
 
 #[tokio::test]
 async fn channel_non_admin_owner_does_not_match_admins() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view", "send"]));
     seed_admins_message(&backend);
     assert_eq!(has_mention_ids(&backend).await, json!([]));
@@ -168,7 +168,7 @@ async fn channel_non_admin_owner_does_not_match_admins() {
 /// `"admins"` never targets the owner there.
 #[tokio::test]
 async fn direct_chat_does_not_match_admins() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,

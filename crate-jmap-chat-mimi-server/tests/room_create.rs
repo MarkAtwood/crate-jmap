@@ -261,8 +261,12 @@ fn capability(hub: &Hub, suites: &[u16]) -> MimiCapability {
 
 /// A backend with account `a1` for Alice, whose `signer` is bound to it
 /// by an accepted KeyPackage when `bind` is set.
-async fn backend(hub: &Hub, signer: &SignatureKeyPair, bind: bool) -> MemoryBackend<RustCrypto> {
-    let backend = MemoryBackend::new(RustCrypto::default());
+async fn backend(
+    hub: &Hub,
+    signer: &SignatureKeyPair,
+    bind: bool,
+) -> MemoryBackend<RustCrypto, ()> {
+    let backend = MemoryBackend::<_, ()>::with_crypto(RustCrypto::default());
     backend.register_account(&Id::from("a1"), capability(hub, &[1]));
     if bind {
         let provider = OpenMlsRustCrypto::default();
@@ -285,7 +289,7 @@ async fn backend(hub: &Hub, signer: &SignatureKeyPair, bind: bool) -> MemoryBack
 }
 
 async fn create(
-    backend: &MemoryBackend<RustCrypto>,
+    backend: &MemoryBackend<RustCrypto, ()>,
     (group_info, ratchet_tree): &(String, String),
 ) -> Result<Value, String> {
     handle_room_create(
@@ -299,7 +303,11 @@ async fn create(
 }
 
 /// Assert that `args` is rejected with `invalidArguments`, naming `why`.
-async fn assert_rejected(backend: &MemoryBackend<RustCrypto>, args: &(String, String), why: &str) {
+async fn assert_rejected(
+    backend: &MemoryBackend<RustCrypto, ()>,
+    args: &(String, String),
+    why: &str,
+) {
     assert_eq!(
         create(backend, args).await,
         Err("invalidArguments".to_owned()),
@@ -651,7 +659,10 @@ fn key_material_request(target: &str) -> Vec<u8> {
     .concat()
 }
 
-async fn key_material(backend: &MemoryBackend<RustCrypto>, target: &str) -> Result<Value, String> {
+async fn key_material(
+    backend: &MemoryBackend<RustCrypto, ()>,
+    target: &str,
+) -> Result<Value, String> {
     handle_key_material_fetch(
         backend,
         &(),
@@ -665,7 +676,7 @@ async fn key_material(backend: &MemoryBackend<RustCrypto>, target: &str) -> Resu
 /// Alice's backend after a successful Room/create, so this server hosts
 /// ROOM, with a local account `b1` for Bob that has published one
 /// KeyPackage; returns that KeyPackage's octets.
-async fn hosted_room_with_bob(hub: &Hub) -> (MemoryBackend<RustCrypto>, Vec<u8>) {
+async fn hosted_room_with_bob(hub: &Hub) -> (MemoryBackend<RustCrypto, ()>, Vec<u8>) {
     let alice = new_signer();
     let backend = backend(hub, &alice, true).await;
     create(&backend, &Group::valid(hub).build(&alice))

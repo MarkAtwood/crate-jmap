@@ -33,7 +33,7 @@ use serde_json::json;
 /// still gated (bd:JMAP-yt1w.33).
 #[tokio::test]
 async fn owner_without_member_entry_cannot_add_roles() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     // No members, no roles — the owner has neither manage_roles nor
     // any role at a useful position.
@@ -1294,7 +1294,7 @@ async fn update_role_color_preserves_all_three_representations() {
 /// `updateRoles` / `removeRoles` cannot address it.
 #[tokio::test]
 async fn add_roles_without_id_get_distinct_server_assigned_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",
@@ -1381,7 +1381,7 @@ async fn add_roles_without_id_get_distinct_server_assigned_ids() {
 /// role.
 #[tokio::test]
 async fn add_roles_after_remove_does_not_reuse_freed_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",

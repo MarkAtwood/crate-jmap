@@ -35,9 +35,16 @@ async fn delivers(backend: &Bound, event: &VtcEvent) -> bool {
     let mut sub = VtcEphemeralSubscription::default();
     sub.replace_with(&enable).expect("subscription");
     let account = Id::from(ACCOUNT);
-    should_deliver(backend, &OWNER.to_owned(), &account, &account, &sub, event)
-        .await
-        .expect("should_deliver")
+    should_deliver(
+        backend,
+        &jmap_types::Id::from(OWNER),
+        &account,
+        &account,
+        &sub,
+        event,
+    )
+    .await
+    .expect("should_deliver")
 }
 
 #[tokio::test]

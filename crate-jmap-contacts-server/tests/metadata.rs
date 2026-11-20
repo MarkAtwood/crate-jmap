@@ -54,8 +54,8 @@ fn info() -> DataTypeMetadataInfo {
     .unwrap()
 }
 
-fn backend() -> MemoryBackend {
-    MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    MemoryBackend::<()>::default()
         .with_account(&Id::from(ACCOUNT_ID))
         .with_metadata_info("AddressBook", info())
         .with_metadata_info("ContactCard", info())
@@ -68,7 +68,7 @@ fn error_type(err: JmapError) -> Value {
 /// Store an AddressBook whose `myRights.maySetMetadata` is
 /// `may_set_metadata` (server-set, so not writable through
 /// AddressBook/set) and return its id.
-async fn book_fixture(backend: &MemoryBackend, name: &str, may_set_metadata: bool) -> String {
+async fn book_fixture(backend: &MemoryBackend<()>, name: &str, may_set_metadata: bool) -> String {
     let name = name.to_owned();
     let (id, _) = ContactsBackend::create_object::<AddressBook, _>(
         backend,
@@ -95,7 +95,7 @@ async fn book_fixture(backend: &MemoryBackend, name: &str, may_set_metadata: boo
     id.to_string()
 }
 
-async fn book_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn book_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } = handle_address_book_set(backend, &(), args, using)
@@ -104,7 +104,7 @@ async fn book_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Val
     primary
 }
 
-async fn card_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn card_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
@@ -114,7 +114,7 @@ async fn card_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Val
     primary
 }
 
-async fn create_book(backend: &MemoryBackend, create: Value) -> String {
+async fn create_book(backend: &MemoryBackend<()>, create: Value) -> String {
     let resp = book_set(backend, json!({ "create": { "c": create } }), &using()).await;
     resp["created"]["c"]["id"]
         .as_str()
@@ -123,14 +123,14 @@ async fn create_book(backend: &MemoryBackend, create: Value) -> String {
 }
 
 /// Apply an AddressBook/set update that must succeed; returns the response.
-async fn update_book(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update_book(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let resp = book_set(backend, json!({ "update": { id: patch } }), &using()).await;
     assert_eq!(resp["updated"], json!({ id: null }), "{resp}");
     resp
 }
 
 /// Create a ContactCard in the AddressBooks `books` carrying `metadata`.
-async fn create_card(backend: &MemoryBackend, books: &[&str], metadata: Value) -> String {
+async fn create_card(backend: &MemoryBackend<()>, books: &[&str], metadata: Value) -> String {
     let book_ids: serde_json::Map<String, Value> = books
         .iter()
         .map(|b| ((*b).to_owned(), json!(true)))
@@ -143,7 +143,7 @@ async fn create_card(backend: &MemoryBackend, books: &[&str], metadata: Value) -
         .to_owned()
 }
 
-async fn book_property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
+async fn book_property(backend: &MemoryBackend<()>, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id] });
     let HandlerOutput { primary, .. } = handle_address_book_get(backend, &(), args, &using())
         .await
@@ -151,7 +151,7 @@ async fn book_property(backend: &MemoryBackend, id: &str, property: &str) -> Val
     primary["list"][0][property].clone()
 }
 
-async fn card_property(backend: &MemoryBackend, id: &str, property: &str) -> Value {
+async fn card_property(backend: &MemoryBackend<()>, id: &str, property: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id] });
     let HandlerOutput { primary, .. } = handle_contact_card_get(backend, &(), args, &using())
         .await
@@ -159,14 +159,14 @@ async fn card_property(backend: &MemoryBackend, id: &str, property: &str) -> Val
     primary["list"][0][property].clone()
 }
 
-async fn card_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
+async fn card_query(backend: &MemoryBackend<()>, filter: Value) -> Result<Value, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
     handle_contact_card_query(backend, &(), args, &using())
         .await
         .map(|o| o.primary["ids"].clone())
 }
 
-async fn book_changes(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn book_changes(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     handle_address_book_changes(backend, &(), args, using)
@@ -290,7 +290,7 @@ async fn invalid_conditions_are_rejected() {
 /// (RFC 8620 §5.5 `unsupportedFilter`).
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_condition() {
-    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT_ID));
     let err = card_query(&backend, json!({ "metadataExists": NS }))
         .await
         .unwrap_err();
@@ -478,7 +478,7 @@ async fn invalid_metadata_writes_are_invalid_properties() {
 /// backend that did not opt in rejects the write.
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
-    let backend = MemoryBackend::new().with_account(&Id::from(ACCOUNT_ID));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from(ACCOUNT_ID));
     let resp = book_set(
         &backend,
         json!({ "create": { "c": {
@@ -837,7 +837,7 @@ fn method_error_type(err: &JmapError) -> Value {
 
 /// Run AddressBook/get with `properties` on `id` and return its one list entry.
 async fn book_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],
@@ -950,7 +950,7 @@ async fn book_get_metadata_subselectors() {
 
 /// Run ContactCard/get with `properties` on `id` and return its one list entry.
 async fn card_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],
@@ -1100,7 +1100,7 @@ const OTHER_ID: &str = "a2";
 
 /// Run ContactCard/copy of one create entry from [`ACCOUNT_ID`] into
 /// [`OTHER_ID`] and return the response.
-async fn card_copy(b: &MemoryBackend, entry: Value, using: &[String]) -> Value {
+async fn card_copy(b: &MemoryBackend<()>, entry: Value, using: &[String]) -> Value {
     let args = json!({
         "fromAccountId": ACCOUNT_ID,
         "accountId": OTHER_ID,

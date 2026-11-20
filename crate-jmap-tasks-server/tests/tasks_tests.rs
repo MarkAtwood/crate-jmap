@@ -71,7 +71,7 @@ fn task_fixture(id: &str, task_list_id: &str, title: &str) -> Value {
 
 #[tokio::test]
 async fn task_list_get_empty_account_returns_empty_list() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -99,7 +99,7 @@ async fn task_list_get_empty_account_returns_empty_list() {
 
 #[tokio::test]
 async fn task_list_get_seeded_and_unknown_id() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -133,7 +133,7 @@ async fn task_list_get_seeded_and_unknown_id() {
 
 #[tokio::test]
 async fn task_list_changes_empty_store_empty_result() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
     let HandlerOutput { primary: resp, .. } = handle_task_list_changes(&backend, &(), args, &[])
@@ -155,7 +155,7 @@ async fn task_list_changes_empty_store_empty_result() {
 
 #[tokio::test]
 async fn task_list_set_destroy_empty_list_succeeds() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -185,7 +185,7 @@ async fn task_list_set_destroy_empty_list_succeeds() {
 
 #[tokio::test]
 async fn task_list_set_destroy_with_tasks_returns_error() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -228,7 +228,7 @@ async fn task_list_set_destroy_with_tasks_returns_error() {
 
 #[tokio::test]
 async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -342,7 +342,7 @@ async fn task_list_set_destroy_remove_tasks_destroys_tasks() {
 
 #[tokio::test]
 async fn task_list_set_destroy_remove_tasks_failure_keeps_list() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -409,7 +409,7 @@ async fn task_list_set_destroy_remove_tasks_failure_keeps_list() {
 
 #[tokio::test]
 async fn task_list_set_create_with_client_id_rejects() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -435,7 +435,7 @@ async fn task_list_set_create_with_client_id_rejects() {
 
 #[tokio::test]
 async fn task_list_set_unknown_account_returns_account_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = json!({
         "accountId": "nobody",
@@ -458,7 +458,7 @@ async fn task_list_set_unknown_account_returns_account_not_found() {
 
 #[tokio::test]
 async fn task_get_empty_account_returns_empty_list() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "ids": null });
     let HandlerOutput { primary: resp, .. } = handle_task_get(&backend, &(), args, &[])
@@ -476,7 +476,7 @@ async fn task_get_empty_account_returns_empty_list() {
 
 #[tokio::test]
 async fn task_query_empty_store_returns_no_ids() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
 
     let args = json!({
         "accountId": "acc1",
@@ -496,7 +496,7 @@ async fn task_query_empty_store_returns_no_ids() {
 
 #[tokio::test]
 async fn task_changes_empty_store_empty_result() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
     let HandlerOutput { primary: resp, .. } = handle_task_changes(&backend, &(), args, &[])
@@ -515,7 +515,7 @@ async fn task_changes_empty_store_empty_result() {
 
 #[tokio::test]
 async fn task_list_set_state_bumps_visible_via_changes() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -551,7 +551,7 @@ async fn task_list_set_state_bumps_visible_via_changes() {
 
 #[tokio::test]
 async fn task_set_create_with_client_id_rejects() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -589,7 +589,7 @@ async fn task_set_create_with_client_id_rejects() {
 
 #[tokio::test]
 async fn task_set_unknown_account_returns_account_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = json!({
         "accountId": "nobody",
@@ -613,7 +613,7 @@ async fn task_set_unknown_account_returns_account_not_found() {
 
 #[tokio::test]
 async fn task_notification_set_unknown_account_returns_account_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     let args = json!({
         "accountId": "nobody",
@@ -643,7 +643,7 @@ async fn task_notification_set_unknown_account_returns_account_not_found() {
 
 #[tokio::test]
 async fn task_set_isdraft_revert_rejected_by_memory_backend() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "Task",
@@ -683,7 +683,7 @@ async fn task_set_isdraft_revert_rejected_by_memory_backend() {
 // draft, so a patch to true is invalidProperties from the backend.
 #[tokio::test]
 async fn task_set_isdraft_true_on_absent_rejected_by_memory_backend() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "Task",
@@ -725,7 +725,7 @@ async fn task_set_isdraft_true_on_absent_rejected_by_memory_backend() {
 
 #[tokio::test]
 async fn task_query_with_filter_fails_loud_on_memory_backend() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -766,7 +766,7 @@ async fn task_query_with_filter_fails_loud_on_memory_backend() {
 
 #[tokio::test]
 async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -817,7 +817,7 @@ async fn query_with_operator_tree_is_unsupported_filter_on_memory_backend() {
 
 #[tokio::test]
 async fn task_notification_query_with_sort_fails_loud_on_memory_backend() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     let args = json!({
         "accountId": "acc1",
         "sort": [ { "property": "created", "isAscending": true } ]
@@ -844,7 +844,7 @@ async fn task_notification_query_with_sort_fails_loud_on_memory_backend() {
 
 #[tokio::test]
 async fn task_query_with_no_filter_or_sort_succeeds() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -877,8 +877,8 @@ async fn task_query_with_no_filter_or_sort_succeeds() {
     assert_eq!(ids[1], "t2");
 }
 
-fn backend_with_two_tasks() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+fn backend_with_two_tasks() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -952,7 +952,7 @@ async fn task_query_largest_position_is_empty_page_not_error() {
 
 #[tokio::test]
 async fn task_query_changes_honours_task_list_filter() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "TaskList",
@@ -1038,7 +1038,7 @@ async fn task_query_changes_honours_task_list_filter() {
 /// `created` "includes all server-set properties".
 #[tokio::test]
 async fn task_list_set_create_server_set_properties() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     let args = |list: Value| json!({ "accountId": "acc1", "create": { "c1": list } });
 
     let HandlerOutput { primary: resp, .. } = handle_task_list_set(

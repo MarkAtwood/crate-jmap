@@ -10,7 +10,7 @@ use jmap_types::Id;
 use serde_json::json;
 
 async fn parse(property: &str) -> Result<(), String> {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     b.store_blob(
         &Id::from("B1"),
@@ -63,7 +63,7 @@ async fn permitted_forms_are_accepted() {
 /// stays. §4.1.3 `headers` values are in Raw form too.
 #[tokio::test]
 async fn raw_form_keeps_folding_crlf() {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     b.store_blob(
         &Id::from("B1"),
@@ -94,7 +94,7 @@ async fn raw_form_keeps_folding_crlf() {
 /// and the result is NFC, as for the `subject` property.
 #[tokio::test]
 async fn text_form_decodes_encoded_words() {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     b.store_blob(
         &Id::from("B1"),

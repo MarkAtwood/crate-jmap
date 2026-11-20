@@ -42,7 +42,7 @@ const OTHER_SPACE_ID: &str = "space2";
 /// (L1439), and `"manage_space"`, which this crate requires for a Space
 /// destroy (jmap-chat-spec 77c3474 L1391: "The caller SHOULD hold
 /// `"manage_space"`").
-fn seed_space(backend: &MemoryBackend, id: &str, channel_ids: &[&str]) {
+fn seed_space(backend: &MemoryBackend<()>, id: &str, channel_ids: &[&str]) {
     backend.insert_object_for_test(
         "Space",
         ACCOUNT_ID,
@@ -67,7 +67,7 @@ fn seed_space(backend: &MemoryBackend, id: &str, channel_ids: &[&str]) {
     );
 }
 
-fn seed_chat(backend: &MemoryBackend, id: &str, extra: Value) {
+fn seed_chat(backend: &MemoryBackend<()>, id: &str, extra: Value) {
     let mut chat = json!({
         "id": id,
         "createdAt": "2026-01-01T00:00:00Z",
@@ -83,8 +83,8 @@ fn seed_chat(backend: &MemoryBackend, id: &str, extra: Value) {
 
 /// `SPACE_ID` holds channels `ch1` and `ch2`; `OTHER_SPACE_ID` holds
 /// `other`; `dm` is a direct Chat outside any Space.
-fn seeded() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn seeded() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     seed_space(&backend, SPACE_ID, &["ch1", "ch2"]);
     seed_space(&backend, OTHER_SPACE_ID, &["other"]);
@@ -107,7 +107,7 @@ fn seeded() -> MemoryBackend {
     backend
 }
 
-async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn space_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let HandlerOutput { primary, .. } =
         handle_space_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await

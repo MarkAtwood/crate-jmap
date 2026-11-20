@@ -19,7 +19,7 @@ use serde_json::{Value, json};
 
 const CONTACT_ID: &str = "ct1";
 
-fn seed_contact(backend: &MemoryBackend, id: &str, identity: &str) {
+fn seed_contact(backend: &MemoryBackend<()>, id: &str, identity: &str) {
     backend.insert_object_for_test(
         "ChatContact",
         ACCOUNT_ID,

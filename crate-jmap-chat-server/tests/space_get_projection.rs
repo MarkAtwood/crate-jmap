@@ -506,7 +506,7 @@ async fn non_member_previewable_unaffected_by_classification() {
 /// must NOT fire (bd:JMAP-yt1w.36).
 #[tokio::test]
 async fn single_user_mode_sees_full_space() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",

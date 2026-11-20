@@ -13,7 +13,7 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 async fn set(args: Value) -> Value {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     let mut args = args;
     args["accountId"] = json!("acc1");
     handle_calendar_event_set(&backend, &(), &std::collections::BTreeMap::new(), args, &[])

@@ -33,7 +33,7 @@ const OWN_MSG: &str = "m1";
 
 /// A group Chat whose only member is the owner, as admin, holding one
 /// Message the owner sent.
-fn seed(backend: &MemoryBackend) {
+fn seed(backend: &MemoryBackend<()>) {
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Chat",
@@ -135,7 +135,7 @@ async fn destroy_read_failure_is_per_id_server_fail() {
 /// group Chats, so a direct create carrying them is invalid.
 #[tokio::test]
 async fn direct_create_rejects_group_only_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
     let resp = chat_set(
@@ -160,7 +160,7 @@ async fn direct_create_rejects_group_only_properties() {
 /// channel Chats, so a group create carrying them is invalid.
 #[tokio::test]
 async fn group_create_rejects_direct_and_channel_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
     let resp = chat_set(
@@ -183,7 +183,7 @@ async fn group_create_rejects_direct_and_channel_properties() {
 /// L1018: a group create still accepts `description` and `avatarBlobId`.
 #[tokio::test]
 async fn group_create_keeps_group_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
 
     let resp = chat_set(

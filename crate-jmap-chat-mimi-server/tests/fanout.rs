@@ -279,8 +279,8 @@ fn capability(user_uri: &str) -> MimiCapability {
 }
 
 /// Local accounts b1 (Bob), c1 (Carol) and d1 (Dave).
-fn backend() -> MemoryBackend<RustCrypto> {
-    let backend = MemoryBackend::new(RustCrypto::default());
+fn backend() -> MemoryBackend<RustCrypto, ()> {
+    let backend = MemoryBackend::<_, ()>::with_crypto(RustCrypto::default());
     for (id, user) in [("b1", "bob"), ("c1", "carol"), ("d1", "dave")] {
         backend.register_account(
             &Id::from(id),
@@ -292,7 +292,7 @@ fn backend() -> MemoryBackend<RustCrypto> {
 
 /// Publish a fresh KeyPackage for `account` and hand it out through
 /// `claim_key_packages`, as KeyMaterial/fetch would.
-async fn claimed_key_package(backend: &MemoryBackend<RustCrypto>, account: &str) -> KeyPackage {
+async fn claimed_key_package(backend: &MemoryBackend<RustCrypto, ()>, account: &str) -> KeyPackage {
     let user = backend
         .mimi_capability(&(), &Id::from(account))
         .await
@@ -400,7 +400,7 @@ fn application_fanout(timestamp: u64, message: &[u8]) -> Vec<u8> {
 }
 
 /// What a `/notify` handler does with a body from HUB for ROOM.
-async fn notify(backend: &MemoryBackend<RustCrypto>, body: &[u8]) -> Vec<Fanout> {
+async fn notify(backend: &MemoryBackend<RustCrypto, ()>, body: &[u8]) -> Vec<Fanout> {
     let fanouts = parse_fanout_messages(body).expect("parse");
     for fanout in &fanouts {
         backend
@@ -411,7 +411,7 @@ async fn notify(backend: &MemoryBackend<RustCrypto>, body: &[u8]) -> Vec<Fanout>
     fanouts
 }
 
-fn messages(backend: &MemoryBackend<RustCrypto>, account: &str) -> Vec<Value> {
+fn messages(backend: &MemoryBackend<RustCrypto, ()>, account: &str) -> Vec<Value> {
     backend
         .room_chat_id(&Id::from(account), ROOM)
         .map(|id| backend.room_messages(&id))

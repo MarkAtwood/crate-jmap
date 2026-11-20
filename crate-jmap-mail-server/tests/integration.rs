@@ -34,7 +34,7 @@ use jmap_types::Invocation;
 /// RFC 8620 §5.2 — sinceState "0" means "no prior synchronization".
 #[tokio::test]
 async fn memory_backend_initial_state_is_zero() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     let state = backend
         .get_state::<Mailbox>(&(), &account_id)
@@ -49,7 +49,7 @@ async fn memory_backend_initial_state_is_zero() {
 async fn memory_backend_state_advances_after_create() {
     use jmap_mail_types::MailboxRights;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -92,7 +92,7 @@ async fn memory_backend_state_advances_after_create() {
 async fn memory_backend_create_then_get() {
     use jmap_mail_types::MailboxRights;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -135,7 +135,7 @@ async fn memory_backend_create_then_get() {
 async fn memory_backend_destroy_removes_object() {
     use jmap_mail_types::MailboxRights;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -186,7 +186,7 @@ async fn memory_backend_get_changes_from_zero() {
     use jmap_mail_types::MailboxRights;
     use jmap_types::State;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -247,7 +247,7 @@ async fn memory_backend_get_changes_from_zero() {
 async fn memory_backend_search_snippets_highlight() {
     use jmap_mail_types::EmailFilterCondition;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -292,7 +292,7 @@ async fn memory_backend_search_snippets_highlight() {
 /// emails. The MemoryBackend stores Thread objects when import_email is called.
 #[tokio::test]
 async fn thread_get_returns_email_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -377,7 +377,7 @@ async fn thread_get_returns_email_ids() {
 /// first email is imported into it.
 #[tokio::test]
 async fn thread_changes_from_zero_returns_all() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -459,7 +459,7 @@ async fn thread_changes_from_zero_returns_all() {
 /// tag wrapping the matched text.
 #[tokio::test]
 async fn search_snippet_get_returns_snippets() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -538,7 +538,7 @@ async fn search_snippet_get_returns_snippets() {
 #[tokio::test]
 async fn search_snippet_get_capability_gated() {
     // A thin wrapper around MemoryBackend that returns false for SearchSnippet.
-    struct NoSnippetBackend(MemoryBackend);
+    struct NoSnippetBackend(MemoryBackend<()>);
 
     impl JmapAccounts for NoSnippetBackend {
         type Error = common::MemoryError;
@@ -742,7 +742,7 @@ async fn search_snippet_get_capability_gated() {
         }
     }
 
-    let backend = NoSnippetBackend(MemoryBackend::new());
+    let backend = NoSnippetBackend(MemoryBackend::<()>::default());
     backend.0.register_account(&Id::from("account1"));
     backend.0.register_account(&Id::from("account2"));
     let args = serde_json::json!({
@@ -797,7 +797,7 @@ async fn search_snippet_get_capability_gated() {
 /// default singleton (disabled).
 #[tokio::test]
 async fn vacation_get_fresh_account_returns_default_singleton() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -843,7 +843,7 @@ async fn vacation_get_fresh_account_returns_default_singleton() {
 /// MUST be rejected with a SetError of type "singleton".
 #[tokio::test]
 async fn vacation_set_create_returns_singleton_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -898,7 +898,7 @@ async fn vacation_set_create_returns_singleton_error() {
 /// After a successful update the new field values must be visible in /get.
 #[tokio::test]
 async fn vacation_set_update_singleton_works() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -965,7 +965,7 @@ async fn vacation_set_update_singleton_works() {
 /// MUST be rejected with a SetError of type "singleton".
 #[tokio::test]
 async fn vacation_set_destroy_returns_singleton_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -1025,7 +1025,7 @@ async fn vacation_set_destroy_returns_singleton_error() {
 /// with the correct name (RFC 8621 §2.1, §2.5).
 #[tokio::test]
 async fn mailbox_set_create_and_get() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
 
     // Create a mailbox via Mailbox/set.
@@ -1072,7 +1072,7 @@ async fn mailbox_set_create_and_get() {
 /// (RFC 8621 §2.5).
 #[tokio::test]
 async fn mailbox_set_destroy_with_emails_no_flag_fails() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -1136,7 +1136,7 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
 /// the mailbox and the email that was only in that mailbox (RFC 8621 §2.5).
 #[tokio::test]
 async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -1219,7 +1219,7 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
 /// (RFC 8621 §2.5).
 #[tokio::test]
 async fn mailbox_role_uniqueness_enforced() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
 
     // Create first mailbox with role=inbox.
@@ -1277,7 +1277,7 @@ async fn mailbox_role_uniqueness_enforced() {
 /// the create succeeded with no role set and no client signal.
 #[tokio::test]
 async fn mailbox_set_create_rejects_non_string_role() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
 
     let args = serde_json::json!({
@@ -1328,7 +1328,7 @@ async fn mailbox_set_create_rejects_non_string_role() {
 /// Regression: bd:JMAP-q2wa.2.
 #[tokio::test]
 async fn mailbox_set_create_rejects_non_string_parent_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
 
     let args = serde_json::json!({
@@ -1377,7 +1377,7 @@ async fn mailbox_set_create_rejects_non_string_parent_id() {
 /// Regression: bd:JMAP-q2wa.2.
 #[tokio::test]
 async fn mailbox_set_create_accepts_null_role_and_parent_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
 
     let args = serde_json::json!({
@@ -1411,7 +1411,7 @@ async fn mailbox_set_create_accepts_null_role_and_parent_id() {
 /// server-assigned id. A subsequent Identity/get must return the object.
 #[tokio::test]
 async fn identity_set_create_and_get() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = "account1";
 
@@ -1489,7 +1489,7 @@ async fn identity_set_create_and_get() {
 /// and properties list containing "email".
 #[tokio::test]
 async fn identity_set_create_without_email_is_invalid() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
 
     let set_args = serde_json::json!({
@@ -1543,7 +1543,7 @@ async fn identity_set_create_without_email_is_invalid() {
 /// "invalidProperties" and properties containing "email".
 #[tokio::test]
 async fn identity_set_update_email_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = "account1";
 
@@ -1612,7 +1612,7 @@ async fn identity_set_update_email_is_forbidden() {
 /// "mayDelete" property is false with a SetError of type "forbidden".
 #[tokio::test]
 async fn identity_set_destroy_may_delete_false_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -1684,7 +1684,7 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
 /// invalid and must be rejected, not silently ignored.
 #[tokio::test]
 async fn identity_set_create_malformed_reply_to_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -1740,7 +1740,7 @@ async fn identity_set_create_malformed_reply_to_rejected() {
 /// Ported from jmap-test-suite identity-get.test.ts: get-all-identities.
 #[tokio::test]
 async fn identity_get_all_returns_list() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     // Seed one identity so the list is non-empty.
@@ -1784,7 +1784,7 @@ async fn identity_get_all_returns_list() {
 /// Ported from jmap-test-suite identity-get.test.ts: get-identity-properties.
 #[tokio::test]
 async fn identity_get_required_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -1853,7 +1853,7 @@ async fn identity_get_required_properties() {
 /// Ported from jmap-test-suite identity-get.test.ts: get-identity-by-id.
 #[tokio::test]
 async fn identity_get_by_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -1896,7 +1896,7 @@ async fn identity_get_by_id() {
 /// Ported from jmap-test-suite identity-get.test.ts: get-identity-not-found.
 #[tokio::test]
 async fn identity_get_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -1925,7 +1925,7 @@ async fn identity_get_not_found() {
 /// Ported from jmap-test-suite identity-get.test.ts: get-identity-email-matches.
 #[tokio::test]
 async fn identity_get_email_contains_at() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -1969,7 +1969,7 @@ async fn identity_get_email_contains_at() {
 /// Ported from jmap-test-suite identity-set.test.ts: set-update-name.
 #[tokio::test]
 async fn identity_set_update_name_roundtrip() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     // Create initial identity.
@@ -2030,7 +2030,7 @@ async fn identity_set_update_name_roundtrip() {
 /// Ported from jmap-test-suite identity-set.test.ts: set-update-text-signature.
 #[tokio::test]
 async fn identity_set_update_text_signature_roundtrip() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -2084,7 +2084,7 @@ async fn identity_set_update_text_signature_roundtrip() {
 /// Ported from jmap-test-suite identity-set.test.ts: set-update-html-signature.
 #[tokio::test]
 async fn identity_set_update_html_signature_roundtrip() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -2137,7 +2137,7 @@ async fn identity_set_update_html_signature_roundtrip() {
 /// Ported from jmap-test-suite identity-set.test.ts: set-update-reply-to.
 #[tokio::test]
 async fn identity_set_update_reply_to_roundtrip() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -2218,7 +2218,7 @@ async fn identity_set_update_reply_to_roundtrip() {
 /// Ported from jmap-test-suite identity-set.test.ts: set-not-found.
 #[tokio::test]
 async fn identity_set_update_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput { primary: resp, .. } = handle_identity_set(
@@ -2249,7 +2249,7 @@ async fn identity_set_update_not_found() {
 /// Ported from jmap-test-suite identity-changes.test.ts: changes-no-changes.
 #[tokio::test]
 async fn identity_changes_no_changes() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     // Seed an identity so there's a real state to query from.
@@ -2314,7 +2314,7 @@ async fn identity_changes_no_changes() {
 /// Ported from jmap-test-suite identity-changes.test.ts: changes-after-update.
 #[tokio::test]
 async fn identity_changes_after_update() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     // Create identity and record old state.
@@ -2389,7 +2389,7 @@ async fn identity_changes_after_update() {
 /// Ported from jmap-test-suite identity-changes.test.ts: changes-response-structure.
 #[tokio::test]
 async fn identity_changes_response_structure() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     // Seed one identity so state is non-trivial.
@@ -2472,7 +2472,7 @@ async fn identity_changes_response_structure() {
 /// Ported from jmap-test-suite submission-get.test.ts: get-empty.
 #[tokio::test]
 async fn submission_get_ids_null_returns_list_and_state() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -2500,7 +2500,7 @@ async fn submission_get_ids_null_returns_list_and_state() {
 /// Ported from jmap-test-suite submission-get.test.ts: get-not-found.
 #[tokio::test]
 async fn submission_get_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -2529,7 +2529,7 @@ async fn submission_get_not_found() {
 /// Ported from jmap-test-suite submission-get.test.ts: get-response-structure.
 #[tokio::test]
 async fn submission_get_response_structure() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -2564,7 +2564,7 @@ async fn submission_get_response_structure() {
 /// `undoStatus: "final"`. The submission must appear in /get with the assigned id.
 #[tokio::test]
 async fn submission_set_create_and_get() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -2666,7 +2666,7 @@ async fn submission_set_create_and_get() {
 async fn submission_set_on_success_update_email() {
     use jmap_mail_types::{self, Keyword};
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -2794,7 +2794,7 @@ async fn dispatch_submission_set_on_success_update_email_orders_responses() {
     use jmap_types::{JmapRequest, State};
     use std::sync::Arc;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
@@ -2866,7 +2866,7 @@ async fn dispatch_submission_set_on_success_update_email_orders_responses() {
 async fn submission_set_on_success_update_email_immutable_field_rejected() {
     use jmap_mail_types::Identity;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account-imm-sub"));
     let account_id = Id::from("account-imm-sub");
 
@@ -2948,7 +2948,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
 /// in a `notCreated` entry with `invalidProperties: ["identityId"]`.
 #[tokio::test]
 async fn submission_set_invalid_identity_fails() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3026,7 +3026,7 @@ async fn submission_set_invalid_identity_fails() {
 /// RFC 8621 §5.1 — Email/get must return the email in "list".
 #[tokio::test]
 async fn email_set_create_and_get() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3124,7 +3124,7 @@ async fn email_set_create_and_get() {
 /// by Email/get must not contain the false-valued keyword.
 #[tokio::test]
 async fn email_set_create_keyword_false_value_not_stored() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3199,7 +3199,7 @@ async fn email_set_create_keyword_false_value_not_stored() {
 /// A map with only false values has no real mailbox membership and must be rejected.
 #[tokio::test]
 async fn email_set_create_all_false_mailbox_ids_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3257,7 +3257,7 @@ async fn email_set_create_all_false_mailbox_ids_rejected() {
 /// cannot flow into downstream string compares with undefined ordering.
 #[tokio::test]
 async fn email_set_create_with_malformed_received_at_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3314,7 +3314,7 @@ async fn email_set_create_with_malformed_received_at_rejected() {
 /// (`bd:JMAP-j7pa.4`).
 #[tokio::test]
 async fn email_set_create_with_non_string_received_at_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3364,7 +3364,7 @@ async fn email_set_create_with_non_string_received_at_rejected() {
 /// present as `[]`, never as `null` or absent.
 #[tokio::test]
 async fn email_get_not_found_is_empty_array_when_all_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3420,7 +3420,7 @@ async fn email_get_not_found_is_empty_array_when_all_found() {
 /// in each returned Email object.
 #[tokio::test]
 async fn email_get_with_property_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3475,7 +3475,7 @@ async fn email_get_with_property_filter() {
 /// This verifies the handler enforces the spec-mandated default rather than returning all fields.
 #[tokio::test]
 async fn email_get_default_properties_excludes_headers() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3541,7 +3541,7 @@ async fn email_get_default_properties_excludes_headers() {
 /// parsed without returning an `invalidArguments` error.
 #[tokio::test]
 async fn email_get_body_value_fetch_args_parsed() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3583,7 +3583,7 @@ async fn email_get_body_value_fetch_args_parsed() {
 /// RFC 8621 §4.2 — `maxBodyValueBytes` of 0 means unlimited; must not be rejected.
 #[tokio::test]
 async fn email_get_max_body_value_bytes_zero_accepted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3626,7 +3626,7 @@ async fn email_get_max_body_value_bytes_zero_accepted() {
 async fn email_parse_default_properties_used() {
     use jmap_mail_server::handle_email_parse;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3678,7 +3678,7 @@ async fn email_parse_default_properties_used() {
 async fn email_parse_body_value_fetch_args_parsed() {
     use jmap_mail_server::handle_email_parse;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3707,7 +3707,7 @@ async fn email_parse_body_value_fetch_args_parsed() {
 async fn email_parse_invalid_max_body_value_bytes() {
     use jmap_mail_server::handle_email_parse;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3737,7 +3737,7 @@ async fn email_parse_invalid_max_body_value_bytes() {
 /// are immutable after creation.
 #[tokio::test]
 async fn email_set_update_immutable_field_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3807,7 +3807,7 @@ async fn email_set_update_immutable_field_rejected() {
 /// After the update, Email/changes must include the email id in the "updated" list.
 #[tokio::test]
 async fn email_set_update_keywords() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3886,7 +3886,7 @@ async fn email_set_update_keywords() {
 /// are returned (not the sent email).
 #[tokio::test]
 async fn email_query_by_mailbox() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -3965,7 +3965,7 @@ async fn email_query_by_mailbox() {
 async fn email_import_empty_mailbox_ids_rejected() {
     use jmap_mail_server::handle_email_import;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4027,7 +4027,7 @@ async fn email_import_empty_mailbox_ids_rejected() {
 async fn email_import_with_malformed_received_at_rejected() {
     use jmap_mail_server::handle_email_import;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4079,7 +4079,7 @@ async fn email_import_with_malformed_received_at_rejected() {
 async fn email_import_with_keywords_succeeds() {
     use jmap_mail_server::handle_email_import;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4136,7 +4136,7 @@ async fn email_import_with_keywords_succeeds() {
 async fn email_copy_with_keywords_succeeds() {
     use jmap_mail_server::handle_email_copy;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("src"));
     backend.register_account(&Id::from("dst"));
     let src_account = Id::from("src");
@@ -4200,7 +4200,7 @@ async fn email_copy_with_keywords_succeeds() {
 async fn email_copy_without_keywords_keeps_source_keywords() {
     use jmap_mail_server::handle_email_copy;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("src"));
     backend.register_account(&Id::from("dst"));
     let src_account = Id::from("src");
@@ -4264,7 +4264,7 @@ async fn email_copy_without_keywords_keeps_source_keywords() {
 async fn email_copy_with_malformed_received_at_rejected() {
     use jmap_mail_server::handle_email_copy;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("src"));
     backend.register_account(&Id::from("dst"));
     let src_account = Id::from("src");
@@ -4331,7 +4331,7 @@ async fn email_copy_with_malformed_received_at_rejected() {
 async fn email_copy_ignores_on_success_update_original() {
     use jmap_mail_server::handle_email_copy;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let src_account = Id::from("src-osuo");
     backend.register_account(&src_account);
     backend.register_account(&Id::from("dst-osuo"));
@@ -4392,7 +4392,7 @@ async fn email_copy_maintains_destination_counts_and_message_id() {
     use jmap_mail_server::handle_email_copy;
     use jmap_server::BackendSetError;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let src_account = Id::from("src-cnt");
     let dst_account = Id::from("dst-cnt");
     backend.register_account(&src_account);
@@ -4480,7 +4480,7 @@ async fn email_copy_with_destroy_from_if_in_state(
 ) -> (Vec<jmap_types::Invocation>, serde_json::Value) {
     use jmap_mail_server::handle_email_copy;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let src_account = Id::from("src-dfis");
     backend.register_account(&src_account);
     backend.register_account(&Id::from("dst-dfis"));
@@ -4578,7 +4578,7 @@ async fn email_copy_destroy_from_if_in_state_match_destroys_original() {
 async fn submission_set_update_only_undo_status_allowed() {
     use jmap_mail_types::Identity;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4663,7 +4663,7 @@ async fn submission_set_update_only_undo_status_allowed() {
 /// mailboxHasChild, even when the child was created in the same request.
 #[tokio::test]
 async fn mailbox_set_create_child_then_destroy_parent_blocked() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -4734,7 +4734,7 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
 /// rather than silently treated as an empty keyword map.
 #[tokio::test]
 async fn email_set_create_malformed_keywords_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4779,7 +4779,7 @@ async fn email_set_create_malformed_keywords_rejected() {
 /// RFC 8621 §4.1.1: keywords must be 1–255 bytes long.
 #[tokio::test]
 async fn keyword_256_chars_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
     let kw_256: String = "a".repeat(256);
@@ -4816,7 +4816,7 @@ async fn keyword_256_chars_rejected() {
 /// RFC 8621 §4.1.1: keywords must be 1–255 bytes long; 255 is the maximum valid length.
 #[tokio::test]
 async fn keyword_255_chars_accepted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
     let kw_255: String = "a".repeat(255);
@@ -4851,7 +4851,7 @@ async fn keyword_255_chars_accepted() {
 /// RFC 8621 §4.1.1: keywords must not contain `( ) { ] % * " \`.
 #[tokio::test]
 async fn keyword_forbidden_char_open_paren_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4887,7 +4887,7 @@ async fn keyword_forbidden_char_open_paren_rejected() {
 /// RFC 8621 §4.1.1: keywords MUST be stored and returned in lowercase.
 #[tokio::test]
 async fn keyword_normalized_to_lowercase() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4937,7 +4937,7 @@ async fn keyword_normalized_to_lowercase() {
 /// RFC 8621 §4.1.1: keywords must be 1–255 bytes; empty string is invalid.
 #[tokio::test]
 async fn keyword_empty_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -4973,7 +4973,7 @@ async fn keyword_empty_rejected() {
 /// RFC 8621 §4.1.1: printable ASCII range is 0x21–0x7e inclusive; `~` is at the top.
 #[tokio::test]
 async fn keyword_tilde_accepted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -5007,7 +5007,7 @@ async fn keyword_tilde_accepted() {
 /// RFC 8621 §4.1.1: `$` (0x24) is in the printable ASCII range and not forbidden.
 #[tokio::test]
 async fn keyword_dollar_sign_accepted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -5042,7 +5042,7 @@ async fn keyword_dollar_sign_accepted() {
 /// not silently treated as no-limit. This matches Email/query behaviour.
 #[tokio::test]
 async fn mailbox_query_invalid_limit_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -5066,7 +5066,7 @@ async fn mailbox_query_invalid_limit_rejected() {
 /// Consistent with Email/query and Mailbox/query.
 #[tokio::test]
 async fn submission_query_invalid_limit_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -5094,7 +5094,7 @@ async fn submission_query_invalid_limit_rejected() {
 /// The email is imported with a To address so that the derived envelope has at least
 /// one recipient (needed for EmailSubmission/set create to succeed).
 async fn make_identity_and_email(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     account_id: &Id,
     addr: &str,
     mailbox_id: &str,
@@ -5129,7 +5129,7 @@ async fn make_identity_and_email(
 /// for the specified identity (RFC 8621 §7.3).
 #[tokio::test]
 async fn submission_query_filter_by_identity_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     // Create two identities and one email each.
@@ -5216,7 +5216,7 @@ async fn submission_query_filter_by_identity_id() {
 /// the stored value using epoch/far-future sentinel dates.
 #[tokio::test]
 async fn submission_query_filter_by_before() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let (identity_id, email_id) =
@@ -5305,7 +5305,7 @@ async fn submission_query_filter_by_before() {
 /// the stored value using epoch/far-future sentinel dates.
 #[tokio::test]
 async fn submission_query_filter_by_after() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let (identity_id, email_id) =
@@ -5394,7 +5394,7 @@ async fn submission_query_filter_by_after() {
 /// Submission B is created directly via the backend with `undoStatus: "pending"`.
 #[tokio::test]
 async fn submission_query_filter_by_undo_status() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
 
     let (identity_a, email_a) =
@@ -5506,7 +5506,7 @@ async fn submission_query_filter_by_undo_status() {
 /// FilterOperator object, not a scalar).
 #[tokio::test]
 async fn submission_query_invalid_filter_json() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -5531,7 +5531,7 @@ async fn submission_query_invalid_filter_json() {
 /// "One of the arguments is of the wrong type or is otherwise invalid").
 #[tokio::test]
 async fn submission_query_malformed_sort_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
 
     let err = handle_submission_query(
@@ -5564,7 +5564,7 @@ async fn submission_query_malformed_sort_rejected() {
 /// in the §7.3 list.
 #[tokio::test]
 async fn submission_query_unknown_sort_property_unsupported() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
 
     let err = handle_submission_query(
@@ -5599,7 +5599,7 @@ async fn submission_query_unknown_sort_property_unsupported() {
 /// FilterCondition property.
 #[tokio::test]
 async fn submission_query_changes_unknown_filter_key_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let err = handle_submission_query_changes(
         &backend,
@@ -5624,7 +5624,7 @@ async fn submission_query_changes_unknown_filter_key_returns_unsupported_filter(
 #[tokio::test]
 async fn submission_query_changes_applies_filter() {
     use jmap_mail_types::{EmailSubmission, UndoStatus};
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
 
@@ -5691,7 +5691,7 @@ async fn submission_query_changes_applies_filter() {
 #[tokio::test]
 async fn submission_query_honors_sort() {
     use jmap_mail_types::{EmailSubmission, UndoStatus};
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
 
@@ -5765,7 +5765,7 @@ async fn submission_query_honors_sort() {
 #[tokio::test]
 async fn submission_query_sort_email_id_and_tie_break() {
     use jmap_mail_types::{EmailSubmission, UndoStatus};
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
 
@@ -5851,7 +5851,7 @@ async fn submission_query_sort_email_id_and_tie_break() {
 #[tokio::test]
 async fn submission_query_changes_honors_sort() {
     use jmap_mail_types::{EmailSubmission, UndoStatus};
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
 
@@ -5921,7 +5921,7 @@ async fn submission_query_changes_honors_sort() {
 /// RFC 8621 §7.5: "noRecipients: The envelope.rcptTo is empty."
 #[tokio::test]
 async fn submission_set_create_no_recipients_fails() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -5987,7 +5987,7 @@ async fn submission_set_create_no_recipients_fails() {
 /// RFC 8621 §2.5: role must be unique per account.
 #[tokio::test]
 async fn mailbox_set_role_uniqueness_create_then_update() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6065,7 +6065,7 @@ async fn mailbox_set_role_uniqueness_create_then_update() {
 /// the role, even though A's update (role=null) had already been applied.
 #[tokio::test]
 async fn mailbox_set_role_swap_succeeds_in_single_request() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6148,7 +6148,7 @@ async fn mailbox_set_role_swap_succeeds_in_single_request() {
 /// fix, the field was silently dropped via .ok(); now it must be rejected.
 #[tokio::test]
 async fn email_set_create_malformed_in_reply_to_returns_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6198,7 +6198,7 @@ async fn email_set_create_malformed_in_reply_to_returns_error() {
 /// invalidProperties, not silently drop the field and create the email.
 #[tokio::test]
 async fn email_set_create_malformed_references_returns_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6244,7 +6244,7 @@ async fn email_set_create_malformed_references_returns_error() {
 /// (default is false).
 #[tokio::test]
 async fn mailbox_query_calculate_total_controls_total_field() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6305,7 +6305,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
 /// RFC 8620 §5.6: upToId is Id|null; a non-string is an invalid type.
 #[tokio::test]
 async fn email_query_changes_non_string_up_to_id_returns_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6332,7 +6332,7 @@ async fn email_query_changes_non_string_up_to_id_returns_error() {
 /// Oracle: Mailbox/queryChanges with a non-string upToId must return invalidArguments.
 #[tokio::test]
 async fn mailbox_query_changes_non_string_up_to_id_returns_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6361,7 +6361,7 @@ async fn mailbox_query_changes_non_string_up_to_id_returns_error() {
 /// RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
 #[tokio::test]
 async fn email_query_calculate_total_controls_total_field() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6398,7 +6398,7 @@ async fn email_query_calculate_total_controls_total_field() {
 /// i64::MIN negation overflows if not handled; we use saturating_neg().
 #[tokio::test]
 async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -6847,7 +6847,7 @@ async fn identity_set_destroy_backend_other_goes_to_not_destroyed() {
 /// would corrupt data without error.
 #[tokio::test]
 async fn mailbox_set_sort_order_overflow_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     // 5_000_000_000 exceeds u32::MAX (4_294_967_295). Without the fix, this
     // would silently become 705_032_704 (5e9 mod 2^32).
@@ -7052,7 +7052,7 @@ async fn set_per_id_server_fail_redacts_backend_display_destroy() {
 /// properties (mailboxIds, keywords, subject, etc.) may appear.
 #[tokio::test]
 async fn email_import_created_response_has_four_server_set_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let blob_id = Id::from("blob-4f");
     backend.store_blob(&blob_id, b"Subject: test\r\n\r\nbody".to_vec());
@@ -7101,7 +7101,7 @@ async fn email_import_created_response_has_four_server_set_fields() {
 /// or false (RFC 8620 §5.6 — total MUST be omitted by default).
 #[tokio::test]
 async fn email_query_changes_omits_total_by_default() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -7120,7 +7120,7 @@ async fn email_query_changes_omits_total_by_default() {
 /// or false (RFC 8620 §5.6).
 #[tokio::test]
 async fn mailbox_query_changes_omits_total_by_default() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -7144,7 +7144,7 @@ async fn mailbox_query_changes_omits_total_by_default() {
 /// 0-based position in the sorted result list (RFC 8620 §5.5).
 #[tokio::test]
 async fn email_query_anchor_resolves_position() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
@@ -7212,7 +7212,7 @@ async fn email_query_anchor_resolves_position() {
 /// filter rather than returning all emails.
 #[tokio::test]
 async fn email_query_in_mailbox_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
@@ -7269,7 +7269,7 @@ async fn email_query_in_mailbox_filter() {
 /// an anchorNotFound error (RFC 8620 §5.5).
 #[tokio::test]
 async fn email_query_anchor_not_found_returns_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -7290,7 +7290,7 @@ async fn email_query_anchor_not_found_returns_error() {
 /// position (RFC 8620 §5.5).
 #[tokio::test]
 async fn mailbox_query_anchor_resolves_position() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
@@ -7358,7 +7358,7 @@ async fn mailbox_query_anchor_resolves_position() {
 /// cannotCalculateChanges (RFC 8620 §5.6), never invalidArguments.
 #[tokio::test]
 async fn email_query_changes_collapse_threads_cannot_calculate() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -7380,7 +7380,7 @@ async fn email_query_changes_collapse_threads_cannot_calculate() {
 /// Previously only the immutable 'email' field was guarded.
 #[tokio::test]
 async fn identity_set_update_rejects_server_set_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
@@ -7455,7 +7455,7 @@ async fn identity_set_update_rejects_server_set_fields() {
 
 #[tokio::test]
 async fn email_changes_rejects_max_changes_zero() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("u1"));
     let account_id = "u1";
     let args = serde_json::json!({
@@ -7471,7 +7471,7 @@ async fn email_changes_rejects_max_changes_zero() {
 
 #[tokio::test]
 async fn mailbox_changes_rejects_max_changes_zero() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("u1"));
     let account_id = "u1";
     let args = serde_json::json!({
@@ -7491,7 +7491,7 @@ async fn mailbox_changes_rejects_max_changes_zero() {
 
 #[tokio::test]
 async fn thread_changes_second_import_logs_thread_as_updated_not_created() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("u1"));
     let account_id = Id::from("u1");
 
@@ -7622,7 +7622,7 @@ Body two.
 async fn email_import_duplicate_message_id_returns_already_exists() {
     use jmap_mail_server::handle_email_import;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -7724,7 +7724,7 @@ fn capability_uri_vacation_response_matches_rfc() {
 /// with `invalidProperties` naming `sendAt`.
 #[tokio::test]
 async fn submission_set_create_send_at_from_client_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -7780,7 +7780,7 @@ async fn submission_set_create_send_at_from_client_rejected() {
 /// and attachments.
 #[tokio::test]
 async fn email_set_create_body_structure_with_text_body_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -7825,7 +7825,7 @@ async fn email_set_create_body_structure_with_text_body_rejected() {
 /// RFC 8621 §4.6: textBody must contain exactly one part of type text/plain.
 #[tokio::test]
 async fn email_set_create_text_body_wrong_type_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -7866,7 +7866,7 @@ async fn email_set_create_text_body_wrong_type_rejected() {
 /// RFC 8621 §4.6: textBody must contain exactly one body part.
 #[tokio::test]
 async fn email_set_create_text_body_multiple_parts_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -7911,7 +7911,7 @@ async fn email_set_create_text_body_multiple_parts_rejected() {
 /// RFC 8621 §4.6: a body part must have partId OR blobId, not both.
 #[tokio::test]
 async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -7957,7 +7957,7 @@ async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
 /// the bodyValues map.
 #[tokio::test]
 async fn email_set_create_body_values_missing_for_part_id_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -7997,7 +7997,7 @@ async fn email_set_create_body_values_missing_for_part_id_rejected() {
 /// create.
 #[tokio::test]
 async fn email_set_create_body_value_is_truncated_true_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -8041,7 +8041,7 @@ async fn email_set_create_body_value_is_truncated_true_rejected() {
 /// RFC 8621 §7.5 — sendAt is optional; omitting it is always valid.
 #[tokio::test]
 async fn submission_set_create_send_at_null_accepted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -8090,7 +8090,7 @@ async fn submission_set_create_send_at_null_accepted() {
 // ---------------------------------------------------------------------------
 
 /// Helper: import a message with known headers and return its email id.
-async fn import_msg_with_headers(backend: &MemoryBackend, raw: &[u8]) -> Id {
+async fn import_msg_with_headers(backend: &MemoryBackend<()>, raw: &[u8]) -> Id {
     let blob_id = Id::from(format!("blob-hdr-{}", uuid::Uuid::new_v4()));
     backend.register_account(&Id::from("acct1"));
     backend.store_blob(&blob_id, raw.to_vec());
@@ -8114,7 +8114,7 @@ async fn import_msg_with_headers(backend: &MemoryBackend, raw: &[u8]) -> Id {
 /// preserved (not trimmed in Raw form).
 #[tokio::test]
 async fn email_get_header_subject_raw() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let raw = b"Subject: Hello World\r\nFrom: alice@example.com\r\n\r\nBody.";
     let email_id = import_msg_with_headers(&backend, raw).await;
 
@@ -8152,7 +8152,7 @@ async fn email_get_header_subject_raw() {
 /// RFC 8621 §4.1.3 asText form: unfold, then trim leading whitespace.
 #[tokio::test]
 async fn email_get_header_subject_as_text() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     // Folded Subject header (continuation line starts with a space).
     let raw = b"Subject: Hello\r\n World\r\nFrom: alice@example.com\r\n\r\nBody.";
     let email_id = import_msg_with_headers(&backend, raw).await;
@@ -8184,7 +8184,7 @@ async fn email_get_header_subject_as_text() {
 /// RFC 8621 §4.1.2 — From is an address header; asDate is incompatible.
 #[tokio::test]
 async fn email_get_header_from_as_date_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     // The error must fire before any backend query, so no email is needed.
     let args = serde_json::json!({
@@ -8211,7 +8211,7 @@ async fn email_get_header_from_as_date_rejected() {
 /// `:all` the full ordered array is returned.
 #[tokio::test]
 async fn email_get_header_all_form() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     // Two Subject headers (unusual but syntactically valid for testing :all).
     let raw = b"Subject: First\r\nSubject: Second\r\nFrom: alice@example.com\r\n\r\nBody.";
     let email_id = import_msg_with_headers(&backend, raw).await;
@@ -8251,7 +8251,7 @@ async fn email_get_header_all_form() {
 /// RFC 8621 §4.1.3 — only the six defined form names are valid.
 #[tokio::test]
 async fn email_get_header_unknown_form_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -8276,7 +8276,7 @@ async fn email_get_header_unknown_form_rejected() {
 /// RFC 8621 §4.1.3 — the header name part must not be empty.
 #[tokio::test]
 async fn email_get_header_empty_name_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -8308,7 +8308,7 @@ async fn email_get_header_empty_name_rejected() {
 /// email.
 #[tokio::test]
 async fn email_get_from_property_matches_as_addresses() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     // Input exercises (a) RFC 2047 encoded-word `=?UTF-8?Q?John_Sm=C3=AEth?=`
     // and (b) a quoted-string display name containing a comma —
@@ -8377,7 +8377,7 @@ Body.";
 /// not derived from `apply_header_form`.
 #[tokio::test]
 async fn email_get_as_addresses_rfc8621_james_smythe() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
 
     // RFC 8621 §4.1.2.3 example address-list. Folded into one logical
     // From: header per RFC 5322. Encoded-word `=?UTF-8?Q?John_Sm=C3=AEth?=`
@@ -8475,7 +8475,7 @@ Body.";
 /// `Fri, 21 Nov 1997 09:55:06 -0600` as an independent oracle.
 #[tokio::test]
 async fn email_get_as_date_rfc5322_sample() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let raw = b"From: alice@example.com\r\n\
 Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n\
 Subject: Test\r\n\
@@ -8504,7 +8504,7 @@ Body.";
 /// value is not a parseable date-time.
 #[tokio::test]
 async fn email_get_as_date_malformed_returns_null() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let raw = b"From: alice@example.com\r\n\
 Date: not a real date\r\n\
 Subject: Test\r\n\
@@ -8533,7 +8533,7 @@ Body.";
 /// CFWS, returning bare msg-id strings.
 #[tokio::test]
 async fn email_get_as_message_ids_rfc8621() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     // Independent oracle: input from RFC 5322 §3.6.4 msg-id grammar
     // (angle-bracketed `id-left @ id-right`). Two message-ids on one
     // References header.
@@ -8577,7 +8577,7 @@ Body.";
 /// from an RFC 2369 list-of-URLs header.
 #[tokio::test]
 async fn email_get_as_urls_rfc2369() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     // Independent oracle: input shape from RFC 2369 §3.4 List-Help
     // example. Two URLs in a list-header value.
     let raw = b"From: alice@example.com\r\n\
@@ -8612,7 +8612,7 @@ Body.";
 /// `invalidArguments` for the whole method call (RFC 8620 §5.3).
 #[tokio::test]
 async fn email_set_destroy_non_string_returns_invalid_arguments() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -8638,7 +8638,7 @@ async fn email_set_destroy_non_string_returns_invalid_arguments() {
 /// the client-supplied value is never echoed (bd JMAP-zegc).
 #[tokio::test]
 async fn email_set_destroy_non_string_does_not_echo_value() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -8659,7 +8659,7 @@ async fn email_set_destroy_non_string_does_not_echo_value() {
 /// and never echoes the client value (§3.6.1; bd JMAP-zegc).
 #[tokio::test]
 async fn mailbox_query_wrongly_typed_args_do_not_echo_value() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     for name in ["limit", "position", "anchor", "anchorOffset"] {
         let mut args = serde_json::json!({ "accountId": "account1" });
@@ -8679,7 +8679,7 @@ async fn mailbox_query_wrongly_typed_args_do_not_echo_value() {
 /// `invalidArguments` for the whole method call (RFC 8620 §5.3).
 #[tokio::test]
 async fn submission_set_destroy_non_string_returns_invalid_arguments() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -8704,7 +8704,7 @@ async fn submission_set_destroy_non_string_returns_invalid_arguments() {
 /// applied (RFC 8621 §7.5: onSuccess only fires for successful creates).
 #[tokio::test]
 async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct-onsuccess-no-apply"));
     let account_id = Id::from("acct-onsuccess-no-apply");
 
@@ -8791,7 +8791,7 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
 /// `invalidArguments` for the whole method call (RFC 8620 §5.3).
 #[tokio::test]
 async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -8814,7 +8814,7 @@ async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
 /// `invalidArguments` for the whole method call (RFC 8620 §5.3).
 #[tokio::test]
 async fn vacation_set_destroy_non_string_returns_invalid_arguments() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -8846,7 +8846,7 @@ async fn vacation_set_destroy_non_string_returns_invalid_arguments() {
 async fn email_parse_header_property_returned() {
     use jmap_mail_server::handle_email_parse;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct-parse-hdr"));
     let account_id = Id::from("acct-parse-hdr");
 
@@ -8893,7 +8893,7 @@ async fn email_parse_header_property_returned() {
 async fn email_parse_header_invalid_form_rejected() {
     use jmap_mail_server::handle_email_parse;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct-parse-hdr-bad"));
 
     // header:From:asDate is invalid (From is an address header, not a date header).
@@ -8927,7 +8927,7 @@ async fn email_parse_header_invalid_form_rejected() {
 /// first (in sort order) email per thread.
 #[tokio::test]
 async fn email_query_collapse_threads_deduplicates() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct-collapse"));
     let account_id = Id::from("acct-collapse");
 
@@ -8995,7 +8995,7 @@ async fn email_query_collapse_threads_deduplicates() {
 /// an anchorNotFound error (RFC 8620 §5.5).
 #[tokio::test]
 async fn mailbox_query_anchor_not_found_returns_error() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -9027,7 +9027,7 @@ async fn mailbox_query_anchor_not_found_returns_error() {
 /// Thread, sorted by date of the message, oldest first."
 #[tokio::test]
 async fn thread_get_email_ids_sorted_by_received_at() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9092,7 +9092,7 @@ async fn thread_get_email_ids_sorted_by_received_at() {
 /// exists in the backend before the destroy request is processed.
 #[tokio::test]
 async fn mailbox_set_destroy_with_children() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -9174,7 +9174,7 @@ async fn mailbox_set_destroy_with_children() {
 /// Two mailboxes under the same parent may not share a name.
 #[tokio::test]
 async fn mailbox_set_create_duplicate_name() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -9304,7 +9304,7 @@ async fn mailbox_set_create_duplicate_name() {
 /// exactly those two keys — no `from`, `to`, `mailboxIds`, `blobId`, etc.
 #[tokio::test]
 async fn email_get_properties_filtering_restricts_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -9392,7 +9392,7 @@ async fn email_get_properties_filtering_restricts_fields() {
 /// RFC 8621 §4.2 default field set, which includes many more than 2 fields.
 #[tokio::test]
 async fn email_get_no_properties_returns_default_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -9481,7 +9481,7 @@ async fn email_get_no_properties_returns_default_fields() {
 /// return only `id` and `name` per list item.
 #[tokio::test]
 async fn mailbox_get_properties_filtering_restricts_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -9543,7 +9543,7 @@ async fn mailbox_get_properties_filtering_restricts_fields() {
 #[tokio::test]
 async fn thread_get_properties_filtering_restricts_fields() {
     use common::seed;
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed_data = seed::setup_seed_data(&backend, &account_id).await;
 
@@ -9583,7 +9583,7 @@ async fn thread_get_properties_filtering_restricts_fields() {
 /// return only `id` and `email` per list item.
 #[tokio::test]
 async fn identity_get_properties_filtering_restricts_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -9658,7 +9658,7 @@ async fn identity_get_properties_filtering_restricts_fields() {
 /// threadId, blobId, and size all present and non-empty.
 #[tokio::test]
 async fn conformance_email_get_by_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9709,7 +9709,7 @@ async fn conformance_email_get_by_id() {
 /// containing that id and list=[].
 #[tokio::test]
 async fn conformance_email_get_not_found_is_empty_array() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9742,7 +9742,7 @@ async fn conformance_email_get_not_found_is_empty_array() {
 /// all requested ids are found.
 #[tokio::test]
 async fn conformance_email_get_not_found_empty_when_all_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9770,7 +9770,7 @@ async fn conformance_email_get_not_found_empty_when_all_found() {
 /// must be absent.
 #[tokio::test]
 async fn conformance_email_get_properties_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9817,7 +9817,7 @@ async fn conformance_email_get_properties_filter() {
 /// Oracle: RFC 8620 §5.1 — Email/get response MUST include a "state" string.
 #[tokio::test]
 async fn conformance_email_get_state_returned() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9843,7 +9843,7 @@ async fn conformance_email_get_state_returned() {
 /// email, which has a multipart/mixed structure with a PDF attachment part.
 #[tokio::test]
 async fn conformance_email_get_has_attachment_true() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9875,7 +9875,7 @@ async fn conformance_email_get_has_attachment_true() {
 /// linked by In-Reply-To / References headers into thread-alpha.
 #[tokio::test]
 async fn conformance_email_get_thread_id_consistent() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9923,7 +9923,7 @@ async fn conformance_email_get_thread_id_consistent() {
 /// seed email has From: Alice Sender <alice@example.com>.
 #[tokio::test]
 async fn conformance_email_get_header_from() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9957,7 +9957,7 @@ async fn conformance_email_get_header_from() {
 /// plain-simple has To: testuser@example.com.
 #[tokio::test]
 async fn conformance_email_get_header_to() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -9991,7 +9991,7 @@ async fn conformance_email_get_header_to() {
 /// html-attachment has Cc: charlie@example.net.
 #[tokio::test]
 async fn conformance_email_get_header_cc() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10023,7 +10023,7 @@ async fn conformance_email_get_header_cc() {
 /// header string.  plain-simple has Subject: Meeting tomorrow morning.
 #[tokio::test]
 async fn conformance_email_get_header_subject() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10056,7 +10056,7 @@ async fn conformance_email_get_header_subject() {
 /// value must be "plain-simple-001@test" (no brackets).
 #[tokio::test]
 async fn conformance_email_get_header_message_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10096,7 +10096,7 @@ async fn conformance_email_get_header_message_id() {
 /// returned value must be "thread-alpha-001@test" (no brackets).
 #[tokio::test]
 async fn conformance_email_get_header_in_reply_to() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10138,7 +10138,7 @@ async fn conformance_email_get_header_in_reply_to() {
 /// jmap-test-suite: mailbox-get.test.ts "get-all"
 #[tokio::test]
 async fn conformance_mailbox_get_all_ids_null() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10172,7 +10172,7 @@ async fn conformance_mailbox_get_all_ids_null() {
 /// jmap-test-suite: mailbox-get.test.ts "get-by-ids"
 #[tokio::test]
 async fn conformance_mailbox_get_by_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10219,7 +10219,7 @@ async fn conformance_mailbox_get_by_ids() {
 /// jmap-test-suite: mailbox-get.test.ts "get-not-found"
 #[tokio::test]
 async fn conformance_mailbox_get_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10253,7 +10253,7 @@ async fn conformance_mailbox_get_not_found() {
 /// jmap-test-suite: mailbox-get.test.ts "get-inbox-exists"
 #[tokio::test]
 async fn conformance_mailbox_get_inbox_has_role() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10281,7 +10281,7 @@ async fn conformance_mailbox_get_inbox_has_role() {
 /// jmap-test-suite: mailbox-get.test.ts "get-parent-id-correct"
 #[tokio::test]
 async fn conformance_mailbox_get_child_has_parent_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10311,7 +10311,7 @@ async fn conformance_mailbox_get_child_has_parent_id() {
 /// jmap-test-suite: mailbox-get.test.ts "get-properties-filter"
 #[tokio::test]
 async fn conformance_mailbox_get_properties_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10352,7 +10352,7 @@ async fn conformance_mailbox_get_properties_filter() {
 /// jmap-test-suite: mailbox-get.test.ts "get-total-emails-accurate"
 #[tokio::test]
 async fn conformance_mailbox_get_total_emails() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10382,7 +10382,7 @@ async fn conformance_mailbox_get_total_emails() {
 /// jmap-test-suite: mailbox-query.test.ts "query-all"
 #[tokio::test]
 async fn conformance_mailbox_query_all() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10407,7 +10407,7 @@ async fn conformance_mailbox_query_all() {
 /// jmap-test-suite: mailbox-query.test.ts "query-filter-by-parent-id-null"
 #[tokio::test]
 async fn conformance_mailbox_query_filter_parent_id_null() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10453,7 +10453,7 @@ async fn conformance_mailbox_query_filter_parent_id_null() {
 /// jmap-test-suite: mailbox-query.test.ts "query-filter-has-any-role"
 #[tokio::test]
 async fn conformance_mailbox_query_filter_has_any_role() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10494,7 +10494,7 @@ async fn conformance_mailbox_query_filter_has_any_role() {
 /// jmap-test-suite: mailbox-query.test.ts "query-filter-by-role"
 #[tokio::test]
 async fn conformance_mailbox_query_filter_role() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10568,7 +10568,7 @@ async fn conformance_mailbox_query_filter_role() {
 /// has a role.
 #[tokio::test]
 async fn conformance_mailbox_query_filter_role_null() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10608,7 +10608,7 @@ async fn conformance_mailbox_query_filter_role_null() {
 /// `query_objects::<Mailbox>` ignored the filter argument entirely.
 #[tokio::test]
 async fn memory_backend_query_objects_mailbox_honors_filter_directly() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10645,7 +10645,7 @@ async fn memory_backend_query_objects_mailbox_honors_filter_directly() {
 /// list (name ascending) directly, with id tiebreak for stable pagination.
 #[tokio::test]
 async fn memory_backend_query_objects_mailbox_honors_sort_directly() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10684,7 +10684,7 @@ async fn memory_backend_query_objects_mailbox_honors_sort_directly() {
 /// is a conformance bug in the implementation (not in the test).
 #[tokio::test]
 async fn conformance_mailbox_query_sort_by_name() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10751,7 +10751,7 @@ async fn conformance_mailbox_query_sort_by_name() {
 /// jmap-test-suite: (implicit from anchorNotFound error type requirement)
 #[tokio::test]
 async fn conformance_mailbox_query_anchor_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10786,7 +10786,7 @@ async fn conformance_mailbox_query_anchor_not_found() {
 /// up a MIME body parser (e.g. the jmap-mime crate) to populate these fields.
 #[tokio::test]
 async fn conformance_email_body_plain_text_body() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10831,7 +10831,7 @@ async fn conformance_email_body_plain_text_body() {
 /// body parsing is wired up.
 #[tokio::test]
 async fn conformance_email_body_html_attachment_body_structure() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10873,7 +10873,7 @@ async fn conformance_email_body_html_attachment_body_structure() {
 /// checks body content; preview is derived from the same body text).
 #[tokio::test]
 async fn conformance_email_body_preview() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10908,7 +10908,7 @@ async fn conformance_email_body_preview() {
 /// RFC 8621 §4.1.1).
 #[tokio::test]
 async fn conformance_email_body_size() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10945,7 +10945,7 @@ async fn conformance_email_body_size() {
 /// body parsing is wired up.
 #[tokio::test]
 async fn conformance_email_body_html_only_both_bodies() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -10991,7 +10991,7 @@ async fn conformance_email_body_html_only_both_bodies() {
 /// until body parsing is wired up.
 #[tokio::test]
 async fn conformance_email_body_attachment_detected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11028,7 +11028,7 @@ async fn conformance_email_body_attachment_detected() {
 /// jmap-test-suite: mailbox-set.test.ts "set-create-top-level"
 #[tokio::test]
 async fn conformance_mailbox_set_create_basic() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
@@ -11091,7 +11091,7 @@ async fn conformance_mailbox_set_create_basic() {
 /// jmap-test-suite: mailbox-set.test.ts "set-create-child"
 #[tokio::test]
 async fn conformance_mailbox_set_create_with_parent() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11149,7 +11149,7 @@ async fn conformance_mailbox_set_create_with_parent() {
 /// jmap-test-suite: mailbox-set.test.ts "set-rename"
 #[tokio::test]
 async fn conformance_mailbox_set_update_name() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11201,7 +11201,7 @@ async fn conformance_mailbox_set_update_name() {
 /// jmap-test-suite: mailbox-set.test.ts "set-destroy-empty"
 #[tokio::test]
 async fn conformance_mailbox_set_destroy() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
@@ -11260,7 +11260,7 @@ async fn conformance_mailbox_set_destroy() {
 /// jmap-test-suite: mailbox-set.test.ts "set-cannot-destroy-with-children"
 #[tokio::test]
 async fn conformance_mailbox_set_destroy_with_children() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11305,7 +11305,7 @@ async fn conformance_mailbox_set_destroy_with_children() {
 /// jmap-test-suite: mailbox-set.test.ts "set-duplicate-name-same-parent"
 #[tokio::test]
 async fn conformance_mailbox_set_create_duplicate_name() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
@@ -11381,7 +11381,7 @@ async fn conformance_mailbox_set_create_duplicate_name() {
 /// jmap-test-suite: mailbox-set.test.ts "set-state-changes"
 #[tokio::test]
 async fn conformance_mailbox_set_state_changes() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
@@ -11418,7 +11418,7 @@ async fn conformance_mailbox_set_state_changes() {
 /// jmap-test-suite: (implicit from RFC 8621 §2 — name is a required server-set property)
 #[tokio::test]
 async fn conformance_mailbox_set_create_missing_name() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
@@ -11468,7 +11468,7 @@ async fn conformance_mailbox_set_create_missing_name() {
 /// jmap-test-suite: mailbox-changes.test.ts "changes-after-create"
 #[tokio::test]
 async fn conformance_mailbox_changes_from_state_zero() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
@@ -11539,7 +11539,7 @@ async fn conformance_mailbox_changes_from_state_zero() {
 /// jmap-test-suite: mailbox-changes.test.ts "changes-no-changes"
 #[tokio::test]
 async fn conformance_mailbox_changes_from_current_state() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11610,7 +11610,7 @@ async fn conformance_mailbox_changes_from_current_state() {
 /// jmap-test-suite: mailbox-changes.test.ts (implicit — invalid state handling)
 #[tokio::test]
 async fn conformance_mailbox_changes_invalid_state() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11640,7 +11640,7 @@ async fn conformance_mailbox_changes_invalid_state() {
 /// Seed has 16 emails (multi-mailbox is one object in two mailboxes).
 #[tokio::test]
 async fn conformance_email_query_all() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11672,7 +11672,7 @@ async fn conformance_email_query_all() {
 /// special-headers.
 #[tokio::test]
 async fn conformance_email_query_filter_in_mailbox() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11714,7 +11714,7 @@ async fn conformance_email_query_filter_in_mailbox() {
 /// Only html-attachment and sort-test-2 have $flagged in the seed data.
 #[tokio::test]
 async fn conformance_email_query_filter_has_keyword() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11753,7 +11753,7 @@ async fn conformance_email_query_filter_has_keyword() {
 /// Unseen emails in seed: thread-reply-1, large-email, sort-test-3.
 #[tokio::test]
 async fn conformance_email_query_filter_not_keyword() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11798,7 +11798,7 @@ async fn conformance_email_query_filter_not_keyword() {
 /// be included.
 #[tokio::test]
 async fn conformance_email_query_filter_after() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11840,7 +11840,7 @@ async fn conformance_email_query_filter_after() {
 /// Only very-old (2025-12-02) qualifies.
 #[tokio::test]
 async fn conformance_email_query_filter_before() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11877,7 +11877,7 @@ async fn conformance_email_query_filter_before() {
 /// 10 000 bytes.
 #[tokio::test]
 async fn conformance_email_query_filter_min_size() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11910,7 +11910,7 @@ async fn conformance_email_query_filter_min_size() {
 /// RFC 8620 §5.5 — limit restricts the number of results returned.
 #[tokio::test]
 async fn conformance_email_query_limit() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -11943,7 +11943,7 @@ async fn conformance_email_query_limit() {
 /// RFC 8620 §5.5 — position is 0-based; position=1 skips 1 result.
 #[tokio::test]
 async fn conformance_email_query_position() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -12007,7 +12007,7 @@ async fn conformance_email_query_position() {
 /// RFC 8620 §5.5 — anchor identifies the start position by ID, not offset.
 #[tokio::test]
 async fn conformance_email_query_anchor() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -12071,7 +12071,7 @@ async fn conformance_email_query_anchor() {
 /// found in the results, the server MUST return an anchorNotFound error."
 #[tokio::test]
 async fn conformance_email_query_anchor_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let _seed = setup_seed_data(&backend, &account_id).await;
 
@@ -12102,7 +12102,7 @@ async fn conformance_email_query_anchor_not_found() {
 /// The oldest email (very-old, 2025-12-02) must be last.
 #[tokio::test]
 async fn conformance_email_query_sort_received_at_desc() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -12158,7 +12158,7 @@ async fn conformance_email_query_sort_received_at_desc() {
 /// Source: jmap-test-suite email-set-create.test.ts "set-create-plain-text"
 #[tokio::test]
 async fn conformance_email_set_create_basic() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12216,7 +12216,7 @@ async fn conformance_email_set_create_basic() {
 /// Source: jmap-test-suite email-set-create.test.ts "set-create-state-changes"
 #[tokio::test]
 async fn conformance_email_set_create_sets_state() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12252,7 +12252,7 @@ async fn conformance_email_set_create_sets_state() {
 /// Source: jmap-test-suite email-set-create.test.ts "set-create-with-keywords"
 #[tokio::test]
 async fn conformance_email_set_create_with_keywords() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12309,7 +12309,7 @@ async fn conformance_email_set_create_with_keywords() {
 /// Source: jmap-test-suite email-set-update.test.ts "set-update-replace-keywords"
 #[tokio::test]
 async fn conformance_email_set_update_keywords() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12405,7 +12405,7 @@ async fn conformance_email_set_update_keywords() {
 /// Source: jmap-test-suite email-set-update.test.ts "set-update-move-mailbox"
 #[tokio::test]
 async fn conformance_email_set_update_mailbox_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12499,7 +12499,7 @@ async fn conformance_email_set_update_mailbox_ids() {
 /// Source: jmap-test-suite email-set-update.test.ts "set-update-add-keyword"
 #[tokio::test]
 async fn conformance_email_set_update_adds_keyword() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12588,7 +12588,7 @@ async fn conformance_email_set_update_adds_keyword() {
 /// Source: jmap-test-suite email-set-update.test.ts "set-update-remove-keyword"
 #[tokio::test]
 async fn conformance_email_set_update_removes_keyword() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12680,7 +12680,7 @@ async fn conformance_email_set_update_removes_keyword() {
 /// stored keywords must be exactly as created.
 #[tokio::test]
 async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12772,7 +12772,7 @@ async fn email_set_update_pointer_into_absent_parent_is_invalid_patch() {
 /// rejected and the stored keywords must be exactly as created.
 #[tokio::test]
 async fn email_set_update_prefix_conflict_is_invalid_patch() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12854,7 +12854,7 @@ async fn email_set_update_prefix_conflict_is_invalid_patch() {
 /// Source: jmap-test-suite email-set-destroy.test.ts "set-destroy-single"
 #[tokio::test]
 async fn conformance_email_set_destroy_basic() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -12940,7 +12940,7 @@ async fn conformance_email_set_destroy_basic() {
 /// Source: jmap-test-suite email-set-destroy.test.ts "set-destroy-single" (state assertions)
 #[tokio::test]
 async fn conformance_email_set_destroy_updates_state() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -13006,7 +13006,7 @@ async fn conformance_email_set_destroy_updates_state() {
 /// Source: jmap-test-suite email-set-update.test.ts "set-update-not-found"
 #[tokio::test]
 async fn conformance_email_set_update_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -13052,7 +13052,7 @@ async fn conformance_email_set_update_not_found() {
 /// Source: jmap-test-suite email-set-destroy.test.ts "set-destroy-not-found"
 #[tokio::test]
 async fn conformance_email_set_destroy_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -13099,7 +13099,7 @@ async fn conformance_email_set_destroy_not_found() {
 /// jmap-test-suite: thread-get.test.ts "get-thread-by-id"
 #[tokio::test]
 async fn conformance_thread_get_email_ids_present() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13148,7 +13148,7 @@ async fn conformance_thread_get_email_ids_present() {
 /// jmap-test-suite: thread-get.test.ts "get-thread-email-ids-order"
 #[tokio::test]
 async fn conformance_thread_get_email_ids_ordered() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13202,7 +13202,7 @@ async fn conformance_thread_get_email_ids_ordered() {
 /// jmap-test-suite: thread-get.test.ts "get-thread-not-found"
 #[tokio::test]
 async fn conformance_thread_get_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     setup_seed_data(&backend, &account_id).await;
 
@@ -13242,7 +13242,7 @@ async fn conformance_thread_get_not_found() {
 /// jmap-test-suite: thread-get.test.ts "get-single-email-thread"
 #[tokio::test]
 async fn conformance_thread_get_single_email() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13291,7 +13291,7 @@ async fn conformance_thread_get_single_email() {
 /// jmap-test-suite: email-changes.test.ts (changes-after-create-and-destroy, first half)
 #[tokio::test]
 async fn conformance_email_changes_from_zero() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13351,7 +13351,7 @@ async fn conformance_email_changes_from_zero() {
 /// jmap-test-suite: email-changes.test.ts "changes-no-changes"
 #[tokio::test]
 async fn conformance_email_changes_from_current_state() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     setup_seed_data(&backend, &account_id).await;
 
@@ -13418,7 +13418,7 @@ async fn conformance_email_changes_from_current_state() {
 /// jmap-test-suite: email-changes.test.ts "changes-after-keyword-change"
 #[tokio::test]
 async fn conformance_email_changes_after_update() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13502,7 +13502,7 @@ async fn conformance_email_changes_after_update() {
 /// jmap-test-suite: email-changes.test.ts "changes-after-create-and-destroy"
 #[tokio::test]
 async fn conformance_email_changes_after_destroy() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13593,7 +13593,7 @@ async fn conformance_email_changes_after_destroy() {
 /// proxy for "changes-after-email-count-change")
 #[tokio::test]
 async fn conformance_mailbox_changes_after_email_count_change() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13668,7 +13668,7 @@ async fn conformance_mailbox_changes_after_email_count_change() {
 /// jmap-test-suite: thread-changes.test.ts "changes-after-new-email"
 #[tokio::test]
 async fn conformance_thread_changes_after_new_thread() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13757,7 +13757,7 @@ Message-ID: <new-thread-changes-001@test>\r\nSubject: New thread for changes tes
 /// jmap-test-suite: thread-changes.test.ts "changes-after-new-email" (reply variant)
 #[tokio::test]
 async fn conformance_thread_changes_after_reply() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("acct1");
     let seed = setup_seed_data(&backend, &account_id).await;
 
@@ -13848,7 +13848,7 @@ Subject: Re: Project Alpha Discussion\r\n\r\nAnother reply.\r\n";
 /// message, never 0 for a composed message with header fields.
 #[tokio::test]
 async fn email_set_create_size_is_nonzero() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -13909,7 +13909,7 @@ async fn email_set_create_size_is_nonzero() {
 async fn mailbox_set_destroy_child_then_parent_in_one_request() {
     use jmap_mail_types::MailboxRights;
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
@@ -13995,7 +13995,7 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
     // Oracle: RFC 8621 §8.2 + MailBackend::create_object contract —
     // two concurrent upserts must produce exactly one singleton, both succeeding.
     // MemoryBackend satisfies this via its Mutex<Inner> (serialises writes).
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
@@ -14064,7 +14064,7 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
 /// re-run, meaning the filter must be applied.
 #[tokio::test]
 async fn query_changes_with_filter_returns_filtered_delta() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
@@ -14177,7 +14177,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
 /// so a client applying removed-then-added keeps exactly one copy at index 0.
 #[tokio::test]
 async fn query_changes_reports_updated_id_in_removed_and_added() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
 
     let HandlerOutput { primary: set, .. } = handle_email_set(
@@ -14248,7 +14248,7 @@ async fn query_changes_reports_updated_id_in_removed_and_added() {
 /// every query as mutable, so every change is reported, upToId included.
 #[tokio::test]
 async fn query_changes_up_to_id_is_ignored() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
@@ -14350,7 +14350,7 @@ async fn query_changes_up_to_id_is_ignored() {
 /// array is considered to be one change".
 #[tokio::test]
 async fn query_changes_max_changes_returns_too_many_changes() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
@@ -14620,7 +14620,7 @@ async fn email_parse_blob_exists_err_propagates_as_server_fail() {
 /// (default: 0)`. After `{"sortOrder": null}`, Mailbox/get must return 0.
 #[tokio::test]
 async fn mailbox_set_update_sort_order_null_resets_to_default() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -14683,7 +14683,7 @@ async fn mailbox_set_update_sort_order_null_resets_to_default() {
 /// (default: "")`. After setting each to null, Identity/get must return "".
 #[tokio::test]
 async fn identity_set_update_string_props_null_resets_to_default() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("a1"));
 
     let HandlerOutput {
@@ -14760,7 +14760,7 @@ async fn identity_set_update_string_props_null_resets_to_default() {
 /// return the stored name.
 #[tokio::test]
 async fn mailbox_set_update_null_name_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let HandlerOutput {
         primary: set_resp, ..
@@ -14821,7 +14821,7 @@ async fn mailbox_set_update_null_name_is_invalid_properties() {
 /// return the stored mailboxIds.
 #[tokio::test]
 async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let HandlerOutput {
         primary: set_resp, ..
@@ -14887,7 +14887,7 @@ async fn email_set_update_null_mailbox_ids_is_invalid_properties() {
 async fn submission_set_update_null_undo_status_is_invalid_properties() {
     use jmap_mail_types::{EmailSubmission, UndoStatus};
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     let (identity_id, email_id) =
         make_identity_and_email(&backend, &account_id, "alice@example.com", "sent").await;
@@ -14948,7 +14948,7 @@ async fn submission_set_update_null_undo_status_is_invalid_properties() {
 /// must still return the stored value.
 #[tokio::test]
 async fn vacation_set_update_null_is_enabled_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let HandlerOutput {
         primary: set_resp, ..
@@ -15005,7 +15005,7 @@ async fn vacation_set_update_null_is_enabled_is_invalid_properties() {
 /// below must be refused rather than matching every Email.
 #[tokio::test]
 async fn email_query_unknown_filter_keys_return_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
 
     for filter in [
@@ -15046,7 +15046,7 @@ async fn email_query_unknown_filter_keys_return_unsupported_filter() {
 /// /query, so the §5.5 unsupportedFilter rule applies to it too.
 #[tokio::test]
 async fn email_query_changes_unknown_filter_key_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15065,7 +15065,7 @@ async fn email_query_changes_unknown_filter_key_returns_unsupported_filter() {
 /// FilterCondition property.
 #[tokio::test]
 async fn mailbox_query_changes_unknown_filter_key_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15084,7 +15084,7 @@ async fn mailbox_query_changes_unknown_filter_key_returns_unsupported_filter() {
 /// Mailbox/query handler rather than matching every Mailbox.
 #[tokio::test]
 async fn mailbox_query_non_id_parent_id_filter_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
 
     for parent in [
@@ -15124,7 +15124,7 @@ async fn mailbox_query_non_id_parent_id_filter_returns_unsupported_filter() {
 /// Mailbox sort properties, and §5.5 makes any other unsupportedSort.
 #[tokio::test]
 async fn mailbox_query_changes_unknown_sort_property_returns_unsupported_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15138,7 +15138,7 @@ async fn mailbox_query_changes_unknown_sort_property_returns_unsupported_sort() 
 }
 
 /// Create the named Mailboxes in `acct1` and return their server ids in order.
-async fn create_mailboxes(backend: &MemoryBackend, names: &[&str]) -> Vec<String> {
+async fn create_mailboxes(backend: &MemoryBackend<()>, names: &[&str]) -> Vec<String> {
     let create: serde_json::Map<String, serde_json::Value> = names
         .iter()
         .map(|n| ((*n).to_owned(), serde_json::json!({ "name": n })))
@@ -15164,7 +15164,7 @@ async fn create_mailboxes(backend: &MemoryBackend, names: &[&str]) -> Vec<String
 }
 
 /// The current Mailbox query state of `acct1`.
-async fn mailbox_query_state(backend: &MemoryBackend) -> String {
+async fn mailbox_query_state(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_mailbox_query_changes(
         backend,
         &(),
@@ -15186,7 +15186,7 @@ async fn mailbox_query_state(backend: &MemoryBackend) -> String {
 /// contain the filter string was never added to the filtered results.
 #[tokio::test]
 async fn mailbox_query_changes_applies_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let since = mailbox_query_state(&backend).await;
     let ids = create_mailboxes(&backend, &["Projects", "Archive"]).await;
@@ -15220,7 +15220,7 @@ async fn mailbox_query_changes_applies_filter() {
 /// comparator therefore swaps the relative order of "Alpha" and "Beta".
 #[tokio::test]
 async fn mailbox_query_changes_applies_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let since = mailbox_query_state(&backend).await;
     let ids = create_mailboxes(&backend, &["Beta", "Alpha"]).await;
@@ -15262,7 +15262,7 @@ async fn mailbox_query_changes_applies_sort() {
 /// the server cannot process: unsupportedFilter, not a match-all.
 #[tokio::test]
 async fn mailbox_query_unknown_key_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     for filter in [
         serde_json::json!({ "has_any_role": true }),
@@ -15293,7 +15293,7 @@ async fn mailbox_query_unknown_key_returns_unsupported_filter() {
 /// top-level mailboxes.
 #[tokio::test]
 async fn mailbox_query_evaluates_operator_tree() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     let seed = setup_seed_data(&backend, &account_id).await;
     let mb = |name: &str| seed.mailbox[name].as_ref().to_owned();
@@ -15332,7 +15332,7 @@ async fn mailbox_query_evaluates_operator_tree() {
 /// `after`; RFC 8620 §5.5 unsupportedFilter for anything else.
 #[tokio::test]
 async fn submission_query_unknown_filter_key_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15348,7 +15348,7 @@ async fn submission_query_unknown_filter_key_returns_unsupported_filter() {
 /// `name` and `isActive`; RFC 8620 §5.5 unsupportedFilter for anything else.
 #[tokio::test]
 async fn sieve_query_unknown_filter_key_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15365,7 +15365,7 @@ async fn sieve_query_unknown_filter_key_returns_unsupported_filter() {
 /// not define, so the whole filter is unsupportedFilter.
 #[tokio::test]
 async fn sieve_query_unknown_filter_key_in_operator_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15384,7 +15384,7 @@ async fn sieve_query_unknown_filter_key_in_operator_returns_unsupported_filter()
 /// server is unable to process the given "filter" for any reason."
 #[tokio::test]
 async fn search_snippet_get_unknown_filter_key_returns_unsupported_filter() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15403,7 +15403,7 @@ async fn search_snippet_get_unknown_filter_key_returns_unsupported_filter() {
 /// `isAscending` is refused, not read as ascending.
 #[tokio::test]
 async fn mailbox_query_non_boolean_is_ascending_returns_invalid_arguments() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",
@@ -15421,7 +15421,7 @@ async fn mailbox_query_non_boolean_is_ascending_returns_invalid_arguments() {
 /// the server" under `invalidProperties`.
 #[tokio::test]
 async fn identity_set_create_with_server_set_property_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let HandlerOutput { primary: resp, .. } = handle_identity_set(
         &backend,
@@ -15447,7 +15447,7 @@ async fn identity_set_create_with_server_set_property_rejected() {
 /// property is `invalidProperties`.
 #[tokio::test]
 async fn mailbox_set_update_inside_server_set_property_rejected() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let HandlerOutput {
         primary: set_resp, ..
@@ -15492,7 +15492,7 @@ async fn mailbox_set_update_inside_server_set_property_rejected() {
 /// `anchor` naming it is `invalidArguments` (RFC 8620 §3.6.2).
 #[tokio::test]
 async fn mailbox_set_and_query_reject_malformed_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
 
     let set_args = serde_json::json!({
@@ -15549,7 +15549,7 @@ async fn mailbox_set_and_query_reject_malformed_ids() {
 /// `notFound`, which could not carry a non-Id.
 #[tokio::test]
 async fn mailbox_get_rejects_malformed_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("acct1"));
     let get_args = serde_json::json!({ "accountId": "acct1", "ids": ["bad id"] });
     let err = handle_mailbox_get(&backend, &(), get_args, &[])
@@ -15569,7 +15569,7 @@ async fn mailbox_get_rejects_malformed_ids() {
 /// Mailbox/query and Mailbox/queryChanges, and `i;octet` accepted.
 #[tokio::test]
 async fn mailbox_query_unrecognised_collation_returns_unsupported_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let casemap = serde_json::json!([{ "property": "name", "collation": "i;unicode-casemap" }]);
 
@@ -15612,7 +15612,7 @@ async fn mailbox_query_unrecognised_collation_returns_unsupported_sort() {
 /// `emailId` and accept `i;octet`.
 #[tokio::test]
 async fn submission_query_unrecognised_collation_returns_unsupported_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let casemap = serde_json::json!([{ "property": "emailId", "collation": "i;ascii-casemap" }]);
 
@@ -15654,7 +15654,7 @@ async fn submission_query_unrecognised_collation_returns_unsupported_sort() {
 /// Email/queryChanges, and `i;octet` accepted.
 #[tokio::test]
 async fn email_query_unrecognised_collation_returns_unsupported_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let casemap = serde_json::json!([{ "property": "subject", "collation": "i;ascii-casemap" }]);
 
@@ -15697,7 +15697,7 @@ async fn email_query_unrecognised_collation_returns_unsupported_sort() {
 /// must refuse it.
 #[tokio::test]
 async fn email_query_unknown_sort_property_returns_unsupported_sort() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let sort = serde_json::json!([{ "property": "threadId" }]);
 
@@ -15783,7 +15783,7 @@ async fn email_set_create_body_errors_name_property() {
         ),
     ];
     for (mut create, expected) in cases {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.register_account(&Id::from("account1"));
         create["mailboxIds"] = serde_json::json!({ "inbox": true });
         let args = serde_json::json!({
@@ -15808,7 +15808,7 @@ async fn email_set_create_body_errors_name_property() {
 /// `subParts`, so it is a valid create and must be created.
 #[tokio::test]
 async fn email_set_create_multipart_body_structure_without_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from("account1"));
     let args = serde_json::json!({
         "accountId": "account1",

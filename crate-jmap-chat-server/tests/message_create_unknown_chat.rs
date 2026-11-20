@@ -17,7 +17,7 @@ use jmap_chat_server::message::{handle_message_get, handle_message_set};
 use jmap_server::HandlerOutput;
 use serde_json::{Value, json};
 
-async fn create_message(backend: &MemoryBackend, chat_id: &str) -> Value {
+async fn create_message(backend: &MemoryBackend<()>, chat_id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
@@ -38,7 +38,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str) -> Value {
     resp
 }
 
-async fn message_count(backend: &MemoryBackend) -> usize {
+async fn message_count(backend: &MemoryBackend<()>) -> usize {
     let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),

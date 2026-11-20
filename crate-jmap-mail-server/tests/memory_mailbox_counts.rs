@@ -28,8 +28,8 @@ const ACCOUNT: &str = "acc";
 const MESSAGE: &[u8] =
     b"From: a@example.com\r\nMessage-ID: <m1@example.com>\r\nSubject: s\r\n\r\nbody\r\n";
 
-async fn setup() -> (MemoryBackend, String, String) {
-    let b = MemoryBackend::new();
+async fn setup() -> (MemoryBackend<()>, String, String) {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from(ACCOUNT));
     let out = handle_mailbox_set(
         &b,
@@ -44,7 +44,7 @@ async fn setup() -> (MemoryBackend, String, String) {
     (b, id("i"), id("a"))
 }
 
-async fn email_set(b: &MemoryBackend, args: Value) -> Value {
+async fn email_set(b: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT);
     handle_email_set(b, &(), &BTreeMap::new(), args, &[])
@@ -55,7 +55,7 @@ async fn email_set(b: &MemoryBackend, args: Value) -> Value {
 
 /// Create an Email in `mailbox`, as a reply to `in_reply_to` when given.
 async fn create(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     mailbox: &str,
     message_id: &str,
     in_reply_to: Option<&str>,
@@ -78,7 +78,7 @@ async fn create(
 }
 
 /// `[totalEmails, unreadEmails, totalThreads, unreadThreads]` of `mailbox`.
-async fn counts(b: &MemoryBackend, mailbox: &str) -> [u64; 4] {
+async fn counts(b: &MemoryBackend<()>, mailbox: &str) -> [u64; 4] {
     let got = handle_mailbox_get(b, &(), json!({"accountId": ACCOUNT, "ids": [mailbox]}), &[])
         .await
         .unwrap()
@@ -93,7 +93,7 @@ async fn counts(b: &MemoryBackend, mailbox: &str) -> [u64; 4] {
     .map(|k| m[k].as_u64().unwrap_or_else(|| panic!("{k}: {got}")))
 }
 
-async fn mailbox_state(b: &MemoryBackend) -> String {
+async fn mailbox_state(b: &MemoryBackend<()>) -> String {
     let got = handle_mailbox_get(b, &(), json!({"accountId": ACCOUNT, "ids": []}), &[])
         .await
         .unwrap()
@@ -177,7 +177,7 @@ async fn count_changes_advance_the_mailbox_state() {
 async fn destroy_updates_threads_and_the_message_id_index() {
     let (b, inbox, _) = setup().await;
     b.store_blob(&Id::from("blob1"), MESSAGE.to_vec());
-    let import = |b: &MemoryBackend| {
+    let import = |b: &MemoryBackend<()>| {
         let b = b.clone();
         let inbox = inbox.clone();
         async move {

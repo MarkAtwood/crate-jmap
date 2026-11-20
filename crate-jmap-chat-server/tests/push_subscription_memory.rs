@@ -35,7 +35,7 @@ fn new_subscription(n: usize) -> PushSubscription {
 #[tokio::test]
 async fn verification_codes_are_fixed_length_and_distinct() {
     const N: usize = 256;
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let mut codes = HashSet::with_capacity(N);
     let mut lengths = HashSet::new();
     for n in 0..N {
@@ -75,7 +75,7 @@ async fn verification_codes_are_fixed_length_and_distinct() {
 #[tokio::test]
 async fn create_over_cap_returns_over_quota() {
     const BOUND: usize = 1000;
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     for n in 0..BOUND {
         match backend
             .create_push_subscription(&(), new_subscription(n))

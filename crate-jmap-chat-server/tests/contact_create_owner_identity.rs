@@ -19,7 +19,7 @@ use serde_json::json;
 /// owner by the accountId."
 #[tokio::test]
 async fn contact_create_owner_identity_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from(ACCOUNT_ID);
     backend.register_account(&account_id);
     backend.set_owner_user_id_for_test(&account_id, "owner@example.com");

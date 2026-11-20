@@ -31,7 +31,7 @@ use serde_json::{Value, json};
 const ACCOUNT: &str = "account1";
 
 async fn dispatch(method_calls: Value) -> JmapResponse {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT));
     backend.store_blob(
         &Id::from("msg"),

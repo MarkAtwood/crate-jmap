@@ -16,8 +16,8 @@ use serde_json::{Value, json};
 const ACCOUNT: &str = "acc";
 
 /// A backend with Mailboxes m1, m2 and one Email in m1; returns its id.
-async fn setup() -> (MemoryBackend, String, String, String) {
-    let b = MemoryBackend::new();
+async fn setup() -> (MemoryBackend<()>, String, String, String) {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from(ACCOUNT));
     let out = handle_mailbox_set(
         &b,
@@ -43,7 +43,7 @@ async fn setup() -> (MemoryBackend, String, String, String) {
     (b, e, m1, m2)
 }
 
-async fn set(b: &MemoryBackend, mut args: Value) -> Value {
+async fn set(b: &MemoryBackend<()>, mut args: Value) -> Value {
     args["accountId"] = json!(ACCOUNT);
     handle_email_set(b, &(), &BTreeMap::new(), args, &[])
         .await
@@ -51,7 +51,7 @@ async fn set(b: &MemoryBackend, mut args: Value) -> Value {
         .primary
 }
 
-async fn get(b: &MemoryBackend, id: &str) -> Value {
+async fn get(b: &MemoryBackend<()>, id: &str) -> Value {
     handle_email_get(
         b,
         &(),

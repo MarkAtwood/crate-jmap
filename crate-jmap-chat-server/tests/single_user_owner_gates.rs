@@ -18,8 +18,8 @@ use serde_json::{Value, json};
 /// A backend holding one Space whose only member is the owner (member
 /// entry id = accountId) with a role at position 10 granting
 /// `permissions`.
-fn owner_space(permissions: Value) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn owner_space(permissions: Value) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",
@@ -43,7 +43,7 @@ fn owner_space(permissions: Value) -> MemoryBackend {
 }
 
 /// Send a `Space/set` update of [`SPACE_ID`] with `patch` as the owner.
-async fn update_space(backend: &MemoryBackend, patch: Value) -> Value {
+async fn update_space(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
@@ -105,7 +105,7 @@ async fn owner_without_identity_is_bound_by_add_roles_gates() {
 /// the Space."
 #[tokio::test]
 async fn owner_without_identity_needs_ban_for_space_ban_create() {
-    let create = |backend: MemoryBackend| async move {
+    let create = |backend: MemoryBackend<()>| async move {
         let HandlerOutput { primary: resp, .. } = handle_ban_set(
             &backend,
             &(),

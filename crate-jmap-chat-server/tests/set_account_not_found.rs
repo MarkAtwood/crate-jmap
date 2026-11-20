@@ -42,7 +42,7 @@ macro_rules! account_not_found_test {
     (@ $name:ident, $handler:ident, [$($ids:tt)*], [$($using:tt)*]) => {
         #[tokio::test]
         async fn $name() {
-            let backend = MemoryBackend::new();
+            let backend = MemoryBackend::<()>::default();
             let args = json!({
                 "accountId": UNKNOWN_ACCOUNT,
                 "create": { "c0": {} }

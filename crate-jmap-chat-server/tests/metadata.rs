@@ -54,8 +54,8 @@ fn info() -> DataTypeMetadataInfo {
     .unwrap()
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default()
         .with_metadata_info("Chat", info())
         .with_metadata_info("Message", info())
         .with_metadata_info("Space", info());
@@ -72,7 +72,7 @@ fn with_account(mut args: Value) -> Value {
     args
 }
 
-async fn chat_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn chat_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let HandlerOutput { primary, .. } =
         handle_chat_set(backend, &(), &BTreeMap::new(), with_account(args), using)
             .await
@@ -80,7 +80,7 @@ async fn chat_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Val
     primary
 }
 
-async fn create_chat(backend: &MemoryBackend, extra: Value) -> String {
+async fn create_chat(backend: &MemoryBackend<()>, extra: Value) -> String {
     let mut create = json!({ "kind": "group", "name": "G" });
     if let (Some(c), Some(e)) = (create.as_object_mut(), extra.as_object()) {
         c.extend(e.clone());
@@ -92,13 +92,13 @@ async fn create_chat(backend: &MemoryBackend, extra: Value) -> String {
         .to_owned()
 }
 
-async fn update_chat(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update_chat(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let resp = chat_set(backend, json!({ "update": { id: patch } }), &using()).await;
     assert!(resp["updated"].get(id).is_some(), "{resp}");
     resp
 }
 
-async fn chat_metadata(backend: &MemoryBackend, id: &str) -> Value {
+async fn chat_metadata(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary, .. } =
         handle_chat_get(backend, &(), with_account(json!({ "ids": [id] })), &using())
             .await
@@ -106,7 +106,7 @@ async fn chat_metadata(backend: &MemoryBackend, id: &str) -> Value {
     primary["list"][0]["metadata"].clone()
 }
 
-async fn chat_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
+async fn chat_query(backend: &MemoryBackend<()>, filter: Value) -> Result<Value, JmapError> {
     handle_chat_query(
         backend,
         &(),
@@ -117,21 +117,21 @@ async fn chat_query(backend: &MemoryBackend, filter: Value) -> Result<Value, Jma
     .map(|o| o.primary["ids"].clone())
 }
 
-async fn chat_changes(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn chat_changes(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     handle_chat_changes(backend, &(), with_account(args), using)
         .await
         .expect("Chat/changes")
         .primary
 }
 
-async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn message_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     handle_message_set(backend, &(), &BTreeMap::new(), with_account(args), &using())
         .await
         .expect("Message/set must not fail at method level")
         .primary
 }
 
-async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn space_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     handle_space_set(
         backend,
         &(),
@@ -212,7 +212,7 @@ async fn invalid_metadata_conditions_are_rejected() {
     .unwrap_err();
     assert_eq!(error_type(&err), json!("invalidArguments"));
 
-    let unlisted = MemoryBackend::new();
+    let unlisted = MemoryBackend::<()>::default();
     unlisted.register_account(&Id::from(ACCOUNT_ID));
     let err = chat_query(&unlisted, json!({ "metadataExists": NS }))
         .await
@@ -329,7 +329,7 @@ async fn invalid_metadata_writes_are_invalid_properties() {
 /// the metadata or privateMetadata properties in this account".
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let resp = chat_set(
         &backend,
@@ -577,13 +577,13 @@ async fn space_metadata_create_update_and_query() {
 fn private_metadata_capability_is_refused() {
     let mut private = info();
     private.supports_private = true;
-    let _ = MemoryBackend::new().with_metadata_info("Chat", private);
+    let _ = MemoryBackend::<()>::default().with_metadata_info("Chat", private);
 }
 
 #[test]
 #[should_panic(expected = "ChatContact")]
 fn unnamed_type_is_refused() {
-    let _ = MemoryBackend::new().with_metadata_info("ChatContact", info());
+    let _ = MemoryBackend::<()>::default().with_metadata_info("ChatContact", info());
 }
 
 // ---------------------------------------------------------------------------
@@ -600,7 +600,7 @@ fn method_error_type(err: &JmapError) -> Value {
 
 /// Run Chat/get with `properties` on `id` and return its one list entry.
 async fn chat_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],
@@ -745,7 +745,7 @@ async fn chat_metadata_filter_requires_capability() {
 
 /// Run Message/get with `properties` on `id` and return its one list entry.
 async fn message_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],
@@ -889,7 +889,7 @@ async fn message_metadata_filter_requires_capability() {
 
 /// Run Space/get with `properties` on `id` and return its one list entry.
 async fn space_get_one(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     id: &str,
     properties: Value,
     using: &[String],
@@ -1029,7 +1029,7 @@ async fn space_metadata_filter_requires_capability() {
 }
 
 /// Create a Message in chat "g1" carrying `metadata`.
-async fn create_message(backend: &MemoryBackend, metadata: Value) -> String {
+async fn create_message(backend: &MemoryBackend<()>, metadata: Value) -> String {
     let create = json!({
         "chatId": "g1",
         "body": "b",
@@ -1045,7 +1045,7 @@ async fn create_message(backend: &MemoryBackend, metadata: Value) -> String {
 }
 
 /// Create a Space, owned by the caller, carrying `metadata`.
-async fn create_space(backend: &MemoryBackend, metadata: Value) -> String {
+async fn create_space(backend: &MemoryBackend<()>, metadata: Value) -> String {
     let resp = space_set(
         backend,
         json!({ "create": { "s": { "name": "S", "metadata": metadata } } }),

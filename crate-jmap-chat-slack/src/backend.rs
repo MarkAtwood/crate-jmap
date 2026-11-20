@@ -435,15 +435,15 @@ impl SlackBridge {
 }
 
 impl DelegateJmapAccounts for SlackBridge {
-    type Target = MemoryBackend;
-    fn jmap_accounts(&self) -> &MemoryBackend {
+    type Target = MemoryBackend<()>;
+    fn jmap_accounts(&self) -> &MemoryBackend<()> {
         &self.inner
     }
 }
 
 impl DelegateJmapReads for SlackBridge {
-    type Target = MemoryBackend;
-    fn jmap_reads(&self) -> &MemoryBackend {
+    type Target = MemoryBackend<()>;
+    fn jmap_reads(&self) -> &MemoryBackend<()> {
         &self.inner
     }
 }
@@ -732,8 +732,8 @@ impl ChatSettings for SlackBridge {
 macro_rules! delegate {
     ($($tr:ident => $acc:ident),* $(,)?) => {$(
         impl $tr for SlackBridge {
-            type Target = MemoryBackend;
-            fn $acc(&self) -> &MemoryBackend {
+            type Target = MemoryBackend<()>;
+            fn $acc(&self) -> &MemoryBackend<()> {
                 &self.inner
             }
         }

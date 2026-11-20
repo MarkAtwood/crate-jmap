@@ -23,7 +23,7 @@ const CHAT: &str = "chat1";
 const OTHER_CHAT: &str = "chat2";
 
 /// Store two direct Chats with empty `pinnedMessageIds`.
-fn seed_chats(backend: &MemoryBackend) {
+fn seed_chats(backend: &MemoryBackend<()>) {
     backend.register_account(&Id::from(ACCOUNT_ID));
     for (id, contact) in [(CHAT, "peer1"), (OTHER_CHAT, "peer2")] {
         backend.insert_object_for_test(
@@ -44,7 +44,7 @@ fn seed_chats(backend: &MemoryBackend) {
 
 /// Create a Message in `chat_id` via `Message/set`, merging `extra`, and
 /// return its server id.
-async fn create_message(backend: &MemoryBackend, chat_id: &str, extra: Value) -> String {
+async fn create_message(backend: &MemoryBackend<()>, chat_id: &str, extra: Value) -> String {
     let mut msg = json!({
         "chatId": chat_id,
         "body": "hello",
@@ -69,7 +69,7 @@ async fn create_message(backend: &MemoryBackend, chat_id: &str, extra: Value) ->
         .to_owned()
 }
 
-async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn message_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
@@ -78,7 +78,7 @@ async fn message_set(backend: &MemoryBackend, args: Value) -> Value {
         .primary
 }
 
-async fn set_pins(backend: &MemoryBackend, pins: Value) -> Value {
+async fn set_pins(backend: &MemoryBackend<()>, pins: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
@@ -94,7 +94,7 @@ async fn set_pins(backend: &MemoryBackend, pins: Value) -> Value {
     resp
 }
 
-async fn pinned(backend: &MemoryBackend) -> Value {
+async fn pinned(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &(),
@@ -119,7 +119,7 @@ fn assert_invalid_pins(resp: &Value) {
 }
 
 /// Pin `msg_id` in `CHAT`, asserting success.
-async fn pin(backend: &MemoryBackend, msg_id: &str) {
+async fn pin(backend: &MemoryBackend<()>, msg_id: &str) {
     assert_updated(&set_pins(backend, json!([msg_id])).await);
     assert_eq!(pinned(backend).await, json!([msg_id]));
 }
@@ -129,7 +129,7 @@ async fn pin(backend: &MemoryBackend, msg_id: &str) {
 /// `invalidProperties`." (id of a Message in another Chat)
 #[tokio::test]
 async fn adding_message_from_other_chat_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_chats(&backend);
     let kept = create_message(&backend, CHAT, json!({})).await;
     let foreign = create_message(&backend, OTHER_CHAT, json!({})).await;
@@ -145,7 +145,7 @@ async fn adding_message_from_other_chat_is_invalid_properties() {
 /// other id with `invalidProperties`." (id naming no Message)
 #[tokio::test]
 async fn adding_nonexistent_id_is_invalid_properties() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_chats(&backend);
 
     let resp = set_pins(&backend, json!(["no-such-message"])).await;
@@ -158,7 +158,7 @@ async fn adding_nonexistent_id_is_invalid_properties() {
 /// case: Messages of this Chat may be pinned).
 #[tokio::test]
 async fn adding_message_of_this_chat_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_chats(&backend);
     let first = create_message(&backend, CHAT, json!({})).await;
     let second = create_message(&backend, CHAT, json!({})).await;
@@ -174,7 +174,7 @@ async fn adding_message_of_this_chat_succeeds() {
 /// changed, so `Chat/changes` reports it as updated.
 #[tokio::test]
 async fn destroying_pinned_message_unpins_it() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_chats(&backend);
     let msg = create_message(&backend, CHAT, json!({})).await;
     pin(&backend, &msg).await;
@@ -209,7 +209,7 @@ async fn destroying_pinned_message_unpins_it() {
 /// from this list." (`burnOnRead`: hard-deleted when `readAt` is set)
 #[tokio::test]
 async fn burn_on_read_unpins_message() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_chats(&backend);
     let msg = create_message(&backend, CHAT, json!({ "burnOnRead": true })).await;
     common::make_received(&backend, &msg).await;
@@ -240,7 +240,7 @@ async fn burn_on_read_unpins_message() {
 /// reach the backend through `ChatMessageLifecycle::expire_message`)
 #[tokio::test]
 async fn scheduled_expiry_unpins_message() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_chats(&backend);
     let msg = create_message(
         &backend,
@@ -262,7 +262,7 @@ async fn scheduled_expiry_unpins_message() {
 /// (§Message `deletedAt`), so it is not a hard delete and the pin stays.
 #[tokio::test]
 async fn soft_delete_keeps_pin() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_chats(&backend);
     let msg = create_message(&backend, CHAT, json!({})).await;
     pin(&backend, &msg).await;

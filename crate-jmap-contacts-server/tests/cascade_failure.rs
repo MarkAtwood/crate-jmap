@@ -40,7 +40,7 @@ enum Step {
 /// Forwards to `MemoryBackend`, except that `fail` returns `Err` when
 /// called for ContactCard.
 struct FailingBackend {
-    inner: MemoryBackend,
+    inner: MemoryBackend<()>,
     fail: Step,
 }
 
@@ -216,7 +216,7 @@ impl ContactsBackend for FailingBackend {
 /// destroys `ab1` with `onDestroyRemoveContents: true` while `fail` is
 /// forced. Returns the AddressBook/set response and the backend.
 async fn destroy_ab1(fail: Step, books: Value) -> (Value, FailingBackend) {
-    let inner = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let inner = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     for id in ["ab1", "ab2"] {
         inner.seed_object(
             &Id::from("acc1"),

@@ -25,8 +25,8 @@ fn email_ids_of_size(n: usize) -> Vec<Value> {
     (0..n).map(|i| json!(format!("email-{i}"))).collect()
 }
 
-fn one_account_backend() -> (MemoryBackend, Id) {
-    let backend = MemoryBackend::new();
+fn one_account_backend() -> (MemoryBackend<()>, Id) {
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     (backend, account_id)

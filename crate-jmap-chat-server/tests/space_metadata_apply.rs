@@ -69,7 +69,7 @@ async fn read_space_description(backend: &IdentityBackend, caller: &Id) -> Strin
 /// (bd:JMAP-yt1w.33).
 #[tokio::test]
 async fn owner_without_member_entry_cannot_mutate_metadata() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",

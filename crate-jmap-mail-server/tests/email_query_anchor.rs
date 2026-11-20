@@ -8,8 +8,8 @@ use jmap_mail_server::{handle_email_query, handle_email_set};
 use jmap_types::Id;
 use serde_json::{Value, json};
 
-async fn backend() -> (MemoryBackend, Vec<String>) {
-    let b = MemoryBackend::new();
+async fn backend() -> (MemoryBackend<()>, Vec<String>) {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     let create: serde_json::Map<String, Value> = (0..3)
         .map(|i| {
@@ -39,7 +39,7 @@ async fn backend() -> (MemoryBackend, Vec<String>) {
     (b, ids)
 }
 
-async fn query(b: &MemoryBackend, args: Value) -> Result<Value, String> {
+async fn query(b: &MemoryBackend<()>, args: Value) -> Result<Value, String> {
     let mut args = args;
     args["accountId"] = json!("acc");
     args["sort"] = json!([{"property": "receivedAt", "isAscending": true}]);

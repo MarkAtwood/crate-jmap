@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 
 /// Send one `Message/set` create per `(createId, bodyType)` pair and return
 /// the whole response. A `None` bodyType omits the property.
-async fn create(backend: &MemoryBackend, entries: &[(&str, Option<&str>)]) -> Value {
+async fn create(backend: &MemoryBackend<()>, entries: &[(&str, Option<&str>)]) -> Value {
     seed_group_chat(backend, "c1");
     let create: serde_json::Map<String, Value> = entries
         .iter()
@@ -54,7 +54,7 @@ fn invalid_body_type() -> Value {
 #[tokio::test]
 async fn configured_listed_body_type_is_accepted_on_create() {
     const TYPES: &[&str] = &["text/plain", "application/mimi-content"];
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.set_limits_for_test(Some(ChatLimits::default().with_supported_body_types(TYPES)));
 
     let resp = create(&backend, &[("m", Some("application/mimi-content"))]).await;
@@ -84,7 +84,7 @@ async fn reserved_body_type_is_listed_but_rejected_on_create() {
     const RESERVED_TYPE: &str = "application/x-example-server-only";
     const TYPES: &[&str] = &["text/plain", RESERVED_TYPE];
     const RESERVED: &[&str] = &[RESERVED_TYPE];
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.set_limits_for_test(Some(
         ChatLimits::default()
             .with_supported_body_types(TYPES)
@@ -130,7 +130,7 @@ async fn reserved_body_type_is_listed_but_rejected_on_create() {
 #[tokio::test]
 async fn e2ee_only_list_rejects_text_plain() {
     const TYPES: &[&str] = &["application/mls-ciphertext"];
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.set_limits_for_test(Some(ChatLimits::default().with_supported_body_types(TYPES)));
 
     let resp = create(
@@ -164,7 +164,7 @@ async fn default_body_types_include_text_plain_and_are_all_accepted() {
     assert!(limits.supported_body_types.contains(&"text/plain"));
     assert!(limits.server_reserved_body_types.is_empty());
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let entries: Vec<(String, Option<&str>)> = limits
         .supported_body_types
         .iter()

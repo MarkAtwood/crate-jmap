@@ -45,9 +45,9 @@ fn my_rights() -> Value {
 
 /// A backend with Calendar `cal1`, ParticipantIdentity `pi1` and
 /// CalendarEvent `ev1` in it.
-fn seeded_backend() -> MemoryBackend {
+fn seeded_backend() -> MemoryBackend<()> {
     let acc = Id::from("acc1");
-    let backend = MemoryBackend::new().with_account(&acc);
+    let backend = MemoryBackend::<()>::default().with_account(&acc);
     backend.seed_object(
         &acc,
         "Calendar",
@@ -110,7 +110,7 @@ fn assert_invalid(resp: &Value, id: &str, props: Value) {
     assert_eq!(resp["notUpdated"][id]["properties"], props, "{resp}");
 }
 
-async fn calendar_set(backend: &MemoryBackend, patch: Value) -> Value {
+async fn calendar_set(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "cal1": patch } });
     handle_calendar_set(backend, &(), args, &[])
         .await
@@ -118,7 +118,7 @@ async fn calendar_set(backend: &MemoryBackend, patch: Value) -> Value {
         .primary
 }
 
-async fn calendar_get(backend: &MemoryBackend) -> Value {
+async fn calendar_get(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["cal1"] });
     handle_calendar_get(backend, &(), args, &[])
         .await
@@ -127,7 +127,7 @@ async fn calendar_get(backend: &MemoryBackend) -> Value {
         .clone()
 }
 
-async fn identity_set(backend: &MemoryBackend, patch: Value) -> Value {
+async fn identity_set(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "pi1": patch } });
     handle_participant_identity_set(backend, &(), args)
         .await
@@ -135,7 +135,7 @@ async fn identity_set(backend: &MemoryBackend, patch: Value) -> Value {
         .primary
 }
 
-async fn identity_get(backend: &MemoryBackend) -> Value {
+async fn identity_get(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["pi1"] });
     handle_participant_identity_get(backend, &(), args)
         .await
@@ -144,7 +144,7 @@ async fn identity_get(backend: &MemoryBackend) -> Value {
         .clone()
 }
 
-async fn event_set(backend: &MemoryBackend, update: Value) -> Value {
+async fn event_set(backend: &MemoryBackend<()>, update: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": update });
     handle_calendar_event_set(backend, &(), &BTreeMap::new(), args, &[])
         .await
@@ -152,7 +152,7 @@ async fn event_set(backend: &MemoryBackend, update: Value) -> Value {
         .primary
 }
 
-async fn event_get(backend: &MemoryBackend) -> Value {
+async fn event_get(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["ev1"] });
     handle_calendar_event_get(backend, &(), args, &[])
         .await

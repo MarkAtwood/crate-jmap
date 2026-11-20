@@ -27,8 +27,8 @@ use serde_json::{Value, json};
 const OWN: &str = "mailto:alice@example.com";
 const FOREIGN: &str = "mailto:bob@example.org";
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default()
         .with_account(&Id::from("acc1"))
         .with_account(&Id::from("acc2"));
     backend.seed_object(
@@ -59,14 +59,14 @@ fn event(extra: Value) -> Value {
     ev
 }
 
-async fn set(backend: &MemoryBackend, args: Value) -> Value {
+async fn set(backend: &MemoryBackend<()>, args: Value) -> Value {
     handle_calendar_event_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
         .await
         .expect("/set must not return a top-level error")
         .primary
 }
 
-async fn create(backend: &MemoryBackend, ev: Value) -> Value {
+async fn create(backend: &MemoryBackend<()>, ev: Value) -> Value {
     set(
         backend,
         json!({ "accountId": "acc1", "create": { "c1": ev } }),
@@ -74,7 +74,7 @@ async fn create(backend: &MemoryBackend, ev: Value) -> Value {
     .await
 }
 
-async fn get(backend: &MemoryBackend, account: &str, id: &str) -> Value {
+async fn get(backend: &MemoryBackend<()>, account: &str, id: &str) -> Value {
     let args = json!({ "accountId": account, "ids": [id] });
     let HandlerOutput { primary: resp, .. } = handle_calendar_event_get(backend, &(), args, &[])
         .await
@@ -82,7 +82,7 @@ async fn get(backend: &MemoryBackend, account: &str, id: &str) -> Value {
     resp["list"][0].clone()
 }
 
-async fn created_id(backend: &MemoryBackend, ev: Value) -> String {
+async fn created_id(backend: &MemoryBackend<()>, ev: Value) -> String {
     let resp = create(backend, ev).await;
     resp["created"]["c1"]["id"]
         .as_str()
@@ -90,7 +90,7 @@ async fn created_id(backend: &MemoryBackend, ev: Value) -> String {
         .to_owned()
 }
 
-async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     set(
         backend,
         json!({ "accountId": "acc1", "update": { id: patch } }),

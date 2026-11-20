@@ -48,7 +48,7 @@ use serde_json::json;
 /// this Space and so no permissions (bd:JMAP-yt1w.33).
 #[tokio::test]
 async fn owner_without_member_entry_cannot_add_channels() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Space",

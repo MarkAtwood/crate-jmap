@@ -31,8 +31,8 @@ const TYPES: [&str; 8] = [
     "SpaceInvite",
 ];
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_object_history(
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_object_history(
         serde_json::from_value(json!({"maxHistoryDuration": null, "supportedTypes": TYPES}))
             .unwrap(),
         HistoryRetention::new(),
@@ -42,7 +42,7 @@ fn backend() -> MemoryBackend {
 }
 
 struct Server {
-    b: MemoryBackend,
+    b: MemoryBackend<()>,
     d: Dispatcher<()>,
 }
 

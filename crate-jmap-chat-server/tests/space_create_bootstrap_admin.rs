@@ -38,7 +38,7 @@ const MAX_UNSIGNED_INT: u64 = 9_007_199_254_740_991;
 
 /// Create a name-only Space as the owner of [`ACCOUNT_ID`] and return
 /// the full `Space/set` response.
-async fn create_space(backend: &MemoryBackend) -> Value {
+async fn create_space(backend: &MemoryBackend<()>) -> Value {
     backend.register_account(&Id::from(ACCOUNT_ID));
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
@@ -90,7 +90,7 @@ fn owner_permissions(space: &Value) -> (Value, BTreeSet<String>) {
 /// a subsequent `Space/get`.
 #[tokio::test]
 async fn space_create_adds_creator_as_member_with_admin_role() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let resp = create_space(&backend).await;
     let created = &resp["created"]["s0"];
     let space_id = created["id"]
@@ -214,7 +214,7 @@ async fn space_create_creator_member_entry_is_account_id_not_principal() {
 /// holding every §SpaceRole permission, and the creator holds exactly it.
 #[tokio::test]
 async fn space_create_bootstrap_role_is_max_position_admin_with_every_permission() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let resp = create_space(&backend).await;
     let created = &resp["created"]["s0"];
 

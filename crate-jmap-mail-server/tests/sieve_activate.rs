@@ -14,8 +14,8 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// A backend with scripts "a" (active) and "b"; returns their ids.
-async fn two_scripts() -> (MemoryBackend, String, String) {
-    let b = MemoryBackend::new();
+async fn two_scripts() -> (MemoryBackend<()>, String, String) {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     b.store_blob(&Id::from("blob1"), VALID_SIEVE_SCRIPT.to_vec());
     let out = handle_sieve_set(
@@ -31,12 +31,12 @@ async fn two_scripts() -> (MemoryBackend, String, String) {
     (b, id("A"), id("B"))
 }
 
-async fn set(b: &MemoryBackend, args: Value) -> Value {
+async fn set(b: &MemoryBackend<()>, args: Value) -> Value {
     handle_sieve_set(b, &(), args).await.unwrap().primary
 }
 
 /// Ids of the active scripts.
-async fn active(b: &MemoryBackend) -> Vec<String> {
+async fn active(b: &MemoryBackend<()>) -> Vec<String> {
     let got = handle_sieve_get(b, &(), json!({"accountId": "acc"}))
         .await
         .unwrap()

@@ -110,7 +110,7 @@ fn chat_id_that_is_not_an_id_string_is_invalid() {
 /// yet (L240 "transient inconsistency").
 #[tokio::test]
 async fn default_hook_hides_no_chat_id() {
-    let chat = ChatMemory::new();
+    let chat = ChatMemory::<()>::default();
     chat.register_account(&Id::from(ACCOUNT));
     let mut tasks = vec![
         task("T1", json!({ "chatId": "C1" })),
@@ -185,7 +185,7 @@ async fn hook_error_leaves_tasks_unchanged() {
 /// The reference Chat backend with `may_view_chat` overridden: `false` for
 /// the `denied` Chats, an error for every call when `fail` is set.
 struct ViewGate {
-    inner: ChatMemory,
+    inner: ChatMemory<()>,
     denied: Vec<Id>,
     fail: bool,
     calls: AtomicUsize,
@@ -193,7 +193,7 @@ struct ViewGate {
 
 impl ViewGate {
     fn new(denied: &[&str], fail: bool) -> Self {
-        let inner = ChatMemory::new();
+        let inner = ChatMemory::<()>::default();
         inner.register_account(&Id::from(ACCOUNT));
         Self {
             inner,
@@ -474,7 +474,7 @@ async fn hidden_properties_name_chat_id_of_unviewable_chats() {
 /// A deployment hiding `chatId`: Task/get redacts it, and its
 /// `ConditionalBackend::hidden_properties` reports it.
 struct Deployment {
-    tasks: std::sync::Arc<jmap_tasks_server::memory::MemoryBackend>,
+    tasks: std::sync::Arc<jmap_tasks_server::memory::MemoryBackend<()>>,
     chat: ViewGate,
 }
 
@@ -578,7 +578,7 @@ impl jmap_server::ConditionalBackend for Deployment {
 async fn chat_id_precondition_is_forbidden_for_a_reader_who_cannot_view_the_chat() {
     use std::sync::Arc;
 
-    let tasks = Arc::new(jmap_tasks_server::memory::MemoryBackend::new());
+    let tasks = Arc::new(jmap_tasks_server::memory::MemoryBackend::<()>::default());
     let acc = Id::from(ACCOUNT);
     tasks.register_account(&acc);
     for (id, chat_id) in [("T1", "C-secret"), ("T2", "C-open")] {

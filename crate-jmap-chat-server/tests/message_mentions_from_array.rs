@@ -25,7 +25,7 @@ use serde_json::{Value, json};
 
 const OWNER_LOGIN: &str = "owner@home.example";
 
-async fn create_group(backend: &MemoryBackend) -> String {
+async fn create_group(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary, .. } = handle_chat_set(
         backend,
         &(),
@@ -44,7 +44,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
         .to_owned()
 }
 
-async fn send(backend: &MemoryBackend, chat_id: &str, mentions: Value) -> String {
+async fn send(backend: &MemoryBackend<()>, chat_id: &str, mentions: Value) -> String {
     let HandlerOutput { primary, .. } = handle_message_set(
         backend,
         &(),
@@ -69,7 +69,7 @@ async fn send(backend: &MemoryBackend, chat_id: &str, mentions: Value) -> String
         .to_owned()
 }
 
-async fn has_mention_ids(backend: &MemoryBackend) -> Value {
+async fn has_mention_ids(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary, .. } = handle_message_query(
         backend,
         &(),

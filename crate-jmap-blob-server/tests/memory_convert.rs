@@ -23,13 +23,13 @@ fn acc() -> Id {
     id("a1")
 }
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&acc());
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&acc());
     b.set_clock_for_test(NOW);
     b
 }
 
-async fn text(b: &MemoryBackend, s: &str) -> Id {
+async fn text(b: &MemoryBackend<()>, s: &str) -> Id {
     let bytes = s.as_bytes().to_vec();
     let size = bytes.len() as u64;
     b.create_blob(
@@ -42,13 +42,13 @@ async fn text(b: &MemoryBackend, s: &str) -> Id {
     .id
 }
 
-async fn read(b: &MemoryBackend, blob: &Id) -> Option<Vec<u8>> {
+async fn read(b: &MemoryBackend<()>, blob: &Id) -> Option<Vec<u8>> {
     let size = b.blob_info(&(), &acc(), blob).await.unwrap()?.size;
     b.read_blob_range(&(), &acc(), blob, 0..size).await.unwrap()
 }
 
 async fn convert(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     recipe: Recipe,
 ) -> Result<ConvertOutcome, BackendSetError<jmap_blob_server::memory::MemoryError>> {
     b.convert(&(), &acc(), ConvertParams::new(recipe)).await
@@ -75,7 +75,7 @@ fn extract(blob: &Id, media_type: Option<&str>) -> Recipe {
 }
 
 /// Two files and a directory, as in blobext-03 §9.5.
-async fn site(b: &MemoryBackend) -> (Id, Id, Recipe) {
+async fn site(b: &MemoryBackend<()>) -> (Id, Id, Recipe) {
     let html = text(b, "<h1>hi</h1>\n").await;
     let css = text(b, "h1 { color: red }\n").await;
     let mut dir = ArchiveEntry::new("site/");

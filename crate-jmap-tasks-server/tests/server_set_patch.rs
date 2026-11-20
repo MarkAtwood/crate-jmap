@@ -38,9 +38,9 @@ fn my_rights() -> Value {
 }
 
 /// A backend with TaskList `tl1` and Task `t1` in it.
-fn seeded_backend() -> MemoryBackend {
+fn seeded_backend() -> MemoryBackend<()> {
     let acc = Id::from("acc1");
-    let backend = MemoryBackend::new().with_account(&acc);
+    let backend = MemoryBackend::<()>::default().with_account(&acc);
     backend.seed_object(
         &acc,
         "TaskList",
@@ -67,7 +67,7 @@ fn seeded_backend() -> MemoryBackend {
     backend
 }
 
-async fn task_set(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn task_set(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { (id): patch } });
     handle_task_set(backend, &(), &BTreeMap::new(), args, &[])
         .await
@@ -75,7 +75,7 @@ async fn task_set(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
         .primary
 }
 
-async fn task_get(backend: &MemoryBackend) -> Value {
+async fn task_get(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["t1"] });
     handle_task_get(backend, &(), args, &[])
         .await
@@ -84,7 +84,7 @@ async fn task_get(backend: &MemoryBackend) -> Value {
         .clone()
 }
 
-async fn list_set(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn list_set(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { (id): patch } });
     handle_task_list_set(backend, &(), args, &[])
         .await
@@ -92,7 +92,7 @@ async fn list_set(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
         .primary
 }
 
-async fn list_get(backend: &MemoryBackend) -> Value {
+async fn list_get(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["tl1"] });
     handle_task_list_get(backend, &(), args, &[])
         .await

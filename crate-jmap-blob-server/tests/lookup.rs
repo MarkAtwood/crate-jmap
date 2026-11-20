@@ -20,8 +20,8 @@ fn id(s: &str) -> Id {
 
 /// Account `account` advertising `Mailbox`, `Email`, `Identity` (cannot
 /// reference blobs) and `NoSuchType` (not in the registry) as lookup types.
-fn backend_for(account: &str) -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&id(account));
+fn backend_for(account: &str) -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&id(account));
     let mut cap = MemoryBackend::default_capability();
     cap.supported_type_names = ["Mailbox", "Email", "Identity", "NoSuchType"]
         .map(str::to_owned)
@@ -30,7 +30,7 @@ fn backend_for(account: &str) -> MemoryBackend {
     b
 }
 
-fn backend() -> MemoryBackend {
+fn backend() -> MemoryBackend<()> {
     backend_for("a1")
 }
 
@@ -40,7 +40,7 @@ fn using(uris: &[&str]) -> Vec<String> {
     v
 }
 
-async fn put_in(b: &MemoryBackend, account: &str, bytes: &[u8]) -> Id {
+async fn put_in(b: &MemoryBackend<()>, account: &str, bytes: &[u8]) -> Id {
     b.create_blob(
         &(),
         &id(account),
@@ -51,16 +51,16 @@ async fn put_in(b: &MemoryBackend, account: &str, bytes: &[u8]) -> Id {
     .id
 }
 
-async fn put(b: &MemoryBackend, bytes: &[u8]) -> Id {
+async fn put(b: &MemoryBackend<()>, bytes: &[u8]) -> Id {
     put_in(b, "a1", bytes).await
 }
 
-fn refer(b: &MemoryBackend, type_name: &str, object: &str, blob: &Id) {
+fn refer(b: &MemoryBackend<()>, type_name: &str, object: &str, blob: &Id) {
     b.add_reference_for_test(&id("a1"), type_name, &id(object), blob);
 }
 
 async fn call_with(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     args: Value,
     created: &BTreeMap<Id, Id>,
     uris: &[&str],
@@ -70,11 +70,11 @@ async fn call_with(
         .map(|out| out.primary)
 }
 
-async fn call(b: &MemoryBackend, args: Value) -> Result<Value, JmapError> {
+async fn call(b: &MemoryBackend<()>, args: Value) -> Result<Value, JmapError> {
     call_with(b, args, &BTreeMap::new(), &[BLOB2, MAIL]).await
 }
 
-async fn ok(b: &MemoryBackend, args: Value) -> Value {
+async fn ok(b: &MemoryBackend<()>, args: Value) -> Value {
     call(b, args).await.unwrap()
 }
 
@@ -88,7 +88,7 @@ fn error_type(r: Result<Value, JmapError>) -> String {
     }
 }
 
-async fn err(b: &MemoryBackend, args: Value) -> String {
+async fn err(b: &MemoryBackend<()>, args: Value) -> String {
     error_type(call(b, args).await)
 }
 

@@ -20,7 +20,7 @@ use jmap_chat_server::message::handle_message_set;
 use jmap_server::HandlerOutput;
 use serde_json::{Value, json};
 
-async fn create_group(backend: &MemoryBackend) -> String {
+async fn create_group(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
@@ -39,7 +39,7 @@ async fn create_group(backend: &MemoryBackend) -> String {
         .to_owned()
 }
 
-async fn create(backend: &MemoryBackend, chat_id: &str, broadcast_mentions: Value) -> Value {
+async fn create(backend: &MemoryBackend<()>, chat_id: &str, broadcast_mentions: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),

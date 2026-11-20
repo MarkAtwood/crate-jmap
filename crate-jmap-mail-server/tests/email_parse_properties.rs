@@ -11,8 +11,8 @@ use jmap_mail_server::{handle_email_parse, handle_thread_get};
 use jmap_types::Id;
 use serde_json::json;
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     b.store_blob(
         &Id::from("B1"),

@@ -15,7 +15,7 @@ use jmap_chat_server::message::{handle_message_get, handle_message_query, handle
 use jmap_server::HandlerOutput;
 use serde_json::{Value, json};
 
-fn insert_message(backend: &MemoryBackend, id: &str, sender_id: &str, extra: Value) {
+fn insert_message(backend: &MemoryBackend<()>, id: &str, sender_id: &str, extra: Value) {
     let mut msg = json!({
         "id": id,
         "senderMsgId": format!("smsg-{id}"),
@@ -38,7 +38,7 @@ fn insert_message(backend: &MemoryBackend, id: &str, sender_id: &str, extra: Val
     backend.insert_object_for_test("Message", ACCOUNT_ID, id, msg);
 }
 
-async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
@@ -51,7 +51,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
     resp
 }
 
-async fn get_message(backend: &MemoryBackend, id: &str) -> Value {
+async fn get_message(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
@@ -77,7 +77,7 @@ fn assert_updated(resp: &Value, id: &str) {
 /// sender identity verified by the authentication layer."
 #[tokio::test]
 async fn created_message_sender_id_is_account_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_group_chat(&backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         &backend,
@@ -104,7 +104,7 @@ async fn created_message_sender_id_is_account_id() {
 /// key."
 #[tokio::test]
 async fn added_reaction_sender_id_is_account_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(&backend, "m1", ACCOUNT_ID, json!({}));
     let resp = update(
         &backend,
@@ -124,7 +124,7 @@ async fn added_reaction_sender_id_is_account_id() {
 /// or remove reactions for other senders with `forbidden`."
 #[tokio::test]
 async fn removing_reaction_whose_sender_id_is_account_id_is_permitted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(
         &backend,
         "m1",
@@ -142,7 +142,7 @@ async fn removing_reaction_whose_sender_id_is_account_id_is_permitted() {
 /// not the accountId, so it names another sender.
 #[tokio::test]
 async fn removing_reaction_whose_sender_id_is_literal_self_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(
         &backend,
         "m1",
@@ -161,7 +161,7 @@ async fn removing_reaction_whose_sender_id_is_literal_self_is_forbidden() {
 /// edit of any other message with a `forbidden` SetError."
 #[tokio::test]
 async fn edit_of_message_whose_sender_id_is_account_id_is_permitted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(&backend, "m1", ACCOUNT_ID, json!({}));
     let resp = update(
         &backend,
@@ -178,7 +178,7 @@ async fn edit_of_message_whose_sender_id_is_account_id_is_permitted() {
 /// accountId.
 #[tokio::test]
 async fn edit_of_message_whose_sender_id_is_literal_self_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(&backend, "m1", "self", json!({}));
     let resp = update(
         &backend,
@@ -194,7 +194,7 @@ async fn edit_of_message_whose_sender_id_is_literal_self_is_forbidden() {
 /// SetError."
 #[tokio::test]
 async fn delete_for_all_of_message_whose_sender_id_is_account_id_is_permitted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(&backend, "m1", ACCOUNT_ID, json!({}));
     let resp = update(&backend, "m1", json!({ "deletedForAll": true })).await;
     assert_updated(&resp, "m1");
@@ -205,7 +205,7 @@ async fn delete_for_all_of_message_whose_sender_id_is_account_id_is_permitted() 
 /// SetError."
 #[tokio::test]
 async fn delete_for_all_of_message_whose_sender_id_is_literal_self_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(&backend, "m1", "self", json!({}));
     let resp = update(&backend, "m1", json!({ "deletedForAll": true })).await;
     assert_eq!(resp["notUpdated"]["m1"]["type"], "forbidden", "{resp}");
@@ -216,7 +216,7 @@ async fn delete_for_all_of_message_whose_sender_id_is_literal_self_is_forbidden(
 /// contains a scope whose resolved recipient set includes the owner."
 #[tokio::test]
 async fn has_mention_matches_account_id_and_not_other_mentions() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     insert_message(
         &backend,
         "m-owner",

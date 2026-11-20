@@ -20,13 +20,13 @@ use serde_json::{Value, json};
 
 const RP_ID: &str = "rp1";
 
-fn seeded() -> MemoryBackend {
+fn seeded() -> MemoryBackend<()> {
     let backend = account_backend();
     seed(&backend);
     backend
 }
 
-fn seed(backend: &MemoryBackend) {
+fn seed(backend: &MemoryBackend<()>) {
     backend.insert_object_for_test(
         "ReadPosition",
         ACCOUNT_ID,

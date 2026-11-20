@@ -84,15 +84,15 @@ use jmap_server::HandlerOutput;
 use jmap_types::{Id, UTCDate};
 use serde_json::{Value, json};
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }
 
 /// Message `id` in Chat `chat`, sent by `sender`, with a `senderMsgId`
 /// distinct from `id` so the event is seen to carry the right one.
-fn seed_message(backend: &MemoryBackend, id: &str, sender: &str) {
+fn seed_message(backend: &MemoryBackend<()>, id: &str, sender: &str) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -113,7 +113,7 @@ fn seed_message(backend: &MemoryBackend, id: &str, sender: &str) {
 }
 
 /// Message `m1` in Chat `dm`, sent by `bob`, holding `reactions`.
-fn seed_reacted_message(backend: &MemoryBackend, reactions: Value) {
+fn seed_reacted_message(backend: &MemoryBackend<()>, reactions: Value) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -147,7 +147,7 @@ fn reaction_update(sender_reaction_id: &str, action: ReactionAction) -> Outbound
 }
 
 /// Group `g1`: the owner and `members` (id, role).
-fn seed_group(backend: &MemoryBackend, owner_role: &str, members: &[(&str, &str)]) {
+fn seed_group(backend: &MemoryBackend<()>, owner_role: &str, members: &[(&str, &str)]) {
     let mut list =
         vec![json!({ "id": ACCOUNT_ID, "role": owner_role, "joinedAt": "2026-01-01T00:00:00Z" })];
     list.extend(
@@ -171,7 +171,7 @@ fn seed_group(backend: &MemoryBackend, owner_role: &str, members: &[(&str, &str)
     );
 }
 
-async fn message_update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn message_update(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let HandlerOutput { primary, .. } = handle_message_set(
         backend,
         &(),
@@ -184,7 +184,7 @@ async fn message_update(backend: &MemoryBackend, id: &str, patch: Value) -> Valu
     primary
 }
 
-async fn chat_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn chat_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
@@ -723,7 +723,7 @@ async fn rejected_reaction_reports_nothing() {
 }
 
 /// PresenceStatus `ps1` with account-level `receiptSharing`.
-fn seed_presence(backend: &MemoryBackend, receipt_sharing: bool) {
+fn seed_presence(backend: &MemoryBackend<()>, receipt_sharing: bool) {
     backend.insert_object_for_test(
         "PresenceStatus",
         ACCOUNT_ID,
@@ -738,7 +738,7 @@ fn seed_presence(backend: &MemoryBackend, receipt_sharing: bool) {
 }
 
 /// Direct Chat `dm` with the per-Chat `receiptSharing` override.
-fn seed_dm_receipt_sharing(backend: &MemoryBackend, receipt_sharing: bool) {
+fn seed_dm_receipt_sharing(backend: &MemoryBackend<()>, receipt_sharing: bool) {
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,
@@ -944,7 +944,11 @@ async fn group_burn_on_read_receipt_names_original_sender() {
     assert_eq!(get["notFound"], json!(["m1"]), "message burned: {get}");
 }
 
-async fn chat_typing(backend: &MemoryBackend, chat_id: &str, typing: bool) -> Result<(), String> {
+async fn chat_typing(
+    backend: &MemoryBackend<()>,
+    chat_id: &str,
+    typing: bool,
+) -> Result<(), String> {
     handle_chat_typing(
         backend,
         &(),
@@ -990,7 +994,7 @@ async fn rejected_chat_typing_reports_nothing() {
     assert_eq!(backend.take_outbound_events_for_test(), vec![]);
 }
 
-async fn presence_update(backend: &MemoryBackend, patch: Value) -> Value {
+async fn presence_update(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let HandlerOutput { primary, .. } = handle_presence_set(
         backend,
         &(),

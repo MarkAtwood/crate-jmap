@@ -90,8 +90,8 @@ fn stub(decompressed: Vec<u8>) -> impl Fn(&Recipe) -> Result<Vec<u8>, Box<SetErr
     }
 }
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&acc());
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&acc());
     b.set_clock_for_test(NOW);
     b.advertise_for_test(&acc(), capability());
     b.stub_converter_for_test(stub(Vec::new()));
@@ -104,7 +104,7 @@ fn using(uris: &[&str]) -> Vec<String> {
     v
 }
 
-async fn put(b: &MemoryBackend, bytes: &[u8]) -> Id {
+async fn put(b: &MemoryBackend<()>, bytes: &[u8]) -> Id {
     b.create_blob(
         &(),
         &acc(),
@@ -115,7 +115,7 @@ async fn put(b: &MemoryBackend, bytes: &[u8]) -> Id {
     .id
 }
 
-async fn read(b: &MemoryBackend, blob: &Id) -> Vec<u8> {
+async fn read(b: &MemoryBackend<()>, blob: &Id) -> Vec<u8> {
     let size = b.blob_info(&(), &acc(), blob).await.unwrap().unwrap().size;
     b.read_blob_range(&(), &acc(), blob, 0..size)
         .await
@@ -124,7 +124,7 @@ async fn read(b: &MemoryBackend, blob: &Id) -> Vec<u8> {
 }
 
 async fn call_with(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     args: Value,
     created: &BTreeMap<Id, Id>,
     uris: &[&str],
@@ -134,25 +134,25 @@ async fn call_with(
         .map(|out| out.primary)
 }
 
-async fn call(b: &MemoryBackend, args: Value) -> Result<Value, JmapError> {
+async fn call(b: &MemoryBackend<()>, args: Value) -> Result<Value, JmapError> {
     call_with(b, args, &BTreeMap::new(), &[BLOB2]).await
 }
 
-async fn convert(b: &MemoryBackend, create: Value) -> Value {
+async fn convert(b: &MemoryBackend<()>, create: Value) -> Value {
     call(b, json!({"accountId": "abc", "create": create}))
         .await
         .unwrap()
 }
 
 /// The `notCreated` entry of a single conversion `entry`.
-async fn rejected(b: &MemoryBackend, entry: Value) -> Value {
+async fn rejected(b: &MemoryBackend<()>, entry: Value) -> Value {
     let resp = convert(b, json!({ "c": entry })).await;
     assert_eq!(resp["created"], Value::Null, "{entry} was created: {resp}");
     resp["notCreated"]["c"].clone()
 }
 
 /// The `created` entry of a single conversion `entry`.
-async fn accepted(b: &MemoryBackend, entry: Value) -> Value {
+async fn accepted(b: &MemoryBackend<()>, entry: Value) -> Value {
     let resp = convert(b, json!({ "c": entry })).await;
     assert_eq!(resp["notCreated"], Value::Null, "{entry} failed: {resp}");
     resp["created"]["c"].clone()
@@ -168,7 +168,7 @@ fn error_type(r: Result<Value, JmapError>) -> String {
     }
 }
 
-async fn dispatch(b: Arc<MemoryBackend>, request: Value) -> Value {
+async fn dispatch(b: Arc<MemoryBackend<()>>, request: Value) -> Value {
     let mut d = Dispatcher::new();
     register_blob_handlers(&mut d, b);
     let req: JmapRequest = serde_json::from_value(request).unwrap();
@@ -176,7 +176,7 @@ async fn dispatch(b: Arc<MemoryBackend>, request: Value) -> Value {
 }
 
 /// The three files of the §9.4-§9.6 examples: B1, B2, B3.
-async fn site(b: &MemoryBackend) -> [Id; 3] {
+async fn site(b: &MemoryBackend<()>) -> [Id; 3] {
     [
         put(b, b"<h1>hi</h1>\n").await,
         put(b, b"h1 { color: red }\n").await,
@@ -948,7 +948,7 @@ async fn incomplete_extract() {
 
 // ---- deferred results (§8) -----------------------------------------------
 
-async fn deferred_tar(b: &MemoryBackend) -> Id {
+async fn deferred_tar(b: &MemoryBackend<()>) -> Id {
     let f = put(b, b"content").await;
     let t = accepted(
         b,

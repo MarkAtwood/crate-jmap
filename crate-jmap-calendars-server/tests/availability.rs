@@ -40,9 +40,9 @@ fn event(id: &str, cal: &str, start: &str, duration: &str, extra: Value) -> Valu
     e
 }
 
-fn backend(events: &[Value]) -> MemoryBackend {
+fn backend(events: &[Value]) -> MemoryBackend<()> {
     let acc = Id::from(ACC);
-    let b = MemoryBackend::new().with_account(&acc);
+    let b = MemoryBackend::<()>::default().with_account(&acc);
     for c in [
         calendar("work", true, "all", rights(true, true)),
         calendar("attend", true, "attending", rights(true, true)),
@@ -65,7 +65,7 @@ fn backend(events: &[Value]) -> MemoryBackend {
     b
 }
 
-async fn availability(b: &MemoryBackend, show_details: bool) -> Result<Value, String> {
+async fn availability(b: &MemoryBackend<()>, show_details: bool) -> Result<Value, String> {
     handle_principal_get_availability(
         b,
         &(),

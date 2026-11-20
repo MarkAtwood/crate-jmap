@@ -26,7 +26,8 @@ use jmap_server::{JmapObject, ScopeGate, ScopedState};
 use jmap_types::Id;
 use serde_json::Value;
 
-use super::{Inner, MemoryBackend, MemoryCaller};
+use super::{Inner, MemoryBackend};
+use jmap_server::MemoryCaller;
 
 /// A blob store [`MemoryBackend`] reads and writes instead of its own map
 /// ([`MemoryBackend::with_blob_store`]).

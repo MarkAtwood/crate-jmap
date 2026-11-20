@@ -39,7 +39,7 @@ fn member(id: &str, role: &str) -> Value {
     json!({ "id": id, "role": role, "joinedAt": "2026-01-01T00:00:00Z" })
 }
 
-fn seeded() -> MemoryBackend {
+fn seeded() -> MemoryBackend<()> {
     let backend = account_backend();
     for (id, value) in [
         (
@@ -79,7 +79,7 @@ fn seeded() -> MemoryBackend {
     backend
 }
 
-async fn set(backend: &MemoryBackend, body: Value) -> Value {
+async fn set(backend: &MemoryBackend<()>, body: Value) -> Value {
     let mut args = body;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
@@ -89,7 +89,7 @@ async fn set(backend: &MemoryBackend, body: Value) -> Value {
     primary
 }
 
-async fn member_ids(backend: &MemoryBackend, chat_id: &str) -> Vec<String> {
+async fn member_ids(backend: &MemoryBackend<()>, chat_id: &str) -> Vec<String> {
     let HandlerOutput { primary, .. } = handle_chat_get(
         backend,
         &(),

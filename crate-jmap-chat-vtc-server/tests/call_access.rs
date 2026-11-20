@@ -52,7 +52,7 @@ fn call(binding: Value) -> VtcCall {
 async fn access(backend: &Bound, viewer: &str, call: &VtcCall) -> bool {
     may_access_call(
         &backend.chat,
-        &(),
+        &jmap_types::Id::from(ACCOUNT),
         &Id::from(ACCOUNT),
         &Id::from(viewer),
         call,

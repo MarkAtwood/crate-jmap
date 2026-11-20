@@ -22,7 +22,7 @@ fn object(id: &Id) -> Calendar {
 
 #[tokio::test]
 async fn mutations_never_register_an_account() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let ghost = Id::from("ghost");
 
     let created = backend

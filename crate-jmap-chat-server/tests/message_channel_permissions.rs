@@ -27,8 +27,8 @@ const CHANNEL_ID: &str = "ch1";
 
 /// A `MemoryBackend` whose `@everyone` role grants nothing, so a test
 /// controls every permission through role `r1` and the overrides.
-fn backend_without_everyone_floor() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend_without_everyone_floor() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.set_everyone_permissions(HashSet::new());
     backend
 }
@@ -38,7 +38,7 @@ fn backend_without_everyone_floor() -> MemoryBackend {
 /// `owner_is_member`, and channel `CHANNEL_ID` with `overrides` as its
 /// `permissionOverrides`.
 fn seed_channel(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     role_perms: Value,
     owner_is_member: bool,
     overrides: Value,
@@ -53,7 +53,7 @@ fn seed_channel(
 
 /// Seed as [`seed_channel`], with `members` as the Space's `members`.
 fn seed_channel_with_members(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     role_perms: Value,
     members: Value,
     overrides: Value,
@@ -94,7 +94,7 @@ fn seed_channel_with_members(
     );
 }
 
-fn seed_message(backend: &MemoryBackend, id: &str, chat_id: &str) {
+fn seed_message(backend: &MemoryBackend<()>, id: &str, chat_id: &str) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -118,7 +118,7 @@ fn seed_message(backend: &MemoryBackend, id: &str, chat_id: &str) {
     );
 }
 
-async fn create_message(backend: &MemoryBackend, chat_id: &str) -> Value {
+async fn create_message(backend: &MemoryBackend<()>, chat_id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
@@ -155,7 +155,7 @@ fn assert_created(resp: &Value) {
 /// check by choice.
 #[tokio::test]
 async fn group_create_by_non_member_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Chat",
@@ -180,7 +180,7 @@ async fn group_create_by_non_member_is_forbidden() {
 /// entry.
 #[tokio::test]
 async fn channel_create_by_space_non_member_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view", "send"]), false, json!([]));
     assert_forbidden(&create_message(&backend, CHANNEL_ID).await);
 }
@@ -202,7 +202,7 @@ async fn channel_create_without_send_is_forbidden() {
 /// `permissions` across all SpaceRoles held by the member").
 #[tokio::test]
 async fn channel_create_with_send_succeeds() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view", "send"]), true, json!([]));
     assert_created(&create_message(&backend, CHANNEL_ID).await);
 }
@@ -213,7 +213,7 @@ async fn channel_create_with_send_succeeds() {
 /// denies it for that role.
 #[tokio::test]
 async fn channel_role_deny_removes_send() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(
         &backend,
         json!(["view", "send"]),
@@ -228,7 +228,7 @@ async fn channel_role_deny_removes_send() {
 /// record", so a member allow restores `send`.
 #[tokio::test]
 async fn channel_member_allow_overrides_role_deny() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(
         &backend,
         json!(["view", "send"]),
@@ -274,7 +274,7 @@ async fn channel_member_allow_overrides_everyone_floor() {
 /// read a channel with no overrides.
 #[tokio::test]
 async fn default_everyone_floor_grants_view_and_send() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let members = json!([{ "id": ACCOUNT_ID, "roleIds": [], "joinedAt": "2026-01-01T00:00:00Z" }]);
     seed_channel_with_members(&backend, json!([]), members, json!([]));
     assert_created(&create_message(&backend, CHANNEL_ID).await);
@@ -296,7 +296,7 @@ async fn space_id_override_denies_everyone() {
     let everyone_deny =
         json!([{ "targetId": SPACE_ID, "targetType": "role", "allow": [], "deny": ["send"] }]);
     for role_ids in [json!([]), json!(["r1"])] {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let members =
             json!([{ "id": ACCOUNT_ID, "roleIds": role_ids, "joinedAt": "2026-01-01T00:00:00Z" }]);
         seed_channel_with_members(&backend, json!(["send"]), members, everyone_deny.clone());
@@ -342,7 +342,7 @@ async fn get_omits_messages_in_channel_without_view() {
 /// returned.
 #[tokio::test]
 async fn get_returns_messages_in_channel_with_view() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view"]), true, json!([]));
     seed_message(&backend, "m1", CHANNEL_ID);
 
@@ -364,7 +364,7 @@ async fn get_returns_messages_in_channel_with_view() {
 /// `hasMention: true`.
 #[tokio::test]
 async fn query_omits_messages_in_channel_without_view() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(
         &backend,
         json!(["view"]),
@@ -393,7 +393,7 @@ async fn query_omits_messages_in_channel_without_view() {
 /// §Message/query L1209, positive case for both query shapes.
 #[tokio::test]
 async fn query_returns_messages_in_channel_with_view() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view"]), true, json!([]));
     seed_message(&backend, "m1", CHANNEL_ID);
 
@@ -503,7 +503,7 @@ async fn query_changes_in_unviewable_chat_cannot_calculate() {
     assert_eq!(err.error_type.to_string(), "cannotCalculateChanges");
 }
 
-async fn create_broadcast_message(backend: &MemoryBackend) -> Value {
+async fn create_broadcast_message(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
@@ -537,7 +537,7 @@ async fn create_broadcast_message(backend: &MemoryBackend) -> Value {
 /// (bd:JMAP-559u).
 #[tokio::test]
 async fn channel_role_deny_removes_mention_broadcast() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(
         &backend,
         json!(["view", "send", "mention_broadcast"]),
@@ -546,7 +546,7 @@ async fn channel_role_deny_removes_mention_broadcast() {
     );
     assert_created(&create_broadcast_message(&backend).await);
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(
         &backend,
         json!(["view", "send", "mention_broadcast"]),
@@ -562,11 +562,11 @@ async fn channel_role_deny_removes_mention_broadcast() {
 /// (bd:JMAP-559u).
 #[tokio::test]
 async fn channel_member_allow_grants_mention_broadcast() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(&backend, json!(["view", "send"]), true, json!([]));
     assert_forbidden(&create_broadcast_message(&backend).await);
 
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_channel(
         &backend,
         json!(["view", "send"]),

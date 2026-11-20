@@ -81,8 +81,8 @@ fn owner_and_sender() -> Value {
 
 /// A backend holding `chat` (if any) and the sender's ChatContact on the
 /// owner's contact list.
-fn backend_with(chat: Option<Value>, sender_blocked: bool) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend_with(chat: Option<Value>, sender_blocked: bool) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&account());
     if let Some(chat) = chat {
         backend.insert_object_for_test("Chat", ACCOUNT, CHAT, chat);
@@ -105,12 +105,12 @@ fn backend_with(chat: Option<Value>, sender_blocked: bool) -> MemoryBackend {
 }
 
 /// An unmuted group Chat with the owner and sender as members.
-fn plain_backend() -> MemoryBackend {
+fn plain_backend() -> MemoryBackend<()> {
     backend_with(Some(group_chat(owner_and_sender(), json!({}))), false)
 }
 
 /// The group Chat muted with `fields`, the owner and sender as members.
-fn muted_backend(fields: Value) -> MemoryBackend {
+fn muted_backend(fields: Value) -> MemoryBackend<()> {
     backend_with(Some(group_chat(owner_and_sender(), fields)), false)
 }
 
@@ -138,7 +138,7 @@ fn inbound() -> Message {
 }
 
 async fn decide(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     caps: &HashMap<Id, ChatPushCapability>,
     cfg: &ChatPushConfig,
     msg: &Message,

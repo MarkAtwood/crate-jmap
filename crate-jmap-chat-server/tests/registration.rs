@@ -68,7 +68,7 @@ const SPEC_METHODS: &[&str] = &[
 ];
 
 async fn call(method: &str) -> JmapResponse {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let mut dispatcher = Dispatcher::new();
     register_chat_handlers(&mut dispatcher, Arc::new(backend));

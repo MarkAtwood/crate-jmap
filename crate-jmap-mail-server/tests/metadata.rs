@@ -54,8 +54,8 @@ fn info() -> DataTypeMetadataInfo {
     .unwrap()
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default()
         .with_metadata_info("Mailbox", info())
         .with_metadata_info("Email", info());
     backend.register_account(&Id::from(ACCOUNT_ID));
@@ -69,12 +69,12 @@ fn error_type(err: JmapError) -> Value {
 
 /// Store a Mailbox named `name` and return its id. Its stored `myRights`
 /// is never shown: the caller, the owner, holds every right.
-async fn mailbox_fixture(backend: &MemoryBackend, name: &str) -> String {
+async fn mailbox_fixture(backend: &MemoryBackend<()>, name: &str) -> String {
     mailbox_fixture_in(backend, ACCOUNT_ID, name).await
 }
 
 /// [`mailbox_fixture`] in `account`.
-async fn mailbox_fixture_in(backend: &MemoryBackend, account: &str, name: &str) -> String {
+async fn mailbox_fixture_in(backend: &MemoryBackend<()>, account: &str, name: &str) -> String {
     let name = name.to_owned();
     let (id, _) = MailBackend::create_object::<Mailbox, _>(
         backend,
@@ -104,7 +104,7 @@ async fn mailbox_fixture_in(backend: &MemoryBackend, account: &str, name: &str) 
     id.to_string()
 }
 
-async fn mailbox_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn mailbox_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
@@ -114,7 +114,7 @@ async fn mailbox_set(backend: &MemoryBackend, args: Value, using: &[String]) -> 
     primary
 }
 
-async fn email_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn email_set(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } =
@@ -125,13 +125,13 @@ async fn email_set(backend: &MemoryBackend, args: Value, using: &[String]) -> Va
 }
 
 /// Apply a Mailbox/set update that must succeed; returns the response.
-async fn update_mailbox(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update_mailbox(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let resp = mailbox_set(backend, json!({ "update": { id: patch } }), &using()).await;
     assert_eq!(resp["updated"], json!({ id: null }), "{resp}");
     resp
 }
 
-async fn create_mailbox(backend: &MemoryBackend, create: Value) -> String {
+async fn create_mailbox(backend: &MemoryBackend<()>, create: Value) -> String {
     let resp = mailbox_set(backend, json!({ "create": { "c": create } }), &using()).await;
     resp["created"]["c"]["id"]
         .as_str()
@@ -139,7 +139,7 @@ async fn create_mailbox(backend: &MemoryBackend, create: Value) -> String {
         .to_owned()
 }
 
-async fn create_email(backend: &MemoryBackend, mailbox: &str, metadata: Value) -> String {
+async fn create_email(backend: &MemoryBackend<()>, mailbox: &str, metadata: Value) -> String {
     let create = json!({
         "mailboxIds": { mailbox: true },
         "subject": "s",
@@ -154,7 +154,7 @@ async fn create_email(backend: &MemoryBackend, mailbox: &str, metadata: Value) -
         .to_owned()
 }
 
-async fn mailbox_metadata(backend: &MemoryBackend, id: &str) -> Value {
+async fn mailbox_metadata(backend: &MemoryBackend<()>, id: &str) -> Value {
     let args = json!({ "accountId": ACCOUNT_ID, "ids": [id], "properties": ["metadata"] });
     let HandlerOutput { primary, .. } = handle_mailbox_get(backend, &(), args, &using())
         .await
@@ -162,21 +162,21 @@ async fn mailbox_metadata(backend: &MemoryBackend, id: &str) -> Value {
     primary["list"][0]["metadata"].clone()
 }
 
-async fn mailbox_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
+async fn mailbox_query(backend: &MemoryBackend<()>, filter: Value) -> Result<Value, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
     handle_mailbox_query(backend, &(), args, &using())
         .await
         .map(|o| o.primary["ids"].clone())
 }
 
-async fn email_query(backend: &MemoryBackend, filter: Value) -> Result<Value, JmapError> {
+async fn email_query(backend: &MemoryBackend<()>, filter: Value) -> Result<Value, JmapError> {
     let args = json!({ "accountId": ACCOUNT_ID, "filter": filter });
     handle_email_query(backend, &(), args, &using())
         .await
         .map(|o| o.primary["ids"].clone())
 }
 
-async fn mailbox_changes(backend: &MemoryBackend, args: Value, using: &[String]) -> Value {
+async fn mailbox_changes(backend: &MemoryBackend<()>, args: Value, using: &[String]) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     handle_mailbox_changes(backend, &(), args, using)
@@ -468,7 +468,7 @@ async fn non_dns_namespace_key_is_invalid_properties() {
 /// backend that did not opt in rejects the write.
 #[tokio::test]
 async fn unlisted_type_rejects_metadata_write() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     let resp = mailbox_set(
         &backend,
@@ -684,7 +684,7 @@ async fn metadata_only_email_changes() {
 /// Run a /get with `properties` on `id` in `account` and return its one
 /// list entry.
 async fn get_one(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     method: &str,
     account: &str,
     id: &str,
@@ -926,7 +926,7 @@ async fn get_unsupported_namespace_subselector() {
 
 /// Email/copy one Email from [`ACCOUNT_ID`] to [`OTHER_ID`] with the
 /// create object `create`; returns the response.
-async fn email_copy(backend: &MemoryBackend, create: Value, using: &[String]) -> Value {
+async fn email_copy(backend: &MemoryBackend<()>, create: Value, using: &[String]) -> Value {
     let args = json!({
         "fromAccountId": ACCOUNT_ID,
         "accountId": OTHER_ID,
@@ -939,7 +939,7 @@ async fn email_copy(backend: &MemoryBackend, create: Value, using: &[String]) ->
 }
 
 /// The `metadata` of the Email `copy_resp` created, read in [`OTHER_ID`].
-async fn copied_metadata(backend: &MemoryBackend, copy_resp: &Value) -> Value {
+async fn copied_metadata(backend: &MemoryBackend<()>, copy_resp: &Value) -> Value {
     let id = copy_resp["created"]["c"]["id"]
         .as_str()
         .unwrap_or_else(|| panic!("Email/copy failed: {copy_resp}"));

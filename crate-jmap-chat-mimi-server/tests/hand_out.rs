@@ -47,8 +47,8 @@ fn hex(s: &str) -> Vec<u8> {
         .collect()
 }
 
-fn alice_backend(max: u64) -> MemoryBackend<RustCrypto> {
-    let backend = MemoryBackend::new(RustCrypto::default());
+fn alice_backend(max: u64) -> MemoryBackend<RustCrypto, ()> {
+    let backend = MemoryBackend::<_, ()>::with_crypto(RustCrypto::default());
     let capability: MimiCapability = serde_json::from_value(json!({
         "userUri": ALICE,
         "roomIdPrefix": "mimi://a.example/r/",
@@ -118,7 +118,7 @@ fn accepts(suites: &[u16]) -> KeyMaterialRequirements {
     )
 }
 
-async fn set(backend: &MemoryBackend<RustCrypto>, args: Value) -> Value {
+async fn set(backend: &MemoryBackend<RustCrypto, ()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!("a1");
     handle_key_package_set(backend, &(), args)
@@ -127,7 +127,7 @@ async fn set(backend: &MemoryBackend<RustCrypto>, args: Value) -> Value {
         .primary
 }
 
-async fn create(backend: &MemoryBackend<RustCrypto>, kp: &[u8]) -> Value {
+async fn create(backend: &MemoryBackend<RustCrypto, ()>, kp: &[u8]) -> Value {
     set(
         backend,
         json!({ "create": { "k": { "keyPackage": b64(kp) } } }),
@@ -135,7 +135,7 @@ async fn create(backend: &MemoryBackend<RustCrypto>, kp: &[u8]) -> Value {
     .await
 }
 
-async fn get_all(backend: &MemoryBackend<RustCrypto>) -> Value {
+async fn get_all(backend: &MemoryBackend<RustCrypto, ()>) -> Value {
     handle_key_package_get(backend, &(), json!({ "accountId": "a1", "ids": null }))
         .await
         .expect("KeyPackage/get")
@@ -143,7 +143,7 @@ async fn get_all(backend: &MemoryBackend<RustCrypto>) -> Value {
 }
 
 async fn claim(
-    backend: &MemoryBackend<RustCrypto>,
+    backend: &MemoryBackend<RustCrypto, ()>,
     requirements: &KeyMaterialRequirements,
 ) -> Vec<ClientKeyMaterial> {
     backend

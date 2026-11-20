@@ -34,7 +34,7 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "account1";
 
-async fn dispatch(backend: MemoryBackend, method_calls: Value) -> JmapResponse {
+async fn dispatch(backend: MemoryBackend<()>, method_calls: Value) -> JmapResponse {
     let mut dispatcher = Dispatcher::new();
     register_mail_handlers(&mut dispatcher, Arc::new(backend));
     let request: JmapRequest = serde_json::from_value(json!({
@@ -49,8 +49,8 @@ async fn dispatch(backend: MemoryBackend, method_calls: Value) -> JmapResponse {
     dispatcher.dispatch(request, (), State::from("s0")).await
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT));
     backend
 }
@@ -160,7 +160,7 @@ async fn mailbox_unknown_parent_ref_is_invalid_properties() {
 }
 
 /// Seed an Email in a seeded Mailbox; returns the Email id.
-async fn seed_email(backend: &MemoryBackend) -> Id {
+async fn seed_email(backend: &MemoryBackend<()>) -> Id {
     let account = Id::from(ACCOUNT);
     let (seed_mailbox, _) = backend
         .create_object::<Mailbox, _>(&(), &account, "seed", |id: &Id| {

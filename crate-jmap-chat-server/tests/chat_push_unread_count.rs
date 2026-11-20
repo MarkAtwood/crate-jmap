@@ -18,8 +18,8 @@ const ACCOUNT: &str = "acct-owner";
 const FUTURE: &str = "2099-01-01T00:00:00Z";
 const PAST: &str = "2000-01-01T00:00:00Z";
 
-fn backend(maintains_unread_count: bool) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend(maintains_unread_count: bool) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT));
     backend.set_maintains_unread_count_for_test(maintains_unread_count);
     backend
@@ -27,7 +27,7 @@ fn backend(maintains_unread_count: bool) -> MemoryBackend {
 
 /// Store a group Chat `id` with stored `unreadCount` and the mute fields
 /// merged in from `fields`.
-fn chat(backend: &MemoryBackend, id: &str, unread: u64, fields: Value) {
+fn chat(backend: &MemoryBackend<()>, id: &str, unread: u64, fields: Value) {
     let mut chat = json!({
         "id": id,
         "kind": "group",
@@ -41,7 +41,7 @@ fn chat(backend: &MemoryBackend, id: &str, unread: u64, fields: Value) {
     backend.insert_object_for_test("Chat", ACCOUNT, id, chat);
 }
 
-fn message(backend: &MemoryBackend, id: &str, chat_id: &str) {
+fn message(backend: &MemoryBackend<()>, id: &str, chat_id: &str) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT,
@@ -63,7 +63,7 @@ fn message(backend: &MemoryBackend, id: &str, chat_id: &str) {
     );
 }
 
-async fn total(backend: &MemoryBackend) -> u64 {
+async fn total(backend: &MemoryBackend<()>) -> u64 {
     owner_unread_count(backend, &(), &Id::from(ACCOUNT))
         .await
         .expect("owner_unread_count")

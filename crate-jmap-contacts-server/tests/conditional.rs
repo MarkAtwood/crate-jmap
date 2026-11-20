@@ -27,9 +27,9 @@ const USING: &[&str] = &[
 ];
 
 /// Account acc1 with AddressBook ab1 "Friends" holding ContactCard card1.
-fn backend() -> Arc<MemoryBackend> {
+fn backend() -> Arc<MemoryBackend<()>> {
     let acc = Id::from("acc1");
-    let b = MemoryBackend::new().with_account(&acc);
+    let b = MemoryBackend::<()>::default().with_account(&acc);
     b.seed_object(
         &acc,
         "AddressBook",
@@ -48,7 +48,7 @@ fn backend() -> Arc<MemoryBackend> {
     Arc::new(b)
 }
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend<()>>) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     register_contacts_handlers(&mut d, Arc::clone(b));
     register_contacts_conditional(&mut d, Arc::clone(b));

@@ -25,11 +25,11 @@ const OTHER_SPACE_ID: &str = "space2";
 /// `"view"` permission before returning messages in `Message/get`", which
 /// this crate does. The role also grants `"manage_space"`, which this
 /// crate requires for §Destroying a Space.
-fn seed_space(backend: &MemoryBackend, id: &str) {
+fn seed_space(backend: &MemoryBackend<()>, id: &str) {
     seed_space_with(backend, id, json!(["view", "manage_space"]));
 }
 
-fn seed_space_with(backend: &MemoryBackend, id: &str, permissions: Value) {
+fn seed_space_with(backend: &MemoryBackend<()>, id: &str, permissions: Value) {
     backend.insert_object_for_test(
         "Space",
         ACCOUNT_ID,
@@ -49,7 +49,7 @@ fn seed_space_with(backend: &MemoryBackend, id: &str, permissions: Value) {
     );
 }
 
-fn seed_chat(backend: &MemoryBackend, id: &str, extra: Value) {
+fn seed_chat(backend: &MemoryBackend<()>, id: &str, extra: Value) {
     let mut chat = json!({
         "id": id,
         "createdAt": "2026-01-01T00:00:00Z",
@@ -63,7 +63,7 @@ fn seed_chat(backend: &MemoryBackend, id: &str, extra: Value) {
     backend.insert_object_for_test("Chat", ACCOUNT_ID, id, chat);
 }
 
-fn seed_message(backend: &MemoryBackend, id: &str, chat_id: &str) {
+fn seed_message(backend: &MemoryBackend<()>, id: &str, chat_id: &str) {
     backend.insert_object_for_test(
         "Message",
         ACCOUNT_ID,
@@ -91,7 +91,7 @@ fn seed_message(backend: &MemoryBackend, id: &str, chat_id: &str) {
 /// messages), plus records the cascade must not touch: direct Chat
 /// `dm` with message `m2` and channel `other` of `OTHER_SPACE_ID` with
 /// message `m3`.
-fn seed(backend: &MemoryBackend) {
+fn seed(backend: &MemoryBackend<()>) {
     backend.register_account(&Id::from(ACCOUNT_ID));
     seed_space(backend, SPACE_ID);
     seed_space(backend, OTHER_SPACE_ID);
@@ -133,7 +133,7 @@ fn sorted_ids(v: &Value) -> Vec<String> {
 
 #[tokio::test]
 async fn destroying_space_destroys_its_channels_and_their_messages() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed(&backend);
 
     let all_chats = json!({ "accountId": ACCOUNT_ID, "ids": ["ch1", "ch2", "other", "dm"] });
@@ -267,7 +267,7 @@ async fn channel_read_failure_leaves_space_and_channels() {
 /// the Space and its channels survive.
 #[tokio::test]
 async fn destroy_without_manage_space_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     seed_space_with(&backend, SPACE_ID, json!(["view"]));
     seed_chat(

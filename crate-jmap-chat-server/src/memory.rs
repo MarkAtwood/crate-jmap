@@ -62,6 +62,7 @@
 mod history;
 
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::marker::PhantomData;
 use std::sync::{Arc, Mutex};
 
 use crate::{
@@ -79,8 +80,8 @@ use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, MemoryCaller, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, MergePatchError, PatchPathError,
@@ -199,7 +200,7 @@ struct Inner {
     /// [`ChatSettings::owner_user_id`]. Set via
     /// `MemoryBackend::set_owner_user_id_for_test`.
     owner_user_ids: HashMap<String, String>,
-    /// Push subscriptions by id. `CallerCtx = ()` means one owner, so
+    /// Push subscriptions by id. Every caller acts as the one owner, so
     /// every stored subscription belongs to every caller.
     push_subscriptions: HashMap<Id, StoredPushSubscription>,
     /// account id -> its `urn:ietf:params:jmap:chat:push` capability
@@ -423,9 +424,16 @@ impl Inner {
 /// harness and the canonical example for backend implementors.
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity. This
+/// backend keeps no per-user state, so every caller acts as the account
+/// owner; [`JmapAccounts::principal_id`] returns
+/// [`MemoryCaller::principal`].
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
 }
 
 /// Manual `Clone` impl, not `#[derive(Clone)]`: cloning is **shared-state**.
@@ -435,21 +443,23 @@ pub struct MemoryBackend {
 /// one handle can seed or inspect state while another serves requests. This
 /// impl must never become a deep copy; for independent state construct a
 /// fresh [`MemoryBackend::new`] instead of calling `.clone()`.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
-impl Default for MemoryBackend {
+impl<C> Default for MemoryBackend<C> {
     fn default() -> Self {
         Self {
             inner: ScopedState::new(Inner {
                 everyone_permissions: HashSet::from([ChatPermission::View, ChatPermission::Send]),
                 ..Inner::default()
             }),
+            caller: PhantomData,
         }
     }
 }
@@ -459,10 +469,15 @@ impl MemoryBackend {
     ///
     /// The implicit `@everyone` role grants `"view"` and `"send"` in every
     /// Space; change that with [`set_everyone_permissions`](Self::set_everyone_permissions).
+    ///
+    /// Its callers are Principal ids (`C = Id`);
+    /// `MemoryBackend::<()>::default()` takes callers without identity.
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Give `data_type` the draft-ietf-jmap-metadata-05 `metadata`
     /// property, configured by `info` (the DataTypeMetadataInfo of -05
     /// §1.2.1). draft-atwood-jmap-chat-00 lets a server list `Chat`,
@@ -489,7 +504,7 @@ impl MemoryBackend {
     ///
     /// Panics if `data_type` is not `"Chat"`, `"Message"` or `"Space"`,
     /// or if `info.supports_private` is true: this backend has no
-    /// per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
+    /// per-user state to own `privateMetadata`
     /// (-05 §2).
     #[must_use]
     pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
@@ -1083,15 +1098,20 @@ impl std::fmt::Display for MemoryError {
 
 impl std::error::Error for MemoryError {}
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
+
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
 
     /// The info set by [`MemoryBackend::with_metadata_info`], the same for
     /// every account.
     fn metadata_info<O: JmapObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         self.inner
@@ -1101,16 +1121,16 @@ impl JmapAccounts for MemoryBackend {
             .cloned()
     }
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -1161,7 +1181,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().await;
@@ -1171,7 +1191,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
@@ -1356,7 +1376,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
@@ -1489,7 +1509,7 @@ impl JmapReads for MemoryBackend {
     /// updated.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
@@ -1558,10 +1578,10 @@ impl JmapReads for MemoryBackend {
     }
 }
 
-impl ChatStore for MemoryBackend {
+impl<C: MemoryCaller> ChatStore for MemoryBackend<C> {
     async fn create_object<O, F>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1587,7 +1607,7 @@ impl ChatStore for MemoryBackend {
     /// event or the event without its Message.
     async fn create_message<F>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1617,7 +1637,7 @@ impl ChatStore for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -1694,7 +1714,7 @@ impl ChatStore for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -1781,19 +1801,15 @@ impl ChatStore for MemoryBackend {
         Ok(())
     }
 
-    fn supports_type<O: JmapObject>(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-    ) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &C, _account_id: &jmap_types::Id) -> bool {
         true
     }
 }
 
-impl ChatSpaces for MemoryBackend {
+impl<C: MemoryCaller> ChatSpaces for MemoryBackend<C> {
     async fn generate_invite_code(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Result<String, MemoryError> {
         // CSPRNG-backed invite code, per the contract documented on
@@ -1830,7 +1846,7 @@ impl ChatSpaces for MemoryBackend {
     /// refusal or error leaves storage unchanged.
     async fn join_space_with_invite(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         invite_id: &Id,
         joined_at: &jmap_types::UTCDate,
@@ -1909,7 +1925,7 @@ impl ChatSpaces for MemoryBackend {
     /// for the rationale: production deployments inherit the trait
     /// default; the reference backend opts out so existing demo tests
     /// don't have to seed admin memberships.
-    fn protect_last_admin(&self, _caller: &(), _account_id: &Id) -> bool {
+    fn protect_last_admin(&self, _caller: &C, _account_id: &Id) -> bool {
         let inner = self.inner.lock_unscoped();
         inner.protect_last_admin
     }
@@ -1918,11 +1934,7 @@ impl ChatSpaces for MemoryBackend {
     /// [`ChatSpaces::space_extension_properties`]: the list set via
     /// `MemoryBackend::set_space_extension_properties_for_test`, empty
     /// by default. Values are stored unvalidated.
-    fn space_extension_properties(
-        &self,
-        _caller: &(),
-        _account_id: &Id,
-    ) -> &'static [&'static str] {
+    fn space_extension_properties(&self, _caller: &C, _account_id: &Id) -> &'static [&'static str] {
         let inner = self.inner.lock_unscoped();
         inner.space_extension_properties
     }
@@ -1953,7 +1965,7 @@ impl ChatSpaces for MemoryBackend {
     /// (draft-atwood-jmap-chat-00 §Terminology), so permission and
     /// role-hierarchy gates resolve against `account_id`. They apply
     /// whether or not [`JmapAccounts::principal_id`] resolves an
-    /// identity; `MemoryBackend`'s `CallerCtx = ()` resolves none.
+    /// identity; this backend never consults it.
     ///
     /// # Change-log emission
     ///
@@ -1974,7 +1986,7 @@ impl ChatSpaces for MemoryBackend {
     /// it (bd:JMAP-g7wu.2.4.9 closed the original gap).
     async fn apply_space_patch(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         space_id: &Id,
         ops: Vec<SpacePatchOp>,
@@ -1995,7 +2007,7 @@ impl ChatSpaces for MemoryBackend {
     /// See `bd:JMAP-g7wu.2.4.13`.
     async fn apply_space_metadata_patch(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         space_id: &Id,
         patch: jmap_chat_types::SpaceMetadataPatch,
@@ -2009,7 +2021,7 @@ impl ChatSpaces for MemoryBackend {
     /// `space`, else the one from [`MemoryBackend::set_everyone_permissions`].
     async fn everyone_permissions(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         space: &jmap_chat_types::Space,
     ) -> Result<HashSet<ChatPermission>, Self::Error> {
@@ -2022,13 +2034,13 @@ impl ChatSpaces for MemoryBackend {
     }
 }
 
-impl SpacePolicy for MemoryBackend {
+impl<C: MemoryCaller> SpacePolicy for MemoryBackend<C> {
     /// Reference implementation of [`SpacePolicy::may_set_custom_emoji`].
     ///
     /// Demonstration-only: returns `Ok(Ok(()))` unconditionally. The
     /// reference backend does not honor identity-scoped permissions
-    /// because `JmapAccounts::principal_id(&())` returns `None` for the
-    /// workspace's `CallerCtx = ()` default. A meaningful permission
+    /// because it treats every caller as the account owner, whatever
+    /// `JmapAccounts::principal_id` returns. A meaningful permission
     /// model — e.g. "only members of the target Space may modify a
     /// Space-scoped emoji" — requires the production backend to
     /// override both `principal_id` and this method.
@@ -2037,7 +2049,7 @@ impl SpacePolicy for MemoryBackend {
     /// for `CustomEmoji/set` is implementation-defined).
     async fn may_set_custom_emoji(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _target_space_id: Option<&Id>,
         _op: EmojiSetOp,
@@ -2053,7 +2065,7 @@ impl SpacePolicy for MemoryBackend {
     /// caller's member entry is `account_id` (draft §Terminology).
     async fn may_set_space_ban(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         space_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
@@ -2085,7 +2097,7 @@ impl SpacePolicy for MemoryBackend {
     /// exist is permitted, matching the ban gate.
     async fn may_set_space_invite(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         space_id: &Id,
         created_by: Option<&Id>,
@@ -2124,7 +2136,7 @@ impl SpacePolicy for MemoryBackend {
     /// created.
     async fn may_get_space_invite(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         invite: &jmap_chat_types::SpaceInvite,
     ) -> Result<bool, Self::Error> {
@@ -2151,7 +2163,7 @@ impl SpacePolicy for MemoryBackend {
     /// [`Self::may_set_space_ban`], which lets such a ban be created.
     async fn may_get_space_ban(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         ban: &jmap_chat_types::SpaceBan,
     ) -> Result<bool, Self::Error> {
@@ -2172,7 +2184,7 @@ impl SpacePolicy for MemoryBackend {
     }
 }
 
-impl ChatAccessPolicy for MemoryBackend {
+impl<C: MemoryCaller> ChatAccessPolicy for MemoryBackend<C> {
     /// Reference implementation of [`ChatAccessPolicy::may_broadcast_mention`].
     ///
     /// Implements draft-atwood-jmap-chat-00 §BroadcastMention: a
@@ -2184,7 +2196,7 @@ impl ChatAccessPolicy for MemoryBackend {
     /// matching the ban gate.
     async fn may_broadcast_mention(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         space_id: &Id,
         chat_id: &Id,
@@ -2224,7 +2236,7 @@ impl ChatAccessPolicy for MemoryBackend {
     /// so `create_object` surfaces the normal error.
     async fn may_send_message(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
@@ -2270,7 +2282,7 @@ impl ChatAccessPolicy for MemoryBackend {
     /// do not exist, are visible. `query_objects` applies the same rule.
     async fn may_view_chat(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<bool, Self::Error> {
@@ -2293,7 +2305,7 @@ impl ChatAccessPolicy for MemoryBackend {
     /// an identity.
     async fn may_set_pinned_messages(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         chat_id: &Id,
     ) -> Result<Result<(), SetError>, Self::Error> {
@@ -2336,7 +2348,7 @@ impl ChatAccessPolicy for MemoryBackend {
     /// absence of a rate-tracker for an oversight.
     async fn slow_mode_check(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _chat_id: &Id,
     ) -> Result<(), SlowModeError> {
@@ -2344,11 +2356,11 @@ impl ChatAccessPolicy for MemoryBackend {
     }
 }
 
-impl ChatRestrictions for MemoryBackend {}
+impl<C: MemoryCaller> ChatRestrictions for MemoryBackend<C> {}
 
-impl ChatModeration for MemoryBackend {}
+impl<C: MemoryCaller> ChatModeration for MemoryBackend<C> {}
 
-impl ChatMessageLifecycle for MemoryBackend {
+impl<C: MemoryCaller> ChatMessageLifecycle for MemoryBackend<C> {
     /// Reference implementation of [`ChatMessageLifecycle::expire_message`].
     ///
     /// Hard-deletes the message from the in-memory store and appends a
@@ -2362,7 +2374,7 @@ impl ChatMessageLifecycle for MemoryBackend {
     /// the trait's idempotency contract.
     async fn expire_message(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         message_id: &Id,
     ) -> Result<(), Self::Error> {
@@ -2393,7 +2405,7 @@ impl ChatMessageLifecycle for MemoryBackend {
     /// patch returns before any write.
     async fn read_and_burn_message(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         message_id: &Id,
         patch: jmap_types::PatchObject,
@@ -2415,12 +2427,12 @@ impl ChatMessageLifecycle for MemoryBackend {
     }
 }
 
-impl ChatEvents for MemoryBackend {
+impl<C: MemoryCaller> ChatEvents for MemoryBackend<C> {
     /// Records the call for
     /// `MemoryBackend::take_lifecycle_events_for_test`.
     fn on_chat_destroyed(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         chat_id: &Id,
     ) -> impl std::future::Future<Output = ()> + Send {
@@ -2431,7 +2443,7 @@ impl ChatEvents for MemoryBackend {
     /// `MemoryBackend::take_lifecycle_events_for_test`.
     fn on_space_destroyed(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         space_id: &Id,
     ) -> impl std::future::Future<Output = ()> + Send {
@@ -2442,7 +2454,7 @@ impl ChatEvents for MemoryBackend {
     /// `MemoryBackend::take_lifecycle_events_for_test`.
     fn on_space_ban_created(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         ban: &jmap_chat_types::SpaceBan,
     ) -> impl std::future::Future<Output = ()> + Send {
@@ -2453,7 +2465,7 @@ impl ChatEvents for MemoryBackend {
     /// `MemoryBackend::take_outbound_events_for_test`.
     fn on_outbound_event(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         event: &crate::OutboundEvent,
     ) -> impl std::future::Future<Output = ()> + Send {
@@ -2468,7 +2480,7 @@ impl ChatEvents for MemoryBackend {
     }
 }
 
-impl ChatSettings for MemoryBackend {
+impl<C: MemoryCaller> ChatSettings for MemoryBackend<C> {
     /// Reference implementation of [`ChatSettings::limits`].
     ///
     /// Returns the test-only override set via
@@ -2476,7 +2488,7 @@ impl ChatSettings for MemoryBackend {
     /// back to [`ChatLimits::default`]. Production backends ignore the
     /// override knob and read from their own per-account
     /// configuration.
-    fn limits(&self, _caller: &(), _account_id: &Id) -> ChatLimits {
+    fn limits(&self, _caller: &C, _account_id: &Id) -> ChatLimits {
         let inner = self.inner.lock_unscoped();
         inner.limits_override.unwrap_or_default()
     }
@@ -2506,7 +2518,7 @@ impl ChatSettings for MemoryBackend {
     /// or `None` when unset.
     async fn owner_user_id(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<Option<String>, Self::Error> {
         let inner = self.inner.lock().await;
@@ -2518,20 +2530,20 @@ impl ChatSettings for MemoryBackend {
     /// every account.
     async fn search_capability(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Result<Option<jmap_search::SearchCapability>, Self::Error> {
         Ok(self.inner.lock().await.search.clone())
     }
 }
 
-impl ChatResolvers for MemoryBackend {
+impl<C: MemoryCaller> ChatResolvers for MemoryBackend<C> {
     /// Reference implementation of [`ChatResolvers::attachment_blob`]:
     /// reports the blob registered via
     /// `MemoryBackend::set_attachment_blob_for_test`, else `Ok(Ok(None))`.
     async fn attachment_blob(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Result<Option<AttachmentBlob>, SetError>, Self::Error> {
@@ -2545,7 +2557,7 @@ impl ChatResolvers for MemoryBackend {
 
 /// Reference RFC 8620 §7.2 push subscription storage.
 ///
-/// `CallerCtx = ()` means single-owner mode: every subscription belongs to
+/// Single-owner mode (every caller acts as the owner): every subscription belongs to
 /// the one caller, and [`MAX_PUSH_SUBSCRIPTIONS`] caps them all.
 ///
 /// ponytail: `url` and `keys` are stored as plain values and dropped on
@@ -2556,13 +2568,13 @@ impl ChatResolvers for MemoryBackend {
 /// ponytail: no creation rate limit and no `PushVerification` delivery. The
 /// backend has no clock window and no HTTP client; both are consumer MUSTs
 /// stated on [`PushSubscriptionBackend`].
-impl PushSubscriptionBackend for MemoryBackend {
+impl<C: MemoryCaller> PushSubscriptionBackend for MemoryBackend<C> {
     const PUSH_SUBSCRIPTION_EXTENSION_PROPERTIES: &'static [&'static str] =
         &[crate::push::CHAT_PUSH];
 
     async fn list_push_subscriptions(
         &self,
-        _caller: &(),
+        _caller: &C,
     ) -> Result<Vec<StoredPushSubscription>, MemoryError> {
         let inner = self.inner.lock().await;
         Ok(inner
@@ -2583,7 +2595,7 @@ impl PushSubscriptionBackend for MemoryBackend {
     /// nothing is stored.
     async fn create_push_subscription(
         &self,
-        _caller: &(),
+        _caller: &C,
         mut new: PushSubscription,
     ) -> Result<StoredPushSubscription, BackendSetError<MemoryError>> {
         let expected_code = random_base64url_code();
@@ -2613,7 +2625,7 @@ impl PushSubscriptionBackend for MemoryBackend {
     /// [`validate_chat_push`] is rejected and the stored one is kept.
     async fn update_push_subscription(
         &self,
-        _caller: &(),
+        _caller: &C,
         sub: PushSubscription,
     ) -> Result<PushSubscription, BackendSetError<MemoryError>> {
         let mut inner = self.inner.lock().await;
@@ -2631,7 +2643,7 @@ impl PushSubscriptionBackend for MemoryBackend {
 
     async fn destroy_push_subscription(
         &self,
-        _caller: &(),
+        _caller: &C,
         id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
         let mut inner = self.inner.lock().await;
@@ -6215,33 +6227,61 @@ fn variant_name(op: &SpacePatchOp) -> &'static str {
     }
 }
 
-/// The conformance-suite seam: the `test-helpers` setters stand in for
-/// account provisioning, seeding and the outbound queue.
+/// The conformance-suite seam for one caller type: the `test-helpers`
+/// setters stand in for account provisioning, seeding and the outbound
+/// queue, and `$caller` is the caller of every request.
 #[cfg(all(feature = "testkit", feature = "test-helpers"))]
-impl crate::testkit::ConformanceBackend for MemoryBackend {
-    /// `CallerCtx` is `()`: every request acts as every account's owner.
-    fn caller(&self, _account_id: &Id) {}
+macro_rules! conformance_backend {
+    ($ctx:ty, $doc:literal, |$account:ident| $caller:expr) => {
+        impl crate::testkit::ConformanceBackend for MemoryBackend<$ctx> {
+            #[doc = $doc]
+            fn caller(&self, $account: &Id) -> $ctx {
+                $caller
+            }
 
-    async fn add_account(&self, account_id: &Id, owner_user_id: &str) {
-        self.register_account(account_id);
-        self.set_owner_user_id_for_test(account_id, owner_user_id);
-    }
+            async fn add_account(&self, account_id: &Id, owner_user_id: &str) {
+                self.register_account(account_id);
+                self.set_owner_user_id_for_test(account_id, owner_user_id);
+            }
 
-    /// # Panics
-    ///
-    /// If `object` has no `id` string.
-    async fn seed(&self, account_id: &Id, type_name: &'static str, object: serde_json::Value) {
-        let id = object["id"]
-            .as_str()
-            .unwrap_or_else(|| panic!("seed: {type_name} object has no `id` string: {object}"))
-            .to_owned();
-        self.insert_object_for_test(type_name, account_id.as_ref(), &id, object);
-    }
+            /// # Panics
+            ///
+            /// If `object` has no `id` string.
+            async fn seed(
+                &self,
+                account_id: &Id,
+                type_name: &'static str,
+                object: serde_json::Value,
+            ) {
+                let id = object["id"]
+                    .as_str()
+                    .unwrap_or_else(|| {
+                        panic!("seed: {type_name} object has no `id` string: {object}")
+                    })
+                    .to_owned();
+                self.insert_object_for_test(type_name, account_id.as_ref(), &id, object);
+            }
 
-    fn take_outbound_events(&self) -> Option<Vec<crate::OutboundEvent>> {
-        Some(self.take_outbound_events_for_test())
-    }
+            fn take_outbound_events(&self) -> Option<Vec<crate::OutboundEvent>> {
+                Some(self.take_outbound_events_for_test())
+            }
+        }
+    };
 }
+
+#[cfg(all(feature = "testkit", feature = "test-helpers"))]
+conformance_backend!(
+    (),
+    "A caller without identity: every request acts as every account's owner.",
+    |_account_id| ()
+);
+
+#[cfg(all(feature = "testkit", feature = "test-helpers"))]
+conformance_backend!(
+    Id,
+    "The account id: the owner's Space member id (draft-atwood-jmap-chat-00 §Terminology).",
+    |account_id| account_id.clone()
+);
 
 // ---------------------------------------------------------------------------
 // ConditionalBackend (draft-ietf-jmap-conditional-02)
@@ -6255,10 +6295,10 @@ impl crate::testkit::ConformanceBackend for MemoryBackend {
 /// scope the backend leaves its cross-object checks (CustomEmoji names and
 /// per-Space counts, the push subscription cap) to the commit, which
 /// checks the final state (`final_state_failures`).
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self.inner.open(request, final_state_failures).await)
@@ -6363,7 +6403,7 @@ mod tests {
     /// destroyed is reported only in `destroyed`.
     #[tokio::test]
     async fn get_changes_dedups_ids_across_window() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let id = |s: &str| Id::from(s);
         {
             let mut inner = backend.inner.lock_unscoped();
@@ -6415,7 +6455,7 @@ mod tests {
     /// chat types follow (bd:JMAP-ic0j.76).
     #[tokio::test]
     async fn get_changes_lists_created_and_destroyed_message_in_destroyed() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let id = |s: &str| Id::from(s);
         {
             let mut inner = backend.inner.lock_unscoped();
@@ -6498,7 +6538,7 @@ mod tests {
     /// could not satisfy.
     #[tokio::test]
     async fn generate_invite_code_is_csprng() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         const N: usize = 256;
         let mut codes: HashSet<String> = HashSet::with_capacity(N);
         for _ in 0..N {
@@ -6621,11 +6661,11 @@ mod clone_tests {
     /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
-        let a = MemoryBackend::new();
+        let a = MemoryBackend::<()>::default();
         let clone = a.clone();
-        let fresh = MemoryBackend::new();
+        let fresh = MemoryBackend::<()>::default();
         a.register_account(&Id::from("acc"));
-        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        let known = |b: &MemoryBackend<()>| b.inner.lock_unscoped().known_accounts.contains("acc");
         assert!(known(&clone), "a clone sees the original's writes");
         assert!(!known(&fresh), "a fresh backend does not");
     }
@@ -6642,7 +6682,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn with_account_registers_account() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new().with_account(&acc);
+        let backend = MemoryBackend::<()>::default().with_account(&acc);
         assert!(backend.account_exists(&(), &acc).await.unwrap());
         assert!(
             !backend
@@ -6657,7 +6697,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn seed_object_is_readable_without_state_change() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let before = backend
             .get_state::<jmap_chat_types::CustomEmoji>(&(), &acc)
             .await
@@ -6687,7 +6727,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "NoSuchType",
             &Id::from("x1"),
@@ -6698,7 +6738,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             jmap_chat_types::CustomEmoji::TYPE_NAME,
             &Id::from("x1"),
@@ -6716,7 +6756,7 @@ mod empty_account_id_tests {
     #[test]
     #[should_panic(expected = "account_id must not be the empty string")]
     fn register_account_rejects_empty_id() {
-        MemoryBackend::new().register_account(&Id::from(""));
+        MemoryBackend::<()>::default().register_account(&Id::from(""));
     }
 }
 
@@ -6729,8 +6769,8 @@ mod max_changes_tests {
 
     /// A backend whose `T` log holds one state per element of `states`,
     /// each creating the listed ids.
-    fn with_creates(states: &[&[&str]]) -> MemoryBackend {
-        let backend = MemoryBackend::new();
+    fn with_creates(states: &[&[&str]]) -> MemoryBackend<()> {
+        let backend = MemoryBackend::<()>::default();
         let mut inner = backend.inner.lock_unscoped();
         for ids in states {
             let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
@@ -6790,10 +6830,11 @@ mod max_changes_tests {
     }
 
     async fn changes(
-        backend: &MemoryBackend,
+        backend: &MemoryBackend<()>,
         since: &str,
         max: u64,
-    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend<()> as JmapAccounts>::Error>>
+    {
         backend
             .get_changes::<T>(
                 &CALLER,

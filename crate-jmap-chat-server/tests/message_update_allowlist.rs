@@ -20,7 +20,7 @@ use jmap_server::HandlerOutput;
 use jmap_types::{Id, PatchObject};
 use serde_json::{Value, json};
 
-async fn create_message(backend: &MemoryBackend) -> String {
+async fn create_message(backend: &MemoryBackend<()>) -> String {
     seed_group_chat(backend, "c1");
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
@@ -40,7 +40,7 @@ async fn create_message(backend: &MemoryBackend) -> String {
         .to_owned()
 }
 
-async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
@@ -53,7 +53,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
     resp
 }
 
-async fn get(backend: &MemoryBackend, id: &str) -> Value {
+async fn get(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
@@ -120,7 +120,7 @@ async fn non_updatable_properties_are_invalid_properties() {
         ),
     ];
     for (prop, value) in cases {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let id = create_message(&backend).await;
         let before = get(&backend, &id).await;
 
@@ -141,7 +141,7 @@ async fn non_updatable_properties_are_invalid_properties() {
 /// not applied.
 #[tokio::test]
 async fn allowed_key_does_not_carry_server_set_key() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let id = create_message(&backend).await;
     let before = get(&backend, &id).await;
 
@@ -166,7 +166,7 @@ async fn allowed_key_does_not_carry_server_set_key() {
 /// and that reaction survives.
 #[tokio::test]
 async fn top_level_reactions_cannot_wipe_other_senders() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let id = create_message(&backend).await;
     let other = json!({ "emoji": "👍", "senderId": "contact-1", "sentAt": "2024-01-01T00:00:01Z" });
     let seed: PatchObject =
@@ -199,7 +199,7 @@ async fn top_level_reactions_cannot_wipe_other_senders() {
 /// change; beside a §Message/set edit of `body`, the edit applies.
 #[tokio::test]
 async fn identical_server_set_values_are_admitted() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let id = create_message(&backend).await;
     let before = get(&backend, &id).await;
     let same = json!({
@@ -238,7 +238,7 @@ async fn identical_server_set_values_are_admitted() {
 /// whole map is still rejected (top_level_reactions_cannot_wipe_other_senders).
 #[tokio::test]
 async fn identical_top_level_reactions_is_a_no_op() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let id = create_message(&backend).await;
     let other = json!({ "emoji": "👍", "senderId": "contact-1", "sentAt": "2024-01-01T00:00:01Z" });
     let seed: PatchObject =
@@ -270,7 +270,7 @@ async fn identical_top_level_reactions_is_a_no_op() {
 /// `forbidden`.
 #[tokio::test]
 async fn forbidden_edit_with_read_only_change_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let id = create_message(&backend).await;
     let resp = update(
         &backend,
@@ -289,7 +289,7 @@ async fn forbidden_edit_with_read_only_change_is_forbidden() {
 /// changed read-only property.
 #[tokio::test]
 async fn read_only_change_of_missing_message_is_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     create_message(&backend).await;
     let resp = update(&backend, "nope", json!({ "senderId": "u9" })).await;
     assert_eq!(resp["notUpdated"]["nope"]["type"], "notFound", "{resp}");

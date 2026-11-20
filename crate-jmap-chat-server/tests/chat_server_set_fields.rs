@@ -28,7 +28,7 @@ const CHAT: &str = "chat1";
 const CLOSED_AT: &str = "2026-02-01T00:00:00Z";
 
 /// Store a group Chat the server has already closed, with an active call.
-fn seed_closed_group(backend: &MemoryBackend) {
+fn seed_closed_group(backend: &MemoryBackend<()>) {
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend.insert_object_for_test(
         "Chat",
@@ -46,7 +46,7 @@ fn seed_closed_group(backend: &MemoryBackend) {
     );
 }
 
-async fn update(backend: &MemoryBackend, patch: Value) -> Value {
+async fn update(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         backend,
         &(),
@@ -59,7 +59,7 @@ async fn update(backend: &MemoryBackend, patch: Value) -> Value {
     resp
 }
 
-async fn stored(backend: &MemoryBackend) -> Value {
+async fn stored(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &(),
@@ -73,7 +73,7 @@ async fn stored(backend: &MemoryBackend) -> Value {
 
 #[tokio::test]
 async fn chat_set_rejects_server_set_closed_at_and_active_call_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_closed_group(&backend);
 
     for (key, value) in [
@@ -102,7 +102,7 @@ async fn chat_set_rejects_server_set_closed_at_and_active_call_id() {
 
 #[tokio::test]
 async fn chat_set_rejects_server_set_channel_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_closed_group(&backend);
     let before = stored(&backend).await;
 
@@ -139,7 +139,7 @@ async fn chat_set_rejects_server_set_channel_fields() {
 /// not.
 #[tokio::test]
 async fn chat_set_admits_identical_server_set_values() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_closed_group(&backend);
     let before = stored(&backend).await;
     let same = json!({
@@ -188,7 +188,7 @@ async fn chat_set_admits_identical_server_set_values() {
 /// changes the server-set `activeCallId` is `forbidden`.
 #[tokio::test]
 async fn forbidden_update_with_read_only_change_is_forbidden() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_closed_group(&backend);
     let resp = update(
         &backend,
@@ -203,7 +203,7 @@ async fn forbidden_update_with_read_only_change_is_forbidden() {
 /// changed read-only property.
 #[tokio::test]
 async fn read_only_change_of_missing_chat_is_not_found() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     seed_closed_group(&backend);
     let HandlerOutput { primary: resp, .. } = handle_chat_set(
         &backend,

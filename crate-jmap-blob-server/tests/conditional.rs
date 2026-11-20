@@ -25,7 +25,7 @@ fn account() -> Id {
 }
 
 /// Dispatchers with the blob handlers; `conditional` adds the opt-in.
-fn dispatcher(b: &Arc<MemoryBackend>, conditional: bool) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend<()>>, conditional: bool) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     register_blob_handlers(&mut d, Arc::clone(b));
     if conditional {
@@ -35,8 +35,8 @@ fn dispatcher(b: &Arc<MemoryBackend>, conditional: bool) -> Dispatcher<()> {
 }
 
 /// A backend holding B1 = "Hello, world!".
-async fn seeded() -> Arc<MemoryBackend> {
-    let b = Arc::new(MemoryBackend::new().with_account(&account()));
+async fn seeded() -> Arc<MemoryBackend<()>> {
+    let b = Arc::new(MemoryBackend::<()>::default().with_account(&account()));
     let r = call(
         &dispatcher(&b, true),
         &[CORE, BLOB2],
@@ -69,7 +69,7 @@ fn destroy_b1_if(if_unchanged_by: Value) -> Value {
 }
 
 /// Which of `ids` Blob/get still finds.
-async fn existing(b: &Arc<MemoryBackend>, ids: &[&str]) -> Vec<String> {
+async fn existing(b: &Arc<MemoryBackend<()>>, ids: &[&str]) -> Vec<String> {
     let (_, r) = call(
         &dispatcher(b, false),
         &[CORE, BLOB2],
@@ -265,7 +265,7 @@ async fn conditional_arguments_without_the_uri() {
 
 #[test]
 fn ready_after_handlers_and_conditional() {
-    let b = Arc::new(MemoryBackend::new());
+    let b = Arc::new(MemoryBackend::<()>::default());
     let plain = dispatcher(&b, false);
     assert_eq!(plain.conditional_gaps(), ["Blob/set"]);
     assert!(!plain.conditional_ready());

@@ -15,7 +15,7 @@ mod threads {
     use super::{ChatLimits, MemoryBackend};
 
     jmap_chat_server::chat_backend_conformance!(|| {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.set_limits_for_test(Some(ChatLimits::default().with_supports_threads(true)));
         backend
     });

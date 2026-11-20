@@ -32,7 +32,7 @@ fn mailbox(id: &str, name: &str, parent: Option<&str>) -> Value {
 /// "Reports").
 fn dispatcher() -> Dispatcher<()> {
     let acc = Id::from("u1");
-    let b = MemoryBackend::new().with_account(&acc);
+    let b = MemoryBackend::<()>::default().with_account(&acc);
     for (id, name, parent) in [
         ("a", "Work", None),
         ("a1", "Reports", Some("a")),

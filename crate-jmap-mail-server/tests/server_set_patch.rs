@@ -31,8 +31,8 @@ use serde_json::{Value, json};
 
 const ACCOUNT: &str = "account1";
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT));
     backend
 }
@@ -48,7 +48,7 @@ fn assert_noop(resp: &Value, id: &str) {
     assert_eq!(resp["oldState"], resp["newState"], "{resp}");
 }
 
-async fn import_email(backend: &MemoryBackend) -> Id {
+async fn import_email(backend: &MemoryBackend<()>) -> Id {
     let blob_id = Id::from("blob-server-set");
     backend.store_blob(
         &blob_id,
@@ -68,7 +68,7 @@ async fn import_email(backend: &MemoryBackend) -> Id {
     email_id
 }
 
-async fn create_identity(backend: &MemoryBackend) -> Id {
+async fn create_identity(backend: &MemoryBackend<()>) -> Id {
     let identity = |id: &Id| Identity::new(id.clone(), "alice@example.com", true);
     let (id, _) = backend
         .create_object::<Identity, _>(&(), &Id::from(ACCOUNT), "i0", identity)
@@ -77,7 +77,7 @@ async fn create_identity(backend: &MemoryBackend) -> Id {
     id
 }
 
-async fn mailbox_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn mailbox_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let HandlerOutput { primary, .. } =
         handle_mailbox_set(backend, &(), &BTreeMap::new(), args, &[])
             .await
@@ -85,7 +85,7 @@ async fn mailbox_set(backend: &MemoryBackend, args: Value) -> Value {
     primary
 }
 
-async fn get_mailbox(backend: &MemoryBackend, id: &str) -> Value {
+async fn get_mailbox(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary, .. } = handle_mailbox_get(
         backend,
         &(),
@@ -97,7 +97,7 @@ async fn get_mailbox(backend: &MemoryBackend, id: &str) -> Value {
     primary["list"][0].clone()
 }
 
-async fn create_mailbox(backend: &MemoryBackend, name: &str) -> String {
+async fn create_mailbox(backend: &MemoryBackend<()>, name: &str) -> String {
     let resp = mailbox_set(
         backend,
         json!({ "accountId": ACCOUNT, "create": { "m": { "name": name } } }),
@@ -198,14 +198,14 @@ async fn mailbox_read_only_change_of_missing_id_is_not_found() {
     assert_eq!(resp["notUpdated"]["nope"]["type"], "notFound", "{resp}");
 }
 
-async fn email_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn email_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let HandlerOutput { primary, .. } = handle_email_set(backend, &(), &BTreeMap::new(), args, &[])
         .await
         .expect("Email/set");
     primary
 }
 
-async fn get_email(backend: &MemoryBackend, id: &Id) -> Value {
+async fn get_email(backend: &MemoryBackend<()>, id: &Id) -> Value {
     let HandlerOutput { primary, .. } = handle_email_get(
         backend,
         &(),
@@ -257,14 +257,14 @@ async fn email_empty_patch_is_noop() {
     assert_noop(&resp, id.as_ref());
 }
 
-async fn identity_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn identity_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let HandlerOutput { primary, .. } = handle_identity_set(backend, &(), args)
         .await
         .expect("Identity/set");
     primary
 }
 
-async fn get_identity(backend: &MemoryBackend, id: &Id) -> Value {
+async fn get_identity(backend: &MemoryBackend<()>, id: &Id) -> Value {
     let HandlerOutput { primary, .. } = handle_identity_get(
         backend,
         &(),
@@ -333,7 +333,7 @@ async fn vacation_empty_patch_is_noop() {
 /// merged into the request, for `onSuccessUpdateEmail`. Returns the
 /// submission id, the Email id and the response.
 async fn submit(
-    backend: &MemoryBackend,
+    backend: &MemoryBackend<()>,
     extra: impl Fn(&Id) -> Value,
 ) -> (String, Id, HandlerOutput) {
     let identity_id = create_identity(backend).await;
@@ -424,7 +424,7 @@ async fn submission_update_with_identical_server_set_values_is_noop() {
 }
 
 /// Run `EmailSubmission/set` with `update` on [`ACCOUNT`].
-async fn submission_update(backend: &MemoryBackend, update: Value) -> Value {
+async fn submission_update(backend: &MemoryBackend<()>, update: Value) -> Value {
     handle_submission_set(
         backend,
         &(),
@@ -576,14 +576,14 @@ mod sieve {
     use common::VALID_SIEVE_SCRIPT;
     use jmap_mail_server::handle_sieve_set;
 
-    async fn sieve_set(backend: &MemoryBackend, args: Value) -> Value {
+    async fn sieve_set(backend: &MemoryBackend<()>, args: Value) -> Value {
         let HandlerOutput { primary, .. } = handle_sieve_set(backend, &(), args)
             .await
             .expect("SieveScript/set");
         primary
     }
 
-    async fn create_script(backend: &MemoryBackend) -> String {
+    async fn create_script(backend: &MemoryBackend<()>) -> String {
         backend.store_blob(&Id::from("script-blob"), VALID_SIEVE_SCRIPT.to_vec());
         let resp = sieve_set(
             backend,
@@ -636,7 +636,7 @@ mod mdn {
     /// Send one MDN for a fresh Email with `patch` as its
     /// `onSuccessUpdateEmail` entry; returns the Email id and the
     /// implicit Email/set response.
-    async fn send(backend: &MemoryBackend, patch: impl Fn(&Id) -> Value) -> (Id, Value) {
+    async fn send(backend: &MemoryBackend<()>, patch: impl Fn(&Id) -> Value) -> (Id, Value) {
         let blob_id = Id::from("blob-mdn");
         backend.store_blob(
             &blob_id,

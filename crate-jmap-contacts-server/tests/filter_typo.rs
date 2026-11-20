@@ -18,7 +18,7 @@ use jmap_types::JmapError;
 use serde_json::{Value, json};
 
 type Handler = for<'a> fn(
-    &'a MemoryBackend,
+    &'a MemoryBackend<()>,
     &'a (),
     Value,
 ) -> std::pin::Pin<
@@ -46,7 +46,7 @@ fn cases() -> [(&'static str, Handler, Value, Value); 2] {
 
 #[tokio::test]
 async fn misspelt_operator_or_condition_key_is_unsupported_filter() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     for (method, handler, condition, typo) in cases() {
         let operator_typo = json!({ "opperator": "AND", "conditions": [condition] });
         for filter in [operator_typo, typo] {
@@ -67,7 +67,7 @@ async fn misspelt_operator_or_condition_key_is_unsupported_filter() {
 /// the refusals above come from the filter alone.
 #[tokio::test]
 async fn query_without_filter_succeeds() {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     for (method, handler, _, _) in cases().into_iter().step_by(2) {
         handler(&backend, &(), json!({ "accountId": "acc1" }))
             .await

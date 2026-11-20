@@ -45,9 +45,9 @@ fn calendar(id: &str, name: &str) -> Value {
 
 /// Account acc1 with Calendars cal1 "Work" (holding event evt1) and cal2
 /// "Home".
-fn backend() -> Arc<MemoryBackend> {
+fn backend() -> Arc<MemoryBackend<()>> {
     let acc = Id::from("acc1");
-    let b = MemoryBackend::new().with_account(&acc);
+    let b = MemoryBackend::<()>::default().with_account(&acc);
     b.seed_object(
         &acc,
         "Calendar",
@@ -70,7 +70,7 @@ fn backend() -> Arc<MemoryBackend> {
     Arc::new(b)
 }
 
-fn dispatcher(b: &Arc<MemoryBackend>) -> Dispatcher<()> {
+fn dispatcher(b: &Arc<MemoryBackend<()>>) -> Dispatcher<()> {
     let mut d = Dispatcher::new();
     register_calendars_handlers(&mut d, Arc::clone(b));
     register_calendars_conditional(&mut d, Arc::clone(b));

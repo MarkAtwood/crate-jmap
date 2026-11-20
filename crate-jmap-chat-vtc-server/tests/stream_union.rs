@@ -129,7 +129,7 @@ fn media_state(call_id: &str, participant_id: &str) -> VtcEvent {
 async fn delivers(chat_vtc: bool, sub: &VtcEphemeralSubscription, ev: &VtcEvent) -> bool {
     should_deliver_vtc(
         &fixture(),
-        &ALICE.to_owned(),
+        &jmap_types::Id::from(ALICE),
         &Id::from(ACCOUNT),
         &Id::from(ACCOUNT),
         chat_vtc,

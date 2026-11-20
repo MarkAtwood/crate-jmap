@@ -42,7 +42,7 @@ fn ids(resp: &Value) -> Vec<String> {
         .collect()
 }
 
-fn seeded(type_name: &'static str, objects: &[(&str, Value)]) -> MemoryBackend {
+fn seeded(type_name: &'static str, objects: &[(&str, Value)]) -> MemoryBackend<()> {
     let backend = common::account_backend();
     backend.register_account(&Id::from(ACCOUNT_ID));
     for (id, obj) in objects {
@@ -85,7 +85,7 @@ fn message(received_at: &str) -> Value {
     })
 }
 
-fn message_backend() -> MemoryBackend {
+fn message_backend() -> MemoryBackend<()> {
     let backend = seeded(
         "Message",
         &[
@@ -326,7 +326,7 @@ async fn space_query_unfiltered_hides_non_member_public_space() {
     assert_eq!(ids(&resp), ["mine"]);
 }
 
-async fn emoji_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn emoji_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     handle_emoji_set(backend, &(), &std::collections::BTreeMap::new(), args)

@@ -20,7 +20,7 @@ const RICH_BROADCAST: &str = r#"{"spans":[{"type":"text","text":"hi "},{"type":"
 const RICH_MENTION: &str =
     r#"{"spans":[{"type":"text","text":"hi "},{"type":"mention","text":"@u1","userId":"u1"}]}"#;
 
-async fn create_channel(backend: &MemoryBackend) -> String {
+async fn create_channel(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
@@ -80,7 +80,7 @@ fn created_id(resp: &Value) -> String {
         .to_owned()
 }
 
-async fn get_message(backend: &MemoryBackend, msg_id: &str) -> Value {
+async fn get_message(backend: &MemoryBackend<()>, msg_id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),

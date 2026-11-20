@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 
 const CIPHER: &str = "application/mls-ciphertext";
 
-async fn create_message(backend: &MemoryBackend, extra: Value) -> String {
+async fn create_message(backend: &MemoryBackend<()>, extra: Value) -> String {
     seed_group_chat(backend, "c1");
     let mut obj = json!({ "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" });
     obj.as_object_mut()
@@ -35,7 +35,7 @@ async fn create_message(backend: &MemoryBackend, extra: Value) -> String {
         .to_owned()
 }
 
-async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
+async fn update(backend: &MemoryBackend<()>, id: &str, patch: Value) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_set(
         backend,
         &(),
@@ -48,7 +48,7 @@ async fn update(backend: &MemoryBackend, id: &str, patch: Value) -> Value {
     resp
 }
 
-async fn get_body(backend: &MemoryBackend, id: &str) -> Value {
+async fn get_body(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_message_get(
         backend,
         &(),
@@ -70,7 +70,7 @@ fn assert_updated(resp: &Value, id: &str) {
 /// replaces `body` is held to the same byte limit; "é" is two bytes.
 #[tokio::test]
 async fn edit_body_over_max_body_bytes_is_too_large() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     backend.set_limits_for_test(Some(ChatLimits::default().with_max_body_bytes(4)));
     let id = create_message(&backend, json!({})).await;
 
@@ -95,7 +95,7 @@ async fn edit_body_over_max_body_bytes_is_too_large() {
 /// non-empty.
 #[tokio::test]
 async fn edit_to_encrypted_body_type_rejects_stored_fields() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let id = create_message(&backend, json!({ "subject": "s", "topicId": "t1" })).await;
 
     let resp = update(&backend, &id, json!({ "bodyType": CIPHER, "body": "x" })).await;
@@ -116,7 +116,7 @@ async fn edit_to_encrypted_body_type_rejects_stored_fields() {
 /// accepted.
 #[tokio::test]
 async fn edit_of_encrypted_message_rejects_non_empty_mentions() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let id = create_message(&backend, json!({ "bodyType": CIPHER })).await;
 
     let resp = update(

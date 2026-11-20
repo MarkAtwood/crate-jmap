@@ -19,8 +19,8 @@ use serde_json::{Value, json};
 
 /// Seed `acc1` with Calendar `cal1` whose `sortOrder` and `isVisible`
 /// hold non-default values.
-fn backend_with_calendar() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+fn backend_with_calendar() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "Calendar",
@@ -56,8 +56,8 @@ fn backend_with_calendar() -> MemoryBackend {
 }
 
 /// Seed `acc1` with ParticipantIdentity `pi1` named "Alice".
-fn backend_with_identity() -> MemoryBackend {
-    let backend = MemoryBackend::new().with_account(&Id::from("acc1"));
+fn backend_with_identity() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default().with_account(&Id::from("acc1"));
     backend.seed_object(
         &Id::from("acc1"),
         "ParticipantIdentity",
@@ -72,7 +72,7 @@ fn backend_with_identity() -> MemoryBackend {
     backend
 }
 
-async fn update_calendar(backend: &MemoryBackend, patch: Value) -> Value {
+async fn update_calendar(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "cal1": patch } });
     handle_calendar_set(backend, &(), args, &[])
         .await
@@ -80,7 +80,7 @@ async fn update_calendar(backend: &MemoryBackend, patch: Value) -> Value {
         .primary
 }
 
-async fn get_calendar(backend: &MemoryBackend) -> Value {
+async fn get_calendar(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["cal1"] });
     let HandlerOutput { primary: resp, .. } = handle_calendar_get(backend, &(), args, &[])
         .await
@@ -88,7 +88,7 @@ async fn get_calendar(backend: &MemoryBackend) -> Value {
     resp["list"][0].clone()
 }
 
-async fn update_identity(backend: &MemoryBackend, patch: Value) -> Value {
+async fn update_identity(backend: &MemoryBackend<()>, patch: Value) -> Value {
     let args = json!({ "accountId": "acc1", "update": { "pi1": patch } });
     handle_participant_identity_set(backend, &(), args)
         .await
@@ -96,7 +96,7 @@ async fn update_identity(backend: &MemoryBackend, patch: Value) -> Value {
         .primary
 }
 
-async fn get_identity(backend: &MemoryBackend) -> Value {
+async fn get_identity(backend: &MemoryBackend<()>) -> Value {
     let args = json!({ "accountId": "acc1", "ids": ["pi1"] });
     let HandlerOutput { primary: resp, .. } = handle_participant_identity_get(backend, &(), args)
         .await

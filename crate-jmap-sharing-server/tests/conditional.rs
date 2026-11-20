@@ -31,8 +31,8 @@ fn principal(name: &str) -> Value {
            "timeZone": null})
 }
 
-fn dispatcher() -> (Dispatcher<()>, Arc<MemoryBackend>) {
-    let b = Arc::new(MemoryBackend::new().with_account(&Id::from("acc1")));
+fn dispatcher() -> (Dispatcher<()>, Arc<MemoryBackend<()>>) {
+    let b = Arc::new(MemoryBackend::<()>::default().with_account(&Id::from("acc1")));
     let mut d = Dispatcher::new();
     register_sharing_handlers(&mut d, Arc::clone(&b));
     register_sharing_conditional(&mut d, Arc::clone(&b));
@@ -51,7 +51,7 @@ async fn call(d: &Dispatcher<()>, method: &str, mut args: Value) -> (String, Val
 
 /// A Principal with a server-set capability holding nested rights,
 /// stored through the backend.
-async fn seed(b: &MemoryBackend) -> String {
+async fn seed(b: &MemoryBackend<()>) -> String {
     let mut p = principal("Alice");
     p["capabilities"] = json!({"urn:example:share": {"mayRead": true, "mayWrite": false}});
     p["accounts"] = Value::Null;
@@ -124,7 +124,7 @@ async fn atomic_failure_rolls_back() {
 
 #[test]
 fn ready_after_handlers_and_conditional() {
-    let b = Arc::new(MemoryBackend::new());
+    let b = Arc::new(MemoryBackend::<()>::default());
     let mut d = Dispatcher::new();
     register_sharing_handlers(&mut d, Arc::clone(&b));
     assert_eq!(d.conditional_gaps().len(), 2, "{:?}", d.conditional_gaps());

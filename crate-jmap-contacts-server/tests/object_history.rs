@@ -30,8 +30,8 @@ const A: &str = "abc";
 const T1: i64 = 1_771_596_900_000;
 const T2: i64 = 1_772_355_600_000;
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default()
         .with_account(&Id::from(A))
         .with_object_history(
             serde_json::from_value(json!({
@@ -46,7 +46,7 @@ fn backend() -> MemoryBackend {
 }
 
 struct Server {
-    b: MemoryBackend,
+    b: MemoryBackend<()>,
     d: Dispatcher<()>,
 }
 

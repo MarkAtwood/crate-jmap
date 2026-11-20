@@ -49,13 +49,13 @@ fn space_server_set_values() -> [(&'static str, Value); 4] {
     ]
 }
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }
 
-async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn space_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let HandlerOutput { primary, .. } =
         handle_space_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
@@ -63,7 +63,7 @@ async fn space_set(backend: &MemoryBackend, args: Value) -> Value {
     primary
 }
 
-async fn all_spaces(backend: &MemoryBackend) -> Value {
+async fn all_spaces(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary, .. } = handle_space_get(
         backend,
         &(),
@@ -129,7 +129,7 @@ async fn space_update_with_server_set_structure_is_invalid_properties() {
     }
 }
 
-async fn stored_contact(backend: &MemoryBackend) -> Value {
+async fn stored_contact(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary, .. } = handle_contact_get(
         backend,
         &(),

@@ -18,13 +18,13 @@ use serde_json::{Value, json};
 
 const WHEN: &str = "2026-11-17T12:00:00Z";
 
-fn backend() -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend() -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.register_account(&Id::from(ACCOUNT_ID));
     backend
 }
 
-async fn set(backend: &MemoryBackend, args: Value) -> Value {
+async fn set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary: resp, .. } = handle_contact_set(backend, &(), args)
@@ -33,7 +33,7 @@ async fn set(backend: &MemoryBackend, args: Value) -> Value {
     resp
 }
 
-async fn get_all(backend: &MemoryBackend) -> Value {
+async fn get_all(backend: &MemoryBackend<()>) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_contact_get(
         backend,
         &(),

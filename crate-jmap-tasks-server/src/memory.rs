@@ -77,6 +77,7 @@ mod history;
 
 use std::cmp::Ordering;
 use std::collections::{BTreeSet, HashMap, HashSet};
+use std::marker::PhantomData;
 
 use crate::{TaskQueryArgs, TasksBackend};
 use jmap_metadata_server::{
@@ -88,8 +89,8 @@ use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, MemoryCaller, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, PatchPathError, ScopedState, SetScope, SetScopeRequest,
@@ -425,10 +426,27 @@ impl Inner {
 /// reaches for `#[derive(Clone)]` semantics will be wrong. To get a snapshot
 /// with independent state, construct a fresh `MemoryBackend::new()` and seed
 /// it via `register_account` / the typed test helpers.
-#[derive(Default)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity. This
+/// backend keeps no per-user state, so every caller acts as the account
+/// owner; [`JmapAccounts::principal_id`] returns
+/// [`MemoryCaller::principal`].
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
+    fn default() -> Self {
+        Self {
+            inner: ScopedState::default(),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// Manual `Clone` impl, NOT `#[derive(Clone)]`.
@@ -441,20 +459,26 @@ pub struct MemoryBackend {
 /// handler would see a snapshot stale by the time it runs. The manual impl
 /// exists (instead of `#[derive(Clone)]`) so the contract is visible at the
 /// type, not buried in the module docs.
-impl Clone for MemoryBackend {
+impl<C> Clone for MemoryBackend<C> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
+            caller: PhantomData,
         }
     }
 }
 
 impl MemoryBackend {
     /// Create a new, empty `MemoryBackend`.
+    ///
+    /// Its callers are Principal ids (`C = Id`);
+    /// `MemoryBackend::<()>::default()` takes callers without identity.
     pub fn new() -> Self {
         Self::default()
     }
+}
 
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Register `account_id` as known and return `self`, for
     /// builder-style fixture setup. Until then the account is unknown
     /// (`accountNotFound`, RFC 8620 §3.6.2). Idempotent; the id is stored
@@ -496,7 +520,7 @@ impl MemoryBackend {
     /// Panics if `data_type` is not `"TaskList"` or `"Task"` (the rights
     /// object of draft-ietf-jmap-tasks-06 §3 and the type it contains;
     /// -05 §4.1), or if `info.supports_private` is true: this backend has
-    /// no per-user identity (`CallerCtx` is `()`) to own `privateMetadata`
+    /// no per-user state to own `privateMetadata`
     /// (-05 §2).
     #[must_use]
     pub fn with_metadata_info(self, data_type: &str, info: DataTypeMetadataInfo) -> Self {
@@ -610,15 +634,20 @@ impl MemoryBackend {
 // JmapBackend impl (read-side supertrait)
 // ---------------------------------------------------------------------------
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
+
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
 
     /// The info set by [`MemoryBackend::with_metadata_info`], the same for
     /// every account.
     fn metadata_info<O: JmapObject>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Option<DataTypeMetadataInfo> {
         self.inner
@@ -628,16 +657,16 @@ impl JmapAccounts for MemoryBackend {
             .cloned()
     }
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().await;
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -682,7 +711,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().await;
@@ -692,7 +721,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: jmap_server::ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
@@ -916,11 +945,11 @@ impl JmapReads for MemoryBackend {
     /// shortcut.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-        self.query_impl(account_id, params, &TaskQueryArgs::default())
+        self.query_impl(caller, account_id, params, &TaskQueryArgs::default())
             .await
     }
 
@@ -936,7 +965,7 @@ impl JmapReads for MemoryBackend {
     /// Mirrors the canonical `jmap-mail-server` `MemoryBackend::query_changes`.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
@@ -1467,7 +1496,7 @@ fn with_id<O: SetObject>(obj: &O, id: &Id) -> Result<O, BackendSetError<MemoryEr
         .map_err(|e| BackendSetError::Other(MemoryError::serde("deserialize copied object", &e)))
 }
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// Store the object `build` returns for a new id in `account_id`: the
     /// body of [`TasksBackend::create_object`] and
     /// [`TasksBackend::copy_object`]. `supplied` is the `/copy` create
@@ -1542,11 +1571,12 @@ impl MemoryBackend {
 // TasksBackend impl
 // ---------------------------------------------------------------------------
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     /// The body of [`JmapReads::query_objects`] and
     /// [`TasksBackend::query_tasks`]; `task_args` applies to Task only.
     async fn query_impl<O: QueryObject + Send + Sync>(
         &self,
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, O>,
         task_args: &TaskQueryArgs,
@@ -1640,7 +1670,7 @@ impl MemoryBackend {
                 .is_some_and(|secs| {
                     u64::try_from(secs).is_ok_and(|secs| {
                         secs > self
-                            .limits(&(), account_id)
+                            .limits(caller, account_id)
                             .max_expanded_query_duration_seconds
                     })
                 });
@@ -1695,10 +1725,10 @@ impl MemoryBackend {
     }
 }
 
-impl TasksBackend for MemoryBackend {
+impl<C: MemoryCaller> TasksBackend for MemoryBackend<C> {
     async fn create_object<O, F>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         _create_id: &str,
         build: F,
@@ -1713,7 +1743,7 @@ impl TasksBackend for MemoryBackend {
 
     async fn copy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _from_account_id: &Id,
         to_account_id: &Id,
         obj: O,
@@ -1727,7 +1757,7 @@ impl TasksBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -1954,22 +1984,22 @@ impl TasksBackend for MemoryBackend {
     /// in the `timeZone` argument.
     async fn query_tasks(
         &self,
-        _caller: &(),
+        caller: &C,
         account_id: &Id,
         params: QueryParams<'_, Task>,
         args: &TaskQueryArgs,
     ) -> Result<QueryResult, BackendQueryError<Self::Error>> {
-        self.query_impl(account_id, params, args).await
+        self.query_impl(caller, account_id, params, args).await
     }
 
     async fn update_task_per_user(
         &self,
-        caller: &(),
+        caller: &C,
         account_id: &Id,
         id: &Id,
         patch: jmap_types::PatchObject,
     ) -> Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>> {
-        // ponytail: single-user backend (CallerCtx = ()), so per-user state is
+        // ponytail: single-user backend (every caller is the owner), so per-user state is
         // the shared object. `update_object` never writes `updated`, which
         // keeps draft-ietf-jmap-tasks-06 §4.5.1 intact. A multi-user backend
         // stores the patch per user instead.
@@ -1979,7 +2009,7 @@ impl TasksBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -2015,17 +2045,13 @@ impl TasksBackend for MemoryBackend {
         }
     }
 
-    fn supports_type<O: JmapObject>(
-        &self,
-        _caller: &Self::CallerCtx,
-        _account_id: &jmap_types::Id,
-    ) -> bool {
+    fn supports_type<O: JmapObject>(&self, _caller: &C, _account_id: &jmap_types::Id) -> bool {
         matches!(O::TYPE_NAME, "TaskList" | "Task" | "TaskNotification")
     }
 
     async fn task_list_has_tasks(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         task_list_id: &Id,
     ) -> Result<bool, MemoryError> {
@@ -2050,10 +2076,10 @@ impl TasksBackend for MemoryBackend {
 /// `taskListHasTask` is judged within one TaskList/set, which moves no
 /// Tasks; draft-ietf-jmap-tasks-06 sets no uniqueness rule for TaskList
 /// `role`; and this backend has no cross-object caps.
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self
@@ -2101,7 +2127,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn with_account_registers_account() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new().with_account(&acc);
+        let backend = MemoryBackend::<()>::default().with_account(&acc);
         assert!(backend.account_exists(&(), &acc).await.unwrap());
         assert!(
             !backend
@@ -2115,7 +2141,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn seeded_task_marks_task_list_non_empty() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.seed_object(
             &acc,
             "Task",
@@ -2133,7 +2159,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "Tasklist",
             &Id::from("tl1"),
@@ -2146,7 +2172,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "must be a JSON object")]
     fn seed_object_rejects_non_object_value() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "TaskList",
             &Id::from("tl1"),
@@ -2159,7 +2185,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "must contain an `id` string field")]
     fn seed_object_rejects_value_without_id_field() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "TaskList",
             &Id::from("tl1"),
@@ -2170,7 +2196,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "TaskList",
             &Id::from("tl1"),
@@ -2188,7 +2214,7 @@ mod empty_account_id_tests {
     #[test]
     #[should_panic(expected = "account_id must not be the empty string")]
     fn register_account_rejects_empty_id() {
-        MemoryBackend::new().register_account(&Id::from(""));
+        MemoryBackend::<()>::default().register_account(&Id::from(""));
     }
 }
 
@@ -2204,7 +2230,7 @@ mod changes_tests {
     /// destroyed is reported only in `destroyed`.
     #[tokio::test]
     async fn get_changes_dedups_ids_across_window() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let id = |s: &str| Id::from(s);
         {
             let mut inner = backend.inner.lock_unscoped();
@@ -2259,8 +2285,8 @@ mod max_changes_tests {
 
     /// A backend whose `T` log holds one state per element of `states`,
     /// each creating the listed ids.
-    fn with_creates(states: &[&[&str]]) -> MemoryBackend {
-        let backend = MemoryBackend::new();
+    fn with_creates(states: &[&[&str]]) -> MemoryBackend<()> {
+        let backend = MemoryBackend::<()>::default();
         let mut inner = backend.inner.lock_unscoped();
         for ids in states {
             let new_state = inner.bump_state(T::TYPE_NAME, "acc1");
@@ -2320,10 +2346,11 @@ mod max_changes_tests {
     }
 
     async fn changes(
-        backend: &MemoryBackend,
+        backend: &MemoryBackend<()>,
         since: &str,
         max: u64,
-    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend as JmapAccounts>::Error>> {
+    ) -> Result<ChangesResult, BackendChangesError<<MemoryBackend<()> as JmapAccounts>::Error>>
+    {
         backend
             .get_changes::<T>(
                 &CALLER,

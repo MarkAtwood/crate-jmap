@@ -26,7 +26,7 @@ fn email_search(max_depth: u64, supports_text: bool) -> SearchCapability {
     SearchCapability::new(max_depth).with_data_type("Email", DataTypeSearchInfo::new(supports_text))
 }
 
-async fn create(b: &MemoryBackend, subject: &str, body: &str, flagged: bool) -> String {
+async fn create(b: &MemoryBackend<()>, subject: &str, body: &str, flagged: bool) -> String {
     let keywords = if flagged {
         json!({"$flagged": true})
     } else {
@@ -56,8 +56,8 @@ async fn create(b: &MemoryBackend, subject: &str, body: &str, flagged: bool) -> 
 
 /// Three Emails: a large flagged invoice, a small flagged invoice and a
 /// large unflagged one.
-async fn setup(cap: Option<SearchCapability>) -> (MemoryBackend, [String; 3]) {
-    let mut b = MemoryBackend::new();
+async fn setup(cap: Option<SearchCapability>) -> (MemoryBackend<()>, [String; 3]) {
+    let mut b = MemoryBackend::<()>::default();
     if let Some(cap) = cap {
         b = b.with_search_capability(cap);
     }
@@ -69,7 +69,7 @@ async fn setup(cap: Option<SearchCapability>) -> (MemoryBackend, [String; 3]) {
     (b, [large_flagged, small_flagged, large_plain])
 }
 
-async fn query(b: &MemoryBackend, filter: Value, using: &[String]) -> Result<Value, String> {
+async fn query(b: &MemoryBackend<()>, filter: Value, using: &[String]) -> Result<Value, String> {
     handle_email_query(
         b,
         &(),

@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 /// Create a Space and one channel in it through the handlers, returning
 /// `(space_id, channel_id)`. Space/set create gives the owner a role
 /// holding every Space permission, `"mention_broadcast"` included.
-async fn create_channel(backend: &MemoryBackend) -> (String, String) {
+async fn create_channel(backend: &MemoryBackend<()>) -> (String, String) {
     let HandlerOutput { primary: resp, .. } = handle_space_set(
         backend,
         &(),
@@ -50,7 +50,7 @@ async fn create_channel(backend: &MemoryBackend) -> (String, String) {
     (space_id, channel_id)
 }
 
-async fn space(backend: &MemoryBackend, space_id: &str) -> Value {
+async fn space(backend: &MemoryBackend<()>, space_id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_space_get(
         backend,
         &(),
@@ -64,7 +64,7 @@ async fn space(backend: &MemoryBackend, space_id: &str) -> Value {
 
 /// Remove `"mention_broadcast"` from every role in the Space, so the
 /// owner keeps its membership but lacks that one permission.
-async fn revoke_mention_broadcast(backend: &MemoryBackend, space_id: &str) {
+async fn revoke_mention_broadcast(backend: &MemoryBackend<()>, space_id: &str) {
     let mut space = space(backend, space_id).await;
     for role in space["roles"].as_array_mut().expect("roles") {
         role["permissions"]
@@ -75,7 +75,7 @@ async fn revoke_mention_broadcast(backend: &MemoryBackend, space_id: &str) {
     backend.insert_object_for_test("Space", ACCOUNT_ID, space_id, space);
 }
 
-async fn message_set(backend: &MemoryBackend, body: Value) -> Value {
+async fn message_set(backend: &MemoryBackend<()>, body: Value) -> Value {
     let mut args = json!({ "accountId": ACCOUNT_ID });
     let (Value::Object(args_map), Value::Object(body_map)) = (&mut args, body) else {
         unreachable!("both are object literals");

@@ -27,8 +27,8 @@ fn acc() -> Id {
     id("a1")
 }
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&acc());
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&acc());
     b.set_clock_for_test(NOW);
     b
 }
@@ -37,7 +37,7 @@ fn date(secs: i64) -> UTCDate {
     jmap_server::utc_date_from_epoch_seconds(secs).unwrap()
 }
 
-async fn create(b: &MemoryBackend, sources: Vec<BlobSource>) -> CreatedBlob {
+async fn create(b: &MemoryBackend<()>, sources: Vec<BlobSource>) -> CreatedBlob {
     let size = sources
         .iter()
         .map(|s| match s {
@@ -51,7 +51,7 @@ async fn create(b: &MemoryBackend, sources: Vec<BlobSource>) -> CreatedBlob {
         .unwrap()
 }
 
-async fn text(b: &MemoryBackend, s: &str) -> Id {
+async fn text(b: &MemoryBackend<()>, s: &str) -> Id {
     create(b, vec![BlobSource::Bytes(s.as_bytes().to_vec())])
         .await
         .id
@@ -64,7 +64,7 @@ fn part(blob_id: &Id, range: std::ops::Range<u64>) -> BlobSource {
     }
 }
 
-async fn read_all(b: &MemoryBackend, blob: &Id) -> String {
+async fn read_all(b: &MemoryBackend<()>, blob: &Id) -> String {
     let size = b.blob_info(&(), &acc(), blob).await.unwrap().unwrap().size;
     let bytes = b
         .read_blob_range(&(), &acc(), blob, 0..size)

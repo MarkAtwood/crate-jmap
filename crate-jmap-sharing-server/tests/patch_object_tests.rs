@@ -22,7 +22,7 @@ use common::MemoryBackend;
 /// Seed one Principal whose extension property `exampleExt` holds
 /// `{"urn:example:a": {"v": 1}}` and return a dispatcher plus its id.
 async fn setup() -> (Dispatcher<()>, Id) {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let principal = |id: &Id| -> Principal {
         serde_json::from_value(json!({
             "id": id, "type": "individual", "name": "Alice Smith",

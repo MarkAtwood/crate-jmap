@@ -10,7 +10,7 @@ use jmap_types::{Id, MethodErrorType};
 use serde_json::json;
 
 async fn get(properties: serde_json::Value) -> Result<serde_json::Value, jmap_types::JmapError> {
-    let b = MemoryBackend::new();
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("a"));
     handle_email_get(
         &b,

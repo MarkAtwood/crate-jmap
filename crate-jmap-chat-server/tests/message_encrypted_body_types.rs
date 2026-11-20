@@ -32,8 +32,8 @@ const FANOUT: &str = "application/mimi-fanout";
 
 const SUPPORTED: &[&str] = &["text/plain", CIPHER, FANOUT];
 
-fn backend(encrypted: &'static [&'static str]) -> MemoryBackend {
-    let backend = MemoryBackend::new();
+fn backend(encrypted: &'static [&'static str]) -> MemoryBackend<()> {
+    let backend = MemoryBackend::<()>::default();
     backend.set_limits_for_test(Some(
         ChatLimits::default()
             .with_supported_body_types(SUPPORTED)
@@ -43,7 +43,7 @@ fn backend(encrypted: &'static [&'static str]) -> MemoryBackend {
     backend
 }
 
-async fn set(backend: &MemoryBackend, args: Value) -> Value {
+async fn set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let HandlerOutput { primary: resp, .. } =
         handle_message_set(backend, &(), &std::collections::BTreeMap::new(), args, &[])
             .await
@@ -51,7 +51,7 @@ async fn set(backend: &MemoryBackend, args: Value) -> Value {
     resp
 }
 
-async fn create(backend: &MemoryBackend, extra: &Value) -> Value {
+async fn create(backend: &MemoryBackend<()>, extra: &Value) -> Value {
     let mut obj = json!({ "chatId": "c1", "body": "x", "sentAt": "2024-01-01T00:00:00Z" });
     obj.as_object_mut()
         .expect("object")

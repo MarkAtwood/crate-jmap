@@ -53,7 +53,11 @@ fn notif_json(id_hint: &str) -> serde_json::Value {
 /// Seed a ShareNotification into `backend` for `account_id`.
 ///
 /// Returns the server-assigned [`Id`].
-async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_json::Value) -> Id {
+async fn seed_notification(
+    backend: &MemoryBackend<()>,
+    account_id: &str,
+    v: serde_json::Value,
+) -> Id {
     let notif = move |id: &Id| -> ShareNotification {
         let mut v = v;
         v["id"] = json!(id);
@@ -76,7 +80,7 @@ async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_j
 /// assert the response list contains both.
 #[tokio::test]
 async fn notification_get_all_returns_list() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
 
     seed_notification(&backend, "acc1", notif_json("n1")).await;
     seed_notification(&backend, "acc1", notif_json("n2")).await;
@@ -106,7 +110,7 @@ async fn notification_get_all_returns_list() {
 /// the `destroyed` list contains the id; then get by id and assert notFound.
 #[tokio::test]
 async fn notification_set_destroy_succeeds() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let id = seed_notification(&backend, "acc1", notif_json("n1")).await;
 
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
@@ -154,7 +158,7 @@ async fn notification_set_destroy_succeeds() {
 /// `notDestroyed[id]["type"] == "notFound"`.
 #[tokio::test]
 async fn notification_set_destroy_not_found() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
     register_sharing_handlers(&mut dispatcher, Arc::clone(&backend));
 
@@ -185,7 +189,7 @@ async fn notification_set_destroy_not_found() {
 /// `destroyed`.
 #[tokio::test]
 async fn notification_changes_after_destroy() {
-    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let backend = Arc::new(MemoryBackend::<()>::new_with_accounts(&["acc1"]));
     let id = seed_notification(&backend, "acc1", notif_json("n1")).await;
 
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();

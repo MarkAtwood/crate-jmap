@@ -30,7 +30,7 @@ fn using() -> Vec<String> {
     ]
 }
 
-async fn create_book(b: &MemoryBackend, account: &str) -> String {
+async fn create_book(b: &MemoryBackend<()>, account: &str) -> String {
     let args = json!({ "accountId": account, "create": { "c": { "name": "b" } } });
     let resp = handle_address_book_set(b, &(), args, &using())
         .await
@@ -42,7 +42,7 @@ async fn create_book(b: &MemoryBackend, account: &str) -> String {
         .to_owned()
 }
 
-async fn create_card(b: &MemoryBackend, account: &str, book: &str) -> String {
+async fn create_card(b: &MemoryBackend<()>, account: &str, book: &str) -> String {
     let create = json!({ "addressBookIds": { book: true }, "uid": UID });
     let args = json!({ "accountId": account, "create": { "c": create } });
     let resp = handle_contact_card_set(b, &(), &BTreeMap::new(), args, &using())
@@ -55,7 +55,7 @@ async fn create_card(b: &MemoryBackend, account: &str, book: &str) -> String {
         .to_owned()
 }
 
-async fn copy(b: &MemoryBackend, entry: Value) -> Value {
+async fn copy(b: &MemoryBackend<()>, entry: Value) -> Value {
     let args = json!({ "fromAccountId": FROM, "accountId": TO, "create": { "k": entry } });
     handle_contact_card_copy(b, &(), args, "c0", &using())
         .await
@@ -63,8 +63,8 @@ async fn copy(b: &MemoryBackend, entry: Value) -> Value {
         .primary
 }
 
-fn backend() -> MemoryBackend {
-    MemoryBackend::new()
+fn backend() -> MemoryBackend<()> {
+    MemoryBackend::<()>::default()
         .with_account(&Id::from(FROM))
         .with_account(&Id::from(TO))
 }

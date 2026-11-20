@@ -11,7 +11,7 @@ use jmap_chat_server::{ChatLimits, handle_chat_get, handle_chat_set};
 use jmap_server::HandlerOutput;
 use serde_json::{Value, json};
 
-async fn chat_set(backend: &MemoryBackend, args: Value) -> Value {
+async fn chat_set(backend: &MemoryBackend<()>, args: Value) -> Value {
     let mut args = args;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary: resp, .. } =
@@ -21,7 +21,7 @@ async fn chat_set(backend: &MemoryBackend, args: Value) -> Value {
     resp
 }
 
-async fn chat_get(backend: &MemoryBackend, id: &str) -> Value {
+async fn chat_get(backend: &MemoryBackend<()>, id: &str) -> Value {
     let HandlerOutput { primary: resp, .. } = handle_chat_get(
         backend,
         &(),
@@ -34,7 +34,7 @@ async fn chat_get(backend: &MemoryBackend, id: &str) -> Value {
 }
 
 /// Store a Chat of `kind` with id `id`; `members` is written as given.
-fn store_chat(backend: &MemoryBackend, id: &str, kind: &str, members: Value) {
+fn store_chat(backend: &MemoryBackend<()>, id: &str, kind: &str, members: Value) {
     backend.insert_object_for_test(
         "Chat",
         ACCOUNT_ID,

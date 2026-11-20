@@ -54,6 +54,7 @@
 mod convert;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
+use std::marker::PhantomData;
 use std::ops::Range;
 use std::sync::Arc;
 
@@ -61,8 +62,8 @@ use jmap_blob_types::{BlobAccountCapability, BlobRef, DigestAlgorithm, Recipe, e
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, BeginSetError, ChangesParams,
     ChangesResult, ConditionalBackend, GetObject, JmapAccounts, JmapObject, JmapReads,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, ScopeGate,
-    ScopedGuard, ScopedState, SetScope, SetScopeRequest, utc_date_from_epoch_seconds,
+    MemoryCaller, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult,
+    ScopeGate, ScopedGuard, ScopedState, SetScope, SetScopeRequest, utc_date_from_epoch_seconds,
 };
 use jmap_types::{Id, SetError, SetErrorType, State, UTCDate};
 
@@ -288,11 +289,28 @@ impl Inner {
 }
 
 /// In-memory blob storage. Cloning shares the storage.
-#[derive(Debug, Clone)]
+///
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity. This backend
+/// keeps no per-user state, so every caller acts as the account owner;
+/// [`JmapAccounts::principal_id`] returns [`MemoryCaller::principal`].
+#[derive(Debug)]
 #[non_exhaustive]
-pub struct MemoryBackend {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
     external: External,
+    caller: PhantomData<fn() -> C>,
+}
+
+/// Cloning shares the storage.
+impl<C> Clone for MemoryBackend<C> {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            external: self.external.clone(),
+            caller: PhantomData,
+        }
+    }
 }
 
 /// References that objects stored outside this backend hold on its blobs,
@@ -349,9 +367,11 @@ impl External {
     }
 }
 
-impl Default for MemoryBackend {
+/// An empty backend: [`MemoryBackend::new`] for any caller context, such
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
+impl<C> Default for MemoryBackend<C> {
     fn default() -> Self {
-        Self::new()
+        Self::with_scope_gate(ScopeGate::new())
     }
 }
 
@@ -407,11 +427,27 @@ fn sha256(bytes: &[u8]) -> Option<String> {
 }
 
 impl MemoryBackend {
-    /// An empty backend with no accounts.
+    /// An empty backend with no accounts, whose callers are Principal ids
+    /// (`C = Id`). Equivalent to [`Self::default`].
     pub fn new() -> Self {
-        Self::with_scope_gate(ScopeGate::new())
+        Self::default()
     }
 
+    /// The capability every new account advertises (decision 13):
+    /// `maxDataSources` 64, `supportedDigestAlgorithms` `["sha-256",
+    /// "sha"]`, no `supportedTypeNames`, `application/x-tar` for archive
+    /// and extract, and every other list and limit `null`.
+    pub fn default_capability() -> BlobAccountCapability {
+        let tar = || Some(vec!["application/x-tar".to_owned()]);
+        let mut cap = BlobAccountCapability::default();
+        cap.supported_digest_algorithms = vec![DigestAlgorithm::Sha256, DigestAlgorithm::Sha];
+        cap.supported_archive_types = tar();
+        cap.supported_extract_types = tar();
+        cap
+    }
+}
+
+impl<C> MemoryBackend<C> {
     /// An empty backend whose conditional scopes take `gate`, shared with
     /// another backend's state ([`ScopedState::with_gate`]) when the two
     /// call each other, as a mail store sharing this blob store does.
@@ -428,6 +464,7 @@ impl MemoryBackend {
                 gate,
             ),
             external: External::default(),
+            caller: PhantomData,
         }
     }
 
@@ -519,19 +556,6 @@ impl MemoryBackend {
             .accounts
             .entry(account_id.clone())
             .or_insert_with(Account::new);
-    }
-
-    /// The capability every new account advertises (decision 13):
-    /// `maxDataSources` 64, `supportedDigestAlgorithms` `["sha-256",
-    /// "sha"]`, no `supportedTypeNames`, `application/x-tar` for archive
-    /// and extract, and every other list and limit `null`.
-    pub fn default_capability() -> BlobAccountCapability {
-        let tar = || Some(vec!["application/x-tar".to_owned()]);
-        let mut cap = BlobAccountCapability::default();
-        cap.supported_digest_algorithms = vec![DigestAlgorithm::Sha256, DigestAlgorithm::Sha];
-        cap.supported_archive_types = tar();
-        cap.supported_extract_types = tar();
-        cap
     }
 
     /// Advertise `capability` for `account_id`, which must exist.
@@ -943,7 +967,7 @@ fn literal(r: &BlobRef) -> Result<&Id, BackendSetError<MemoryError>> {
     })
 }
 
-impl MemoryBackend {
+impl<C: MemoryCaller> MemoryBackend<C> {
     fn convert_blob(
         guard: &mut Inner,
         account_id: &Id,
@@ -1096,19 +1120,24 @@ fn not_an_object_store<T>(type_name: &str) -> Result<T, MemoryError> {
     )))
 }
 
-impl JmapAccounts for MemoryBackend {
+impl<C: MemoryCaller> JmapAccounts for MemoryBackend<C> {
     type Error = MemoryError;
-    type CallerCtx = ();
+    type CallerCtx = C;
 
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
+    /// [`MemoryCaller::principal`].
+    fn principal_id(caller: &C) -> Option<&Id> {
+        caller.principal()
+    }
+
+    async fn account_exists(&self, _caller: &C, account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self.locked().await.accounts.contains_key(account_id))
     }
 }
 
-impl JmapReads for MemoryBackend {
+impl<C: MemoryCaller> JmapReads for MemoryBackend<C> {
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -1118,7 +1147,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
     ) -> Result<State, MemoryError> {
         not_an_object_store(O::TYPE_NAME)
@@ -1126,7 +1155,7 @@ impl JmapReads for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _params: ChangesParams<'_>,
     ) -> Result<ChangesResult, BackendChangesError<MemoryError>> {
@@ -1135,7 +1164,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _params: QueryParams<'_, O>,
     ) -> Result<QueryResult, BackendQueryError<MemoryError>> {
@@ -1144,7 +1173,7 @@ impl JmapReads for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
-        _caller: &(),
+        _caller: &C,
         _account_id: &Id,
         _params: QueryChangesParams<'_, O>,
     ) -> Result<QueryChangesResult, BackendChangesError<MemoryError>> {
@@ -1152,10 +1181,10 @@ impl JmapReads for MemoryBackend {
     }
 }
 
-impl BlobBackend for MemoryBackend {
+impl<C: MemoryCaller> BlobBackend for MemoryBackend<C> {
     async fn blob_capability(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
     ) -> Result<Option<BlobAccountCapability>, MemoryError> {
         Ok(self
@@ -1168,7 +1197,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn blob_info(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<BlobMeta>, MemoryError> {
@@ -1179,7 +1208,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn read_blob_range(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
         range: Range<u64>,
@@ -1197,7 +1226,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn stored_digest(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         query: &DigestQuery,
     ) -> Result<Option<String>, MemoryError> {
@@ -1215,7 +1244,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn blob_chunks(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<Option<Vec<ChunkRef>>, MemoryError> {
@@ -1237,7 +1266,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn create_blob(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         create: BlobCreate,
     ) -> Result<CreatedBlob, BackendSetError<MemoryError>> {
@@ -1246,7 +1275,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn touch_blob(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
         requested: Option<UTCDate>,
@@ -1256,7 +1285,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn destroy_blob(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<(), BackendSetError<MemoryError>> {
@@ -1272,7 +1301,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn blob_references(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         type_name: &str,
         blob_ids: &[Id],
@@ -1295,7 +1324,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn copy_blob(
         &self,
-        _caller: &(),
+        _caller: &C,
         from_account_id: &Id,
         to_account_id: &Id,
         blob_id: &Id,
@@ -1310,7 +1339,7 @@ impl BlobBackend for MemoryBackend {
 
     async fn convert(
         &self,
-        _caller: &(),
+        _caller: &C,
         account_id: &Id,
         params: ConvertParams,
     ) -> Result<ConvertOutcome, BackendSetError<MemoryError>> {
@@ -1323,10 +1352,10 @@ impl BlobBackend for MemoryBackend {
 /// blobs, `noPersist` ones included, and its `expires` updates and
 /// destroys are discarded on rollback. Blobs have no cross-object
 /// constraint to check at commit.
-impl ConditionalBackend for MemoryBackend {
+impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
     async fn begin_set(
         &self,
-        _caller: &(),
+        _caller: &C,
         request: SetScopeRequest<'_>,
     ) -> Result<Box<dyn SetScope>, BeginSetError<MemoryError>> {
         Ok(self

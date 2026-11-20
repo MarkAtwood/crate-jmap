@@ -11,8 +11,8 @@ use jmap_mail_server::{handle_email_changes, handle_email_query_changes, handle_
 use jmap_types::Id;
 use serde_json::json;
 
-async fn backend_with_one_email() -> MemoryBackend {
-    let b = MemoryBackend::new();
+async fn backend_with_one_email() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default();
     b.register_account(&Id::from("acc"));
     handle_email_set(
         &b,

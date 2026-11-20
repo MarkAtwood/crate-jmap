@@ -34,8 +34,8 @@ fn id(s: &str) -> Id {
     Id::new_validated(s).unwrap()
 }
 
-fn backend() -> MemoryBackend {
-    let b = MemoryBackend::new().with_account(&id("a1"));
+fn backend() -> MemoryBackend<()> {
+    let b = MemoryBackend::<()>::default().with_account(&id("a1"));
     b.set_clock_for_test(NOW);
     b
 }
@@ -47,7 +47,7 @@ fn using(uris: &[&str]) -> Vec<String> {
 }
 
 async fn call_with(
-    b: &MemoryBackend,
+    b: &MemoryBackend<()>,
     args: Value,
     created: &BTreeMap<Id, Id>,
     uris: &[&str],
@@ -57,31 +57,31 @@ async fn call_with(
         .map(|out| out.primary)
 }
 
-async fn set(b: &MemoryBackend, args: Value) -> Value {
+async fn set(b: &MemoryBackend<()>, args: Value) -> Value {
     call_with(b, args, &BTreeMap::new(), &[BLOB2])
         .await
         .unwrap()
 }
 
 /// Create one blob from `data` and return the response.
-async fn create(b: &MemoryBackend, entry: Value) -> Value {
+async fn create(b: &MemoryBackend<()>, entry: Value) -> Value {
     set(b, json!({"accountId": "a1", "create": {"c": entry}})).await
 }
 
 /// The `notCreated["c"]` error of a single-entry create.
-async fn create_error(b: &MemoryBackend, entry: Value) -> Value {
+async fn create_error(b: &MemoryBackend<()>, entry: Value) -> Value {
     let resp = create(b, entry).await;
     assert_eq!(resp["created"], Value::Null, "{resp}");
     resp["notCreated"]["c"].clone()
 }
 
-async fn text_blob(b: &MemoryBackend, text: &str) -> String {
+async fn text_blob(b: &MemoryBackend<()>, text: &str) -> String {
     let resp = create(b, json!({"data": [{"data:asText": text}]})).await;
     resp["created"]["c"]["id"].as_str().unwrap().to_owned()
 }
 
 /// Run a whole request through a dispatcher with the blob handlers.
-async fn dispatch(b: Arc<MemoryBackend>, request: Value) -> Value {
+async fn dispatch(b: Arc<MemoryBackend<()>>, request: Value) -> Value {
     let mut d = Dispatcher::new();
     register_blob_handlers(&mut d, b);
     let req: JmapRequest = serde_json::from_value(request).unwrap();

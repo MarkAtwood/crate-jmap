@@ -2506,7 +2506,7 @@ mod tests {
     /// `invalidProperties` SetError naming `broadcastMentions`."
     #[tokio::test]
     async fn broadcast_mention_validation_rejects_unknown_scope() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.register_account(&Id::from(ACCOUNT_ID));
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
@@ -2548,7 +2548,7 @@ mod tests {
     /// A valid @everyone mention at the correct body offset succeeds.
     #[tokio::test]
     async fn broadcast_mention_validation_accepts_valid() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let chat_id = make_group_chat(&backend).await;
         let body = "Hello @everyone!";
         let HandlerOutput { primary: resp, .. } = handle_message_set(
@@ -2583,7 +2583,7 @@ mod tests {
     /// An empty broadcastMentions array is always valid.
     #[tokio::test]
     async fn broadcast_mention_validation_accepts_empty() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let chat_id = make_group_chat(&backend).await;
         let HandlerOutput { primary: resp, .. } = handle_message_set(
             &backend,
@@ -2626,7 +2626,7 @@ mod tests {
 
     /// Helper: create a group Chat (no spaceId) via handle_chat_set and
     /// return its server-assigned id.
-    async fn make_group_chat(backend: &MemoryBackend) -> String {
+    async fn make_group_chat(backend: &MemoryBackend<()>) -> String {
         backend.register_account(&Id::from(ACCOUNT_ID));
         let HandlerOutput { primary: resp, .. } = crate::chat::handle_chat_set(
             backend,
@@ -2651,7 +2651,7 @@ mod tests {
     /// jmap-chat-spec 77c3474 L1220: "For channel Chats, the server SHOULD
     /// verify the sender holds the `"send"` permission"), then create a channel Chat inside it, and
     /// return the channel's server-assigned id.
-    async fn make_channel_chat(backend: &MemoryBackend) -> String {
+    async fn make_channel_chat(backend: &MemoryBackend<()>) -> String {
         let space_id = "s0";
         backend.insert_object_for_test(
             "Space",
@@ -2708,7 +2708,7 @@ mod tests {
     /// and the message must succeed.
     #[tokio::test]
     async fn broadcast_mention_create_without_space_unrestricted() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let chat_id = make_group_chat(&backend).await;
 
         let body = "Hello @everyone!";
@@ -2746,7 +2746,7 @@ mod tests {
     /// must succeed.
     #[tokio::test]
     async fn broadcast_mention_create_in_channel_succeeds() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let chat_id = make_channel_chat(&backend).await;
 
         let body = "Hello @everyone!";
@@ -2783,7 +2783,7 @@ mod tests {
     /// The permission check must NOT fire (empty array skips the gate).
     #[tokio::test]
     async fn broadcast_mention_create_empty_skips_permission_check() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let chat_id = make_channel_chat(&backend).await;
 
         let HandlerOutput { primary: resp, .. } = handle_message_set(
@@ -2818,7 +2818,7 @@ mod tests {
     /// must succeed.
     #[tokio::test]
     async fn broadcast_mention_update_retaining_broadcast_succeeds() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let chat_id = make_channel_chat(&backend).await;
 
         // Create a message with broadcastMentions first.

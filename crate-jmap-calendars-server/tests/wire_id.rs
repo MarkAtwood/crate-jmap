@@ -25,7 +25,7 @@ fn assert_invalid_id(entry: &Value, resp: &Value) {
 
 #[tokio::test]
 async fn calendar_set_rejects_malformed_update_and_destroy_ids() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args_with_account = |mut args: Value| {
@@ -46,7 +46,7 @@ async fn calendar_set_rejects_malformed_update_and_destroy_ids() {
 
 #[tokio::test]
 async fn calendar_event_set_rejects_malformed_destroy_id() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args = json!({ "accountId": account_id.as_ref(), "destroy": ["bad id"] });
@@ -66,7 +66,7 @@ async fn calendar_event_set_rejects_malformed_destroy_id() {
 /// `notFound` for the missing calendar.
 #[tokio::test]
 async fn calendar_set_rejects_malformed_share_with_keys() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account_id = Id::from("account1");
     backend.register_account(&account_id);
     let args = json!({

@@ -16,7 +16,7 @@ use jmap_types::Id;
 use serde_json::{Value, json};
 
 /// A group Chat where the owner is the admin and `bob` a member.
-async fn group(backend: &MemoryBackend) -> String {
+async fn group(backend: &MemoryBackend<()>) -> String {
     let HandlerOutput { primary, .. } = handle_chat_set(
         backend,
         &(),
@@ -35,7 +35,7 @@ async fn group(backend: &MemoryBackend) -> String {
         .to_owned()
 }
 
-async fn ban_set(backend: &MemoryBackend, body: Value) -> Value {
+async fn ban_set(backend: &MemoryBackend<()>, body: Value) -> Value {
     let mut args = body;
     args["accountId"] = json!(ACCOUNT_ID);
     let HandlerOutput { primary, .. } = handle_chat_ban_set(backend, &(), &BTreeMap::new(), args)
@@ -44,7 +44,7 @@ async fn ban_set(backend: &MemoryBackend, body: Value) -> Value {
     primary
 }
 
-async fn chat_update(backend: &MemoryBackend, chat_id: &str, patch: Value) -> Value {
+async fn chat_update(backend: &MemoryBackend<()>, chat_id: &str, patch: Value) -> Value {
     let HandlerOutput { primary, .. } = handle_chat_set(
         backend,
         &(),
@@ -57,7 +57,7 @@ async fn chat_update(backend: &MemoryBackend, chat_id: &str, patch: Value) -> Va
     primary
 }
 
-async fn member_ids(backend: &MemoryBackend, chat_id: &str) -> Vec<String> {
+async fn member_ids(backend: &MemoryBackend<()>, chat_id: &str) -> Vec<String> {
     let HandlerOutput { primary, .. } = jmap_chat_server::handle_chat_get(
         backend,
         &(),

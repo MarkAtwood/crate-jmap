@@ -69,11 +69,12 @@
 //!
 //! # Caller context and rights
 //!
-//! `CallerCtx` is a type implementing [`MemoryCaller`](crate::memory::MemoryCaller): `()` (the default,
-//! [`MemoryBackend::new`](crate::memory::MemoryBackend::new)), a deployment without identity whose every
-//! caller acts as the account owner, or [`Id`](jmap_types::Id), the caller's Principal id
-//! (`MemoryBackend::<Id>::default()`), which
-//! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) returns. Each account has an owner: the
+//! `CallerCtx` is a type implementing [`MemoryCaller`](jmap_server::MemoryCaller):
+//! [`Id`](jmap_types::Id), the caller's Principal id (the default,
+//! [`MemoryBackend::new`](crate::memory::MemoryBackend::new)), which
+//! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) returns, or `()`
+//! (`MemoryBackend::<()>::default()`), a deployment without identity whose
+//! every caller acts as the account owner. Each account has an owner: the
 //! account id, or the Principal [`MemoryBackend::with_account_owner`](crate::memory::MemoryBackend::with_account_owner)
 //! names.
 //!
@@ -162,8 +163,8 @@ use jmap_metadata_types::{DataTypeMetadataInfo, MetadataTextMatch};
 use jmap_object_history_server::{ChangeEvent, ChangeKind, fold_restore};
 use jmap_server::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
-    JmapAccounts, JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject,
-    QueryParams, QueryResult, SetError, SetErrorType, SetObject,
+    JmapAccounts, JmapObject, JmapReads, MemoryCaller, QueryChangesParams, QueryChangesResult,
+    QueryObject, QueryParams, QueryResult, SetError, SetErrorType, SetObject,
 };
 use jmap_server::{
     BeginSetError, ConditionalBackend, DeferredFailure, PatchPathError, ScopedState, SetOp,
@@ -679,12 +680,12 @@ enum IdFate {
 ///
 /// Cloning is cheap and **shared-state**; see the [`Clone`] impl.
 ///
-/// `C` is the [`JmapAccounts::CallerCtx`]: `()` by default, a deployment
-/// without identity whose every caller acts as the account owner, or
-/// [`Id`], the caller's Principal id (see the module documentation,
+/// `C` is the [`JmapAccounts::CallerCtx`]: [`Id`], the caller's Principal
+/// id, by default, or `()` for a deployment without identity whose every
+/// caller acts as the account owner (see the module documentation,
 /// "Caller context and rights").
 #[non_exhaustive]
-pub struct MemoryBackend<C = ()> {
+pub struct MemoryBackend<C = Id> {
     inner: ScopedState<Inner>,
     /// The shared blob store, once [`MemoryBackend::with_blob_store`] sets
     /// one.
@@ -693,7 +694,7 @@ pub struct MemoryBackend<C = ()> {
 }
 
 /// An empty backend: [`MemoryBackend::new`] for any caller context, such
-/// as `MemoryBackend::<Id>::default()` for Principal-id callers.
+/// as `MemoryBackend::<()>::default()` for a deployment without identity.
 impl<C> Default for MemoryBackend<C> {
     fn default() -> Self {
         Self {
@@ -701,38 +702,6 @@ impl<C> Default for MemoryBackend<C> {
             blob_store: blobs::BlobStore::default(),
             caller: PhantomData,
         }
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Caller context
-// ---------------------------------------------------------------------------
-
-/// A caller context the memory backend accepts as its
-/// [`JmapAccounts::CallerCtx`]: anything that names the caller's Principal,
-/// or names none.
-///
-/// [`JmapAccounts::principal_id`] returns [`MemoryCaller::principal`]. A
-/// caller that names the account owner, or names no principal, has all
-/// rights; any other has the rights its id is given in a Mailbox's
-/// `shareWith` (draft-ietf-jmap-mail-sharing-02 §2).
-pub trait MemoryCaller: Clone + Send + Sync + 'static {
-    /// The caller's Principal id, or `None` for a deployment without
-    /// identity, whose every caller acts as the account owner.
-    fn principal(&self) -> Option<&Id>;
-}
-
-/// The caller is the Principal with this id.
-impl MemoryCaller for Id {
-    fn principal(&self) -> Option<&Id> {
-        Some(self)
-    }
-}
-
-/// A single-user deployment: every caller acts as the account owner.
-impl MemoryCaller for () {
-    fn principal(&self) -> Option<&Id> {
-        None
     }
 }
 
@@ -755,11 +724,23 @@ impl<C> Clone for MemoryBackend<C> {
 
 impl MemoryBackend {
     /// Construct an empty [`MemoryBackend`] with no accounts, blobs, or
-    /// stored objects, whose callers act as the account owner (`C = ()`).
-    /// Equivalent to [`Self::default`]; `MemoryBackend::<Id>::default()`
-    /// takes Principal-id callers.
+    /// stored objects, whose callers are Principal ids (`C = Id`).
+    /// Equivalent to [`Self::default`]; `MemoryBackend::<()>::default()`
+    /// takes callers without identity, who act as the account owner.
     pub fn new() -> Self {
         Self::default()
+    }
+}
+
+impl<C> MemoryBackend<C> {
+    /// A handle on the same store whose callers act as the account owner,
+    /// for fixture setup that writes as the owner whatever `C` is.
+    pub(crate) fn owner_view(&self) -> MemoryBackend<()> {
+        MemoryBackend {
+            inner: self.inner.clone(),
+            blob_store: self.blob_store.clone(),
+            caller: PhantomData,
+        }
     }
 }
 
@@ -4206,7 +4187,7 @@ mod tests {
     /// default that is filled in only to resolve `keywords/...` pointers.
     #[tokio::test]
     async fn rejected_email_patch_leaves_stored_json_unchanged() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let account = Id::from("account1");
         backend.register_account(&account);
         let id = Id::from("e1");
@@ -4249,7 +4230,7 @@ mod tests {
     async fn mutations_never_register_an_account() {
         use crate::MailBackend;
         use jmap_server::JmapAccounts;
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let ghost = Id::from("ghost");
         let mailbox = |id: &Id| {
             Mailbox::new(
@@ -4315,7 +4296,7 @@ mod tests {
     /// stored record nor record a change.
     #[tokio::test]
     async fn create_object_returns_existing_singleton() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let account = Id::from("account1");
         backend.register_account(&account);
         let stored = serde_json::json!({
@@ -4392,7 +4373,7 @@ mod memory_error_tests {
     /// (bd:JMAP-gfqj).
     #[tokio::test]
     async fn invalid_state_token_display_omits_token() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let since = State::from(CANARY);
         let err = backend
             .get_changes::<Email>(&(), &Id::from("account1"), ChangesParams::new(&since))
@@ -4410,7 +4391,7 @@ mod memory_error_tests {
     /// blob's id must not be echoed into `Display` (bd:JMAP-gfqj).
     #[tokio::test]
     async fn blob_not_found_display_omits_blob_id() {
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let e = backend
             .parse_email(&(), &Id::from("account1"), &Id::from(CANARY))
             .await
@@ -4453,11 +4434,11 @@ mod clone_tests {
     /// same store while a fresh instance does not.
     #[test]
     fn clone_shares_store() {
-        let a = MemoryBackend::new();
+        let a = MemoryBackend::<()>::default();
         let clone = a.clone();
-        let fresh = MemoryBackend::new();
+        let fresh = MemoryBackend::<()>::default();
         a.register_account(&Id::from("acc"));
-        let known = |b: &MemoryBackend| b.inner.lock_unscoped().known_accounts.contains("acc");
+        let known = |b: &MemoryBackend<()>| b.inner.lock_unscoped().known_accounts.contains("acc");
         assert!(known(&clone), "a clone sees the original's writes");
         assert!(!known(&fresh), "a fresh backend does not");
     }
@@ -4474,7 +4455,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn with_account_registers_account() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new().with_account(&acc);
+        let backend = MemoryBackend::<()>::default().with_account(&acc);
         assert!(backend.account_exists(&(), &acc).await.unwrap());
         assert!(
             !backend
@@ -4489,7 +4470,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn seed_object_is_readable_without_state_change() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         let before = backend.get_state::<Mailbox>(&(), &acc).await.unwrap();
         backend.seed_object(
             &acc,
@@ -4526,7 +4507,7 @@ mod fixture_helper_tests {
     #[tokio::test]
     async fn seeded_email_message_id_blocks_duplicate_import() {
         let acc = Id::from("acc1");
-        let backend = MemoryBackend::new();
+        let backend = MemoryBackend::<()>::default();
         backend.seed_object(
             &acc,
             "Email",
@@ -4551,7 +4532,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "not one of the known")]
     fn seed_object_rejects_unknown_type_name() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "mailbox",
             &Id::from("m1"),
@@ -4562,7 +4543,7 @@ mod fixture_helper_tests {
     #[test]
     #[should_panic(expected = "does not match the `id` argument")]
     fn seed_object_rejects_id_mismatch() {
-        MemoryBackend::new().seed_object(
+        MemoryBackend::<()>::default().seed_object(
             &Id::from("acc1"),
             "Mailbox",
             &Id::from("m1"),
@@ -4580,7 +4561,7 @@ mod empty_account_id_tests {
     #[test]
     #[should_panic(expected = "account_id must not be the empty string")]
     fn register_account_rejects_empty_id() {
-        MemoryBackend::new().register_account(&Id::from(""));
+        MemoryBackend::<()>::default().register_account(&Id::from(""));
     }
 }
 
@@ -4613,8 +4594,8 @@ mod email_sort_tests {
     /// Four Emails whose sort keys differ per RFC 8621 §4.4.2 property.
     /// e1 and e2 share thread t1 (only e1 has `$seen`); e3 is alone in t2
     /// with `$seen`; e4 is alone in t3 with no keywords.
-    fn seeded() -> (MemoryBackend, Id) {
-        let backend = MemoryBackend::new();
+    fn seeded() -> (MemoryBackend<()>, Id) {
+        let backend = MemoryBackend::<()>::default();
         let account = Id::from("account1");
         let emails = [
             json!({
@@ -4668,7 +4649,7 @@ mod email_sort_tests {
     }
 
     async fn query(
-        backend: &MemoryBackend,
+        backend: &MemoryBackend<()>,
         account: &Id,
         sort: &[EmailComparator],
     ) -> Result<Vec<String>, BackendQueryError<super::MemoryError>> {

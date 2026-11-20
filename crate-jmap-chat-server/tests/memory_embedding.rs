@@ -19,7 +19,7 @@ fn contact(id: &str, identity: &str) -> ChatContact {
 #[tokio::test]
 async fn insert_object_under_a_chosen_id_is_a_logged_create() {
     let account = Id::from("a1");
-    let backend = MemoryBackend::new().with_account(&account);
+    let backend = MemoryBackend::<()>::default().with_account(&account);
     let before = backend
         .get_state::<ChatContact>(&(), &account)
         .await
@@ -46,7 +46,7 @@ async fn insert_object_under_a_chosen_id_is_a_logged_create() {
 #[tokio::test]
 async fn insert_object_rejects_a_taken_id() {
     let account = Id::from("a1");
-    let backend = MemoryBackend::new().with_account(&account);
+    let backend = MemoryBackend::<()>::default().with_account(&account);
     backend
         .insert_object(&account, contact("h1", "did:example:alice"))
         .await
@@ -72,6 +72,6 @@ async fn insert_object_rejects_a_taken_id() {
 
 #[test]
 fn minted_ids_are_distinct() {
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     assert_ne!(backend.mint_id(), backend.mint_id());
 }

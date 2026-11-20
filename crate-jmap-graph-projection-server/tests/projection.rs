@@ -342,7 +342,7 @@ async fn visibility_follows_native_get() {
     // L229: "A node is visible to a user if and only if the user could
     // fetch its source object with that data type's native `/get`
     // method." The seeded `inbox` exists; `nosuch` does not.
-    let backend = MemoryBackend::new();
+    let backend = MemoryBackend::<()>::default();
     let account = id("A1");
     let seed = setup_seed_data(&backend, &account).await;
     let inbox = seed.mailbox["inbox"].clone();
