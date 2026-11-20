@@ -61,10 +61,37 @@ wire behaviour that a conforming peer can observe.
   client or server crate. `jmap-did` does not re-export the
   `jmap-did-resolver` support crate. (bd:JMAP-gs76.9, .10)
 
-- **jmap-search**: 0.5.0 replaces the 0.0.1 placeholder with a reserved,
-  empty crate (no public items, no dependencies) holding the name for the
-  planned generic filter-expression extension (bd:JMAP-nn3i). Graph search
-  stays in `jmap-graph-types` and `jmap-graph-server`. (bd:JMAP-gs76.7)
+- **jmap-search**: replaces the 0.0.1 placeholder with JMAP Search,
+  `urn:ietf:params:jmap:search` (decision 51, bd:JMAP-nn3i, bd:JMAP-gs76.7):
+  one `where` filter language for every data type's `/query`, specified by
+  the new local draft `docs/specs/jmap-search.md`
+  (draft-atwood-jmap-search-00). The crate holds the type-neutral core of
+  Graph search: `SearchCapability` (`dataTypes` with `supportsText`,
+  `maxDepth`), `Expression` (JSON Pointer field tests, `$and`/`$or`/`$not`,
+  `$text`) with `parse`, `to_value` and nesting `depth`, `FieldTest`,
+  `Bound`, `WhereError`, `QUERY_TOO_COMPLEX`, `check_where` and
+  `check_where_filter` (`dataTypes`, the `using` gate, `supportsText`,
+  `COLLATIONS`, `maxDepth` → `queryTooComplex`), `where_values` and
+  `filter_uses_where`; feature `eval` adds `Candidate`,
+  `Expression::matches`, `FieldTest::matches` and `collate`.
+- **jmap-mail-types**, **jmap-mail-server**, **jmap-mail-client**: JMAP
+  Search on `Email/query`. `EmailFilterCondition.where_`; the
+  `MailBackend::search_capability` hook (default `None`: `where` is
+  `unsupportedFilter`), checked with the request's `using`; a search
+  `Email/query` reports `canCalculateChanges: false` and its
+  `Email/queryChanges` is `cannotCalculateChanges`. The memory backend
+  (`with_search_capability`) evaluates `where` on each Email's `/get` form
+  with `bodyValues` empty and `$text` as the RFC 8621 `text` condition.
+  EmailPush filters refuse `where` (new `EmailCondition::Where`). The
+  client adds the search URI to `using` when a filter sets `where`.
+- **jmap-chat-types**, **jmap-chat-server**, **jmap-chat-client**: JMAP
+  Search on `Message/query`, as for Mail: `MessageFilterCondition.where_`,
+  `ChatSettings::search_capability` (default `None`, forwarded by
+  `DelegateChatSettings`), the memory backend's `with_search_capability`
+  (stored Message without `editHistory` unless retained, `$text` in
+  `body`), and the search URI in `using` from `message_query`,
+  `message_query_changes` and `Batch::message_query_get`. The
+  `chatId`/`hasMention: true` rule still applies.
 - **jmap-tasks-types**: `is_task_owner(task, user_calendar_addresses)` and
   `task_has_owner(task)`: a task owner is a participant with the `"owner"`
   role matching one of the user's ParticipantIdentity `calendarAddress`
@@ -1107,6 +1134,13 @@ wire behaviour that a conforming peer can observe.
   `"final"`) or a write (for `"canceled"`). A real change from `"final"` is
   still `cannotUnsend` (bd:JMAP-t8ej.32 item 6).
 
+- **jmap-graph-types**, **jmap-graph-server**: Graph search is built on
+  `jmap-search`. `FieldTest`, `Bound`, `WhereError` and `QUERY_TOO_COMPLEX`
+  are now `jmap-search`'s, re-exported at the `jmap-graph-types` root under
+  the same paths; field tests and collations are evaluated by
+  `jmap-search`. Behaviour is unchanged. **BREAKING**:
+  `jmap_graph_server::search::COLLATIONS` is removed; use
+  `jmap_search::COLLATIONS` (bd:JMAP-nn3i).
 - **jmap-chat-server**: RFC 8620 §5.3 identical server-set values. `Chat/set`
   compares an echoed `unreadCount` with the value `Chat/get` reports, which
   is computed when the backend does not maintain it, instead of the stored

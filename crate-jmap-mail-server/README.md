@@ -610,6 +610,13 @@ With the `emailpush` feature, `JMAP_EMAILPUSH_URI`
 an empty object, and in `accountCapabilities` exactly for the accounts
 `EmailPushBackend::email_push_accounts` returns (-05 §2.1).
 
+For JMAP Search (`jmap_search::JMAP_SEARCH_URI`,
+`"urn:ietf:params:jmap:search"`, docs/specs/jmap-search.md), advertise
+`{}` at the session level and, per account, the `SearchCapability`
+`MailBackend::search_capability` returns (with `"Email"` in `dataTypes`);
+`Email/query` then accepts `where` in requests that put the URI in
+`using`.
+
 Which URIs to advertise depends on which object types your backend supports.
 Use `MailBackend::supports_type::<O>(caller, account_id)` to check each
 account at session-build time.

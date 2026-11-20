@@ -1,63 +1,92 @@
 # jmap-search
 
-A reserved name for the planned JMAP search extension: a generic
-filter-expression language for every JMAP data type's `/query`. This
-release has **no public items and no dependencies**; it holds the name on
-the shared `jmap-*` version line until the extension's crates exist.
+JMAP Search (`urn:ietf:params:jmap:search`): one filter language for the
+`/query` of every JMAP data type. This crate holds the capability object,
+the expression AST, the checks a server runs before evaluating, and
+(feature `eval`) the evaluator.
 
 ## What it is
 
-An empty crate. Nothing is re-exported yet, because the
-`jmap-search-types`, `jmap-search-client` and `jmap-search-server` crates
-it is meant to re-export are not in the workspace. When they are, this
-crate takes the umbrella shape of `jmap-quotas`:
+The type-neutral core of the `where` language specified by the local
+draft [docs/specs/jmap-search.md] (draft-atwood-jmap-search-00), which is
+the built-in language of [draft-atwood-jmap-graph-search-00] without its
+structural operators:
 
-| Feature | Re-export (planned) |
+| Item | Spec section |
 |---|---|
-| (none) | `jmap_search::types` |
-| `client` | `jmap_search::client` |
-| `server` | `jmap_search::server` |
+| `JMAP_SEARCH_URI`, `SearchCapability`, `DataTypeSearchInfo` | §Capability |
+| `Expression` (`parse`, `to_value`, `depth`, `visit`), `FieldTest`, `Bound`, `is_json_pointer` | §The Filter Language, §Nesting Depth |
+| `WhereError` → `invalidArguments` / `unsupportedFilter`, `QUERY_TOO_COMPLEX` | §Errors |
+| `check_where`, `check_where_filter`, `COLLATIONS`, `is_supported_collation` | §Errors, §Opting In a Data Type, §Collation |
+| `where_values`, `filter_uses_where` | §The where FilterCondition Property |
+| `Candidate`, `Expression::matches`, `FieldTest::matches`, `collate` (feature `eval`) | §Comparison Operators, §Arrays, §Logical Operators, §Collation, §Full-Text Matching |
 
 ## What it's for
 
-The planned extension adds a `where` property to the FilterCondition of
-each listed type's `/query`: field tests as JSON Pointers into the `/get`
-representation, comparison operators (`$eq`, `$ne`, `$gt`, `$gte`, `$lt`,
-`$lte`, `$in`, `$nin`, `$exists`, `$prefix`, `$contains`), array rules,
-logical operators (`$and`, `$or`, `$not`), `$collation` and `$text`, under
-a capability of its own. It generalises the graph-independent part of
-[draft-atwood-jmap-graph-search-00], so one filter language covers every
-JMAP type, and Graph search keeps only its structural operators.
+- Servers: check every `where` of a `/query` filter against the account's
+  capability and the request's `using`, then evaluate it over the objects
+  the caller may fetch. `jmap-mail-server` (Email) and `jmap-chat-server`
+  (Message) do this through their `search_capability` backend hooks.
+- Clients: build expressions and add the capability to `using` when a
+  filter sets `where` (`jmap-mail-client`, `jmap-chat-client`).
+- Graph search: `jmap-graph-types` and `jmap-graph-server` build the
+  draft-atwood-jmap-graph-search-00 language (structural operators,
+  `GraphView`) on `FieldTest`, `Bound`, `WhereError`, `QUERY_TOO_COMPLEX`
+  and the evaluator here.
 
 ## How to use
 
-There is nothing to use yet. For Graph search today, depend on
-[`jmap-graph`] (or `jmap-graph-types` and `jmap-graph-server`) and use
-their `search` modules, which implement
-`urn:ietf:params:jmap:graph:search`.
+```rust
+use jmap_search::{DataTypeSearchInfo, SearchCapability, check_where_filter};
+use serde_json::json;
+
+let cap = SearchCapability::new(8).with_data_type("Email", DataTypeSearchInfo::new(true));
+let filter = json!({ "inMailbox": "M1", "where": { "/keywords/$flagged": true } });
+let using = vec!["urn:ietf:params:jmap:search".to_owned()];
+assert_eq!(check_where_filter(Some(&filter), "Email", &using, Some(&cap)), Ok(true));
+```
+
+With feature `eval`, evaluate a checked expression with
+`Expression::matches` over a `Candidate`: `serde_json::Value` is one (fields
+by JSON Pointer, `$text` over every string), or implement the trait to give
+`$text` the type's own meaning (Email's RFC 8621 `text`).
 
 ## How it works
 
-It does not work yet: `src/lib.rs` holds only crate documentation. The
-design is tracked in the workspace's issue tracker (bd JMAP-nn3i).
+`Expression::parse` walks the JSON once and reports the first defect as
+`WhereError::Malformed` (`invalidArguments`) or
+`WhereError::UnknownOperator` (`unsupportedFilter`), so a future operator
+reads as unsupported rather than malformed. `check_where` adds the
+capability checks: the type in `dataTypes`, `$text` against
+`supportsText`, `$collation` in `COLLATIONS`, and nesting depth against
+`maxDepth` (`queryTooComplex`). The evaluator applies the array rule
+(non-array operand tested per element, not recursively) and prepares
+strings per collation (`i;ascii-casemap`, `i;octet`, `i;unicode-casemap`)
+before comparing them as code points.
 
 ## Gotchas
 
-- Depending on this crate gives you nothing. Do not add it to a build
-  expecting search types; they are not here.
-- The capability URI of the planned extension is not settled, so this
-  crate defines no `CAPABILITY` constant.
-- The 0.0.1 placeholder named `jmap-search-types`, `-client` and `-server`
-  0.0.1 as dependencies; 0.5.0 drops them.
+- `where` is raw JSON in each family's FilterCondition (`where_`), not an
+  `Expression`, because serde cannot tell `invalidArguments` from
+  `unsupportedFilter`.
+- `COLLATIONS` is a fixed list, not the consumer's `collationAlgorithms`.
+- The evaluator has no index or work budget; each candidate is scanned.
+  Servers that need one refuse expensive queries with `queryTooComplex`.
+- GraphNode and GraphEdge are not listed in `dataTypes` (the draft says
+  MUST NOT): they use `urn:ietf:params:jmap:graph:search`.
+- The draft is local to this repository for now; its home may move.
 
 ## References
 
-- [draft-atwood-jmap-graph-search-00] — JMAP Graph Search (the source of
-  the filter language)
-- [RFC 8620] — JMAP Core (`/query`, §5.5)
+- [docs/specs/jmap-search.md] — JMAP Search (draft-atwood-jmap-search-00)
+- [draft-atwood-jmap-graph-search-00] — JMAP Graph Search
+- [RFC 8620] — JMAP Core (`/query`, §5.5; `/queryChanges`, §5.6)
 - [RFC 6901] — JSON Pointer
+- [RFC 4790], [RFC 5051] — collations
 
+[docs/specs/jmap-search.md]: https://github.com/MarkAtwood/crate-jmap/blob/main/docs/specs/jmap-search.md
 [draft-atwood-jmap-graph-search-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 6901]: https://www.rfc-editor.org/rfc/rfc6901
-[`jmap-graph`]: https://crates.io/crates/jmap-graph
+[RFC 4790]: https://www.rfc-editor.org/rfc/rfc4790
+[RFC 5051]: https://www.rfc-editor.org/rfc/rfc5051
