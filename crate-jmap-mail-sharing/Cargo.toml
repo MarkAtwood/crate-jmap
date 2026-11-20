@@ -1,0 +1,29 @@
+[package]
+name = "jmap-mail-sharing"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP for Mail Sharing (draft-ietf-jmap-mail-sharing): facade re-exporting jmap-sharing-types, -client, and -server"
+keywords = ["jmap", "email", "sharing"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-sharing-types = { workspace = true }
+jmap-sharing-client = { workspace = true, optional = true }
+jmap-sharing-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-sharing-client"]
+server = ["dep:jmap-sharing-server"]
+# The server's in-memory reference backend (not production).
+memory = ["server", "jmap-sharing-server/memory"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

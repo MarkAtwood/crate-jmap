@@ -2129,6 +2129,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-conditional"
+version = "0.5.0"
+dependencies = [
+ "jmap-server",
+ "jmap-types",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-contacts-client"
 version = "0.5.0"
 dependencies = [
@@ -2206,6 +2215,16 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+]
+
+[[package]]
+name = "jmap-emailpush"
+version = "0.5.0"
+dependencies = [
+ "jmap-mail-client",
+ "jmap-mail-server",
+ "jmap-mail-types",
+ "serde_json",
 ]
 
 [[package]]
@@ -2387,6 +2406,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-mail-sharing"
+version = "0.5.0"
+dependencies = [
+ "jmap-sharing-client",
+ "jmap-sharing-server",
+ "jmap-sharing-types",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-mail-types"
 version = "0.5.0"
 dependencies = [
@@ -2394,6 +2423,15 @@ dependencies = [
  "jmap-object-history-types",
  "jmap-types",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jmap-mdn"
+version = "0.5.0"
+dependencies = [
+ "jmap-mail-server",
+ "jmap-mail-types",
  "serde_json",
 ]
 
@@ -2730,6 +2768,15 @@ dependencies = [
  "jmap-metadata-types",
  "jmap-types",
  "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jmap-sieve"
+version = "0.5.0"
+dependencies = [
+ "jmap-mail-server",
+ "jmap-mail-types",
  "serde_json",
 ]
 

@@ -1,0 +1,16 @@
+pub mod jmap_emailpush
+pub use jmap_emailpush::server
+pub mod jmap_emailpush::client
+pub use jmap_emailpush::client::EmailPushSubscriptionInput
+pub use jmap_emailpush::client::PushPayload
+pub use jmap_emailpush::client::parse_push_payload
+pub mod jmap_emailpush::types
+pub use jmap_emailpush::types::EMAIL_PUSH_PROPERTY
+pub use jmap_emailpush::types::EmailPush
+pub use jmap_emailpush::types::EmailPushAccountCapability
+pub use jmap_emailpush::types::EmailPushCapability
+pub use jmap_emailpush::types::EmailPushConfig
+pub use jmap_emailpush::types::JMAP_EMAILPUSH_URI
+pub use jmap_emailpush::types::email_push
+pub use jmap_emailpush::types::set_email_push
+pub const jmap_emailpush::CAPABILITY: &str

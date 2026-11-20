@@ -1,0 +1,5 @@
+pub mod jmap_mail_sharing
+pub use jmap_mail_sharing::client
+pub use jmap_mail_sharing::server
+pub use jmap_mail_sharing::types
+pub const jmap_mail_sharing::CAPABILITY: &str

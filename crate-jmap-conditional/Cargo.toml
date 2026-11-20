@@ -1,0 +1,29 @@
+[package]
+name = "jmap-conditional"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP conditional and atomic Foo/set (draft-ietf-jmap-conditional-02): facade re-exporting the conditional items of jmap-types and jmap-server"
+keywords = ["jmap", "conditional", "atomic"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-server = { workspace = true, optional = true }
+
+[features]
+server = ["dep:jmap-server"]
+# jmap-server's ScopedState, ScopeGate and ScopedGuard, the gated state the
+# in-repo memory backends use to implement ConditionalBackend::begin_set
+# (demonstration quality, not production).
+scoped-state = ["server", "jmap-server/scoped-state"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

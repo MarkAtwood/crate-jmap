@@ -1,0 +1,21 @@
+pub mod jmap_mdn
+pub mod jmap_mdn::server
+pub use jmap_mdn::server::MDN_PARSE_MAX_BLOB_IDS
+pub use jmap_mdn::server::MdnBackend
+pub use jmap_mdn::server::MdnParseResult
+pub use jmap_mdn::server::MdnSendResult
+pub use jmap_mdn::server::handle_mdn_parse
+pub use jmap_mdn::server::handle_mdn_send
+pub use jmap_mdn::server::register_mdn_handlers
+pub mod jmap_mdn::types
+pub use jmap_mdn::types::ActionMode
+pub use jmap_mdn::types::Disposition
+pub use jmap_mdn::types::DispositionType
+pub use jmap_mdn::types::JMAP_MDN_URI
+pub use jmap_mdn::types::Mdn
+pub use jmap_mdn::types::MdnParseRequest
+pub use jmap_mdn::types::MdnParseResponse
+pub use jmap_mdn::types::MdnSendRequest
+pub use jmap_mdn::types::MdnSendResponse
+pub use jmap_mdn::types::SendingMode
+pub const jmap_mdn::CAPABILITY: &str

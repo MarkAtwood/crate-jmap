@@ -1,0 +1,25 @@
+[package]
+name = "jmap-mdn"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Message Disposition Notifications (RFC 9007): facade re-exporting the mdn feature of jmap-mail-types and jmap-mail-server"
+keywords = ["jmap", "email", "mdn", "rfc9007"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-mail-types = { workspace = true, features = ["mdn"] }
+jmap-mail-server = { workspace = true, optional = true }
+
+[features]
+server = ["dep:jmap-mail-server", "jmap-mail-server/mdn"]
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true

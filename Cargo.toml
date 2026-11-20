@@ -80,6 +80,11 @@ members = [
     "crate-jmap-scene",
     "crate-jmap-graph",
     "crate-jmap-search",
+    "crate-jmap-conditional",
+    "crate-jmap-emailpush",
+    "crate-jmap-mdn",
+    "crate-jmap-sieve",
+    "crate-jmap-mail-sharing",
     "crate-jmap-testjig",
 ]
 resolver = "2"
@@ -149,6 +154,7 @@ jmap-scene-server      = { path = "crate-jmap-scene-server",     version = "0.5"
 jmap-graph-server      = { path = "crate-jmap-graph-server",     version = "0.5" }
 jmap-base-client       = { path = "crate-jmap-base-client",      version = "0.5" }
 jmap-chat-client       = { path = "crate-jmap-chat-client",      version = "0.5" }
+jmap-mail-client       = { path = "crate-jmap-mail-client",      version = "0.5" }
 jmap-filenode-client   = { path = "crate-jmap-filenode-client",  version = "0.5" }
 jmap-sharing-client    = { path = "crate-jmap-sharing-client",   version = "0.5" }
 jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.5" }

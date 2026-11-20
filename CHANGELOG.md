@@ -92,6 +92,25 @@ wire behaviour that a conforming peer can observe.
   `body`), and the search URI in `using` from `message_query`,
   `message_query_changes` and `Batch::message_query_get`. The
   `chatId`/`hasMention: true` rule still applies.
+- **jmap-search**: 0.5.0 replaces the 0.0.1 placeholder with a reserved,
+  empty crate (no public items, no dependencies) holding the name for the
+  planned generic filter-expression extension (bd:JMAP-nn3i). Graph search
+  stays in `jmap-graph-types` and `jmap-graph-server`. (bd:JMAP-gs76.7)
+
+- **jmap-conditional**, **jmap-emailpush**, **jmap-mdn**, **jmap-sieve**,
+  **jmap-mail-sharing**: thin re-export crates on the shared version line,
+  replacing the 0.0.1 name-claim placeholders (decision 50). Each keeps
+  0.0.1's `CAPABILITY`. `jmap-conditional` re-exports
+  `jmap_types::conditional` as `types` and `jmap-server`'s conditional
+  items as `server` (`server` feature; `scoped-state` adds `ScopedState`,
+  `ScopeGate` and `ScopedGuard`). `jmap-emailpush`, `jmap-mdn` and
+  `jmap-sieve` enable the `emailpush`, `mdn` and `sieve` features of the
+  mail crates and re-export exactly those items: `types` always, `server`
+  with the `server` feature, and for EmailPush `client` with the `client`
+  feature (the mail client has no MDN or Sieve bindings).
+  `jmap-mail-sharing` re-exports `jmap-sharing-types`, `-client` and
+  `-server` like `jmap-sharing`, with `memory`; its `CAPABILITY` is
+  `urn:ietf:params:jmap:mail:share`. (bd:JMAP-gs76.11-.15)
 - **jmap-tasks-types**: `is_task_owner(task, user_calendar_addresses)` and
   `task_has_owner(task)`: a task owner is a participant with the `"owner"`
   role matching one of the user's ParticipantIdentity `calendarAddress`
