@@ -41,10 +41,12 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use crate::ChatBackend;
-use crate::helpers::{PropType, check_metadata_entry, create_metadata, mistyped_create_props};
+use crate::helpers::{
+    MetadataMaps, PropType, check_metadata_entry, create_metadata, mistyped_create_props,
+};
 use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id,
-    finalize_set_response, now_utc_string, reject_unsupported_sort,
+    finalize_set_response, now_utc_string, refusal_value, reject_unsupported_sort,
 };
 use crate::helpers::{resolve_entry_refs, resolve_refs, resolved_create, strip_read_only_patch};
 use crate::outbound::{GroupUpdateAction, OutboundEvent};
@@ -730,922 +732,1128 @@ pub async fn handle_chat_set<B: ChatBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        using,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
+
+    finalize_set_response::<B, Chat>(backend, caller, &account_id, old_state, mutated, acc).await
+}
+
+/// What every `Chat/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ChatBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+}
+
+/// What the `Chat/set` create loop carries from one entry to the next:
+/// the Direct-chat contact ids already taken.
+struct CreateRun {
+    /// The account's Chats, read once before the loop when the batch has
+    /// a Direct create; empty otherwise.
+    existing_chats: Vec<Chat>,
+    /// `contactId`s of the account's Direct chats, including those created
+    /// earlier in this batch.
+    known_direct_contact_ids: HashSet<String>,
+    /// Maps contactId -> assigned new_id for Direct chats successfully
+    /// created earlier in this batch. Used to resolve intra-batch
+    /// duplicates without a re-fetch (JMAP-63k.12).
+    batch_direct_ids: HashMap<String, Id>,
+}
+
+/// The `create` part of `Chat/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
     let mut mutated = false;
-
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
-        // Only pay the cost of a full get_objects fetch when the batch contains
-        // at least one Direct create (JMAP-63k.4).
-        let has_direct_create = create_map.values().any(|v| {
-            v.get("kind")
-                .and_then(|k| k.as_str())
-                .is_some_and(|s| s.eq_ignore_ascii_case("direct"))
-        });
-
-        // Fetch all existing chats once before the loop. For a batch of N
-        // creates against an account with K existing chats this is O(K + N)
-        // reads (one full-account scan + a HashSet lookup per create) rather
-        // than the naive O(N * K) of one fetch per create. The per-batch fetch
-        // still scales linearly in the account's chat count K, so production
-        // backends serving accounts with large K should push the
-        // contact-id-uniqueness check into a typed query method on
-        // ChatBackend rather than rely on this hoisted scan (tracked by
-        // JMAP-63k.9). Skipped entirely for non-Direct batches.
-        let (existing_chats, mut known_direct_contact_ids): (Vec<Chat>, HashSet<String>) =
-            if has_direct_create {
-                let (chats, _) = backend
-                    .get_objects::<Chat>(caller, &account_id, None, None)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
-                let known = chats
-                    .iter()
-                    .filter(|c| c.kind == ChatKind::Direct)
-                    .filter_map(|c| c.contact_id.as_ref().map(|id| id.as_ref().to_owned()))
-                    .collect();
-                (chats, known)
-            } else {
-                (Vec::new(), HashSet::new())
-            };
-
-        // Maps contactId -> assigned new_id for Direct chats successfully
-        // created earlier in this batch.  Used to resolve intra-batch duplicates
-        // without a re-fetch (JMAP-63k.12).
-        let mut batch_direct_ids: HashMap<String, Id> = HashMap::new();
-
+        let mut run = create_run(ctx, create_map).await?;
         for (create_id, obj_val) in create_map {
-            let resolved = match resolved_create(obj_val, CHAT_ID_PROPERTIES, created_ids) {
-                Ok(v) => v,
-                Err(err) => {
-                    not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            let obj_val = &resolved;
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            // draft-ietf-jmap-metadata-05 §3.2: the create sets the
-            // metadata properties; the backend validates them.
-            let (metadata, private_metadata) = match create_metadata(obj_val) {
-                Ok(maps) => maps,
-                Err(err) => {
-                    not_created.insert(create_id.clone(), err);
-                    continue;
-                }
-            };
-            // Optional properties: a wrongly-typed value is invalidProperties
-            // (RFC 8620 §5.3), not a silent absence.
-            if let Some(err) = mistyped_create_props(
-                obj_val,
-                &[
-                    ("contactId", PropType::Str),
-                    ("name", PropType::Str),
-                    ("description", PropType::Str),
-                    ("avatarBlobId", PropType::Str),
-                    ("messageExpirySeconds", PropType::UnsignedInt),
-                    ("spaceId", PropType::Str),
-                    ("muted", PropType::Bool),
-                    ("receiveTypingIndicators", PropType::Bool),
-                ],
-            ) {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-            // kind is required.
-            let Some(kind_str) = obj_val
-                .get("kind")
+            mutated |= create_one(ctx, create_id, obj_val, acc, &mut run).await?;
+        }
+    }
+    Ok(mutated)
+}
+
+/// The [`CreateRun`] a `Chat/set` create batch starts with.
+async fn create_run<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_map: &serde_json::Map<String, Value>,
+) -> Result<CreateRun, JmapError> {
+    // Only pay the cost of a full get_objects fetch when the batch contains
+    // at least one Direct create (JMAP-63k.4).
+    let has_direct_create = create_map.values().any(|v| {
+        v.get("kind")
+            .and_then(|k| k.as_str())
+            .is_some_and(|s| s.eq_ignore_ascii_case("direct"))
+    });
+
+    // Fetch all existing chats once before the loop. For a batch of N
+    // creates against an account with K existing chats this is O(K + N)
+    // reads (one full-account scan + a HashSet lookup per create) rather
+    // than the naive O(N * K) of one fetch per create. The per-batch fetch
+    // still scales linearly in the account's chat count K, so production
+    // backends serving accounts with large K should push the
+    // contact-id-uniqueness check into a typed query method on
+    // ChatBackend rather than rely on this hoisted scan (tracked by
+    // JMAP-63k.9). Skipped entirely for non-Direct batches.
+    let (existing_chats, known_direct_contact_ids): (Vec<Chat>, HashSet<String>) =
+        if has_direct_create {
+            let (chats, _) = ctx
+                .backend
+                .get_objects::<Chat>(ctx.caller, ctx.account_id, None, None)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+            let known = chats
+                .iter()
+                .filter(|c| c.kind == ChatKind::Direct)
+                .filter_map(|c| c.contact_id.as_ref().map(|id| id.as_ref().to_owned()))
+                .collect();
+            (chats, known)
+        } else {
+            (Vec::new(), HashSet::new())
+        };
+    Ok(CreateRun {
+        existing_chats,
+        known_direct_contact_ids,
+        batch_direct_ids: HashMap::new(),
+    })
+}
+
+/// One `create` entry of `Chat/set`. Returns whether the backend was
+/// written.
+async fn create_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    obj_val: &Value,
+    acc: &mut SetAccumulators,
+    run: &mut CreateRun,
+) -> Result<bool, JmapError> {
+    let resolved = match resolved_create(obj_val, CHAT_ID_PROPERTIES, ctx.created_ids) {
+        Ok(v) => v,
+        Err(err) => {
+            acc.not_created
+                .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    let obj_val = &resolved;
+    let checked =
+        check_create_props(obj_val, ctx.using).and_then(|maps| Ok((maps, create_kind(obj_val)?)));
+    let ((metadata, private_metadata), kind) = match checked {
+        Ok(checked) => checked,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+    let direct_contact_id_str = match direct_contact_id(&kind, obj_val, run)? {
+        Ok(contact) => contact,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+    let now_str = now_utc_string();
+    let now: UTCDate = UTCDate::from(now_str.as_ref());
+    let members = match create_members(ctx, &kind, obj_val, &now) {
+        Ok(members) => members,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+
+    let opts = match create_optionals(obj_val) {
+        Ok(opts) => opts,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+    let build = |id: &Id| {
+        let mut chat = Chat::new(
+            id.clone(),
+            kind,
+            now,
+            0,
+            vec![],
+            opts.muted,
+            opts.receive_typing_indicators,
+        );
+        chat.contact_id = opts.contact_id;
+        chat.name = opts.name;
+        chat.description = opts.description;
+        chat.avatar_blob_id = opts.avatar_blob_id;
+        chat.message_expiry_seconds = opts.message_expiry_seconds;
+        chat.members = members;
+        chat.metadata = metadata;
+        chat.private_metadata = private_metadata;
+        chat
+    };
+
+    match ctx
+        .backend
+        .create_object::<Chat, _>(ctx.caller, ctx.account_id, create_id, build)
+        .await
+    {
+        Ok((new_id, created_obj)) => {
+            // The create is committed; every branch below (including
+            // rollback and cleanup failure) has moved backend state,
+            // so newState must be re-read (RFC 8620 §5.3).
+            let direct = direct_contact_id_str.as_deref();
+            after_create(ctx, create_id, new_id, created_obj, direct, acc, run).await?;
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// Check the metadata and wrongly-typed properties of one `Chat/set`
+/// create object and return its metadata maps, or the SetError value for
+/// `notCreated`.
+fn check_create_props(obj_val: &Value, using: &[String]) -> Result<MetadataMaps, Value> {
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // draft-ietf-jmap-metadata-05 §3.2: the create sets the
+    // metadata properties; the backend validates them.
+    let maps = create_metadata(obj_val)?;
+    // Optional properties: a wrongly-typed value is invalidProperties
+    // (RFC 8620 §5.3), not a silent absence.
+    if let Some(err) = mistyped_create_props(
+        obj_val,
+        &[
+            ("contactId", PropType::Str),
+            ("name", PropType::Str),
+            ("description", PropType::Str),
+            ("avatarBlobId", PropType::Str),
+            ("messageExpirySeconds", PropType::UnsignedInt),
+            ("spaceId", PropType::Str),
+            ("muted", PropType::Bool),
+            ("receiveTypingIndicators", PropType::Bool),
+        ],
+    ) {
+        return Err(err);
+    }
+    Ok(maps)
+}
+
+/// The `kind` of one `Chat/set` create object, checked together with the
+/// kind-scoped and server-set properties, or the SetError value for
+/// `notCreated`.
+fn create_kind(obj_val: &Value) -> Result<ChatKind, Value> {
+    // kind is required.
+    let Some(kind_str) = obj_val
+        .get("kind")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned)
+    else {
+        return Err(json!({ "type": "invalidProperties", "properties": ["kind"] }));
+    };
+
+    // ChatKind::Other(_) is the deserialize-from-wire forward-compat
+    // catch-all: it preserves round-trip fidelity when reading data
+    // produced by a future server that knows a new spec variant. It
+    // is NOT a legitimate value on /set create — a client supplying
+    // an unrecognised kind must be rejected with invalidProperties,
+    // otherwise junk Chats end up in storage and break every
+    // downstream kind-dispatched invariant (kind-specific required
+    // field checks, /get response shape, Message/set chatId
+    // resolution, etc.).
+    let kind = match serde_json::from_value::<ChatKind>(Value::String(kind_str)) {
+        Ok(k) if !matches!(k, ChatKind::Other(_)) => k,
+        _ => return Err(json!({ "type": "invalidProperties", "properties": ["kind"] })),
+    };
+
+    // A channel create is `forbidden` below whatever it carries.
+    // `null` is read as absent, as in `mistyped_create_props`.
+    if kind != ChatKind::Channel {
+        let foreign: Vec<&str> = KIND_SCOPED_CREATE_PROPS
+            .iter()
+            .filter(|(prop, scope)| {
+                *scope != kind && obj_val.get(*prop).is_some_and(|v| !v.is_null())
+            })
+            .map(|(prop, _)| *prop)
+            .collect();
+        if !foreign.is_empty() {
+            return Err(json!({ "type": "invalidProperties", "properties": foreign }));
+        }
+        if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Chat>) {
+            return Err(serde_json::Value::from(&err));
+        }
+    }
+    Ok(kind)
+}
+
+/// The `contactId` of a Direct `Chat/set` create, checked against the
+/// Direct chats already known to `run`; `None` for a group. The inner
+/// `Err` is the SetError value for `notCreated`.
+///
+/// `Some(id)` for Direct chats and `None` for all other kinds — it
+/// simultaneously encodes the "is direct" flag and the contact ID,
+/// avoiding a bool+Option pair whose invariant (Some iff direct) would
+/// otherwise be implicit.
+fn direct_contact_id(
+    kind: &ChatKind,
+    obj_val: &Value,
+    run: &CreateRun,
+) -> Result<Result<Option<String>, Value>, JmapError> {
+    match kind {
+        ChatKind::Direct => {
+            let Some(contact_id_str) = obj_val
+                .get("contactId")
                 .and_then(|v| v.as_str())
                 .map(str::to_owned)
             else {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["kind"] }),
-                );
-                continue;
+                return Ok(Err(
+                    json!({ "type": "invalidProperties", "properties": ["contactId"] }),
+                ));
+            };
+            let stored_direct = |c: &&Chat| {
+                c.kind == ChatKind::Direct
+                    && c.contact_id.as_ref().map(|id| id.as_ref()) == Some(contact_id_str.as_str())
             };
 
-            // ChatKind::Other(_) is the deserialize-from-wire forward-compat
-            // catch-all: it preserves round-trip fidelity when reading data
-            // produced by a future server that knows a new spec variant. It
-            // is NOT a legitimate value on /set create — a client supplying
-            // an unrecognised kind must be rejected with invalidProperties,
-            // otherwise junk Chats end up in storage and break every
-            // downstream kind-dispatched invariant (kind-specific required
-            // field checks, /get response shape, Message/set chatId
-            // resolution, etc.).
-            let kind = match serde_json::from_value::<ChatKind>(Value::String(kind_str)) {
-                Ok(k) if !matches!(k, ChatKind::Other(_)) => k,
-                _ => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["kind"] }),
-                    );
-                    continue;
-                }
-            };
-
-            // A channel create is `forbidden` below whatever it carries.
-            // `null` is read as absent, as in `mistyped_create_props`.
-            if kind != ChatKind::Channel {
-                let foreign: Vec<&str> = KIND_SCOPED_CREATE_PROPS
-                    .iter()
-                    .filter(|(prop, scope)| {
-                        *scope != kind && obj_val.get(*prop).is_some_and(|v| !v.is_null())
-                    })
-                    .map(|(prop, _)| *prop)
-                    .collect();
-                if !foreign.is_empty() {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": foreign }),
-                    );
-                    continue;
-                }
-                if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Chat>) {
-                    not_created.insert(create_id.clone(), serde_json::Value::from(&err));
-                    continue;
-                }
+            // Pre-check: reject if a direct chat with this contactId is
+            // already known from the hoisted fetch.
+            if let Some(dup) = run.existing_chats.iter().find(stored_direct) {
+                return Ok(Err(serde_json::Value::from(
+                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(dup.id.clone()),
+                )));
             }
-
-            // Validate kind-specific required fields and extract per-kind state.
-            // `direct_contact_id_str` is Some(id) for Direct chats and None for
-            // all other kinds — it simultaneously encodes the "is direct" flag and
-            // the contact ID, avoiding a bool+Option pair whose invariant (Some iff
-            // direct) would otherwise be implicit.
-            let direct_contact_id_str: Option<String> = match &kind {
-                ChatKind::Direct => {
-                    let Some(contact_id_str) = obj_val
-                        .get("contactId")
-                        .and_then(|v| v.as_str())
-                        .map(str::to_owned)
-                    else {
-                        not_created.insert(
-                            create_id.clone(),
-                            json!({ "type": "invalidProperties", "properties": ["contactId"] }),
-                        );
-                        continue;
-                    };
-
-                    // Pre-check: reject if a direct chat with this contactId is
-                    // already known from the hoisted fetch.
-                    if let Some(dup) = existing_chats.iter().find(|c| {
-                        c.kind == ChatKind::Direct
-                            && c.contact_id.as_ref().map(|id| id.as_ref())
-                                == Some(contact_id_str.as_str())
-                    }) {
-                        not_created.insert(
-                            create_id.clone(),
-                            serde_json::Value::from(
-                                SetError::new(SetErrorType::AlreadyExists)
-                                    .with_existing_id(dup.id.clone()),
-                            ),
-                        );
-                        continue;
-                    }
-                    // Also check contactIds created earlier in this same batch.
-                    // Resolve the canonical id from the hoisted pre-fetch data or
-                    // from the batch map — no re-fetch required (JMAP-63k.12).
-                    if known_direct_contact_ids.contains(&contact_id_str) {
-                        // Try the pre-fetch snapshot first (pre-existing chat).
-                        let canonical_id = if let Some(c) = existing_chats.iter().find(|c| {
-                            c.kind == ChatKind::Direct
-                                && c.contact_id.as_ref().map(|id| id.as_ref())
-                                    == Some(contact_id_str.as_str())
-                        }) {
-                            c.id.clone()
-                        } else if let Some(id) = batch_direct_ids.get(&contact_id_str) {
-                            // Created earlier in this batch.
-                            id.clone()
-                        } else {
-                            // Should not happen: known_direct_contact_ids is only
-                            // populated from existing_chats and batch_direct_ids.
-                            not_created.insert(
-                                create_id.clone(),
-                                json!({
-                                    "type": "serverFail",
-                                    "description": "direct chat for contact not found after concurrent operation; retry"
-                                }),
-                            );
-                            continue;
-                        };
-                        not_created.insert(
-                            create_id.clone(),
-                            jmap_server::serialize_value(
-                                SetError::new(SetErrorType::AlreadyExists)
-                                    .with_existing_id(canonical_id),
-                            )?,
-                        );
-                        continue;
-                    }
-                    Some(contact_id_str)
-                }
-                // §Chat/set: "Creating a Chat with `kind: "channel"` via
-                // `Chat/set` is not supported; the server MUST return a
-                // SetError of type `forbidden`."
-                ChatKind::Channel => {
-                    not_created.insert(create_id.clone(), json!({ "type": "forbidden" }));
-                    continue;
-                }
-                _ => None,
-            };
-
-            // Group create: "`memberIds` (String[], required): ChatContact.ids
-            // of additional initial members." Absent is tolerated for
-            // backward compatibility; a non-String[] value is rejected.
-            let member_ids: Option<Vec<Id>> = if kind == ChatKind::Group {
-                match obj_val.get("memberIds") {
-                    None => Some(Vec::new()),
-                    Some(v) => match serde_json::from_value::<Vec<String>>(v.clone()) {
-                        Ok(ids) => {
-                            match ids
-                                .iter()
-                                .map(|s| jmap_server::parse_wire_id(s, "memberIds"))
-                                .collect::<Result<Vec<Id>, _>>()
-                            {
-                                Ok(ids) => Some(ids),
-                                Err(err) => {
-                                    not_created
-                                        .insert(create_id.clone(), serde_json::Value::from(&*err));
-                                    continue;
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            not_created.insert(
-                                create_id.clone(),
-                                json!({ "type": "invalidProperties", "properties": ["memberIds"] }),
-                            );
-                            continue;
-                        }
-                    },
-                }
-            } else {
-                None
-            };
-
-            let now_str = now_utc_string();
-            let now: UTCDate = UTCDate::from(now_str.as_ref());
-
-            // "The server [...] adds the creator to `members` with at least
-            // one role granting permissions sufficient to administer the
-            // chat": the creator is `"admin"`, each distinct memberIds entry
-            // is `"member"` invited by the creator. The creator is the owner,
-            // referenced by the accountId (§Terminology).
-            let members: Option<Vec<ChatMember>> = member_ids.map(|ids| {
-                let creator: Id = account_id.clone();
-                let mut members = vec![ChatMember::new(
-                    creator.clone(),
-                    ChatMemberRole::Admin,
-                    now.clone(),
-                )];
-                for id in ids {
-                    if members.iter().all(|m| m.id != id) {
-                        let mut m = ChatMember::new(id, ChatMemberRole::Member, now.clone());
-                        m.invited_by = Some(creator.clone());
-                        members.push(m);
-                    }
-                }
-                members
-            });
-
-            // Group create `memberIds`: "If the resulting membership would
-            // exceed a server-defined limit on the number of members per
-            // group Chat, the server MUST return an `overQuota` SetError".
-            let max_members = backend.limits(caller, &account_id).max_group_chat_members;
-            if members
-                .as_ref()
-                .is_some_and(|m| m.len() > max_members as usize)
-            {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({
-                        "type": "overQuota",
-                        "description": "group chat member limit exceeded",
-                    }),
-                );
-                continue;
+            // Also check contactIds created earlier in this same batch.
+            // Resolve the canonical id from the hoisted pre-fetch data or
+            // from the batch map — no re-fetch required (JMAP-63k.12).
+            if run.known_direct_contact_ids.contains(&contact_id_str) {
+                // Try the pre-fetch snapshot first (pre-existing chat).
+                let canonical_id = if let Some(c) = run.existing_chats.iter().find(stored_direct) {
+                    c.id.clone()
+                } else if let Some(id) = run.batch_direct_ids.get(&contact_id_str) {
+                    // Created earlier in this batch.
+                    id.clone()
+                } else {
+                    // Should not happen: known_direct_contact_ids is only
+                    // populated from existing_chats and batch_direct_ids.
+                    return Ok(Err(json!({
+                        "type": "serverFail",
+                        "description": "direct chat for contact not found after concurrent operation; retry"
+                    })));
+                };
+                return Ok(Err(jmap_server::serialize_value(
+                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(canonical_id),
+                )?));
             }
-
-            let contact_id: Option<Id> = match obj_val.get("contactId").and_then(|v| v.as_str()) {
-                Some(s) => match jmap_server::parse_wire_id(s, "contactId") {
-                    Ok(id) => Some(id),
-                    Err(err) => {
-                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                        continue;
-                    }
-                },
-                None => None,
-            };
-            let name: Option<String> = obj_val
-                .get("name")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
-            let description: Option<String> = obj_val
-                .get("description")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
-            let muted: bool = obj_val
-                .get("muted")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            let receive_typing_indicators: bool = obj_val
-                .get("receiveTypingIndicators")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(true);
-
-            // "Optional at creation: `description` (String), `avatarBlobId`
-            // (String), `messageExpirySeconds` (UnsignedInt)."
-            let avatar_blob_id = match obj_val.get("avatarBlobId").and_then(Value::as_str) {
-                Some(s) => match jmap_server::parse_wire_id(s, "avatarBlobId") {
-                    Ok(id) => Some(id),
-                    Err(err) => {
-                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                        continue;
-                    }
-                },
-                None => None,
-            };
-            let message_expiry_seconds =
-                obj_val.get("messageExpirySeconds").and_then(Value::as_u64);
-            let build = |id: &Id| {
-                let mut chat = Chat::new(
-                    id.clone(),
-                    kind,
-                    now,
-                    0,
-                    vec![],
-                    muted,
-                    receive_typing_indicators,
-                );
-                chat.contact_id = contact_id;
-                chat.name = name;
-                chat.description = description;
-                chat.avatar_blob_id = avatar_blob_id;
-                chat.message_expiry_seconds = message_expiry_seconds;
-                chat.members = members;
-                chat.metadata = metadata;
-                chat.private_metadata = private_metadata;
-                chat
-            };
-
-            match backend
-                .create_object::<Chat, _>(caller, &account_id, create_id, build)
-                .await
-            {
-                Ok((new_id, created_obj)) => {
-                    // The create is committed; every branch below (including
-                    // rollback and cleanup failure) has moved backend state,
-                    // so newState must be re-read (RFC 8620 §5.3).
-                    mutated = true;
-                    // For Direct chats: re-fetch to detect a concurrent duplicate
-                    // (optimistic create-then-validate, required for JMAP-0c9).
-                    // We fetch all chats because the backend does not currently
-                    // expose a filter-by-kind query; a tighter fetch (Direct only)
-                    // would be preferable but requires backend support (JMAP-63k.9).
-                    if let Some(contact_id_str) = direct_contact_id_str.as_deref() {
-                        let current_chats = match backend
-                            .get_objects::<Chat>(caller, &account_id, None, None)
-                            .await
-                        {
-                            Ok((chats, _)) => chats,
-                            Err(read_err) => {
-                                // The Chat (and earlier creates in this
-                                // batch) are already committed, so a
-                                // method-level serverFail would break
-                                // RFC 8620 §3.6.2 ("The method call made
-                                // no changes to the server's state").
-                                // Without the re-check the draft's
-                                // alreadyExists rule cannot be enforced,
-                                // so roll this create back and fail it
-                                // per id; the batch continues.
-                                let value = match backend
-                                    .destroy_object::<Chat>(caller, &account_id, &new_id)
-                                    .await
-                                {
-                                    Ok(()) => server_fail_value_from_backend(&read_err),
-                                    Err(e) => server_fail_value_from_backend(&e),
-                                };
-                                not_created.insert(create_id.clone(), value);
-                                continue;
-                            }
-                        };
-                        let duplicates: Vec<&Chat> = current_chats
-                            .iter()
-                            .filter(|c| {
-                                c.kind == ChatKind::Direct
-                                    && c.contact_id.as_ref().map(|id| id.as_ref())
-                                        == Some(contact_id_str)
-                            })
-                            .collect();
-                        if duplicates.len() > 1 {
-                            // Race occurred: pick lexicographically smallest id
-                            // as the canonical winner.
-                            let canonical_id: Id = duplicates
-                                .iter()
-                                .map(|c| c.id.as_ref())
-                                .min()
-                                .map(Id::from)
-                                .unwrap_or_else(|| new_id.clone());
-                            if new_id != canonical_id {
-                                // We lost the race: destroy our copy.
-                                if let Err(e) = backend
-                                    .destroy_object::<Chat>(caller, &account_id, &new_id)
-                                    .await
-                                {
-                                    // Cleanup failed — the duplicate is still
-                                    // live. Return a retryable server error
-                                    // rather than alreadyExists with a
-                                    // potentially inconsistent state.
-                                    //
-                                    // Route through server_fail_value_from_backend
-                                    // to redact backend Display text from the
-                                    // wire description per workspace redaction
-                                    // discipline.
-                                    not_created.insert(
-                                        create_id.clone(),
-                                        server_fail_value_from_backend(&e),
-                                    );
-                                    continue;
-                                }
-                                // Cleanup succeeded: report alreadyExists
-                                // pointing to the canonical winner.
-                                not_created.insert(
-                                    create_id.clone(),
-                                    serde_json::to_value(
-                                        SetError::new(SetErrorType::AlreadyExists)
-                                            .with_existing_id(canonical_id),
-                                    )
-                                    .unwrap_or_else(|e| server_fail_value_from_backend(&e)),
-                                );
-                                continue;
-                            }
-                            // We won the race (our id is canonical): fall through
-                            // to success path below.
-                        }
-                        // Exactly one (or we won): record contactId as known so
-                        // subsequent creates in this batch are pre-checked.
-                        known_direct_contact_ids.insert(contact_id_str.to_owned());
-                        batch_direct_ids.insert(contact_id_str.to_owned(), new_id.clone());
-                    }
-                    // §Creating a Chat: the server "MUST send
-                    // `Peer/groupUpdate` to each initial member".
-                    if created_obj.kind == ChatKind::Group {
-                        let event = OutboundEvent::GroupUpdate {
-                            chat_id: new_id.clone(),
-                            action: GroupUpdateAction::Create,
-                            recipients: other_member_ids(
-                                created_obj.members.iter().flatten(),
-                                &account_id,
-                            ),
-                        };
-                        backend.on_outbound_event(caller, &account_id, &event).await;
-                    }
-                    created.insert(
-                        create_id.clone(),
-                        jmap_server::serialize_value(&created_obj)?,
-                    );
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), backend_set_error_value(e));
-                }
-            }
+            Ok(Ok(Some(contact_id_str)))
         }
+        // §Chat/set: "Creating a Chat with `kind: "channel"` via
+        // `Chat/set` is not supported; the server MUST return a
+        // SetError of type `forbidden`."
+        ChatKind::Channel => Ok(Err(json!({ "type": "forbidden" }))),
+        _ => Ok(Ok(None)),
     }
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
-    if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            if let Err(err) = resolve_refs(&mut patch_val, CHAT_ID_PROPERTIES, created_ids)
-                .and_then(|()| {
-                    resolve_entry_refs(&mut patch_val, CHAT_ENTRY_ID_PROPERTIES, created_ids)
-                })
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-
-            // draft-ietf-jmap-metadata-05 §3.2: patch errors "that can be
-            // determined from the request alone ... MUST be reported with
-            // "invalidPatch"" before `notFound`.
-            if let Some(Err(err)) = patch_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, false, using))
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Some(Err(e)) = patch_val.as_object().map(jmap_server::check_patch_paths) {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": e.to_string() }),
-                );
-                continue;
-            }
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-
-            // The stored Chat, read once for every check below.
-            let stored = match backend
-                .get_objects::<Chat>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
-                .await
-            {
-                Ok((chats, _)) => chats.into_iter().next(),
-                Err(e) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-            let Some(chat) = &stored else {
-                not_updated.insert(id_str, Value::from(&SetError::new(SetErrorType::NotFound)));
-                continue;
-            };
-
-            // `unreadCount` is server-set, and when the backend does not
-            // maintain it the "current server value" a client can echo is
-            // the one Chat/get computes (fill_unread_counts), not the stored
-            // field, so compare against that (bd:JMAP-t8ej.32 item 3).
-            let computed;
-            let chat = if patch.as_map().contains_key("unreadCount")
-                && !backend.maintains_unread_count()
-            {
-                let (messages, positions) =
-                    match messages_and_positions(backend, caller, &account_id).await {
-                        Ok(v) => v,
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
-                        }
-                    };
-                let mut c = chat.clone();
-                c.unread_count = unread_count(&messages, &positions, &account_id, c.id.as_ref());
-                computed = c;
-                &computed
-            } else {
-                chat
-            };
-
-            // RFC 8620 §5.3: "Any server-set properties MAY be included in
-            // the patch if their value is identical to the current server
-            // value ... Otherwise, the update MUST be rejected with an
-            // "invalidProperties" SetError." Identical values are dropped
-            // here, so the checks below see only the client changes.
-            //
-            // Existence and permission come before shape (DECISIONS.md 44):
-            // a changed read-only value and an undefined key are held in
-            // `shape_err` and reported only after the `forbidden` checks
-            // below, which look at patch keys alone.
-            let mut shape_err = strip_read_only_patch::<Chat>(patch.as_map_mut(), chat).err();
-
-            // Only the keys §Chat/set "Updating a Chat" defines may be
-            // patched: the client-settable Chat properties that are not
-            // immutable, and [`MEMBER_PATCH_KEYS`], plus the mimi draft's
-            // [`KICK_MEMBERS_KEY`] (whole key only). Any other key is
-            // `invalidProperties`. JSON Pointer paths count by their first
-            // segment.
-            let defined = |k: &str| {
-                let top = k.split('/').next().unwrap_or(k);
-                is_client_updatable::<Chat>(top)
-                    || MEMBER_PATCH_KEYS.contains(&top)
-                    || k == KICK_MEMBERS_KEY
-            };
-            let bad_props: Vec<&str> = patch
-                .as_map()
-                .keys()
-                .map(String::as_str)
-                .filter(|k| !defined(k))
-                .collect();
-            if shape_err.is_none() && !bad_props.is_empty() {
-                shape_err = Some(json!({ "type": "invalidProperties", "properties": bad_props }));
-            }
-
-            // Per-Chat restrictions of extension-bound Chats; see
-            // `ChatRestrictions::may_update_chat`. It sees only the keys
-            // the update may change.
-            let patch_keys: Vec<&str> = patch
-                .as_map()
-                .keys()
-                .map(String::as_str)
-                .filter(|k| defined(k))
-                .collect();
-            match backend
-                .may_update_chat(caller, &account_id, chat, &patch_keys)
-                .await
-            {
-                Ok(Ok(())) => {}
-                Ok(Err(set_err)) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&set_err));
-                    continue;
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            }
-
-            // draft-atwood-jmap-chat-mimi-00 §Moderation `kickMembers`: an
-            // operation, not a property, taken out of the patch here and
-            // handed to `ChatModeration::kick_chat_members` before the write.
-            let kick = match take_kick_members(patch.as_map_mut()) {
-                Ok(kick) => kick,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
-            // set, the server MUST reject with a `forbidden` SetError ...
-            // every `Chat/set` update that changes membership ... or
-            // shared group settings". Pointer paths beneath them count.
-            // The stored group and the member list the update stores, for
-            // `group_update_events` once the update succeeds.
-            let mut group_before: Option<Vec<ChatMember>> = None;
-            let mut member_change: Option<(Vec<ChatMember>, bool)> = None;
-            let touches_closed_keys = patch.as_map().keys().any(|k| {
-                let top = k.split('/').next().unwrap_or(k);
-                MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
-            });
-            if touches_closed_keys {
-                if chat.closed_at.is_some() {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "forbidden", "description": "the group is closed" }),
-                    );
-                    continue;
-                }
-                // "For group chats, admins additionally may update:
-                // `name`, `description`, `avatarBlobId`."
-                let touches_admin_keys = patch
-                    .as_map()
-                    .keys()
-                    .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
-                if touches_admin_keys
-                    && !(chat.kind == ChatKind::Group && is_chat_admin(chat, &account_id))
-                {
-                    not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "forbidden",
-                                "description": "only group chat admins may update name, description and avatarBlobId",
-                            }),
-                        );
-                    continue;
-                }
-                if chat.kind == ChatKind::Group {
-                    group_before = Some(chat.members.clone().unwrap_or_default());
-                }
-            }
-
-            // Nothing left once identical values are dropped (or a literal
-            // `{}`): a no-op success with no write (RFC 8620 §5.3).
-            if patch.is_empty() && kick.is_none() {
-                updated.insert(id_str, Value::Null);
-                continue;
-            }
-
-            // draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat": the
-            // member patch keys are operations on `members`, not
-            // properties. They are applied to the stored list here and
-            // replaced by the resulting `members`, so the backend never
-            // stores them.
-            // ponytail: check-then-update is not atomic; two concurrent
-            // member patches can lose one. A backend needing strictness
-            // re-checks inside its update transaction.
-            if MEMBER_PATCH_KEYS
+/// The `memberIds` of a group `Chat/set` create (`None` for another
+/// kind), or the SetError value for `notCreated`.
+///
+/// Group create: "`memberIds` (String[], required): ChatContact.ids
+/// of additional initial members." Absent is tolerated for
+/// backward compatibility; a non-String[] value is rejected.
+fn create_member_ids(kind: &ChatKind, obj_val: &Value) -> Result<Option<Vec<Id>>, Value> {
+    if *kind != ChatKind::Group {
+        return Ok(None);
+    }
+    match obj_val.get("memberIds") {
+        None => Ok(Some(Vec::new())),
+        Some(v) => match serde_json::from_value::<Vec<String>>(v.clone()) {
+            Ok(ids) => ids
                 .iter()
-                .any(|k| patch.as_map().contains_key(*k))
+                .map(|s| jmap_server::parse_wire_id(s, "memberIds"))
+                .collect::<Result<Vec<Id>, _>>()
+                .map(Some)
+                .map_err(|err| serde_json::Value::from(&*err)),
+            Err(_) => Err(json!({ "type": "invalidProperties", "properties": ["memberIds"] })),
+        },
+    }
+}
+
+/// The initial `members` of a group `Chat/set` create (`None` for another
+/// kind), or the SetError value for `notCreated`.
+fn create_members<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    kind: &ChatKind,
+    obj_val: &Value,
+    now: &UTCDate,
+) -> Result<Option<Vec<ChatMember>>, Value> {
+    let members = initial_members(create_member_ids(kind, obj_val)?, ctx.account_id, now);
+
+    // Group create `memberIds`: "If the resulting membership would
+    // exceed a server-defined limit on the number of members per
+    // group Chat, the server MUST return an `overQuota` SetError".
+    let max_members = ctx
+        .backend
+        .limits(ctx.caller, ctx.account_id)
+        .max_group_chat_members;
+    if members
+        .as_ref()
+        .is_some_and(|m| m.len() > max_members as usize)
+    {
+        return Err(json!({
+            "type": "overQuota",
+            "description": "group chat member limit exceeded",
+        }));
+    }
+    Ok(members)
+}
+
+/// The initial `members` of a created group Chat, from its checked
+/// `memberIds`.
+///
+/// "The server [...] adds the creator to `members` with at least
+/// one role granting permissions sufficient to administer the
+/// chat": the creator is `"admin"`, each distinct memberIds entry
+/// is `"member"` invited by the creator. The creator is the owner,
+/// referenced by the accountId (§Terminology).
+fn initial_members(
+    member_ids: Option<Vec<Id>>,
+    account_id: &Id,
+    now: &UTCDate,
+) -> Option<Vec<ChatMember>> {
+    member_ids.map(|ids| {
+        let creator: Id = account_id.clone();
+        let mut members = vec![ChatMember::new(
+            creator.clone(),
+            ChatMemberRole::Admin,
+            now.clone(),
+        )];
+        for id in ids {
+            if members.iter().all(|m| m.id != id) {
+                let mut m = ChatMember::new(id, ChatMemberRole::Member, now.clone());
+                m.invited_by = Some(creator.clone());
+                members.push(m);
+            }
+        }
+        members
+    })
+}
+
+/// The optional properties of a `Chat/set` create, checked.
+struct CreateOptionals {
+    contact_id: Option<Id>,
+    name: Option<String>,
+    description: Option<String>,
+    muted: bool,
+    receive_typing_indicators: bool,
+    avatar_blob_id: Option<Id>,
+    message_expiry_seconds: Option<u64>,
+}
+
+/// The [`CreateOptionals`] of one `Chat/set` create object, or the
+/// SetError value for `notCreated`.
+fn create_optionals(obj_val: &Value) -> Result<CreateOptionals, Value> {
+    let contact_id: Option<Id> = match obj_val.get("contactId").and_then(|v| v.as_str()) {
+        Some(s) => Some(
+            jmap_server::parse_wire_id(s, "contactId")
+                .map_err(|err| serde_json::Value::from(&*err))?,
+        ),
+        None => None,
+    };
+    let name: Option<String> = obj_val
+        .get("name")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned);
+    let description: Option<String> = obj_val
+        .get("description")
+        .and_then(|v| v.as_str())
+        .map(str::to_owned);
+    let muted: bool = obj_val
+        .get("muted")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let receive_typing_indicators: bool = obj_val
+        .get("receiveTypingIndicators")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
+
+    // "Optional at creation: `description` (String), `avatarBlobId`
+    // (String), `messageExpirySeconds` (UnsignedInt)."
+    let avatar_blob_id = match obj_val.get("avatarBlobId").and_then(Value::as_str) {
+        Some(s) => Some(
+            jmap_server::parse_wire_id(s, "avatarBlobId")
+                .map_err(|err| serde_json::Value::from(&*err))?,
+        ),
+        None => None,
+    };
+    let message_expiry_seconds = obj_val.get("messageExpirySeconds").and_then(Value::as_u64);
+    Ok(CreateOptionals {
+        contact_id,
+        name,
+        description,
+        muted,
+        receive_typing_indicators,
+        avatar_blob_id,
+        message_expiry_seconds,
+    })
+}
+
+/// What follows a committed `Chat/set` create: the Direct-chat duplicate
+/// re-check (which may roll the create back into `notCreated`), the group
+/// `Peer/groupUpdate`, and the `created` entry.
+async fn after_create<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    new_id: Id,
+    created_obj: Chat,
+    direct_contact_id_str: Option<&str>,
+    acc: &mut SetAccumulators,
+    run: &mut CreateRun,
+) -> Result<(), JmapError> {
+    if let Some(contact_id_str) = direct_contact_id_str {
+        if let Some(err) = direct_race_error(ctx, &new_id, contact_id_str).await {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(());
+        }
+        // Exactly one (or we won): record contactId as known so
+        // subsequent creates in this batch are pre-checked.
+        run.known_direct_contact_ids
+            .insert(contact_id_str.to_owned());
+        run.batch_direct_ids
+            .insert(contact_id_str.to_owned(), new_id.clone());
+    }
+    // §Creating a Chat: the server "MUST send
+    // `Peer/groupUpdate` to each initial member".
+    if created_obj.kind == ChatKind::Group {
+        let event = OutboundEvent::GroupUpdate {
+            chat_id: new_id.clone(),
+            action: GroupUpdateAction::Create,
+            recipients: other_member_ids(created_obj.members.iter().flatten(), ctx.account_id),
+        };
+        ctx.backend
+            .on_outbound_event(ctx.caller, ctx.account_id, &event)
+            .await;
+    }
+    acc.created.insert(
+        create_id.to_owned(),
+        jmap_server::serialize_value(&created_obj)?,
+    );
+    Ok(())
+}
+
+/// Re-check a committed Direct-chat create `new_id` for a concurrent
+/// duplicate with the same `contactId`, and roll it back when it lost.
+/// Returns the SetError value for `notCreated`, or `None` when the create
+/// stands.
+///
+/// Optimistic create-then-validate, required for JMAP-0c9. We fetch all
+/// chats because the backend does not currently expose a filter-by-kind
+/// query; a tighter fetch (Direct only) would be preferable but requires
+/// backend support (JMAP-63k.9).
+async fn direct_race_error<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    new_id: &Id,
+    contact_id_str: &str,
+) -> Option<Value> {
+    let current_chats = match ctx
+        .backend
+        .get_objects::<Chat>(ctx.caller, ctx.account_id, None, None)
+        .await
+    {
+        Ok((chats, _)) => chats,
+        Err(read_err) => {
+            // The Chat (and earlier creates in this
+            // batch) are already committed, so a
+            // method-level serverFail would break
+            // RFC 8620 §3.6.2 ("The method call made
+            // no changes to the server's state").
+            // Without the re-check the draft's
+            // alreadyExists rule cannot be enforced,
+            // so roll this create back and fail it
+            // per id; the batch continues.
+            let value = match ctx
+                .backend
+                .destroy_object::<Chat>(ctx.caller, ctx.account_id, new_id)
+                .await
             {
-                let max_members = backend.limits(caller, &account_id).max_group_chat_members;
-                match apply_member_patch_keys(chat, &account_id, patch.as_map(), max_members) {
-                    Ok((members, closes)) => {
-                        member_change = Some((members.clone(), closes));
-                        let map = patch.as_map_mut();
-                        for key in MEMBER_PATCH_KEYS {
-                            map.remove(*key);
-                        }
-                        map.insert("members".to_owned(), jmap_server::serialize_value(members)?);
-                        // "the server MUST set `closedAt` ({{chat}}) in
-                        // the same operation".
-                        if closes {
-                            map.insert("closedAt".to_owned(), json!(now_utc_string()));
-                        }
-                    }
-                    Err(set_err) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&*set_err));
-                        continue;
-                    }
-                }
+                Ok(()) => server_fail_value_from_backend(&read_err),
+                Err(e) => server_fail_value_from_backend(&e),
+            };
+            return Some(value);
+        }
+    };
+    let duplicates: Vec<&Chat> = current_chats
+        .iter()
+        .filter(|c| {
+            c.kind == ChatKind::Direct
+                && c.contact_id.as_ref().map(|id| id.as_ref()) == Some(contact_id_str)
+        })
+        .collect();
+    if duplicates.len() > 1 {
+        // Race occurred: pick lexicographically smallest id
+        // as the canonical winner.
+        let canonical_id: Id = duplicates
+            .iter()
+            .map(|c| c.id.as_ref())
+            .min()
+            .map(Id::from)
+            .unwrap_or_else(|| new_id.clone());
+        if *new_id != canonical_id {
+            // We lost the race: destroy our copy.
+            if let Err(e) = ctx
+                .backend
+                .destroy_object::<Chat>(ctx.caller, ctx.account_id, new_id)
+                .await
+            {
+                // Cleanup failed — the duplicate is still
+                // live. Return a retryable server error
+                // rather than alreadyExists with a
+                // potentially inconsistent state.
+                //
+                // Route through server_fail_value_from_backend
+                // to redact backend Display text from the
+                // wire description per workspace redaction
+                // discipline.
+                return Some(server_fail_value_from_backend(&e));
             }
+            // Cleanup succeeded: report alreadyExists
+            // pointing to the canonical winner.
+            return Some(
+                serde_json::to_value(
+                    SetError::new(SetErrorType::AlreadyExists).with_existing_id(canonical_id),
+                )
+                .unwrap_or_else(|e| server_fail_value_from_backend(&e)),
+            );
+        }
+        // We won the race (our id is canonical): fall through
+        // to success path below.
+    }
+    None
+}
 
-            // draft-atwood-jmap-chat-00 §ChatBan/set: "while the ban lasts
-            // the server MUST reject adding the user with an `addMembers`
-            // entry, returning a `forbidden` SetError." Only users the
-            // update adds count; a ban whose `expiresAt` has passed is not
-            // in force.
-            if let Some((members, _)) = &member_change {
-                let added: Vec<&Id> = members
-                    .iter()
-                    .filter(|m| chat.members.iter().flatten().all(|old| old.id != m.id))
-                    .map(|m| &m.id)
-                    .collect();
-                if !added.is_empty() {
-                    match banned_among(backend, caller, &account_id, &id, &added).await {
-                        Ok(false) => {}
-                        Ok(true) => {
-                            not_updated.insert(
-                                id_str,
-                                json!({
-                                    "type": "forbidden",
-                                    "description": "addMembers names a user banned from this chat",
-                                }),
-                            );
-                            continue;
-                        }
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
-                        }
-                    }
-                }
-            }
+/// The `update` part of `Chat/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
+    if let Some(Value::Object(update_map)) = args.remove("update") {
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
+        }
+    }
+    Ok(mutated)
+}
 
-            // draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: who may
-            // modify the list depends on the chat kind; the backend decides.
-            // Pointer paths beneath the property are gated too.
-            let touches_pins = patch
-                .as_map()
-                .keys()
-                .any(|k| k == "pinnedMessageIds" || k.starts_with("pinnedMessageIds/"));
-            if touches_pins {
-                match backend
-                    .may_set_pinned_messages(caller, &account_id, &id)
-                    .await
-                {
-                    Ok(Ok(())) => {}
-                    Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
+/// One `update` entry of `Chat/set`. Returns whether the backend was
+/// written.
+async fn update_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    let mut patch = match update_patch(patch_val, ctx.created_ids, ctx.using) {
+        Ok(patch) => patch,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    };
+    let chat = match update_target(ctx, &id, &patch).await {
+        Ok(chat) => chat,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    };
 
-            // Every `forbidden` check that needs no write has run: report a
-            // held shape error now (DECISIONS.md 44).
-            if let Some(err) = shape_err.take() {
-                not_updated.insert(id_str, err);
-                continue;
-            }
+    // Existence and permission come before shape (DECISIONS.md 44):
+    // a changed read-only value and an undefined key are held in
+    // `shape_err` and reported only after the `forbidden` checks
+    // below, which look at patch keys alone.
+    let shape_err = update_shape_error(&mut patch, &chat);
+    let (kick, group_before) = match update_gates(ctx, &chat, &mut patch).await {
+        Ok(gates) => gates,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    };
 
-            // draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: an update
-            // that would add an id not naming a Message in this Chat is
-            // `invalidProperties`. RFC 8620 §5.3 forbids pointers into
-            // arrays (update_object rejects them as invalidPatch), so only
-            // the whole-property key can add ids, and its value is the
-            // post-patch list. Only ids absent from the stored list count
-            // as added; see ChatAccessPolicy::validate_pinned_message_ids.
-            // ponytail: check-then-update is not atomic; a Message
-            // hard-deleted between the two leaves a stale pin. A backend
-            // needing strictness re-checks inside its update transaction.
-            if let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds") {
-                let pins = match new_pins
-                    .iter()
-                    .filter_map(Value::as_str)
-                    .map(|s| jmap_server::parse_wire_id(s, "pinnedMessageIds"))
-                    .collect::<Result<Vec<Id>, _>>()
-                {
-                    Ok(pins) => pins,
-                    Err(err) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&*err));
-                        continue;
-                    }
-                };
-                let added: Vec<Id> = pins
-                    .into_iter()
-                    .filter(|pin| !chat.pinned_message_ids.contains(pin))
-                    .collect();
-                if !added.is_empty() {
-                    match backend
-                        .validate_pinned_message_ids(caller, &account_id, &id, &added)
-                        .await
-                    {
-                        Ok(Ok(())) => {}
-                        Ok(Err(set_err)) => {
-                            not_updated.insert(id_str, serde_json::Value::from(&set_err));
-                            continue;
-                        }
-                        Err(e) => {
-                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                            continue;
-                        }
-                    }
-                }
-            }
+    // Nothing left once identical values are dropped (or a literal
+    // `{}`): a no-op success with no write (RFC 8620 §5.3).
+    if patch.is_empty() && kick.is_none() {
+        acc.updated.insert(id_str, Value::Null);
+        return Ok(false);
+    }
 
-            // draft-atwood-jmap-chat-mimi-00 §Moderation: `kickMembers`
-            // "removes the listed users' clients from the group but keeps
-            // them in the participant list". `members` is not touched; the
-            // backend decides whether the Chat is bound to a room and the
-            // caller may kick (`canKick`).
-            // ponytail: the kick and the rest of the patch are two backend
-            // calls; a failed write after a kick leaves the kick applied.
-            if let Some(user_ids) = &kick {
-                match backend
-                    .kick_chat_members(caller, &account_id, chat, user_ids)
-                    .await
-                {
-                    Ok(Ok(())) => {}
-                    Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-                // Nothing else to write: the Chat record is unchanged.
-                if patch.is_empty() {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-            }
+    let member_change = match apply_member_keys(ctx, &chat, &mut patch)? {
+        Ok(change) => change,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    };
+    if let Some(err) = update_policy_error(ctx, &id, &chat, &patch, member_change.as_ref()).await {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
 
-            let metadata_changed = patch
-                .as_map()
-                .keys()
-                .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
-            let outcome = backend
-                .update_object::<Chat>(caller, &account_id, &id, patch)
-                .await;
-            if let (Ok(_), Some(before)) = (&outcome, &group_before) {
-                let (after, closes) = match &member_change {
-                    Some((members, closes)) => (Some(members.as_slice()), *closes),
-                    None => (None, false),
-                };
-                for event in
-                    group_update_events(&id, &account_id, before, after, closes, metadata_changed)
-                {
-                    backend.on_outbound_event(caller, &account_id, &event).await;
-                }
+    // Every `forbidden` check that needs no write has run: report a
+    // held shape error now (DECISIONS.md 44).
+    if let Some(err) = shape_err {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
+    if let Some(err) = pinned_ids_error(ctx, &id, &chat, &patch).await {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
+
+    // draft-atwood-jmap-chat-mimi-00 §Moderation: `kickMembers`
+    // "removes the listed users' clients from the group but keeps
+    // them in the participant list". `members` is not touched; the
+    // backend decides whether the Chat is bound to a room and the
+    // caller may kick (`canKick`).
+    // ponytail: the kick and the rest of the patch are two backend
+    // calls; a failed write after a kick leaves the kick applied.
+    if let Some(user_ids) = &kick {
+        let outcome = ctx
+            .backend
+            .kick_chat_members(ctx.caller, ctx.account_id, &chat, user_ids)
+            .await;
+        if let Some(err) = refusal_value(outcome) {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+        // Nothing else to write: the Chat record is unchanged.
+        if patch.is_empty() {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+    }
+
+    write_update(ctx, id_str, &id, patch, group_before, member_change, acc).await
+}
+
+/// Resolve the `#creationId` references of one `Chat/set` update patch and
+/// convert it into a typed PatchObject, or return the SetError value for
+/// `notUpdated`.
+fn update_patch(
+    mut patch_val: Value,
+    created_ids: &BTreeMap<Id, Id>,
+    using: &[String],
+) -> Result<PatchObject, Value> {
+    if let Err(err) = resolve_refs(&mut patch_val, CHAT_ID_PROPERTIES, created_ids)
+        .and_then(|()| resolve_entry_refs(&mut patch_val, CHAT_ENTRY_ID_PROPERTIES, created_ids))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+
+    // draft-ietf-jmap-metadata-05 §3.2: patch errors "that can be
+    // determined from the request alone ... MUST be reported with
+    // "invalidPatch"" before `notFound`.
+    if let Some(Err(err)) = patch_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, false, using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    if let Some(Err(e)) = patch_val.as_object().map(jmap_server::check_patch_paths) {
+        return Err(json!({ "type": "invalidPatch", "description": e.to_string() }));
+    }
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    serde_json::from_value::<PatchObject>(patch_val)
+        .map_err(|e| json!({ "type": "invalidPatch", "description": e.to_string() }))
+}
+
+/// The stored Chat `id` a `Chat/set` update targets, read once for every
+/// check, or the SetError value for `notUpdated`.
+async fn update_target<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    patch: &PatchObject,
+) -> Result<Chat, Value> {
+    let stored = match ctx
+        .backend
+        .get_objects::<Chat>(
+            ctx.caller,
+            ctx.account_id,
+            Some(std::slice::from_ref(id)),
+            None,
+        )
+        .await
+    {
+        Ok((chats, _)) => chats.into_iter().next(),
+        Err(e) => return Err(server_fail_value_from_backend(&e)),
+    };
+    let Some(mut chat) = stored else {
+        return Err(Value::from(&SetError::new(SetErrorType::NotFound)));
+    };
+
+    // `unreadCount` is server-set, and when the backend does not
+    // maintain it the "current server value" a client can echo is
+    // the one Chat/get computes (fill_unread_counts), not the stored
+    // field, so compare against that (bd:JMAP-t8ej.32 item 3).
+    if patch.as_map().contains_key("unreadCount") && !ctx.backend.maintains_unread_count() {
+        let (messages, positions) = messages_and_positions(ctx.backend, ctx.caller, ctx.account_id)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        chat.unread_count = unread_count(&messages, &positions, ctx.account_id, chat.id.as_ref());
+    }
+    Ok(chat)
+}
+
+/// Whether `k` is a `Chat/set` update key §Chat/set "Updating a Chat"
+/// defines: the client-settable Chat properties that are not immutable,
+/// and [`MEMBER_PATCH_KEYS`], plus the mimi draft's [`KICK_MEMBERS_KEY`]
+/// (whole key only). JSON Pointer paths count by their first segment.
+fn is_defined_update_key(k: &str) -> bool {
+    let top = k.split('/').next().unwrap_or(k);
+    is_client_updatable::<Chat>(top) || MEMBER_PATCH_KEYS.contains(&top) || k == KICK_MEMBERS_KEY
+}
+
+/// Drop the read-only values of a `Chat/set` update patch that are
+/// identical to `chat`, and return the shape error the patch still has:
+/// a changed read-only value, or an undefined key (`invalidProperties`).
+///
+/// RFC 8620 §5.3: "Any server-set properties MAY be included in
+/// the patch if their value is identical to the current server
+/// value ... Otherwise, the update MUST be rejected with an
+/// "invalidProperties" SetError." Identical values are dropped
+/// here, so the checks below see only the client changes.
+fn update_shape_error(patch: &mut PatchObject, chat: &Chat) -> Option<Value> {
+    let shape_err = strip_read_only_patch::<Chat>(patch.as_map_mut(), chat).err();
+    if shape_err.is_some() {
+        return shape_err;
+    }
+    // Only the keys §Chat/set "Updating a Chat" defines may be
+    // patched (`is_defined_update_key`). Any other key is
+    // `invalidProperties`.
+    let bad_props: Vec<&str> = patch
+        .as_map()
+        .keys()
+        .map(String::as_str)
+        .filter(|k| !is_defined_update_key(k))
+        .collect();
+    (!bad_props.is_empty()).then(|| json!({ "type": "invalidProperties", "properties": bad_props }))
+}
+
+/// The `forbidden` gates of a `Chat/set` update that look at patch keys
+/// alone: `ChatRestrictions::may_update_chat`, the `kickMembers` shape,
+/// a closed group, and the group admin keys. Takes `kickMembers` out of
+/// `patch` and returns its ids and, for a group update that touches
+/// members or shared settings, the stored member list for
+/// `group_update_events`. `Err` is the SetError value for `notUpdated`.
+async fn update_gates<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    chat: &Chat,
+    patch: &mut PatchObject,
+) -> Result<(Option<Vec<Id>>, Option<Vec<ChatMember>>), Value> {
+    // Per-Chat restrictions of extension-bound Chats; see
+    // `ChatRestrictions::may_update_chat`. It sees only the keys
+    // the update may change.
+    let patch_keys: Vec<&str> = patch
+        .as_map()
+        .keys()
+        .map(String::as_str)
+        .filter(|k| is_defined_update_key(k))
+        .collect();
+    let outcome = ctx
+        .backend
+        .may_update_chat(ctx.caller, ctx.account_id, chat, &patch_keys)
+        .await;
+    if let Some(err) = refusal_value(outcome) {
+        return Err(err);
+    }
+
+    // draft-atwood-jmap-chat-mimi-00 §Moderation `kickMembers`: an
+    // operation, not a property, taken out of the patch here and
+    // handed to `ChatModeration::kick_chat_members` before the write.
+    let kick =
+        take_kick_members(patch.as_map_mut()).map_err(|err| serde_json::Value::from(&*err))?;
+
+    // draft-atwood-jmap-chat-00 §Chat `closedAt`: "After it is
+    // set, the server MUST reject with a `forbidden` SetError ...
+    // every `Chat/set` update that changes membership ... or
+    // shared group settings". Pointer paths beneath them count.
+    // The stored group and the member list the update stores, for
+    // `group_update_events` once the update succeeds.
+    let mut group_before: Option<Vec<ChatMember>> = None;
+    let touches_closed_keys = patch.as_map().keys().any(|k| {
+        let top = k.split('/').next().unwrap_or(k);
+        MEMBER_PATCH_KEYS.contains(&top) || SHARED_GROUP_KEYS.contains(&top)
+    });
+    if touches_closed_keys {
+        if chat.closed_at.is_some() {
+            return Err(json!({ "type": "forbidden", "description": "the group is closed" }));
+        }
+        // "For group chats, admins additionally may update:
+        // `name`, `description`, `avatarBlobId`."
+        let touches_admin_keys = patch
+            .as_map()
+            .keys()
+            .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
+        if touches_admin_keys
+            && !(chat.kind == ChatKind::Group && is_chat_admin(chat, ctx.account_id))
+        {
+            return Err(json!({
+                "type": "forbidden",
+                "description": "only group chat admins may update name, description and avatarBlobId",
+            }));
+        }
+        if chat.kind == ChatKind::Group {
+            group_before = Some(chat.members.clone().unwrap_or_default());
+        }
+    }
+    Ok((kick, group_before))
+}
+
+/// The member list a `Chat/set` update stores, and whether it closes the
+/// group.
+type MemberChange = (Vec<ChatMember>, bool);
+
+/// Apply the member patch keys of a `Chat/set` update to the stored list
+/// and replace them in `patch` by the resulting `members` (and
+/// `closedAt` when the change closes the group). Returns that member list
+/// and whether it closes the group, or `None` when the patch has no
+/// member key. The inner `Err` is the SetError value for `notUpdated`.
+///
+/// draft-atwood-jmap-chat-00 §Chat/set "Updating a Chat": the
+/// member patch keys are operations on `members`, not
+/// properties. They are applied to the stored list here and
+/// replaced by the resulting `members`, so the backend never
+/// stores them.
+/// ponytail: check-then-update is not atomic; two concurrent
+/// member patches can lose one. A backend needing strictness
+/// re-checks inside its update transaction.
+fn apply_member_keys<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    chat: &Chat,
+    patch: &mut PatchObject,
+) -> Result<Result<Option<MemberChange>, Value>, JmapError> {
+    if !MEMBER_PATCH_KEYS
+        .iter()
+        .any(|k| patch.as_map().contains_key(*k))
+    {
+        return Ok(Ok(None));
+    }
+    let max_members = ctx
+        .backend
+        .limits(ctx.caller, ctx.account_id)
+        .max_group_chat_members;
+    match apply_member_patch_keys(chat, ctx.account_id, patch.as_map(), max_members) {
+        Ok((members, closes)) => {
+            let member_change = Some((members.clone(), closes));
+            let map = patch.as_map_mut();
+            for key in MEMBER_PATCH_KEYS {
+                map.remove(*key);
             }
-            match outcome {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
+            map.insert("members".to_owned(), jmap_server::serialize_value(members)?);
+            // "the server MUST set `closedAt` ({{chat}}) in
+            // the same operation".
+            if closes {
+                map.insert("closedAt".to_owned(), json!(now_utc_string()));
+            }
+            Ok(Ok(member_change))
+        }
+        Err(set_err) => Ok(Err(serde_json::Value::from(&*set_err))),
+    }
+}
+
+/// The `forbidden` checks of a `Chat/set` update that read backend state:
+/// a banned user among the added members, and the `pinnedMessageIds`
+/// policy. Returns the SetError value for `notUpdated`, or `None`.
+async fn update_policy_error<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    chat: &Chat,
+    patch: &PatchObject,
+    member_change: Option<&MemberChange>,
+) -> Option<Value> {
+    // draft-atwood-jmap-chat-00 §ChatBan/set: "while the ban lasts
+    // the server MUST reject adding the user with an `addMembers`
+    // entry, returning a `forbidden` SetError." Only users the
+    // update adds count; a ban whose `expiresAt` has passed is not
+    // in force.
+    if let Some((members, _)) = member_change {
+        let added: Vec<&Id> = members
+            .iter()
+            .filter(|m| chat.members.iter().flatten().all(|old| old.id != m.id))
+            .map(|m| &m.id)
+            .collect();
+        if !added.is_empty() {
+            match banned_among(ctx.backend, ctx.caller, ctx.account_id, id, &added).await {
+                Ok(false) => {}
+                Ok(true) => {
+                    return Some(json!({
+                        "type": "forbidden",
+                        "description": "addMembers names a user banned from this chat",
+                    }));
                 }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
+                Err(e) => return Some(server_fail_value_from_backend(&e)),
             }
         }
     }
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+    // draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: who may
+    // modify the list depends on the chat kind; the backend decides.
+    // Pointer paths beneath the property are gated too.
+    let touches_pins = patch
+        .as_map()
+        .keys()
+        .any(|k| k == "pinnedMessageIds" || k.starts_with("pinnedMessageIds/"));
+    if touches_pins {
+        let outcome = ctx
+            .backend
+            .may_set_pinned_messages(ctx.caller, ctx.account_id, id)
+            .await;
+        return refusal_value(outcome);
+    }
+    None
+}
+
+/// The SetError value when a `Chat/set` update's `pinnedMessageIds` would
+/// add an id that does not name a Message in this Chat, or `None`.
+///
+/// draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: an update
+/// that would add an id not naming a Message in this Chat is
+/// `invalidProperties`. RFC 8620 §5.3 forbids pointers into
+/// arrays (update_object rejects them as invalidPatch), so only
+/// the whole-property key can add ids, and its value is the
+/// post-patch list. Only ids absent from the stored list count
+/// as added; see ChatAccessPolicy::validate_pinned_message_ids.
+/// ponytail: check-then-update is not atomic; a Message
+/// hard-deleted between the two leaves a stale pin. A backend
+/// needing strictness re-checks inside its update transaction.
+async fn pinned_ids_error<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    chat: &Chat,
+    patch: &PatchObject,
+) -> Option<Value> {
+    let Some(Value::Array(new_pins)) = patch.as_map().get("pinnedMessageIds") else {
+        return None;
+    };
+    let pins = match new_pins
+        .iter()
+        .filter_map(Value::as_str)
+        .map(|s| jmap_server::parse_wire_id(s, "pinnedMessageIds"))
+        .collect::<Result<Vec<Id>, _>>()
+    {
+        Ok(pins) => pins,
+        Err(err) => return Some(serde_json::Value::from(&*err)),
+    };
+    let added: Vec<Id> = pins
+        .into_iter()
+        .filter(|pin| !chat.pinned_message_ids.contains(pin))
+        .collect();
+    if added.is_empty() {
+        return None;
+    }
+    let outcome = ctx
+        .backend
+        .validate_pinned_message_ids(ctx.caller, ctx.account_id, id, &added)
+        .await;
+    refusal_value(outcome)
+}
+
+/// Write one checked `Chat/set` update and send the group's
+/// `Peer/groupUpdate` events once it succeeded. Returns whether the
+/// backend was written.
+async fn write_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    id: &Id,
+    patch: PatchObject,
+    group_before: Option<Vec<ChatMember>>,
+    member_change: Option<MemberChange>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let metadata_changed = patch
+        .as_map()
+        .keys()
+        .any(|k| GROUP_ADMIN_KEYS.contains(&k.split('/').next().unwrap_or(k)));
+    let outcome = ctx
+        .backend
+        .update_object::<Chat>(ctx.caller, ctx.account_id, id, patch)
+        .await;
+    if let (Ok(_), Some(before)) = (&outcome, &group_before) {
+        let (after, closes) = match &member_change {
+            Some((members, closes)) => (Some(members.as_slice()), *closes),
+            None => (None, false),
+        };
+        for event in
+            group_update_events(id, ctx.account_id, before, after, closes, metadata_changed)
+        {
+            ctx.backend
+                .on_outbound_event(ctx.caller, ctx.account_id, &event)
+                .await;
+        }
+    }
+    match outcome {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The `destroy` part of `Chat/set`. Returns whether the backend was
+/// written.
+async fn set_destroy<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -1670,7 +1878,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
             match jmap_server::parse_wire_id(raw, "id") {
                 Ok(id) => ids.push(id),
                 Err(err) => {
-                    not_destroyed.insert(raw.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(raw.to_owned(), serde_json::Value::from(&*err));
                 }
             }
         }
@@ -1682,8 +1891,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
         let channel_ids: HashSet<Id> = if ids.is_empty() {
             HashSet::new()
         } else {
-            match backend
-                .get_objects::<Chat>(caller, &account_id, Some(&ids), None)
+            match ctx
+                .backend
+                .get_objects::<Chat>(ctx.caller, ctx.account_id, Some(&ids), None)
                 .await
             {
                 Ok((chats, _)) => chats
@@ -1694,7 +1904,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 Err(e) => {
                     let err = server_fail_value_from_backend(&e);
                     for id in ids.drain(..) {
-                        not_destroyed.insert(id.as_ref().to_owned(), err.clone());
+                        acc.not_destroyed
+                            .insert(id.as_ref().to_owned(), err.clone());
                     }
                     HashSet::new()
                 }
@@ -1703,7 +1914,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
         for id in ids {
             let id_str = id.as_ref();
             if channel_ids.contains(&id) {
-                not_destroyed.insert(
+                acc.not_destroyed.insert(
                     id_str.to_owned(),
                     json!({
                         "type": "forbidden",
@@ -1713,38 +1924,26 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 continue;
             }
 
-            match backend
-                .destroy_object::<Chat>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<Chat>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
-                    backend.on_chat_destroyed(caller, &account_id, &id).await;
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
+                    ctx.backend
+                        .on_chat_destroyed(ctx.caller, ctx.account_id, &id)
+                        .await;
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, Chat>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------

@@ -423,6 +423,7 @@ fn set_destroy(
     }
     Ok(())
 }
+
 /// The `forbidden` SetError for a client `create` or `destroy` of a
 /// server-managed ReadPosition (draft-atwood-jmap-chat-00 §ReadPosition/set).
 fn forbidden_server_managed() -> Value {

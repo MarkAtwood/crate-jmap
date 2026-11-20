@@ -1030,13 +1030,6 @@ pub async fn handle_space_set<B: ChatBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
     // `ChatSpaces::space_extension_properties`: "A listed key that is
     // already a core Space property or a structural patch key keeps its
     // core meaning", so such a key is dropped here and never reaches
@@ -1052,189 +1045,17 @@ pub async fn handle_space_set<B: ChatBackend>(
         })
         .collect();
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
-    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
-        for (create_id, obj_val) in create_map {
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Space>) {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
-                continue;
-            }
-            // RFC 8620 §5.3 invalidProperties: "It contains properties that
-            // are invalid according to the type specification of this
-            // record type." A key that is neither a client-settable Space
-            // property nor a registered extension property is rejected, as
-            // on update, rather than silently dropped.
-            let unknown_keys: Vec<&str> = obj_val
-                .as_object()
-                .into_iter()
-                .flat_map(|m| m.keys())
-                .map(String::as_str)
-                .filter(|key| {
-                    !(Space::CLIENT_SETTABLE.contains(key) || extension_props.contains(key))
-                })
-                .collect();
-            if !unknown_keys.is_empty() {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": unknown_keys }),
-                );
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                continue;
-            }
-            // draft-ietf-jmap-metadata-05 §3.2: the create sets the
-            // metadata properties; the backend validates them.
-            let (metadata, private_metadata) = match create_metadata(obj_val) {
-                Ok(maps) => maps,
-                Err(err) => {
-                    not_created.insert(create_id.clone(), err);
-                    continue;
-                }
-            };
-            // Optional properties: a wrongly-typed value is invalidProperties
-            // (RFC 8620 §5.3), not a silent absence.
-            if let Some(err) = mistyped_create_props(
-                obj_val,
-                &[
-                    ("description", PropType::Str),
-                    ("iconBlobId", PropType::Str),
-                    ("isPublic", PropType::Bool),
-                    ("isPubliclyPreviewable", PropType::Bool),
-                ],
-            ) {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-            // draft-atwood-jmap-chat-00 §Space/set "Creating a Space":
-            // "Optional: `description` (String), `iconBlobId` (String)."
-            // The value is a blob Id, so it must be a valid RFC 8620 §1.2
-            // Id. Whether the blob exists is left to the backend.
-            let icon_blob_id = match obj_val.get("iconBlobId").and_then(|v| v.as_str()) {
-                None => None,
-                Some(raw) => match jmap_server::parse_wire_id(raw, "iconBlobId") {
-                    Ok(id) => Some(id),
-                    Err(err) => {
-                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                        continue;
-                    }
-                },
-            };
-            let name = match obj_val.get("name").and_then(|v| v.as_str()) {
-                Some(s) if !s.is_empty() => s.to_owned(),
-                _ => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["name"] }),
-                    );
-                    continue;
-                }
-            };
-            if name.len() > 256 {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["name"] }),
-                );
-                continue;
-            }
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        using,
+        extension_props: &extension_props,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
 
-            let is_public = obj_val
-                .get("isPublic")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-            let is_publicly_previewable = obj_val
-                .get("isPubliclyPreviewable")
-                .and_then(|v| v.as_bool())
-                .unwrap_or(false);
-
-            let now_str = now_utc_string();
-            let now: UTCDate = UTCDate::from(now_str.as_ref());
-
-            // draft-atwood-jmap-chat-00 §Space/set "Creating a Space": the
-            // server "adds the caller to `members` with at least one role
-            // granting permissions sufficient to administer the Space". The
-            // caller acts as the account owner, whose member entry is the
-            // accountId (§SpaceMember `id`). Bootstrap configuration
-            // (bd:JMAP-yt1w.34): one "Admin" role holding every spec
-            // permission at the highest UnsignedInt position. Role ids are
-            // scoped to their Space, so the fixed id cannot collide with a
-            // role in another Space.
-            // ponytail: one fixed bootstrap policy for every backend, though
-            // the draft calls it server-defined. If a consumer needs another
-            // policy, add a ChatBackend hook returning the bootstrap role,
-            // defaulting to this one.
-            let admin_role: SpaceRole = serde_json::from_value(json!({
-                "id": BOOTSTRAP_ADMIN_ROLE_ID,
-                "name": "Admin",
-                "permissions": SPEC_PERMISSION_NAMES,
-                "position": BOOTSTRAP_ADMIN_ROLE_POSITION,
-            }))
-            .expect("bootstrap role literal matches SpaceRole");
-            let owner: SpaceMember = serde_json::from_value(json!({
-                "id": account_id,
-                "roleIds": [BOOTSTRAP_ADMIN_ROLE_ID],
-                "joinedAt": now_str,
-            }))
-            .expect("bootstrap member literal matches SpaceMember");
-
-            let build = |id: &Id| {
-                let mut space = Space::new(
-                    id.clone(),
-                    name,
-                    vec![admin_role],
-                    vec![owner],
-                    vec![],
-                    vec![],
-                    now,
-                    is_public,
-                    is_publicly_previewable,
-                    1,
-                );
-                if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
-                    space.description = Some(desc.to_owned());
-                }
-                space.icon_blob_id = icon_blob_id;
-                space.metadata = metadata;
-                space.private_metadata = private_metadata;
-                for &key in &extension_props {
-                    match obj_val.get(key) {
-                        None | Some(Value::Null) => {}
-                        Some(v) => {
-                            space.extra.insert(key.to_owned(), v.clone());
-                        }
-                    }
-                }
-                space
-            };
-
-            match backend
-                .create_object::<Space, _>(caller, &account_id, create_id, build)
-                .await
-            {
-                Ok((_server_id, created_obj)) => {
-                    mutated = true;
-                    created.insert(
-                        create_id.clone(),
-                        jmap_server::serialize_value(&created_obj)?,
-                    );
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), backend_set_error_value(e));
-                }
-            }
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    //
     // Query per-Space content limits once for the whole request. The
     // values are implementation-defined (bd:JMAP-g7wu.2.4.8 / workspace
     // AGENTS.md "Backend caps and limits") and the trait method is a
@@ -1244,377 +1065,712 @@ pub async fn handle_space_set<B: ChatBackend>(
     let space_limits = backend.limits(caller, &account_id);
 
     // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
-    if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            // draft-atwood-jmap-chat-00 §Space/set "Updating a Space": these
-            // keys name members by ChatContact id.
-            if let Err(err) = resolve_refs(&mut patch_val, &["removeMembers"], created_ids)
-                .and_then(|()| {
-                    resolve_entry_refs(
-                        &mut patch_val,
-                        &[
-                            ("addMembers", "id", "addMembers"),
-                            ("updateMembers", "id", "updateMembers"),
-                        ],
-                        created_ids,
-                    )
-                })
-                .and_then(|()| resolve_override_targets(&mut patch_val, created_ids))
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc, &space_limits).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-            // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
-            // MUST also reject ... every `Space/set` update to the Space
-            // with a `forbidden` SetError, except a member removing
-            // themselves via `removeMembers`." Checked before the
-            // read-only and no-op checks so that `{}` and server-set keys
-            // are `forbidden` too. A patch that may be a self-removal is
-            // checked again once parsed, below.
-            let closed = match backend
-                .get_objects::<Space>(caller, &account_id, Some(std::slice::from_ref(&id)), None)
-                .await
-            {
-                Ok((spaces, _)) => spaces.first().is_some_and(|s| s.closed_at.is_some()),
-                Err(e) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-            if closed && patch_val.get("removeMembers") != Some(&json!([account_id])) {
-                not_updated.insert(id_str, space_closed());
-                continue;
-            }
+    finalize_set_response::<B, Space>(backend, caller, &account_id, old_state, mutated, acc).await
+}
 
-            // Reject patches that change server-set Space properties,
-            // including `roles`, `members`, `categories` and
-            // `uncategorizedChannelIds`, which change only through the
-            // structural keys; a stored value repeated unchanged is dropped
-            // (RFC 8620 §5.3).
-            match check_read_only_patch::<_, Space>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                &mut patch_val,
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
+/// What every `Space/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ChatBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// The backend's extension properties, less any core or structural
+    /// key.
+    extension_props: &'a [&'a str],
+}
 
-            // The patch must be a JSON object. Reject `null`, arrays, and
-            // scalars up front so the rest of the handler can assume a map.
-            let Value::Object(mut patch_map) = patch_val else {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
-                );
-                continue;
-            };
+/// The `create` part of `Space/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
+    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        for (create_id, obj_val) in create_map {
+            mutated |= create_one(ctx, create_id, obj_val, acc).await?;
+        }
+    }
+    Ok(mutated)
+}
 
-            // Walk every key on the patch object and bucket it as:
-            //   - structural (parsed into SpacePatchOp values via the
-            //     StructuralKey enum, defined at module top),
-            //   - draft-ietf-jmap-metadata-05 `metadata` / `privateMetadata`
-            //     (the property or a path below it), forwarded to
-            //     update_object,
-            //   - metadata or a backend-registered extension property
-            //     (`ChatSpaces::space_extension_properties`), forwarded
-            //     to apply_space_metadata_patch,
-            //   - unknown (rejected as invalidProperties).
-            // Any parse error on a structural entry is fatal for this target.
-            //
-            // Note: per draft §Space/set the wire-level apply order across
-            // keys is implementation-defined. The backend's apply_space_patch
-            // (not this loop) is canonical for ordering semantics.
-            let mut ops: Vec<SpacePatchOp> = Vec::new();
-            let mut clean_patch = serde_json::Map::new();
-            let mut object_metadata_patch = serde_json::Map::new();
-            let mut unknown_keys: Vec<String> = Vec::new();
-            let mut bad_structural_key: Option<(&'static str, String)> = None;
+/// The client-supplied properties of a `Space/set` create, checked.
+struct CreateFields {
+    name: String,
+    icon_blob_id: Option<Id>,
+    metadata: Option<serde_json::Map<String, Value>>,
+    private_metadata: Option<serde_json::Map<String, Value>>,
+    is_public: bool,
+    is_publicly_previewable: bool,
+}
 
-            for (key, value) in std::mem::take(&mut patch_map) {
-                if let Some(structural) = StructuralKey::from_wire(&key) {
-                    match parse_structural_entries(structural, value) {
-                        Ok(parsed) => ops.extend(parsed),
-                        Err(reason) => {
-                            bad_structural_key = Some((structural.wire_name(), reason));
-                            break;
-                        }
-                    }
-                } else if is_metadata_key(&key) {
-                    object_metadata_patch.insert(key, value);
-                } else if is_client_updatable::<Space>(&key)
-                    || extension_props.contains(&key.as_str())
-                {
-                    clean_patch.insert(key, value);
-                } else {
-                    unknown_keys.push(key);
-                }
-            }
+/// Check one `Space/set` create object and return its properties, or the
+/// SetError value for `notCreated`.
+fn create_fields(
+    obj_val: &Value,
+    extension_props: &[&str],
+    using: &[String],
+) -> Result<CreateFields, Value> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Space>) {
+        return Err(serde_json::Value::from(&err));
+    }
+    // RFC 8620 §5.3 invalidProperties: "It contains properties that
+    // are invalid according to the type specification of this
+    // record type." A key that is neither a client-settable Space
+    // property nor a registered extension property is rejected, as
+    // on update, rather than silently dropped.
+    let unknown_keys: Vec<&str> = obj_val
+        .as_object()
+        .into_iter()
+        .flat_map(|m| m.keys())
+        .map(String::as_str)
+        .filter(|key| !(Space::CLIENT_SETTABLE.contains(key) || extension_props.contains(key)))
+        .collect();
+    if !unknown_keys.is_empty() {
+        return Err(json!({ "type": "invalidProperties", "properties": unknown_keys }));
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // draft-ietf-jmap-metadata-05 §3.2: the create sets the
+    // metadata properties; the backend validates them.
+    let (metadata, private_metadata) = create_metadata(obj_val)?;
+    // Optional properties: a wrongly-typed value is invalidProperties
+    // (RFC 8620 §5.3), not a silent absence.
+    if let Some(err) = mistyped_create_props(
+        obj_val,
+        &[
+            ("description", PropType::Str),
+            ("iconBlobId", PropType::Str),
+            ("isPublic", PropType::Bool),
+            ("isPubliclyPreviewable", PropType::Bool),
+        ],
+    ) {
+        return Err(err);
+    }
+    // draft-atwood-jmap-chat-00 §Space/set "Creating a Space":
+    // "Optional: `description` (String), `iconBlobId` (String)."
+    // The value is a blob Id, so it must be a valid RFC 8620 §1.2
+    // Id. Whether the blob exists is left to the backend.
+    let icon_blob_id = match obj_val.get("iconBlobId").and_then(|v| v.as_str()) {
+        None => None,
+        Some(raw) => Some(
+            jmap_server::parse_wire_id(raw, "iconBlobId")
+                .map_err(|err| serde_json::Value::from(&*err))?,
+        ),
+    };
+    let name = match obj_val.get("name").and_then(|v| v.as_str()) {
+        Some(s) if !s.is_empty() => s.to_owned(),
+        _ => return Err(json!({ "type": "invalidProperties", "properties": ["name"] })),
+    };
+    if name.len() > 256 {
+        return Err(json!({ "type": "invalidProperties", "properties": ["name"] }));
+    }
 
-            if let Some((canonical, reason)) = bad_structural_key {
-                not_updated.insert(
-                    id_str,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": [canonical],
-                        "description": reason,
-                    }),
-                );
-                continue;
-            }
+    let is_public = obj_val
+        .get("isPublic")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let is_publicly_previewable = obj_val
+        .get("isPubliclyPreviewable")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    Ok(CreateFields {
+        name,
+        icon_blob_id,
+        metadata,
+        private_metadata,
+        is_public,
+        is_publicly_previewable,
+    })
+}
 
-            if !unknown_keys.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": unknown_keys }),
-                );
-                continue;
-            }
+/// One `create` entry of `Space/set`. Returns whether the backend was
+/// written.
+async fn create_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    obj_val: &Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let fields = match create_fields(obj_val, ctx.extension_props, ctx.using) {
+        Ok(fields) => fields,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
 
-            if let Err(err) = check_metadata_entry(&object_metadata_patch, false, using) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
+    let now_str = now_utc_string();
+    let now: UTCDate = UTCDate::from(now_str.as_ref());
 
-            if ops.is_empty() && clean_patch.is_empty() && object_metadata_patch.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": "patch contains no valid fields" }),
-                );
-                continue;
-            }
+    // draft-atwood-jmap-chat-00 §Space/set "Creating a Space": the
+    // server "adds the caller to `members` with at least one role
+    // granting permissions sufficient to administer the Space". The
+    // caller acts as the account owner, whose member entry is the
+    // accountId (§SpaceMember `id`). Bootstrap configuration
+    // (bd:JMAP-yt1w.34): one "Admin" role holding every spec
+    // permission at the highest UnsignedInt position. Role ids are
+    // scoped to their Space, so the fixed id cannot collide with a
+    // role in another Space.
+    // ponytail: one fixed bootstrap policy for every backend, though
+    // the draft calls it server-defined. If a consumer needs another
+    // policy, add a ChatBackend hook returning the bootstrap role,
+    // defaulting to this one.
+    let admin_role: SpaceRole = serde_json::from_value(json!({
+        "id": BOOTSTRAP_ADMIN_ROLE_ID,
+        "name": "Admin",
+        "permissions": SPEC_PERMISSION_NAMES,
+        "position": BOOTSTRAP_ADMIN_ROLE_POSITION,
+    }))
+    .expect("bootstrap role literal matches SpaceRole");
+    let owner: SpaceMember = serde_json::from_value(json!({
+        "id": ctx.account_id,
+        "roleIds": [BOOTSTRAP_ADMIN_ROLE_ID],
+        "joinedAt": now_str,
+    }))
+    .expect("bootstrap member literal matches SpaceMember");
 
-            // The closedAt gate above, for a patch that also names other
-            // changes. The owner removes themselves by the accountId
-            // (§Terminology).
-            let self_removal = clean_patch.is_empty()
-                && object_metadata_patch.is_empty()
-                && matches!(ops.as_slice(), [SpacePatchOp::RemoveMember(m)] if *m == account_id);
-            if closed && !self_removal {
-                not_updated.insert(id_str, space_closed());
-                continue;
-            }
-
-            // Reject SpaceRole.position == 0 per draft-atwood-jmap-chat-00
-            // §SpaceRole commit `c3ea5d9` ("harden position 0 / @everyone
-            // reservation"): position 0 is reserved for the implicit
-            // @everyone role, which every member of a Space holds and
-            // which serves as the permission floor. Defined SpaceRoles
-            // MUST have position > 0. The reference permissions resolver
-            // uses position: 0 internally for the synthetic @everyone
-            // role, so accepting it on the wire would create real
-            // conflicts.
-            //
-            // Per RFC 8620 §5.3 the rejection is per-target atomic, so a
-            // single position-0 violation in any addRoles or updateRoles
-            // entry rejects the whole update target. The wire shape is
-            // `invalidProperties` with `properties: ["position"]` to
-            // match the existing per-field-rejection convention in this
-            // crate; the bead's "invalidArguments" text was an internal
-            // slip (RFC 8620's `invalidArguments` SetError does not
-            // carry a `properties` field).
-            if ops.iter().any(|op| match op {
-                SpacePatchOp::AddRole(role) => role.position == 0,
-                SpacePatchOp::UpdateRole { patch, .. } => patch.position == Some(0),
-                _ => false,
-            }) {
-                not_updated.insert(
-                    id_str,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["position"],
-                        "description":
-                            "SpaceRole.position 0 is reserved for the implicit @everyone role; defined roles MUST have position > 0 (draft-atwood-jmap-chat-00 §SpaceRole)",
-                    }),
-                );
-                continue;
-            }
-
-            // Enforce per-Space count limits before dispatching structural
-            // ops to the backend (bd:JMAP-g7wu.2.4.8). If any aggregate
-            // would exceed its cap, reject the whole update target with
-            // a single `overQuota` SetError per RFC 8620 §5.3 atomicity
-            // at the target level. The cap values come from the
-            // backend's `ChatSettings::limits` (queried once per request
-            // above the loop); the current per-collection counts come
-            // from a `get_objects::<Space>` read of the target Space.
-            if !ops.is_empty() {
-                match check_space_count_limits(
-                    backend,
-                    caller,
-                    &account_id,
-                    &id,
-                    &ops,
-                    &space_limits,
-                )
-                .await
-                {
-                    Ok(Some(err)) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&err));
-                        continue;
-                    }
-                    Ok(None) => {}
-                    Err(je) => return Err(je),
-                }
-            }
-
-            // draft-ietf-jmap-metadata-05 §3.2: `metadata` and
-            // `privateMetadata` take RFC 8620 §5.3 PatchObject paths
-            // (`metadata/<namespace>/...`), which the RFC 7396 merge patch
-            // of `apply_space_metadata_patch` cannot express, so they go
-            // through `update_object`, whose backend runs the -05 §3.2
-            // checks. Applied before the structural ops, so a rejected
-            // metadata write leaves the Space unchanged.
-            // ponytail: like the structural ops and the top-level fields
-            // below, this is its own backend call, so a later failure
-            // leaves the metadata written; a backend needing strictness
-            // applies all three in one transaction.
-            if !object_metadata_patch.is_empty() {
-                let patch: PatchObject =
-                    match serde_json::from_value(Value::Object(object_metadata_patch)) {
-                        Ok(p) => p,
-                        Err(e) => {
-                            not_updated.insert(
-                                id_str,
-                                json!({ "type": "invalidPatch", "description": e.to_string() }),
-                            );
-                            continue;
-                        }
-                    };
-                if let Err(e) = backend
-                    .update_object::<Space>(caller, &account_id, &id, patch)
-                    .await
-                {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                    continue;
-                }
-                mutated = true;
-            }
-
-            // Then the structural ops. If any op fails, surface the first
-            // failure as a `notUpdated` entry and skip the top-level field
-            // write —
-            // RFC 8620 §5.3 requires each update target to land in exactly
-            // one of `updated` / `notUpdated`, and a partial half-applied
-            // outcome would be misleading.
-            if !ops.is_empty() {
-                let removed_channels: Vec<Id> = ops
-                    .iter()
-                    .filter_map(|op| match op {
-                        SpacePatchOp::RemoveChannel(chat_id) => Some(chat_id.clone()),
-                        _ => None,
-                    })
-                    .collect();
-                match backend
-                    .apply_space_patch(caller, &account_id, &id, ops)
-                    .await
-                {
-                    Ok(op_results) => {
-                        if let Some(first_err) =
-                            op_results.iter().find_map(|r| r.outcome.as_ref().err())
-                        {
-                            not_updated.insert(id_str, serde_json::Value::from(first_err));
-                            continue;
-                        }
-                        for chat_id in &removed_channels {
-                            backend
-                                .on_chat_destroyed(caller, &account_id, chat_id)
-                                .await;
-                        }
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, backend_set_error_value(e));
-                        continue;
-                    }
-                }
-            }
-
-            // Apply metadata (if any) via the dedicated chat-server
-            // entry point. Routing through
-            // `ChatSpaces::apply_space_metadata_patch` (rather than
-            // the generic `update_object::<Space>`) gives the backend
-            // the type and identity context it needs to apply the
-            // `manage_space` permission gate atomically with the
-            // mutation. The gate is backend-canonical per workspace
-            // AGENTS.md "Caller identity (foundation seam)" — handler
-            // does no permission check here. See bd:JMAP-g7wu.2.4.13.
-            //
-            // If there were no metadata fields, structural ops alone
-            // count as a successful update — emit a null sentinel
-            // into `updated`.
-            if clean_patch.is_empty() {
-                mutated = true;
-                updated.insert(id_str, Value::Null);
-                continue;
-            }
-
-            // Decode the wire patch's metadata-key subset into the typed
-            // SpaceMetadataPatch shape (bd:JMAP-x2gd.39). The handler has
-            // already filtered to METADATA_FIELDS plus the backend's
-            // extension properties (which land in `extra`), so unknown-key
-            // rejection is impossible here; the remaining failure mode is
-            // a wire `null` on a non-nullable field (`isPublic` /
-            // `isPubliclyPreviewable`) which surfaces as
-            // `invalidProperties` naming the offending key. The error
-            // message names the field that failed to deserialize, which
-            // is sufficient for a client to act on.
-            let typed_patch: jmap_chat_types::SpaceMetadataPatch =
-                match serde_json::from_value(Value::Object(clean_patch)) {
-                    Ok(p) => p,
-                    Err(e) => {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "invalidProperties",
-                                "description": format!("metadata patch failed to deserialize: {e}"),
-                            }),
-                        );
-                        continue;
-                    }
-                };
-
-            match backend
-                .apply_space_metadata_patch(caller, &account_id, &id, typed_patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
+    let build = |id: &Id| {
+        let mut space = Space::new(
+            id.clone(),
+            fields.name,
+            vec![admin_role],
+            vec![owner],
+            vec![],
+            vec![],
+            now,
+            fields.is_public,
+            fields.is_publicly_previewable,
+            1,
+        );
+        if let Some(desc) = obj_val.get("description").and_then(|v| v.as_str()) {
+            space.description = Some(desc.to_owned());
+        }
+        space.icon_blob_id = fields.icon_blob_id;
+        space.metadata = fields.metadata;
+        space.private_metadata = fields.private_metadata;
+        for &key in ctx.extension_props {
+            match obj_val.get(key) {
+                None | Some(Value::Null) => {}
+                Some(v) => {
+                    space.extra.insert(key.to_owned(), v.clone());
                 }
             }
         }
+        space
+    };
+
+    match ctx
+        .backend
+        .create_object::<Space, _>(ctx.caller, ctx.account_id, create_id, build)
+        .await
+    {
+        Ok((_server_id, created_obj)) => {
+            acc.created.insert(
+                create_id.to_owned(),
+                jmap_server::serialize_value(&created_obj)?,
+            );
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The `update` part of `Space/set`. `space_limits` are the account's
+/// per-Space count caps. Returns whether the backend was written.
+async fn set_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+    space_limits: &ChatLimits,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
+    if let Some(Value::Object(update_map)) = args.remove("update") {
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc, space_limits).await?;
+        }
+    }
+    Ok(mutated)
+}
+
+/// One `update` entry of `Space/set`. Returns whether the backend was
+/// written; a target can land in `notUpdated` after an earlier write
+/// for it succeeded.
+async fn update_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+    space_limits: &ChatLimits,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    // draft-atwood-jmap-chat-00 §Space/set "Updating a Space": these
+    // keys name members by ChatContact id.
+    if let Err(err) = resolve_refs(&mut patch_val, &["removeMembers"], ctx.created_ids)
+        .and_then(|()| {
+            resolve_entry_refs(
+                &mut patch_val,
+                &[
+                    ("addMembers", "id", "addMembers"),
+                    ("updateMembers", "id", "updateMembers"),
+                ],
+                ctx.created_ids,
+            )
+        })
+        .and_then(|()| resolve_override_targets(&mut patch_val, ctx.created_ids))
+    {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
     }
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+    // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
+    // MUST also reject ... every `Space/set` update to the Space
+    // with a `forbidden` SetError, except a member removing
+    // themselves via `removeMembers`." Checked before the
+    // read-only and no-op checks so that `{}` and server-set keys
+    // are `forbidden` too. A patch that may be a self-removal is
+    // checked again once parsed, below.
+    let closed = match ctx
+        .backend
+        .get_objects::<Space>(
+            ctx.caller,
+            ctx.account_id,
+            Some(std::slice::from_ref(&id)),
+            None,
+        )
+        .await
+    {
+        Ok((spaces, _)) => spaces.first().is_some_and(|s| s.closed_at.is_some()),
+        Err(e) => {
+            acc.not_updated
+                .insert(id_str, server_fail_value_from_backend(&e));
+            return Ok(false);
+        }
+    };
+    if closed && patch_val.get("removeMembers") != Some(&json!([ctx.account_id])) {
+        acc.not_updated.insert(id_str, space_closed());
+        return Ok(false);
+    }
+
+    // Reject patches that change server-set Space properties,
+    // including `roles`, `members`, `categories` and
+    // `uncategorizedChannelIds`, which change only through the
+    // structural keys; a stored value repeated unchanged is dropped
+    // (RFC 8620 §5.3).
+    match check_read_only_patch::<_, Space>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        &mut patch_val,
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    }
+
+    let parts = match split_update_patch(patch_val, ctx.extension_props, ctx.using) {
+        Ok(parts) => parts,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    };
+    if let Some(err) = update_ops_error(ctx, &id, closed, &parts, space_limits).await? {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
+    apply_update(ctx, id_str, &id, parts, acc).await
+}
+
+/// A `Space/set` update patch, split by where each key goes.
+struct UpdateParts {
+    /// The structural keys, parsed.
+    ops: Vec<SpacePatchOp>,
+    /// Client-updatable Space properties and extension properties, for
+    /// `apply_space_metadata_patch`.
+    clean_patch: serde_json::Map<String, Value>,
+    /// draft-ietf-jmap-metadata-05 `metadata` / `privateMetadata` paths,
+    /// for `update_object`.
+    object_metadata_patch: serde_json::Map<String, Value>,
+}
+
+/// Split one `Space/set` update patch (after the read-only check) into
+/// its [`UpdateParts`], or return the SetError value for `notUpdated`.
+fn split_update_patch(
+    patch_val: Value,
+    extension_props: &[&str],
+    using: &[String],
+) -> Result<UpdateParts, Value> {
+    // The patch must be a JSON object. Reject `null`, arrays, and
+    // scalars up front so the rest of the handler can assume a map.
+    let Value::Object(mut patch_map) = patch_val else {
+        return Err(
+            json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
+        );
+    };
+
+    // Walk every key on the patch object and bucket it as:
+    //   - structural (parsed into SpacePatchOp values via the
+    //     StructuralKey enum, defined at module top),
+    //   - draft-ietf-jmap-metadata-05 `metadata` / `privateMetadata`
+    //     (the property or a path below it), forwarded to
+    //     update_object,
+    //   - metadata or a backend-registered extension property
+    //     (`ChatSpaces::space_extension_properties`), forwarded
+    //     to apply_space_metadata_patch,
+    //   - unknown (rejected as invalidProperties).
+    // Any parse error on a structural entry is fatal for this target.
+    //
+    // Note: per draft §Space/set the wire-level apply order across
+    // keys is implementation-defined. The backend's apply_space_patch
+    // (not this loop) is canonical for ordering semantics.
+    let mut ops: Vec<SpacePatchOp> = Vec::new();
+    let mut clean_patch = serde_json::Map::new();
+    let mut object_metadata_patch = serde_json::Map::new();
+    let mut unknown_keys: Vec<String> = Vec::new();
+    let mut bad_structural_key: Option<(&'static str, String)> = None;
+
+    for (key, value) in std::mem::take(&mut patch_map) {
+        if let Some(structural) = StructuralKey::from_wire(&key) {
+            match parse_structural_entries(structural, value) {
+                Ok(parsed) => ops.extend(parsed),
+                Err(reason) => {
+                    bad_structural_key = Some((structural.wire_name(), reason));
+                    break;
+                }
+            }
+        } else if is_metadata_key(&key) {
+            object_metadata_patch.insert(key, value);
+        } else if is_client_updatable::<Space>(&key) || extension_props.contains(&key.as_str()) {
+            clean_patch.insert(key, value);
+        } else {
+            unknown_keys.push(key);
+        }
+    }
+
+    if let Some((canonical, reason)) = bad_structural_key {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": [canonical],
+            "description": reason,
+        }));
+    }
+
+    if !unknown_keys.is_empty() {
+        return Err(json!({ "type": "invalidProperties", "properties": unknown_keys }));
+    }
+
+    if let Err(err) = check_metadata_entry(&object_metadata_patch, false, using) {
+        return Err(serde_json::Value::from(&*err));
+    }
+
+    if ops.is_empty() && clean_patch.is_empty() && object_metadata_patch.is_empty() {
+        return Err(
+            json!({ "type": "invalidPatch", "description": "patch contains no valid fields" }),
+        );
+    }
+    Ok(UpdateParts {
+        ops,
+        clean_patch,
+        object_metadata_patch,
+    })
+}
+
+/// The SetError value that refuses a split `Space/set` update before any
+/// write: the closed-Space gate, a reserved role position, or a per-Space
+/// count cap. `None` to go on.
+async fn update_ops_error<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    closed: bool,
+    parts: &UpdateParts,
+    space_limits: &ChatLimits,
+) -> Result<Option<Value>, JmapError> {
+    let ops = &parts.ops;
+    // The closedAt gate above, for a patch that also names other
+    // changes. The owner removes themselves by the accountId
+    // (§Terminology).
+    let self_removal = parts.clean_patch.is_empty()
+        && parts.object_metadata_patch.is_empty()
+        && matches!(ops.as_slice(), [SpacePatchOp::RemoveMember(m)] if m == ctx.account_id);
+    if closed && !self_removal {
+        return Ok(Some(space_closed()));
+    }
+
+    // Reject SpaceRole.position == 0 per draft-atwood-jmap-chat-00
+    // §SpaceRole commit `c3ea5d9` ("harden position 0 / @everyone
+    // reservation"): position 0 is reserved for the implicit
+    // @everyone role, which every member of a Space holds and
+    // which serves as the permission floor. Defined SpaceRoles
+    // MUST have position > 0. The reference permissions resolver
+    // uses position: 0 internally for the synthetic @everyone
+    // role, so accepting it on the wire would create real
+    // conflicts.
+    //
+    // Per RFC 8620 §5.3 the rejection is per-target atomic, so a
+    // single position-0 violation in any addRoles or updateRoles
+    // entry rejects the whole update target. The wire shape is
+    // `invalidProperties` with `properties: ["position"]` to
+    // match the existing per-field-rejection convention in this
+    // crate; the bead's "invalidArguments" text was an internal
+    // slip (RFC 8620's `invalidArguments` SetError does not
+    // carry a `properties` field).
+    if ops.iter().any(|op| match op {
+        SpacePatchOp::AddRole(role) => role.position == 0,
+        SpacePatchOp::UpdateRole { patch, .. } => patch.position == Some(0),
+        _ => false,
+    }) {
+        return Ok(Some(json!({
+            "type": "invalidProperties",
+            "properties": ["position"],
+            "description":
+                "SpaceRole.position 0 is reserved for the implicit @everyone role; defined roles MUST have position > 0 (draft-atwood-jmap-chat-00 §SpaceRole)",
+        })));
+    }
+
+    // Enforce per-Space count limits before dispatching structural
+    // ops to the backend (bd:JMAP-g7wu.2.4.8). If any aggregate
+    // would exceed its cap, reject the whole update target with
+    // a single `overQuota` SetError per RFC 8620 §5.3 atomicity
+    // at the target level. The cap values come from the
+    // backend's `ChatSettings::limits` (queried once per request
+    // above the loop); the current per-collection counts come
+    // from a `get_objects::<Space>` read of the target Space.
+    if !ops.is_empty()
+        && let Some(err) = check_space_count_limits(
+            ctx.backend,
+            ctx.caller,
+            ctx.account_id,
+            id,
+            ops,
+            space_limits,
+        )
+        .await?
+    {
+        return Ok(Some(serde_json::Value::from(&err)));
+    }
+    Ok(None)
+}
+
+/// Write one checked `Space/set` update: the metadata paths, then the
+/// structural ops, then the top-level fields. Returns whether the backend
+/// was written; a later failure leaves an earlier write in place.
+async fn apply_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    id: &Id,
+    parts: UpdateParts,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let UpdateParts {
+        ops,
+        clean_patch,
+        object_metadata_patch,
+    } = parts;
+    let mut mutated = false;
+
+    // draft-ietf-jmap-metadata-05 §3.2: `metadata` and
+    // `privateMetadata` take RFC 8620 §5.3 PatchObject paths
+    // (`metadata/<namespace>/...`), which the RFC 7396 merge patch
+    // of `apply_space_metadata_patch` cannot express, so they go
+    // through `update_object`, whose backend runs the -05 §3.2
+    // checks. Applied before the structural ops, so a rejected
+    // metadata write leaves the Space unchanged.
+    // ponytail: like the structural ops and the top-level fields
+    // below, this is its own backend call, so a later failure
+    // leaves the metadata written; a backend needing strictness
+    // applies all three in one transaction.
+    if !object_metadata_patch.is_empty() {
+        let patch: PatchObject = match serde_json::from_value(Value::Object(object_metadata_patch))
+        {
+            Ok(p) => p,
+            Err(e) => {
+                acc.not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidPatch", "description": e.to_string() }),
+                );
+                return Ok(mutated);
+            }
+        };
+        if let Err(e) = ctx
+            .backend
+            .update_object::<Space>(ctx.caller, ctx.account_id, id, patch)
+            .await
+        {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            return Ok(mutated);
+        }
+        mutated = true;
+    }
+
+    // Then the structural ops. If any op fails, surface the first
+    // failure as a `notUpdated` entry and skip the top-level field
+    // write —
+    // RFC 8620 §5.3 requires each update target to land in exactly
+    // one of `updated` / `notUpdated`, and a partial half-applied
+    // outcome would be misleading.
+    if !ops.is_empty()
+        && let Err(err) = apply_structural_ops(ctx, id, ops).await
+    {
+        acc.not_updated.insert(id_str, err);
+        return Ok(mutated);
+    }
+
+    // Apply metadata (if any) via the dedicated chat-server
+    // entry point. Routing through
+    // `ChatSpaces::apply_space_metadata_patch` (rather than
+    // the generic `update_object::<Space>`) gives the backend
+    // the type and identity context it needs to apply the
+    // `manage_space` permission gate atomically with the
+    // mutation. The gate is backend-canonical per workspace
+    // AGENTS.md "Caller identity (foundation seam)" — handler
+    // does no permission check here. See bd:JMAP-g7wu.2.4.13.
+    //
+    // If there were no metadata fields, structural ops alone
+    // count as a successful update — emit a null sentinel
+    // into `updated`.
+    if clean_patch.is_empty() {
+        acc.updated.insert(id_str, Value::Null);
+        return Ok(true);
+    }
+    apply_metadata_patch(ctx, id_str, id, clean_patch, acc)
+        .await
+        .map(|written| mutated || written)
+}
+
+/// Apply the structural ops of one `Space/set` update and report each
+/// removed channel to `ChatEvents::on_chat_destroyed`. Returns the
+/// SetError value of the first failed op.
+async fn apply_structural_ops<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    ops: Vec<SpacePatchOp>,
+) -> Result<(), Value> {
+    let removed_channels: Vec<Id> = ops
+        .iter()
+        .filter_map(|op| match op {
+            SpacePatchOp::RemoveChannel(chat_id) => Some(chat_id.clone()),
+            _ => None,
+        })
+        .collect();
+    match ctx
+        .backend
+        .apply_space_patch(ctx.caller, ctx.account_id, id, ops)
+        .await
+    {
+        Ok(op_results) => {
+            if let Some(first_err) = op_results.iter().find_map(|r| r.outcome.as_ref().err()) {
+                return Err(serde_json::Value::from(first_err));
+            }
+            for chat_id in &removed_channels {
+                ctx.backend
+                    .on_chat_destroyed(ctx.caller, ctx.account_id, chat_id)
+                    .await;
+            }
+            Ok(())
+        }
+        Err(e) => Err(backend_set_error_value(e)),
+    }
+}
+
+/// Apply the top-level fields of one `Space/set` update through
+/// `ChatSpaces::apply_space_metadata_patch`. Returns whether the backend
+/// was written.
+async fn apply_metadata_patch<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    id: &Id,
+    clean_patch: serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    // Decode the wire patch's metadata-key subset into the typed
+    // SpaceMetadataPatch shape (bd:JMAP-x2gd.39). The handler has
+    // already filtered to METADATA_FIELDS plus the backend's
+    // extension properties (which land in `extra`), so unknown-key
+    // rejection is impossible here; the remaining failure mode is
+    // a wire `null` on a non-nullable field (`isPublic` /
+    // `isPubliclyPreviewable`) which surfaces as
+    // `invalidProperties` naming the offending key. The error
+    // message names the field that failed to deserialize, which
+    // is sufficient for a client to act on.
+    let typed_patch: jmap_chat_types::SpaceMetadataPatch =
+        match serde_json::from_value(Value::Object(clean_patch)) {
+            Ok(p) => p,
+            Err(e) => {
+                acc.not_updated.insert(
+                    id_str,
+                    json!({
+                        "type": "invalidProperties",
+                        "description": format!("metadata patch failed to deserialize: {e}"),
+                    }),
+                );
+                return Ok(false);
+            }
+        };
+
+    match ctx
+        .backend
+        .apply_space_metadata_patch(ctx.caller, ctx.account_id, id, typed_patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The `destroy` part of `Space/set`. Returns whether the backend was
+/// written.
+async fn set_destroy<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -1634,7 +1790,8 @@ pub async fn handle_space_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -1645,51 +1802,41 @@ pub async fn handle_space_set<B: ChatBackend>(
             // ponytail: a channel added by a concurrent request between
             // this read and the destroy gets no callback. The upgrade
             // path is a destroy method that returns the cascaded ids.
-            let channel_ids = match space_channel_ids(backend, caller, &account_id, &id).await {
-                Ok(ids) => ids,
-                Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
+            let channel_ids =
+                match space_channel_ids(ctx.backend, ctx.caller, ctx.account_id, &id).await {
+                    Ok(ids) => ids,
+                    Err(e) => {
+                        acc.not_destroyed
+                            .insert(id_str.to_owned(), server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                };
 
-            match backend
-                .destroy_object::<Space>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<Space>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
                     for chat_id in &channel_ids {
-                        backend
-                            .on_chat_destroyed(caller, &account_id, chat_id)
+                        ctx.backend
+                            .on_chat_destroyed(ctx.caller, ctx.account_id, chat_id)
                             .await;
                     }
-                    backend.on_space_destroyed(caller, &account_id, &id).await;
+                    ctx.backend
+                        .on_space_destroyed(ctx.caller, ctx.account_id, &id)
+                        .await;
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, Space>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------

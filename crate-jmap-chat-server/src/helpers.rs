@@ -196,6 +196,23 @@ known_sort!(
     jmap_chat_types::CustomEmojiComparator => jmap_chat_types::CustomEmojiComparatorProperty::Other,
 );
 
+/// The SetError value for a refused backend policy check, or `None` when
+/// it allowed the operation.
+///
+/// `outcome` is what a policy hook such as
+/// [`ChatRestrictions::may_update_chat`](crate::ChatRestrictions::may_update_chat)
+/// returns: `Ok(Err(set_err))` reports `set_err`, and a backend failure is
+/// a redacted `serverFail` (RFC 8620 §5.3).
+pub(crate) fn refusal_value<E: std::fmt::Display>(
+    outcome: Result<Result<(), jmap_server::SetError>, E>,
+) -> Option<Value> {
+    match outcome {
+        Ok(Ok(())) => None,
+        Ok(Err(set_err)) => Some(Value::from(&set_err)),
+        Err(e) => Some(jmap_server::server_fail_value_from_backend(&e)),
+    }
+}
+
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
 /// The six fields correspond to the six top-level result keys (`created`,
