@@ -1,1 +1,2 @@
 {"id":"01a18e7f-9dac-7808-b42a-419222a09d63","issue_id":"JMAP-8xwm","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-30T20:28:10.540526881Z"}
+{"id":"01a1f79f-9b01-70de-b360-595d2fc4d546","issue_id":"JMAP-8xwm","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Superseded: jmap-search (in workspace) is the shared query-language crate (decision 51, urn:ietf:params:jmap:search). The jmap-search-types 0.0.1 placeholder stays as a name hold; no crate in the workspace.","created_at":"2026-11-20T06:23:14.689058284Z"}
