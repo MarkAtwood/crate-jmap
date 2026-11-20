@@ -1070,7 +1070,8 @@ async fn process_create<B: MailBackend>(
 ///
 /// RFC 8621 §7.5: only `undoStatus` may be updated, and a submission whose
 /// `undoStatus` is already `"final"` cannot be unsent (`cannotUnsend`).
-/// Existence and state come before shape (DECISIONS.md 44): a missing
+/// `undoStatus` repeating the stored `"final"` or `"canceled"` is not a
+/// change and is dropped (DECISIONS.md 46). Existence and state come before shape (DECISIONS.md 44): a missing
 /// submission is `notFound` and a final one `cannotUnsend` whatever else
 /// the patch names; only then is a changed server-set or immutable value
 /// (RFC 8621 §7) `invalidProperties`, an identical one dropped (RFC 8620
@@ -1092,6 +1093,21 @@ async fn process_update<B: MailBackend>(
         return Err(Value::from(&SetError::new(SetErrorType::NotFound)));
     };
 
+    // DECISIONS.md 46: `undoStatus` patched to the value already stored on
+    // a settled submission ("final" or "canceled") changes nothing, so it
+    // is dropped like an identical server-set value and the update can be
+    // a no-op success (RFC 8620 §5.3); only a real change is
+    // `cannotUnsend`.
+    if matches!(
+        current.undo_status,
+        UndoStatus::Final | UndoStatus::Canceled
+    ) && patch
+        .as_map()
+        .get("undoStatus")
+        .is_some_and(|v| serde_json::to_value(&current.undo_status).is_ok_and(|s| s == *v))
+    {
+        patch.as_map_mut().remove("undoStatus");
+    }
     if current.undo_status == UndoStatus::Final && patch.as_map().contains_key("undoStatus") {
         return Err(Value::from(
             &SetError::new(SetErrorType::CannotUnsend)

@@ -1101,6 +1101,12 @@ wire behaviour that a conforming peer can observe.
   (VacationResponse-backed `blobId`) run their own `forbidden` and state
   checks before the read-only one (bd:JMAP-t8ej.32 item 2).
 
+- **jmap-mail-server**: an `EmailSubmission/set` update whose
+  `undoStatus` repeats the stored `"final"` or `"canceled"` is a no-op
+  success (RFC 8620 §5.3; DECISIONS.md 46) instead of `cannotUnsend` (for
+  `"final"`) or a write (for `"canceled"`). A real change from `"final"` is
+  still `cannotUnsend` (bd:JMAP-t8ej.32 item 6).
+
 - **jmap-chat-server**: RFC 8620 §5.3 identical server-set values. `Chat/set`
   compares an echoed `unreadCount` with the value `Chat/get` reports, which
   is computed when the backend does not maintain it, instead of the stored

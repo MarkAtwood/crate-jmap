@@ -490,6 +490,52 @@ async fn submission_read_only_change_alone_is_invalid_properties() {
     assert_eq!(resp["notUpdated"][&id]["properties"], json!(["sendAt"]));
 }
 
+/// docs/design/DECISIONS.md L64 (decision 46): "An EmailSubmission
+/// `undoStatus` patch to the identical final value is a no-op success
+/// (RFC 8620 §5.3), not `cannotUnsend`; `cannotUnsend` stays for a real
+/// change." The memory backend sends at once, so the stored value is
+/// "final" (RFC 8621 §7 "final": "It is no longer possible to cancel this
+/// submission").
+#[tokio::test]
+async fn submission_identical_final_undo_status_is_noop() {
+    let backend = backend();
+    let (id, _, _) = submit(&backend, |_| json!({})).await;
+    let resp = submission_update(&backend, json!({ &id: { "undoStatus": "final" } })).await;
+    assert_noop(&resp, &id);
+
+    // A real change stays `cannotUnsend` (RFC 8621 §7.5).
+    let resp = submission_update(&backend, json!({ &id: { "undoStatus": "canceled" } })).await;
+    assert_eq!(resp["notUpdated"][&id]["type"], "cannotUnsend", "{resp}");
+}
+
+/// Decision 46 (DECISIONS.md L64) for the other settled value: a stored
+/// "canceled" (RFC 8621 §7 "The submission was canceled and will not be
+/// delivered to any recipient") patched to "canceled" is a no-op success.
+#[tokio::test]
+async fn submission_identical_canceled_undo_status_is_noop() {
+    let backend = backend();
+    let (id, _, _) = submit(&backend, |_| json!({})).await;
+    let HandlerOutput { primary: got, .. } =
+        handle_submission_get(&backend, &(), json!({ "accountId": ACCOUNT, "ids": [&id] }))
+            .await
+            .expect("EmailSubmission/get");
+    let mut canceled = got["list"][0].clone();
+    canceled["id"] = json!("sub-canceled");
+    canceled["undoStatus"] = json!("canceled");
+    backend.seed_object(
+        &Id::from(ACCOUNT),
+        "EmailSubmission",
+        &Id::from("sub-canceled"),
+        canceled,
+    );
+    let resp = submission_update(
+        &backend,
+        json!({ "sub-canceled": { "undoStatus": "canceled" } }),
+    )
+    .await;
+    assert_noop(&resp, "sub-canceled");
+}
+
 /// §5.3 applies to the implicit Email/set of `onSuccessUpdateEmail`
 /// (RFC 8621 §7.5): an identical `id` beside a keyword change updates.
 #[tokio::test]
