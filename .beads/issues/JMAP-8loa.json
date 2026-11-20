@@ -1,0 +1,13 @@
+{
+  "id": "JMAP-8loa",
+  "title": "scene spec: gaps found reviewing project-cordite (FPS on JMAP Scene)",
+  "description": "From the project-cordite review (cordite DESIGN.md open questions 7-14, commit 4f53a25). Spec changes JMAP Scene would need: a server-originated region-wide event type (no user/avatar/interactable object); an observer/spectator subscription without an avatar; a visibility contract for SceneAvatar records (positions leak during competitive rounds); a worldState key filter on SceneRegion/query; a sanctioned way for the region owner or simulation layer to write a player's avatar worldState, or guidance against it. Spec-internal inconsistencies: games guide L4136 avatar snapshots at 1-5 Hz vs scene-00 L2657 every 5-30 s; the guide's tactical-FPS pattern puts every player's money in public region worldState; the guide shows the simulation layer writing avatar worldState, which the permission rules forbid through JMAP. Mark's call (jmap-chat-spec).",
+  "notes": "2026-11-20: spec-internal inconsistencies drafted as docs/upstream/2026-11-19/spec-patches/scene-games-guide-permissions.patch (applies to 3445973), awaiting Mark's OK. Cordite decided its open questions 7-14 within today's Scene (cordite 41f4299); the spec requests here would let 7, 8, 12 be revisited.",
+  "status": "open",
+  "priority": 3,
+  "issue_type": "task",
+  "owner": "mark@reviewcommit.com",
+  "created_at": "2026-11-20T03:23:35.898283397Z",
+  "created_by": "Mark Atwood",
+  "updated_at": "2026-11-20T03:31:42.308343075Z"
+}

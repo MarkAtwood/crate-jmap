@@ -22,3 +22,10 @@ repeat of 3.1.
 After approval, jmap-vtc-server needs the 595m gates (JMAP-595m's
 "then implement" half); the scene and compliance patches need no crate
 change.
+
+## Added 2026-11-20 (not yet applied)
+
+| Patch | Bead | What it changes |
+|---|---|---|
+| scene-games-guide-permissions.patch | JMAP-8loa (spec-internal part) | jmap-scene-board-games-guide.md, against 3445973: the FPS network model now cites the draft's 5-30 s avatar reconciliation instead of "1-5 Hz"; health and inventory that the simulation owns move from SceneAvatar `worldState` (only the user may write it, Avatar Permissions) to per-player SceneObjects owned by the region owner; the Counter-Strike pattern takes per-player money out of public region `worldState` into those objects, hidden by object visibility filtering. Found reviewing project-cordite. |
+

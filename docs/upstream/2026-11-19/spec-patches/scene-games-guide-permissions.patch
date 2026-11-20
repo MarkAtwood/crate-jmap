@@ -1,0 +1,79 @@
+--- a/jmap-scene-board-games-guide.md
++++ b/jmap-scene-board-games-guide.md
+@@ -3039,7 +3039,10 @@
+ 6. **Enemy AI:** The simulation runs per-enemy state machines: idle,
+    alert (heard gunfire or saw player), chase, attack (melee or
+    ranged), pain (briefly stunned on taking damage), death.
+-7. **Damage:** Health tracked in SceneAvatar `worldState`. On
++7. **Damage:** The simulation tracks health. Only a user may update
++   their own SceneAvatar (Avatar Permissions), so health that the
++   server owns is published, if at all, on a per-player SceneObject
++   owned by the region owner, not in SceneAvatar `worldState`. On
+    death, the avatar enters a death state (camera falls to floor),
+    then respawns at a spawn point after a delay.
+ 8. **Frag log:** Each kill posts a system message to the bound Chat:
+@@ -3408,7 +3411,8 @@
+ 
+ Same as Doom: all SceneObject positions are public (no fog-of-war
+ in standard Quake deathmatch). Player inventory and health are
+-public via SceneAvatar `worldState`. For competitive modes
++public via per-player SceneObjects owned by the region owner (the
++simulation cannot write another user's SceneAvatar). For competitive modes
+ that require fog-of-war, the server would use spatial filtering on
+ `SceneObject/query` to return only objects within the player's
+ line of sight.
+@@ -4133,8 +4137,9 @@
+ category. The simulation layer must run at 20+ Hz tick rate.
+ Client-side prediction (the client simulates movement locally and
+ reconciles with server corrections) is essential for responsive feel.
+-The Scene spec's snapshot model (JMAP `SceneAvatar/get` at 1-5 Hz)
+-is too slow for gameplay; the simulation connection at
++The Scene spec's snapshot model (avatar positions reconciled into
++SceneAvatar records every 5-30 seconds, as State Reconciliation in
++draft-atwood-jmap-scene-00 recommends) is far too slow for gameplay; the simulation connection at
+ `simulationUri` carries the real-time stream. For detailed coverage of
+ transport options (WebSocket, WebRTC, QUIC, WebTransport), authority
+ models, interpolation, and state reconciliation, see the [JMAP Scene
+@@ -4169,20 +4174,37 @@
+     "round": 5,
+     "roundTime": 115,
+     "score": { "team-a": 3, "team-b": 1 },
+-    "economy": {
+-      "user:alice@example.com": 4750,
+-      "user:bob@example.com": 3200
+-    },
+     "bombPlanted": false,
+     "bombSite": null
+   }
+ }
+ ```
+ 
++Region `worldState` is visible to every user who can access the
++region, so it holds only what every player may see. Each player's
++money and loadout go on a per-player SceneObject owned by the region
++owner, where object visibility filtering (Visibility Contract) keeps
++them from opponents:
++
++```json
++{
++  "id": "obj-player-alice",
++  "regionId": "region-match-001",
++  "name": "Player state: Alice",
++  "worldState": {
++    "player": "user:alice@example.com",
++    "team": "team-a",
++    "money": 4750,
++    "alive": true
++  }
++}
++```
++
+ The simulation manages round transitions (freeze time, buy phase,
+ live round, post-round), economy (money for kills, round wins,
+ equipment purchases), and win conditions (bomb plant/defuse,
+-elimination, timeout).
++elimination, timeout), and writes the results to these objects and
++to region `worldState`.
+ 
+ ### Survival/Crafting Pattern (Minecraft)
+ 
