@@ -1,1 +1,2 @@
 {"id":"01a1f71b-35dc-7171-9603-547e35e57e32","issue_id":"JMAP-po6q.7","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-20T03:58:38.04409593Z"}
+{"id":"01a1fb4b-c82a-74a1-a13f-83c000037bfe","issue_id":"JMAP-po6q.7","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"jmap-vtc-ffmpeg landed on main (cherry-pick of 989348e2); 29 tests pass, 3 real-ffmpeg tests behind feature + #[ignore] not run (no ffmpeg here)","created_at":"2026-11-20T23:30:10.090304747Z"}
