@@ -59,6 +59,7 @@ members = [
     "crate-jmap-chat-tasks-server",
     "crate-jmap-chat-federation-server",
     "crate-jmap-chat-slack",
+    "crate-jmap-vtc-aws",
     "crate-jmap-scene-vtc-server",
     "crate-jmap-base-client",
     "crate-jmap-chat-client",
@@ -223,6 +224,10 @@ ring                   = "0.17"
 # PKCS #8 `.p8` key Apple issues. Already in the tree via jmap-web-push and
 # jmap-did-types.
 p256                   = { version = "0.13", default-features = false, features = ["ecdsa", "pkcs8", "std"] }
+# Dev-only (jmap-vtc-aws tests): verifies the ES384 IVS playback tokens,
+# which ring signs, with an independent implementation. Already in the
+# tree via openmls_rust_crypto.
+p384                   = { version = "0.13", default-features = false, features = ["ecdsa", "std"] }
 thiserror              = "2"
 tokio                  = { version = "1", features = ["rt"] }
 http                   = "1"

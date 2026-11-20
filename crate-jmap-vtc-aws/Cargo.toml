@@ -1,0 +1,36 @@
+[package]
+name = "jmap-vtc-aws"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "AWS media backend for jmap-vtc-server livestreams: Amazon IVS low-latency channels over SigV4-signed requests"
+keywords = ["jmap", "vtc", "aws", "ivs", "livestream"]
+categories = ["network-programming", "multimedia::video"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+# base64url for the IVS playback JWT segments, base64 for PEM bodies.
+base64 = { workspace = true }
+jmap-types = { workspace = true }
+jmap-vtc-server = { workspace = true }
+jmap-vtc-types = { workspace = true }
+reqwest = { workspace = true }
+# HMAC-SHA256 and SHA-256 for SigV4, ECDSA P-384 (ES384) for IVS playback
+# tokens. Already in the tree as reqwest's rustls crypto provider.
+ring = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+url = { workspace = true }
+
+[dev-dependencies]
+# Verifies the ES384 playback tokens with a library other than ring, the
+# signer (independent oracle).
+p384 = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = { workspace = true }
+# Integration tests drive the adapter through MemoryBackend.
+jmap-vtc-server = { workspace = true, features = ["memory", "test-helpers"] }

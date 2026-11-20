@@ -1,0 +1,495 @@
+pub mod jmap_vtc_aws
+pub use jmap_vtc_aws::reqwest
+pub use jmap_vtc_aws::url
+pub mod jmap_vtc_aws::ivs
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::ChannelType
+pub jmap_vtc_aws::ivs::ChannelType::AdvancedHd
+pub jmap_vtc_aws::ivs::ChannelType::AdvancedSd
+pub jmap_vtc_aws::ivs::ChannelType::Basic
+pub jmap_vtc_aws::ivs::ChannelType::Other(alloc::string::String)
+pub jmap_vtc_aws::ivs::ChannelType::Standard
+impl jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::clone(&self) -> jmap_vtc_aws::ivs::ChannelType
+impl core::cmp::Eq for jmap_vtc_aws::ivs::ChannelType
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::eq(&self, &jmap_vtc_aws::ivs::ChannelType) -> bool
+impl core::convert::From<&str> for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::ChannelType
+impl serde_core::ser::Serialize for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::ChannelType
+pub fn jmap_vtc_aws::ivs::ChannelType::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::IvsEventKind
+pub jmap_vtc_aws::ivs::IvsEventKind::LimitBreach
+pub jmap_vtc_aws::ivs::IvsEventKind::LimitBreach::limit: jmap_vtc_aws::ivs::LimitName
+pub jmap_vtc_aws::ivs::IvsEventKind::Other
+pub jmap_vtc_aws::ivs::IvsEventKind::Other::detail_type: alloc::string::String
+pub jmap_vtc_aws::ivs::IvsEventKind::Other::event_name: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::IvsEventKind::SessionCreated
+pub jmap_vtc_aws::ivs::IvsEventKind::SessionEnded
+pub jmap_vtc_aws::ivs::IvsEventKind::SessionEnded::code: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::IvsEventKind::StarvationEnd
+pub jmap_vtc_aws::ivs::IvsEventKind::StarvationStart
+pub jmap_vtc_aws::ivs::IvsEventKind::StreamEnd
+pub jmap_vtc_aws::ivs::IvsEventKind::StreamFailure
+pub jmap_vtc_aws::ivs::IvsEventKind::StreamFailure::reason: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::IvsEventKind::StreamStart
+impl core::clone::Clone for jmap_vtc_aws::ivs::IvsEventKind
+pub fn jmap_vtc_aws::ivs::IvsEventKind::clone(&self) -> jmap_vtc_aws::ivs::IvsEventKind
+impl core::cmp::Eq for jmap_vtc_aws::ivs::IvsEventKind
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::IvsEventKind
+pub fn jmap_vtc_aws::ivs::IvsEventKind::eq(&self, &jmap_vtc_aws::ivs::IvsEventKind) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::IvsEventKind
+pub fn jmap_vtc_aws::ivs::IvsEventKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::IvsEventKind
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::LatencyMode
+pub jmap_vtc_aws::ivs::LatencyMode::Low
+pub jmap_vtc_aws::ivs::LatencyMode::Normal
+pub jmap_vtc_aws::ivs::LatencyMode::Other(alloc::string::String)
+impl jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::clone(&self) -> jmap_vtc_aws::ivs::LatencyMode
+impl core::cmp::Eq for jmap_vtc_aws::ivs::LatencyMode
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::eq(&self, &jmap_vtc_aws::ivs::LatencyMode) -> bool
+impl core::convert::From<&str> for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::LatencyMode
+impl serde_core::ser::Serialize for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::LatencyMode
+pub fn jmap_vtc_aws::ivs::LatencyMode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::LimitName
+pub jmap_vtc_aws::ivs::LimitName::ConcurrentBroadcasts
+pub jmap_vtc_aws::ivs::LimitName::ConcurrentViewers
+pub jmap_vtc_aws::ivs::LimitName::IngestBitrate
+pub jmap_vtc_aws::ivs::LimitName::IngestResolution
+pub jmap_vtc_aws::ivs::LimitName::Other(alloc::string::String)
+impl jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::clone(&self) -> jmap_vtc_aws::ivs::LimitName
+impl core::cmp::Eq for jmap_vtc_aws::ivs::LimitName
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::eq(&self, &jmap_vtc_aws::ivs::LimitName) -> bool
+impl core::convert::From<&str> for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::LimitName
+impl serde_core::ser::Serialize for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::LimitName
+pub fn jmap_vtc_aws::ivs::LimitName::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::MaximumResolution
+pub jmap_vtc_aws::ivs::MaximumResolution::FullHd
+pub jmap_vtc_aws::ivs::MaximumResolution::Hd
+pub jmap_vtc_aws::ivs::MaximumResolution::Other(alloc::string::String)
+pub jmap_vtc_aws::ivs::MaximumResolution::Sd
+impl jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::clone(&self) -> jmap_vtc_aws::ivs::MaximumResolution
+impl core::cmp::Eq for jmap_vtc_aws::ivs::MaximumResolution
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::eq(&self, &jmap_vtc_aws::ivs::MaximumResolution) -> bool
+impl core::convert::From<&str> for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::MaximumResolution
+impl serde_core::ser::Serialize for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::MaximumResolution
+pub fn jmap_vtc_aws::ivs::MaximumResolution::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::StopOutcome
+pub jmap_vtc_aws::ivs::StopOutcome::DeletePending
+pub jmap_vtc_aws::ivs::StopOutcome::Deleted
+impl core::clone::Clone for jmap_vtc_aws::ivs::StopOutcome
+pub fn jmap_vtc_aws::ivs::StopOutcome::clone(&self) -> jmap_vtc_aws::ivs::StopOutcome
+impl core::cmp::Eq for jmap_vtc_aws::ivs::StopOutcome
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::StopOutcome
+pub fn jmap_vtc_aws::ivs::StopOutcome::eq(&self, &jmap_vtc_aws::ivs::StopOutcome) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::StopOutcome
+pub fn jmap_vtc_aws::ivs::StopOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_vtc_aws::ivs::StopOutcome
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::StopOutcome
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::StreamHealth
+pub jmap_vtc_aws::ivs::StreamHealth::Healthy
+pub jmap_vtc_aws::ivs::StreamHealth::Other(alloc::string::String)
+pub jmap_vtc_aws::ivs::StreamHealth::Starving
+pub jmap_vtc_aws::ivs::StreamHealth::Unknown
+impl jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::clone(&self) -> jmap_vtc_aws::ivs::StreamHealth
+impl core::cmp::Eq for jmap_vtc_aws::ivs::StreamHealth
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::eq(&self, &jmap_vtc_aws::ivs::StreamHealth) -> bool
+impl core::convert::From<&str> for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::StreamHealth
+impl serde_core::ser::Serialize for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::StreamHealth
+pub fn jmap_vtc_aws::ivs::StreamHealth::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::StreamState
+pub jmap_vtc_aws::ivs::StreamState::Live
+pub jmap_vtc_aws::ivs::StreamState::Offline
+pub jmap_vtc_aws::ivs::StreamState::Other(alloc::string::String)
+impl jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::clone(&self) -> jmap_vtc_aws::ivs::StreamState
+impl core::cmp::Eq for jmap_vtc_aws::ivs::StreamState
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::eq(&self, &jmap_vtc_aws::ivs::StreamState) -> bool
+impl core::convert::From<&str> for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::StreamState
+impl serde_core::ser::Serialize for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::StreamState
+pub fn jmap_vtc_aws::ivs::StreamState::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+#[non_exhaustive] pub enum jmap_vtc_aws::ivs::TokenError
+pub jmap_vtc_aws::ivs::TokenError::ExpiryTooFar
+pub jmap_vtc_aws::ivs::TokenError::InvalidKey
+pub jmap_vtc_aws::ivs::TokenError::NoKey
+pub jmap_vtc_aws::ivs::TokenError::Signing
+pub jmap_vtc_aws::ivs::TokenError::ViewerIdTooLong
+impl core::error::Error for jmap_vtc_aws::ivs::TokenError
+impl core::fmt::Debug for jmap_vtc_aws::ivs::TokenError
+pub fn jmap_vtc_aws::ivs::TokenError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::ivs::TokenError
+pub fn jmap_vtc_aws::ivs::TokenError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::Channel
+pub jmap_vtc_aws::ivs::Channel::arn: alloc::string::String
+pub jmap_vtc_aws::ivs::Channel::authorized: bool
+pub jmap_vtc_aws::ivs::Channel::channel_type: core::option::Option<jmap_vtc_aws::ivs::ChannelType>
+pub jmap_vtc_aws::ivs::Channel::ingest_endpoint: alloc::string::String
+pub jmap_vtc_aws::ivs::Channel::insecure_ingest: bool
+pub jmap_vtc_aws::ivs::Channel::latency_mode: core::option::Option<jmap_vtc_aws::ivs::LatencyMode>
+pub jmap_vtc_aws::ivs::Channel::name: alloc::string::String
+pub jmap_vtc_aws::ivs::Channel::playback_url: alloc::string::String
+pub jmap_vtc_aws::ivs::Channel::srt: core::option::Option<jmap_vtc_aws::ivs::SrtIngest>
+pub jmap_vtc_aws::ivs::Channel::tags: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>
+impl core::clone::Clone for jmap_vtc_aws::ivs::Channel
+pub fn jmap_vtc_aws::ivs::Channel::clone(&self) -> jmap_vtc_aws::ivs::Channel
+impl core::cmp::Eq for jmap_vtc_aws::ivs::Channel
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::Channel
+pub fn jmap_vtc_aws::ivs::Channel::eq(&self, &jmap_vtc_aws::ivs::Channel) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::Channel
+pub fn jmap_vtc_aws::ivs::Channel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::Channel
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::Channel
+pub fn jmap_vtc_aws::ivs::Channel::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::ChannelTemplate
+pub jmap_vtc_aws::ivs::ChannelTemplate::channel_type: core::option::Option<jmap_vtc_aws::ivs::ChannelType>
+pub jmap_vtc_aws::ivs::ChannelTemplate::latency_mode: core::option::Option<jmap_vtc_aws::ivs::LatencyMode>
+pub jmap_vtc_aws::ivs::ChannelTemplate::recording_configuration_arn: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::ChannelTemplate::tags: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>
+impl jmap_vtc_aws::ivs::ChannelTemplate
+pub fn jmap_vtc_aws::ivs::ChannelTemplate::with_channel_type(self, jmap_vtc_aws::ivs::ChannelType) -> Self
+pub fn jmap_vtc_aws::ivs::ChannelTemplate::with_latency_mode(self, jmap_vtc_aws::ivs::LatencyMode) -> Self
+pub fn jmap_vtc_aws::ivs::ChannelTemplate::with_recording_configuration_arn(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_aws::ivs::ChannelTemplate::with_tag(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_vtc_aws::ivs::ChannelTemplate
+pub fn jmap_vtc_aws::ivs::ChannelTemplate::clone(&self) -> jmap_vtc_aws::ivs::ChannelTemplate
+impl core::default::Default for jmap_vtc_aws::ivs::ChannelTemplate
+pub fn jmap_vtc_aws::ivs::ChannelTemplate::default() -> jmap_vtc_aws::ivs::ChannelTemplate
+impl core::fmt::Debug for jmap_vtc_aws::ivs::ChannelTemplate
+pub fn jmap_vtc_aws::ivs::ChannelTemplate::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_vtc_aws::ivs::CreateChannelInput
+pub jmap_vtc_aws::ivs::CreateChannelInput::authorized: bool
+pub jmap_vtc_aws::ivs::CreateChannelInput::channel_type: core::option::Option<jmap_vtc_aws::ivs::ChannelType>
+pub jmap_vtc_aws::ivs::CreateChannelInput::insecure_ingest: bool
+pub jmap_vtc_aws::ivs::CreateChannelInput::latency_mode: core::option::Option<jmap_vtc_aws::ivs::LatencyMode>
+pub jmap_vtc_aws::ivs::CreateChannelInput::name: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::CreateChannelInput::recording_configuration_arn: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::CreateChannelInput::tags: alloc::collections::btree::map::BTreeMap<alloc::string::String, alloc::string::String>
+impl core::clone::Clone for jmap_vtc_aws::ivs::CreateChannelInput
+pub fn jmap_vtc_aws::ivs::CreateChannelInput::clone(&self) -> jmap_vtc_aws::ivs::CreateChannelInput
+impl core::default::Default for jmap_vtc_aws::ivs::CreateChannelInput
+pub fn jmap_vtc_aws::ivs::CreateChannelInput::default() -> jmap_vtc_aws::ivs::CreateChannelInput
+impl core::fmt::Debug for jmap_vtc_aws::ivs::CreateChannelInput
+pub fn jmap_vtc_aws::ivs::CreateChannelInput::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::CreatedChannel
+pub jmap_vtc_aws::ivs::CreatedChannel::channel: jmap_vtc_aws::ivs::Channel
+pub jmap_vtc_aws::ivs::CreatedChannel::stream_key: jmap_vtc_aws::ivs::StreamKey
+impl core::clone::Clone for jmap_vtc_aws::ivs::CreatedChannel
+pub fn jmap_vtc_aws::ivs::CreatedChannel::clone(&self) -> jmap_vtc_aws::ivs::CreatedChannel
+impl core::cmp::Eq for jmap_vtc_aws::ivs::CreatedChannel
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::CreatedChannel
+pub fn jmap_vtc_aws::ivs::CreatedChannel::eq(&self, &jmap_vtc_aws::ivs::CreatedChannel) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::CreatedChannel
+pub fn jmap_vtc_aws::ivs::CreatedChannel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::CreatedChannel
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::CreatedChannel
+pub fn jmap_vtc_aws::ivs::CreatedChannel::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::IvsChannel
+pub jmap_vtc_aws::ivs::IvsChannel::arn: alloc::string::String
+pub jmap_vtc_aws::ivs::IvsChannel::authorized: bool
+pub jmap_vtc_aws::ivs::IvsChannel::ingest_endpoint: alloc::string::String
+pub jmap_vtc_aws::ivs::IvsChannel::latency_mode: core::option::Option<jmap_vtc_aws::ivs::LatencyMode>
+pub jmap_vtc_aws::ivs::IvsChannel::livestream_id: jmap_types::id::Id
+pub jmap_vtc_aws::ivs::IvsChannel::playback_url: alloc::string::String
+pub jmap_vtc_aws::ivs::IvsChannel::stream_key: alloc::string::String
+impl jmap_vtc_aws::ivs::IvsChannel
+pub fn jmap_vtc_aws::ivs::IvsChannel::rtmps_url(&self) -> alloc::string::String
+pub fn jmap_vtc_aws::ivs::IvsChannel::stream_key(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::ivs::IvsChannel
+pub fn jmap_vtc_aws::ivs::IvsChannel::clone(&self) -> jmap_vtc_aws::ivs::IvsChannel
+impl core::cmp::Eq for jmap_vtc_aws::ivs::IvsChannel
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::IvsChannel
+pub fn jmap_vtc_aws::ivs::IvsChannel::eq(&self, &jmap_vtc_aws::ivs::IvsChannel) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::IvsChannel
+pub fn jmap_vtc_aws::ivs::IvsChannel::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::IvsChannel
+impl serde_core::ser::Serialize for jmap_vtc_aws::ivs::IvsChannel
+pub fn jmap_vtc_aws::ivs::IvsChannel::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::IvsChannel
+pub fn jmap_vtc_aws::ivs::IvsChannel::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub struct jmap_vtc_aws::ivs::IvsClient
+impl jmap_vtc_aws::ivs::IvsClient
+pub async fn jmap_vtc_aws::ivs::IvsClient::create_channel(&self, &jmap_vtc_aws::ivs::CreateChannelInput) -> core::result::Result<jmap_vtc_aws::ivs::CreatedChannel, jmap_vtc_aws::AwsError>
+pub async fn jmap_vtc_aws::ivs::IvsClient::create_stream_key(&self, &str) -> core::result::Result<jmap_vtc_aws::ivs::StreamKey, jmap_vtc_aws::AwsError>
+pub async fn jmap_vtc_aws::ivs::IvsClient::delete_channel(&self, &str) -> core::result::Result<(), jmap_vtc_aws::AwsError>
+pub fn jmap_vtc_aws::ivs::IvsClient::from_client(reqwest::async_impl::client::Client, jmap_vtc_aws::Credentials, impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_vtc_aws::AwsError>
+pub async fn jmap_vtc_aws::ivs::IvsClient::get_stream(&self, &str) -> core::result::Result<core::option::Option<jmap_vtc_aws::ivs::Stream>, jmap_vtc_aws::AwsError>
+pub async fn jmap_vtc_aws::ivs::IvsClient::get_stream_key(&self, &str) -> core::result::Result<jmap_vtc_aws::ivs::StreamKey, jmap_vtc_aws::AwsError>
+pub fn jmap_vtc_aws::ivs::IvsClient::new(jmap_vtc_aws::Credentials, impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_vtc_aws::AwsError>
+pub fn jmap_vtc_aws::ivs::IvsClient::region(&self) -> &str
+pub async fn jmap_vtc_aws::ivs::IvsClient::stop_stream(&self, &str) -> core::result::Result<bool, jmap_vtc_aws::AwsError>
+pub fn jmap_vtc_aws::ivs::IvsClient::with_endpoint(self, url::Url) -> Self
+impl core::clone::Clone for jmap_vtc_aws::ivs::IvsClient
+pub fn jmap_vtc_aws::ivs::IvsClient::clone(&self) -> jmap_vtc_aws::ivs::IvsClient
+impl core::fmt::Debug for jmap_vtc_aws::ivs::IvsClient
+pub fn jmap_vtc_aws::ivs::IvsClient::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::IvsEvent
+pub jmap_vtc_aws::ivs::IvsEvent::channel_arn: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::IvsEvent::kind: jmap_vtc_aws::ivs::IvsEventKind
+pub jmap_vtc_aws::ivs::IvsEvent::stream_id: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::IvsEvent::time: core::option::Option<alloc::string::String>
+impl jmap_vtc_aws::ivs::IvsEvent
+pub fn jmap_vtc_aws::ivs::IvsEvent::from_eventbridge(&serde_json::value::Value) -> core::option::Option<Self>
+impl core::clone::Clone for jmap_vtc_aws::ivs::IvsEvent
+pub fn jmap_vtc_aws::ivs::IvsEvent::clone(&self) -> jmap_vtc_aws::ivs::IvsEvent
+impl core::cmp::Eq for jmap_vtc_aws::ivs::IvsEvent
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::IvsEvent
+pub fn jmap_vtc_aws::ivs::IvsEvent::eq(&self, &jmap_vtc_aws::ivs::IvsEvent) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::IvsEvent
+pub fn jmap_vtc_aws::ivs::IvsEvent::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::IvsEvent
+pub struct jmap_vtc_aws::ivs::IvsLivestreams
+impl jmap_vtc_aws::ivs::IvsLivestreams
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::client(&self) -> &jmap_vtc_aws::ivs::IvsClient
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::endpoints_for(&self, &jmap_vtc_aws::ivs::IvsChannel, alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>, core::option::Option<&str>, std::time::SystemTime) -> core::result::Result<alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>, jmap_vtc_aws::ivs::TokenError>
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::new(jmap_vtc_aws::ivs::IvsClient, jmap_vtc_aws::ivs::ChannelTemplate) -> Self
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::playback_endpoint(&self, &jmap_vtc_aws::ivs::IvsChannel) -> jmap_vtc_types::recording::VtcPlaybackEndpoint
+pub async fn jmap_vtc_aws::ivs::IvsLivestreams::report_event<B: jmap_vtc_server::backend::VtcBackend>(&self, &jmap_vtc_server::media_report::MediaReporter<'_, B>, &jmap_vtc_aws::ivs::IvsChannel, &jmap_vtc_aws::ivs::IvsEvent) -> jmap_vtc_server::media_report::LivestreamReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_aws::ivs::IvsLivestreams::start(&self, &jmap_vtc_types::recording::VtcLivestream) -> core::result::Result<jmap_vtc_aws::ivs::IvsChannel, jmap_vtc_aws::AwsError>
+pub async fn jmap_vtc_aws::ivs::IvsLivestreams::stop(&self, &jmap_vtc_aws::ivs::IvsChannel) -> core::result::Result<jmap_vtc_aws::ivs::StopOutcome, jmap_vtc_aws::AwsError>
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::with_allowed_origin(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::with_private_playback(self, jmap_vtc_aws::ivs::PlaybackKey, core::time::Duration) -> Self
+impl core::clone::Clone for jmap_vtc_aws::ivs::IvsLivestreams
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::clone(&self) -> jmap_vtc_aws::ivs::IvsLivestreams
+impl core::fmt::Debug for jmap_vtc_aws::ivs::IvsLivestreams
+pub fn jmap_vtc_aws::ivs::IvsLivestreams::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::PlaybackClaims
+pub jmap_vtc_aws::ivs::PlaybackClaims::access_control_allow_origin: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::PlaybackClaims::channel_arn: alloc::string::String
+pub jmap_vtc_aws::ivs::PlaybackClaims::expires_at: std::time::SystemTime
+pub jmap_vtc_aws::ivs::PlaybackClaims::maximum_resolution: core::option::Option<jmap_vtc_aws::ivs::MaximumResolution>
+pub jmap_vtc_aws::ivs::PlaybackClaims::single_use_uuid: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::PlaybackClaims::strict_origin_enforcement: bool
+pub jmap_vtc_aws::ivs::PlaybackClaims::viewer_id: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::PlaybackClaims::viewer_session_version: core::option::Option<i64>
+impl jmap_vtc_aws::ivs::PlaybackClaims
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::new(impl core::convert::Into<alloc::string::String>, std::time::SystemTime) -> Self
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::with_allowed_origin(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::with_maximum_resolution(self, jmap_vtc_aws::ivs::MaximumResolution) -> Self
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::with_single_use_uuid(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::with_strict_origin_enforcement(self) -> Self
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::with_viewer_id(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::with_viewer_session_version(self, i64) -> Self
+impl core::clone::Clone for jmap_vtc_aws::ivs::PlaybackClaims
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::clone(&self) -> jmap_vtc_aws::ivs::PlaybackClaims
+impl core::cmp::Eq for jmap_vtc_aws::ivs::PlaybackClaims
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::PlaybackClaims
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::eq(&self, &jmap_vtc_aws::ivs::PlaybackClaims) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::PlaybackClaims
+pub fn jmap_vtc_aws::ivs::PlaybackClaims::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::PlaybackClaims
+pub struct jmap_vtc_aws::ivs::PlaybackKey
+impl jmap_vtc_aws::ivs::PlaybackKey
+pub fn jmap_vtc_aws::ivs::PlaybackKey::from_pkcs8_der(&[u8]) -> core::result::Result<Self, jmap_vtc_aws::ivs::TokenError>
+pub fn jmap_vtc_aws::ivs::PlaybackKey::from_pkcs8_pem(&str) -> core::result::Result<Self, jmap_vtc_aws::ivs::TokenError>
+pub fn jmap_vtc_aws::ivs::PlaybackKey::public_key_sec1(&self) -> &[u8]
+pub fn jmap_vtc_aws::ivs::PlaybackKey::sign(&self, &jmap_vtc_aws::ivs::PlaybackClaims, std::time::SystemTime) -> core::result::Result<alloc::string::String, jmap_vtc_aws::ivs::TokenError>
+impl core::clone::Clone for jmap_vtc_aws::ivs::PlaybackKey
+pub fn jmap_vtc_aws::ivs::PlaybackKey::clone(&self) -> jmap_vtc_aws::ivs::PlaybackKey
+impl core::fmt::Debug for jmap_vtc_aws::ivs::PlaybackKey
+pub fn jmap_vtc_aws::ivs::PlaybackKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::SrtIngest
+pub jmap_vtc_aws::ivs::SrtIngest::endpoint: alloc::string::String
+pub jmap_vtc_aws::ivs::SrtIngest::passphrase: alloc::string::String
+impl core::clone::Clone for jmap_vtc_aws::ivs::SrtIngest
+pub fn jmap_vtc_aws::ivs::SrtIngest::clone(&self) -> jmap_vtc_aws::ivs::SrtIngest
+impl core::cmp::Eq for jmap_vtc_aws::ivs::SrtIngest
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::SrtIngest
+pub fn jmap_vtc_aws::ivs::SrtIngest::eq(&self, &jmap_vtc_aws::ivs::SrtIngest) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::SrtIngest
+pub fn jmap_vtc_aws::ivs::SrtIngest::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::SrtIngest
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::SrtIngest
+pub fn jmap_vtc_aws::ivs::SrtIngest::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::Stream
+pub jmap_vtc_aws::ivs::Stream::channel_arn: alloc::string::String
+pub jmap_vtc_aws::ivs::Stream::health: jmap_vtc_aws::ivs::StreamHealth
+pub jmap_vtc_aws::ivs::Stream::playback_url: alloc::string::String
+pub jmap_vtc_aws::ivs::Stream::start_time: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::Stream::state: jmap_vtc_aws::ivs::StreamState
+pub jmap_vtc_aws::ivs::Stream::stream_id: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::ivs::Stream::viewer_count: core::option::Option<u64>
+impl core::clone::Clone for jmap_vtc_aws::ivs::Stream
+pub fn jmap_vtc_aws::ivs::Stream::clone(&self) -> jmap_vtc_aws::ivs::Stream
+impl core::cmp::Eq for jmap_vtc_aws::ivs::Stream
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::Stream
+pub fn jmap_vtc_aws::ivs::Stream::eq(&self, &jmap_vtc_aws::ivs::Stream) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::Stream
+pub fn jmap_vtc_aws::ivs::Stream::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::Stream
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::Stream
+pub fn jmap_vtc_aws::ivs::Stream::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+#[non_exhaustive] pub struct jmap_vtc_aws::ivs::StreamKey
+pub jmap_vtc_aws::ivs::StreamKey::arn: alloc::string::String
+pub jmap_vtc_aws::ivs::StreamKey::channel_arn: alloc::string::String
+pub jmap_vtc_aws::ivs::StreamKey::value: alloc::string::String
+impl core::clone::Clone for jmap_vtc_aws::ivs::StreamKey
+pub fn jmap_vtc_aws::ivs::StreamKey::clone(&self) -> jmap_vtc_aws::ivs::StreamKey
+impl core::cmp::Eq for jmap_vtc_aws::ivs::StreamKey
+impl core::cmp::PartialEq for jmap_vtc_aws::ivs::StreamKey
+pub fn jmap_vtc_aws::ivs::StreamKey::eq(&self, &jmap_vtc_aws::ivs::StreamKey) -> bool
+impl core::fmt::Debug for jmap_vtc_aws::ivs::StreamKey
+pub fn jmap_vtc_aws::ivs::StreamKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::ivs::StreamKey
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::ivs::StreamKey
+pub fn jmap_vtc_aws::ivs::StreamKey::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+pub const jmap_vtc_aws::ivs::DEFAULT_TOKEN_TTL: core::time::Duration
+#[non_exhaustive] pub enum jmap_vtc_aws::AwsError
+pub jmap_vtc_aws::AwsError::Config(alloc::string::String)
+pub jmap_vtc_aws::AwsError::Response(alloc::string::String)
+pub jmap_vtc_aws::AwsError::Service
+pub jmap_vtc_aws::AwsError::Service::code: jmap_vtc_aws::AwsErrorCode
+pub jmap_vtc_aws::AwsError::Service::message: core::option::Option<alloc::string::String>
+pub jmap_vtc_aws::AwsError::Service::status: u16
+pub jmap_vtc_aws::AwsError::Transport(reqwest::error::Error)
+pub jmap_vtc_aws::AwsError::UnsupportedMode(jmap_vtc_types::recording::LivestreamMode)
+impl jmap_vtc_aws::AwsError
+pub fn jmap_vtc_aws::AwsError::code(&self) -> core::option::Option<&jmap_vtc_aws::AwsErrorCode>
+pub fn jmap_vtc_aws::AwsError::failure_reason(&self) -> jmap_vtc_types::recording::LivestreamFailureReason
+pub fn jmap_vtc_aws::AwsError::set_error(&self) -> core::option::Option<jmap_types::set_error::SetError>
+impl core::convert::From<reqwest::error::Error> for jmap_vtc_aws::AwsError
+pub fn jmap_vtc_aws::AwsError::from(reqwest::error::Error) -> Self
+impl core::error::Error for jmap_vtc_aws::AwsError
+pub fn jmap_vtc_aws::AwsError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_vtc_aws::AwsError
+pub fn jmap_vtc_aws::AwsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::AwsError
+pub fn jmap_vtc_aws::AwsError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_vtc_aws::AwsErrorCode
+pub jmap_vtc_aws::AwsErrorCode::AccessDenied
+pub jmap_vtc_aws::AwsErrorCode::ChannelNotBroadcasting
+pub jmap_vtc_aws::AwsErrorCode::Conflict
+pub jmap_vtc_aws::AwsErrorCode::ExpiredToken
+pub jmap_vtc_aws::AwsErrorCode::InternalFailure
+pub jmap_vtc_aws::AwsErrorCode::InternalServer
+pub jmap_vtc_aws::AwsErrorCode::Other(alloc::string::String)
+pub jmap_vtc_aws::AwsErrorCode::PendingVerification
+pub jmap_vtc_aws::AwsErrorCode::ResourceNotFound
+pub jmap_vtc_aws::AwsErrorCode::ServiceQuotaExceeded
+pub jmap_vtc_aws::AwsErrorCode::ServiceUnavailable
+pub jmap_vtc_aws::AwsErrorCode::StreamUnavailable
+pub jmap_vtc_aws::AwsErrorCode::Throttling
+pub jmap_vtc_aws::AwsErrorCode::UnrecognizedClient
+pub jmap_vtc_aws::AwsErrorCode::Validation
+impl jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::as_str(&self) -> &str
+impl core::clone::Clone for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::clone(&self) -> jmap_vtc_aws::AwsErrorCode
+impl core::cmp::Eq for jmap_vtc_aws::AwsErrorCode
+impl core::cmp::PartialEq for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::eq(&self, &jmap_vtc_aws::AwsErrorCode) -> bool
+impl core::convert::From<&str> for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::from(&str) -> Self
+impl core::convert::From<alloc::string::String> for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::from(alloc::string::String) -> Self
+impl core::fmt::Debug for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::StructuralPartialEq for jmap_vtc_aws::AwsErrorCode
+impl serde_core::ser::Serialize for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_vtc_aws::AwsErrorCode
+pub fn jmap_vtc_aws::AwsErrorCode::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
+pub struct jmap_vtc_aws::Credentials
+impl jmap_vtc_aws::Credentials
+pub fn jmap_vtc_aws::Credentials::access_key_id(&self) -> &str
+pub fn jmap_vtc_aws::Credentials::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_vtc_aws::Credentials::with_session_token(self, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_vtc_aws::Credentials
+pub fn jmap_vtc_aws::Credentials::clone(&self) -> jmap_vtc_aws::Credentials
+impl core::fmt::Debug for jmap_vtc_aws::Credentials
+pub fn jmap_vtc_aws::Credentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_vtc_aws::REQUEST_TIMEOUT: core::time::Duration

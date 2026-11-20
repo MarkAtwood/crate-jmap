@@ -14,6 +14,24 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-aws**: new support crate, an AWS media backend for hosted
+  `VTCLivestream`s on Amazon IVS low-latency channels (bd:JMAP-po6q.2,
+  docs/design/vtc-broadcast-research.md Recommendation 4).
+  `ivs::IvsLivestreams` creates one channel per livestream (`start`:
+  CreateChannel → `IvsChannel` with the RTMPS ingest URL and stream key),
+  releases it (`stop`: StopStream + DeleteChannel, `DeletePending` on a
+  live-channel 409), builds the HLS `VTCPlaybackEndpoint`, signs per-viewer
+  ES384 playback tokens for private channels (`endpoints_for`,
+  `PlaybackKey`, `PlaybackClaims`) and turns EventBridge stream events
+  (`IvsEvent`) into `MediaReporter` live / failed reports
+  (`report_event`). `ivs::IvsClient` covers CreateChannel,
+  CreateStreamKey, GetStreamKey, GetStream, StopStream and DeleteChannel.
+  Requests are signed by the crate's own SigV4 signer over ring (no AWS
+  SDK); `AwsError::failure_reason` and `AwsError::set_error` map AWS
+  errors to VTC `failureReason` values and SetErrors. Re-exports `reqwest`
+  and `url`. Push mode, recordings, IVS Real-Time, MediaLive and
+  MediaPackage are not covered.
+
 - **jmap-vtc-server**: media side effects move out of the atomic write
   (bd:JMAP-po6q.2, docs/design/vtc-broadcast-research.md Recommendations 1
   and 2). New `MediaEffect` (`StartLivestream`, `StopLivestream`,
