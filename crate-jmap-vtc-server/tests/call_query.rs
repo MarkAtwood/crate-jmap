@@ -90,6 +90,30 @@ async fn sorts_by_created_at_and_ended_at() {
 }
 
 #[tokio::test]
+async fn null_ended_at_sorts_after_ended_calls_in_both_directions() {
+    let backend = seeded();
+    // jmap-chat-spec 03a4b76 L976 "A call whose `endedAt` is `null` sorts
+    // after every call that has ended, whatever the sort direction." C3 is
+    // pending, so its `endedAt` is `null`.
+    assert_eq!(
+        ids(
+            &backend,
+            json!({ "sort": [{ "property": "endedAt", "isAscending": true }] })
+        )
+        .await,
+        ["C1", "C2", "C3"]
+    );
+    assert_eq!(
+        ids(
+            &backend,
+            json!({ "sort": [{ "property": "endedAt", "isAscending": false }] })
+        )
+        .await,
+        ["C2", "C1", "C3"]
+    );
+}
+
+#[tokio::test]
 async fn other_sort_property_is_unsupported() {
     let backend = seeded();
     // RFC 8620 §5.5 "unsupportedSort: The sort is syntactically valid, but

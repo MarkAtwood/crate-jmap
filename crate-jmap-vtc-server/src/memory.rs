@@ -242,6 +242,13 @@ impl Inner {
             .filter_map(|v| VtcCall::deserialize(v).ok())
     }
 
+    /// The calls of `account_id` that count toward `maxConcurrentCalls`:
+    /// those "in `"creating"`, `"ringing"`, `"active"` or `"pending"`
+    /// state" (§VTCCall/set).
+    fn live_calls(&self, account_id: &Id) -> u64 {
+        self.calls(account_id).filter(is_live_call).count() as u64
+    }
+
     /// The livestreams of `account_id` in state `"starting"` or `"live"`.
     fn active_livestreams(&self, account_id: &Id) -> u64 {
         self.objects(VtcLivestream::TYPE_NAME, account_id)
@@ -583,6 +590,27 @@ fn over_quota<E>() -> BackendSetError<E> {
         SetError::new(SetErrorType::OverQuota)
             .with_description("the call has reached maxParticipantsPerCall"),
     ))
+}
+
+/// A call that counts toward `maxConcurrentCalls` (§VTCCall/set).
+fn is_live_call(c: &VtcCall) -> bool {
+    matches!(
+        c.state,
+        CallState::Creating | CallState::Ringing | CallState::Active | CallState::Pending
+    )
+}
+
+/// The `overQuota` SetError for a call create over `maxConcurrentCalls`.
+fn concurrent_calls_over_quota() -> SetError {
+    SetError::new(SetErrorType::OverQuota)
+        .with_description("the account has reached maxConcurrentCalls")
+}
+
+/// The `overQuota` SetError for a breakout room create over
+/// `maxBreakoutRooms`.
+fn breakout_rooms_over_quota() -> SetError {
+    SetError::new(SetErrorType::OverQuota)
+        .with_description("the parent call has reached maxBreakoutRooms")
 }
 
 fn decode<O: JmapObject>(v: &Value) -> Result<O, MemoryError> {
@@ -930,12 +958,24 @@ impl VtcBackend for MemoryBackend {
     {
         let id = Id::from(ulid::Ulid::new().to_string());
         let mut call = build(&id);
+        let defer = self.inner.deferring();
         let mut inner = self.locked().await;
-        if !inner.accounts.contains_key(account_id.as_ref()) {
+        let Some(capability) = inner.accounts.get(account_id.as_ref()) else {
             return Err(BackendSetError::SetError(Box::new(SetError::new(
                 SetErrorType::Forbidden,
             ))));
+        };
+        // §VTCCall/set `maxConcurrentCalls`, rechecked under the lock.
+        // Under an atomic scope the commit checks it on the final state.
+        if let Some(max) = capability.max_concurrent_calls
+            && !defer
+            && inner.live_calls(account_id) >= max
+        {
+            return Err(BackendSetError::SetError(Box::new(
+                concurrent_calls_over_quota(),
+            )));
         }
+        let max_rooms = capability.max_breakout_rooms.flatten();
         if let Some(Some(chat_id)) = &call.chat_id {
             let busy = inner.calls(account_id).any(|c| {
                 c.chat_id.as_ref().and_then(Option::as_ref) == Some(chat_id)
@@ -978,6 +1018,16 @@ impl VtcBackend for MemoryBackend {
                         ))
                     })?;
                 let mut parent: VtcCall = decode(stored).map_err(BackendSetError::Other)?;
+                // §VTCCall/set `maxBreakoutRooms`, rechecked under the
+                // lock; under an atomic scope, at commit.
+                if let Some(max) = max_rooms
+                    && !defer
+                    && parent.breakout_room_ids.len() as u64 >= max
+                {
+                    return Err(BackendSetError::SetError(Box::new(
+                        breakout_rooms_over_quota(),
+                    )));
+                }
                 parent.breakout_room_ids.push(id.clone());
                 Some(parent)
             }
@@ -1251,7 +1301,8 @@ impl VtcBackend for MemoryBackend {
 /// counts, and drops the queued [`VtcBackend::deliver_event`] and
 /// recording-state events, so no event announces a change that never
 /// happened (§4.3). Under an atomic scope the backend leaves "one
-/// participant record per user per call" and `maxParticipantsPerCall` to
+/// participant record per user per call", `maxParticipantsPerCall`,
+/// `maxConcurrentCalls`, `maxBreakoutRooms` and the livestream limit to
 /// the commit, which checks the final state (`final_state_failures`).
 impl ConditionalBackend for MemoryBackend {
     async fn begin_set(
@@ -1263,9 +1314,16 @@ impl ConditionalBackend for MemoryBackend {
     }
 }
 
-/// The participant changes an atomic scope made that break a call-wide
-/// rule in the state it would commit (conditional-02 §4.2):
+/// The changes an atomic scope made that break an account-wide or
+/// call-wide rule in the state it would commit (conditional-02 §4.2):
 ///
+/// - more calls in `"creating"`, `"ringing"`, `"active"` or `"pending"`
+///   than the account's `maxConcurrentCalls` (§VTCCall/set): `overQuota`
+///   on each such call the scope created;
+/// - a parent call with more `breakoutRoomIds` than `maxBreakoutRooms`
+///   (§VTCCall/set): `overQuota` on each room the scope created under it;
+/// - more livestreams in `"starting"` or `"live"` than the deployment's
+///   limit: `overQuota` on each one the scope created;
 /// - two VTCParticipant records for one user in one call (§Reconnecting):
 ///   `alreadyExists` with `existingId` on the create;
 /// - more active participants in a call than the account's
@@ -1297,6 +1355,38 @@ fn final_state_failures(before: &Inner, after: &Inner) -> Vec<DeferredFailure> {
                     SetOp::Create(id.clone()),
                     crate::media::livestream_over_quota(),
                 ));
+            }
+        }
+        // More calls in a live state than `maxConcurrentCalls`:
+        // `overQuota` on each live call the scope created.
+        let old_calls = before.objects(VtcCall::TYPE_NAME, &account_id);
+        let created_here = |id: &Id| !old_calls.is_some_and(|m| m.contains_key(id));
+        if let Some(max) = capability.max_concurrent_calls
+            && after.live_calls(&account_id) > max
+        {
+            for c in after
+                .calls(&account_id)
+                .filter(|c| is_live_call(c) && created_here(&c.id))
+            {
+                failures.push(DeferredFailure::new(
+                    SetOp::Create(c.id),
+                    concurrent_calls_over_quota(),
+                ));
+            }
+        }
+        // A parent with more breakout rooms than `maxBreakoutRooms`:
+        // `overQuota` on each room the scope created under it.
+        if let Some(max) = capability.max_breakout_rooms.flatten() {
+            for parent in after
+                .calls(&account_id)
+                .filter(|p| p.breakout_room_ids.len() as u64 > max)
+            {
+                for room in parent.breakout_room_ids.iter().filter(|r| created_here(r)) {
+                    let op = SetOp::Create(room.clone());
+                    if !failures.iter().any(|f| f.op == op) {
+                        failures.push(DeferredFailure::new(op, breakout_rooms_over_quota()));
+                    }
+                }
             }
         }
         let old: HashMap<Id, VtcParticipant> = before

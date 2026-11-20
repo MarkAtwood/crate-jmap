@@ -287,3 +287,80 @@ async fn livestream_cap_checked_on_final_state() {
         "{r}"
     );
 }
+
+/// jmap-chat-spec 03a4b76 L783: "A create that would give the account
+/// more than `maxConcurrentCalls` calls in `"creating"`, `"ringing"`,
+/// `"active"` or `"pending"` state: `overQuota`." Under `atomic` the
+/// account is judged on the state the call commits (conditional-02 §4.2):
+/// ending one call and creating another stays within a limit of one, and
+/// two creates over it fail the whole call with `overQuota`.
+#[tokio::test]
+async fn max_concurrent_calls_checked_on_final_state() {
+    let mut cap = capability();
+    cap["maxConcurrentCalls"] = json!(1);
+    let b = room(cap);
+    let d = dispatcher(&b);
+    let new_room = json!({"callType": "room", "mediaTypes": ["audio"]});
+
+    let (_, r) = call(
+        &d,
+        BOB,
+        "VTCCall/set",
+        json!({"create": {"n": new_room.clone()}}),
+    )
+    .await;
+    assert_eq!(r["notCreated"]["n"]["type"], "overQuota", "{r}");
+
+    // RFC 8620 §5.3 runs creates before updates, so only the final-state
+    // check lets this create through.
+    let (name, r) = call(
+        &d,
+        BOB,
+        "VTCCall/set",
+        json!({"atomic": true, "create": {"n": new_room.clone()}, "update": {"C1": {"state": "ended"}}}),
+    )
+    .await;
+    assert_eq!(name, "VTCCall/set", "{r}");
+    assert!(r["created"].get("n").is_some(), "{r}");
+
+    let (name, r) = call(
+        &d,
+        BOB,
+        "VTCCall/set",
+        json!({"atomic": true, "create": {"a": new_room.clone(), "b": new_room}}),
+    )
+    .await;
+    assert_eq!(name, "error", "{r}");
+    assert_eq!(r["type"], "atomicFailure", "{r}");
+    let failed = r["notCreated"].as_object().expect("notCreated");
+    assert!(!failed.is_empty(), "{r}");
+    assert!(failed.values().all(|e| e["type"] == "overQuota"), "{r}");
+}
+
+/// jmap-chat-spec 03a4b76 L784: "A create with a `parentCallId` whose call
+/// already has `maxBreakoutRooms` breakout rooms: `overQuota`", judged on
+/// the final state under `atomic`.
+#[tokio::test]
+async fn max_breakout_rooms_checked_on_final_state() {
+    let mut cap = capability();
+    cap["maxBreakoutRooms"] = json!(1);
+    let b = room(cap);
+    let d = dispatcher(&b);
+    let breakout = json!({"callType": "room", "mediaTypes": ["audio"], "parentCallId": "C1"});
+
+    let (name, r) = call(
+        &d,
+        BOB,
+        "VTCCall/set",
+        json!({"atomic": true, "create": {"a": breakout.clone(), "b": breakout}}),
+    )
+    .await;
+    assert_eq!(name, "error", "{r}");
+    assert_eq!(r["type"], "atomicFailure", "{r}");
+    let failed = r["notCreated"].as_object().expect("notCreated");
+    assert!(!failed.is_empty(), "{r}");
+    assert!(failed.values().all(|e| e["type"] == "overQuota"), "{r}");
+    // conditional-02 §4.3: the failed call changed nothing.
+    let (_, r) = call(&d, BOB, "VTCCall/get", json!({"ids": ["C1"]})).await;
+    assert_eq!(r["list"][0]["breakoutRoomIds"], json!([]), "{r}");
+}

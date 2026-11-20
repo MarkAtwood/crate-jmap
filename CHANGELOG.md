@@ -1072,6 +1072,19 @@ wire behaviour that a conforming peer can observe.
   crates.io the workspace uses a path dependency on its `mime-writer`
   branch (decision 49; `RELEASING.md` has the switch-back step)
   (bd:JMAP-6zvo).
+- **jmap-vtc-server**: the `VTCCall/set` capability gates of
+  draft-atwood-jmap-vtc-00 (jmap-chat-spec 03a4b76). `lobbyEnabled: true`
+  on an account whose `supportsLobby` is `false` is `invalidProperties`
+  naming `lobbyEnabled`, on create and update; a non-null `parentCallId`
+  without `supportsBreakoutRooms` is `invalidProperties` naming
+  `parentCallId`; a create that would give the account more than
+  `maxConcurrentCalls` calls in `"creating"`, `"ringing"`, `"active"` or
+  `"pending"`, or a breakout room whose parent already has
+  `maxBreakoutRooms` rooms, is `overQuota`. **BREAKING** for a custom
+  `VtcBackend`: `create_call` now MUST enforce the two `overQuota` limits
+  atomically with the insert; the memory backend does, and under an atomic
+  conditional Foo/set checks them at commit on the final state
+  (bd:JMAP-595m).
 
 - **jmap-chat-server**: RFC 8620 §5.3 identical server-set values. `Chat/set`
   compares an echoed `unreadCount` with the value `Chat/get` reports, which

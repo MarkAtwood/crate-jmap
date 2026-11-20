@@ -398,6 +398,22 @@ async fn create_call<B: VtcBackend>(
         }
     }
 
+    // §VTCCall/set: "`lobbyEnabled: true` when `supportsLobby` is
+    // `false`: `invalidProperties` naming `lobbyEnabled`."
+    if !cap.supports_lobby && m.get("lobbyEnabled") == Some(&Value::Bool(true)) {
+        return Err(lobby_unsupported());
+    }
+    // §VTCCall/set: "A non-null `parentCallId` when `supportsBreakoutRooms`
+    // is `false`: `invalidProperties` naming `parentCallId`." The
+    // `maxConcurrentCalls` and `maxBreakoutRooms` limits are the backend's
+    // ([`VtcBackend::create_call`]), checked atomically with the insert.
+    if !cap.supports_breakout_rooms && m.get("parentCallId").is_some_and(|v| !v.is_null()) {
+        return Err(invalid(
+            &["parentCallId"],
+            "breakout rooms require supportsBreakoutRooms",
+        ));
+    }
+
     if m.get("chatId").is_some_and(|v| !v.is_null())
         && !backend.has_capability(caller, account_id, JMAP_CHAT_URI)
     {
@@ -465,6 +481,12 @@ async fn create_call<B: VtcBackend>(
         )
         .await
         .map_err(backend_set_error_value)
+}
+
+/// The `invalidProperties` SetError for `lobbyEnabled: true` on an account
+/// whose `supportsLobby` is `false` (§VTCCall/set).
+fn lobby_unsupported() -> Value {
+    invalid(&["lobbyEnabled"], "the lobby requires supportsLobby")
 }
 
 /// `true` if the caller may end `call`. §Ending a Call: "A moderator (or
@@ -572,6 +594,18 @@ async fn update_call<B: VtcBackend>(
         };
         if !allowed {
             return Err(forbidden("the caller is not a moderator on this call"));
+        }
+    }
+
+    // §VTCCall/set: "`lobbyEnabled: true` when `supportsLobby` is `false`:
+    // `invalidProperties` naming `lobbyEnabled`", on update as on create.
+    if patch.as_map().get("lobbyEnabled") == Some(&Value::Bool(true)) {
+        let cap = backend
+            .vtc_capability(caller, account_id)
+            .await
+            .map_err(|e| server_fail_value_from_backend(&e))?;
+        if !cap.supports_lobby {
+            return Err(lobby_unsupported());
         }
     }
 

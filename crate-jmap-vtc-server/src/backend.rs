@@ -178,6 +178,16 @@ pub trait VtcBackend: JmapBackend {
     /// - when `call.chat_id` names a Chat already referenced by a call in
     ///   state `"active"` or `"ringing"`, refuse with
     ///   [`call_already_active_on_chat`];
+    /// - refuse with `overQuota` a call that would give the account more
+    ///   than its `maxConcurrentCalls`: "A create that would give the
+    ///   account more than `maxConcurrentCalls` calls in `"creating"`,
+    ///   `"ringing"`, `"active"` or `"pending"` state: `overQuota`"
+    ///   (§VTCCall/set). The count is the account's, every call included
+    ///   whether or not the caller may access it;
+    /// - refuse with `overQuota` a breakout room whose parent already has
+    ///   `maxBreakoutRooms` entries in `breakoutRoomIds`: "A create with a
+    ///   `parentCallId` whose call already has `maxBreakoutRooms` breakout
+    ///   rooms: `overQuota`" (§VTCCall/set);
     /// - for a ring call (`call.state` is `"creating"`), create a
     ///   VTCParticipant record for each of `ring_targets` (`joinedAt`
     ///   `null`, `callResponse` `"pending"`) and one for the initiator
@@ -195,6 +205,12 @@ pub trait VtcBackend: JmapBackend {
     ///   id to the parent's `breakoutRoomIds` ("The server adds the new
     ///   call's id to the parent's `breakoutRoomIds`") and advance the
     ///   parent's state.
+    ///
+    /// The two `overQuota` limits are checked here, atomically with the
+    /// insert, and not by the handler, so a backend that supports an
+    /// atomic conditional Foo/set can judge them on the state the request
+    /// commits (an atomic request that ends one call and creates another
+    /// stays within `maxConcurrentCalls`).
     ///
     /// Returns the stored call. Error mapping, state-counter and change-log
     /// rules are those of the canonical `jmap-mail-server`
