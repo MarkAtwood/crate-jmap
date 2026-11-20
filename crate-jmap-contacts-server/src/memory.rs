@@ -459,8 +459,9 @@ impl MemoryBackend {
     }
 
     /// Register `account_id` as known and return `self`, for
-    /// builder-style fixture setup. Same as [`Self::register_account`]
-    /// (idempotent; the id is stored without RFC 8620 §1.2 validation).
+    /// builder-style fixture setup. Until then the account is unknown
+    /// (`accountNotFound`, RFC 8620 §3.6.2). Idempotent; the id is stored
+    /// without RFC 8620 §1.2 validation.
     ///
     /// # Panics
     ///

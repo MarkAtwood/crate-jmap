@@ -287,7 +287,8 @@ impl MemoryBackend {
     }
 
     /// Register `account_id` as known and return `self`, for
-    /// builder-style fixture setup. Same as [`Self::register_account`].
+    /// builder-style fixture setup. Until then the account is unknown
+    /// (`accountNotFound`, RFC 8620 §3.6.2).
     ///
     /// # Panics
     ///
@@ -401,14 +402,12 @@ impl MemoryBackend {
 
     /// Register one or more accounts as known even if they have no objects yet.
     ///
-    /// Convenience constructor that calls [`Self::register_account`] for
-    /// each id. Equivalent to `Self::new()` followed by repeated
-    /// `register_account` calls. The canonical sibling
-    /// `jmap-mail-server` does NOT ship this shape — it only ships
-    /// `register_account(&self, &Id)`. This crate keeps `new_with_accounts`
-    /// for ergonomic test fixture construction; new code SHOULD prefer
-    /// `register_account` post-construction for canonical-template
-    /// alignment.
+    /// Convenience constructor, equivalent to `Self::new()` followed by
+    /// [`with_account`](Self::with_account) for each id. The canonical
+    /// sibling `jmap-mail-server` does NOT ship this shape — it only ships
+    /// `with_account`. This crate keeps `new_with_accounts` for ergonomic
+    /// test fixture construction; new code SHOULD prefer `with_account`
+    /// for canonical-template alignment.
     pub fn new_with_accounts(account_ids: &[&str]) -> Self {
         let b = Self::new();
         for id in account_ids {
