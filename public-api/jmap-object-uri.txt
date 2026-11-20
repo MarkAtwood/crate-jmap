@@ -1,0 +1,67 @@
+pub mod jmap_object_uri
+pub use jmap_object_uri::JmapUri
+pub use jmap_object_uri::JmapUriError
+#[non_exhaustive] pub enum jmap_object_uri::ResolveError
+pub jmap_object_uri::ResolveError::AccountLacksCapability
+pub jmap_object_uri::ResolveError::AccountLacksCapability::account_id: jmap_types::id::Id
+pub jmap_object_uri::ResolveError::AccountLacksCapability::capability: &'static str
+pub jmap_object_uri::ResolveError::CapabilityNotSupported
+pub jmap_object_uri::ResolveError::CapabilityNotSupported::capability: &'static str
+pub jmap_object_uri::ResolveError::UnknownAccount
+pub jmap_object_uri::ResolveError::UnknownAccount::account_id: jmap_types::id::Id
+pub jmap_object_uri::ResolveError::UnknownType
+pub jmap_object_uri::ResolveError::UnknownType::type_name: alloc::string::String
+impl core::clone::Clone for jmap_object_uri::ResolveError
+pub fn jmap_object_uri::ResolveError::clone(&self) -> jmap_object_uri::ResolveError
+impl core::cmp::Eq for jmap_object_uri::ResolveError
+impl core::cmp::PartialEq for jmap_object_uri::ResolveError
+pub fn jmap_object_uri::ResolveError::eq(&self, &jmap_object_uri::ResolveError) -> bool
+impl core::error::Error for jmap_object_uri::ResolveError
+impl core::fmt::Debug for jmap_object_uri::ResolveError
+pub fn jmap_object_uri::ResolveError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_object_uri::ResolveError
+pub fn jmap_object_uri::ResolveError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_uri::ResolveError
+#[non_exhaustive] pub struct jmap_object_uri::Resolution
+pub jmap_object_uri::Resolution::account_id: jmap_types::id::Id
+pub jmap_object_uri::Resolution::data_type: &'static jmap_types::data_types::DataTypeEntry
+pub jmap_object_uri::Resolution::object_id: jmap_types::id::Id
+pub jmap_object_uri::Resolution::uri_type: &'static jmap_object_uri::UriTypeEntry
+impl jmap_object_uri::Resolution
+pub fn jmap_object_uri::Resolution::capability(&self) -> &'static str
+pub fn jmap_object_uri::Resolution::get_arguments(&self) -> serde_json::value::Value
+pub fn jmap_object_uri::Resolution::get_method(&self) -> alloc::string::String
+impl core::clone::Clone for jmap_object_uri::Resolution
+pub fn jmap_object_uri::Resolution::clone(&self) -> jmap_object_uri::Resolution
+impl core::cmp::Eq for jmap_object_uri::Resolution
+impl core::cmp::PartialEq for jmap_object_uri::Resolution
+pub fn jmap_object_uri::Resolution::eq(&self, &jmap_object_uri::Resolution) -> bool
+impl core::fmt::Debug for jmap_object_uri::Resolution
+pub fn jmap_object_uri::Resolution::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_object_uri::Resolution
+#[non_exhaustive] pub struct jmap_object_uri::UriTypeEntry
+pub jmap_object_uri::UriTypeEntry::data_type: &'static str
+pub jmap_object_uri::UriTypeEntry::reference: &'static str
+pub jmap_object_uri::UriTypeEntry::type_name: &'static str
+impl core::clone::Clone for jmap_object_uri::UriTypeEntry
+pub fn jmap_object_uri::UriTypeEntry::clone(&self) -> jmap_object_uri::UriTypeEntry
+impl core::cmp::Eq for jmap_object_uri::UriTypeEntry
+impl core::cmp::PartialEq for jmap_object_uri::UriTypeEntry
+pub fn jmap_object_uri::UriTypeEntry::eq(&self, &jmap_object_uri::UriTypeEntry) -> bool
+impl core::fmt::Debug for jmap_object_uri::UriTypeEntry
+pub fn jmap_object_uri::UriTypeEntry::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_object_uri::UriTypeEntry
+impl core::marker::StructuralPartialEq for jmap_object_uri::UriTypeEntry
+pub const jmap_object_uri::SCHEME: &str
+pub const jmap_object_uri::URI_TYPES: &[jmap_object_uri::UriTypeEntry]
+pub trait jmap_object_uri::SessionView
+pub fn jmap_object_uri::SessionView::account_has_capability(&self, &jmap_types::id::Id, &str) -> core::option::Option<bool>
+pub fn jmap_object_uri::SessionView::has_capability(&self, &str) -> bool
+impl jmap_object_uri::SessionView for serde_json::value::Value
+pub fn serde_json::value::Value::account_has_capability(&self, &jmap_types::id::Id, &str) -> core::option::Option<bool>
+pub fn serde_json::value::Value::has_capability(&self, &str) -> bool
+pub fn jmap_object_uri::is_jmap_uri(&str) -> bool
+pub fn jmap_object_uri::resolve(&jmap_types::jmap_uri::JmapUri, &impl jmap_object_uri::SessionView) -> core::result::Result<jmap_object_uri::Resolution, jmap_object_uri::ResolveError>
+pub fn jmap_object_uri::resolve_type(&jmap_types::jmap_uri::JmapUri) -> core::result::Result<jmap_object_uri::Resolution, jmap_object_uri::ResolveError>
+pub fn jmap_object_uri::uri_type(&str) -> core::option::Option<&'static jmap_object_uri::UriTypeEntry>
+pub fn jmap_object_uri::uri_type_for_data_type(&str) -> core::option::Option<&'static jmap_object_uri::UriTypeEntry>

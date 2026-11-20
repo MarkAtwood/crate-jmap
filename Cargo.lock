@@ -2559,6 +2559,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-object-uri"
+version = "0.5.0"
+dependencies = [
+ "jmap-types",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-peer-auth"
 version = "0.5.0"
 dependencies = [

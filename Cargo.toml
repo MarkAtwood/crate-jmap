@@ -86,6 +86,7 @@ members = [
     "crate-jmap-scene",
     "crate-jmap-graph",
     "crate-jmap-search",
+    "crate-jmap-object-uri",
     "crate-jmap-conditional",
     "crate-jmap-emailpush",
     "crate-jmap-mdn",
