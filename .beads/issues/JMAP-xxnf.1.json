@@ -2,13 +2,15 @@
   "id": "JMAP-xxnf.1",
   "title": "platform-push: FCM v1 data-message delivery, UNREGISTERED/SENDER_ID_MISMATCH destroy, string-valued data map",
   "description": "Rows: push:61,127-156,586-628; chat:100; vtc:267 (docs/audits/2026-11-19-x3lu/push.md). Size M.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-19T19:45:12.774103208Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-19T19:45:12.774103208Z",
+  "updated_at": "2026-11-20T00:09:46.161322241Z",
+  "closed_at": "2026-11-20T00:09:46.161322241Z",
+  "close_reason": "Done in jmap-platform-push (f6213a5c afecef30 3017a270 80b800bd ): tested against wiremock only, never against live provider endpoints.",
   "dependencies": [
     {
       "issue_id": "JMAP-xxnf.1",

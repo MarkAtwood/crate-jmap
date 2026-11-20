@@ -1,1 +1,2 @@
 {"id":"01a1f557-7c5d-741e-9f6b-1d997d71c167","issue_id":"JMAP-xxnf.3","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-19T19:45:13.82127085Z"}
+{"id":"01a1f649-b071-7ba6-9693-3afa6437ab18","issue_id":"JMAP-xxnf.3","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in jmap-platform-push (f6213a5c afecef30 3017a270 80b800bd ): tested against wiremock only, never against live provider endpoints.","created_at":"2026-11-20T00:09:46.865764223Z"}
