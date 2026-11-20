@@ -51,6 +51,23 @@ wire behaviour that a conforming peer can observe.
   PR #462; -06's "participant"/"chair" wording is not followed).
   **jmap-tasks-server**: the `TasksBackend` write contracts cite them for
   `mayWriteOwn` (bd:JMAP-jkl8.4).
+- **jmap-platform-push**: new support crate for JMAP push delivery through
+  FCM HTTP v1, APNs, ADM, Huawei Push Kit, Xiaomi MiPush and WNS raw
+  notifications (decision 40, epic JMAP-xxnf). One object-safe
+  `PlatformPusher` trait over `Message` (payload, urgency, TTL, data key,
+  `PushKind::{Data, Alert, Voip}`) returns `Outcome::Delivered`, `Gone`
+  (destroy the subscription, only on an explicit platform signal such as
+  FCM `UNREGISTERED`/`SENDER_ID_MISMATCH` or APNs `BadDeviceToken`),
+  `Retry { after }` or `Failed` (credential and configuration errors such
+  as APNs `InvalidProviderToken`/`BadTopic`). FCM uses the service-account
+  JWT-bearer grant (RS256, ring); APNs an ES256 provider token over HTTP/2
+  with the `.voip` topic for VoIP pushes; ADM, Push Kit and WNS (legacy or
+  Entra ID) client-credentials tokens, cached and refreshed once on
+  expiry; MiPush a form-encoded pass-through message, with
+  `mipush::invalid_reg_ids` for the type 16 receipts; WNS treats
+  `X-WNS-Status: dropped` as not delivered and only pushes to
+  `notify.windows.com` channels. No `*-types` or `*-server` crate depends
+  on it.
 
 - **jmap-graph-server**: `validFor.purposes` entries must be RFC 3987 IRIs and
   a `credentialDigest` must be a possible SHA-256 encoding (its last

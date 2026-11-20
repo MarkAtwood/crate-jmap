@@ -1,0 +1,294 @@
+pub mod jmap_platform_push
+pub use jmap_platform_push::Urgency
+pub use jmap_platform_push::jmap_types
+pub use jmap_platform_push::reqwest
+pub use jmap_platform_push::url
+pub mod jmap_platform_push::adm
+pub struct jmap_platform_push::adm::AdmCredentials
+impl jmap_platform_push::adm::AdmCredentials
+pub fn jmap_platform_push::adm::AdmCredentials::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_platform_push::adm::AdmCredentials
+pub fn jmap_platform_push::adm::AdmCredentials::clone(&self) -> jmap_platform_push::adm::AdmCredentials
+impl core::fmt::Debug for jmap_platform_push::adm::AdmCredentials
+pub fn jmap_platform_push::adm::AdmCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_platform_push::adm::AdmPusher
+impl jmap_platform_push::adm::AdmPusher
+pub fn jmap_platform_push::adm::AdmPusher::from_client(reqwest::async_impl::client::Client, jmap_platform_push::adm::AdmCredentials) -> Self
+pub fn jmap_platform_push::adm::AdmPusher::new(jmap_platform_push::adm::AdmCredentials) -> core::result::Result<Self, reqwest::error::Error>
+pub fn jmap_platform_push::adm::AdmPusher::with_endpoint(self, &url::Url) -> Self
+pub fn jmap_platform_push::adm::AdmPusher::with_token_url(self, &url::Url) -> Self
+impl core::clone::Clone for jmap_platform_push::adm::AdmPusher
+pub fn jmap_platform_push::adm::AdmPusher::clone(&self) -> jmap_platform_push::adm::AdmPusher
+impl core::fmt::Debug for jmap_platform_push::adm::AdmPusher
+pub fn jmap_platform_push::adm::AdmPusher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::adm::AdmPusher
+pub fn jmap_platform_push::adm::AdmPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+pub const jmap_platform_push::adm::ENDPOINT: &str
+pub const jmap_platform_push::adm::TOKEN_URL: &str
+pub mod jmap_platform_push::apns
+#[non_exhaustive] pub enum jmap_platform_push::apns::Environment
+pub jmap_platform_push::apns::Environment::Production
+pub jmap_platform_push::apns::Environment::Sandbox
+impl core::clone::Clone for jmap_platform_push::apns::Environment
+pub fn jmap_platform_push::apns::Environment::clone(&self) -> jmap_platform_push::apns::Environment
+impl core::cmp::Eq for jmap_platform_push::apns::Environment
+impl core::cmp::PartialEq for jmap_platform_push::apns::Environment
+pub fn jmap_platform_push::apns::Environment::eq(&self, &jmap_platform_push::apns::Environment) -> bool
+impl core::fmt::Debug for jmap_platform_push::apns::Environment
+pub fn jmap_platform_push::apns::Environment::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_platform_push::apns::Environment
+impl core::marker::StructuralPartialEq for jmap_platform_push::apns::Environment
+pub struct jmap_platform_push::apns::ApnsKey
+impl jmap_platform_push::apns::ApnsKey
+pub fn jmap_platform_push::apns::ApnsKey::from_p8(&str, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, jmap_platform_push::KeyError>
+impl core::clone::Clone for jmap_platform_push::apns::ApnsKey
+pub fn jmap_platform_push::apns::ApnsKey::clone(&self) -> jmap_platform_push::apns::ApnsKey
+impl core::fmt::Debug for jmap_platform_push::apns::ApnsKey
+pub fn jmap_platform_push::apns::ApnsKey::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_platform_push::apns::ApnsPusher
+impl jmap_platform_push::apns::ApnsPusher
+pub fn jmap_platform_push::apns::ApnsPusher::from_client(reqwest::async_impl::client::Client, jmap_platform_push::apns::ApnsKey, impl core::convert::Into<alloc::string::String>, jmap_platform_push::apns::Environment) -> Self
+pub fn jmap_platform_push::apns::ApnsPusher::new(jmap_platform_push::apns::ApnsKey, impl core::convert::Into<alloc::string::String>, jmap_platform_push::apns::Environment) -> core::result::Result<Self, reqwest::error::Error>
+pub fn jmap_platform_push::apns::ApnsPusher::with_endpoint(self, &url::Url) -> Self
+impl core::clone::Clone for jmap_platform_push::apns::ApnsPusher
+pub fn jmap_platform_push::apns::ApnsPusher::clone(&self) -> jmap_platform_push::apns::ApnsPusher
+impl core::fmt::Debug for jmap_platform_push::apns::ApnsPusher
+pub fn jmap_platform_push::apns::ApnsPusher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::apns::ApnsPusher
+pub fn jmap_platform_push::apns::ApnsPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+pub const jmap_platform_push::apns::MAX_PAYLOAD: usize
+pub const jmap_platform_push::apns::MAX_VOIP_PAYLOAD: usize
+pub const jmap_platform_push::apns::PRODUCTION: &str
+pub const jmap_platform_push::apns::SANDBOX: &str
+pub mod jmap_platform_push::fcm
+#[non_exhaustive] pub enum jmap_platform_push::fcm::DeviceFamily
+pub jmap_platform_push::fcm::DeviceFamily::Android
+pub jmap_platform_push::fcm::DeviceFamily::Apple
+impl core::clone::Clone for jmap_platform_push::fcm::DeviceFamily
+pub fn jmap_platform_push::fcm::DeviceFamily::clone(&self) -> jmap_platform_push::fcm::DeviceFamily
+impl core::cmp::Eq for jmap_platform_push::fcm::DeviceFamily
+impl core::cmp::PartialEq for jmap_platform_push::fcm::DeviceFamily
+pub fn jmap_platform_push::fcm::DeviceFamily::eq(&self, &jmap_platform_push::fcm::DeviceFamily) -> bool
+impl core::default::Default for jmap_platform_push::fcm::DeviceFamily
+pub fn jmap_platform_push::fcm::DeviceFamily::default() -> jmap_platform_push::fcm::DeviceFamily
+impl core::fmt::Debug for jmap_platform_push::fcm::DeviceFamily
+pub fn jmap_platform_push::fcm::DeviceFamily::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for jmap_platform_push::fcm::DeviceFamily
+impl core::marker::StructuralPartialEq for jmap_platform_push::fcm::DeviceFamily
+pub struct jmap_platform_push::fcm::FcmPusher
+impl jmap_platform_push::fcm::FcmPusher
+pub fn jmap_platform_push::fcm::FcmPusher::for_family(self, jmap_platform_push::fcm::DeviceFamily) -> Self
+pub fn jmap_platform_push::fcm::FcmPusher::from_client(reqwest::async_impl::client::Client, jmap_platform_push::fcm::ServiceAccount) -> Self
+pub fn jmap_platform_push::fcm::FcmPusher::new(jmap_platform_push::fcm::ServiceAccount) -> core::result::Result<Self, reqwest::error::Error>
+pub fn jmap_platform_push::fcm::FcmPusher::with_endpoint(self, &url::Url) -> Self
+impl core::clone::Clone for jmap_platform_push::fcm::FcmPusher
+pub fn jmap_platform_push::fcm::FcmPusher::clone(&self) -> jmap_platform_push::fcm::FcmPusher
+impl core::fmt::Debug for jmap_platform_push::fcm::FcmPusher
+pub fn jmap_platform_push::fcm::FcmPusher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::fcm::FcmPusher
+pub fn jmap_platform_push::fcm::FcmPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+pub struct jmap_platform_push::fcm::ServiceAccount
+impl jmap_platform_push::fcm::ServiceAccount
+pub fn jmap_platform_push::fcm::ServiceAccount::from_json(&str) -> core::result::Result<Self, jmap_platform_push::KeyError>
+pub fn jmap_platform_push::fcm::ServiceAccount::project_id(&self) -> &str
+impl core::fmt::Debug for jmap_platform_push::fcm::ServiceAccount
+pub fn jmap_platform_push::fcm::ServiceAccount::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub const jmap_platform_push::fcm::ENDPOINT: &str
+pub const jmap_platform_push::fcm::SCOPE: &str
+pub mod jmap_platform_push::hpk
+pub struct jmap_platform_push::hpk::HpkCredentials
+impl jmap_platform_push::hpk::HpkCredentials
+pub fn jmap_platform_push::hpk::HpkCredentials::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_platform_push::hpk::HpkCredentials
+pub fn jmap_platform_push::hpk::HpkCredentials::clone(&self) -> jmap_platform_push::hpk::HpkCredentials
+impl core::fmt::Debug for jmap_platform_push::hpk::HpkCredentials
+pub fn jmap_platform_push::hpk::HpkCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_platform_push::hpk::HpkPusher
+impl jmap_platform_push::hpk::HpkPusher
+pub fn jmap_platform_push::hpk::HpkPusher::from_client(reqwest::async_impl::client::Client, jmap_platform_push::hpk::HpkCredentials) -> Self
+pub fn jmap_platform_push::hpk::HpkPusher::new(jmap_platform_push::hpk::HpkCredentials) -> core::result::Result<Self, reqwest::error::Error>
+pub fn jmap_platform_push::hpk::HpkPusher::with_endpoint(self, &url::Url) -> Self
+pub fn jmap_platform_push::hpk::HpkPusher::with_token_url(self, &url::Url) -> Self
+impl core::clone::Clone for jmap_platform_push::hpk::HpkPusher
+pub fn jmap_platform_push::hpk::HpkPusher::clone(&self) -> jmap_platform_push::hpk::HpkPusher
+impl core::fmt::Debug for jmap_platform_push::hpk::HpkPusher
+pub fn jmap_platform_push::hpk::HpkPusher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::hpk::HpkPusher
+pub fn jmap_platform_push::hpk::HpkPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+pub const jmap_platform_push::hpk::ENDPOINT: &str
+pub const jmap_platform_push::hpk::TOKEN_URL: &str
+pub mod jmap_platform_push::mipush
+pub struct jmap_platform_push::mipush::MiPusher
+impl jmap_platform_push::mipush::MiPusher
+pub fn jmap_platform_push::mipush::MiPusher::from_client(reqwest::async_impl::client::Client, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_platform_push::mipush::MiPusher::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> core::result::Result<Self, reqwest::error::Error>
+pub fn jmap_platform_push::mipush::MiPusher::with_callback(self, url::Url) -> Self
+pub fn jmap_platform_push::mipush::MiPusher::with_endpoint(self, &url::Url) -> Self
+impl core::clone::Clone for jmap_platform_push::mipush::MiPusher
+pub fn jmap_platform_push::mipush::MiPusher::clone(&self) -> jmap_platform_push::mipush::MiPusher
+impl core::fmt::Debug for jmap_platform_push::mipush::MiPusher
+pub fn jmap_platform_push::mipush::MiPusher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::mipush::MiPusher
+pub fn jmap_platform_push::mipush::MiPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+pub const jmap_platform_push::mipush::ENDPOINT: &str
+pub const jmap_platform_push::mipush::GLOBAL_ENDPOINT: &str
+pub fn jmap_platform_push::mipush::invalid_reg_ids(&str) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, serde_json::error::Error>
+pub mod jmap_platform_push::wns
+pub struct jmap_platform_push::wns::WnsCredentials
+impl jmap_platform_push::wns::WnsCredentials
+pub fn jmap_platform_push::wns::WnsCredentials::entra(&str, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_platform_push::wns::WnsCredentials::package(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_platform_push::wns::WnsCredentials::with_token_url(self, &url::Url) -> Self
+impl core::clone::Clone for jmap_platform_push::wns::WnsCredentials
+pub fn jmap_platform_push::wns::WnsCredentials::clone(&self) -> jmap_platform_push::wns::WnsCredentials
+impl core::fmt::Debug for jmap_platform_push::wns::WnsCredentials
+pub fn jmap_platform_push::wns::WnsCredentials::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_platform_push::wns::WnsPusher
+impl jmap_platform_push::wns::WnsPusher
+pub fn jmap_platform_push::wns::WnsPusher::danger_accept_any_channel(self) -> Self
+pub fn jmap_platform_push::wns::WnsPusher::from_client(reqwest::async_impl::client::Client, jmap_platform_push::wns::WnsCredentials) -> Self
+pub fn jmap_platform_push::wns::WnsPusher::new(jmap_platform_push::wns::WnsCredentials) -> core::result::Result<Self, reqwest::error::Error>
+impl core::clone::Clone for jmap_platform_push::wns::WnsPusher
+pub fn jmap_platform_push::wns::WnsPusher::clone(&self) -> jmap_platform_push::wns::WnsPusher
+impl core::fmt::Debug for jmap_platform_push::wns::WnsPusher
+pub fn jmap_platform_push::wns::WnsPusher::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::wns::WnsPusher
+pub fn jmap_platform_push::wns::WnsPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+pub const jmap_platform_push::wns::LEGACY_TOKEN_URL: &str
+pub const jmap_platform_push::wns::MAX_PAYLOAD: usize
+#[non_exhaustive] pub enum jmap_platform_push::CredentialError
+pub jmap_platform_push::CredentialError::Rejected
+pub jmap_platform_push::CredentialError::Rejected::error: core::option::Option<alloc::string::String>
+pub jmap_platform_push::CredentialError::Rejected::status: http::status::StatusCode
+pub jmap_platform_push::CredentialError::Response
+pub jmap_platform_push::CredentialError::Sign
+pub jmap_platform_push::CredentialError::Transport(reqwest::error::Error)
+impl core::convert::From<jmap_platform_push::CredentialError> for jmap_platform_push::PushError
+pub fn jmap_platform_push::PushError::from(jmap_platform_push::CredentialError) -> Self
+impl core::error::Error for jmap_platform_push::CredentialError
+pub fn jmap_platform_push::CredentialError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_platform_push::CredentialError
+pub fn jmap_platform_push::CredentialError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_platform_push::CredentialError
+pub fn jmap_platform_push::CredentialError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_platform_push::KeyError
+pub jmap_platform_push::KeyError::Invalid(&'static str)
+pub jmap_platform_push::KeyError::Pem
+pub jmap_platform_push::KeyError::ServiceAccount(alloc::string::String)
+impl core::clone::Clone for jmap_platform_push::KeyError
+pub fn jmap_platform_push::KeyError::clone(&self) -> jmap_platform_push::KeyError
+impl core::cmp::Eq for jmap_platform_push::KeyError
+impl core::cmp::PartialEq for jmap_platform_push::KeyError
+pub fn jmap_platform_push::KeyError::eq(&self, &jmap_platform_push::KeyError) -> bool
+impl core::error::Error for jmap_platform_push::KeyError
+impl core::fmt::Debug for jmap_platform_push::KeyError
+pub fn jmap_platform_push::KeyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_platform_push::KeyError
+pub fn jmap_platform_push::KeyError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_platform_push::KeyError
+#[non_exhaustive] pub enum jmap_platform_push::Outcome
+pub jmap_platform_push::Outcome::Delivered(jmap_platform_push::Receipt)
+pub jmap_platform_push::Outcome::Failed(jmap_platform_push::PushError)
+pub jmap_platform_push::Outcome::Gone(jmap_platform_push::PlatformError)
+pub jmap_platform_push::Outcome::Retry
+pub jmap_platform_push::Outcome::Retry::after: core::option::Option<core::time::Duration>
+pub jmap_platform_push::Outcome::Retry::error: jmap_platform_push::PushError
+impl core::fmt::Debug for jmap_platform_push::Outcome
+pub fn jmap_platform_push::Outcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_platform_push::PushError
+pub jmap_platform_push::PushError::Credential(jmap_platform_push::CredentialError)
+pub jmap_platform_push::PushError::InvalidDestination
+pub jmap_platform_push::PushError::InvalidMessage(&'static str)
+pub jmap_platform_push::PushError::Platform(jmap_platform_push::PlatformError)
+pub jmap_platform_push::PushError::TooLarge
+pub jmap_platform_push::PushError::TooLarge::len: usize
+pub jmap_platform_push::PushError::TooLarge::max: usize
+pub jmap_platform_push::PushError::Transport(reqwest::error::Error)
+impl core::convert::From<jmap_platform_push::CredentialError> for jmap_platform_push::PushError
+pub fn jmap_platform_push::PushError::from(jmap_platform_push::CredentialError) -> Self
+impl core::convert::From<jmap_platform_push::PlatformError> for jmap_platform_push::PushError
+pub fn jmap_platform_push::PushError::from(jmap_platform_push::PlatformError) -> Self
+impl core::error::Error for jmap_platform_push::PushError
+pub fn jmap_platform_push::PushError::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl core::fmt::Debug for jmap_platform_push::PushError
+pub fn jmap_platform_push::PushError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_platform_push::PushError
+pub fn jmap_platform_push::PushError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub enum jmap_platform_push::PushKind
+pub jmap_platform_push::PushKind::Alert
+pub jmap_platform_push::PushKind::Alert::body: alloc::string::String
+pub jmap_platform_push::PushKind::Data
+pub jmap_platform_push::PushKind::Voip
+impl core::clone::Clone for jmap_platform_push::PushKind
+pub fn jmap_platform_push::PushKind::clone(&self) -> jmap_platform_push::PushKind
+impl core::cmp::Eq for jmap_platform_push::PushKind
+impl core::cmp::PartialEq for jmap_platform_push::PushKind
+pub fn jmap_platform_push::PushKind::eq(&self, &jmap_platform_push::PushKind) -> bool
+impl core::default::Default for jmap_platform_push::PushKind
+pub fn jmap_platform_push::PushKind::default() -> jmap_platform_push::PushKind
+impl core::fmt::Debug for jmap_platform_push::PushKind
+pub fn jmap_platform_push::PushKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_platform_push::PushKind
+pub struct jmap_platform_push::Message
+impl jmap_platform_push::Message
+pub fn jmap_platform_push::Message::data_key(&self) -> &str
+pub fn jmap_platform_push::Message::json(&self) -> &str
+pub fn jmap_platform_push::Message::kind(&self) -> &jmap_platform_push::PushKind
+pub fn jmap_platform_push::Message::new<T: serde_core::ser::Serialize + ?core::marker::Sized>(&T, core::time::Duration) -> core::result::Result<Self, serde_json::error::Error>
+pub fn jmap_platform_push::Message::ttl(&self) -> core::time::Duration
+pub fn jmap_platform_push::Message::urgency(&self) -> jmap_types::push::Urgency
+pub fn jmap_platform_push::Message::value(&self) -> &serde_json::value::Value
+pub fn jmap_platform_push::Message::with_data_key(self, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn jmap_platform_push::Message::with_kind(self, jmap_platform_push::PushKind) -> Self
+pub fn jmap_platform_push::Message::with_urgency(self, jmap_types::push::Urgency) -> Self
+impl core::clone::Clone for jmap_platform_push::Message
+pub fn jmap_platform_push::Message::clone(&self) -> jmap_platform_push::Message
+impl core::fmt::Debug for jmap_platform_push::Message
+pub fn jmap_platform_push::Message::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_platform_push::PlatformError
+pub jmap_platform_push::PlatformError::description: core::option::Option<alloc::string::String>
+pub jmap_platform_push::PlatformError::reason: core::option::Option<alloc::string::String>
+pub jmap_platform_push::PlatformError::status: http::status::StatusCode
+impl core::clone::Clone for jmap_platform_push::PlatformError
+pub fn jmap_platform_push::PlatformError::clone(&self) -> jmap_platform_push::PlatformError
+impl core::cmp::Eq for jmap_platform_push::PlatformError
+impl core::cmp::PartialEq for jmap_platform_push::PlatformError
+pub fn jmap_platform_push::PlatformError::eq(&self, &jmap_platform_push::PlatformError) -> bool
+impl core::convert::From<jmap_platform_push::PlatformError> for jmap_platform_push::PushError
+pub fn jmap_platform_push::PushError::from(jmap_platform_push::PlatformError) -> Self
+impl core::error::Error for jmap_platform_push::PlatformError
+impl core::fmt::Debug for jmap_platform_push::PlatformError
+pub fn jmap_platform_push::PlatformError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::fmt::Display for jmap_platform_push::PlatformError
+pub fn jmap_platform_push::PlatformError::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_platform_push::PlatformError
+#[non_exhaustive] pub struct jmap_platform_push::Receipt
+pub jmap_platform_push::Receipt::message_id: core::option::Option<alloc::string::String>
+pub jmap_platform_push::Receipt::new_token: core::option::Option<alloc::string::String>
+impl core::clone::Clone for jmap_platform_push::Receipt
+pub fn jmap_platform_push::Receipt::clone(&self) -> jmap_platform_push::Receipt
+impl core::cmp::Eq for jmap_platform_push::Receipt
+impl core::cmp::PartialEq for jmap_platform_push::Receipt
+pub fn jmap_platform_push::Receipt::eq(&self, &jmap_platform_push::Receipt) -> bool
+impl core::default::Default for jmap_platform_push::Receipt
+pub fn jmap_platform_push::Receipt::default() -> jmap_platform_push::Receipt
+impl core::fmt::Debug for jmap_platform_push::Receipt
+pub fn jmap_platform_push::Receipt::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_platform_push::Receipt
+pub const jmap_platform_push::DEFAULT_DATA_KEY: &str
+pub const jmap_platform_push::SEND_TIMEOUT: core::time::Duration
+pub trait jmap_platform_push::PlatformPusher: core::marker::Send + core::marker::Sync
+pub fn jmap_platform_push::PlatformPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::adm::AdmPusher
+pub fn jmap_platform_push::adm::AdmPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::apns::ApnsPusher
+pub fn jmap_platform_push::apns::ApnsPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::fcm::FcmPusher
+pub fn jmap_platform_push::fcm::FcmPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::hpk::HpkPusher
+pub fn jmap_platform_push::hpk::HpkPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::mipush::MiPusher
+pub fn jmap_platform_push::mipush::MiPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+impl jmap_platform_push::PlatformPusher for jmap_platform_push::wns::WnsPusher
+pub fn jmap_platform_push::wns::WnsPusher::push<'a>(&'a self, &'a str, &'a jmap_platform_push::Message) -> jmap_platform_push::PushFuture<'a>
+pub type jmap_platform_push::PushFuture<'a> = core::pin::Pin<alloc::boxed::Box<(dyn core::future::future::Future<Output = jmap_platform_push::Outcome> + core::marker::Send + 'a)>>
