@@ -24,6 +24,8 @@ trait.
 | `handle_vtc_livestream_*` | §VTCLivestream Methods, with §Livestream Key Exposure in `/get` |
 | `query::recording_matches`, `query::livestream_matches`, `compare_*` | §VTCRecording/query, §VTCLivestream/query filter and sort |
 | `VtcBackend` | storage, capability object, caller userId, moderator hook, recording consent event, unmute-request and gateway-signal delivery |
+| `MediaEffect`, `VtcBackend::run_media_effect` | the media start, pause, resume and stop a stored VTCRecording/VTCLivestream change implies, requested after the write |
+| `media_report::MediaReporter` | §Livestream States and §Pausing, Resuming, and Stopping a Recording server-initiated transitions: `livestream_live`, `livestream_endpoints`, `livestream_failed`, `livestream_stopped` (idle stop), `recording_paused`, `recording_resumed`, `recording_stopped`, `recording_processing`, `recording_available`, `recording_failed` |
 | `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
 | `register_vtc_handlers` | wires the twenty `VTCCall/*`, `VTCParticipant/*`, `VTCRecording/*` and `VTCLivestream/*` methods |
 
@@ -75,6 +77,19 @@ default): push needs `streamUri` and `streamKey`, and hosted takes only
 can only be stopped, from `starting` or `live`; `stopped` and `failed` are
 final, and `mode`, `streamUri`, `streamKey` and `platform` are immutable.
 Stopping empties `playbackEndpoints`.
+`create_object` and `update_object_if` only store: no media starts or
+stops inside them, because an atomic conditional `/set` can still roll the
+write back and nothing rolls back a started stream. After the write the
+handler passes a `MediaEffect` (`StartLivestream`, `StopLivestream`,
+`StartRecording`, `PauseRecording`, `ResumeRecording`, `StopRecording`,
+carrying the object as stored) to `VtcBackend::run_media_effect`; ending
+a call and destroying an active object request the stops too. The media
+pipeline reports back through `media_report::MediaReporter`, which applies
+each server-initiated transition with `update_object_if` from the draft's
+source states, so state strings and change logs move as for a client
+update, recording pauses and stops deliver the `VTCRecordingStateEvent`,
+and a livestream that fails or is stopped by the server requests
+`StopLivestream` so the pipeline is released.
 Every `state` change goes through `VtcBackend::update_object_if`, which
 checks the stored state against the transition's source states
 atomically with the write, so concurrent updates cannot slip an unlisted
@@ -109,7 +124,9 @@ true.
 non-moderator as unreadable, so a precondition on either is `forbidden` (§9.1)
 rather than compared with the blank. `MemoryBackend`'s store is a
 `jmap_server::ScopedState`: an atomic rollback restores objects, states and
-derived counts and drops queued `deliver_event` events. Under an atomic scope the
+derived counts and drops queued `deliver_event` events and
+`run_media_effect` effects. A backend of your own MUST hold media effects
+requested inside an atomic scope until `SetScope::commit`. Under an atomic scope the
 "one participant record per user per call" rule and `maxParticipantsPerCall` move
 to the commit, which checks the final state, so a moderator can kick one
 participant and admit another in one call at the cap.
@@ -143,6 +160,15 @@ evaluates no filter or sort over destroyed objects.
 - A call with `e2eeEnabled: true` can never be recorded or streamed
   through these handlers: the draft's key-holding recorder or bridge is
   not implemented. Register your own `/set` handler if you run one.
+- `run_media_effect` defaults to doing nothing, so without an override a
+  livestream stays `"starting"` and a recording never becomes
+  `"available"`. It runs after the write but, inside a conditional
+  `/set` scope, before the commit: queue the effect in the scope and run
+  it at commit. Stops can repeat (a failure report, then the call's end),
+  so make them idempotent. An object-history restore of a livestream or
+  recording requests no media effect.
+- `MediaReporter` reports run as the context you give it; recording
+  events it delivers name that context's userId as `initiatedBy`.
 - `deliver_recording_state_event` has no default: the draft calls it
   "the consent signal". It runs after the change commits, so a failed
   delivery does not undo the change.

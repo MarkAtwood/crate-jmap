@@ -37,7 +37,7 @@ use crate::helpers::{
     SetAccumulators, default_sort, enforce_max_objects_in_set, extract_account_id, fetch_one,
     finalize_set_response, forbidden, invalid, not_found, reject_unsupported_sort, state_refused,
 };
-use crate::{StatefulObject, VtcBackend};
+use crate::{MediaEffect, StatefulObject, VtcBackend};
 use jmap_server::BackendSetError;
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_server_set,
@@ -681,7 +681,11 @@ async fn create_recording<B: VtcBackend>(
         initiator,
     )
     .await;
-    to_value(&recording)
+    let created = to_value(&recording)?;
+    backend
+        .run_media_effect(caller, account_id, MediaEffect::StartRecording(recording))
+        .await;
+    Ok(created)
 }
 
 /// Stop every recording of `call_id` in state `"recording"` or
@@ -756,10 +760,11 @@ async fn stop_recording<B: VtcBackend>(
     recording: &VtcRecording,
     initiated_by: String,
 ) -> Result<(), BackendSetError<B::Error>> {
+    let stopped_at = now_utc_string();
     let mut patch = PatchObject::new();
     let map = patch.as_map_mut();
     map.insert("state".to_owned(), json!(RecordingState::Stopped));
-    map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+    map.insert("stoppedAt".to_owned(), json!(stopped_at));
     let from = [RecordingState::Recording, RecordingState::Paused];
     if backend
         .update_object_if::<VtcRecording>(caller, account_id, &recording.id, &from, patch)
@@ -778,6 +783,12 @@ async fn stop_recording<B: VtcBackend>(
         initiated_by,
     )
     .await;
+    let mut stopped = recording.clone();
+    stopped.state = RecordingState::Stopped;
+    stopped.stopped_at = Some(stopped_at);
+    backend
+        .run_media_effect(caller, account_id, MediaEffect::StopRecording(stopped))
+        .await;
     Ok(())
 }
 
@@ -809,14 +820,15 @@ pub(crate) async fn stop_livestreams<B: VtcBackend>(
         l.call_id == *call_id
             && matches!(l.state, LivestreamState::Starting | LivestreamState::Live)
     }) {
-        stop_livestream(backend, caller, account_id, &livestream.id).await?;
+        stop_livestream(backend, caller, account_id, &livestream).await?;
     }
     Ok(())
 }
 
-/// Transition livestream `id` to `"stopped"`, set `stoppedAt` and empty
-/// `playbackEndpoints`, as a moderator's stop does. A livestream no longer `"starting"` or
-/// `"live"` is left as it is.
+/// Transition `livestream` to `"stopped"`, set `stoppedAt` and empty
+/// `playbackEndpoints`, as a moderator's stop does, then request
+/// [`MediaEffect::StopLivestream`]. A livestream no longer `"starting"` or
+/// `"live"` is left as it is, with no effect.
 ///
 /// # Errors
 ///
@@ -826,25 +838,50 @@ async fn stop_livestream<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
-    id: &Id,
+    livestream: &VtcLivestream,
 ) -> Result<(), BackendSetError<B::Error>> {
+    let stopped_at = now_utc_string();
     let mut patch = PatchObject::new();
     let map = patch.as_map_mut();
     map.insert("state".to_owned(), json!(LivestreamState::Stopped));
-    map.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+    map.insert("stoppedAt".to_owned(), json!(stopped_at));
     // §VTCLivestream playbackEndpoints: "empty once it is `"stopped"`".
     map.insert("playbackEndpoints".to_owned(), json!([]));
     let from = [LivestreamState::Starting, LivestreamState::Live];
     // A stream that already stopped or failed is left as it is.
-    let _ = backend
-        .update_object_if::<VtcLivestream>(caller, account_id, id, &from, patch)
-        .await?;
+    if backend
+        .update_object_if::<VtcLivestream>(caller, account_id, &livestream.id, &from, patch)
+        .await?
+        .is_err()
+    {
+        return Ok(());
+    }
+    backend
+        .run_media_effect(
+            caller,
+            account_id,
+            MediaEffect::StopLivestream(stopped_livestream(livestream, stopped_at)),
+        )
+        .await;
     Ok(())
+}
+
+/// `livestream` as a stop leaves it: `"stopped"` at `stopped_at`, with no
+/// playback endpoints.
+pub(crate) fn stopped_livestream(
+    livestream: &VtcLivestream,
+    stopped_at: jmap_types::UTCDate,
+) -> VtcLivestream {
+    let mut stopped = livestream.clone();
+    stopped.state = LivestreamState::Stopped;
+    stopped.stopped_at = Some(stopped_at);
+    stopped.playback_endpoints.clear();
+    stopped
 }
 
 /// Build and deliver one `VTCRecordingStateEvent` for a recording. Runs
 /// after the change has committed, so it cannot fail the operation.
-async fn deliver<B: VtcBackend>(
+pub(crate) async fn deliver<B: VtcBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
@@ -942,7 +979,7 @@ async fn create_livestream<B: VtcBackend>(
             defaults(Value::Null),
         )
         .await?;
-        return to_value(&livestream);
+        return start_livestream(backend, caller, account_id, livestream).await;
     }
 
     // "`streamUri` (String, required in push mode)", "`streamKey` (String,
@@ -984,7 +1021,22 @@ async fn create_livestream<B: VtcBackend>(
         defaults(platform),
     )
     .await?;
-    to_value(&livestream)
+    start_livestream(backend, caller, account_id, livestream).await
+}
+
+/// The `created` entry for a stored `livestream`, after requesting
+/// [`MediaEffect::StartLivestream`] for it.
+async fn start_livestream<B: VtcBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    livestream: VtcLivestream,
+) -> Result<Value, Value> {
+    let created = to_value(&livestream)?;
+    backend
+        .run_media_effect(caller, account_id, MediaEffect::StartLivestream(livestream))
+        .await;
+    Ok(created)
 }
 
 /// The `overQuota` SetError for a livestream create over the account's
@@ -1126,9 +1178,13 @@ async fn update_recording<B: VtcBackend>(
         }
     };
     let mut echo = Map::new();
+    let mut after = recording.clone();
+    after.state = to.clone();
     if to == Stopped {
         // "The server sets `stoppedAt`".
-        echo.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+        let stopped_at = now_utc_string();
+        echo.insert("stoppedAt".to_owned(), json!(stopped_at));
+        after.stopped_at = Some(stopped_at);
     }
     let updated =
         apply::<VtcRecording, B>(backend, caller, account_id, id, Some(from), patch, echo).await?;
@@ -1143,10 +1199,16 @@ async fn update_recording<B: VtcBackend>(
         account_id,
         recording.call_id,
         recording.id,
-        to,
+        to.clone(),
         initiator,
     )
     .await;
+    let effect = match to {
+        Paused => MediaEffect::PauseRecording(after),
+        Recording => MediaEffect::ResumeRecording(after),
+        _ => MediaEffect::StopRecording(after),
+    };
+    backend.run_media_effect(caller, account_id, effect).await;
     Ok(updated)
 }
 
@@ -1199,13 +1261,24 @@ async fn update_livestream<B: VtcBackend>(
     }
     // "The server sets `stoppedAt` to the current time." Once stopped, the
     // list "is empty".
+    let stopped_at = now_utc_string();
     let mut echo = Map::new();
-    echo.insert("stoppedAt".to_owned(), json!(now_utc_string()));
+    echo.insert("stoppedAt".to_owned(), json!(stopped_at));
     if !livestream.playback_endpoints.is_empty() {
         echo.insert("playbackEndpoints".to_owned(), json!([]));
     }
     let from = [LivestreamState::Starting, LivestreamState::Live];
-    apply::<VtcLivestream, B>(backend, caller, account_id, id, Some(&from), patch, echo).await
+    let updated =
+        apply::<VtcLivestream, B>(backend, caller, account_id, id, Some(&from), patch, echo)
+            .await?;
+    backend
+        .run_media_effect(
+            caller,
+            account_id,
+            MediaEffect::StopLivestream(stopped_livestream(&livestream, stopped_at)),
+        )
+        .await;
+    Ok(updated)
 }
 
 /// `true` unless `value` is a string that is not an RFC 3986 URI
@@ -1247,11 +1320,11 @@ where
             .await
             .map_err(backend_set_error_value)?;
     }
-    if obj
+    if let Some(livestream) = obj
         .as_livestream()
-        .is_some_and(|l| matches!(l.state, LivestreamState::Starting | LivestreamState::Live))
+        .filter(|l| matches!(l.state, LivestreamState::Starting | LivestreamState::Live))
     {
-        stop_livestream(backend, caller, account_id, id)
+        stop_livestream(backend, caller, account_id, livestream)
             .await
             .map_err(backend_set_error_value)?;
     }

@@ -71,6 +71,36 @@ pub fn call_already_active_on_chat() -> SetError {
         .with_description("A call is already active on this Chat.")
 }
 
+/// A media-plane side effect of a stored `VTCRecording` or `VTCLivestream`
+/// change, handed to [`VtcBackend::run_media_effect`] after the write.
+///
+/// Each variant carries the object as stored after the change, so a backend
+/// that defers the effect to a conditional scope's commit can queue the
+/// value as it is.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MediaEffect {
+    /// Start the outbound stream of a livestream just created in
+    /// `"starting"` (§Starting a Livestream): push mode to its `streamUri`
+    /// with its `streamKey`, hosted mode to the deployment's own playback
+    /// endpoints.
+    StartLivestream(VtcLivestream),
+    /// Stop a livestream now `"stopped"` (a moderator's stop, the call's
+    /// end, a destroy, an idle stop) or `"failed"`, and release its
+    /// pipeline.
+    StopLivestream(VtcLivestream),
+    /// Start a recording just created in `"recording"` (§Starting a
+    /// Recording).
+    StartRecording(VtcRecording),
+    /// Pause a recording now `"paused"`.
+    PauseRecording(VtcRecording),
+    /// Resume a recording now `"recording"` again.
+    ResumeRecording(VtcRecording),
+    /// Stop a recording now `"stopped"`; the backend then reports
+    /// `"processing"` and `"available"` or `"failed"`.
+    StopRecording(VtcRecording),
+}
+
 /// Storage backend for the JMAP VTC method handlers
 /// (draft-atwood-jmap-vtc-00).
 ///
@@ -239,8 +269,12 @@ pub trait VtcBackend: JmapBackend {
     ///   naming `callId` when the object's `callId` names no call in state
     ///   `"active"` ("The server MUST return `invalidProperties` naming
     ///   `callId` when the call is not in state `"active"`", rechecked here
-    ///   because the call can end after the handler read it). A livestream
-    ///   backend then starts the outbound stream;
+    ///   because the call can end after the handler read it). The backend
+    ///   MUST NOT start any media here: an atomic conditional Foo/set can
+    ///   still roll this insert back, and no rollback can undo a started
+    ///   stream or recording. The handler requests the start with
+    ///   [`MediaEffect::StartRecording`] or [`MediaEffect::StartLivestream`]
+    ///   through [`Self::run_media_effect`] once this returns;
     /// - for a participant with a non-null `userId`, refuse with
     ///   `alreadyExists` whose `existingId` names that user's record when
     ///   the call already has one ("A `create` for a user who already has a
@@ -354,6 +388,12 @@ pub trait VtcBackend: JmapBackend {
     /// nothing and advancing no state, when that state is not in
     /// `expected`. Every other outcome, and every side effect of the patch,
     /// is [`Self::update_object`]'s.
+    ///
+    /// Like [`Self::create_object`], this only stores: a media pause,
+    /// resume or stop that a `VTCRecording` or `VTCLivestream` patch implies
+    /// is requested afterwards through [`Self::run_media_effect`], never
+    /// performed here. The server-initiated transitions of
+    /// [`crate::media_report`] go through this method as well.
     #[allow(clippy::type_complexity)]
     fn update_object_if<O: StatefulObject + Send + Sync>(
         &self,
@@ -369,11 +409,15 @@ pub trait VtcBackend: JmapBackend {
     /// Destroy an object by id. Unknown `id` is `notFound`; the state
     /// advances only when the destroy commits.
     ///
-    /// The handler has already applied the permission check. For a
-    /// `VTCLivestream` the backend MUST stop the outbound stream first: "If
-    /// the livestream is in state `"starting"` or `"live"`, the server first
+    /// The handler has already applied the permission check, and has
+    /// already stopped an active recording or livestream: "If the
+    /// livestream is in state `"starting"` or `"live"`, the server first
     /// stops it, so that no orphaned stream keeps running after the metadata
-    /// is removed" (§Destroying a Livestream). When the
+    /// is removed" (§Destroying a Livestream). It moves the object to
+    /// `"stopped"` through [`Self::update_object_if`] and requests
+    /// [`MediaEffect::StopLivestream`] or [`MediaEffect::StopRecording`]
+    /// through [`Self::run_media_effect`], so the backend only removes the
+    /// metadata here. When the
     /// destroyed `VTCCall` is a breakout room (`parentCallId` set), the
     /// backend MUST also remove its id from the parent's `breakoutRoomIds`
     /// and reset the `breakoutCallId`s naming it in the same atomic step,
@@ -545,6 +589,52 @@ pub trait VtcBackend: JmapBackend {
     /// Returns [`crate::RING_TIMEOUT`], the draft's example of 30 seconds.
     fn ring_timeout(&self) -> std::time::Duration {
         crate::RING_TIMEOUT
+    }
+
+    /// Perform `effect`, the media-plane side effect of a `VTCRecording` or
+    /// `VTCLivestream` change that [`Self::create_object`] or
+    /// [`Self::update_object_if`] has just stored: start, pause, resume or
+    /// stop a recording, or start or stop a livestream.
+    ///
+    /// The handlers call it after the write, never inside it: on
+    /// `VTCRecording/set` and `VTCLivestream/set` create and update, on a
+    /// destroy of an active recording or livestream (which stops it first),
+    /// when a call ends ([`crate::end_call`] and `VTCCall/set`), and from the
+    /// [`crate::media_report`] reports that end a livestream or recording.
+    /// Outside a conditional Foo/set scope the write has committed when the
+    /// hook runs. Inside one ([`jmap_server::current_set_scope`] is `Some`)
+    /// the write commits with the scope, so a backend whose scope is atomic
+    /// MUST queue `effect` in that scope and perform it only from
+    /// [`SetScope::commit`](jmap_server::SetScope::commit), dropping it on
+    /// rollback, as [`ConditionalBackend::begin_set`](jmap_server::ConditionalBackend::begin_set)
+    /// requires for every irreversible external effect. The reference
+    /// `MemoryBackend` keeps the effects in its scoped store, so a rollback
+    /// discards them.
+    ///
+    /// Media pipelines are slow and remote (some "take minutes to
+    /// provision", §Livestream States), so a backend SHOULD start the work
+    /// and return. It reports the outcome later through
+    /// [`crate::media_report::MediaReporter`]: `"live"` or `"failed"` for a
+    /// livestream, `"processing"`, `"available"` or `"failed"` for a
+    /// recording. A failure to perform the effect is the backend's to log,
+    /// retry or report; the change has already been stored. A stop can
+    /// arrive for media that has already stopped or never started (a
+    /// failed start, a duplicate report), so stops MUST be idempotent.
+    ///
+    /// # Default implementation
+    ///
+    /// Does nothing: a backend with no media plane keeps every livestream
+    /// in `"starting"`, which the draft allows ("It places no bound on how
+    /// long a livestream stays in `"starting"`"), and records nothing.
+    /// Backends with a media plane override it.
+    fn run_media_effect(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        effect: MediaEffect,
+    ) -> impl std::future::Future<Output = ()> + Send {
+        let _ = (caller, account_id, effect);
+        async {}
     }
 
     /// The `playbackEndpoints` of livestream `livestream_id` as

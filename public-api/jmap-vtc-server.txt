@@ -1,5 +1,49 @@
 pub mod jmap_vtc_server
 pub use jmap_vtc_server::JMAP_VTC_URI
+pub mod jmap_vtc_server::media_report
+#[non_exhaustive] pub enum jmap_vtc_server::media_report::ReportError<E, S>
+pub jmap_vtc_server::media_report::ReportError::Backend(jmap_server::backend::BackendSetError<E>)
+pub jmap_vtc_server::media_report::ReportError::Invalid(&'static str)
+pub jmap_vtc_server::media_report::ReportError::NotFound
+pub jmap_vtc_server::media_report::ReportError::WrongState(S)
+impl<E, S> core::error::Error for jmap_vtc_server::media_report::ReportError<E, S> where E: core::error::Error + 'static, S: core::fmt::Debug
+pub fn jmap_vtc_server::media_report::ReportError<E, S>::source(&self) -> core::option::Option<&(dyn core::error::Error + 'static)>
+impl<E: core::fmt::Debug, S: core::fmt::Debug> core::fmt::Debug for jmap_vtc_server::media_report::ReportError<E, S>
+pub fn jmap_vtc_server::media_report::ReportError<E, S>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<E: core::fmt::Display, S: core::fmt::Debug> core::fmt::Display for jmap_vtc_server::media_report::ReportError<E, S>
+pub fn jmap_vtc_server::media_report::ReportError<E, S>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub struct jmap_vtc_server::media_report::MediaReporter<'a, B: jmap_vtc_server::VtcBackend>
+impl<'a, B: jmap_vtc_server::VtcBackend> jmap_vtc_server::media_report::MediaReporter<'a, B>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::livestream_endpoints(&self, &jmap_types::id::Id, alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>) -> jmap_vtc_server::media_report::LivestreamReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::livestream_failed(&self, &jmap_types::id::Id, jmap_vtc_types::recording::LivestreamFailureReason) -> jmap_vtc_server::media_report::LivestreamReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::livestream_live(&self, &jmap_types::id::Id, alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>) -> jmap_vtc_server::media_report::LivestreamReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::livestream_stopped(&self, &jmap_types::id::Id) -> jmap_vtc_server::media_report::LivestreamReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub fn jmap_vtc_server::media_report::MediaReporter<'a, B>::new(&'a B, &'a <B as jmap_server::backend::JmapAccounts>::CallerCtx, jmap_types::id::Id) -> Self
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::recording_available(&self, &jmap_types::id::Id, jmap_vtc_server::media_report::RecordingFile) -> jmap_vtc_server::media_report::RecordingReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::recording_failed(&self, &jmap_types::id::Id) -> jmap_vtc_server::media_report::RecordingReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::recording_paused(&self, &jmap_types::id::Id) -> jmap_vtc_server::media_report::RecordingReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::recording_processing(&self, &jmap_types::id::Id, core::option::Option<u64>) -> jmap_vtc_server::media_report::RecordingReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::recording_resumed(&self, &jmap_types::id::Id) -> jmap_vtc_server::media_report::RecordingReport<<B as jmap_server::backend::JmapAccounts>::Error>
+pub async fn jmap_vtc_server::media_report::MediaReporter<'a, B>::recording_stopped(&self, &jmap_types::id::Id) -> jmap_vtc_server::media_report::RecordingReport<<B as jmap_server::backend::JmapAccounts>::Error>
+impl<B: jmap_vtc_server::VtcBackend> core::fmt::Debug for jmap_vtc_server::media_report::MediaReporter<'_, B>
+pub fn jmap_vtc_server::media_report::MediaReporter<'_, B>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+#[non_exhaustive] pub struct jmap_vtc_server::media_report::RecordingFile
+pub jmap_vtc_server::media_report::RecordingFile::blob_id: jmap_types::id::Id
+pub jmap_vtc_server::media_report::RecordingFile::duration: u64
+pub jmap_vtc_server::media_report::RecordingFile::media_type: alloc::string::String
+pub jmap_vtc_server::media_report::RecordingFile::size: u64
+impl jmap_vtc_server::media_report::RecordingFile
+pub fn jmap_vtc_server::media_report::RecordingFile::new(jmap_types::id::Id, u64, u64, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for jmap_vtc_server::media_report::RecordingFile
+pub fn jmap_vtc_server::media_report::RecordingFile::clone(&self) -> jmap_vtc_server::media_report::RecordingFile
+impl core::cmp::Eq for jmap_vtc_server::media_report::RecordingFile
+impl core::cmp::PartialEq for jmap_vtc_server::media_report::RecordingFile
+pub fn jmap_vtc_server::media_report::RecordingFile::eq(&self, &jmap_vtc_server::media_report::RecordingFile) -> bool
+impl core::fmt::Debug for jmap_vtc_server::media_report::RecordingFile
+pub fn jmap_vtc_server::media_report::RecordingFile::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_server::media_report::RecordingFile
+pub type jmap_vtc_server::media_report::LivestreamReport<E> = core::result::Result<(), jmap_vtc_server::media_report::ReportError<E, jmap_vtc_types::recording::LivestreamState>>
+pub type jmap_vtc_server::media_report::RecordingReport<E> = core::result::Result<(), jmap_vtc_server::media_report::ReportError<E, jmap_vtc_types::recording::RecordingState>>
 pub mod jmap_vtc_server::memory
 #[non_exhaustive] pub struct jmap_vtc_server::memory::MemoryBackend
 impl jmap_vtc_server::memory::MemoryBackend
@@ -44,6 +88,7 @@ pub async fn jmap_vtc_server::memory::MemoryBackend::is_moderator(&self, &alloc:
 pub async fn jmap_vtc_server::memory::MemoryBackend::is_user_blocked(&self, &alloc::string::String, &str) -> core::result::Result<bool, jmap_vtc_server::memory::MemoryError>
 pub fn jmap_vtc_server::memory::MemoryBackend::playback_endpoints_for(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>, Self::Error>> + core::marker::Send
 pub fn jmap_vtc_server::memory::MemoryBackend::ring_timeout(&self) -> core::time::Duration
+pub async fn jmap_vtc_server::memory::MemoryBackend::run_media_effect(&self, &alloc::string::String, &jmap_types::id::Id, jmap_vtc_server::MediaEffect)
 pub fn jmap_vtc_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &alloc::string::String, &jmap_types::id::Id) -> bool
 pub async fn jmap_vtc_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
 pub async fn jmap_vtc_server::memory::MemoryBackend::update_object_if<O: jmap_vtc_server::StatefulObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, &[<O as jmap_vtc_server::StatefulObject>::State], <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::result::Result<core::option::Option<O>, <O as jmap_vtc_server::StatefulObject>::State>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
@@ -77,6 +122,21 @@ pub fn jmap_vtc_server::CallScope::eq(&self, &jmap_vtc_server::CallScope) -> boo
 impl core::fmt::Debug for jmap_vtc_server::CallScope
 pub fn jmap_vtc_server::CallScope::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::marker::StructuralPartialEq for jmap_vtc_server::CallScope
+#[non_exhaustive] pub enum jmap_vtc_server::MediaEffect
+pub jmap_vtc_server::MediaEffect::PauseRecording(jmap_vtc_types::recording::VtcRecording)
+pub jmap_vtc_server::MediaEffect::ResumeRecording(jmap_vtc_types::recording::VtcRecording)
+pub jmap_vtc_server::MediaEffect::StartLivestream(jmap_vtc_types::recording::VtcLivestream)
+pub jmap_vtc_server::MediaEffect::StartRecording(jmap_vtc_types::recording::VtcRecording)
+pub jmap_vtc_server::MediaEffect::StopLivestream(jmap_vtc_types::recording::VtcLivestream)
+pub jmap_vtc_server::MediaEffect::StopRecording(jmap_vtc_types::recording::VtcRecording)
+impl core::clone::Clone for jmap_vtc_server::MediaEffect
+pub fn jmap_vtc_server::MediaEffect::clone(&self) -> jmap_vtc_server::MediaEffect
+impl core::cmp::Eq for jmap_vtc_server::MediaEffect
+impl core::cmp::PartialEq for jmap_vtc_server::MediaEffect
+pub fn jmap_vtc_server::MediaEffect::eq(&self, &jmap_vtc_server::MediaEffect) -> bool
+impl core::fmt::Debug for jmap_vtc_server::MediaEffect
+pub fn jmap_vtc_server::MediaEffect::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for jmap_vtc_server::MediaEffect
 pub struct jmap_vtc_server::VtcEphemeralSubscription
 impl jmap_vtc_server::VtcEphemeralSubscription
 pub fn jmap_vtc_server::VtcEphemeralSubscription::filter(&self) -> core::option::Option<&jmap_vtc_server::VtcStreamFilter>
@@ -130,6 +190,7 @@ pub fn jmap_vtc_server::VtcBackend::is_moderator(&self, &Self::CallerCtx, &jmap_
 pub fn jmap_vtc_server::VtcBackend::is_user_blocked(&self, &Self::CallerCtx, &str) -> impl core::future::future::Future<Output = core::result::Result<bool, Self::Error>> + core::marker::Send
 pub fn jmap_vtc_server::VtcBackend::playback_endpoints_for(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>, Self::Error>> + core::marker::Send
 pub fn jmap_vtc_server::VtcBackend::ring_timeout(&self) -> core::time::Duration
+pub fn jmap_vtc_server::VtcBackend::run_media_effect(&self, &Self::CallerCtx, &jmap_types::id::Id, jmap_vtc_server::MediaEffect) -> impl core::future::future::Future<Output = ()> + core::marker::Send
 pub fn jmap_vtc_server::VtcBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &Self::CallerCtx, &jmap_types::id::Id) -> bool
 pub fn jmap_vtc_server::VtcBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
 pub fn jmap_vtc_server::VtcBackend::update_object_if<O: jmap_vtc_server::StatefulObject + core::marker::Send + core::marker::Sync>(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, &[<O as jmap_vtc_server::StatefulObject>::State], <O as jmap_types::backend::SetObject>::Patch) -> impl core::future::future::Future<Output = core::result::Result<core::result::Result<core::option::Option<O>, <O as jmap_vtc_server::StatefulObject>::State>, jmap_server::backend::BackendSetError<Self::Error>>> + core::marker::Send
@@ -148,6 +209,7 @@ pub async fn jmap_vtc_server::memory::MemoryBackend::is_moderator(&self, &alloc:
 pub async fn jmap_vtc_server::memory::MemoryBackend::is_user_blocked(&self, &alloc::string::String, &str) -> core::result::Result<bool, jmap_vtc_server::memory::MemoryError>
 pub fn jmap_vtc_server::memory::MemoryBackend::playback_endpoints_for(&self, &Self::CallerCtx, &jmap_types::id::Id, &jmap_types::id::Id, alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>) -> impl core::future::future::Future<Output = core::result::Result<alloc::vec::Vec<jmap_vtc_types::recording::VtcPlaybackEndpoint>, Self::Error>> + core::marker::Send
 pub fn jmap_vtc_server::memory::MemoryBackend::ring_timeout(&self) -> core::time::Duration
+pub async fn jmap_vtc_server::memory::MemoryBackend::run_media_effect(&self, &alloc::string::String, &jmap_types::id::Id, jmap_vtc_server::MediaEffect)
 pub fn jmap_vtc_server::memory::MemoryBackend::supports_type<O: jmap_types::backend::JmapObject>(&self, &alloc::string::String, &jmap_types::id::Id) -> bool
 pub async fn jmap_vtc_server::memory::MemoryBackend::update_object<O: jmap_types::backend::SetObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::option::Option<O>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>
 pub async fn jmap_vtc_server::memory::MemoryBackend::update_object_if<O: jmap_vtc_server::StatefulObject + core::marker::Send + core::marker::Sync>(&self, &alloc::string::String, &jmap_types::id::Id, &jmap_types::id::Id, &[<O as jmap_vtc_server::StatefulObject>::State], <O as jmap_types::backend::SetObject>::Patch) -> core::result::Result<core::result::Result<core::option::Option<O>, <O as jmap_vtc_server::StatefulObject>::State>, jmap_server::backend::BackendSetError<jmap_vtc_server::memory::MemoryError>>

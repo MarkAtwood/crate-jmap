@@ -8,7 +8,11 @@
 //! ring notification is actually delivered. A `VTCRecordingStateEvent` is
 //! recorded, not sent; `recording_events_for_test` returns them. So are the
 //! events of [`VtcBackend::deliver_event`]; `events_for_test` returns
-//! them, and no dial-out call is placed.
+//! them, and no dial-out call is placed. It has no media plane:
+//! [`VtcBackend::run_media_effect`] records each effect
+//! (`media_effects_for_test` returns them) and starts nothing, so a
+//! livestream stays `"starting"` until a
+//! [`crate::media_report::MediaReporter`] report moves it.
 //!
 //! # Caller context
 //!
@@ -62,11 +66,11 @@ use jmap_vtc_types::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use crate::VtcBackend;
 use crate::query::{
     call_matches, compare_calls, compare_livestreams, compare_participants, compare_recordings,
     livestream_matches, participant_matches, recording_matches,
 };
+use crate::{MediaEffect, VtcBackend};
 use crate::{StatefulObject, call_already_active_on_chat};
 use jmap_server::{
     BackendChangesError, BackendQueryError, BackendSetError, ChangesResult, GetObject,
@@ -106,6 +110,10 @@ struct Inner {
     recording_events: Vec<VtcRecordingStateEvent>,
     /// Every [`VtcBackend::deliver_event`] event, in order.
     events: Vec<VtcEvent>,
+    /// Every [`VtcBackend::run_media_effect`] effect, in order. In the
+    /// scoped store, so an atomic rollback drops the effects of the
+    /// rolled-back writes.
+    media_effects: Vec<MediaEffect>,
     /// `(blocking userId, blocked userId)` pairs.
     blocked: HashSet<(String, String)>,
     /// `(userId, call id)` pairs whose call the user may not access.
@@ -516,6 +524,14 @@ impl MemoryBackend {
     #[cfg(feature = "test-helpers")]
     pub fn events_for_test(&self) -> Vec<VtcEvent> {
         self.lock().events.clone()
+    }
+
+    /// The [`VtcBackend::run_media_effect`] effects requested so far and
+    /// committed, in order.
+    #[doc(hidden)]
+    #[cfg(feature = "test-helpers")]
+    pub fn media_effects_for_test(&self) -> Vec<MediaEffect> {
+        self.lock().media_effects.clone()
     }
 
     /// Store `value` as object `id` of `type_name` without validation or a
@@ -1175,6 +1191,10 @@ impl VtcBackend for MemoryBackend {
         self.locked().await.events.push(event);
     }
 
+    async fn run_media_effect(&self, _caller: &String, _account_id: &Id, effect: MediaEffect) {
+        self.locked().await.media_effects.push(effect);
+    }
+
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
         _caller: &String,
@@ -1299,7 +1319,8 @@ impl VtcBackend for MemoryBackend {
 /// [`ScopedState`], so a scope isolates every account, and an atomic
 /// rollback restores objects, state strings, change logs and derived
 /// counts, and drops the queued [`VtcBackend::deliver_event`] and
-/// recording-state events, so no event announces a change that never
+/// recording-state events and [`VtcBackend::run_media_effect`] effects, so
+/// no event announces, and no media effect acts on, a change that never
 /// happened (§4.3). Under an atomic scope the backend leaves "one
 /// participant record per user per call", `maxParticipantsPerCall`,
 /// `maxConcurrentCalls`, `maxBreakoutRooms` and the livestream limit to

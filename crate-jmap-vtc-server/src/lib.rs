@@ -35,6 +35,11 @@
 //! The `VTCRecording/*` and `VTCLivestream/*` methods: moderator-only
 //! `/set` with each type's state machine, the `VTCRecordingStateEvent`
 //! consent signal, and `streamKey` redaction in `VTCLivestream/get`.
+//! Media work happens outside the stored write: the handlers hand each
+//! start, pause, resume and stop to [`VtcBackend::run_media_effect`] as a
+//! [`MediaEffect`] after the write, and the backend reports what its media
+//! pipeline did (a livestream going live or failing, a recording becoming
+//! available) through [`media_report::MediaReporter`].
 //! [`VtcEphemeralSubscription`] holds the per-connection `VTCStreamEnable`
 //! subscription state of draft-atwood-jmap-vtc-wss-00 and the
 //! [`should_deliver`] delivery-time check for its events.
@@ -63,6 +68,7 @@ mod ephemeral;
 mod helpers;
 mod history;
 mod media;
+pub mod media_report;
 /// In-memory reference implementation of [`VtcBackend`].
 ///
 /// Gated behind `feature = "memory"`. Not production.
@@ -71,7 +77,7 @@ pub mod memory;
 mod participant;
 pub mod query;
 
-pub use backend::{StatefulObject, VtcBackend, call_already_active_on_chat};
+pub use backend::{MediaEffect, StatefulObject, VtcBackend, call_already_active_on_chat};
 pub use call::{
     RING_TIMEOUT, end_call, expire_ring, handle_vtc_call_changes, handle_vtc_call_get,
     handle_vtc_call_query, handle_vtc_call_query_changes, handle_vtc_call_set,
@@ -183,9 +189,9 @@ where
 /// The dispatcher reads preconditions through each type's `/get` and runs
 /// each call in the scope `backend` opens
 /// ([`ConditionalBackend::begin_set`]).
-/// Under `atomic` that scope must hold back `deliver_event` deliveries until
-/// commit and check participant rules on the final state; the memory
-/// backend does.
+/// Under `atomic` that scope must hold back `deliver_event` deliveries and
+/// [`VtcBackend::run_media_effect`] media effects until commit and check
+/// participant rules on the final state; the memory backend does.
 /// Advertise `urn:ietf:params:jmap:conditional` only once
 /// [`Dispatcher::conditional_ready`] is true for the whole dispatcher.
 pub fn register_vtc_conditional<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)

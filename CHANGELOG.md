@@ -14,6 +14,25 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-vtc-server**: media side effects move out of the atomic write
+  (bd:JMAP-po6q.2, docs/design/vtc-broadcast-research.md Recommendations 1
+  and 2). New `MediaEffect` (`StartLivestream`, `StopLivestream`,
+  `StartRecording`, `PauseRecording`, `ResumeRecording`, `StopRecording`)
+  and `VtcBackend::run_media_effect`, a default no-op hook the
+  `VTCRecording/set` and `VTCLivestream/set` handlers, call end and destroy
+  call after the write; under an atomic conditional scope a backend runs
+  the effects at commit (`MemoryBackend` keeps them in its scoped store,
+  `media_effects_for_test`). The `create_object`, `update_object_if` and
+  `destroy_object` docs no longer tell a backend to start or stop media
+  there. New `media_report::MediaReporter` applies the server-initiated
+  transitions (`livestream_live`, `livestream_endpoints`,
+  `livestream_failed`, `livestream_stopped`, `recording_paused`,
+  `recording_resumed`, `recording_stopped`, `recording_processing`,
+  `recording_available` with `RecordingFile`, `recording_failed`) through
+  `update_object_if` with the draft's source states, delivering the
+  recording consent events and stop effects a client update would;
+  `ReportError` says why a report changed nothing.
+
 - **jmap-types**: data-type registry rows for TaskList, Task and
   TaskNotification (`urn:ietf:params:jmap:tasks`; Supports History Yes,
   Yes, No; Task can reference blobs), from crate-jmap's local Tasks profile
