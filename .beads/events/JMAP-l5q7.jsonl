@@ -1,1 +1,2 @@
 {"id":"01a18e7f-9e33-76b9-bcec-b1617bf5dad2","issue_id":"JMAP-l5q7","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-30T20:28:10.675441397Z"}
+{"id":"01a1f7dc-54ce-7379-8854-4678f658064c","issue_id":"JMAP-l5q7","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Landed on main (jmap-object-uri 2bea6823/a67a945b; jmap-websocket 9ef9e741/5195fc33). Workspace 8571 passed 0 failed.","created_at":"2026-11-20T07:29:34.414229252Z"}
