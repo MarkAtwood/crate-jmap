@@ -54,7 +54,7 @@ use crate::helpers::{
 };
 use crate::{
     CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
-    CalendarsLimits,
+    CalendarsLimits, PrivacyConflicts,
 };
 use jmap_server::{
     HandlerOutput, MetadataProjection, QueryParams, backend_set_error_value, bool_arg,
@@ -540,19 +540,75 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     };
     let limits = backend.limits(caller, &account_id);
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        using,
+        limits: &limits,
+        set_args: &set_args,
+    };
+    let mut acc = SetAccumulators::default();
+    // Checked before anything is applied so the method-level error leaves
+    // the account unchanged.
+    let destroys = take_destroys(&mut args, &mut acc)?;
+    // Validate every create and update first: draft-ietf-jmap-calendars-34
+    // §5.9's uid/privacy rule is judged on the account "after applying all
+    // the creates, updates, and destroys", so it needs the whole request.
+    let creates = validate_creates(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    let updates = validate_updates(&ctx, &mut args, &mut acc).await?;
 
+    // §5.9: "if the Account would contain two or more CalendarEvent objects
+    // with the same uid but different values for their "privacy" property,
+    // the server MUST reject each create or update in the request that
+    // affects a CalendarEvent with that uid with an invalidProperties
+    // SetError. Changes in the request to CalendarEvent objects with other
+    // uids are unaffected."
+    let conflicts = backend
+        .privacy_conflicts(caller, &account_id, &creates, &updates, &destroys)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    let mut mutated = set_create(&ctx, creates, &conflicts, &mut acc).await?;
+    mutated |= set_update(&ctx, updates, &conflicts, &mut acc).await?;
+    mutated |= set_destroy(&ctx, destroys, &mut acc).await;
+
+    finalize_set_response::<B, CalendarEvent>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `CalendarEvent/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: CalendarsBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// The per-event caps (draft-ietf-jmap-calendars-34 §5.9).
+    limits: &'a CalendarsLimits,
+    /// The §5.9 `sendSchedulingMessages` argument.
+    set_args: &'a CalendarEventSetArgs,
+}
+
+/// Take the `destroy` array of `CalendarEvent/set` and parse its ids; an
+/// id that does not parse goes to `notDestroyed`.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+fn take_destroys(
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<Vec<Id>, JmapError> {
     // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
     // Reject the whole request if any element is non-string rather than
     // silently skipping it, which would produce a misleading response.
-    // Checked before anything is applied so the method-level error leaves
-    // the account unchanged.
     let mut destroys: Vec<Id> = Vec::new();
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         let id_strs: Vec<&str> = destroy_arr
@@ -570,265 +626,330 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             match jmap_server::parse_wire_id(raw, "id") {
                 Ok(id) => destroys.push(id),
                 Err(err) => {
-                    not_destroyed.insert(raw.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(raw.to_owned(), serde_json::Value::from(&*err));
                 }
             }
         }
     }
+    Ok(destroys)
+}
 
-    // Validate every create and update first: draft-ietf-jmap-calendars-34
-    // §5.9's uid/privacy rule is judged on the account "after applying all
-    // the creates, updates, and destroys", so it needs the whole request.
+/// §5.9: a create object or patch cannot set both `utcStart` and `start`,
+/// or both `utcEnd` and `duration`. Returns the SetError value, or `None`
+/// to go on.
+fn time_pair_error(obj_val: &Value) -> Option<Value> {
+    let has_utc_start = obj_val.get("utcStart").is_some_and(|v| !v.is_null());
+    let has_start = obj_val.get("start").is_some_and(|v| !v.is_null());
+    let has_utc_end = obj_val.get("utcEnd").is_some_and(|v| !v.is_null());
+    let has_duration = obj_val.get("duration").is_some_and(|v| !v.is_null());
+
+    if has_utc_start && has_start {
+        return Some(json!({ "type": "invalidProperties", "properties": ["utcStart", "start"] }));
+    }
+    if has_utc_end && has_duration {
+        return Some(json!({ "type": "invalidProperties", "properties": ["utcEnd", "duration"] }));
+    }
+    None
+}
+
+/// Check every entry of the `CalendarEvent/set` `create` map and return the
+/// events to create; a rejected entry goes to `notCreated`.
+async fn validate_creates<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<Vec<(String, CalendarEvent)>, JmapError> {
     let mut creates: Vec<(String, CalendarEvent)> = Vec::new();
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, mut obj_val) in create_map {
-            // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
-            if let Some(err) = obj_val
-                .as_object()
-                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            // §5.9: client cannot set both utcStart and start simultaneously,
-            // or both utcEnd and duration.
-            let has_utc_start = obj_val.get("utcStart").is_some_and(|v| !v.is_null());
-            let has_start = obj_val.get("start").is_some_and(|v| !v.is_null());
-            let has_utc_end = obj_val.get("utcEnd").is_some_and(|v| !v.is_null());
-            let has_duration = obj_val.get("duration").is_some_and(|v| !v.is_null());
-
-            if has_utc_start && has_start {
-                not_created.insert(
-                    create_id,
-                    json!({ "type": "invalidProperties", "properties": ["utcStart", "start"] }),
-                );
-                continue;
-            }
-            if has_utc_end && has_duration {
-                not_created.insert(
-                    create_id,
-                    json!({ "type": "invalidProperties", "properties": ["utcEnd", "duration"] }),
-                );
-                continue;
-            }
-
-            if let Some(err) = obj_val
-                .as_object()
-                .and_then(reject_server_set::<CalendarEvent>)
-            {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Err(err) = resolve_map_key_refs(&mut obj_val, "calendarIds", created_ids) {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Some(err) = obj_val.as_object().and_then(jscalendar_uri_error) {
-                not_created.insert(create_id, err);
-                continue;
-            }
-
-            // `CalendarEvent.id` is optional, so the create parses without one
-            // and `build` sets the id the backend mints.
-            let mut event: CalendarEvent = match serde_path_to_error::deserialize(obj_val) {
-                Ok(e) => e,
-                Err(e) => {
-                    // RFC 8620 §5.3: invalidProperties SHOULD list the
-                    // invalid properties; the first path segment is the
-                    // top-level property whose value failed to parse.
-                    let mut err =
-                        json!({ "type": "invalidProperties", "description": e.to_string() });
-                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
-                    {
-                        err["properties"] = json!([key]);
-                    }
-                    not_created.insert(create_id, err);
-                    continue;
-                }
-            };
-            if let Err(err) = prepare_new_event(backend, caller, &account_id, &mut event).await {
-                not_created.insert(create_id, err);
-                continue;
-            }
-            if limits.has_event_limits()
-                && let Value::Object(map) = jmap_server::serialize_value(&event)?
-                && let Some(err) = limits_set_error(&map, &limits, None)
-            {
-                not_created.insert(create_id, err);
-                continue;
-            }
-            creates.push((create_id, event));
+        for (create_id, obj_val) in create_map {
+            validate_create(ctx, create_id, obj_val, acc, &mut creates).await?;
         }
     }
+    Ok(creates)
+}
 
+/// Check one entry of the `CalendarEvent/set` `create` map: push the event
+/// onto `creates`, or the SetError onto `notCreated`.
+async fn validate_create<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: String,
+    mut obj_val: Value,
+    acc: &mut SetAccumulators,
+    creates: &mut Vec<(String, CalendarEvent)>,
+) -> Result<(), JmapError> {
+    // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
+    if let Some(err) = obj_val
+        .as_object()
+        .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+    {
+        acc.not_created
+            .insert(create_id, serde_json::Value::from(&err));
+        return Ok(());
+    }
+    // §5.9: client cannot set both utcStart and start simultaneously,
+    // or both utcEnd and duration.
+    if let Some(err) = time_pair_error(&obj_val) {
+        acc.not_created.insert(create_id, err);
+        return Ok(());
+    }
+
+    if let Some(err) = obj_val
+        .as_object()
+        .and_then(reject_server_set::<CalendarEvent>)
+    {
+        acc.not_created
+            .insert(create_id, serde_json::Value::from(&err));
+        return Ok(());
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        acc.not_created
+            .insert(create_id, serde_json::Value::from(&*err));
+        return Ok(());
+    }
+    if let Err(err) = resolve_map_key_refs(&mut obj_val, "calendarIds", ctx.created_ids) {
+        acc.not_created
+            .insert(create_id, serde_json::Value::from(&*err));
+        return Ok(());
+    }
+    if let Some(err) = obj_val.as_object().and_then(jscalendar_uri_error) {
+        acc.not_created.insert(create_id, err);
+        return Ok(());
+    }
+
+    // `CalendarEvent.id` is optional, so the create parses without one
+    // and `build` sets the id the backend mints.
+    let mut event: CalendarEvent = match serde_path_to_error::deserialize(obj_val) {
+        Ok(e) => e,
+        Err(e) => {
+            // RFC 8620 §5.3: invalidProperties SHOULD list the
+            // invalid properties; the first path segment is the
+            // top-level property whose value failed to parse.
+            let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+            if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+                err["properties"] = json!([key]);
+            }
+            acc.not_created.insert(create_id, err);
+            return Ok(());
+        }
+    };
+    if let Err(err) = prepare_new_event(ctx.backend, ctx.caller, ctx.account_id, &mut event).await {
+        acc.not_created.insert(create_id, err);
+        return Ok(());
+    }
+    if ctx.limits.has_event_limits()
+        && let Value::Object(map) = jmap_server::serialize_value(&event)?
+        && let Some(err) = limits_set_error(&map, ctx.limits, None)
+    {
+        acc.not_created.insert(create_id, err);
+        return Ok(());
+    }
+    creates.push((create_id, event));
+    Ok(())
+}
+
+/// Check every entry of the `CalendarEvent/set` `update` map and return the
+/// patches to apply; a rejected entry goes to `notUpdated`, and a patch
+/// with nothing left to change to `updated`.
+async fn validate_updates<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<Vec<(Id, PatchObject)>, JmapError> {
     let mut updates: Vec<(Id, PatchObject)> = Vec::new();
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
-                continue;
-            }
-            // §5.9: patch cannot contain both utcStart and start, or both
-            // utcEnd and duration.
-            let has_utc_start = patch_val.get("utcStart").is_some_and(|v| !v.is_null());
-            let has_start = patch_val.get("start").is_some_and(|v| !v.is_null());
-            let has_utc_end = patch_val.get("utcEnd").is_some_and(|v| !v.is_null());
-            let has_duration = patch_val.get("duration").is_some_and(|v| !v.is_null());
-
-            if has_utc_start && has_start {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": ["utcStart", "start"] }),
-                );
-                continue;
-            }
-            if has_utc_end && has_duration {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": ["utcEnd", "duration"] }),
-                );
-                continue;
-            }
-
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            // draft-ietf-jmap-calendars §5: `id`, `baseEventId` and
-            // `isOrigin` are server-set. A changed value is rejected, an
-            // identical one dropped (RFC 8620 §5.3); nothing left is a
-            // no-op success. A non-object patch is `invalidPatch` below.
-            if let Some(map) = patch_val.as_object_mut() {
-                match check_read_only_patch::<_, CalendarEvent>(
-                    backend,
-                    caller,
-                    &account_id,
-                    &id,
-                    map,
-                )
-                .await
-                {
-                    Ok(false) => {}
-                    Ok(true) => {
-                        updated.insert(id_str, Value::Null);
-                        continue;
-                    }
-                    Err(err) => {
-                        not_updated.insert(id_str, err);
-                        continue;
-                    }
-                }
-            }
-            if let Some(Err(err)) = patch_val
-                .as_object()
-                .map(|m| check_metadata_entry(m, false, using))
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Err(err) = resolve_map_key_refs(&mut patch_val, "calendarIds", created_ids) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|m| jscalendar_uri_error(&jmap_server::patch_values_as_object(m)))
-            {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            if let Some(map) = patch_val.as_object_mut()
-                && let Err(err) = prepare_event_patch(backend, caller, &account_id, &id, map).await
-            {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-            if limits.has_event_limits()
-                && let Some(map) = patch_val.as_object()
-                && let Err(err) =
-                    check_patch_limits(backend, caller, &account_id, &id, map, &limits).await
-            {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            // Convert wire-format Value into a typed PatchObject at the
-            // backend boundary. RFC 8620 §5.3 mandates a PatchObject is a
-            // JSON Object; non-object values produce an `invalidPatch`
-            // SetError. Conversion happens AFTER the §5.9 utcStart/start
-            // and utcEnd/duration validation above, since those checks
-            // operate on the raw wire shape and are valid regardless of
-            // whether the value is a strict object.
-            match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => updates.push((id, p)),
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                }
+        for (id_str, patch_val) in update_map {
+            if let Some(update) = validate_update(ctx, id_str, patch_val, acc).await {
+                updates.push(update);
             }
         }
     }
+    Ok(updates)
+}
 
-    // §5.9: "if the Account would contain two or more CalendarEvent objects
-    // with the same uid but different values for their "privacy" property,
-    // the server MUST reject each create or update in the request that
-    // affects a CalendarEvent with that uid with an invalidProperties
-    // SetError. Changes in the request to CalendarEvent objects with other
-    // uids are unaffected."
-    let conflicts = backend
-        .privacy_conflicts(caller, &account_id, &creates, &updates, &destroys)
+/// Check one entry of the `CalendarEvent/set` `update` map: return the
+/// patch to apply, or record the outcome in `acc` and return `None`.
+async fn validate_update<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Option<(Id, PatchObject)> {
+    // draft-ietf-jmap-calendars §5.3: a Link `blobId` is an Id.
+    if let Some(err) = patch_val
+        .as_object()
+        .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+    {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&err));
+        return None;
+    }
+    // §5.9: patch cannot contain both utcStart and start, or both
+    // utcEnd and duration.
+    if let Some(err) = time_pair_error(&patch_val) {
+        acc.not_updated.insert(id_str, err);
+        return None;
+    }
+
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return None;
+        }
+    };
+    // draft-ietf-jmap-calendars §5: `id`, `baseEventId` and
+    // `isOrigin` are server-set. A changed value is rejected, an
+    // identical one dropped (RFC 8620 §5.3); nothing left is a
+    // no-op success. A non-object patch is `invalidPatch` below.
+    if let Some(map) = patch_val.as_object_mut() {
+        match check_read_only_patch::<_, CalendarEvent>(
+            ctx.backend,
+            ctx.caller,
+            ctx.account_id,
+            &id,
+            map,
+        )
         .await
-        .map_err(|e| server_fail_from_backend(&e))?;
-    let privacy_error = || json!({ "type": "invalidProperties", "properties": ["privacy"] });
+        {
+            Ok(false) => {}
+            Ok(true) => {
+                acc.updated.insert(id_str, Value::Null);
+                return None;
+            }
+            Err(err) => {
+                acc.not_updated.insert(id_str, err);
+                return None;
+            }
+        }
+    }
+    if let Some(err) = update_patch_error(ctx, &id, &mut patch_val).await {
+        acc.not_updated.insert(id_str, err);
+        return None;
+    }
 
+    // Convert wire-format Value into a typed PatchObject at the
+    // backend boundary. RFC 8620 §5.3 mandates a PatchObject is a
+    // JSON Object; non-object values produce an `invalidPatch`
+    // SetError. Conversion happens AFTER the §5.9 utcStart/start
+    // and utcEnd/duration validation above, since those checks
+    // operate on the raw wire shape and are valid regardless of
+    // whether the value is a strict object.
+    match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => Some((id, p)),
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            None
+        }
+    }
+}
+
+/// The checks on a `CalendarEvent/set` patch after the server-set ones:
+/// metadata, `calendarIds` references, JSCalendar URIs, the patched
+/// `calendarIds`, and the per-event caps. Returns the SetError value for
+/// `notUpdated`, or `None` to go on.
+async fn update_patch_error<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    patch_val: &mut Value,
+) -> Option<Value> {
+    if let Some(Err(err)) = patch_val
+        .as_object()
+        .map(|m| check_metadata_entry(m, false, ctx.using))
+    {
+        return Some(serde_json::Value::from(&*err));
+    }
+    if let Err(err) = resolve_map_key_refs(patch_val, "calendarIds", ctx.created_ids) {
+        return Some(serde_json::Value::from(&*err));
+    }
+    if let Some(err) = patch_val
+        .as_object()
+        .and_then(|m| jscalendar_uri_error(&jmap_server::patch_values_as_object(m)))
+    {
+        return Some(err);
+    }
+
+    if let Some(map) = patch_val.as_object_mut()
+        && let Err(err) =
+            prepare_event_patch(ctx.backend, ctx.caller, ctx.account_id, id, map).await
+    {
+        return Some(err);
+    }
+    if ctx.limits.has_event_limits()
+        && let Some(map) = patch_val.as_object()
+        && let Err(err) =
+            check_patch_limits(ctx.backend, ctx.caller, ctx.account_id, id, map, ctx.limits).await
+    {
+        return Some(err);
+    }
+    None
+}
+
+/// The SetError for a create or update rejected by the §5.9 uid/privacy
+/// rule.
+fn privacy_error() -> Value {
+    json!({ "type": "invalidProperties", "properties": ["privacy"] })
+}
+
+/// The `create` part of `CalendarEvent/set`: create each checked event
+/// that has no privacy conflict. Returns whether the backend was written.
+async fn set_create<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    creates: Vec<(String, CalendarEvent)>,
+    conflicts: &PrivacyConflicts,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     for (create_id, mut event) in creates {
         if conflicts.create_ids.contains(&create_id) {
-            not_created.insert(create_id, privacy_error());
+            acc.not_created.insert(create_id, privacy_error());
             continue;
         }
         let build = move |id: &Id| {
             event.id = Some(id.clone());
             event
         };
-        match backend
-            .create_calendar_event(caller, &account_id, &create_id, build, &set_args)
+        match ctx
+            .backend
+            .create_calendar_event(ctx.caller, ctx.account_id, &create_id, build, ctx.set_args)
             .await
         {
             Ok((_new_id, created_obj)) => {
                 mutated = true;
                 // CalendarEvent uses #[derive(Serialize)] on plain data;
                 // to_value is infallible (JMAP-r3pg.13).
-                created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
+                acc.created
+                    .insert(create_id, jmap_server::serialize_value(&created_obj)?);
             }
             Err(e) => {
-                not_created.insert(create_id, backend_set_error_value(e));
+                acc.not_created
+                    .insert(create_id, backend_set_error_value(e));
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The `update` part of `CalendarEvent/set`: apply each checked patch that
+/// has no privacy conflict. Returns whether the backend was written.
+async fn set_update<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    updates: Vec<(Id, PatchObject)>,
+    conflicts: &PrivacyConflicts,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     for (id, patch) in updates {
         let id_str = id.as_ref().to_owned();
         if conflicts.update_ids.contains(&id) {
-            not_updated.insert(id_str, privacy_error());
+            acc.not_updated.insert(id_str, privacy_error());
             continue;
         }
 
@@ -859,12 +980,12 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         // routes through update_calendar_event so the backend sees the
         // sendSchedulingMessages flag.
         let update_result = if is_per_user_only {
-            backend
-                .update_per_user_properties(caller, &account_id, &id, patch)
+            ctx.backend
+                .update_per_user_properties(ctx.caller, ctx.account_id, &id, patch)
                 .await
         } else {
-            backend
-                .update_calendar_event(caller, &account_id, &id, patch, &set_args)
+            ctx.backend
+                .update_calendar_event(ctx.caller, ctx.account_id, &id, patch, ctx.set_args)
                 .await
         };
 
@@ -872,50 +993,46 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             Ok(Some(obj)) => {
                 mutated = true;
                 // See create branch above (JMAP-r3pg.13).
-                updated.insert(id_str, jmap_server::serialize_value(&obj)?);
+                acc.updated
+                    .insert(id_str, jmap_server::serialize_value(&obj)?);
             }
             Ok(None) => {
                 mutated = true;
-                updated.insert(id_str, Value::Null);
+                acc.updated.insert(id_str, Value::Null);
             }
             Err(e) => {
-                not_updated.insert(id_str, backend_set_error_value(e));
+                acc.not_updated.insert(id_str, backend_set_error_value(e));
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The `destroy` part of `CalendarEvent/set`: destroy each id that
+/// [`take_destroys`] parsed. Returns whether the backend was written.
+async fn set_destroy<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    destroys: Vec<Id>,
+    acc: &mut SetAccumulators,
+) -> bool {
+    let mut mutated = false;
     for id in destroys {
         let id_str = id.as_ref().to_owned();
-        match backend
-            .destroy_calendar_event(caller, &account_id, &id, &set_args)
+        match ctx
+            .backend
+            .destroy_calendar_event(ctx.caller, ctx.account_id, &id, ctx.set_args)
             .await
         {
             Ok(()) => {
                 mutated = true;
-                destroyed_list.push(Value::String(id_str));
+                acc.destroyed.push(Value::String(id_str));
             }
             Err(e) => {
-                not_destroyed.insert(id_str, backend_set_error_value(e));
+                acc.not_destroyed.insert(id_str, backend_set_error_value(e));
             }
         }
     }
-
-    finalize_set_response::<B, CalendarEvent>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    mutated
 }
 
 // ---------------------------------------------------------------------------

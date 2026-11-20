@@ -179,126 +179,54 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        using,
+        i18n_set: &i18n_set,
+        on_destroy_remove_events,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_on_success_default(&ctx, on_success_set_is_default.as_ref(), &mut acc).await;
+
+    finalize_set_response::<B, Calendar>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `Calendar/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: CalendarsBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// The draft-atwood-jmap-updates-00 `locale` and `localizations` checks.
+    i18n_set: &'a jmap_server::I18nSet,
+    /// The draft §4.4 `onDestroyRemoveEvents` argument.
+    on_destroy_remove_events: bool,
+}
+
+/// The `create` part of `Calendar/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
     let mut mutated = false;
-
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, mut obj_val) in create_map {
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Calendar>) {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Value::Object(m) = &mut obj_val
-                && let Err(err) = i18n_set.check_create(m)
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // draft-ietf-jmap-calendars-34 §4 `shareWith`: Id[CalendarRights],
-            // keyed by Principal id.
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_map_key_ids(o, "shareWith"))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // `isDefault` and `myRights` are server-set (draft-ietf-jmap-
-            // calendars-34 §4) and `Calendar` requires both, so the server
-            // supplies them. A new calendar is not the default until
-            // `onSuccessSetIsDefault` makes it one.
-            //
-            // ponytail: the creator holds every right, as the owner of a
-            // calendar in their own account; a backend with finer sharing may
-            // replace `myRights` in `create_object`.
-            //
-            // RFC 8620 §5.3: the server fills omitted properties that have a
-            // default. draft-ietf-jmap-calendars-34 §4: `isSubscribed` SHOULD
-            // default to true "for Calendars in the user's own account
-            // (however they were created) and for any new Calendars created
-            // by the user themself", and `includeInAvailability` should
-            // default to "all" for calendars in the user's own account.
-            //
-            // ponytail: "all" assumes the creator owns the account, as the
-            // `myRights` default does; a backend that knows the account is
-            // shared may replace it with "none" in `create_object`.
-            if let Some(m) = obj_val.as_object_mut() {
-                m.entry("isSubscribed").or_insert(Value::Bool(true));
-                m.entry("includeInAvailability")
-                    .or_insert_with(|| Value::String("all".to_owned()));
-                m.insert("isDefault".to_owned(), Value::Bool(false));
-                m.insert(
-                    "myRights".to_owned(),
-                    json!({
-                        "mayReadFreeBusy": true,
-                        "mayReadItems": true,
-                        "mayWriteAll": true,
-                        "mayWriteOwn": true,
-                        "mayUpdatePrivate": true,
-                        "mayRSVP": true,
-                        "mayShare": true,
-                        "mayDelete": true,
-                    }),
-                );
-            }
-            // RFC 8620 §5.3: a create entry that is not an object has no
-            // properties to name, so report it without a `properties` list.
-            if !obj_val.is_object() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "description": "a create entry must be an object",
-                    }),
-                );
-                continue;
-            }
-
-            // draft-ietf-jmap-calendars-34 §4: `name` is required. serde reports a missing
-            // field at the root, not on a property path, so name it here
-            // (RFC 8620 §5.3 invalidProperties).
-            if obj_val.get("name").is_none() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["name"],
-                        "description": "name is required on create",
-                    }),
-                );
-                continue;
-            }
-
-            // `Calendar.id` is optional, so the create parses without one
-            // and `build` sets the id the backend mints.
-            let mut cal: Calendar = match serde_path_to_error::deserialize(obj_val) {
-                Ok(c) => c,
-                Err(e) => {
-                    // RFC 8620 §5.3: invalidProperties SHOULD list the
-                    // invalid properties; the first path segment is the
-                    // top-level property whose value failed to parse.
-                    let mut err =
-                        json!({ "type": "invalidProperties", "description": e.to_string() });
-                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
-                    {
-                        err["properties"] = json!([key]);
-                    }
-                    not_created.insert(create_id, err);
+        for (create_id, obj_val) in create_map {
+            let mut cal = match calendar_from_create(ctx, obj_val) {
+                Ok(cal) => cal,
+                Err(err) => {
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -306,8 +234,9 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 cal.id = Some(id.clone());
                 cal
             };
-            match backend
-                .create_object::<Calendar, _>(caller, &account_id, &create_id, build)
+            match ctx
+                .backend
+                .create_object::<Calendar, _>(ctx.caller, ctx.account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -316,27 +245,141 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     // is infallible. Asserting rather than masking would-be
                     // failures as `serverFail` (per JMAP-r3pg.13).
                     let mut entry = jmap_server::serialize_value(&created_obj)?;
-                    i18n_set.echo(&mut entry);
-                    created.insert(create_id, entry);
+                    ctx.i18n_set.echo(&mut entry);
+                    acc.created.insert(create_id, entry);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// Check one `Calendar/set` create object, fill in the server-set and
+/// defaulted properties, and parse it, or return the SetError value for
+/// `notCreated`.
+fn calendar_from_create<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    mut obj_val: Value,
+) -> Result<Calendar, Value> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Calendar>) {
+        return Err(serde_json::Value::from(&err));
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    if let Value::Object(m) = &mut obj_val
+        && let Err(err) = ctx.i18n_set.check_create(m)
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // draft-ietf-jmap-calendars-34 §4 `shareWith`: Id[CalendarRights],
+    // keyed by Principal id.
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_map_key_ids(o, "shareWith"))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    if let Some(m) = obj_val.as_object_mut() {
+        fill_create_defaults(m);
+    }
+    // RFC 8620 §5.3: a create entry that is not an object has no
+    // properties to name, so report it without a `properties` list.
+    if !obj_val.is_object() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "description": "a create entry must be an object",
+        }));
+    }
+
+    // draft-ietf-jmap-calendars-34 §4: `name` is required. serde reports a missing
+    // field at the root, not on a property path, so name it here
+    // (RFC 8620 §5.3 invalidProperties).
+    if obj_val.get("name").is_none() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": ["name"],
+            "description": "name is required on create",
+        }));
+    }
+
+    // `Calendar.id` is optional, so the create parses without one
+    // and `build` sets the id the backend mints.
+    serde_path_to_error::deserialize(obj_val).map_err(|e| {
+        // RFC 8620 §5.3: invalidProperties SHOULD list the
+        // invalid properties; the first path segment is the
+        // top-level property whose value failed to parse.
+        let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+        if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+            err["properties"] = json!([key]);
+        }
+        err
+    })
+}
+
+/// Fill the server-set and defaulted properties of a `Calendar/set` create
+/// object.
+fn fill_create_defaults(m: &mut serde_json::Map<String, Value>) {
+    // `isDefault` and `myRights` are server-set (draft-ietf-jmap-
+    // calendars-34 §4) and `Calendar` requires both, so the server
+    // supplies them. A new calendar is not the default until
+    // `onSuccessSetIsDefault` makes it one.
+    //
+    // ponytail: the creator holds every right, as the owner of a
+    // calendar in their own account; a backend with finer sharing may
+    // replace `myRights` in `create_object`.
+    //
+    // RFC 8620 §5.3: the server fills omitted properties that have a
+    // default. draft-ietf-jmap-calendars-34 §4: `isSubscribed` SHOULD
+    // default to true "for Calendars in the user's own account
+    // (however they were created) and for any new Calendars created
+    // by the user themself", and `includeInAvailability` should
+    // default to "all" for calendars in the user's own account.
+    //
+    // ponytail: "all" assumes the creator owns the account, as the
+    // `myRights` default does; a backend that knows the account is
+    // shared may replace it with "none" in `create_object`.
+    m.entry("isSubscribed").or_insert(Value::Bool(true));
+    m.entry("includeInAvailability")
+        .or_insert_with(|| Value::String("all".to_owned()));
+    m.insert("isDefault".to_owned(), Value::Bool(false));
+    m.insert(
+        "myRights".to_owned(),
+        json!({
+            "mayReadFreeBusy": true,
+            "mayReadItems": true,
+            "mayWriteAll": true,
+            "mayWriteOwn": true,
+            "mayUpdatePrivate": true,
+            "mayRSVP": true,
+            "mayShare": true,
+            "mayDelete": true,
+        }),
+    );
+}
+
+/// The `update` part of `Calendar/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -347,7 +390,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
-                    not_updated.insert(
+                    acc.not_updated.insert(
                         id_str,
                         json!({ "type": "invalidPatch", "description": e.to_string() }),
                     );
@@ -358,9 +401,9 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             // are server-set. A changed value is rejected, an identical one
             // dropped (RFC 8620 §5.3); nothing left is a no-op success.
             match check_read_only_patch::<_, Calendar>(
-                backend,
-                caller,
-                &account_id,
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
                 &id,
                 patch.as_map_mut(),
             )
@@ -368,49 +411,59 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             {
                 Ok(false) => {}
                 Ok(true) => {
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                     continue;
                 }
                 Err(err) => {
-                    not_updated.insert(id_str, err);
+                    acc.not_updated.insert(id_str, err);
                     continue;
                 }
             }
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using)
-                .and_then(|()| i18n_set.check_patch(patch.as_map()))
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using)
+                .and_then(|()| ctx.i18n_set.check_patch(patch.as_map()))
+                .and_then(|()| check_map_key_ids(patch.as_map(), "shareWith"))
             {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
-            if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            match backend
-                .update_object::<Calendar>(caller, &account_id, &id, patch)
+            match ctx
+                .backend
+                .update_object::<Calendar>(ctx.caller, ctx.account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
                     mutated = true;
                     // See create branch above (JMAP-r3pg.13).
                     let mut entry = jmap_server::serialize_value(&obj)?;
-                    i18n_set.echo(&mut entry);
-                    updated.insert(id_str, entry);
+                    ctx.i18n_set.echo(&mut entry);
+                    acc.updated.insert(id_str, entry);
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                 }
                 Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
+                    acc.not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// The `destroy` part of `Calendar/set`. Returns whether the backend was
+/// written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+async fn set_destroy<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -431,104 +484,128 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            // Check for events if onDestroyRemoveEvents is false (default).
-            // The three-way result distinguishes 'definitely empty',
-            // 'definitely has events', and 'transient backend failure'
-            // (bd:JMAP-ic0j.4) — the last must surface as serverFail so
-            // the client knows to retry, not as a deterministic
-            // calendarHasEvent SetError.
-            if !on_destroy_remove_events {
-                match backend.calendar_has_events(caller, &account_id, &id).await {
-                    Ok(true) => {
-                        not_destroyed.insert(
-                            id_str,
-                            serde_json::Value::from(&SetError::new(SetErrorType::from(
-                                "calendarHasEvent",
-                            ))),
-                        );
-                        continue;
-                    }
-                    Ok(false) => {
-                        // proceed to destroy below
-                    }
-                    Err(e) => {
-                        // bd:JMAP-q2wa.7.2: backend Display text never
-                        // reaches the wire.
-                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
+            if let Some(err) = destroy_events_error(ctx, &id).await {
+                acc.not_destroyed.insert(id_str, err);
+                continue;
             }
 
-            // PLAN.md §5 / draft-ietf-jmap-calendars-34 §4.4: when
-            // onDestroyRemoveEvents is true, the handler is responsible for
-            // cleaning up events in this calendar before destroying the
-            // calendar itself. The backend is type-agnostic and has no
-            // onDestroyRemoveEvents concept.
-            //
-            // Steps:
-            //   1. Query CalendarEvents with calendarIds containing this id.
-            //   2. Fetch full event objects to inspect calendar_ids count.
-            //   3. For each event in only this calendar: destroy.
-            //      For each event in multiple calendars: patch out this id.
-            //   4. Destroy the Calendar.
-            //
-            // Any sub-step failure aborts with a serverFail SetError on the
-            // calendar destroy entry — a partial cleanup must not leave the
-            // calendar destroyed with dangling events.
-            if on_destroy_remove_events {
-                match cleanup_calendar_events(backend, caller, &account_id, &id).await {
-                    Ok(()) => {
-                        // proceed to destroy the calendar below
-                    }
-                    Err(value) => {
-                        // bd:JMAP-ic0j.68 — `cleanup_calendar_events` returns
-                        // the already-redacted wire-format SetError Value so
-                        // backend Display text never reaches the wire.
-                        not_destroyed.insert(id_str, value);
-                        continue;
-                    }
-                }
-            }
-
-            match backend
-                .destroy_object::<Calendar>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<Calendar>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The `onDestroyRemoveEvents` step before a Calendar destroy
+/// (draft-ietf-jmap-calendars-34 §4.4): the SetError value for
+/// `notDestroyed` when the calendar still has events or their cleanup
+/// failed, or `None` to go on with the destroy.
+async fn destroy_events_error<B: CalendarsBackend>(ctx: &SetCtx<'_, B>, id: &Id) -> Option<Value> {
+    // Check for events if onDestroyRemoveEvents is false (default).
+    // The three-way result distinguishes 'definitely empty',
+    // 'definitely has events', and 'transient backend failure'
+    // (bd:JMAP-ic0j.4) — the last must surface as serverFail so
+    // the client knows to retry, not as a deterministic
+    // calendarHasEvent SetError.
+    if !ctx.on_destroy_remove_events {
+        match ctx
+            .backend
+            .calendar_has_events(ctx.caller, ctx.account_id, id)
+            .await
+        {
+            Ok(true) => {
+                return Some(serde_json::Value::from(&SetError::new(SetErrorType::from(
+                    "calendarHasEvent",
+                ))));
+            }
+            Ok(false) => {
+                // proceed to destroy below
+            }
+            Err(e) => {
+                // bd:JMAP-q2wa.7.2: backend Display text never
+                // reaches the wire.
+                return Some(server_fail_value_from_backend(&e));
+            }
+        }
+    }
+
+    // PLAN.md §5 / draft-ietf-jmap-calendars-34 §4.4: when
+    // onDestroyRemoveEvents is true, the handler is responsible for
+    // cleaning up events in this calendar before destroying the
+    // calendar itself. The backend is type-agnostic and has no
+    // onDestroyRemoveEvents concept.
+    //
+    // Steps:
+    //   1. Query CalendarEvents with calendarIds containing this id.
+    //   2. Fetch full event objects to inspect calendar_ids count.
+    //   3. For each event in only this calendar: destroy.
+    //      For each event in multiple calendars: patch out this id.
+    //   4. Destroy the Calendar.
+    //
+    // Any sub-step failure aborts with a serverFail SetError on the
+    // calendar destroy entry — a partial cleanup must not leave the
+    // calendar destroyed with dangling events.
+    if ctx.on_destroy_remove_events {
+        match cleanup_calendar_events(ctx.backend, ctx.caller, ctx.account_id, id).await {
+            Ok(()) => {
+                // proceed to destroy the calendar below
+            }
+            Err(value) => {
+                // bd:JMAP-ic0j.68 — `cleanup_calendar_events` returns
+                // the already-redacted wire-format SetError Value so
+                // backend Display text never reaches the wire.
+                return Some(value);
+            }
+        }
+    }
+    None
+}
+
+/// The draft-ietf-jmap-calendars-34 §4.3 `onSuccessSetIsDefault` phase of
+/// `Calendar/set`. Returns whether the default changed.
+async fn set_on_success_default<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    on_success_set_is_default: Option<&Value>,
+    acc: &mut SetAccumulators,
+) -> bool {
     // §4.3: onSuccessSetIsDefault. Apply only if every CRUD attempt
     // succeeded — if any not_* map has entries, the spec's "all creates,
     // updates and destroys (if any) succeed without error" guard fails
     // and the requested default change is skipped silently.
     let all_succeeded =
-        not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
+        acc.not_created.is_empty() && acc.not_updated.is_empty() && acc.not_destroyed.is_empty();
     if all_succeeded
-        && let Some(raw) = on_success_set_is_default.as_ref()
-        && let Some(target) = resolve_on_success_set_is_default(raw, &created)
+        && let Some(raw) = on_success_set_is_default
+        && let Some(target) = resolve_on_success_set_is_default(raw, &acc.created)
     {
-        match backend
-            .set_default_calendar(caller, &account_id, &target)
+        match ctx
+            .backend
+            .set_default_calendar(ctx.caller, ctx.account_id, &target)
             .await
         {
             Ok(result) => {
-                if apply_default_change_to_response(&mut created, &mut updated, &result) {
-                    mutated = true;
-                }
+                return apply_default_change_to_response(
+                    &mut acc.created,
+                    &mut acc.updated,
+                    &result,
+                );
             }
             Err(_e) => {
                 // §4.3: silently swallow — "No error is returned to
@@ -537,23 +614,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             }
         }
     }
-
-    finalize_set_response::<B, Calendar>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    false
 }
 
 /// Clean up CalendarEvents in a Calendar before destroying the Calendar.

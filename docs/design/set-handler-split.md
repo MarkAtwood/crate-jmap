@@ -106,3 +106,35 @@ Where it differs from the template:
 - TaskList/set checks and parses each create object in `task_list_from_create`, which returns the
   TaskList or the SetError value, as Identity's `identity_builder` does.
 - Task/set's per-user routing test is `patch_is_per_user_only`.
+
+## 6. In jmap-calendars-server
+
+| Handler | Before (lines) | After (orchestrator) |
+|---|---|---|
+| `handle_calendar_event_set` | 429 | 91 |
+| `handle_calendar_set` | 424 | 67 |
+| `handle_participant_identity_set` | 276 | 59 |
+| `handle_calendar_event_notification_set` | 116 | 51 |
+
+Where it differs from the template:
+
+- CalendarEvent/set does not run create, update and destroy one after the other, because the
+  §5.9 uid/privacy rule needs the whole request. Its orchestrator keeps the existing order:
+  `take_destroys` parses `destroy` first (a non-string element fails the request before
+  anything is written); `validate_creates` / `validate_create` and `validate_updates` /
+  `validate_update` (with `update_patch_error`) check every entry and return the events and
+  patches to apply; the orchestrator calls `privacy_conflicts`; then `set_create`, `set_update`
+  and `set_destroy` apply the checked lists, so they take those lists instead of `args`.
+  `resolve_set_id_refs` stays between the two validation passes, where it was. `set_destroy`
+  cannot fail and returns `bool`. `time_pair_error` is the §5.9 `utcStart`/`start` and
+  `utcEnd`/`duration` check that create and update share. The orchestrator is 91 lines, most
+  of them comments on the pre-checks and on §5.9.
+- Calendar/set and ParticipantIdentity/set end with `set_on_success_default`, the
+  `onSuccessSetIsDefault` phase. It cannot fail (backend errors are ignored, as the draft says)
+  and returns whether the default changed.
+- Calendar/set checks and parses each create object in `calendar_from_create`, which calls
+  `fill_create_defaults` for the server-set and defaulted properties. The `calendarHasEvent`
+  check and the `onDestroyRemoveEvents` cleanup are `destroy_events_error`. Its update runs the
+  metadata, i18n and `shareWith` checks as one `and_then` chain, in the same order, so the
+  first failing check still decides the SetError.
+- CalendarEventNotification/set is destroy-only, like TaskNotification/set (§5).

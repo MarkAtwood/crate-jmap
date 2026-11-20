@@ -138,21 +138,54 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_on_success_default(&ctx, on_success_set_is_default.as_ref(), &mut acc).await;
 
+    finalize_set_response::<B, ParticipantIdentity>(
+        backend,
+        caller,
+        &account_id,
+        old_state,
+        mutated,
+        acc,
+    )
+    .await
+}
+
+/// What every `ParticipantIdentity/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: CalendarsBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+}
+
+/// The `create` part of `ParticipantIdentity/set`. Returns whether the
+/// backend was written.
+async fn set_create<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val
                 .as_object()
                 .and_then(reject_server_set::<ParticipantIdentity>)
             {
-                not_created.insert(create_id, serde_json::Value::from(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             // `isDefault` is server-set (draft-ietf-jmap-calendars-34 §3) and
@@ -167,7 +200,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             // RFC 8620 §5.3: a create entry that is not an object has no
             // properties to name, so report it without a `properties` list.
             if !obj_val.is_object() {
-                not_created.insert(
+                acc.not_created.insert(
                     create_id,
                     json!({
                         "type": "invalidProperties",
@@ -181,7 +214,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             // field at the root, not on a property path, so name it here
             // (RFC 8620 §5.3 invalidProperties).
             if obj_val.get("calendarAddress").is_none() {
-                not_created.insert(
+                acc.not_created.insert(
                     create_id,
                     json!({
                         "type": "invalidProperties",
@@ -204,7 +237,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                     {
                         err["properties"] = json!([key]);
                     }
-                    not_created.insert(create_id, err);
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -212,31 +245,48 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                 pi.id = Some(id.clone());
                 pi
             };
-            match backend
-                .create_object::<ParticipantIdentity, _>(caller, &account_id, &create_id, build)
+            match ctx
+                .backend
+                .create_object::<ParticipantIdentity, _>(
+                    ctx.caller,
+                    ctx.account_id,
+                    &create_id,
+                    build,
+                )
                 .await
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
                     // ParticipantIdentity uses #[derive(Serialize)] on plain
                     // data; to_value is infallible (JMAP-r3pg.13).
-                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
+                    acc.created
+                        .insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// The `update` part of `ParticipantIdentity/set`. Returns whether the
+/// backend was written.
+async fn set_update<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -246,7 +296,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
-                    not_updated.insert(
+                    acc.not_updated.insert(
                         id_str,
                         json!({ "type": "invalidPatch", "description": e.to_string() }),
                     );
@@ -257,9 +307,9 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             // server-set. A changed value is rejected, an identical one
             // dropped (RFC 8620 §5.3); nothing left is a no-op success.
             match check_read_only_patch::<_, ParticipantIdentity>(
-                backend,
-                caller,
-                &account_id,
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
                 &id,
                 patch.as_map_mut(),
             )
@@ -267,34 +317,50 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             {
                 Ok(false) => {}
                 Ok(true) => {
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                     continue;
                 }
                 Err(err) => {
-                    not_updated.insert(id_str, err);
+                    acc.not_updated.insert(id_str, err);
                     continue;
                 }
             }
-            match backend
-                .update_object::<ParticipantIdentity>(caller, &account_id, &id, patch)
+            match ctx
+                .backend
+                .update_object::<ParticipantIdentity>(ctx.caller, ctx.account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
                     mutated = true;
                     // See create branch above (JMAP-r3pg.13).
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
+                    acc.updated
+                        .insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                 }
                 Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
+                    acc.not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The `destroy` part of `ParticipantIdentity/set`. Returns whether the
+/// backend was written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+async fn set_destroy<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -315,43 +381,57 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
-            match backend
-                .destroy_object::<ParticipantIdentity>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<ParticipantIdentity>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The draft-ietf-jmap-calendars-34 §3.3 `onSuccessSetIsDefault` phase of
+/// `ParticipantIdentity/set`. Returns whether the default changed.
+async fn set_on_success_default<B: CalendarsBackend>(
+    ctx: &SetCtx<'_, B>,
+    on_success_set_is_default: Option<&Value>,
+    acc: &mut SetAccumulators,
+) -> bool {
     // §3.3: onSuccessSetIsDefault. Apply only if every CRUD attempt
     // succeeded — if any not_* map has entries, the spec's "all creates,
     // updates and destroys (if any) succeed without error" guard fails
     // and the requested default change is skipped silently.
     let all_succeeded =
-        not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
+        acc.not_created.is_empty() && acc.not_updated.is_empty() && acc.not_destroyed.is_empty();
     if all_succeeded
-        && let Some(raw) = on_success_set_is_default.as_ref()
-        && let Some(target) = resolve_on_success_set_is_default(raw, &created)
+        && let Some(raw) = on_success_set_is_default
+        && let Some(target) = resolve_on_success_set_is_default(raw, &acc.created)
     {
-        match backend
-            .set_default_participant_identity(caller, &account_id, &target)
+        match ctx
+            .backend
+            .set_default_participant_identity(ctx.caller, ctx.account_id, &target)
             .await
         {
             Ok(result) => {
-                if apply_default_change_to_response(&mut created, &mut updated, &result) {
-                    mutated = true;
-                }
+                return apply_default_change_to_response(
+                    &mut acc.created,
+                    &mut acc.updated,
+                    &result,
+                );
             }
             Err(_e) => {
                 // §3.3: silently swallow — "No error is returned to
@@ -360,23 +440,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             }
         }
     }
-
-    finalize_set_response::<B, ParticipantIdentity>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    false
 }
 
 // ---------------------------------------------------------------------------
