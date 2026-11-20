@@ -52,6 +52,7 @@ pub mod apns;
 pub mod fcm;
 pub mod hpk;
 pub mod mipush;
+pub mod wns;
 
 /// The push urgency (RFC 8030 §5.3), shared with every JMAP crate that
 /// classifies a push. Each platform maps it to its own priority
