@@ -112,7 +112,12 @@ async fn non_updatable_properties_are_invalid_properties() {
         ("actions", json!([{ "id": "a1", "label": "OK" }])),
         ("replyTo", json!("m2")),
         ("threadRootId", json!("m2")),
-        ("reactions", json!({})),
+        // A whole map that differs from the stored one (an identical one is
+        // a no-op: identical_top_level_reactions_is_a_no_op).
+        (
+            "reactions",
+            json!({ "r9": { "emoji": "x", "senderId": "contact-1", "sentAt": "2024-01-01T00:00:01Z" } }),
+        ),
     ];
     for (prop, value) in cases {
         let backend = MemoryBackend::new();
@@ -223,5 +228,33 @@ async fn identical_server_set_values_are_admitted() {
         resp["notUpdated"][&id],
         json!({ "type": "invalidProperties", "properties": ["chatId"] }),
         "{resp:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.3, as above ("MAY be included in the patch if their
+/// value is identical to the current server value"). A client that sends
+/// back the whole `reactions` map it read changes nothing, so the update
+/// succeeds and the reaction stays (bd:JMAP-t8ej.32 item 4). A different
+/// whole map is still rejected (top_level_reactions_cannot_wipe_other_senders).
+#[tokio::test]
+async fn identical_top_level_reactions_is_a_no_op() {
+    let backend = MemoryBackend::new();
+    let id = create_message(&backend).await;
+    let other = json!({ "emoji": "👍", "senderId": "contact-1", "sentAt": "2024-01-01T00:00:01Z" });
+    let seed: PatchObject =
+        serde_json::from_value(json!({ "reactions/r1": other.clone() })).expect("patch");
+    backend
+        .update_object::<Message>(&(), &Id::from(ACCOUNT_ID), &Id::from(id.as_str()), seed)
+        .await
+        .expect("seed reaction");
+    let read = get(&backend, &id).await["reactions"].clone();
+
+    let resp = update(&backend, &id, json!({ "reactions": read })).await;
+
+    assert!(resp["notUpdated"].is_null(), "{resp:?}");
+    assert!(resp["updated"].get(&id).is_some(), "{resp:?}");
+    assert_eq!(
+        get(&backend, &id).await["reactions"],
+        json!({ "r1": other })
     );
 }

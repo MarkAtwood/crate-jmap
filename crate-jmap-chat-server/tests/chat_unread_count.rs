@@ -327,3 +327,39 @@ async fn push_badge_excludes_owner_messages() {
         .expect("owner_unread_count");
     assert_eq!(total, 3);
 }
+
+/// Oracle: RFC 8620 §5.3: "Any server-set properties MAY be included in
+/// the patch if their value is identical to the current server value
+/// (before applying the patches to the object)." With a backend that does
+/// not maintain `unreadCount`, the current value is the one Chat/get
+/// computes, here 5 with the stored field still 0, so echoing what Chat/get
+/// returned succeeds (bd:JMAP-t8ej.32 item 3) and a different value does
+/// not.
+#[tokio::test]
+async fn echoing_the_computed_unread_count_is_accepted() {
+    let backend = MemoryBackend::new();
+    backend.set_maintains_unread_count_for_test(false);
+    seed_five(&backend);
+    let shown = unread_of(&backend, "g").await;
+    assert_eq!(shown, json!(5), "precondition: Chat/get computes 5");
+
+    let set = |count: Value| {
+        let backend = &backend;
+        async move {
+            jmap_chat_server::handle_chat_set(
+                backend,
+                &(),
+                &std::collections::BTreeMap::new(),
+                json!({ "accountId": ACCOUNT_ID, "update": { "g": { "unreadCount": count } } }),
+                &[],
+            )
+            .await
+            .expect("Chat/set")
+            .primary
+        }
+    };
+    let ok = set(shown).await;
+    assert!(ok["notUpdated"].is_null(), "{ok}");
+    let bad = set(json!(4)).await;
+    assert_eq!(bad["notUpdated"]["g"]["type"], "invalidProperties", "{bad}");
+}

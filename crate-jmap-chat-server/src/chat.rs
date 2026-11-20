@@ -1295,6 +1295,30 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 continue;
             };
 
+            // `unreadCount` is server-set, and when the backend does not
+            // maintain it the "current server value" a client can echo is
+            // the one Chat/get computes (fill_unread_counts), not the stored
+            // field, so compare against that (bd:JMAP-t8ej.32 item 3).
+            let computed;
+            let chat = if patch.as_map().contains_key("unreadCount")
+                && !backend.maintains_unread_count()
+            {
+                let (messages, positions) =
+                    match messages_and_positions(backend, caller, &account_id).await {
+                        Ok(v) => v,
+                        Err(e) => {
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
+                            continue;
+                        }
+                    };
+                let mut c = chat.clone();
+                c.unread_count = unread_count(&messages, &positions, &account_id, c.id.as_ref());
+                computed = c;
+                &computed
+            } else {
+                chat
+            };
+
             // RFC 8620 §5.3: "Any server-set properties MAY be included in
             // the patch if their value is identical to the current server
             // value ... Otherwise, the update MUST be rejected with an

@@ -1017,6 +1017,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-chat-server**: RFC 8620 §5.3 identical server-set values. `Chat/set`
+  compares an echoed `unreadCount` with the value `Chat/get` reports, which
+  is computed when the backend does not maintain it, instead of the stored
+  field; `Message/set` drops a top-level `reactions` identical to the stored
+  map as a no-op instead of rejecting it. A different whole `reactions` map
+  is still `invalidProperties` (bd:JMAP-t8ej.32 items 3, 4).
+
 - **jmap-filenode-server**: draft-ietf-jmap-filenode-20 §5 for destroy
   cascades: a `FileNode/set` destroy with `onDestroyRemoveChildren`, and
   the implicit destroy of `FileNode/copy` `onSuccessDestroyOriginal`, that

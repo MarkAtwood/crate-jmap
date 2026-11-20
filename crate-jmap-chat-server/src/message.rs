@@ -1823,6 +1823,19 @@ pub async fn handle_message_set<B: ChatBackend>(
                 not_updated.insert(id_str, err);
                 continue;
             }
+            // A whole `reactions` identical to the stored map changes
+            // nothing: drop it, as an identical server-set value is
+            // (RFC 8620 §5.3), so only a real whole-map write is rejected
+            // below (bd:JMAP-t8ej.32 item 4).
+            if let Value::Object(map) = &mut patch_val
+                && map.get("reactions").is_some_and(|r| {
+                    serde_json::to_value(&stored)
+                        .ok()
+                        .is_some_and(|s| s.get("reactions").unwrap_or(&Value::Null) == r)
+                })
+            {
+                map.remove("reactions");
+            }
 
             // draft-atwood-jmap-chat-00 §Message/set defines the only
             // client updates: Editing (`body`, `bodyType`, `mentions`,
