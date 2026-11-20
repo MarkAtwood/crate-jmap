@@ -75,6 +75,11 @@ members = [
     "crate-jmap-scene-client",
     "crate-jmap-graph-client",
     "crate-jmap-filenode",
+    "crate-jmap-mail",
+    "crate-jmap-chat",
+    "crate-jmap-calendars",
+    "crate-jmap-contacts",
+    "crate-jmap-tasks",
     "crate-jmap-sharing",
     "crate-jmap-metadata",
     "crate-jmap-vtc",
@@ -165,6 +170,9 @@ jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.5"
 jmap-vtc-client        = { path = "crate-jmap-vtc-client",       version = "0.5" }
 jmap-scene-client      = { path = "crate-jmap-scene-client",     version = "0.5" }
 jmap-graph-client      = { path = "crate-jmap-graph-client",     version = "0.5" }
+jmap-tasks-client      = { path = "crate-jmap-tasks-client",     version = "0.5" }
+jmap-contacts-client   = { path = "crate-jmap-contacts-client",  version = "0.5" }
+jmap-calendars-client  = { path = "crate-jmap-calendars-client", version = "0.5" }
 mime-tree              = "0.6"
 futures                = "0.3"
 serde                  = { version = "1", features = ["derive"] }

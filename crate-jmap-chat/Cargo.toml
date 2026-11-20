@@ -1,0 +1,26 @@
+[package]
+name = "jmap-chat"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Chat (draft-atwood-jmap-chat-00): umbrella crate re-exporting jmap-chat-types, -client, and -server"
+keywords = ["jmap", "chat", "messaging"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-chat-types = { workspace = true }
+jmap-chat-client = { workspace = true, optional = true }
+jmap-chat-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-chat-client"]
+server = ["dep:jmap-chat-server"]
+# The server's in-memory reference backend (not production).
+memory = ["server", "jmap-chat-server/memory"]
+
+[package.metadata.docs.rs]
+all-features = true

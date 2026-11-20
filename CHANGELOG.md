@@ -187,6 +187,13 @@ wire behaviour that a conforming peer can observe.
   `jmap-object-history` keeps 0.0.1's `CAPABILITY`
   (`urn:ietf:params:jmap:object-history`). (bd:JMAP-gs76.1-.6, .8)
 
+- **jmap-mail**, **jmap-chat**, **jmap-calendars**, **jmap-contacts**,
+  **jmap-tasks**: umbrella crates, replacing the 0.0.1 name-claim
+  placeholders, with the same `types` / `client` / `server` / `memory`
+  shape. `jmap-mail` also passes `emailpush`, `mdn` and `sieve` through to
+  its component crates. (bd:JMAP-amr2, JMAP-boxq, JMAP-u42w, JMAP-d97x,
+  JMAP-unaa)
+
 - **jmap-did**, **jmap-cid**: umbrella crates re-exporting `jmap-did-types`
   and `jmap-cid-types` as `types`, with no features: neither family has a
   client or server crate. `jmap-did` does not re-export the

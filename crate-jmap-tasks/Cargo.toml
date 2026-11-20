@@ -1,0 +1,26 @@
+[package]
+name = "jmap-tasks"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Tasks (draft-ietf-jmap-tasks-06): umbrella crate re-exporting jmap-tasks-types, -client, and -server"
+keywords = ["jmap", "tasks", "todo"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-tasks-types = { workspace = true }
+jmap-tasks-client = { workspace = true, optional = true }
+jmap-tasks-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-tasks-client"]
+server = ["dep:jmap-tasks-server"]
+# The server's in-memory reference backend (not production).
+memory = ["server", "jmap-tasks-server/memory"]
+
+[package.metadata.docs.rs]
+all-features = true

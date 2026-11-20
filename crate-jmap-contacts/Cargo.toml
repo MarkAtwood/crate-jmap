@@ -1,0 +1,26 @@
+[package]
+name = "jmap-contacts"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Contacts (RFC 9610): umbrella crate re-exporting jmap-contacts-types, -client, and -server"
+keywords = ["jmap", "contacts", "jscontact"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-contacts-types = { workspace = true }
+jmap-contacts-client = { workspace = true, optional = true }
+jmap-contacts-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-contacts-client"]
+server = ["dep:jmap-contacts-server"]
+# The server's in-memory reference backend (not production).
+memory = ["server", "jmap-contacts-server/memory"]
+
+[package.metadata.docs.rs]
+all-features = true

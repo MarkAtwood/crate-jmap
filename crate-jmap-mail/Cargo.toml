@@ -1,0 +1,32 @@
+[package]
+name = "jmap-mail"
+version = "0.5.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Mail (RFC 8621): umbrella crate re-exporting jmap-mail-types, -client, and -server"
+keywords = ["jmap", "mail", "email"]
+categories = ["network-programming"]
+exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
+
+[dependencies]
+jmap-mail-types = { workspace = true }
+jmap-mail-client = { workspace = true, optional = true }
+jmap-mail-server = { workspace = true, optional = true }
+
+[features]
+client = ["dep:jmap-mail-client"]
+server = ["dep:jmap-mail-server"]
+# The server's in-memory reference backend (not production).
+memory = ["server", "jmap-mail-server/memory"]
+# draft-ietf-jmap-emailpush-05 (types, client and server).
+emailpush = ["jmap-mail-types/emailpush", "jmap-mail-client?/emailpush", "jmap-mail-server?/emailpush"]
+# RFC 9007 MDN (types and server).
+mdn = ["jmap-mail-types/mdn", "jmap-mail-server?/mdn"]
+# RFC 9661 Sieve scripts (types and server).
+sieve = ["jmap-mail-types/sieve", "jmap-mail-server?/sieve"]
+
+[package.metadata.docs.rs]
+all-features = true
