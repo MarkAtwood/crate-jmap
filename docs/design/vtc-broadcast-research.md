@@ -469,6 +469,12 @@ not fit.
 
 **Hooks that fit only one backend (protocol smells for jmap-chat-spec-xpzz):**
 
+> **Resolved 2026-11-20 (Mark, bd:JMAP-4j03):** S1, S2 and G1 below were
+> adopted as suggested in jmap-chat-spec 125749a (`supportsRecordingPause`,
+> `livestreamPushSchemes` with stream key presentation, `layouts` and the
+> `layout` property) and implemented in jmap-vtc-types and
+> jmap-vtc-server.
+
 - **S1. Recording pause/resume** (`"recording"` ⇄ `"paused"`, §Pausing,
   Resuming, and Stopping a Recording). Native only in the free-tools
   (GStreamer) backend. AWS and LiveKit must emulate it: stop the composition
