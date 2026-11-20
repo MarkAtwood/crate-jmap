@@ -579,46 +579,102 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let mut created = Map::new();
-    let mut updated = Map::new();
-    let mut destroyed = Vec::new();
-    let mut not_created = Map::new();
-    let mut not_updated = Map::new();
-    let mut not_destroyed = Map::new();
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        cap: &cap,
+    };
+    let mut acc = SetAccumulators::default();
+    set_create::<S, B>(&ctx, &mut args, &mut acc).await;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    set_update::<S, B>(&ctx, &mut args, &mut acc).await;
+    set_destroy::<S, B>(&ctx, &mut args, &mut acc).await?;
 
+    let mutated = !acc.created.is_empty() || !acc.updated.is_empty() || !acc.destroyed.is_empty();
+    finalize_set_response::<B, S::Object>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: GraphBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's creation ids, for `#creationId` values of
+    /// [`SetOps::ID_PROPERTIES`].
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The account's Graph capability.
+    cap: &'a GraphCapability,
+}
+
+/// The `create` part of a `/set`, through [`SetOps::create`].
+async fn set_create<S: SetOps<B>, B: GraphBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) {
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in create_map {
-            if let Err(e) = resolve_creation_refs(&mut obj, S::ID_PROPERTIES, created_ids) {
-                not_created.insert(create_id, e);
+            if let Err(e) = resolve_creation_refs(&mut obj, S::ID_PROPERTIES, ctx.created_ids) {
+                acc.not_created.insert(create_id, e);
                 continue;
             }
-            match S::create(backend, caller, &account_id, &cap, &create_id, obj).await {
-                Ok(v) => created.insert(create_id, v),
-                Err(e) => not_created.insert(create_id, e),
+            match S::create(
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
+                ctx.cap,
+                &create_id,
+                obj,
+            )
+            .await
+            {
+                Ok(v) => acc.created.insert(create_id, v),
+                Err(e) => acc.not_created.insert(create_id, e),
             };
         }
     }
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+}
+
+/// The `update` part of a `/set`, through [`SetOps::update`].
+async fn set_update<S: SetOps<B>, B: GraphBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) {
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
-            if let Err(e) = resolve_creation_refs(&mut patch, S::ID_PROPERTIES, created_ids) {
-                not_updated.insert(id_str, e);
+            if let Err(e) = resolve_creation_refs(&mut patch, S::ID_PROPERTIES, ctx.created_ids) {
+                acc.not_updated.insert(id_str, e);
                 continue;
             }
-            match S::update(backend, caller, &account_id, &cap, &id, patch).await {
-                Ok(v) => updated.insert(id_str, v),
-                Err(e) => not_updated.insert(id_str, e),
+            match S::update(ctx.backend, ctx.caller, ctx.account_id, ctx.cap, &id, patch).await {
+                Ok(v) => acc.updated.insert(id_str, v),
+                Err(e) => acc.not_updated.insert(id_str, e),
             };
         }
     }
+}
+
+/// The `destroy` part of a `/set`, through [`SetOps::destroy`], including
+/// the whole-request `invalidArguments` for a non-string element.
+async fn set_destroy<S: SetOps<B>, B: GraphBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of `destroy` is an Id.
         let ids: Vec<&str> = destroy_arr
@@ -635,43 +691,74 @@ pub(crate) async fn handle_set<S: SetOps<B>, B: GraphBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
-            match S::destroy(backend, caller, &account_id, &id).await {
-                Ok(()) => destroyed.push(Value::String(id_str.to_owned())),
+            match S::destroy(ctx.backend, ctx.caller, ctx.account_id, &id).await {
+                Ok(()) => acc.destroyed.push(Value::String(id_str.to_owned())),
                 Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), e);
+                    acc.not_destroyed.insert(id_str.to_owned(), e);
                 }
             }
         }
     }
+    Ok(())
+}
 
-    let new_state = if created.is_empty() && updated.is_empty() && destroyed.is_empty() {
-        old_state.clone()
-    } else {
+/// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
+#[derive(Debug, Default)]
+pub(crate) struct SetAccumulators {
+    pub created: Map<String, Value>,
+    pub updated: Map<String, Value>,
+    pub destroyed: Vec<Value>,
+    pub not_created: Map<String, Value>,
+    pub not_updated: Map<String, Value>,
+    pub not_destroyed: Map<String, Value>,
+}
+
+/// Build the final `/set` response, re-reading `newState` when anything
+/// was mutated. Empty maps and arrays serialize as `null`.
+pub(crate) async fn finalize_set_response<B, O>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    old_state: State,
+    mutated: bool,
+    acc: SetAccumulators,
+) -> Result<HandlerOutput, JmapError>
+where
+    B: GraphBackend,
+    O: JmapObject + Send + Sync,
+{
+    let new_state = if mutated {
         backend
-            .get_state::<S::Object>(caller, &account_id)
+            .get_state::<O>(caller, account_id)
             .await
             .map_err(|e| server_fail_from_backend(&e))?
+    } else {
+        old_state.clone()
     };
-    let obj = |m: Map<String, Value>| {
-        if m.is_empty() {
-            Value::Null
-        } else {
-            Value::Object(m)
-        }
-    };
+
+    let SetAccumulators {
+        created,
+        updated,
+        destroyed,
+        not_created,
+        not_updated,
+        not_destroyed,
+    } = acc;
+
     Ok(HandlerOutput::new(json!({
         "accountId": account_id.as_ref(),
         "oldState": old_state.as_ref(),
         "newState": new_state.as_ref(),
-        "created": obj(created),
-        "updated": obj(updated),
-        "destroyed": if destroyed.is_empty() { Value::Null } else { Value::Array(destroyed) },
-        "notCreated": obj(not_created),
-        "notUpdated": obj(not_updated),
-        "notDestroyed": obj(not_destroyed),
+        "created":      if created.is_empty()      { Value::Null } else { Value::Object(created) },
+        "updated":      if updated.is_empty()      { Value::Null } else { Value::Object(updated) },
+        "destroyed":    if destroyed.is_empty()    { Value::Null } else { Value::Array(destroyed) },
+        "notCreated":   if not_created.is_empty()  { Value::Null } else { Value::Object(not_created) },
+        "notUpdated":   if not_updated.is_empty()  { Value::Null } else { Value::Object(not_updated) },
+        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
     })))
 }

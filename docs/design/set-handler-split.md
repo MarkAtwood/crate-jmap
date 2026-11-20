@@ -205,3 +205,13 @@ orchestrator, in lines.
   `move_depth_error`, `update_collision` and `update_sha256`. Still over 100 lines:
   `destroy_one` (129), which existed before, and `filenode_copy` (795), which is FileNode/copy,
   not a `/set`.
+- **jmap-graph-server** (`handle_set` in helpers.rs, the driver behind every Graph `/set`,
+  128 → 50). The driver is generic over the `SetOps` trait, so the sub-functions are generic
+  over `S: SetOps<B>`. Like jmap-chat-mimi-server, the crate had no `SetAccumulators`, and
+  helpers.rs now has it and `finalize_set_response`. `mutated` was already worked out from the
+  maps.
+- **Checked, no `*_set` over 100 lines:** jmap-blob-server (`handle_blob_set` 84; its
+  `create_one`, 157, is the Blob/upload create steps, already outside the handler),
+  jmap-object-history-server, jmap-quotas-server, jmap-metadata-server,
+  jmap-graph-projection-server, jmap-chat-scene-server, jmap-scene-vtc-server,
+  jmap-chat-vtc-server, jmap-chat-filenode-server, jmap-chat-federation-server.
