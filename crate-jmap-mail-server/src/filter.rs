@@ -474,6 +474,9 @@ fn header_matches(email: &Email, header: &[String]) -> bool {
 /// Call sites whose input is a typed `UTCDate` (strict UTC) should use
 /// [`jmap_types::UTCDate::to_epoch_seconds`]; this helper is for values a
 /// client may send with an offset, such as filter `before` / `after`.
+// Only the memory backend calls it; with `emailpush` alone this module is
+// built without a caller.
+#[cfg_attr(not(feature = "memory"), allow(dead_code))]
 pub(crate) fn try_rfc3339_to_epoch_secs(s: &str) -> Option<i64> {
     // Expected format: YYYY-MM-DDTHH:MM:SS[.fff](Z|+HH:MM|-HH:MM)
     // Length with Z offset: 20 chars; with millis+Z: 24 chars; with ±HH:MM: 25 chars.
