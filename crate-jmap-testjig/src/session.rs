@@ -184,11 +184,7 @@ pub(crate) fn object_history_capability(
         .filter(|(b, _)| backend.is_none_or(|want| want == *b))
         .flat_map(|(_, t)| t.iter().map(|t| (*t).to_owned()))
         .collect::<Vec<_>>();
-    serde_json::from_value(json!({
-        "maxHistoryDuration": HISTORY_SECONDS,
-        "supportedTypes": types,
-    }))
-    .expect("a well-formed object-history capability")
+    jmap_object_history_types::ObjectHistoryAccountCapability::new(Some(HISTORY_SECONDS), types)
 }
 
 /// The RFC 8887 WebSocket subprotocol capability URI. Not in

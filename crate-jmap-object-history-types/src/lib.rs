@@ -102,8 +102,8 @@ impl ObjectHistoryCapability {
 /// The `accountCapabilities` value for the URI (§2.1), which "MUST
 /// contain" both properties; both are always serialized.
 ///
-/// Built by deserializing JSON: there is no constructor (the workspace
-/// "Public-API construction" rule for capability values).
+/// A server builds the value it advertises with [`Self::new`]; a client
+/// deserializes it from the Session object.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -122,6 +122,38 @@ pub struct ObjectHistoryAccountCapability {
 }
 
 impl ObjectHistoryAccountCapability {
+    /// The capability with `maxHistoryDuration` (in seconds, or `None`
+    /// for no fixed limit) and `supportedTypes`, the two properties §2.1
+    /// says it "MUST contain", and no unknown members.
+    ///
+    /// List in `supported_types` only types that [`is_history_type`]
+    /// accepts and the backend keeps history for.
+    ///
+    /// ```
+    /// use jmap_object_history_types::ObjectHistoryAccountCapability;
+    ///
+    /// let cap = ObjectHistoryAccountCapability::new(
+    ///     Some(2_592_000),
+    ///     vec!["ContactCard".to_owned(), "Email".to_owned()],
+    /// );
+    /// assert!(cap.supports_type("Email"));
+    /// assert_eq!(
+    ///     serde_json::to_value(&cap)?,
+    ///     serde_json::json!({
+    ///         "maxHistoryDuration": 2592000,
+    ///         "supportedTypes": ["ContactCard", "Email"]
+    ///     })
+    /// );
+    /// # Ok::<(), serde_json::Error>(())
+    /// ```
+    pub fn new(max_history_duration: Option<u64>, supported_types: Vec<String>) -> Self {
+        Self {
+            max_history_duration,
+            supported_types,
+            extra: Map::new(),
+        }
+    }
+
     /// Whether `supportedTypes` lists `O`.
     pub fn supports<O: JmapObject>(&self) -> bool {
         self.supports_type(O::TYPE_NAME)

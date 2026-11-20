@@ -10,7 +10,7 @@ capability objects, the history arguments of `Foo/get`, `Foo/query` and
 | Item | Spec |
 |---|---|
 | `JMAP_OBJECT_HISTORY_URI` | §7.1 |
-| `ObjectHistoryCapability` (Session value, empty) and `ObjectHistoryAccountCapability` (`maxHistoryDuration`, `supportedTypes`, `supports::<O>()`) | §2.1 |
+| `ObjectHistoryCapability` (Session value, empty) and `ObjectHistoryAccountCapability` (`new`, `maxHistoryDuration`, `supportedTypes`, `supports::<O>()`) | §2.1 |
 | `HistoryGetArguments` (`includeReplaced`, `includeDestroyed`, `historyAfter`, `historyBefore`, `historySkip`, `historyLimit`) | §3 |
 | `ObjectHistoryInfo` (`version`, `replaced`, `hasOlder`, `expires`) and `HistoryEntry<T>` (a Foo plus `objectHistory`) | §3.1 |
 | `DestroyedQueryArguments` (`onlyDestroyed`, `destroyedAfter`, `destroyedBefore`) | §4; on `Foo/queryChanges` per the -04 editor's copy |
@@ -28,10 +28,12 @@ and `jmap-object-history-client` all share these types.
 ```rust
 use jmap_object_history_types::{ObjectHistoryAccountCapability, is_history_type};
 
-let cap: ObjectHistoryAccountCapability = serde_json::from_value(serde_json::json!({
-    "maxHistoryDuration": 2592000,
-    "supportedTypes": ["ContactCard", "Email"]
-})).unwrap();
+// A server builds the value it advertises; a client deserializes it
+// from the Session object.
+let cap = ObjectHistoryAccountCapability::new(
+    Some(2_592_000),
+    vec!["ContactCard".to_owned(), "Email".to_owned()],
+);
 assert!(cap.supports_type("Email"));
 assert!(is_history_type("Mailbox"));
 assert!(!is_history_type("Thread"));

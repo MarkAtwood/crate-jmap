@@ -65,6 +65,7 @@ pub jmap_object_history_types::ObjectHistoryAccountCapability::extra: serde_json
 pub jmap_object_history_types::ObjectHistoryAccountCapability::max_history_duration: core::option::Option<u64>
 pub jmap_object_history_types::ObjectHistoryAccountCapability::supported_types: alloc::vec::Vec<alloc::string::String>
 impl jmap_object_history_types::ObjectHistoryAccountCapability
+pub fn jmap_object_history_types::ObjectHistoryAccountCapability::new(core::option::Option<u64>, alloc::vec::Vec<alloc::string::String>) -> Self
 pub fn jmap_object_history_types::ObjectHistoryAccountCapability::supports<O: jmap_types::backend::JmapObject>(&self) -> bool
 pub fn jmap_object_history_types::ObjectHistoryAccountCapability::supports_type(&self, &str) -> bool
 impl core::clone::Clone for jmap_object_history_types::ObjectHistoryAccountCapability

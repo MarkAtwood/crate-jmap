@@ -50,6 +50,11 @@ wire behaviour that a conforming peer can observe.
   `update_object_if` with the draft's source states, delivering the
   recording consent events and stop effects a client update would;
   `ReportError` says why a report changed nothing.
+- **jmap-object-history-types**: `ObjectHistoryAccountCapability::new(max_history_duration,
+  supported_types)`, so a server builds the value it advertises without
+  going through JSON (found by the toy-consumer check, bd:JMAP-m59l). The
+  umbrella `jmap-object-history` doc example uses it.
+
 - **jmap-graph-server**, **jmap-vtc-server**, **jmap-scene-server**
   (`memory`): a public way to add an account to the reference
   `MemoryBackend`, which before had only a `#[doc(hidden)]`

@@ -20,9 +20,10 @@
 //!
 //! assert_eq!(JMAP_OBJECT_HISTORY_URI, "urn:ietf:params:jmap:object-history");
 //! assert_eq!(jmap_object_history::CAPABILITY, JMAP_OBJECT_HISTORY_URI);
-//! let cap: ObjectHistoryAccountCapability = serde_json::from_str(r#"{
-//!     "maxHistoryDuration": 2592000, "supportedTypes": ["ContactCard", "Email"]}"#)
-//!     .unwrap();
+//! let cap = ObjectHistoryAccountCapability::new(
+//!     Some(2_592_000),
+//!     vec!["ContactCard".to_owned(), "Email".to_owned()],
+//! );
 //! assert!(cap.supports_type("Email"));
 //! ```
 

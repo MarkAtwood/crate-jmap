@@ -59,6 +59,24 @@ fn account_capability_always_has_both_properties() {
     assert_eq!(cap.max_history_duration, Some(2_592_000));
 }
 
+/// §2.1: `new` gives the two properties the value "MUST contain", `null`
+/// included, and nothing else. Expected JSON is hand-written.
+#[test]
+fn account_capability_new_writes_both_properties() {
+    let cap = ObjectHistoryAccountCapability::new(None, vec!["ContactCard".to_owned()]);
+    assert!(cap.supports_type("ContactCard"));
+    assert!(cap.extra.is_empty());
+    assert_eq!(
+        serde_json::to_value(&cap).unwrap(),
+        json!({"maxHistoryDuration": null, "supportedTypes": ["ContactCard"]})
+    );
+    let cap = ObjectHistoryAccountCapability::new(Some(86_400), Vec::new());
+    assert_eq!(
+        serde_json::to_value(&cap).unwrap(),
+        json!({"maxHistoryDuration": 86400, "supportedTypes": []})
+    );
+}
+
 /// §3.2.1, the response `list` verbatim: entries parse, and serialize back
 /// to the same JSON, `replaced: null` and `expires: null` included.
 #[test]
