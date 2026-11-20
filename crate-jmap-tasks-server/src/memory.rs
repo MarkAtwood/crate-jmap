@@ -20,6 +20,11 @@
 //! inherits the trait's default (no time-zone conversion), and
 //! [`update_task_per_user`](crate::TasksBackend::update_task_per_user)
 //! stores per-user patches on the shared object (single-user backend).
+//! `Task/query` has no time-zone database and no recurrence engine:
+//! `after` / `before` on a task whose `timeZone` is not the query's is
+//! `unsupportedFilter`, and with `expandRecurrences` a recurring match is
+//! `cannotCalculateOccurrences` (see
+//! [`query_tasks`](crate::TasksBackend::query_tasks) on `MemoryBackend`).
 //!
 //! # Feature flag and API stability
 //!
@@ -447,8 +452,9 @@ impl MemoryBackend {
     }
 
     /// Register `account_id` as known and return `self`, for
-    /// builder-style fixture setup. Same as [`Self::register_account`]
-    /// (idempotent; the id is stored without RFC 8620 §1.2 validation).
+    /// builder-style fixture setup. Until then the account is unknown
+    /// (`accountNotFound`, RFC 8620 §3.6.2). Idempotent; the id is stored
+    /// without RFC 8620 §1.2 validation.
     ///
     /// # Panics
     ///
