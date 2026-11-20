@@ -27,5 +27,5 @@ change.
 
 | Patch | Bead | What it changes |
 |---|---|---|
-| scene-games-guide-permissions.patch | JMAP-8loa (spec-internal part) | jmap-scene-board-games-guide.md, against 3445973: the FPS network model now cites the draft's 5-30 s avatar reconciliation instead of "1-5 Hz"; health and inventory that the simulation owns move from SceneAvatar `worldState` (only the user may write it, Avatar Permissions) to per-player SceneObjects owned by the region owner; the Counter-Strike pattern takes per-player money out of public region `worldState` into those objects, hidden by object visibility filtering. Found reviewing project-cordite. |
+| scene-games-guide-permissions.patch (applied as jmap-chat-spec f2e88ed, 2026-11-20) | JMAP-8loa (spec-internal part) | jmap-scene-board-games-guide.md, against 3445973: the FPS network model now cites the draft's 5-30 s avatar reconciliation instead of "1-5 Hz"; health and inventory that the simulation owns move from SceneAvatar `worldState` (only the user may write it, Avatar Permissions) to per-player SceneObjects owned by the region owner; the Counter-Strike pattern takes per-player money out of public region `worldState` into those objects, hidden by object visibility filtering. Found reviewing project-cordite. |
 
