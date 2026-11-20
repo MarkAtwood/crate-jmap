@@ -3,10 +3,10 @@
 Thin adapter crate in the JMAP workspace. Converts `mime-tree` output types to
 `jmap-mail-types` types. No parsing logic lives here.
 
-Exception (Mark, 2026-10-23, bd JMAP-u6c5): the RFC 5322 / MIME writer lives
-here until it moves to `mime-tree` (bd JMAP-6zvo). Keep `src/writer.rs` free
-of JMAP types in its API; the JMAP `Email`-create mapping stays in
-`src/compose.rs`.
+The RFC 5322 / MIME writer lives in `mime-tree` (`mime_tree::write_message`,
+bd JMAP-6zvo, decision 49). Only the JMAP `Email`-create → writer mapping
+stays here, in `src/compose.rs`. Generic writing logic belongs in
+`mime-tree`.
 
 Read `~/PROJECT/crate-jmap/AGENTS.md` before doing anything.
 
@@ -38,10 +38,7 @@ pub fn body_value_to_jmap(val: DecodedBodyValue) -> EmailBodyValue;
 // Full body fields from a ParsedMessage
 pub fn message_to_jmap_body(msg: &ParsedMessage, blob_id_for: impl Fn(&ParsedPart) -> Id) -> JmapBodyFields;
 
-// Writer: RFC 5322 / MIME message from header fields and a part tree
-pub fn writer::write_message(headers: &[Header], body: &Part) -> Result<Vec<u8>, WriteError>;
-
-// Email/set create → message bytes
+// Email/set create → message bytes, via mime_tree::write_message
 pub fn compose_email(draft: &EmailDraft, blobs: &BTreeMap<Id, Vec<u8>>) -> Result<Vec<u8>, ComposeError>;
 ```
 

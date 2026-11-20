@@ -1,4 +1,4 @@
-//! JMAP `Email` creation → RFC 5322 message, through [`crate::writer`].
+//! JMAP `Email` creation → RFC 5322 message, through [`mime_tree::write_message`].
 //!
 //! [`compose_email`] writes the message that an RFC 8621 §4.6 `Email/set`
 //! create describes. It writes exactly what the [`EmailDraft`] holds; the
@@ -10,9 +10,8 @@ use std::fmt;
 
 use jmap_mail_types::{EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue};
 use jmap_types::{Date, Id};
+use mime_tree::{Body, Group, Header, HeaderValue, Mailbox, Part, WriteError};
 use serde_json::{Map, Value};
-
-use crate::writer::{self, Body, Group, Header, HeaderValue, Mailbox, Part, WriteError};
 
 /// The parts of an `Email` create that determine the message bytes.
 ///
@@ -109,7 +108,7 @@ pub enum ComposeError {
         /// Why it was rejected.
         reason: String,
     },
-    /// The writer rejected a header field.
+    /// [`mime_tree::write_message`] rejected a header field.
     Write(WriteError),
 }
 
@@ -325,7 +324,7 @@ pub fn compose_email(
         }
     };
 
-    Ok(writer::write_message(&headers, &body)?)
+    Ok(mime_tree::write_message(&headers, &body)?)
 }
 
 fn invalid_header(property: &str, reason: &str) -> ComposeError {

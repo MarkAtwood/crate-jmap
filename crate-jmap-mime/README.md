@@ -8,19 +8,19 @@ All MIME parsing lives in `mime_tree`. This crate only maps field names and
 assembles the RFC 8621 §4.1.4 body structure lists. No parsing logic belongs
 here.
 
-It also holds the reverse direction until that moves to `mime-tree`
-(bd JMAP-6zvo):
+It also maps the reverse direction. `compose_email(draft, blobs)` writes the
+message an RFC 8621 §4.6 `Email/set` create (`EmailDraft`) describes,
+fetching `blobId` parts from `blobs`. It writes only what the draft holds:
+the caller adds the `Message-ID` and `Date` fields RFC 8621 §4.6 requires.
 
-- `writer::write_message(headers, body)` writes an RFC 5322 / MIME message
-  from header fields and a tree of `writer::Part`s. Its API has no JMAP
-  types. It folds header lines at 78 characters, encodes non-ASCII text as
-  RFC 2047 words and non-ASCII parameters per RFC 2231, writes text bodies
-  quoted-printable and binary ones base64, and rejects CR or LF in values it
-  writes unencoded.
-- `compose_email(draft, blobs)` writes the message an RFC 8621 §4.6
-  `Email/set` create (`EmailDraft`) describes, fetching `blobId` parts from
-  `blobs`. It writes only what the draft holds: the caller adds the
-  `Message-ID` and `Date` fields RFC 8621 §4.6 requires.
+The RFC 5322 / MIME writer itself now lives in `mime-tree`, next to its
+parser (bd JMAP-6zvo, decision 49): `compose_email` maps the draft onto
+`mime_tree::write_message` and its `Header` / `Part` types. That writer
+folds header lines at 78 characters, encodes non-ASCII text as RFC 2047
+words and non-ASCII parameters per RFC 2231, writes text bodies
+quoted-printable and binary ones base64, and rejects CR or LF in values it
+writes unencoded. Callers that used `jmap_mime::writer` use those
+`mime_tree` items instead.
 
 ## What it is
 
@@ -214,6 +214,10 @@ shape plus a decoded `bodyValues` entry for the first text part.
   (b) parse on a worker thread with a controlled stack size and a
   supervisor that restarts on overflow, or (c) wait for `mime_tree` to
   add its own recursion bound.
+- **`mime-tree` is a path dependency for now.** The writer
+  `compose_email` uses is in mime-tree 0.6, which is not on crates.io yet;
+  the workspace points at a local checkout until it is (decision 49,
+  `RELEASING.md` blocker 5). This crate cannot be published until then.
 
 ## Crate family
 

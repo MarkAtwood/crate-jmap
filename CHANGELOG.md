@@ -1064,6 +1064,15 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **BREAKING** **jmap-mime**: depends on mime-tree 0.6 (was 0.4). jmap-mime's
+  public API takes and returns mime-tree types (`ParsedPart`,
+  `ParsedMessage`, `DecodedBodyValue`), and mime-tree 0.5 made them
+  `#[non_exhaustive]` and changed `InlineUUBlock::begin_length` to
+  `Option<u32>`; see mime-tree's CHANGELOG. Until mime-tree 0.6 is on
+  crates.io the workspace uses a path dependency on its `mime-writer`
+  branch (decision 49; `RELEASING.md` has the switch-back step)
+  (bd:JMAP-6zvo).
+
 - **jmap-chat-server**: RFC 8620 §5.3 identical server-set values. `Chat/set`
   compares an echoed `unreadCount` with the value `Chat/get` reports, which
   is computed when the backend does not maintain it, instead of the stored
@@ -1720,6 +1729,14 @@ wire behaviour that a conforming peer can observe.
   matched every File.
 
 ### Removed
+
+- **BREAKING** **jmap-mime**: the `writer` module. The generic RFC 5322 /
+  MIME writer moved to mime-tree 0.6, next to its parser, unchanged in
+  output: use `mime_tree::write_message` and `mime_tree::{Header,
+  HeaderValue, Mailbox, Group, Part, Body, WriteError}` in place of
+  `jmap_mime::writer::*`. `compose_email` is now a thin `Email/set`
+  create → writer mapping on top of it, and `ComposeError::Write` holds a
+  `mime_tree::WriteError` (bd:JMAP-6zvo, decision 49).
 
 - **BREAKING** **jmap-chat-types**: `CHAT_FILENODE_SPACE_ROLE`. The
   `chatspace` FileNode role is no longer defined or registered by

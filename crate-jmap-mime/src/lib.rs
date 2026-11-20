@@ -1,11 +1,10 @@
 //! Thin adapter: [`mime_tree`] types → [`jmap_mail_types`] types, and the
-//! reverse direction: an RFC 5322 / MIME message writer.
+//! reverse direction: JMAP `Email` create → RFC 5322 message.
 //!
-//! All MIME parsing lives in `mime-tree`; the parse direction only maps
-//! field names. The writer lives here until it moves to `mime-tree`
-//! (bd JMAP-6zvo): [`writer`] is the generic RFC 5322 / MIME writer, with
-//! no JMAP type in its API, and [`compose_email`] writes the message an
-//! RFC 8621 §4.6 `Email/set` create describes ([`EmailDraft`]).
+//! All MIME parsing and writing lives in `mime-tree`. The parse direction
+//! only maps field names; [`compose_email`] maps the RFC 8621 §4.6
+//! `Email/set` create an [`EmailDraft`] describes onto
+//! [`mime_tree::write_message`].
 //!
 //! # Usage
 //!
@@ -50,7 +49,6 @@
 #![forbid(unsafe_code)]
 
 mod compose;
-pub mod writer;
 
 pub use compose::{ComposeError, EmailDraft, compose_email};
 
@@ -338,13 +336,24 @@ mod tests {
 
     // --- body_value_to_jmap ---
 
+    /// `DecodedBodyValue` is `#[non_exhaustive]` and has no constructor,
+    /// so build it through its `Deserialize` impl.
+    fn decoded_body_value(
+        value: &str,
+        is_truncated: bool,
+        is_encoding_problem: bool,
+    ) -> DecodedBodyValue {
+        serde_json::from_value(serde_json::json!({
+            "value": value,
+            "is_truncated": is_truncated,
+            "is_encoding_problem": is_encoding_problem,
+        }))
+        .expect("DecodedBodyValue fields")
+    }
+
     #[test]
     fn body_value_plain_maps_fields() {
-        let dv = DecodedBodyValue {
-            value: "hello".into(),
-            is_truncated: false,
-            is_encoding_problem: false,
-        };
+        let dv = decoded_body_value("hello", false, false);
         let jv = body_value_to_jmap(dv);
         assert_eq!(jv.value, "hello");
         assert!(!jv.is_truncated);
@@ -353,11 +362,7 @@ mod tests {
 
     #[test]
     fn body_value_flags_preserved() {
-        let dv = DecodedBodyValue {
-            value: "x".into(),
-            is_truncated: true,
-            is_encoding_problem: true,
-        };
+        let dv = decoded_body_value("x", true, true);
         let jv = body_value_to_jmap(dv);
         assert!(jv.is_truncated);
         assert!(jv.is_encoding_problem);
@@ -620,7 +625,25 @@ mod tests {
 
     // --- depth-bound (DoS defense) tests ---
 
-    use mime_tree::TransferEncoding;
+    // `ParsedPart` is `#[non_exhaustive]` and has no constructor, so build
+    // a part through its `Deserialize` impl. Every range is (0, 0), the
+    // transfer encoding is identity, and there are no children.
+    fn bare_part(part_id: &str, content_type: &str, charset: Option<&str>) -> ParsedPart {
+        serde_json::from_value(serde_json::json!({
+            "part_id": part_id,
+            "content_type": content_type,
+            "charset": charset,
+            "transfer_encoding": "Identity",
+            "disposition": null,
+            "filename": null,
+            "cid": null,
+            "header_range": [0, 0],
+            "body_range": [0, 0],
+            "children": [],
+            "is_encoding_problem": false,
+        }))
+        .expect("ParsedPart fields")
+    }
 
     // Build a deeply-nested multipart `ParsedPart` chain of length `depth`,
     // terminated by a single text/plain leaf at the bottom. This bypasses
@@ -628,33 +651,11 @@ mod tests {
     // parser cannot itself handle (its recursion is currently unbounded).
     fn make_deep_multipart_chain(depth: usize) -> ParsedPart {
         // Innermost leaf.
-        let mut node = ParsedPart {
-            part_id: "1".to_owned(),
-            content_type: "text/plain".to_owned(),
-            charset: Some("utf-8".to_owned()),
-            transfer_encoding: TransferEncoding::Identity,
-            disposition: None,
-            filename: None,
-            cid: None,
-            header_range: (0, 0),
-            body_range: (0, 0),
-            children: Vec::new(),
-            is_encoding_problem: false,
-        };
+        let mut node = bare_part("1", "text/plain", Some("utf-8"));
         for level in (0..depth).rev() {
-            node = ParsedPart {
-                part_id: format!("L{level}"),
-                content_type: "multipart/mixed".to_owned(),
-                charset: None,
-                transfer_encoding: TransferEncoding::Identity,
-                disposition: None,
-                filename: None,
-                cid: None,
-                header_range: (0, 0),
-                body_range: (0, 0),
-                children: vec![node],
-                is_encoding_problem: false,
-            };
+            let mut wrapper = bare_part(&format!("L{level}"), "multipart/mixed", None);
+            wrapper.children = vec![node];
+            node = wrapper;
         }
         node
     }

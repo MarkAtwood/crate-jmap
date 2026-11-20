@@ -3304,9 +3304,7 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "mime-tree"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c96c07a038121b108ce492dcc87dec4450639f2b3b921a66d2bd25d692558f3b"
+version = "0.6.0"
 dependencies = [
  "base64",
  "encoding_rs",
@@ -4965,8 +4963,6 @@ checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 [[package]]
 name = "uuencoding"
 version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b867395f19d44cd5fd3ac1923a0c6e88b8b17a8c41cb53da1ba3d6791372aa0"
 
 [[package]]
 name = "uuid"
@@ -5570,9 +5566,7 @@ dependencies = [
 
 [[package]]
 name = "yencoding"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7ae69f9af519a8c959c651af17f489de965285c33f971e35d8b3db515c658c0b"
+version = "0.3.0"
 dependencies = [
  "crc32fast",
 ]
