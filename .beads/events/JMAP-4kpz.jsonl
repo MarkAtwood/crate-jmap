@@ -1,1 +1,2 @@
 {"id":"01a1f6e5-ac38-7efb-a10b-1671aff4cf27","issue_id":"JMAP-4kpz","event_type":"created","actor":"Mark Atwood","old_value":"","new_value":"","created_at":"2026-11-20T03:00:09.400982792Z"}
+{"id":"01a1f730-3692-7cca-9b99-c424dc3d3a83","issue_id":"JMAP-4kpz","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Done in ed7a9073: myRights computed per caller (owner gets every right); isSubscribed defaults true for the owner.","created_at":"2026-11-20T04:21:34.48283956Z"}
