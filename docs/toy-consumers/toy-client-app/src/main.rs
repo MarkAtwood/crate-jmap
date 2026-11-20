@@ -32,7 +32,7 @@ use tokio::net::TcpListener;
 const ACCOUNT: &str = "A1";
 
 /// The loopback server's dispatcher: Chat (with search) and Tasks.
-async fn server_dispatcher() -> (Dispatcher<()>, String, String) {
+async fn server_dispatcher() -> (Dispatcher<Id>, String, String) {
     let chat = Arc::new(
         jmap_chat_server::memory::MemoryBackend::new()
             .with_search_capability(
@@ -42,7 +42,7 @@ async fn server_dispatcher() -> (Dispatcher<()>, String, String) {
     );
     let tasks =
         Arc::new(jmap_tasks_server::memory::MemoryBackend::new().with_account(&Id::from(ACCOUNT)));
-    let mut d: Dispatcher<()> = Dispatcher::new();
+    let mut d: Dispatcher<Id> = Dispatcher::new();
     jmap_chat_server::register_chat_handlers(&mut d, chat);
     jmap_tasks_server::register_tasks_handlers(&mut d, tasks);
 
@@ -84,7 +84,7 @@ async fn server_dispatcher() -> (Dispatcher<()>, String, String) {
     .map(str::to_owned)
     .to_vec();
     let r = d
-        .dispatch(JmapRequest::new(using, calls, None), (), State::from("s0"))
+        .dispatch(JmapRequest::new(using, calls, None), Id::from(ACCOUNT), State::from("s0"))
         .await;
     let m1 = r.method_responses[1].arguments["created"]["m1"]["id"]
         .as_str()
@@ -103,7 +103,7 @@ async fn server_dispatcher() -> (Dispatcher<()>, String, String) {
 }
 
 /// A minimal HTTP/1.1 server: every POST body is a JMAP Request for `d`.
-async fn serve_http(listener: TcpListener, d: Arc<Dispatcher<()>>) {
+async fn serve_http(listener: TcpListener, d: Arc<Dispatcher<Id>>) {
     loop {
         let Ok((mut sock, _)) = listener.accept().await else {
             return;
@@ -130,7 +130,7 @@ async fn serve_http(listener: TcpListener, d: Arc<Dispatcher<()>>) {
                 buf.extend_from_slice(&chunk[..n]);
             }
             let req: JmapRequest = serde_json::from_slice(&buf[head_end..head_end + len]).unwrap();
-            let resp = d.dispatch(req, (), State::from("s0")).await;
+            let resp = d.dispatch(req, Id::from(ACCOUNT), State::from("s0")).await;
             let body = serde_json::to_vec(&resp).unwrap();
             let head = format!(
                 "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",

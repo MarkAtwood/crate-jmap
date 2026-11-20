@@ -5,13 +5,10 @@
 //! jmap-conditional) and object history, all on the reference memory
 //! backends, behind one `Dispatcher<Id>` whose caller is the Principal id.
 //!
-//! The reference backends do not share a `CallerCtx` (Mail and Tasks use
-//! `()`, FileNode and Graph `Id`, VTC `String`), so a single
-//! `Dispatcher<C>` cannot host them directly (finding b1 in
-//! docs/audits/2026-11-20-toy-consumers). FileNode and Graph register on
-//! the front dispatcher; Mail, Tasks and VTC register on inner dispatchers
-//! of their own `CallerCtx`, and `Bridge` forwards each of their methods
-//! there as a one-call request.
+//! Every reference backend is `MemoryBackend<C = Id>` over
+//! `jmap_server::MemoryCaller` (finding b1, fixed), so each family
+//! registers its handlers, and its conditional-02 `SetSupport`, on the one
+//! dispatcher directly: no bridge handler.
 
 use std::sync::Arc;
 
@@ -20,8 +17,7 @@ use jmap_graph::server::memory::MemoryBackend as GraphMemory;
 use jmap_object_history::server::HistoryRetention;
 use jmap_object_history::types::ObjectHistoryAccountCapability;
 use jmap_server::{
-    CallContext, Dispatcher, HandlerFuture, HandlerOutput, JmapError, JmapHandler,
-    register_push_subscription_handlers,
+    Dispatcher, register_push_subscription_conditional, register_push_subscription_handlers,
 };
 use jmap_types::{Id, Invocation, JmapRequest, State};
 use serde_json::{Value, json};
@@ -31,65 +27,6 @@ const TASKS: &str = "T1";
 const FILES: &str = "F1";
 const GRAPH: &str = "G1";
 const VTC: &str = "V1";
-
-/// Forwards one method call to an inner dispatcher of another `CallerCtx`.
-struct Bridge<C: Clone + Send + Sync + 'static> {
-    inner: Arc<Dispatcher<C>>,
-    caller: fn(&Id) -> C,
-}
-
-impl<C: Clone + Send + Sync + 'static> JmapHandler<Id> for Bridge<C> {
-    fn call(&self, cx: CallContext<Id>) -> HandlerFuture {
-        let inner = Arc::clone(&self.inner);
-        let caller = (self.caller)(&cx.caller);
-        Box::pin(async move {
-            let request = JmapRequest::new(
-                cx.using,
-                vec![Invocation::new(cx.method, cx.args, cx.call_id)],
-                Some(cx.created_ids),
-            );
-            let mut responses = inner
-                .dispatch(request, caller, State::from("s0"))
-                .await
-                .method_responses
-                .into_iter();
-            let first = responses
-                .next()
-                .ok_or_else(|| JmapError::server_fail("no response"))?;
-            if first.name == "error" {
-                let e: JmapError = serde_json::from_value(first.arguments)
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
-                return Err(e);
-            }
-            Ok(HandlerOutput::new(first.arguments).with_extra(responses.collect()))
-        })
-    }
-}
-
-/// Register every method `inner` serves on `front` as a bridge to it,
-/// listed with `Dispatcher::methods` (finding b4, fixed). Which of them
-/// are history-aware is still spelled out: a `Dispatcher` does not say.
-fn bridge<C: Clone + Send + Sync + 'static>(
-    front: &mut Dispatcher<Id>,
-    inner: &Arc<Dispatcher<C>>,
-    caller: fn(&Id) -> C,
-    history_aware: &[&str],
-) -> usize {
-    let mut n = 0;
-    for m in inner.methods() {
-        let h: Arc<dyn JmapHandler<Id>> = Arc::new(Bridge {
-            inner: Arc::clone(inner),
-            caller,
-        });
-        if history_aware.contains(&m) {
-            front.register_history_aware(m, h);
-        } else {
-            front.register(m, h);
-        }
-        n += 1;
-    }
-    n
-}
 
 fn history_capability(types: &[&str]) -> ObjectHistoryAccountCapability {
     // Finding b3, fixed: a constructor.
@@ -139,28 +76,30 @@ async fn main() {
     let retention =
         HistoryRetention::new().max_duration(Some(std::time::Duration::from_secs(86400)));
 
-    // ---- Mail, with EmailPush, Sieve and MDN (CallerCtx = ()) ----
+    // ---- One dispatcher for every family ----
+    let mut d: Dispatcher<Id> = Dispatcher::new();
+
+    // ---- Mail, with EmailPush, Sieve and MDN, owned by alice ----
     let mail = Arc::new(
         jmap_mail_server::memory::MemoryBackend::new()
-            .with_account(&Id::from(MAIL))
+            .with_account_owner(&Id::from(MAIL), &Id::from("alice"))
             .with_object_history(history_capability(&["Mailbox"]), retention),
     );
-    let mut mail_d: Dispatcher<()> = Dispatcher::new();
-    jmap_mail_server::register_mail_handlers_with_history(&mut mail_d, Arc::clone(&mail));
-    jmap_sieve::server::register_sieve_handlers(&mut mail_d, Arc::clone(&mail));
-    jmap_mdn::server::register_mdn_handlers(&mut mail_d, Arc::clone(&mail));
-    register_push_subscription_handlers(&mut mail_d, Arc::clone(&mail));
-    jmap_mail_server::register_mail_conditional(&mut mail_d, Arc::clone(&mail));
-    let mail_d = Arc::new(mail_d);
+    jmap_mail_server::register_mail_handlers_with_history(&mut d, Arc::clone(&mail));
+    jmap_sieve::server::register_sieve_handlers(&mut d, Arc::clone(&mail));
+    jmap_mdn::server::register_mdn_handlers(&mut d, Arc::clone(&mail));
+    register_push_subscription_handlers(&mut d, Arc::clone(&mail));
+    jmap_mail_server::register_mail_conditional(&mut d, Arc::clone(&mail));
+    register_push_subscription_conditional(&mut d, Arc::clone(&mail))
+        .expect("PushSubscription conditional");
 
-    // ---- Tasks (CallerCtx = ()) ----
+    // ---- Tasks ----
     let tasks =
         Arc::new(jmap_tasks_server::memory::MemoryBackend::new().with_account(&Id::from(TASKS)));
-    let mut tasks_d: Dispatcher<()> = Dispatcher::new();
-    jmap_tasks_server::register_tasks_handlers(&mut tasks_d, Arc::clone(&tasks));
-    let tasks_d = Arc::new(tasks_d);
+    jmap_tasks_server::register_tasks_handlers(&mut d, Arc::clone(&tasks));
+    jmap_tasks_server::register_tasks_conditional(&mut d, Arc::clone(&tasks));
 
-    // ---- VTC (CallerCtx = String) ----
+    // ---- VTC ----
     // Finding b2, fixed: `with_account` is public.
     let vtc_capability = serde_json::from_value(json!({
         "mayCreateCall": true, "supportsRingCalls": false, "supportsRoomCalls": true,
@@ -172,23 +111,20 @@ async fn main() {
     let vtc = Arc::new(
         jmap_vtc::server::memory::MemoryBackend::new().with_account(&Id::from(VTC), vtc_capability),
     );
-    let mut vtc_d: Dispatcher<String> = Dispatcher::new();
-    jmap_vtc::server::register_vtc_handlers(&mut vtc_d, Arc::clone(&vtc));
-    let vtc_d = Arc::new(vtc_d);
+    jmap_vtc::server::register_vtc_handlers(&mut d, Arc::clone(&vtc));
+    jmap_vtc::server::register_vtc_conditional(&mut d, Arc::clone(&vtc));
 
-    // ---- The front dispatcher: FileNode and Graph directly ----
-    let mut front: Dispatcher<Id> = Dispatcher::new();
-
+    // ---- FileNode, owned by alice ----
     let files = Arc::new(
         FileNodeMemory::new()
             .with_account_owner(&Id::from(FILES), &Id::from("alice"))
             .with_object_history(history_capability(&["FileNode"]), retention),
     );
-    jmap_filenode::server::register_filenode_handlers_with_history(&mut front, Arc::clone(&files));
-    jmap_filenode::server::register_filenode_conditional(&mut front, Arc::clone(&files))
+    jmap_filenode::server::register_filenode_handlers_with_history(&mut d, Arc::clone(&files));
+    jmap_filenode::server::register_filenode_conditional(&mut d, Arc::clone(&files))
         .expect("FileNode conditional");
 
-    // Graph, owned by alice, with provenance (finding b2, fixed).
+    // ---- Graph, owned by alice, with provenance (finding b2, fixed) ----
     let graph_capability =
         serde_json::from_value(json!({ "maxAnnotationSize": null })).expect("GraphCapability");
     let graph = Arc::new(GraphMemory::new().with_account(
@@ -197,16 +133,17 @@ async fn main() {
         graph_capability,
     ));
     graph.register_provenance(&Id::from(GRAPH));
-    jmap_graph::server::register_graph_handlers(&mut front, Arc::clone(&graph));
+    jmap_graph::server::register_graph_handlers(&mut d, Arc::clone(&graph));
+    jmap_graph::server::register_graph_conditional(&mut d, Arc::clone(&graph));
 
-    let bridged = bridge(&mut front, &mail_d, |_| (), &["Mailbox/get", "Mailbox/set"])
-        + bridge(&mut front, &tasks_d, |_| (), &[])
-        + bridge(&mut front, &vtc_d, |id| id.to_string(), &[]);
+    // Every Foo/set of every family has conditional-02 support, so the
+    // server may advertise urn:ietf:params:jmap:conditional.
     assert!(
-        front.methods().any(|m| m == "VTCCall/set") && front.methods().any(|m| m == "Task/query"),
-        "every inner method is bridged"
+        d.conditional_ready(),
+        "conditional gaps: {:?}",
+        d.conditional_gaps()
     );
-    assert!(front.methods().count() > bridged, "plus FileNode and Graph");
+    let front = d;
 
     // ---- Setup request: create in each family ----
     let read_only = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
@@ -354,24 +291,70 @@ async fn main() {
         rs[1].arguments
     );
 
-    // A bridged family loses conditional-02: the front dispatcher has no
-    // `SetSupport` for Mailbox/set (it takes a `ConditionalBackend` of the
-    // front's `CallerCtx`), so it refuses `atomic` before the bridge runs,
-    // although the inner dispatcher has `register_mail_conditional`
-    // (finding b1).
+    // ---- conditional-02 on every family: one atomic Foo/set each ----
+    // Mailbox/set was refused here while Mail sat behind a bridge handler
+    // (finding b1); it now runs atomically like the rest.
+    let rs = dispatch(
+        &front,
+        "alice",
+        vec![
+            (
+                "Mailbox/set",
+                json!({ "accountId": MAIL, "atomic": true,
+                        "create": { "x": { "name": "Archive" } } }),
+            ),
+            (
+                "TaskList/set",
+                json!({ "accountId": TASKS, "atomic": true,
+                        "create": { "x": { "name": "Errands" } } }),
+            ),
+            (
+                "Graph/set",
+                json!({ "accountId": GRAPH, "atomic": true,
+                        "create": { "x": { "name": "Ideas" } } }),
+            ),
+            (
+                "VTCCall/set",
+                json!({ "accountId": VTC, "atomic": true,
+                        "create": { "x": { "callType": "room", "mediaTypes": ["audio"] } } }),
+            ),
+            (
+                "FileNode/set",
+                json!({ "accountId": FILES, "atomic": true,
+                        "create": { "x": { "@type": "Directory", "name": "more", "parentId": null } } }),
+            ),
+        ],
+    )
+    .await;
+    print(&rs, "conditional");
+    for r in &rs {
+        assert_ne!(r.name, "error", "{}: {}", r.call_id, r.arguments);
+        assert!(
+            r.arguments["created"]["x"]["id"].is_string(),
+            "{} {}: {}",
+            r.call_id,
+            r.name,
+            r.arguments
+        );
+    }
+    // And atomicity holds on a family that was bridged: a failing create
+    // (a server-set property, RFC 8621 §2) rolls back the good one,
+    // answering atomicFailure.
     let rs = dispatch(
         &front,
         "alice",
         vec![(
             "Mailbox/set",
-            json!({ "accountId": MAIL, "atomic": true,
-                    "create": { "x": { "name": "Archive" } } }),
+            json!({ "accountId": MAIL, "atomic": true, "create": {
+                "ok": { "name": "Kept?" },
+                "bad": { "name": "Counted", "totalEmails": 5 }
+            } }),
         )],
     )
     .await;
-    print(&rs, "conditional");
+    print(&rs, "atomic-failure");
     assert_eq!(rs[0].name, "error", "{:?}", rs[0]);
-    assert_eq!(rs[0].arguments["type"], "invalidArguments", "{:?}", rs[0]);
+    assert_eq!(rs[0].arguments["type"], "atomicFailure", "{:?}", rs[0]);
 
     println!("toy-multi-server: ok");
 }

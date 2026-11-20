@@ -12,7 +12,7 @@ offline (loopback servers only).
 | Probe | What it does | Built | Ran |
 |---|---|---|---|
 | `toy-chat-db-backend` | `DbBackend` wraps chat `MemoryBackend`: own `account_exists` (an account directory), hand-written `ChatRestrictions` (`may_create_message` refuses read-only Chats), `Delegate*` for the other nine hook traits and `DelegateJmapReads`; `register_chat_handlers` on a `Dispatcher`; `Chat/set`, `Message/set` (one create refused), `Message/query` with a `where` filter (`$and` of a field test and `$text`), `accountNotFound` from the directory | yes | yes |
-| `toy-multi-server` | One front `Dispatcher<Id>`: FileNode (per-user `MemoryBackend<Id>`, two users, with object history and conditional-02 `atomic`) and Graph registered directly; Mail (with `jmap-sieve`, `jmap-mdn` and `jmap-emailpush` facades, `PushSubscription/set` with `emailPush`, Mailbox object history), Tasks (`Task/query` with `inTaskLists`, `after`/`before`, `timeZone`, `expandRecurrences`) and VTC bridged from inner dispatchers; one request touching each family; bob sees only the shared folder and may not rename it | yes | yes; Graph and VTC stopped at `accountNotFound` (b2) until the rerun below |
+| `toy-multi-server` | One `Dispatcher<Id>` (since JMAP-cuim, with no bridge: before it, Mail, Tasks and VTC were bridged from inner dispatchers, b1): FileNode (per-user `MemoryBackend<Id>`, two users, with object history), Graph, Mail (with `jmap-sieve`, `jmap-mdn` and `jmap-emailpush` facades, `PushSubscription/set` with `emailPush`, Mailbox object history), Tasks (`Task/query` with `inTaskLists`, `after`/`before`, `timeZone`, `expandRecurrences`) and VTC, each with conditional-02 (an atomic `/set` per family); one request touching each family; bob sees only the shared folder and may not rename it | yes | yes; Graph and VTC stopped at `accountNotFound` (b2) until the rerun below |
 | `toy-client-app` | jmap-chat-client `message_query` with `where` and jmap-tasks-client `task_query` with `TaskQueryParams` over HTTP to a loopback server (chat and tasks memory backends); jmap-graph-client `supports_provenance`; jmap-scene-client `send_scene_stream_enable` with a Session over a loopback `ws://` (`connect_ws_allow_plaintext`); jmap-platform-push `FcmPusher` and `ApnsPusher` from generated dummy keys and a `Message`, held as `Box<dyn PlatformPusher>`, nothing sent | yes | yes |
 | `toy-slack-bridge` | `SlackToken`, `SlackClient::with_base_url` to a loopback Slack Web API stand-in, `BridgeConfig`, `SlackBridge::connect`; a signed Events API body through `events::verify_signature` and `parse_http_event`; `apply_event` with `channel_created` and `message`; the Chat and Message read back with `Chat/get` and `Message/get` | yes | yes |
 
@@ -24,7 +24,7 @@ needs a workaround a consumer has to discover by reading source;
 
 | # | Crate | Item | What I needed | What I had to do | Suggested fix | Severity | Status |
 |---|---|---|---|---|---|---|---|
-| b1 | jmap-server, the reference backends | `CallerCtx` of the memory backends: `()` (mail, tasks, calendars, contacts), `Id` (graph, filenode `MemoryBackend<Id>`), `String` (vtc, scene) | One `Dispatcher<C>` for several families | A `Bridge` `JmapHandler<Id>` per method that forwards a one-call request to an inner `Dispatcher` of the backend's `CallerCtx` (with `createdIds` and `using`), marked with `register_history_aware` on the front. Conditional-02 is lost for bridged families: the front has no `SetSupport` for their `/set` (it needs a `ConditionalBackend` of the front's `CallerCtx`) and refuses `atomic` before the bridge runs (asserted in the probe) | Give the reference backends one caller type (generic `C` with a `MemoryCaller`-style trait, as filenode does), or add a dispatcher mount that maps the caller and carries set support and history marks (`Dispatcher::mount(inner, map_caller)`) | high | open |
+| b1 | jmap-server, the reference backends | `CallerCtx` of the memory backends: `()` (mail, tasks, calendars, contacts), `Id` (graph, filenode `MemoryBackend<Id>`), `String` (vtc, scene) | One `Dispatcher<C>` for several families | A `Bridge` `JmapHandler<Id>` per method that forwards a one-call request to an inner `Dispatcher` of the backend's `CallerCtx` (with `createdIds` and `using`), marked with `register_history_aware` on the front. Conditional-02 is lost for bridged families: the front has no `SetSupport` for their `/set` (it needs a `ConditionalBackend` of the front's `CallerCtx`) and refuses `atomic` before the bridge runs (asserted in the probe) | Give the reference backends one caller type (generic `C` with a `MemoryCaller`-style trait, as filenode does), or add a dispatcher mount that maps the caller and carries set support and history marks (`Dispatcher::mount(inner, map_caller)`) | high | fixed (JMAP-cuim): `jmap_server::MemoryCaller` (impls for `Id` and `()`) replaces the mail and filenode copies, and every reference backend is `MemoryBackend<C = Id>` over it; the probe now registers every family, and its `register_*_conditional`, on one `Dispatcher<Id>` with no bridge (`conditional_ready()` true), and atomic `Mailbox/set`, `TaskList/set`, `Graph/set`, `VTCCall/set` and `FileNode/set` succeed, with `atomicFailure` rollback on Mailbox |
 | b2 | jmap-graph-server, jmap-vtc-server, jmap-scene-server (`memory`) | `MemoryBackend::register_account` is `#[doc(hidden)]`; no `with_account` or other public way to add an account | A Graph account with provenance; a VTC account | Nothing works: every call is `accountNotFound`. Graph's public `register_provenance` has no account to act on | A public builder like mail's: `with_account(account, owner, capability)` (graph), `with_account(account, capability)` (vtc, scene), and the `register_edit`/`register_search`/`advertise` knobs a deployment needs | high | fixed (JMAP-fhvk) |
 | b3 | jmap-object-history-types | `ObjectHistoryAccountCapability` (`#[non_exhaustive]`, no constructor) | The capability for `with_object_history` | `serde_json::from_value(json!({ "maxHistoryDuration": .., "supportedTypes": [..] }))` (the umbrella's own doc example does the same) | `ObjectHistoryAccountCapability::new(supported_types)` and `with_max_history_duration` | medium | fixed (JMAP-m59l) |
 | b5 | jmap-mail-server | `Mailbox/set` create (handler builds `MailboxRights::default()`); the memory backend stores and returns it | A Mailbox the account owner can use | Nothing: the owner's new Mailbox has every `myRights` false (and `isSubscribed` false), on `/set` and `/get`. A backend that stores the handler's object as is and names a principal would have the owner's destroy refused by the handler's defense-in-depth check | The backend fills `myRights` for the caller on create (the owner has every right), as filenode and graph do; the handler should not put all-false rights on the wire | medium | open |
@@ -65,6 +65,26 @@ probes build, run and pass clippy. The probes now use the new public API:
 `DelegateJmapAccounts` (overriding only `account_exists`, and dropping
 its `jmap-metadata-types` dependency) and checks the `Message/query`
 `unsupportedFilter` description.
+
+## Rerun after JMAP-cuim (b1)
+
+`scripts/toy-consumers.sh` was rerun after b1's fix: all four probes
+build, run and pass clippy. `toy-multi-server` drops its `Bridge`
+handler and inner dispatchers: Mail (owned by alice through
+`with_account_owner`), Tasks, VTC, FileNode and Graph register their
+handlers and their `register_*_conditional` (with
+`register_push_subscription_conditional`) on one `Dispatcher<Id>`, whose
+`conditional_ready()` is true. One request makes an atomic create in
+each of `Mailbox/set`, `TaskList/set`, `Graph/set`, `VTCCall/set` and
+`FileNode/set`, and an atomic `Mailbox/set` with one bad create answers
+`atomicFailure` (it was `invalidArguments` behind the bridge).
+`toy-chat-db-backend` and `toy-client-app` take the `Id` default caller
+(`Dispatcher<Id>`); `toy-slack-bridge` keeps `()`.
+
+While writing the probe: an atomic `Mailbox/set` create whose `parentId`
+names no Mailbox was accepted by the mail memory backend; the probe uses
+a server-set property for its failing create instead. Not checked
+outside an atomic scope.
 
 ## Fixed after the check
 
@@ -131,4 +151,4 @@ its `jmap-metadata-types` dependency) and checks the `Message/query`
 b1, b2 (high); b3, b5, a1 (medium); a2, a4, b4, b7, c1, c2 (low). Each is
 an API-design change: a new public constructor or builder, a new trait,
 a dispatcher method, or a wire-visible change in a reference backend.
-Still open after the fixes above: b1 and b5.
+Still open after the fixes above: b5.

@@ -45,7 +45,7 @@ impl DelegateJmapAccounts for DbBackend {
     }
 
     /// From the directory, not the store.
-    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
+    async fn account_exists(&self, _caller: &Id, account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self.directory.contains(account_id.as_ref()))
     }
 }
@@ -55,7 +55,7 @@ impl DelegateJmapAccounts for DbBackend {
 impl ChatRestrictions for DbBackend {
     async fn may_create_message(
         &self,
-        caller: &(),
+        caller: &Id,
         account_id: &Id,
         chat: &jmap_chat_types::Chat,
     ) -> Result<Result<(), SetError>, MemoryError> {
@@ -75,7 +75,7 @@ impl ChatRestrictions for DbBackend {
 
     async fn may_update_message(
         &self,
-        caller: &(),
+        caller: &Id,
         account_id: &Id,
         chat: &jmap_chat_types::Chat,
         message: &jmap_chat_types::Message,
@@ -88,7 +88,7 @@ impl ChatRestrictions for DbBackend {
 
     async fn may_update_chat(
         &self,
-        caller: &(),
+        caller: &Id,
         account_id: &Id,
         chat: &jmap_chat_types::Chat,
         patch_keys: &[&str],
@@ -131,7 +131,7 @@ fn using() -> Vec<String> {
     ]
 }
 
-async fn call(d: &Dispatcher<()>, calls: Vec<(&str, Value)>) -> Vec<Invocation> {
+async fn call(d: &Dispatcher<Id>, calls: Vec<(&str, Value)>) -> Vec<Invocation> {
     let calls = calls
         .into_iter()
         .enumerate()
@@ -139,7 +139,7 @@ async fn call(d: &Dispatcher<()>, calls: Vec<(&str, Value)>) -> Vec<Invocation> 
         .collect();
     d.dispatch(
         JmapRequest::new(using(), calls, None),
-        (),
+        Id::from(ACCOUNT),
         State::from("s0"),
     )
     .await

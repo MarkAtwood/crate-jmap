@@ -1,4 +1,4 @@
-# Toy consumer (bd:JMAP-698j.3): one Dispatcher serving Mail (with the
+# Toy consumer (bd:JMAP-698j.3, bd:JMAP-cuim): one Dispatcher serving Mail (with the
 # EmailPush, Sieve and MDN facades), Tasks, FileNode, Graph and VTC, with
 # conditional-02 and object history. Built by scripts/toy-consumers.sh
 # outside the workspace; @WORKSPACE@ is replaced with the workspace root.
