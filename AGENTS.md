@@ -1322,6 +1322,15 @@ should have a manual redacting impl. Pattern 2 catches a future
 does not cover) or that bypasses the type's Debug impl via a custom
 formatter.
 
+Both patterns are for credential-grade secrets only. PII-bearing types
+that hold no credential (names, email and postal addresses, message
+bodies, locations, and the like) keep derived `Debug`; each type crate
+that has them documents the leak in a `# Logging safety` section of its
+crate docs, naming the types and giving a BAD/GOOD logging example
+(decision 53, bd:JMAP-5rmi; model:
+`crate-jmap-contacts-types/src/lib.rs`). A new PII-bearing type joins
+its crate's list; a new type crate with such types adds the section.
+
 When adding a new type or a new logging call site that crosses these
 boundaries, file a follow-up bead if the canary test cannot land in
 the same commit. Do not ship the type or the logging call without the
