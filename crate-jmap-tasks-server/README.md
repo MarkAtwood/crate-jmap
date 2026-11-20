@@ -388,9 +388,10 @@ until the family is published to crates.io.
 that also implements `jmap_server::ObjectHistoryBackend`, calls
 `register_tasks_handlers` and re-registers the history-aware TaskList
 `/get`, `/set` and Task `/get`, `/set`, `/query`, `/queryChanges` (the
-jmap-mail-server pattern). Task and TaskList have history ahead of their
-registration (`PENDING_HISTORY_REGISTRATION`, docs/design/DECISIONS.md
-decisions 5 and 23); TaskNotification has none (decision 22), so the
+jmap-mail-server pattern). Task and TaskList have history through
+their registry rows from crate-jmap's local Tasks profile
+(docs/specs/jmap-tasks-local.md, docs/design/DECISIONS.md decisions 23
+and 52); TaskNotification has none (decision 22), so the
 dispatcher answers a history argument for it with `invalidArguments`.
 The memory backend's `with_object_history(capability, retention)` keeps
 the history: `onDestroyRemoveTasks` cascades are recorded, a restored Task

@@ -228,9 +228,8 @@ impl JmapObject for crate::TaskList {
 }
 
 impl GetObject for crate::TaskList {}
-/// History ahead of its registration: on
-/// `jmap_object_history_types::PENDING_HISTORY_REGISTRATION`
-/// (docs/design/DECISIONS.md decisions 5 and 23).
+/// "Supports History: Yes" in the jmap-types registry, from crate-jmap's
+/// local Tasks profile (docs/specs/jmap-tasks-local.md; decisions 23, 52).
 impl jmap_object_history_types::HistoryObject for crate::TaskList {}
 
 /// draft-ietf-jmap-tasks-06 §3 (lines 383, 496): `id` is "(immutable;
@@ -267,9 +266,8 @@ impl JmapObject for crate::Task {
 }
 
 impl GetObject for crate::Task {}
-/// History ahead of its registration: on
-/// `jmap_object_history_types::PENDING_HISTORY_REGISTRATION`
-/// (docs/design/DECISIONS.md decisions 5 and 23).
+/// "Supports History: Yes" in the jmap-types registry, from crate-jmap's
+/// local Tasks profile (docs/specs/jmap-tasks-local.md; decisions 23, 52).
 impl jmap_object_history_types::HistoryObject for crate::Task {}
 
 /// draft-ietf-jmap-tasks-06 §4 (lines 715, 922, 941): `id` and

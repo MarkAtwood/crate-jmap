@@ -14,6 +14,13 @@ wire behaviour that a conforming peer can observe.
 
 ### Added
 
+- **jmap-types**: data-type registry rows for TaskList, Task and
+  TaskNotification (`urn:ietf:params:jmap:tasks`; Supports History Yes,
+  Yes, No; Task can reference blobs), from crate-jmap's local Tasks profile
+  (docs/specs/jmap-tasks-local.md). **jmap-object-history-types**:
+  `PENDING_HISTORY_REGISTRATION` is now empty, so `is_history_type` answers
+  for Task and TaskList through the registry (bd:JMAP-tna1.3.26).
+
 - **jmap-filenode-server**: `FileNodeBackend::may_destroy`, a fail-open
   hook the `FileNode/set` and `FileNode/copy` handlers ask about every node
   of a subtree before a destroy that removes it (`onDestroyRemoveChildren`,

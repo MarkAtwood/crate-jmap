@@ -224,5 +224,8 @@ fn history_types_follow_the_registry() {
     ] {
         assert!(!is_history_type(t), "{t}");
     }
-    assert_eq!(PENDING_HISTORY_REGISTRATION, ["Task", "TaskList"]);
+    // Task and TaskList are now registry rows (bd JMAP-tna1.3.26), so the
+    // pending list is empty and they are history types through the registry.
+    assert!(PENDING_HISTORY_REGISTRATION.is_empty());
+    assert!(is_history_type("Task") && is_history_type("TaskList"));
 }

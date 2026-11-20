@@ -65,12 +65,11 @@ pub trait HistoryObject: GetObject {}
 
 /// Types given history ahead of their registration (decisions 5 and 23).
 ///
-/// draft-ietf-jmap-tasks-06 registers no "JMAP Data Types" entries, so
-/// Task and TaskList have no "Supports History" value and the registry
-/// default is "No" (§7.2). Mark's updated Tasks draft registers them with
-/// "Supports History: Yes" (bd JMAP-jkl8.9); bd JMAP-tna1.3.26 then moves
-/// them into the registry and empties this list.
-pub const PENDING_HISTORY_REGISTRATION: &[&str] = &["Task", "TaskList"];
+/// Empty: Task and TaskList, the types this list held, are now registry
+/// rows with "Supports History: Yes" from crate-jmap's local Tasks profile
+/// (docs/specs/jmap-tasks-local.md, decision 52; bd JMAP-tna1.3.26). Kept
+/// so that callers naming it still compile.
+pub const PENDING_HISTORY_REGISTRATION: &[&str] = &[];
 
 /// Whether the history extensions apply to `type_name`: a registry row
 /// with "Supports History: Yes", or a type on

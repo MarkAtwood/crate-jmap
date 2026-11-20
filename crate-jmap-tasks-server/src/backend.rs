@@ -259,8 +259,8 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// The handlers perform the cross-record effects the client chooses,
     /// through explicit backend calls, and the backend does not repeat
-    /// them. `TaskList/set` `onDestroyRemoveTasks` does not yet destroy
-    /// the list's Tasks (bd:JMAP-ji1v).
+    /// them. `TaskList/set` `onDestroyRemoveTasks` destroys the list's
+    /// Tasks through [`Self::destroy_object`] calls the handler makes.
     ///
     /// If the backend itself changes another record because of the
     /// destroy, it MUST advance that record type's state and record the

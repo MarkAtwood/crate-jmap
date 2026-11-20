@@ -72,8 +72,10 @@ const fn row(
 /// Every registered data type, sorted by [`DataTypeEntry::type_name`]
 /// (byte order).
 ///
-/// Task, TaskList and TaskNotification are not listed: no published
-/// document registers them yet.
+/// Task, TaskList and TaskNotification come from crate-jmap's local Tasks
+/// profile (docs/specs/jmap-tasks-local.md §IANA, docs/design/DECISIONS.md
+/// decisions 23 and 52): draft-ietf-jmap-tasks-06 registers no JMAP Data
+/// Types, and the IETF task-lists work has not yet produced a document.
 pub const DATA_TYPES: &[DataTypeEntry] = &[
     row(
         "AddressBook",
@@ -394,6 +396,30 @@ pub const DATA_TYPES: &[DataTypeEntry] = &[
         true,
         true,
         "draft-atwood-jmap-chat-00",
+    ),
+    row(
+        "Task",
+        "urn:ietf:params:jmap:tasks",
+        true,
+        true,
+        true,
+        "crate-jmap local Tasks profile",
+    ),
+    row(
+        "TaskList",
+        "urn:ietf:params:jmap:tasks",
+        false,
+        true,
+        true,
+        "crate-jmap local Tasks profile",
+    ),
+    row(
+        "TaskNotification",
+        "urn:ietf:params:jmap:tasks",
+        false,
+        true,
+        false,
+        "crate-jmap local Tasks profile",
     ),
     row(
         "Thread",

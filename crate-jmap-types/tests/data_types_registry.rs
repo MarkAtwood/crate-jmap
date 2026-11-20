@@ -63,6 +63,30 @@ const OBJECT_HISTORY_TABLE_1: &str = "
 /// Registration blocks after RFC 9404: Type Name, Can Reference Blobs,
 /// Can Use for State Change, Capability, document.
 const LATER_REGISTRATIONS: &[(&str, &str, &str, &str, &str)] = &[
+    // docs/specs/jmap-tasks-local.md §IANA "JMAP Data Types" table:
+    // "| TaskList | No | Yes | Yes |", "| Task | Yes | Yes | Yes |",
+    // "| TaskNotification | No | Yes | No |".
+    (
+        "Task",
+        "Yes",
+        "Yes",
+        "urn:ietf:params:jmap:tasks",
+        "crate-jmap local Tasks profile",
+    ),
+    (
+        "TaskList",
+        "No",
+        "Yes",
+        "urn:ietf:params:jmap:tasks",
+        "crate-jmap local Tasks profile",
+    ),
+    (
+        "TaskNotification",
+        "No",
+        "Yes",
+        "urn:ietf:params:jmap:tasks",
+        "crate-jmap local Tasks profile",
+    ),
     (
         "Quota",
         "No",
@@ -382,6 +406,15 @@ fn later_registrations() {
     }
 }
 
+/// The local Tasks profile's "Supports History" column: TaskList and Task
+/// Yes, TaskNotification No (object-history-03 §7.2, decision 23).
+#[test]
+fn tasks_history_values() {
+    assert!(data_type("Task").unwrap().supports_history);
+    assert!(data_type("TaskList").unwrap().supports_history);
+    assert!(!data_type("TaskNotification").unwrap().supports_history);
+}
+
 #[test]
 fn atwood_history_values() {
     for &(name, .., doc) in LATER_REGISTRATIONS {
@@ -435,7 +468,7 @@ fn sorted_unique_and_complete() {
 #[test]
 fn lookup() {
     assert!(!data_type("Identity").unwrap().can_reference_blobs);
-    assert!(data_type("Task").is_none());
+    assert!(data_type("Tasks").is_none());
     assert!(
         data_type("email").is_none(),
         "type names are case-sensitive"
