@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 jmap-chat-server = { path = "@WORKSPACE@/crate-jmap-chat-server", features = ["memory"] }
 jmap-chat-types = { path = "@WORKSPACE@/crate-jmap-chat-types" }
-jmap-metadata-types = { path = "@WORKSPACE@/crate-jmap-metadata-types" }
 jmap-server = { path = "@WORKSPACE@/crate-jmap-server" }
 jmap-types = { path = "@WORKSPACE@/crate-jmap-types" }
 jmap-search = { path = "@WORKSPACE@/crate-jmap-search" }

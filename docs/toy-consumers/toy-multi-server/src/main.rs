@@ -66,34 +66,37 @@ impl<C: Clone + Send + Sync + 'static> JmapHandler<Id> for Bridge<C> {
     }
 }
 
-/// Register `methods` on `front` as bridges to `inner`. The method names
-/// are spelled out: a `Dispatcher` cannot list what it has registered
-/// (finding b4).
+/// Register every method `inner` serves on `front` as a bridge to it,
+/// listed with `Dispatcher::methods` (finding b4, fixed). Which of them
+/// are history-aware is still spelled out: a `Dispatcher` does not say.
 fn bridge<C: Clone + Send + Sync + 'static>(
     front: &mut Dispatcher<Id>,
     inner: &Arc<Dispatcher<C>>,
     caller: fn(&Id) -> C,
-    methods: &[&str],
     history_aware: &[&str],
-) {
-    for m in methods {
+) -> usize {
+    let mut n = 0;
+    for m in inner.methods() {
         let h: Arc<dyn JmapHandler<Id>> = Arc::new(Bridge {
             inner: Arc::clone(inner),
             caller,
         });
-        if history_aware.contains(m) {
-            front.register_history_aware(*m, h);
+        if history_aware.contains(&m) {
+            front.register_history_aware(m, h);
         } else {
-            front.register(*m, h);
+            front.register(m, h);
         }
+        n += 1;
     }
+    n
 }
 
 fn history_capability(types: &[&str]) -> ObjectHistoryAccountCapability {
-    // `#[non_exhaustive]` without a constructor: built from JSON
-    // (finding b3).
-    serde_json::from_value(json!({ "maxHistoryDuration": 86400, "supportedTypes": types }))
-        .expect("ObjectHistoryAccountCapability")
+    // Finding b3, fixed: a constructor.
+    ObjectHistoryAccountCapability::new(
+        Some(86400),
+        types.iter().map(|t| (*t).to_owned()).collect(),
+    )
 }
 
 fn using() -> Vec<String> {
@@ -158,9 +161,17 @@ async fn main() {
     let tasks_d = Arc::new(tasks_d);
 
     // ---- VTC (CallerCtx = String) ----
-    // `MemoryBackend::register_account` is #[doc(hidden)] and there is no
-    // public alternative, so VTC has no account here (finding b2).
-    let vtc = Arc::new(jmap_vtc::server::memory::MemoryBackend::new());
+    // Finding b2, fixed: `with_account` is public.
+    let vtc_capability = serde_json::from_value(json!({
+        "mayCreateCall": true, "supportsRingCalls": false, "supportsRoomCalls": true,
+        "supportsScheduledCalls": false, "supportsRecording": false,
+        "supportsLivestream": false, "livestreamModes": [], "supportsLobby": false,
+        "supportsBreakoutRooms": false, "supportedMediaTypes": ["audio", "video"]
+    }))
+    .expect("VtcCapability");
+    let vtc = Arc::new(
+        jmap_vtc::server::memory::MemoryBackend::new().with_account(&Id::from(VTC), vtc_capability),
+    );
     let mut vtc_d: Dispatcher<String> = Dispatcher::new();
     jmap_vtc::server::register_vtc_handlers(&mut vtc_d, Arc::clone(&vtc));
     let vtc_d = Arc::new(vtc_d);
@@ -177,41 +188,25 @@ async fn main() {
     jmap_filenode::server::register_filenode_conditional(&mut front, Arc::clone(&files))
         .expect("FileNode conditional");
 
-    // Graph: as for VTC, `register_account` is #[doc(hidden)], so the
-    // public `register_provenance` has no account to act on (finding b2).
-    let graph = Arc::new(GraphMemory::new());
+    // Graph, owned by alice, with provenance (finding b2, fixed).
+    let graph_capability =
+        serde_json::from_value(json!({ "maxAnnotationSize": null })).expect("GraphCapability");
+    let graph = Arc::new(GraphMemory::new().with_account(
+        &Id::from(GRAPH),
+        &Id::from("alice"),
+        graph_capability,
+    ));
     graph.register_provenance(&Id::from(GRAPH));
     jmap_graph::server::register_graph_handlers(&mut front, Arc::clone(&graph));
 
-    bridge(
-        &mut front,
-        &mail_d,
-        |_| (),
-        &[
-            "Mailbox/get",
-            "Mailbox/set",
-            "Email/query",
-            "SieveScript/get",
-            "MDN/parse",
-            "PushSubscription/get",
-            "PushSubscription/set",
-        ],
-        &["Mailbox/get", "Mailbox/set"],
+    let bridged = bridge(&mut front, &mail_d, |_| (), &["Mailbox/get", "Mailbox/set"])
+        + bridge(&mut front, &tasks_d, |_| (), &[])
+        + bridge(&mut front, &vtc_d, |id| id.to_string(), &[]);
+    assert!(
+        front.methods().any(|m| m == "VTCCall/set") && front.methods().any(|m| m == "Task/query"),
+        "every inner method is bridged"
     );
-    bridge(
-        &mut front,
-        &tasks_d,
-        |_| (),
-        &["TaskList/set", "Task/set", "Task/query", "Task/get"],
-        &[],
-    );
-    bridge(
-        &mut front,
-        &vtc_d,
-        |id| id.to_string(),
-        &["VTCCall/get"],
-        &[],
-    );
+    assert!(front.methods().count() > bridged, "plus FileNode and Graph");
 
     // ---- Setup request: create in each family ----
     let read_only = json!({ "mayRead": true, "mayAddChildren": false, "mayRename": false,
@@ -235,6 +230,7 @@ async fn main() {
                 "start": "2026-11-20T09:00:00", "timeZone": "Etc/UTC",
             } } }),
             ),
+            ("Graph/set", json!({ "accountId": GRAPH, "create": { "g": { "name": "Notes" } } })),
             // conditional-02: an atomic FileNode/set.
             (
                 "FileNode/set",
@@ -258,8 +254,9 @@ async fn main() {
     let inbox = created(0, "inbox");
     let list = created(1, "l");
     let task = created(2, "t");
-    let dir = created(3, "dir");
-    let _private = created(3, "priv");
+    let graph_id = created(3, "g");
+    let dir = created(4, "dir");
+    let _private = created(4, "priv");
 
     // ---- One request touching each family ----
     let rs = dispatch(
@@ -291,7 +288,7 @@ async fn main() {
             ("FileNode/set", json!({ "accountId": FILES, "update": { &dir: { "name": "Shared" } } })),
             ("FileNode/get", json!({ "accountId": FILES, "ids": [&dir], "includeReplaced": true })),
             // Graph and VTC.
-            ("Graph/get", json!({ "accountId": GRAPH, "ids": null })),
+            ("Graph/get", json!({ "accountId": GRAPH, "ids": [&graph_id] })),
             ("VTCCall/get", json!({ "accountId": VTC, "ids": null })),
         ],
     )
@@ -327,11 +324,13 @@ async fn main() {
         fh["list"].as_array().is_some_and(|l| l.len() >= 2),
         "history entries: {fh}"
     );
-    // Blocked by finding b2: no public way to give these accounts.
-    for i in [8, 9] {
-        let r = ok(i, "error");
-        assert_eq!(r["type"], "accountNotFound", "{r}");
-    }
+    // Graph with provenance: the owner's myRights carry mayCurate.
+    let g = ok(8, "Graph/get");
+    assert_eq!(g["list"][0]["id"], json!(&graph_id), "{g}");
+    assert_eq!(g["list"][0]["myRights"]["mayCurate"], true, "{g}");
+    // VTC: the account exists and has no calls yet.
+    let v = ok(9, "VTCCall/get");
+    assert_eq!(v["list"], json!([]), "{v}");
 
     // ---- Bob, the second user: sees the shared folder only, and may
     // not rename it ----

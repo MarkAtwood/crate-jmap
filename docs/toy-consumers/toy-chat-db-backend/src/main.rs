@@ -4,8 +4,9 @@
 //! backend with a directory service and a policy layer would: it answers
 //! `account_exists` from its own account directory, refuses new Messages
 //! in Chats its policy layer marks read-only (`ChatRestrictions`), and
-//! delegates everything else with the `Delegate*` traits and
-//! `DelegateJmapReads`. The handlers are registered on a `Dispatcher` and a
+//! delegates everything else with the `Delegate*` traits,
+//! `DelegateJmapAccounts` and `DelegateJmapReads`. The handlers are
+//! registered on a `Dispatcher` and a
 //! `Message/query` with a JMAP Search `where` filter runs end to end.
 
 use std::collections::BTreeSet;
@@ -18,9 +19,7 @@ use jmap_chat_server::{
     DelegateChatStore, DelegateSpacePolicy, register_chat_handlers,
 };
 use jmap_search::{DataTypeSearchInfo, JMAP_SEARCH_URI, SearchCapability};
-use jmap_server::{
-    DelegateJmapReads, Dispatcher, JmapAccounts, JmapObject, SetError, SetErrorType,
-};
+use jmap_server::{DelegateJmapAccounts, DelegateJmapReads, Dispatcher, SetError, SetErrorType};
 use jmap_types::{Id, Invocation, JmapRequest, State};
 use serde_json::{Value, json};
 
@@ -35,24 +34,19 @@ struct DbBackend {
     store: MemoryBackend,
 }
 
-impl JmapAccounts for DbBackend {
-    type Error = MemoryError;
-    type CallerCtx = ();
+/// `account_exists` from the directory; every other `JmapAccounts` answer
+/// (the store's `metadata_info` among them) is the store's (finding a1,
+/// fixed: `DelegateJmapAccounts`).
+impl DelegateJmapAccounts for DbBackend {
+    type Target = MemoryBackend;
+
+    fn jmap_accounts(&self) -> &MemoryBackend {
+        &self.store
+    }
 
     /// From the directory, not the store.
     async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, MemoryError> {
         Ok(self.directory.contains(account_id.as_ref()))
-    }
-
-    /// `JmapAccounts` has no delegate, so every method the wrapped backend
-    /// overrides has to be forwarded by hand (finding a1 in
-    /// docs/audits/2026-11-20-toy-consumers).
-    fn metadata_info<O: JmapObject>(
-        &self,
-        caller: &(),
-        account_id: &Id,
-    ) -> Option<jmap_metadata_types::DataTypeMetadataInfo> {
-        self.store.metadata_info::<O>(caller, account_id)
     }
 }
 
@@ -225,6 +219,20 @@ async fn main() {
     .await;
     assert_eq!(r[0].name, "Message/query", "{:?}", r[0]);
     assert_eq!(r[0].arguments["ids"], json!([m1]), "{}", r[0].arguments);
+
+    // A `where` query without `chatId`: the refusal says why (finding c1,
+    // fixed).
+    let r = call(
+        &d,
+        vec![(
+            "Message/query",
+            json!({ "accountId": ACCOUNT, "filter": { "where": { "$text": "release" } } }),
+        )],
+    )
+    .await;
+    assert_eq!(r[0].arguments["type"], "unsupportedFilter", "{:?}", r[0]);
+    let why = r[0].arguments["description"].as_str().unwrap_or_default();
+    assert!(why.contains("chatId"), "{:?}", r[0]);
 
     // An unknown account is refused by the directory.
     let r = call(
