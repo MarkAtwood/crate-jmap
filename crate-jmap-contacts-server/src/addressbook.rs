@@ -33,6 +33,8 @@
 //! Per-target failures inside `/set` surface in the `notCreated` / `notUpdated`
 //! / `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
+use std::collections::HashSet;
+
 use jmap_contacts_types::{AddressBook, ContactCard, ContactCardFilterCondition};
 use jmap_types::{Filter, Id, JmapError, PatchObject};
 use serde_json::{Value, json};
@@ -184,24 +186,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
 
     // Parse contacts-specific arguments before consuming args.
     let on_destroy_remove_contents = bool_arg(&args, "onDestroyRemoveContents", false);
-    // RFC 9610 §2.3: onSuccessSetIsDefault is Id|null (a single string id or
-    // null). §2.3 says "If the id is not found or if the change is not
-    // permitted by the server for policy reasons, it MUST be ignored" — that
-    // covers id-validity / policy refusal, NOT argument-shape errors. A
-    // non-string non-null value is an argument-shape error and is rejected
-    // with `invalidArguments` per the same convention the /set destroy
-    // non-string rejection uses (line ~322). Mirrors the canonical
-    // jmap-mail-server onSuccessActivateScript / onSuccessDeactivateScript
-    // pattern in sieve.rs:370-385 (bd:JMAP-qz9v.8).
-    let on_success_set_is_default: Option<String> = match args.remove("onSuccessSetIsDefault") {
-        None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(s),
-        Some(_) => {
-            return Err(JmapError::invalid_arguments(
-                "onSuccessSetIsDefault: expected a string id or null",
-            ));
-        }
-    };
+    let on_success_set_is_default = take_on_success_set_is_default(&mut args)?;
 
     let old_state = backend
         .get_state::<AddressBook>(caller, &account_id)
@@ -220,12 +205,84 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     // create + update loops we re-fetch and any id whose isDefault flipped
     // from true → false is surfaced in the wire `updated` map per RFC 8620
     // §5.3 ('any properties of any other object that have been changed').
-    // A best-effort error from this initial fetch is treated as "no
-    // previously-default ids known" — the worst case is a demotion that
-    // happened to a book we never saw, which is still picked up by
-    // AddressBook/changes.
-    let previously_default_ids: std::collections::HashSet<Id> = backend
-        .get_objects::<AddressBook>(caller, &account_id, None, None)
+    let previously_default_ids = default_book_ids(backend, caller, &account_id).await;
+
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        using,
+        i18n_set: &i18n_set,
+        on_destroy_remove_contents,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_on_success_default(&ctx, on_success_set_is_default, &mut acc).await?;
+    mutated |= set_report_demotions(&ctx, &previously_default_ids, &mut acc).await?;
+
+    // Fetch newState AFTER all mutations including onSuccessSetIsDefault
+    // (RFC 8620 §5.3: newState must reflect every mutation in this call).
+    finalize_set_response::<B, AddressBook>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `AddressBook/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ContactsBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// The draft-atwood-jmap-updates-00 `locale` and `localizations` checks.
+    i18n_set: &'a jmap_server::I18nSet,
+    /// The RFC 9610 §2.3 `onDestroyRemoveContents` argument.
+    on_destroy_remove_contents: bool,
+}
+
+/// Take the RFC 9610 §2.3 `onSuccessSetIsDefault` argument out of `args`.
+///
+/// # Errors
+///
+/// `invalidArguments` when the value is neither a string nor null.
+fn take_on_success_set_is_default(
+    args: &mut serde_json::Map<String, Value>,
+) -> Result<Option<String>, JmapError> {
+    // RFC 9610 §2.3: onSuccessSetIsDefault is Id|null (a single string id or
+    // null). §2.3 says "If the id is not found or if the change is not
+    // permitted by the server for policy reasons, it MUST be ignored" — that
+    // covers id-validity / policy refusal, NOT argument-shape errors. A
+    // non-string non-null value is an argument-shape error and is rejected
+    // with `invalidArguments` per the same convention the /set destroy
+    // non-string rejection uses (`set_destroy`). Mirrors the canonical
+    // jmap-mail-server onSuccessActivateScript / onSuccessDeactivateScript
+    // pattern in sieve.rs `take_activation_args` (bd:JMAP-qz9v.8).
+    match args.remove("onSuccessSetIsDefault") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(s)) => Ok(Some(s)),
+        Some(_) => Err(JmapError::invalid_arguments(
+            "onSuccessSetIsDefault: expected a string id or null",
+        )),
+    }
+}
+
+/// The ids of the AddressBooks that are the default before any write
+/// (bd:JMAP-qz9v.57), for [`set_report_demotions`].
+///
+/// A best-effort error from this fetch is treated as "no previously-default
+/// ids known" — the worst case is a demotion that happened to a book we
+/// never saw, which is still picked up by AddressBook/changes.
+async fn default_book_ids<B: ContactsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+) -> HashSet<Id> {
+    backend
+        .get_objects::<AddressBook>(caller, account_id, None, None)
         .await
         .map(|(books, _)| {
             books
@@ -234,122 +291,23 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 .map(|b| b.id)
                 .collect()
         })
-        .unwrap_or_default();
+        .unwrap_or_default()
+}
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
+/// The `create` part of `AddressBook/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
     let mut mutated = false;
-
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
-            if let Some(err) = obj_val
-                .as_object()
-                .and_then(reject_server_set::<AddressBook>)
-            {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            let mut obj_val = obj_val;
-            if let Value::Object(m) = &mut obj_val
-                && let Err(err) = i18n_set.check_create(m)
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // RFC 9610 §2 `shareWith`: Id[AddressBookRights], keyed by
-            // Principal id.
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_map_key_ids(o, "shareWith"))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // `AddressBook.id` is required, so the parse fills it with
-            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
-                    // `isDefault` and `myRights` are server-set (RFC 9610 §2)
-                    // and AddressBook requires both, so the server supplies
-                    // them. A new book is not the default until
-                    // `onSuccessSetIsDefault` makes it one.
-                    //
-                    // RFC 8620 §5.3: the server fills omitted properties that
-                    // have a default. RFC 9610 §2: `isSubscribed` SHOULD
-                    // default to true for new AddressBooks created by the
-                    // user themself.
-                    m.entry("isSubscribed").or_insert(Value::Bool(true));
-                    m.insert("isDefault".to_owned(), Value::Bool(false));
-                    m.insert(
-                        "myRights".to_owned(),
-                        json!({
-                            "mayRead": true,
-                            "mayWrite": true,
-                            "mayShare": false,
-                            "mayDelete": false
-                        }),
-                    );
-                    Value::Object(m)
-                }
-                other => other,
-            };
-
-            // RFC 8620 §5.3: a create entry that is not an object has no
-            // properties to name, so report it without a `properties` list.
-            if !obj_with_id.is_object() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "description": "a create entry must be an object",
-                    }),
-                );
-                continue;
-            }
-
-            // RFC 9610 §2: `name` is required. serde reports a missing
-            // field at the root, not on a property path, so name it here
-            // (RFC 8620 §5.3 invalidProperties).
-            if obj_with_id.get("name").is_none() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["name"],
-                        "description": "name is required on create",
-                    }),
-                );
-                continue;
-            }
-
-            let mut ab: AddressBook = match serde_path_to_error::deserialize(obj_with_id) {
-                Ok(a) => a,
-                Err(e) => {
-                    // RFC 8620 §5.3: invalidProperties SHOULD list the
-                    // invalid properties; the first path segment is the
-                    // top-level property whose value failed to parse.
-                    let mut err =
-                        json!({ "type": "invalidProperties", "description": e.to_string() });
-                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
-                    {
-                        err["properties"] = json!([key]);
-                    }
-                    not_created.insert(create_id, err);
+            let mut ab = match address_book_from_create(ctx, obj_val) {
+                Ok(ab) => ab,
+                Err(err) => {
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -358,34 +316,136 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 ab.id = id.clone();
                 ab
             };
-            match backend
-                .create_object::<AddressBook, _>(caller, &account_id, &create_id, build)
+            match ctx
+                .backend
+                .create_object::<AddressBook, _>(ctx.caller, ctx.account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
                     let mut entry = jmap_server::serialize_value(&created_obj)?;
-                    i18n_set.echo(&mut entry);
-                    created.insert(create_id, entry);
+                    ctx.i18n_set.echo(&mut entry);
+                    acc.created.insert(create_id, entry);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// Check one `AddressBook/set` create object, fill in the server-set and
+/// defaulted properties, and parse it, or return the SetError value for
+/// `notCreated`.
+fn address_book_from_create<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    mut obj_val: Value,
+) -> Result<AddressBook, Value> {
+    if let Some(err) = obj_val
+        .as_object()
+        .and_then(reject_server_set::<AddressBook>)
+    {
+        return Err(serde_json::Value::from(&err));
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    if let Value::Object(m) = &mut obj_val
+        && let Err(err) = ctx.i18n_set.check_create(m)
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // RFC 9610 §2 `shareWith`: Id[AddressBookRights], keyed by
+    // Principal id.
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_map_key_ids(o, "shareWith"))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // `AddressBook.id` is required, so the parse fills it with
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
+    let obj_with_id = match obj_val {
+        Value::Object(mut m) => {
+            m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
+            // `isDefault` and `myRights` are server-set (RFC 9610 §2)
+            // and AddressBook requires both, so the server supplies
+            // them. A new book is not the default until
+            // `onSuccessSetIsDefault` makes it one.
+            //
+            // RFC 8620 §5.3: the server fills omitted properties that
+            // have a default. RFC 9610 §2: `isSubscribed` SHOULD
+            // default to true for new AddressBooks created by the
+            // user themself.
+            m.entry("isSubscribed").or_insert(Value::Bool(true));
+            m.insert("isDefault".to_owned(), Value::Bool(false));
+            m.insert(
+                "myRights".to_owned(),
+                json!({
+                    "mayRead": true,
+                    "mayWrite": true,
+                    "mayShare": false,
+                    "mayDelete": false
+                }),
+            );
+            Value::Object(m)
+        }
+        other => other,
+    };
+
+    // RFC 8620 §5.3: a create entry that is not an object has no
+    // properties to name, so report it without a `properties` list.
+    if !obj_with_id.is_object() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "description": "a create entry must be an object",
+        }));
+    }
+
+    // RFC 9610 §2: `name` is required. serde reports a missing
+    // field at the root, not on a property path, so name it here
+    // (RFC 8620 §5.3 invalidProperties).
+    if obj_with_id.get("name").is_none() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": ["name"],
+            "description": "name is required on create",
+        }));
+    }
+
+    serde_path_to_error::deserialize(obj_with_id).map_err(|e| {
+        // RFC 8620 §5.3: invalidProperties SHOULD list the
+        // invalid properties; the first path segment is the
+        // top-level property whose value failed to parse.
+        let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+        if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+            err["properties"] = json!([key]);
+        }
+        err
+    })
+}
+
+/// The `update` part of `AddressBook/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -396,7 +456,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
-                    not_updated.insert(
+                    acc.not_updated.insert(
                         id_str,
                         json!({ "type": "invalidPatch", "description": e.to_string() }),
                     );
@@ -407,9 +467,9 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             // A changed value is rejected, an identical one dropped (RFC 8620
             // §5.3); nothing left is a no-op success.
             match check_read_only_patch::<_, AddressBook>(
-                backend,
-                caller,
-                &account_id,
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
                 &id,
                 patch.as_map_mut(),
             )
@@ -417,49 +477,59 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             {
                 Ok(false) => {}
                 Ok(true) => {
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                     continue;
                 }
                 Err(err) => {
-                    not_updated.insert(id_str, err);
+                    acc.not_updated.insert(id_str, err);
                     continue;
                 }
             }
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using)
-                .and_then(|()| i18n_set.check_patch(patch.as_map()))
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using)
+                .and_then(|()| ctx.i18n_set.check_patch(patch.as_map()))
+                .and_then(|()| check_map_key_ids(patch.as_map(), "shareWith"))
             {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
-            match backend
-                .update_object::<AddressBook>(caller, &account_id, &id, patch)
+            match ctx
+                .backend
+                .update_object::<AddressBook>(ctx.caller, ctx.account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
                     mutated = true;
                     let mut entry = jmap_server::serialize_value(&obj)?;
-                    i18n_set.echo(&mut entry);
-                    updated.insert(id_str, entry);
+                    ctx.i18n_set.echo(&mut entry);
+                    acc.updated.insert(id_str, entry);
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                 }
                 Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
+                    acc.not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// The `destroy` part of `AddressBook/set`. Returns whether the backend was
+/// written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+async fn set_destroy<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -480,70 +550,86 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            // RFC 9610 §2.3 onDestroyRemoveContents:
-            // - `true`: cascade — for every ContactCard belonging to this
-            //   book, either destroy the card (if this is its only book)
-            //   or patch its addressBookIds to remove this book entry. If
-            //   any cascade step fails, reject the book destroy.
-            // - `false` (default): if the book has contents, reject with
-            //   addressBookHasContents; otherwise proceed.
-            if on_destroy_remove_contents {
-                if let Err(cascade_err) =
-                    cascade_address_book_contents(backend, caller, &account_id, &id).await
-                {
-                    not_destroyed.insert(id_str, cascade_err);
-                    continue;
-                }
-            } else {
-                match backend
-                    .address_book_has_contents(caller, &account_id, &id)
-                    .await
-                {
-                    Ok(true) => {
-                        not_destroyed.insert(
-                            id_str,
-                            serde_json::Value::from(&SetError::new(SetErrorType::from(
-                                ADDRESS_BOOK_HAS_CONTENTS,
-                            ))),
-                        );
-                        continue;
-                    }
-                    Ok(false) => {
-                        // Proceed to destroy_object below.
-                    }
-                    // Backend signalled it could not determine whether the
-                    // AddressBook has contents (e.g. storage degraded).
-                    // Per the trait contract, surface as serverFail rather
-                    // than fail-open by proceeding with destroy.
-                    Err(e) => {
-                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
+            if let Some(err) = destroy_contents_error(ctx, &id).await {
+                acc.not_destroyed.insert(id_str, err);
+                continue;
             }
 
-            match backend
-                .destroy_object::<AddressBook>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<AddressBook>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // onSuccessSetIsDefault — post-set isDefault patch
+/// The RFC 9610 §2.3 `onDestroyRemoveContents` step before an AddressBook
+/// destroy: the SetError value for `notDestroyed` when the book still has
+/// contents or their cascade failed, or `None` to go on with the destroy.
+async fn destroy_contents_error<B: ContactsBackend>(ctx: &SetCtx<'_, B>, id: &Id) -> Option<Value> {
+    // RFC 9610 §2.3 onDestroyRemoveContents:
+    // - `true`: cascade — for every ContactCard belonging to this
+    //   book, either destroy the card (if this is its only book)
+    //   or patch its addressBookIds to remove this book entry. If
+    //   any cascade step fails, reject the book destroy.
+    // - `false` (default): if the book has contents, reject with
+    //   addressBookHasContents; otherwise proceed.
+    if ctx.on_destroy_remove_contents {
+        if let Err(cascade_err) =
+            cascade_address_book_contents(ctx.backend, ctx.caller, ctx.account_id, id).await
+        {
+            return Some(cascade_err);
+        }
+    } else {
+        match ctx
+            .backend
+            .address_book_has_contents(ctx.caller, ctx.account_id, id)
+            .await
+        {
+            Ok(true) => {
+                return Some(serde_json::Value::from(&SetError::new(SetErrorType::from(
+                    ADDRESS_BOOK_HAS_CONTENTS,
+                ))));
+            }
+            Ok(false) => {
+                // Proceed to destroy_object.
+            }
+            // Backend signalled it could not determine whether the
+            // AddressBook has contents (e.g. storage degraded).
+            // Per the trait contract, surface as serverFail rather
+            // than fail-open by proceeding with destroy.
+            Err(e) => {
+                return Some(server_fail_value_from_backend(&e));
+            }
+        }
+    }
+    None
+}
+
+/// The RFC 9610 §2.3 `onSuccessSetIsDefault` phase of `AddressBook/set`:
+/// patch the named address book with `{"isDefault": true}`. Returns
+/// whether the backend was written.
+async fn set_on_success_default<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    on_success_set_is_default: Option<String>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
     // RFC 9610 §2.3: onSuccessSetIsDefault is Id|null (a single string id,
     // not a map).  After the main set operations, if it is a non-null string,
     // patch the named address book with {"isDefault": true}.  Errors are
@@ -551,13 +637,13 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     //
     // RFC 9610 §2.3: this block MUST be skipped if any main set operation
     // (create, update, or destroy) produced an error.
-    // -----------------------------------------------------------------------
     let main_ops_all_succeeded =
-        not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
+        acc.not_created.is_empty() && acc.not_updated.is_empty() && acc.not_destroyed.is_empty();
+    let mut mutated = false;
     if main_ops_all_succeeded && let Some(id_str) = on_success_set_is_default {
         // Resolve creation reference: if id_str starts with '#', look up in created map.
         let resolved: Option<Id> = if let Some(create_id) = id_str.strip_prefix('#') {
-            created
+            acc.created
                 .get(create_id)
                 .and_then(|v| v.get("id"))
                 .and_then(|v| v.as_str())
@@ -572,26 +658,34 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             patch_map.insert("isDefault".to_owned(), Value::Bool(true));
             let patch = PatchObject::from_map(patch_map);
             // §2.3: errors here are silently ignored.
-            match backend
-                .update_object::<AddressBook>(caller, &account_id, &target_id, patch)
+            match ctx
+                .backend
+                .update_object::<AddressBook>(ctx.caller, ctx.account_id, &target_id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(target_id.to_string(), jmap_server::serialize_value(&obj)?);
+                    acc.updated
+                        .insert(target_id.to_string(), jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(target_id.to_string(), Value::Null);
+                    acc.updated.insert(target_id.to_string(), Value::Null);
                 }
                 Err(_) => {} // silently ignored per §2.3
             }
         }
     } // end if main_ops_all_succeeded
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // bd:JMAP-qz9v.57 — report books demoted by the single-default invariant.
-    //
+/// bd:JMAP-qz9v.57 — report books demoted by the single-default invariant
+/// in `updated`. Returns whether any was reported.
+async fn set_report_demotions<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    previously_default_ids: &HashSet<Id>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
     // After the create, update and destroy loops and onSuccessSetIsDefault,
     // any AddressBook that
     // was isDefault:true at the start of /set (captured in
@@ -612,10 +706,11 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     // This runs after onSuccessSetIsDefault, the only client path that
     // changes isDefault (RFC 9610 §2: it is server-set), so it reports that
     // demotion too.
-    // -----------------------------------------------------------------------
+    let mut mutated = false;
     if !previously_default_ids.is_empty()
-        && let Ok((current_books, _)) = backend
-            .get_objects::<AddressBook>(caller, &account_id, None, None)
+        && let Ok((current_books, _)) = ctx
+            .backend
+            .get_objects::<AddressBook>(ctx.caller, ctx.account_id, None, None)
             .await
     {
         for book in current_books {
@@ -626,33 +721,15 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             if book.is_default {
                 continue; // still default → not demoted
             }
-            if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
+            if acc.updated.contains_key(&book_id_str) || acc.created.contains_key(&book_id_str) {
                 continue; // already authoritatively recorded
             }
             let v = jmap_server::serialize_value(&book)?;
-            updated.insert(book_id_str, v);
+            acc.updated.insert(book_id_str, v);
             mutated = true;
         }
     }
-
-    // Fetch newState AFTER all mutations including onSuccessSetIsDefault
-    // (RFC 8620 §5.3: newState must reflect every mutation in this call).
-    finalize_set_response::<B, AddressBook>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------

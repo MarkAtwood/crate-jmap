@@ -175,39 +175,70 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        using,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, ContactCard>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `ContactCard/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ContactsBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+}
+
+/// The `create` part of `ContactCard/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val
                 .as_object()
                 .and_then(reject_server_set::<ContactCard>)
             {
-                not_created.insert(create_id, serde_json::Value::from(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             if let Some(Err(err)) = obj_val
                 .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
+                .map(|o| check_metadata_entry(o, true, ctx.using))
             {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
-            if let Err(err) = resolve_map_key_refs(&mut obj_val, "addressBookIds", created_ids) {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
+            if let Err(err) = resolve_map_key_refs(&mut obj_val, "addressBookIds", ctx.created_ids)
+            {
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             if let Some(err) = obj_val.as_object().and_then(jscontact_uri_error) {
-                not_created.insert(create_id, err);
+                acc.not_created.insert(create_id, err);
                 continue;
             }
             // RFC 9610 §2: a Media `blobId` is an Id.
@@ -215,7 +246,8 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 .as_object()
                 .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
             {
-                not_created.insert(create_id, serde_json::Value::from(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             // `ContactCard.id` is optional, so the create parses without
@@ -232,7 +264,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     {
                         err["properties"] = json!([key]);
                     }
-                    not_created.insert(create_id, err);
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -241,116 +273,151 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                 card.id = Some(id.clone());
                 card
             };
-            match backend
-                .create_object::<ContactCard, _>(caller, &account_id, &create_id, build)
+            match ctx
+                .backend
+                .create_object::<ContactCard, _>(ctx.caller, ctx.account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
+                    acc.created
+                        .insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+/// The `update` part of `ContactCard/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            if let Err(err) = resolve_map_key_refs(&mut patch_val, "addressBookIds", created_ids) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            // RFC 9610 §2: a Media `blobId` is an Id.
-            if let Some(err) = patch_val
-                .as_object()
-                .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&err));
-                continue;
-            }
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-            // RFC 9610 §3: `id` is server-set. A changed value is rejected,
-            // an identical one dropped (RFC 8620 §5.3); nothing left is a
-            // no-op success.
-            match check_read_only_patch::<_, ContactCard>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Some(err) =
-                jscontact_uri_error(&jmap_server::patch_values_as_object(patch.as_map()))
-            {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            match backend
-                .update_object::<ContactCard>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// One entry of the `ContactCard/set` `update` map. Returns whether the
+/// backend was written.
+async fn update_one<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    if let Err(err) = resolve_map_key_refs(&mut patch_val, "addressBookIds", ctx.created_ids) {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+    // RFC 9610 §2: a Media `blobId` is an Id.
+    if let Some(err) = patch_val
+        .as_object()
+        .and_then(|o| jmap_server::check_blob_ids(o, &["blobId"]))
+    {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&err));
+        return Ok(false);
+    }
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return Ok(false);
+        }
+    };
+    // RFC 9610 §3: `id` is server-set. A changed value is rejected,
+    // an identical one dropped (RFC 8620 §5.3); nothing left is a
+    // no-op success.
+    match check_read_only_patch::<_, ContactCard>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        patch.as_map_mut(),
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    }
+    if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using) {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+    if let Some(err) = jscontact_uri_error(&jmap_server::patch_values_as_object(patch.as_map())) {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
+
+    match ctx
+        .backend
+        .update_object::<ContactCard>(ctx.caller, ctx.account_id, &id, patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The `destroy` part of `ContactCard/set`. Returns whether the backend
+/// was written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+async fn set_destroy<B: ContactsBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -371,42 +438,28 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            match backend
-                .destroy_object::<ContactCard>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<ContactCard>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, ContactCard>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------

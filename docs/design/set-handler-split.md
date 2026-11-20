@@ -138,3 +138,21 @@ Where it differs from the template:
   metadata, i18n and `shareWith` checks as one `and_then` chain, in the same order, so the
   first failing check still decides the SetError.
 - CalendarEventNotification/set is destroy-only, like TaskNotification/set (§5).
+
+## 7. In jmap-contacts-server
+
+| Handler | Before (lines) | After (orchestrator) |
+|---|---|---|
+| `handle_address_book_set` | 502 | 75 |
+| `handle_contact_card_set` | 272 | 56 |
+
+Where it differs from the template:
+
+- AddressBook/set has two phases after destroy: `set_on_success_default` (the RFC 9610 §2.3
+  `onSuccessSetIsDefault` patch) and `set_report_demotions` (books that the single-default
+  rule demoted, bd:JMAP-qz9v.57). Both return `Result<bool, JmapError>`. The pre-checks use
+  `take_on_success_set_is_default` and `default_book_ids`. Create objects are checked and
+  parsed in `address_book_from_create`, and the `addressBookHasContents` check and the
+  `onDestroyRemoveContents` cascade are `destroy_contents_error`. Its update runs the
+  metadata, i18n and `shareWith` checks as one `and_then` chain, as Calendar/set does.
+- ContactCard/set has an `update_one`.
