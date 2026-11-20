@@ -3,11 +3,13 @@
   "title": "vtc spec: unspecified errors for lobby/breakout/limit gates",
   "description": "Found implementing JMAP-8mem.2 (jmap-vtc-server). draft-atwood-jmap-vtc-00 at jmap-chat-spec 3227c0f leaves these undefined, so jmap-vtc-server does not enforce them: (1) VTCCall/set with lobbyEnabled when supportsLobby is false (L168) or parentCallId when supportsBreakoutRooms is false (L171) has no error named; (2) maxParticipantsPerCall, maxConcurrentCalls, maxBreakoutRooms (L177-185) name no SetError when exceeded; (3) VTCCall/query sort on endedAt does not say where null endedAt sorts (L759; implementation puts them last); (4) the scheduled create example scheduledStartAt 2026-06-06T10:00:00Z (L676) is now in the past, so the example as written must be rejected per L685. Decide in the spec, then implement in jmap-vtc-server.",
   "notes": "2026-11-19: spec patch drafted for Mark's review in docs/upstream/2026-11-19/spec-patches/ (see README there); not committed to jmap-chat-spec.\nMark 2026-11-20: decision 51: commit the patch to jmap-chat-spec.\nSpec half landed in jmap-chat-spec 03a4b76; crate half (jmap-vtc-server gates) next.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-10-20T13:10:17.199485447Z",
   "created_by": "agent",
-  "updated_at": "2026-11-20T00:39:46.390570261Z"
+  "updated_at": "2026-11-20T01:58:52.055514426Z",
+  "closed_at": "2026-11-20T01:58:52.055514426Z",
+  "close_reason": "Crate half done in 75ef2e2f: lobby/breakout gates invalidProperties, maxConcurrentCalls/maxBreakoutRooms overQuota in the backend (deferred to commit under atomic scopes), null endedAt sorts last tested."
 }

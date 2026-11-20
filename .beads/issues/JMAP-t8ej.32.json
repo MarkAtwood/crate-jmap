@@ -3,13 +3,15 @@
   "title": "Batch 50 leftovers: §5.3 edge cases",
   "description": "From batch 50 reviews, none blocking. (1) No test that a non-moderator {} on VTCLivestream/set is forbidden (recording has recording_empty_patch_by_non_moderator_is_forbidden; code order is correct). (2) Error precedence: in mail Submission and chat Chat/Message the read-only check runs before existence/state/permission gates, so a changed read-only key gets invalidProperties instead of notFound/cannotUnsend/forbidden (both reject, nothing written; RFC 8620 sets no precedence) - decide whether to standardise. (3) Chat unreadCount: with maintains_unread_count()==false the /get value is computed, so echoing it may not match stored -\u003e invalidProperties. (4) Message top-level reactions key always invalidProperties even if identical. (5) Same class as t8ej.27 note (b): Task/set, TaskList/set, Principal/set (and calendars) permission checks live in backend update_object, so {} / identical-only patch by a read-only caller is a no-op success (nothing written); fixing needs backend pre-check hooks - Mark's call. (6) undoStatus final-\u003efinal identical still cannotUnsend (RFC 8621 §7.5 silent).",
   "notes": "2026-11-04 batch 54: item 1 done (bfcaa2d6, test passed first time; handler already gates before the no-op). Items 2-6 await Mark's decision.\n2026-11-20: items 3 and 4 fixed in c8023b8f (RFC 8620 §5.3 identical server-set values: computed unreadCount, identical whole reactions). Items 2, 5, 6 remain Mark's policy calls: error precedence, backend pre-check hooks for no-op patches by read-only callers, undoStatus final-\u003efinal.\nMark 2026-11-20: decisions 44-46: item 2 existence/permission before shape everywhere; item 5 no-op stays success; item 6 identical final undoStatus is a no-op.",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-02T21:38:50.847132948Z",
   "created_by": "agent",
-  "updated_at": "2026-11-20T00:37:21.391120299Z",
+  "updated_at": "2026-11-20T01:58:54.304242381Z",
+  "closed_at": "2026-11-20T01:58:54.304242381Z",
+  "close_reason": "Items 1, 3, 4 done earlier; 2 (decision 44, d2dd8c4a: check_read_only_patch returns notFound first; mail/chat/vtc/graph/filenode/sieve reordered), 6 (decision 46, 79d4636f); 5 decided as no change (decision 45). Residual: backend-only permission checks still follow handler shape checks, needs pre-check hooks decision 45 rejected.",
   "dependencies": [
     {
       "issue_id": "JMAP-t8ej.32",
