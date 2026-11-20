@@ -177,3 +177,42 @@ async fn chat_set_admits_identical_server_set_values() {
     let resp = update(&backend, shared).await;
     assert_eq!(resp["notUpdated"][CHAT]["type"], "forbidden", "{resp}");
 }
+
+/// jmap-chat-spec 3445973 draft-atwood-jmap-chat-00.md L612 (§Chat
+/// `closedAt`): "After it is set, the server MUST reject with a `forbidden`
+/// SetError ... every `Chat/set` update that changes ... shared group
+/// settings (`name`, ...)". docs/design/DECISIONS.md L62 (decision 44):
+/// "existence and permission (`notFound`, `forbidden`, state errors such
+/// as `cannotUnsend`) are checked before shape (`invalidProperties` for a
+/// changed read-only property)". A rename of the closed group that also
+/// changes the server-set `activeCallId` is `forbidden`.
+#[tokio::test]
+async fn forbidden_update_with_read_only_change_is_forbidden() {
+    let backend = MemoryBackend::new();
+    seed_closed_group(&backend);
+    let resp = update(
+        &backend,
+        json!({ "name": "Renamed", "activeCallId": "call2" }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"][CHAT]["type"], "forbidden", "{resp}");
+}
+
+/// RFC 8620 §5.3 notFound: "The id given to update/destroy cannot be
+/// found." Decision 44 (docs/design/DECISIONS.md L62) puts it before a
+/// changed read-only property.
+#[tokio::test]
+async fn read_only_change_of_missing_chat_is_not_found() {
+    let backend = MemoryBackend::new();
+    seed_closed_group(&backend);
+    let HandlerOutput { primary: resp, .. } = handle_chat_set(
+        &backend,
+        &(),
+        &std::collections::BTreeMap::new(),
+        json!({ "accountId": ACCOUNT_ID, "update": { "nope": { "activeCallId": "call2" } } }),
+        &[],
+    )
+    .await
+    .expect("Chat/set");
+    assert_eq!(resp["notUpdated"]["nope"]["type"], "notFound", "{resp}");
+}

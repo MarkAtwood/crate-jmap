@@ -258,3 +258,39 @@ async fn identical_top_level_reactions_is_a_no_op() {
         json!({ "r1": other })
     );
 }
+
+/// jmap-chat-spec 3445973 draft-atwood-jmap-chat-00.md L1257 (§Editing a
+/// Message): an edit is allowed "on a message where `senderId` is the
+/// accountId and `deletedAt` is absent. The server MUST reject an edit of
+/// any other message with a `forbidden` SetError." docs/design/DECISIONS.md
+/// L62 (decision 44): "existence and permission (`notFound`, `forbidden`,
+/// state errors such as `cannotUnsend`) are checked before shape
+/// (`invalidProperties` for a changed read-only property)". An edit of a
+/// deleted Message that also changes the server-set `senderId` is
+/// `forbidden`.
+#[tokio::test]
+async fn forbidden_edit_with_read_only_change_is_forbidden() {
+    let backend = MemoryBackend::new();
+    let id = create_message(&backend).await;
+    let resp = update(
+        &backend,
+        &id,
+        json!({ "deletedAt": "2024-01-01T00:00:05Z" }),
+    )
+    .await;
+    assert!(resp["updated"].get(&id).is_some(), "{resp}");
+
+    let resp = update(&backend, &id, json!({ "body": "again", "senderId": "u9" })).await;
+    assert_eq!(resp["notUpdated"][&id]["type"], "forbidden", "{resp}");
+}
+
+/// RFC 8620 §5.3 notFound: "The id given to update/destroy cannot be
+/// found." Decision 44 (docs/design/DECISIONS.md L62) puts it before a
+/// changed read-only property.
+#[tokio::test]
+async fn read_only_change_of_missing_message_is_not_found() {
+    let backend = MemoryBackend::new();
+    create_message(&backend).await;
+    let resp = update(&backend, "nope", json!({ "senderId": "u9" })).await;
+    assert_eq!(resp["notUpdated"]["nope"]["type"], "notFound", "{resp}");
+}

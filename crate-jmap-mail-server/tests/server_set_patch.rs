@@ -181,6 +181,23 @@ async fn mailbox_empty_patch_of_missing_id_is_not_found() {
     assert!(resp["updated"].is_null(), "{resp}");
 }
 
+/// RFC 8620 §5.3 notFound: "The id given to update/destroy cannot be
+/// found." docs/design/DECISIONS.md L62 (decision 44): "existence and
+/// permission (`notFound`, `forbidden`, state errors such as
+/// `cannotUnsend`) are checked before shape (`invalidProperties` for a
+/// changed read-only property)". A missing Mailbox whose patch also
+/// changes the server-set `totalEmails` is `notFound`.
+#[tokio::test]
+async fn mailbox_read_only_change_of_missing_id_is_not_found() {
+    let backend = backend();
+    let resp = mailbox_set(
+        &backend,
+        json!({ "accountId": ACCOUNT, "update": { "nope": { "totalEmails": 7 } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"]["nope"]["type"], "notFound", "{resp}");
+}
+
 async fn email_set(backend: &MemoryBackend, args: Value) -> Value {
     let HandlerOutput { primary, .. } = handle_email_set(backend, &(), &BTreeMap::new(), args, &[])
         .await
@@ -404,6 +421,73 @@ async fn submission_update_with_identical_server_set_values_is_noop() {
     .await
     .expect("EmailSubmission/set");
     assert_noop(&resp, &id);
+}
+
+/// Run `EmailSubmission/set` with `update` on [`ACCOUNT`].
+async fn submission_update(backend: &MemoryBackend, update: Value) -> Value {
+    handle_submission_set(
+        backend,
+        &(),
+        &BTreeMap::new(),
+        json!({ "accountId": ACCOUNT, "update": update }),
+        "c2",
+    )
+    .await
+    .expect("EmailSubmission/set")
+    .primary
+}
+
+/// docs/design/DECISIONS.md L62 (decision 44): "existence and permission
+/// (`notFound`, `forbidden`, state errors such as `cannotUnsend`) are
+/// checked before shape (`invalidProperties` for a changed read-only
+/// property)". RFC 8620 §5.3 notFound: "The id given to update/destroy
+/// cannot be found."
+#[tokio::test]
+async fn submission_read_only_change_of_missing_id_is_not_found() {
+    let backend = backend();
+    let resp = submission_update(
+        &backend,
+        json!({ "nope": { "undoStatus": "canceled", "sendAt": "2020-01-01T00:00:00Z" } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"]["nope"]["type"], "notFound", "{resp}");
+}
+
+/// RFC 8621 §7.5 "cannotUnsend - The client attempted to update the
+/// "undoStatus" of a valid EmailSubmission object from "pending" to
+/// "canceled", but the message cannot be unsent." The memory backend sends
+/// at once, so the stored `undoStatus` is "final". Decision 44 (DECISIONS.md
+/// L62) puts that state error before the changed server-set `sendAt`
+/// (RFC 8621 §7 "(immutable; server-set)").
+#[tokio::test]
+async fn submission_cancel_with_read_only_change_is_cannot_unsend() {
+    let backend = backend();
+    let (id, _, _) = submit(&backend, |_| json!({})).await;
+    let resp = submission_update(
+        &backend,
+        json!({ &id: { "undoStatus": "canceled", "sendAt": "2020-01-01T00:00:00Z" } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"][&id]["type"], "cannotUnsend", "{resp}");
+}
+
+/// RFC 8621 §7 `sendAt` is "(immutable; server-set)"; with no `undoStatus`
+/// change there is no state error, so a changed value is
+/// `invalidProperties` (RFC 8620 §5.3).
+#[tokio::test]
+async fn submission_read_only_change_alone_is_invalid_properties() {
+    let backend = backend();
+    let (id, _, _) = submit(&backend, |_| json!({})).await;
+    let resp = submission_update(
+        &backend,
+        json!({ &id: { "sendAt": "2020-01-01T00:00:00Z" } }),
+    )
+    .await;
+    assert_eq!(
+        resp["notUpdated"][&id]["type"], "invalidProperties",
+        "{resp}"
+    );
+    assert_eq!(resp["notUpdated"][&id]["properties"], json!(["sendAt"]));
 }
 
 /// §5.3 applies to the implicit Email/set of `onSuccessUpdateEmail`

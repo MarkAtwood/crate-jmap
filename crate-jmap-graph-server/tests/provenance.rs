@@ -318,6 +318,30 @@ async fn curation_needs_may_curate_and_not_may_write() {
         .unwrap();
 }
 
+/// "The server rejects, with a `forbidden` SetError, a `GraphNode/set`
+/// update by a user without `mayCurate` that changes `status`" (L211).
+/// docs/design/DECISIONS.md L62 (decision 44): "existence and permission
+/// (`notFound`, `forbidden`, state errors such as `cannotUnsend`) are
+/// checked before shape (`invalidProperties` for a changed read-only
+/// property)", so the same update with a changed server-set `created` is
+/// still `forbidden`.
+#[tokio::test]
+async fn curation_without_may_curate_beats_read_only_change() {
+    let s = Server::new();
+    let g = s.graph().await;
+    let n = s.create("GraphNode/set", json!({ "graphId": g })).await;
+    forbidden(
+        &s.update_as(
+            BOB,
+            "GraphNode/set",
+            &n,
+            json!({ "status": "deprecated", "created": "2000-01-01T00:00:00Z" }),
+        )
+        .await
+        .unwrap_err(),
+    );
+}
+
 /// "Destroying a record requires `mayCurate`, in place of the `mayWrite`
 /// that {{JMAP-GRAPH}} requires" (L213).
 #[tokio::test]

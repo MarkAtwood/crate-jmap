@@ -1672,19 +1672,6 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
                 // A missing node falls through so update_object reports
                 // notFound.
                 if let Some(node) = stored {
-                    // §3.1.1 `@type` is immutable; draft-atwood-jmap-cid-00
-                    // `sha256` and the other server-set properties may
-                    // repeat only their stored value (RFC 8620 §5.3).
-                    let current = match json!(node) {
-                        Value::Object(m) => Some(m),
-                        _ => None,
-                    };
-                    if let Some(err) =
-                        reject_read_only_patch::<FileNode>(patch.as_map(), current.as_ref())
-                    {
-                        not_updated.insert(id_str, serde_json::Value::from(&err));
-                        continue;
-                    }
                     // -20 §5 checks the stored role: a client that "needs
                     // to destroy, rename or move such a Directory first
                     // clears its role", so clearing it in the same patch
@@ -1702,6 +1689,21 @@ pub(crate) async fn filenode_set<B: FileNodeBackend>(
                             not_updated.insert(id_str, role_forbidden(&node.id, action));
                             continue;
                         }
+                    }
+                    // After the role check: permission before shape
+                    // (DECISIONS.md 44). §3.1.1 `@type` is immutable;
+                    // draft-atwood-jmap-cid-00 `sha256` and the other
+                    // server-set properties may repeat only their stored
+                    // value (RFC 8620 §5.3).
+                    let current = match json!(node) {
+                        Value::Object(m) => Some(m),
+                        _ => None,
+                    };
+                    if let Some(err) =
+                        reject_read_only_patch::<FileNode>(patch.as_map(), current.as_ref())
+                    {
+                        not_updated.insert(id_str, serde_json::Value::from(&err));
+                        continue;
                     }
                     let bad: Vec<(&str, bool)> = typed
                         .iter()

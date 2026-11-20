@@ -1324,10 +1324,12 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // value ... Otherwise, the update MUST be rejected with an
             // "invalidProperties" SetError." Identical values are dropped
             // here, so the checks below see only the client changes.
-            if let Err(err) = strip_read_only_patch::<Chat>(patch.as_map_mut(), chat) {
-                not_updated.insert(id_str, err);
-                continue;
-            }
+            //
+            // Existence and permission come before shape (DECISIONS.md 44):
+            // a changed read-only value and an undefined key are held in
+            // `shape_err` and reported only after the `forbidden` checks
+            // below, which look at patch keys alone.
+            let mut shape_err = strip_read_only_patch::<Chat>(patch.as_map_mut(), chat).err();
 
             // Only the keys §Chat/set "Updating a Chat" defines may be
             // patched: the client-settable Chat properties that are not
@@ -1335,28 +1337,31 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // [`KICK_MEMBERS_KEY`] (whole key only). Any other key is
             // `invalidProperties`. JSON Pointer paths count by their first
             // segment.
+            let defined = |k: &str| {
+                let top = k.split('/').next().unwrap_or(k);
+                is_client_updatable::<Chat>(top)
+                    || MEMBER_PATCH_KEYS.contains(&top)
+                    || k == KICK_MEMBERS_KEY
+            };
             let bad_props: Vec<&str> = patch
                 .as_map()
                 .keys()
                 .map(String::as_str)
-                .filter(|k| {
-                    let top = k.split('/').next().unwrap_or(k);
-                    !(is_client_updatable::<Chat>(top)
-                        || MEMBER_PATCH_KEYS.contains(&top)
-                        || *k == KICK_MEMBERS_KEY)
-                })
+                .filter(|k| !defined(k))
                 .collect();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
-                continue;
+            if shape_err.is_none() && !bad_props.is_empty() {
+                shape_err = Some(json!({ "type": "invalidProperties", "properties": bad_props }));
             }
 
             // Per-Chat restrictions of extension-bound Chats; see
-            // `ChatRestrictions::may_update_chat`.
-            let patch_keys: Vec<&str> = patch.as_map().keys().map(String::as_str).collect();
+            // `ChatRestrictions::may_update_chat`. It sees only the keys
+            // the update may change.
+            let patch_keys: Vec<&str> = patch
+                .as_map()
+                .keys()
+                .map(String::as_str)
+                .filter(|k| defined(k))
+                .collect();
             match backend
                 .may_update_chat(caller, &account_id, chat, &patch_keys)
                 .await
@@ -1521,6 +1526,13 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         continue;
                     }
                 }
+            }
+
+            // Every `forbidden` check that needs no write has run: report a
+            // held shape error now (DECISIONS.md 44).
+            if let Some(err) = shape_err.take() {
+                not_updated.insert(id_str, err);
+                continue;
             }
 
             // draft-atwood-jmap-chat-00 §Chat `pinnedMessageIds`: an update

@@ -4424,6 +4424,24 @@ async fn filenode_set_moves_role_between_directories_in_one_call() {
     assert!(resp["notUpdated"].is_null(), "{resp}");
 }
 
+/// §5 "A Directory with a role cannot be destroyed, renamed or moved; the
+/// server rejects any attempt with "forbidden"" (quoted above).
+/// docs/design/DECISIONS.md L62 (decision 44): "existence and permission
+/// (`notFound`, `forbidden`, state errors such as `cannotUnsend`) are
+/// checked before shape (`invalidProperties` for a changed read-only
+/// property)", so a rename that also changes the server-set `size` is
+/// `forbidden`.
+#[tokio::test]
+async fn filenode_rename_of_role_directory_with_read_only_change_is_forbidden() {
+    let backend = backend_with_role_dir();
+    let resp = set_acc1(
+        &backend,
+        json!({ "update": { "docs": { "name": "renamed", "size": 999 } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"]["docs"]["type"], "forbidden", "{resp}");
+}
+
 #[tokio::test]
 async fn filenode_set_rename_move_destroy_of_role_directory_forbidden() {
     let backend = backend_with_role_dir();

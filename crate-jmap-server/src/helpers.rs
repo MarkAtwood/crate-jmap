@@ -1292,14 +1292,14 @@ pub fn strip_read_only_patch<O: SetObject>(
 /// Returns `Ok(true)` when nothing is left to apply, for a literal `{}` or
 /// a patch of identical server-set values: the update succeeds as a no-op,
 /// with no write, `updated` mapping `id` to `null`, and the state unchanged.
-/// A missing object leaves nothing to compare, so a read-only key is
-/// rejected as `invalidProperties`, and an empty patch is `notFound`.
+/// A missing object is `notFound`, whether the patch is empty or names a
+/// read-only key: existence is checked before shape, so a caller learns
+/// nothing about the properties of an object it cannot see.
 ///
 /// # Errors
 ///
-/// The `notUpdated` value: `notFound` for an empty patch of a missing
-/// object, the `invalidProperties` SetError, or `serverFail` when the fetch
-/// fails.
+/// The `notUpdated` value: `notFound` for a missing object, the
+/// `invalidProperties` SetError, or `serverFail` when the fetch fails.
 pub async fn check_read_only_patch<B, O>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1319,21 +1319,16 @@ where
         .await
         .map_err(|e| server_fail_value_from_backend(&e))?;
     let current = match found.first().map(serde_json::to_value).transpose() {
-        Ok(Some(Value::Object(m))) => Some(m),
+        Ok(Some(Value::Object(m))) => m,
         Ok(Some(_)) => {
             return Err(server_fail_value_from_backend(
                 "stored object is not a JSON object",
             ));
         }
-        Ok(None) => None,
+        Ok(None) => return Err(Value::from(&SetError::new(SetErrorType::NotFound))),
         Err(e) => return Err(server_fail_value_from_backend(&e)),
     };
-    if patch.is_empty() {
-        return current
-            .map(|_| true)
-            .ok_or_else(|| Value::from(&SetError::new(SetErrorType::NotFound)));
-    }
-    strip_read_only_patch::<O>(patch, current.as_ref()).map_err(|e| Value::from(&*e))?;
+    strip_read_only_patch::<O>(patch, Some(&current)).map_err(|e| Value::from(&*e))?;
     Ok(patch.is_empty())
 }
 

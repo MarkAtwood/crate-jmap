@@ -41,7 +41,7 @@ use crate::helpers::{
 };
 use crate::helpers::{parents_first, resolve_refs};
 use crate::media::{stop_livestreams, stop_recordings};
-use jmap_server::{BackendSetError, SetError, SetErrorType};
+use jmap_server::{BackendSetError, SetError, SetErrorType, SetObject};
 use jmap_server::{
     HandlerOutput, backend_set_error_value, now_utc_string, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend, strip_read_only_patch,
@@ -552,38 +552,26 @@ async fn update_call<B: VtcBackend>(
         )
     })?;
 
-    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id).await?;
-    let current = call
-        .as_ref()
-        .map(serde_json::to_value)
-        .transpose()
-        .map_err(|e| server_fail_value_from_backend(&e))?;
-    // §VTCCall: the immutable and server-set properties, `joinUri`
-    // included; `state` stays patchable. A changed value is rejected, an
-    // identical one dropped (RFC 8620 §5.3).
-    strip_read_only_patch::<VtcCall>(
-        patch.as_map_mut(),
-        current.as_ref().and_then(Value::as_object),
-    )
-    .map_err(|e| {
-        serde_json::Value::from(&e.with_description("these properties cannot be updated"))
-    })?;
-    let call =
-        call.ok_or_else(|| serde_json::Value::from(&SetError::new(SetErrorType::NotFound)))?;
-    // Nothing left to apply: a no-op success, with no write.
-    if patch.as_map().is_empty() {
-        return Ok(Value::Null);
-    }
+    // Existence and permission before shape (DECISIONS.md 44): a caller
+    // learns nothing about the properties of a call it cannot see or may
+    // not change.
+    let call = fetch_one::<VtcCall, _>(backend, caller, account_id, id)
+        .await?
+        .ok_or_else(|| serde_json::Value::from(&SetError::new(SetErrorType::NotFound)))?;
 
-    let mut keys: Vec<&str> = patch
+    // The properties the patch changes, without the server-set and
+    // immutable ones, which the read-only check below rejects or drops.
+    let mut keys: Vec<String> = patch
         .as_map()
         .keys()
         .map(|k| k.split('/').next().unwrap_or(k))
+        .filter(|k| !VtcCall::SERVER_SET.contains(k) && !VtcCall::IMMUTABLE.contains(k))
+        .map(str::to_owned)
         .collect();
     keys.sort_unstable();
     keys.dedup();
 
-    if keys.iter().any(|k| MODERATOR_ONLY.contains(k)) {
+    if keys.iter().any(|k| MODERATOR_ONLY.contains(&k.as_str())) {
         let allowed = if keys == ["state"] {
             may_end_call(backend, caller, account_id, &call).await?
         } else {
@@ -595,6 +583,18 @@ async fn update_call<B: VtcBackend>(
         if !allowed {
             return Err(forbidden("the caller is not a moderator on this call"));
         }
+    }
+
+    // §VTCCall: the immutable and server-set properties, `joinUri`
+    // included; `state` stays patchable. A changed value is rejected, an
+    // identical one dropped (RFC 8620 §5.3).
+    let current = serde_json::to_value(&call).map_err(|e| server_fail_value_from_backend(&e))?;
+    strip_read_only_patch::<VtcCall>(patch.as_map_mut(), current.as_object()).map_err(|e| {
+        serde_json::Value::from(&e.with_description("these properties cannot be updated"))
+    })?;
+    // Nothing left to apply: a no-op success, with no write.
+    if patch.as_map().is_empty() {
+        return Ok(Value::Null);
     }
 
     // §VTCCall/set: "`lobbyEnabled: true` when `supportsLobby` is `false`:

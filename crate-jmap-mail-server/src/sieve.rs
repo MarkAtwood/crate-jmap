@@ -708,6 +708,27 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
                 }
             };
 
+            // VR-backed script guard: reject blobId changes on the VR-backed script
+            // (RFC 9661 §4). isActive changes are handled separately
+            // by the activation state machine and are not blocked here.
+            // Before the read-only check: permission before shape
+            // (DECISIONS.md 44).
+            if let Some(ref vr_id) = vr_script_id
+                && vr_id == &id
+                && patch.as_map().contains_key("blobId")
+            {
+                not_updated.insert(
+                    id_str,
+                    serde_json::Value::from(
+                        &SetError::new(SetErrorType::Forbidden).with_description(
+                            "blobId of a VacationResponse-backed script cannot be \
+                                 updated via SieveScript/set",
+                        ),
+                    ),
+                );
+                continue;
+            }
+
             // R4: `id` and `isActive` (RFC 9661 §2), which
             // onSuccessActivateScript changes, are server-set: a changed
             // value is rejected, an identical one dropped (RFC 8620 §5.3).
@@ -730,25 +751,6 @@ pub(crate) async fn sieve_set<B: MailBackend + SieveBackend>(
                     not_updated.insert(id_str, err);
                     continue;
                 }
-            }
-
-            // VR-backed script guard: reject blobId changes on the VR-backed script
-            // (RFC 9661 §4). isActive changes are handled separately
-            // by the activation state machine and are not blocked here.
-            if let Some(ref vr_id) = vr_script_id
-                && vr_id == &id
-                && patch.as_map().contains_key("blobId")
-            {
-                not_updated.insert(
-                    id_str,
-                    serde_json::Value::from(
-                        &SetError::new(SetErrorType::Forbidden).with_description(
-                            "blobId of a VacationResponse-backed script cannot be \
-                                 updated via SieveScript/set",
-                        ),
-                    ),
-                );
-                continue;
             }
 
             // R2: validate name character if patch contains "name".

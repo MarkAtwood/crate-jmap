@@ -572,7 +572,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
             // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
@@ -582,28 +582,6 @@ pub async fn handle_submission_set<B: MailBackend>(
                     continue;
                 }
             };
-            // A changed server-set or immutable value (RFC 8621 §7) is
-            // rejected, an identical one dropped (RFC 8620 §5.3); nothing
-            // left is a no-op success.
-            match check_read_only_patch::<_, EmailSubmission>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
             match process_update(backend, caller, &account_id, &id, patch).await {
                 Ok(Some(obj)) => {
                     updated.insert(id_str.clone(), jmap_server::serialize_value(&obj)?);
@@ -612,7 +590,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     updated.insert(id_str.clone(), Value::Null);
                 }
                 Err(e) => {
-                    not_updated.insert(id_str.clone(), backend_set_error_value(e));
+                    not_updated.insert(id_str.clone(), e);
                 }
             }
         }
@@ -1090,58 +1068,71 @@ async fn process_create<B: MailBackend>(
 
 /// Process a single update entry in an `EmailSubmission/set` request.
 ///
-/// RFC 8621 §7.5: only `undoStatus` may be updated. If the current status is
-/// already `"final"`, returns `cannotUnsend`.
+/// RFC 8621 §7.5: only `undoStatus` may be updated, and a submission whose
+/// `undoStatus` is already `"final"` cannot be unsent (`cannotUnsend`).
+/// Existence and state come before shape (DECISIONS.md 44): a missing
+/// submission is `notFound` and a final one `cannotUnsend` whatever else
+/// the patch names; only then is a changed server-set or immutable value
+/// (RFC 8621 §7) `invalidProperties`, an identical one dropped (RFC 8620
+/// §5.3), and any other property `invalidProperties`. Nothing left is a
+/// no-op success, `Ok(None)` with no write. The `Err` value is the SetError
+/// JSON.
 async fn process_update<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     id: &Id,
-    patch: PatchObject,
-) -> Result<Option<EmailSubmission>, BackendSetError<B::Error>> {
-    // RFC 8621 §7.5: only undoStatus may be changed in an update patch.
-    {
-        let bad: Vec<&str> = patch
-            .as_map()
-            .keys()
-            .filter(|k| k.as_str() != "undoStatus")
-            .map(|k| k.as_str())
-            .collect();
-        if !bad.is_empty() {
-            return Err(BackendSetError::SetError(Box::new(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(bad)
-                    .with_description("only undoStatus may be changed on an EmailSubmission"),
-            )));
-        }
-    }
-
-    // Look up existing submission to check undoStatus.
-    let (existing, not_found) = backend
+    mut patch: PatchObject,
+) -> Result<Option<EmailSubmission>, Value> {
+    let (existing, _) = backend
         .get_objects::<EmailSubmission>(caller, account_id, Some(std::slice::from_ref(id)), None)
         .await
-        .map_err(BackendSetError::Other)?;
+        .map_err(|e| jmap_server::server_fail_value_from_backend(&e))?;
+    let Some(current) = existing.into_iter().next() else {
+        return Err(Value::from(&SetError::new(SetErrorType::NotFound)));
+    };
 
-    if !not_found.is_empty() || existing.is_empty() {
-        return Err(BackendSetError::SetError(Box::new(SetError::new(
-            SetErrorType::NotFound,
-        ))));
-    }
-
-    let current = &existing[0];
-
-    // Only allow updating undoStatus; if the submission is already final, reject.
-    if current.undo_status == UndoStatus::Final {
-        return Err(BackendSetError::SetError(Box::new(
-            SetError::new(SetErrorType::CannotUnsend)
+    if current.undo_status == UndoStatus::Final && patch.as_map().contains_key("undoStatus") {
+        return Err(Value::from(
+            &SetError::new(SetErrorType::CannotUnsend)
                 .with_description("Submission is already in final state and cannot be undone"),
-        )));
+        ));
     }
 
-    // Apply the patch via the backend.
+    let stored = match serde_json::to_value(&current) {
+        Ok(Value::Object(m)) => m,
+        Ok(_) => {
+            return Err(jmap_server::server_fail_value_from_backend(
+                "stored EmailSubmission is not a JSON object",
+            ));
+        }
+        Err(e) => return Err(jmap_server::server_fail_value_from_backend(&e)),
+    };
+    jmap_server::strip_read_only_patch::<EmailSubmission>(patch.as_map_mut(), Some(&stored))
+        .map_err(|e| Value::from(&*e))?;
+
+    // RFC 8621 §7.5: only undoStatus may be changed in an update patch.
+    let bad: Vec<&str> = patch
+        .as_map()
+        .keys()
+        .filter(|k| k.as_str() != "undoStatus")
+        .map(String::as_str)
+        .collect();
+    if !bad.is_empty() {
+        return Err(Value::from(
+            &SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(bad)
+                .with_description("only undoStatus may be changed on an EmailSubmission"),
+        ));
+    }
+    if patch.as_map().is_empty() {
+        return Ok(None);
+    }
+
     backend
         .update_object::<EmailSubmission>(caller, account_id, id, patch)
         .await
+        .map_err(backend_set_error_value)
 }
 
 /// Whether `identity_email` allows sending as `addr` (RFC 8621 §6): the same

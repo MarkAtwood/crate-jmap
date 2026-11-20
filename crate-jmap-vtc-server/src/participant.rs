@@ -43,7 +43,7 @@ use crate::helpers::{
     finalize_set_response, forbidden, invalid, not_found, peek_filter, reject_unsupported_sort,
     utc_key,
 };
-use jmap_server::{BackendSetError, SetError, SetErrorType};
+use jmap_server::{BackendSetError, SetError, SetErrorType, SetObject};
 use jmap_server::{
     HandlerOutput, apply_patch_object, backend_set_error_value, now_utc_string, reject_server_set,
     server_fail_from_backend, server_fail_value_from_backend, strip_read_only_patch,
@@ -721,11 +721,27 @@ async fn update_participant<B: VtcBackend>(
     // reaches `gatewayData` only through [`PENDING_SIGNAL`], removed above.
     // A changed value is rejected, an identical one dropped (RFC 8620
     // §5.3).
-    strip_read_only_patch::<VtcParticipant>(patch.as_map_mut(), current.as_object()).map_err(
-        |e| serde_json::Value::from(&e.with_description("these properties cannot be updated")),
-    )?;
+    //
+    // Permission and state before shape (DECISIONS.md 44): a changed value
+    // is held in `shape_err` and reported after the per-property
+    // `forbidden` checks below, just before the write. Those checks then
+    // see the patch without its read-only keys.
+    let shape_err =
+        match strip_read_only_patch::<VtcParticipant>(patch.as_map_mut(), current.as_object()) {
+            Ok(()) => None,
+            Err(e) => {
+                patch.as_map_mut().retain(|k, _| {
+                    let top = k.split('/').next().unwrap_or(k);
+                    !VtcParticipant::SERVER_SET.contains(&top)
+                        && !VtcParticipant::IMMUTABLE.contains(&top)
+                });
+                Some(serde_json::Value::from(
+                    &e.with_description("these properties cannot be updated"),
+                ))
+            }
+        };
     // Nothing left to apply: a no-op success, with no write.
-    if patch.as_map().is_empty() && signal.is_none() {
+    if shape_err.is_none() && patch.as_map().is_empty() && signal.is_none() {
         return Ok(Value::Null);
     }
 
@@ -934,6 +950,10 @@ async fn update_participant<B: VtcBackend>(
         effects.signal = Some(gateway_signal(account_id, &old, pending)?);
         // The server "removes the key": report the stored value.
         echo.insert("gatewayData".to_owned(), to_value(&old.gateway_data)?);
+    }
+
+    if let Some(err) = shape_err {
+        return Err(err);
     }
 
     patch.as_map_mut().extend(

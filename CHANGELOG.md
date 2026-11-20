@@ -1086,6 +1086,21 @@ wire behaviour that a conforming peer can observe.
   conditional Foo/set checks them at commit on the final state
   (bd:JMAP-595m).
 
+- **jmap-server**, **jmap-mail-server**, **jmap-chat-server**,
+  **jmap-vtc-server**, **jmap-graph-server**, **jmap-filenode-server**:
+  `/set` update error precedence (DECISIONS.md 44). Existence, permission
+  and state errors (`notFound`, `forbidden`, `cannotUnsend`) now win over
+  `invalidProperties` for a changed server-set or immutable property, so a
+  caller learns nothing about the properties of an object it cannot see or
+  change. `jmap_server::check_read_only_patch` returns `notFound` for a
+  missing object even when the patch names a read-only key (it returned
+  `invalidProperties`), which fixes every handler built on it;
+  `EmailSubmission/set`, `Chat/set`, `Message/set`, `VTCCall/set`,
+  `VTCParticipant/set`, `Graph/set`, `GraphNode/set` (provenance rights),
+  `FileNode/set` (role Directory rename or move) and `SieveScript/set`
+  (VacationResponse-backed `blobId`) run their own `forbidden` and state
+  checks before the read-only one (bd:JMAP-t8ej.32 item 2).
+
 - **jmap-chat-server**: RFC 8620 §5.3 identical server-set values. `Chat/set`
   compares an echoed `unreadCount` with the value `Chat/get` reports, which
   is computed when the backend does not maintain it, instead of the stored

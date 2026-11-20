@@ -7980,17 +7980,26 @@ async fn presence_set_destroy_forbidden() {
     assert_eq!(resp["destroyed"], json!(null));
 }
 
-/// Oracle: PresenceStatus/set update with readonly field `id` returns invalidProperties.
+/// Oracle: PresenceStatus/set update with readonly field `id` returns
+/// invalidProperties (RFC 8620 §5.3: a server-set value "different to the
+/// current value"). The record exists: a missing one is `notFound` first
+/// (docs/design/DECISIONS.md L62, decision 44).
 #[tokio::test]
 async fn presence_set_update_readonly_id_rejected() {
     let backend = common::account_backend();
+    backend.insert_object_for_test(
+        "PresenceStatus",
+        ACCOUNT_ID,
+        "ps1",
+        json!({ "id": "ps1", "presence": "online", "updatedAt": "2026-01-01T00:00:00Z" }),
+    );
     let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
-                "ps1": { "id": "ps1", "presence": "away" }
+                "ps1": { "id": "ps2", "presence": "away" }
             }
         }),
     )
@@ -8003,17 +8012,25 @@ async fn presence_set_update_readonly_id_rejected() {
     );
 }
 
-/// Oracle: PresenceStatus/set update with readonly field `updatedAt` returns invalidProperties.
+/// Oracle: PresenceStatus/set update with readonly field `updatedAt`
+/// returns invalidProperties (RFC 8620 §5.3), on an existing record as in
+/// the test above.
 #[tokio::test]
 async fn presence_set_update_readonly_updated_at_rejected() {
     let backend = common::account_backend();
+    backend.insert_object_for_test(
+        "PresenceStatus",
+        ACCOUNT_ID,
+        "ps1",
+        json!({ "id": "ps1", "presence": "online", "updatedAt": "2026-01-01T00:00:00Z" }),
+    );
     let HandlerOutput { primary: resp, .. } = handle_presence_set(
         &backend,
         &(),
         json!({
             "accountId": ACCOUNT_ID,
             "update": {
-                "ps1": { "updatedAt": "2026-01-01T00:00:00Z", "presence": "away" }
+                "ps1": { "updatedAt": "2027-01-01T00:00:00Z", "presence": "away" }
             }
         }),
     )

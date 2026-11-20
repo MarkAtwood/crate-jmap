@@ -288,8 +288,8 @@ where
 /// which fetches the stored object `id` only when the patch names such a
 /// property or is empty, rejects a changed value, and removes the
 /// identical ones, leaving only the client changes for the handler's own
-/// allow-list. A missing object leaves nothing to compare, so a read-only
-/// key is rejected.
+/// allow-list. A missing object is `notFound`, before any shape check
+/// (DECISIONS.md 44).
 ///
 /// Returns `true` when nothing is left to apply (literal `{}`, or only
 /// identical values): the update is a no-op success. A non-object `patch`

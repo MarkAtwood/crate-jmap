@@ -215,11 +215,6 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
         let mut patch = decode_patch(patch)?;
         let graph = readable(backend, caller, account_id, id).await?;
         let keys = patched_properties(&patch);
-        if let Some(e) = reject_read_only_patch::<Graph>(patch.as_map(), Some(&to_map(&graph)?)) {
-            return Err(serde_json::Value::from(
-                &e.with_description("these properties are set by the server"),
-            ));
-        }
         let r = &graph.my_rights;
         let provenance = crate::node::provenance_on(backend, caller, account_id);
         // draft-atwood-jmap-graph-provenance-00 §Graph Extensions: "Only a
@@ -240,6 +235,13 @@ impl<B: GraphBackend> SetOps<B> for GraphSet {
             && !r.may_write
         {
             return Err(forbidden("changing name or annotations requires mayWrite"));
+        }
+        // After the rights checks: permission before shape (DECISIONS.md
+        // 44).
+        if let Some(e) = reject_read_only_patch::<Graph>(patch.as_map(), Some(&to_map(&graph)?)) {
+            return Err(serde_json::Value::from(
+                &e.with_description("these properties are set by the server"),
+            ));
         }
         let next = patched(&graph, &patch)?;
         validate(&next, cap)?;

@@ -408,3 +408,88 @@ async fn livestream_empty_patch_by_non_moderator_is_forbidden() {
     }
     assert_eq!(lget(&backend, "L1").await["state"], "live");
 }
+
+/// docs/design/DECISIONS.md L62 (decision 44): "existence and permission
+/// (`notFound`, `forbidden`, state errors such as `cannotUnsend`) are
+/// checked before shape (`invalidProperties` for a changed read-only
+/// property)". RFC 8620 §5.3 notFound: "The id given to update/destroy
+/// cannot be found."
+#[tokio::test]
+async fn call_read_only_change_of_unknown_id_is_not_found() {
+    let backend = backend();
+    let err = update(
+        &backend,
+        BOB,
+        "nosuchcall",
+        json!({ "createdAt": "2000-01-01T00:00:00Z" }),
+    )
+    .await
+    .expect_err("unknown id");
+    assert_eq!(err["type"], "notFound", "{err}");
+}
+
+/// draft-atwood-jmap-vtc-00 L925 (jmap-chat-spec 03a4b76): moderators "MAY
+/// use `VTCCall/set` to perform the following call-level actions.
+/// Non-moderators SHOULD receive `forbidden` for these operations", L935
+/// "**Toggle lobby:**" among them. Decision 44 (DECISIONS.md L62) puts
+/// that before the changed `createdAt`.
+#[tokio::test]
+async fn call_non_moderator_action_with_read_only_change_is_forbidden() {
+    let backend = backend();
+    let id = room_call(&backend).await;
+    let err = update(
+        &backend,
+        ALICE,
+        &id,
+        json!({ "lobbyEnabled": true, "createdAt": "2000-01-01T00:00:00Z" }),
+    )
+    .await
+    .expect_err("non-moderator");
+    assert_eq!(err["type"], "forbidden", "{err}");
+}
+
+/// draft-atwood-jmap-vtc-00 L1154-1155 (jmap-chat-spec 03a4b76) "Ask to
+/// unmute": "a moderator may request that a participant unmute by
+/// updating the target's `unmuteRequested` to `true`". A non-moderator
+/// setting it on their own record is refused `forbidden`, and decision 44
+/// (DECISIONS.md L62) puts that before the changed server-set
+/// `speakerTimeMs`.
+#[tokio::test]
+async fn participant_moderator_action_with_read_only_change_is_forbidden() {
+    let backend = backend();
+    let call_id = room_call(&backend).await;
+    let as_alice = |args: Value| {
+        let backend = &backend;
+        async move {
+            let mut args = args;
+            args["accountId"] = json!(ACCOUNT);
+            handle_vtc_participant_set(
+                backend,
+                &ALICE.to_owned(),
+                &std::collections::BTreeMap::new(),
+                args,
+            )
+            .await
+            .expect("VTCParticipant/set")
+            .primary
+        }
+    };
+    let resp =
+        as_alice(json!({ "create": { "p0": { "callId": call_id, "joinMethod": "webrtc" } } }))
+            .await;
+    let id = resp["created"]["p0"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("join failed: {resp}"))
+        .to_owned();
+    let resp =
+        as_alice(json!({ "update": { &id: { "unmuteRequested": true, "speakerTimeMs": 12345 } } }))
+            .await;
+    assert_eq!(resp["notUpdated"][&id]["type"], "forbidden", "{resp}");
+
+    // Without the moderator action the changed value is still refused.
+    let resp = as_alice(json!({ "update": { &id: { "speakerTimeMs": 12345 } } })).await;
+    assert_eq!(
+        resp["notUpdated"][&id]["type"], "invalidProperties",
+        "{resp}"
+    );
+}

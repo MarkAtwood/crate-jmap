@@ -1817,11 +1817,16 @@ pub async fn handle_message_set<B: ChatBackend>(
             // value ... Otherwise, the update MUST be rejected with an
             // "invalidProperties" SetError." Identical values are dropped
             // here, so the checks below see only the client changes.
+            //
+            // Existence and permission come before shape (DECISIONS.md 44):
+            // the shape errors below are held in `shape_err` and reported
+            // only after the `forbidden` checks, which look at patch keys
+            // and values the read-only check does not touch.
+            let mut shape_err: Option<Value> = None;
             if let Value::Object(map) = &mut patch_val
                 && let Err(err) = strip_read_only_patch::<Message>(map, &stored)
             {
-                not_updated.insert(id_str, err);
-                continue;
+                shape_err = Some(err);
             }
             // A whole `reactions` identical to the stored map changes
             // nothing: drop it, as an identical server-set value is
@@ -1849,25 +1854,22 @@ pub async fn handle_message_set<B: ChatBackend>(
             // `invalidProperties`. draft-ietf-jmap-metadata-05 §3.2 adds
             // `metadata` and `privateMetadata`, written whole or by patch
             // path.
+            let defined = |k: &str| {
+                k.starts_with("reactions/")
+                    || is_metadata_key(k)
+                    || (k != "reactions" && is_client_updatable::<Message>(k))
+            };
             let bad_props: Vec<&str> = patch_val
                 .as_object()
                 .map(|obj| {
                     obj.keys()
                         .map(String::as_str)
-                        .filter(|&k| {
-                            !(k.starts_with("reactions/")
-                                || is_metadata_key(k)
-                                || (k != "reactions" && is_client_updatable::<Message>(k)))
-                        })
+                        .filter(|k| !defined(k))
                         .collect()
                 })
                 .unwrap_or_default();
-            if !bad_props.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": bad_props }),
-                );
-                continue;
+            if shape_err.is_none() && !bad_props.is_empty() {
+                shape_err = Some(json!({ "type": "invalidProperties", "properties": bad_props }));
             }
 
             // draft-atwood-jmap-chat-00 §Message `readDisposition`: "the
@@ -1875,33 +1877,35 @@ pub async fn handle_message_set<B: ChatBackend>(
             // without `readAt` with an `invalidProperties` SetError naming
             // `readDisposition`." A null `readAt` clears it, not sets it.
             let sets = |field: &str| patch_val.get(field).is_some_and(|v| !v.is_null());
-            if sets("readDisposition") && !sets("readAt") {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": ["readDisposition"] }),
-                );
-                continue;
+            if shape_err.is_none() && sets("readDisposition") && !sets("readAt") {
+                shape_err =
+                    Some(json!({ "type": "invalidProperties", "properties": ["readDisposition"] }));
             }
 
             // §Input Validation: "`bodyType`: reject a value not listed in
             // `supportedBodyTypes`".
-            if patch_val.get("bodyType").is_some_and(|v| {
-                !v.as_str()
-                    .is_some_and(|s| limits.supported_body_types.contains(&s))
-            }) {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": ["bodyType"] }),
-                );
-                continue;
+            if shape_err.is_none()
+                && patch_val.get("bodyType").is_some_and(|v| {
+                    !v.as_str()
+                        .is_some_and(|s| limits.supported_body_types.contains(&s))
+                })
+            {
+                shape_err =
+                    Some(json!({ "type": "invalidProperties", "properties": ["bodyType"] }));
             }
 
             // Per-Chat restrictions of extension-bound Chats; see
-            // `ChatRestrictions::may_update_message`.
+            // `ChatRestrictions::may_update_message`. It sees only the keys
+            // the update may change.
             if let Some(chat) = &stored_chat {
                 let patch_keys: Vec<&str> = patch_val
                     .as_object()
-                    .map(|obj| obj.keys().map(String::as_str).collect())
+                    .map(|obj| {
+                        obj.keys()
+                            .map(String::as_str)
+                            .filter(|k| defined(k))
+                            .collect()
+                    })
                     .unwrap_or_default();
                 match backend
                     .may_update_message(caller, &account_id, chat, &stored, &patch_keys)
@@ -1952,6 +1956,10 @@ pub async fn handle_message_set<B: ChatBackend>(
                     );
                     continue;
                 }
+                if let Some(err) = shape_err.take() {
+                    not_updated.insert(id_str, err);
+                    continue;
+                }
                 if let Some(err) = edit_limit_error(&stored, &patch_val, &limits) {
                     not_updated.insert(id_str, err);
                     continue;
@@ -1976,6 +1984,12 @@ pub async fn handle_message_set<B: ChatBackend>(
                         }
                     }
                 });
+            }
+
+            // Every `forbidden` check has run: report a held shape error.
+            if let Some(err) = shape_err.take() {
+                not_updated.insert(id_str, err);
+                continue;
             }
 
             // Nothing left once identical values are dropped (or a literal

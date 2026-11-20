@@ -449,18 +449,27 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
             None
         };
         let keys = patched_properties(&patch);
-        if let Some(e) = reject_read_only_patch::<GraphNode>(patch.as_map(), Some(&to_map(&node)?))
-        {
-            return Err(serde_json::Value::from(
-                &e.with_description("these properties are immutable or server-set"),
-            ));
+        fn reject_read_only(
+            node: &GraphNode,
+            patch: &jmap_types::PatchObject,
+        ) -> Result<(), Value> {
+            match reject_read_only_patch::<GraphNode>(patch.as_map(), Some(&to_map(node)?)) {
+                Some(e) => Err(serde_json::Value::from(
+                    &e.with_description("these properties are immutable or server-set"),
+                )),
+                None => Ok(()),
+            }
         }
         let mut next = patched(&node, &patch)?;
         let mut cleared = Map::new();
         if let Some(rights) = &rights {
             let current = to_map(&node)?;
-            check_record(&next).map_err(|e| set_error_value(&e))?;
+            // The retraction and rights rules before the read-only and
+            // record shape checks: state and permission before shape
+            // (DECISIONS.md 44).
             check_record_update(&current, &next, &keys, rights).map_err(|e| set_error_value(&e))?;
+            reject_read_only(&node, &patch)?;
+            check_record(&next).map_err(|e| set_error_value(&e))?;
             if !provenance::is_retracted(&current) && provenance::is_retracted(&next) {
                 retraction_patch(&current, &next, patch.as_map_mut());
                 next = patched(&node, &patch)?;
@@ -469,6 +478,9 @@ impl<B: GraphBackend> SetOps<B> for NodeSet {
                     .map(|(k, v)| (k.to_owned(), v))
                     .collect();
             }
+        }
+        if rights.is_none() {
+            reject_read_only(&node, &patch)?;
         }
         validate(&next, cap)?;
         check_edit(

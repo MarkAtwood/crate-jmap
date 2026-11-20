@@ -137,6 +137,26 @@ async fn unreadable_graph_is_not_found() {
 /// `shareWith` ... requires `mayAdmin`. Destroying a Graph requires
 /// `mayAdmin`. A user who has `mayRead` but lacks the needed right receives
 /// a `forbidden` SetError".
+/// L250: "Changing `name` or `annotations` requires `mayWrite`. ... A user
+/// who has `mayRead` but lacks the needed right receives a `forbidden`
+/// SetError". docs/design/DECISIONS.md L62 (decision 44): "existence and
+/// permission (`notFound`, `forbidden`, state errors such as
+/// `cannotUnsend`) are checked before shape (`invalidProperties` for a
+/// changed read-only property)", so a reader's rename that also changes
+/// the server-set `created` is `forbidden`.
+#[tokio::test]
+async fn reader_rename_with_read_only_change_is_forbidden() {
+    let backend = backend();
+    let g = design_notes(&backend, json!({ BOB: rights(true, false, false) })).await;
+    let resp = set(
+        &backend,
+        BOB,
+        json!({ "update": { (g.clone()): { "name": "x", "created": "2000-01-01T00:00:00Z" } } }),
+    )
+    .await;
+    assert_eq!(resp["notUpdated"][&g]["type"], "forbidden", "{resp}");
+}
+
 #[tokio::test]
 async fn reader_rights() {
     let backend = backend();
