@@ -225,134 +225,182 @@ pub async fn handle_position_set<B: ChatBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
-    let mut updated_ids: Vec<Id> = Vec::new();
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+    };
+    let mut acc = SetAccumulators::default();
+    set_create(&args, &mut acc);
+    let mutated = set_update(&ctx, &mut args, &mut acc).await?;
+    set_destroy(&args, &mut acc)?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
-    // §ReadPosition/set: "`create` and `destroy` are not supported; both
-    // MUST return a SetError of type `forbidden`. ReadPosition records are
-    // managed by the server." The server creates them on first message
-    // delivery (see `crate::message::handle_message_set`).
+    finalize_set_response::<B, ReadPosition>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `ReadPosition/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ChatBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+}
+
+/// The `create` part of `ReadPosition/set`: forbidden.
+///
+/// §ReadPosition/set: "`create` and `destroy` are not supported; both
+/// MUST return a SetError of type `forbidden`. ReadPosition records are
+/// managed by the server." The server creates them on first message
+/// delivery (see `crate::message::handle_message_set`).
+fn set_create(args: &serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for create_id in create_map.keys() {
-            not_created.insert(create_id.clone(), forbidden_server_managed());
+            acc.not_created
+                .insert(create_id.clone(), forbidden_server_managed());
         }
     }
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
+/// The `update` part of `ReadPosition/set`, then the `Chat.unreadCount`
+/// recompute for the updated positions. Returns whether the backend was
+/// written.
+async fn set_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
+    let mut updated_ids: Vec<Id> = Vec::new();
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            if let Err(err) = resolve_refs(&mut patch_val, &["lastReadMessageId"], created_ids) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-
-            // §ReadPosition: `id` and `lastReadAt` are server-set, `chatId`
-            // is immutable.
-            match check_read_only_patch::<_, ReadPosition>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                &mut patch_val,
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
-            // `lastReadMessageId` (String, optional). Checked here because
-            // the server-added `lastReadAt` below stops the backend's
-            // re-validation from naming the one offending property.
-            if patch_val
-                .get("lastReadMessageId")
-                .is_some_and(|v| !v.is_string() && !v.is_null())
-            {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidProperties", "properties": ["lastReadMessageId"] }),
-                );
-                continue;
-            }
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-            // §ReadPosition/set: "The server sets `lastReadAt` to the
-            // current time and recomputes `Chat.unreadCount` for the
-            // affected Chat." The count is written to the Chat after the
-            // update loop (`record_unread_count_changes`).
-            patch.as_map_mut().insert(
-                "lastReadAt".to_owned(),
-                Value::String(now_utc_string().into_inner()),
-            );
-            match backend
-                .update_object::<ReadPosition>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated_ids.push(id);
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated_ids.push(id);
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
+        for (id_str, patch_val) in update_map {
+            if let Some(id) = update_one(ctx, id_str, patch_val, acc).await? {
+                mutated = true;
+                updated_ids.push(id);
             }
         }
     }
 
     if !updated_ids.is_empty()
-        && let Ok((updated_positions, _)) = backend
-            .get_objects::<ReadPosition>(caller, &account_id, Some(&updated_ids), None)
+        && let Ok((updated_positions, _)) = ctx
+            .backend
+            .get_objects::<ReadPosition>(ctx.caller, ctx.account_id, Some(&updated_ids), None)
             .await
     {
         let chat_ids = updated_positions.into_iter().map(|p| p.chat_id).collect();
-        record_unread_count_changes(backend, caller, &account_id, chat_ids).await;
+        record_unread_count_changes(ctx.backend, ctx.caller, ctx.account_id, chat_ids).await;
+    }
+    Ok(mutated)
+}
+
+/// One `update` entry of `ReadPosition/set`. Returns the id when the
+/// backend was written.
+async fn update_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<Option<Id>, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(None);
+        }
+    };
+    if let Err(err) = resolve_refs(&mut patch_val, &["lastReadMessageId"], ctx.created_ids) {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(None);
     }
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+    // §ReadPosition: `id` and `lastReadAt` are server-set, `chatId`
+    // is immutable.
+    match check_read_only_patch::<_, ReadPosition>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        &mut patch_val,
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(None);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(None);
+        }
+    }
+    // `lastReadMessageId` (String, optional). Checked here because
+    // the server-added `lastReadAt` below stops the backend's
+    // re-validation from naming the one offending property.
+    if patch_val
+        .get("lastReadMessageId")
+        .is_some_and(|v| !v.is_string() && !v.is_null())
+    {
+        acc.not_updated.insert(
+            id_str,
+            json!({ "type": "invalidProperties", "properties": ["lastReadMessageId"] }),
+        );
+        return Ok(None);
+    }
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return Ok(None);
+        }
+    };
+    // §ReadPosition/set: "The server sets `lastReadAt` to the
+    // current time and recomputes `Chat.unreadCount` for the
+    // affected Chat." The count is written to the Chat after the
+    // update loop (`record_unread_count_changes`).
+    patch.as_map_mut().insert(
+        "lastReadAt".to_owned(),
+        Value::String(now_utc_string().into_inner()),
+    );
+    match ctx
+        .backend
+        .update_object::<ReadPosition>(ctx.caller, ctx.account_id, &id, patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(Some(id))
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(Some(id))
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(None)
+        }
+    }
+}
+
+/// The `destroy` part of `ReadPosition/set`: forbidden (see
+/// [`set_create`]).
+fn set_destroy(
+    args: &serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -369,28 +417,12 @@ pub async fn handle_position_set<B: ChatBackend>(
             })
             .collect::<Result<_, _>>()?;
         for id_str in id_strs {
-            not_destroyed.insert(id_str.to_owned(), forbidden_server_managed());
+            acc.not_destroyed
+                .insert(id_str.to_owned(), forbidden_server_managed());
         }
     }
-
-    finalize_set_response::<B, ReadPosition>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(())
 }
-
 /// The `forbidden` SetError for a client `create` or `destroy` of a
 /// server-managed ReadPosition (draft-atwood-jmap-chat-00 §ReadPosition/set).
 fn forbidden_server_managed() -> Value {

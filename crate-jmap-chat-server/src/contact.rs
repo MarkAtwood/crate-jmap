@@ -229,27 +229,50 @@ pub async fn handle_contact_set<B: ChatBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    set_destroy(&args, &mut acc)?;
 
-    // -----------------------------------------------------------------------
-    // create — draft-atwood-jmap-chat-00 §ChatContact/set: "`create`
-    // accepts only `identity`, which is required; the server assigns `id`
-    // and sets the other server-set properties." draft-atwood-jmap-chat-
-    // did-00 §Optional `did` field: `did` "is server-set (`ChatContact/set`
-    // create accepts only `identity`)".
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, ChatContact>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `ChatContact/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ChatBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+}
+
+/// The `create` part of `ChatContact/set`. Returns whether the backend was
+/// written.
+///
+/// draft-atwood-jmap-chat-00 §ChatContact/set: "`create` accepts only
+/// `identity`, which is required; the server assigns `id` and sets the
+/// other server-set properties." draft-atwood-jmap-chat-did-00 §Optional
+/// `did` field: `did` "is server-set (`ChatContact/set` create accepts only
+/// `identity`)".
+async fn set_create<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         let owner_user_id = if create_map.is_empty() {
             None
         } else {
-            backend
-                .owner_user_id(caller, &account_id)
+            ctx.backend
+                .owner_user_id(ctx.caller, ctx.account_id)
                 .await
                 .map_err(|e| server_fail_from_backend(&e))?
         };
@@ -271,7 +294,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
                 bad_props.push("identity");
             }
             let Some(identity) = identity.filter(|_| bad_props.is_empty()) else {
-                not_created.insert(
+                acc.not_created.insert(
                     create_id.clone(),
                     json!({ "type": "invalidProperties", "properties": bad_props }),
                 );
@@ -283,7 +306,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
             // reject the create with an `invalidProperties` SetError
             // naming `identity`".
             if owner_user_id.as_deref() == Some(identity) {
-                not_created.insert(
+                acc.not_created.insert(
                     create_id.clone(),
                     json!({ "type": "invalidProperties", "properties": ["identity"] }),
                 );
@@ -293,116 +316,142 @@ pub async fn handle_contact_set<B: ChatBackend>(
             let now = UTCDate::from(now_utc_string().as_ref());
             let contact =
                 |id: &Id| ChatContact::new(id.clone(), identity, identity, now.clone(), now, false);
-            match backend
-                .create_object::<ChatContact, _>(caller, &account_id, create_id, contact)
+            match ctx
+                .backend
+                .create_object::<ChatContact, _>(ctx.caller, ctx.account_id, create_id, contact)
                 .await
             {
                 Ok((_server_id, created_obj)) => {
                     mutated = true;
-                    created.insert(
+                    acc.created.insert(
                         create_id.clone(),
                         jmap_server::serialize_value(&created_obj)?,
                     );
                 }
                 Err(e) => {
-                    not_created.insert(create_id.clone(), backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id.clone(), backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// The `update` part of `ChatContact/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
+        }
+    }
+    Ok(mutated)
+}
 
-            // Reject patches to server-set or immutable ChatContact
-            // properties (§ChatContact).
-            match check_read_only_patch::<_, ChatContact>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                &mut patch_val,
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
+/// One `update` entry of `ChatContact/set`. Returns whether the backend was
+/// written.
+async fn update_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
 
-            // draft-atwood-jmap-chat-00 §ChatContact/set:
-            // "update supports: blocked, displayName.", the client-settable
-            // properties that are not immutable.
-            //
-            // Project the patch onto that set so that unknown wire fields
-            // are silently dropped rather than reaching
-            // `backend.update_object`.
-            let Value::Object(mut patch_map) = patch_val else {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
-                );
-                continue;
-            };
-            patch_map.retain(|field, _| is_client_updatable::<ChatContact>(field));
-            let clean_patch = patch_map;
-            if clean_patch.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({
-                        "type": "invalidPatch",
-                        "description": "no updatable fields in patch",
-                    }),
-                );
-                continue;
-            }
-
-            match backend
-                .update_object::<ChatContact>(
-                    caller,
-                    &account_id,
-                    &id,
-                    PatchObject::from_map(clean_patch),
-                )
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
+    // Reject patches to server-set or immutable ChatContact
+    // properties (§ChatContact).
+    match check_read_only_patch::<_, ChatContact>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        &mut patch_val,
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
         }
     }
 
-    // -----------------------------------------------------------------------
-    // destroy — draft §ChatContact/set: "`destroy` is not supported and
-    // MUST return `forbidden`."
-    // -----------------------------------------------------------------------
+    // draft-atwood-jmap-chat-00 §ChatContact/set:
+    // "update supports: blocked, displayName.", the client-settable
+    // properties that are not immutable.
+    //
+    // Project the patch onto that set so that unknown wire fields
+    // are silently dropped rather than reaching
+    // `backend.update_object`.
+    let Value::Object(mut patch_map) = patch_val else {
+        acc.not_updated.insert(
+            id_str,
+            json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
+        );
+        return Ok(false);
+    };
+    patch_map.retain(|field, _| is_client_updatable::<ChatContact>(field));
+    let clean_patch = patch_map;
+    if clean_patch.is_empty() {
+        acc.not_updated.insert(
+            id_str,
+            json!({
+                "type": "invalidPatch",
+                "description": "no updatable fields in patch",
+            }),
+        );
+        return Ok(false);
+    }
+
+    match ctx
+        .backend
+        .update_object::<ChatContact>(
+            ctx.caller,
+            ctx.account_id,
+            &id,
+            PatchObject::from_map(clean_patch),
+        )
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The `destroy` part of `ChatContact/set`: draft §ChatContact/set:
+/// "`destroy` is not supported and MUST return `forbidden`."
+fn set_destroy(
+    args: &serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<(), JmapError> {
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -419,29 +468,13 @@ pub async fn handle_contact_set<B: ChatBackend>(
             })
             .collect::<Result<_, _>>()?;
         for id_str in id_strs {
-            not_destroyed.insert(
+            acc.not_destroyed.insert(
                 id_str.to_owned(),
                 serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
-
-    finalize_set_response::<B, ChatContact>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------

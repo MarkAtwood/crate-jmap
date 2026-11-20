@@ -367,311 +367,397 @@ pub async fn handle_emoji_set<B: ChatBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
     let limits = backend.limits(caller, &account_id);
-
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
-    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
-        let mut space_counts = emoji_space_counts(backend, caller, &account_id, &limits, &args)
-            .await
-            .map_err(|e| server_fail_from_backend(&e))?;
-        for (create_id, obj_val) in create_map {
-            let resolved = match resolved_create(obj_val, &["spaceId"], created_ids) {
-                Ok(v) => v,
-                Err(err) => {
-                    not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            let obj_val = &resolved;
-            if let Some(err) = obj_val
-                .as_object()
-                .and_then(reject_server_set::<CustomEmoji>)
-            {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
-                continue;
-            }
-            // Optional properties: a wrongly-typed value is invalidProperties
-            // (RFC 8620 §5.3), not a silent absence.
-            if let Some(err) = mistyped_create_props(obj_val, &[("spaceId", PropType::Str)]) {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-            // Validate name: required, non-empty, matches /^[a-z0-9_-]+$/
-            let name = match obj_val.get("name").and_then(|v| v.as_str()) {
-                Some(s) if !s.is_empty() => s.to_owned(),
-                _ => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["name"] }),
-                    );
-                    continue;
-                }
-            };
-            if !name
-                .chars()
-                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
-            {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["name"] }),
-                );
-                continue;
-            }
-            if name.len() > 64 {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["name"] }),
-                );
-                continue;
-            }
-
-            // blobId is required
-            let blob_id = match obj_val
-                .get("blobId")
-                .and_then(|v| v.as_str())
-                .and_then(|s| Id::new_validated(s).ok())
-            {
-                Some(id) => id,
-                _ => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["blobId"] }),
-                    );
-                    continue;
-                }
-            };
-
-            // spaceId is optional
-            let space_id: Option<Id> = match obj_val.get("spaceId").and_then(|v| v.as_str()) {
-                Some(s) => match jmap_server::parse_wire_id(s, "spaceId") {
-                    Ok(id) => Some(id),
-                    Err(err) => {
-                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                        continue;
-                    }
-                },
-                None => None,
-            };
-
-            let now_str = now_utc_string();
-            let now: UTCDate = UTCDate::from(now_str.as_ref());
-
-            // Authorization gate (draft-atwood-jmap-chat-00 commit
-            // `9344aec`). Runs AFTER wire-format validation so
-            // malformed creates don't consume an authorization
-            // decision, and BEFORE `create_object` so an unauthorized
-            // emoji never touches storage. The target scope is
-            // whatever spaceId the create payload supplies (None for
-            // server-global).
-            match backend
-                .may_set_custom_emoji(caller, &account_id, space_id.as_ref(), EmojiSetOp::Create)
-                .await
-            {
-                Ok(Ok(())) => {}
-                Ok(Err(set_err)) => {
-                    not_created.insert(create_id.clone(), serde_json::Value::from(&set_err));
-                    continue;
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                    continue;
-                }
-            }
-
-            if let (Some(space), Some(max)) = (&space_id, limits.max_custom_emoji_per_space)
-                && space_counts.get(space).copied().unwrap_or(0) >= u64::from(max)
-            {
-                not_created.insert(create_id.clone(), over_quota(TOO_MANY_EMOJI));
-                continue;
-            }
-            if let Some(err) =
-                emoji_blob_too_large(backend, caller, &account_id, &limits, &blob_id).await
-            {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-
-            // createdBy is the owner, referenced by the accountId
-            // (draft-atwood-jmap-chat-00 §Terminology).
-            let emoji = |id: &Id| {
-                let mut emoji =
-                    CustomEmoji::new(id.clone(), name, blob_id, account_id.clone(), now);
-                emoji.space_id = space_id;
-                emoji
-            };
-
-            match backend
-                .create_object::<CustomEmoji, _>(caller, &account_id, create_id, emoji)
-                .await
-            {
-                Ok((_server_id, created_obj)) => {
-                    mutated = true;
-                    if let Some(space) = &created_obj.space_id {
-                        *space_counts.entry(space.clone()).or_default() += 1;
-                    }
-                    created.insert(
-                        create_id.clone(),
-                        jmap_server::serialize_value(&created_obj)?,
-                    );
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), backend_set_error_value(e));
-                }
-            }
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        limits: &limits,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
     // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
+
+    finalize_set_response::<B, CustomEmoji>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `CustomEmoji/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ChatBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The account's emoji caps.
+    limits: &'a ChatLimits,
+}
+
+/// The `create` part of `CustomEmoji/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
+    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        let mut space_counts =
+            emoji_space_counts(ctx.backend, ctx.caller, ctx.account_id, ctx.limits, args)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+        for (create_id, obj_val) in create_map {
+            mutated |= create_one(ctx, create_id, obj_val, acc, &mut space_counts).await?;
+        }
+    }
+    Ok(mutated)
+}
+
+/// One `create` entry of `CustomEmoji/set`. `space_counts` is the running
+/// per-Space emoji count for the `max_custom_emoji_per_space` pre-check.
+/// Returns whether the backend was written.
+async fn create_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    obj_val: &Value,
+    acc: &mut SetAccumulators,
+    space_counts: &mut BTreeMap<Id, u64>,
+) -> Result<bool, JmapError> {
+    let resolved = match resolved_create(obj_val, &["spaceId"], ctx.created_ids) {
+        Ok(v) => v,
+        Err(err) => {
+            acc.not_created
+                .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    let (name, blob_id, space_id) = match create_fields(&resolved) {
+        Ok(fields) => fields,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+
+    let now_str = now_utc_string();
+    let now: UTCDate = UTCDate::from(now_str.as_ref());
+
+    // Authorization gate (draft-atwood-jmap-chat-00 commit
+    // `9344aec`). Runs AFTER wire-format validation so
+    // malformed creates don't consume an authorization
+    // decision, and BEFORE `create_object` so an unauthorized
+    // emoji never touches storage. The target scope is
+    // whatever spaceId the create payload supplies (None for
+    // server-global).
+    if let Some(err) = emoji_denied(ctx, space_id.as_ref(), EmojiSetOp::Create).await {
+        acc.not_created.insert(create_id.to_owned(), err);
+        return Ok(false);
+    }
+
+    if let (Some(space), Some(max)) = (&space_id, ctx.limits.max_custom_emoji_per_space)
+        && space_counts.get(space).copied().unwrap_or(0) >= u64::from(max)
+    {
+        acc.not_created
+            .insert(create_id.to_owned(), over_quota(TOO_MANY_EMOJI));
+        return Ok(false);
+    }
+    if let Some(err) = emoji_blob_too_large(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        ctx.limits,
+        &blob_id,
+    )
+    .await
+    {
+        acc.not_created.insert(create_id.to_owned(), err);
+        return Ok(false);
+    }
+
+    // createdBy is the owner, referenced by the accountId
+    // (draft-atwood-jmap-chat-00 §Terminology).
+    let emoji = |id: &Id| {
+        let mut emoji = CustomEmoji::new(id.clone(), name, blob_id, ctx.account_id.clone(), now);
+        emoji.space_id = space_id;
+        emoji
+    };
+
+    match ctx
+        .backend
+        .create_object::<CustomEmoji, _>(ctx.caller, ctx.account_id, create_id, emoji)
+        .await
+    {
+        Ok((_server_id, created_obj)) => {
+            if let Some(space) = &created_obj.space_id {
+                *space_counts.entry(space.clone()).or_default() += 1;
+            }
+            acc.created.insert(
+                create_id.to_owned(),
+                jmap_server::serialize_value(&created_obj)?,
+            );
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// Check the server-set and client-supplied properties of one
+/// `CustomEmoji/set` create object (with `#creationId` references
+/// resolved) and return its `name`, `blobId` and `spaceId`, or the
+/// SetError value for `notCreated`.
+fn create_fields(obj_val: &Value) -> Result<(String, Id, Option<Id>), Value> {
+    if let Some(err) = obj_val
+        .as_object()
+        .and_then(reject_server_set::<CustomEmoji>)
+    {
+        return Err(serde_json::Value::from(&err));
+    }
+    // Optional properties: a wrongly-typed value is invalidProperties
+    // (RFC 8620 §5.3), not a silent absence.
+    if let Some(err) = mistyped_create_props(obj_val, &[("spaceId", PropType::Str)]) {
+        return Err(err);
+    }
+    // Validate name: required, non-empty, matches /^[a-z0-9_-]+$/
+    let bad_name = || json!({ "type": "invalidProperties", "properties": ["name"] });
+    let name = match obj_val.get("name").and_then(|v| v.as_str()) {
+        Some(s) if !s.is_empty() => s.to_owned(),
+        _ => return Err(bad_name()),
+    };
+    if !name
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_' || c == '-')
+    {
+        return Err(bad_name());
+    }
+    if name.len() > 64 {
+        return Err(bad_name());
+    }
+
+    // blobId is required
+    let blob_id = match obj_val
+        .get("blobId")
+        .and_then(|v| v.as_str())
+        .and_then(|s| Id::new_validated(s).ok())
+    {
+        Some(id) => id,
+        _ => return Err(json!({ "type": "invalidProperties", "properties": ["blobId"] })),
+    };
+
+    // spaceId is optional
+    let space_id: Option<Id> = match obj_val.get("spaceId").and_then(|v| v.as_str()) {
+        Some(s) => Some(
+            jmap_server::parse_wire_id(s, "spaceId")
+                .map_err(|err| serde_json::Value::from(&*err))?,
+        ),
+        None => None,
+    };
+    Ok((name, blob_id, space_id))
+}
+
+/// The SetError value when [`SpacePolicy::may_set_custom_emoji`](crate::SpacePolicy::may_set_custom_emoji)
+/// denies `op` on an emoji in `space_id` (`None` for server-global), or
+/// `None` to go on.
+async fn emoji_denied<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    space_id: Option<&Id>,
+    op: EmojiSetOp,
+) -> Option<Value> {
+    match ctx
+        .backend
+        .may_set_custom_emoji(ctx.caller, ctx.account_id, space_id, op)
+        .await
+    {
+        Ok(Ok(())) => None,
+        Ok(Err(set_err)) => Some(serde_json::Value::from(&set_err)),
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// [`emoji_denied`] for the Space of the stored emoji `id`. An emoji that
+/// does not resolve is not gated, so the backend surfaces `notFound`; a
+/// pre-fetch storage error is `serverFail`.
+async fn stored_emoji_denied<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id: &Id,
+    op: EmojiSetOp,
+) -> Option<Value> {
+    match ctx
+        .backend
+        .get_objects::<CustomEmoji>(
+            ctx.caller,
+            ctx.account_id,
+            Some(std::slice::from_ref(id)),
+            None,
+        )
+        .await
+    {
+        Ok((found, _not_found)) => match found.first() {
+            Some(emoji) => emoji_denied(ctx, emoji.space_id.as_ref(), op).await,
+            None => None,
+        },
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// The `update` part of `CustomEmoji/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
+        }
+    }
+    Ok(mutated)
+}
 
-            // Authorization gate (draft-atwood-jmap-chat-00 commit
-            // `9344aec`). Pre-fetch the existing emoji to learn its
-            // `spaceId`. If the pre-fetch reports the id as not
-            // found, skip the gate entirely — `update_object` will
-            // surface `notFound` and we don't want to consume an
-            // authorization decision for a non-existent target. A
-            // pre-fetch storage error is surfaced as `serverFail`.
-            // The gate runs before the read-only and no-op checks, so a
-            // caller who may not update the emoji gets `forbidden` even
-            // for `{}`.
-            let (found, _not_found) = match backend
-                .get_objects::<CustomEmoji>(
-                    caller,
-                    &account_id,
-                    Some(std::slice::from_ref(&id)),
-                    None,
-                )
-                .await
-            {
-                Ok(result) => result,
-                Err(e) => {
-                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-            if let Some(emoji) = found.first() {
-                match backend
-                    .may_set_custom_emoji(
-                        caller,
-                        &account_id,
-                        emoji.space_id.as_ref(),
-                        EmojiSetOp::Update,
-                    )
-                    .await
-                {
-                    Ok(Ok(())) => {}
-                    Ok(Err(set_err)) => {
-                        not_updated.insert(id_str, serde_json::Value::from(&set_err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_updated.insert(id_str, server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
-            }
+/// One `update` entry of `CustomEmoji/set`. Returns whether the backend was
+/// written.
+async fn update_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
 
-            // §CustomEmoji: `id`, `createdBy` and `createdAt` are
-            // server-set; `spaceId` is set only on create.
-            match check_read_only_patch::<_, CustomEmoji>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                &mut patch_val,
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
+    // Authorization gate (draft-atwood-jmap-chat-00 commit
+    // `9344aec`). Pre-fetch the existing emoji to learn its
+    // `spaceId`. If the pre-fetch reports the id as not
+    // found, skip the gate entirely — `update_object` will
+    // surface `notFound` and we don't want to consume an
+    // authorization decision for a non-existent target. A
+    // pre-fetch storage error is surfaced as `serverFail`.
+    // The gate runs before the read-only and no-op checks, so a
+    // caller who may not update the emoji gets `forbidden` even
+    // for `{}`.
+    if let Some(err) = stored_emoji_denied(ctx, &id, EmojiSetOp::Update).await {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
 
-            // §CustomEmoji/set: "`update` supports: `name`, `blobId`", the
-            // client-settable properties that are not immutable.
-            let Value::Object(mut patch_map) = patch_val else {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
-                );
-                continue;
-            };
-            patch_map.retain(|field, _| is_client_updatable::<CustomEmoji>(field));
-            let clean_patch = patch_map;
-            if clean_patch.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
-                );
-                continue;
-            }
-
-            // A malformed `blobId` is left to the backend's patch validation.
-            if let Some(blob_id) = clean_patch
-                .get("blobId")
-                .and_then(Value::as_str)
-                .and_then(|s| Id::new_validated(s).ok())
-                && let Some(err) =
-                    emoji_blob_too_large(backend, caller, &account_id, &limits, &blob_id).await
-            {
-                not_updated.insert(id_str, err);
-                continue;
-            }
-
-            match backend
-                .update_object::<CustomEmoji>(
-                    caller,
-                    &account_id,
-                    &id,
-                    PatchObject::from_map(clean_patch),
-                )
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
+    // §CustomEmoji: `id`, `createdBy` and `createdAt` are
+    // server-set; `spaceId` is set only on create.
+    match check_read_only_patch::<_, CustomEmoji>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        &mut patch_val,
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
         }
     }
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+    let clean_patch = match clean_patch(patch_val) {
+        Ok(patch) => patch,
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    };
+
+    // A malformed `blobId` is left to the backend's patch validation.
+    if let Some(blob_id) = clean_patch
+        .get("blobId")
+        .and_then(Value::as_str)
+        .and_then(|s| Id::new_validated(s).ok())
+        && let Some(err) = emoji_blob_too_large(
+            ctx.backend,
+            ctx.caller,
+            ctx.account_id,
+            ctx.limits,
+            &blob_id,
+        )
+        .await
+    {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
+
+    match ctx
+        .backend
+        .update_object::<CustomEmoji>(
+            ctx.caller,
+            ctx.account_id,
+            &id,
+            PatchObject::from_map(clean_patch),
+        )
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// Project one `CustomEmoji/set` update patch onto the client-updatable
+/// properties, or return the `invalidPatch` SetError value.
+///
+/// §CustomEmoji/set: "`update` supports: `name`, `blobId`", the
+/// client-settable properties that are not immutable.
+fn clean_patch(patch_val: Value) -> Result<serde_json::Map<String, Value>, Value> {
+    let Value::Object(mut patch_map) = patch_val else {
+        return Err(
+            json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
+        );
+    };
+    patch_map.retain(|field, _| is_client_updatable::<CustomEmoji>(field));
+    if patch_map.is_empty() {
+        return Err(
+            json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
+        );
+    }
+    Ok(patch_map)
+}
+
+/// The `destroy` part of `CustomEmoji/set`. Returns whether the backend
+/// was written.
+async fn set_destroy<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -691,7 +777,8 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -702,74 +789,29 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             // skip the gate so `destroy_object` can surface
             // `notFound` naturally. A pre-fetch storage error is
             // surfaced as `serverFail`.
-            let (found, _not_found) = match backend
-                .get_objects::<CustomEmoji>(
-                    caller,
-                    &account_id,
-                    Some(std::slice::from_ref(&id)),
-                    None,
-                )
-                .await
-            {
-                Ok(result) => result,
-                Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-            if let Some(emoji) = found.first() {
-                match backend
-                    .may_set_custom_emoji(
-                        caller,
-                        &account_id,
-                        emoji.space_id.as_ref(),
-                        EmojiSetOp::Destroy,
-                    )
-                    .await
-                {
-                    Ok(Ok(())) => {}
-                    Ok(Err(set_err)) => {
-                        not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&set_err));
-                        continue;
-                    }
-                    Err(e) => {
-                        not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
-                        continue;
-                    }
-                }
+            if let Some(err) = stored_emoji_denied(ctx, &id, EmojiSetOp::Destroy).await {
+                acc.not_destroyed.insert(id_str.to_owned(), err);
+                continue;
             }
 
-            match backend
-                .destroy_object::<CustomEmoji>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<CustomEmoji>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
     }
 
-    finalize_set_response::<B, CustomEmoji>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 /// `overQuota` description for [`ChatLimits::max_custom_emoji_per_space`].

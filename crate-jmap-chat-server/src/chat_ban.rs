@@ -258,243 +258,317 @@ pub async fn handle_chat_ban_set<B: ChatBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, ChatBan>(backend, caller, &account_id, old_state, mutated, acc).await
+}
+
+/// What every `ChatBan/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ChatBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+}
+
+/// The `create` part of `ChatBan/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
-            let resolved = match resolved_create(obj_val, &["chatId"], created_ids) {
-                Ok(v) => v,
-                Err(err) => {
-                    not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-            let obj_val = &resolved;
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<ChatBan>) {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
-                continue;
-            }
-            // Optional properties: a wrongly-typed value is invalidProperties
-            // (RFC 8620 §5.3), not a silent absence.
-            if let Some(err) = mistyped_create_props(
-                obj_val,
-                &[("reason", PropType::Str), ("expiresAt", PropType::Str)],
-            ) {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-            let Some(chat_id_str) = obj_val.get("chatId").and_then(|v| v.as_str()) else {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["chatId"] }),
-                );
-                continue;
-            };
-            let chat_id = match jmap_server::parse_wire_id(chat_id_str, "chatId") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            let Some(user_id_str) = obj_val.get("userId").and_then(|v| v.as_str()) else {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["userId"] }),
-                );
-                continue;
-            };
-            let user_id = match jmap_server::parse_wire_id(user_id_str, "userId") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            let mut reason = None;
-            if let Some(r) = obj_val.get("reason").and_then(|v| v.as_str()) {
-                if r.len() > 1000 {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["reason"] }),
-                    );
-                    continue;
-                }
-                reason = Some(r.to_owned());
-            }
-            // expiresAt is a UTCDate per RFC 8620 §1.4.
-            let mut expires_at = None;
-            if let Some(expires) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
-                let Ok(d) = UTCDate::new_validated(expires) else {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["expiresAt"] }),
-                    );
-                    continue;
-                };
-                expires_at = Some(d);
-            }
-
-            let chat = match stored_chat(backend, caller, &account_id, &chat_id).await {
-                Ok(Some(chat)) => chat,
-                Ok(None) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["chatId"] }),
-                    );
-                    continue;
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-            // §ChatBan/set: "It requires the `"admin"` role in the Chat, and
-            // the Chat MUST be a group Chat; the server MUST reject any
-            // other with a `forbidden` SetError."
-            let denied = if chat.kind != ChatKind::Group {
-                Some("a ChatBan applies to group chats only")
-            } else if !is_chat_admin(&chat, &account_id) {
-                Some("only group chat admins may ban")
-            } else if user_id == account_id {
-                Some("the owner cannot ban themselves")
-            } else {
-                None
-            };
-            if let Some(desc) = denied {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "forbidden", "description": desc }),
-                );
-                continue;
-            }
-
-            // §ChatBan.bannedBy: "The ChatContact.id of the admin who issued
-            // this ban". The issuer is the owner, referenced by the
-            // accountId (§Terminology).
-            let banned_by = account_id.clone();
-            let created_at = UTCDate::from(now_utc_string().as_ref());
-
-            let build = move |id: &Id| {
-                let mut ban = ChatBan::new(id.clone(), chat_id, user_id, banned_by, created_at);
-                ban.reason = reason;
-                ban.expires_at = expires_at;
-                ban
-            };
-            match backend
-                .create_chat_ban(caller, &account_id, create_id, build)
-                .await
-            {
-                Ok((_server_id, created_obj)) => {
-                    mutated = true;
-                    created.insert(
-                        create_id.clone(),
-                        jmap_server::serialize_value(&created_obj)?,
-                    );
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), backend_set_error_value(e));
-                }
-            }
+            mutated |= create_one(ctx, create_id, obj_val, acc).await?;
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+/// One `create` entry of `ChatBan/set`. Returns whether the backend was
+/// written.
+async fn create_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    obj_val: &Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let resolved = match resolved_create(obj_val, &["chatId"], ctx.created_ids) {
+        Ok(v) => v,
+        Err(err) => {
+            acc.not_created
+                .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    let CreateFields {
+        chat_id,
+        user_id,
+        reason,
+        expires_at,
+    } = match create_fields(&resolved) {
+        Ok(fields) => fields,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+
+    let chat = match stored_chat(ctx.backend, ctx.caller, ctx.account_id, &chat_id).await {
+        Ok(Some(chat)) => chat,
+        Ok(None) => {
+            acc.not_created.insert(
+                create_id.to_owned(),
+                json!({ "type": "invalidProperties", "properties": ["chatId"] }),
+            );
+            return Ok(false);
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), server_fail_value_from_backend(&e));
+            return Ok(false);
+        }
+    };
+    // §ChatBan/set: "It requires the `"admin"` role in the Chat, and
+    // the Chat MUST be a group Chat; the server MUST reject any
+    // other with a `forbidden` SetError."
+    let denied = if chat.kind != ChatKind::Group {
+        Some("a ChatBan applies to group chats only")
+    } else if !is_chat_admin(&chat, ctx.account_id) {
+        Some("only group chat admins may ban")
+    } else if user_id == *ctx.account_id {
+        Some("the owner cannot ban themselves")
+    } else {
+        None
+    };
+    if let Some(desc) = denied {
+        acc.not_created.insert(
+            create_id.to_owned(),
+            json!({ "type": "forbidden", "description": desc }),
+        );
+        return Ok(false);
+    }
+
+    // §ChatBan.bannedBy: "The ChatContact.id of the admin who issued
+    // this ban". The issuer is the owner, referenced by the
+    // accountId (§Terminology).
+    let banned_by = ctx.account_id.clone();
+    let created_at = UTCDate::from(now_utc_string().as_ref());
+
+    let build = move |id: &Id| {
+        let mut ban = ChatBan::new(id.clone(), chat_id, user_id, banned_by, created_at);
+        ban.reason = reason;
+        ban.expires_at = expires_at;
+        ban
+    };
+    match ctx
+        .backend
+        .create_chat_ban(ctx.caller, ctx.account_id, create_id, build)
+        .await
+    {
+        Ok((_server_id, created_obj)) => {
+            acc.created.insert(
+                create_id.to_owned(),
+                jmap_server::serialize_value(&created_obj)?,
+            );
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The client-supplied properties of a `ChatBan/set` create, checked.
+struct CreateFields {
+    chat_id: Id,
+    user_id: Id,
+    reason: Option<String>,
+    expires_at: Option<UTCDate>,
+}
+
+/// Check one `ChatBan/set` create object (with `#creationId` references
+/// resolved) and return its properties, or the SetError value for
+/// `notCreated`.
+fn create_fields(obj_val: &Value) -> Result<CreateFields, Value> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<ChatBan>) {
+        return Err(serde_json::Value::from(&err));
+    }
+    // Optional properties: a wrongly-typed value is invalidProperties
+    // (RFC 8620 §5.3), not a silent absence.
+    if let Some(err) = mistyped_create_props(
+        obj_val,
+        &[("reason", PropType::Str), ("expiresAt", PropType::Str)],
+    ) {
+        return Err(err);
+    }
+    let Some(chat_id_str) = obj_val.get("chatId").and_then(|v| v.as_str()) else {
+        return Err(json!({ "type": "invalidProperties", "properties": ["chatId"] }));
+    };
+    let chat_id = jmap_server::parse_wire_id(chat_id_str, "chatId")
+        .map_err(|err| serde_json::Value::from(&*err))?;
+
+    let Some(user_id_str) = obj_val.get("userId").and_then(|v| v.as_str()) else {
+        return Err(json!({ "type": "invalidProperties", "properties": ["userId"] }));
+    };
+    let user_id = jmap_server::parse_wire_id(user_id_str, "userId")
+        .map_err(|err| serde_json::Value::from(&*err))?;
+
+    let mut reason = None;
+    if let Some(r) = obj_val.get("reason").and_then(|v| v.as_str()) {
+        if r.len() > 1000 {
+            return Err(json!({ "type": "invalidProperties", "properties": ["reason"] }));
+        }
+        reason = Some(r.to_owned());
+    }
+    // expiresAt is a UTCDate per RFC 8620 §1.4.
+    let mut expires_at = None;
+    if let Some(expires) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
+        let Ok(d) = UTCDate::new_validated(expires) else {
+            return Err(json!({ "type": "invalidProperties", "properties": ["expiresAt"] }));
+        };
+        expires_at = Some(d);
+    }
+    Ok(CreateFields {
+        chat_id,
+        user_id,
+        reason,
+        expires_at,
+    })
+}
+
+/// The `update` part of `ChatBan/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
+        }
+    }
+    Ok(mutated)
+}
 
-            // The permission gate runs before the read-only and no-op
-            // checks, so a caller who may not update the ban gets
-            // `forbidden` even for `{}`.
-            if let Some(err) = stored_ban_denied(backend, caller, &account_id, &id).await {
-                not_updated.insert(id_str, err);
-                continue;
-            }
+/// One `update` entry of `ChatBan/set`. Returns whether the backend was
+/// written.
+async fn update_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
 
-            // §ChatBan: `id`, `bannedBy` and `createdAt` are server-set,
-            // `chatId` and `userId` immutable.
-            match check_read_only_patch::<_, ChatBan>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                &mut patch_val,
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
+    // The permission gate runs before the read-only and no-op
+    // checks, so a caller who may not update the ban gets
+    // `forbidden` even for `{}`.
+    if let Some(err) = stored_ban_denied(ctx.backend, ctx.caller, ctx.account_id, &id).await {
+        acc.not_updated.insert(id_str, err);
+        return Ok(false);
+    }
 
-            // §ChatBan/set: "`update` supports: `reason`, `expiresAt`", the
-            // client-settable properties that are not immutable.
-            let Value::Object(mut patch_map) = patch_val else {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
-                );
-                continue;
-            };
-            patch_map.retain(|field, _| is_client_updatable::<ChatBan>(field));
-            if patch_map.is_empty() {
-                not_updated.insert(
-                    id_str,
-                    json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
-                );
-                continue;
-            }
-
-            match backend
-                .update_chat_ban(caller, &account_id, &id, PatchObject::from_map(patch_map))
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
+    // §ChatBan: `id`, `bannedBy` and `createdAt` are server-set,
+    // `chatId` and `userId` immutable.
+    match check_read_only_patch::<_, ChatBan>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        &mut patch_val,
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
         }
     }
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+    // §ChatBan/set: "`update` supports: `reason`, `expiresAt`", the
+    // client-settable properties that are not immutable.
+    let Value::Object(mut patch_map) = patch_val else {
+        acc.not_updated.insert(
+            id_str,
+            json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
+        );
+        return Ok(false);
+    };
+    patch_map.retain(|field, _| is_client_updatable::<ChatBan>(field));
+    if patch_map.is_empty() {
+        acc.not_updated.insert(
+            id_str,
+            json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
+        );
+        return Ok(false);
+    }
+
+    match ctx
+        .backend
+        .update_chat_ban(
+            ctx.caller,
+            ctx.account_id,
+            &id,
+            PatchObject::from_map(patch_map),
+        )
+        .await
+    {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// The `destroy` part of `ChatBan/set`. Returns whether the backend was
+/// written.
+async fn set_destroy<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         let id_strs: Vec<&str> = destroy_arr
@@ -512,46 +586,38 @@ pub async fn handle_chat_ban_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            if let Some(err) = stored_ban_denied(backend, caller, &account_id, &id).await {
-                not_destroyed.insert(id_str.to_owned(), err);
+            if let Some(err) = stored_ban_denied(ctx.backend, ctx.caller, ctx.account_id, &id).await
+            {
+                acc.not_destroyed.insert(id_str.to_owned(), err);
                 continue;
             }
 
             // §ChatBan/set: "Lifting a ban does not add the user back to
             // the Chat."
-            match backend.destroy_chat_ban(caller, &account_id, &id).await {
+            match ctx
+                .backend
+                .destroy_chat_ban(ctx.caller, ctx.account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
     }
 
-    finalize_set_response::<B, ChatBan>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 /// draft-atwood-jmap-chat-00 §ChatBan/set: update and destroy each

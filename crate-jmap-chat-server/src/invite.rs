@@ -282,207 +282,283 @@ pub async fn handle_invite_set<B: ChatBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    set_update(&mut args, &mut acc);
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, SpaceInvite>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `SpaceInvite/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: ChatBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+}
+
+/// The `create` part of `SpaceInvite/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
-            let resolved =
-                match resolved_create(obj_val, &["spaceId", "defaultChannelId"], created_ids) {
-                    Ok(v) => v,
-                    Err(err) => {
-                        not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                        continue;
-                    }
-                };
-            let obj_val = &resolved;
-            if let Some(err) = obj_val
-                .as_object()
-                .and_then(reject_server_set::<SpaceInvite>)
-            {
-                not_created.insert(create_id.clone(), serde_json::Value::from(&err));
-                continue;
-            }
-            // Optional properties: a wrongly-typed value is invalidProperties
-            // (RFC 8620 §5.3), not a silent absence.
-            if let Some(err) = mistyped_create_props(
-                obj_val,
-                &[
-                    ("defaultChannelId", PropType::Str),
-                    ("expiresAt", PropType::Str),
-                    ("maxUses", PropType::UnsignedInt),
-                ],
-            ) {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-            // spaceId is required on create.
-            let space_id = match obj_val
-                .get("spaceId")
-                .and_then(|v| v.as_str())
-                .and_then(|s| Id::new_validated(s).ok())
-            {
-                Some(id) => id,
-                _ => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["spaceId"] }),
-                    );
-                    continue;
-                }
-            };
-
-            // draft-atwood-jmap-chat-00 §Space `closedAt`: "The server
-            // MUST also reject ... `SpaceInvite/set` create for the Space
-            // with a `forbidden` SetError".
-            match backend
-                .get_objects::<Space>(
-                    caller,
-                    &account_id,
-                    Some(std::slice::from_ref(&space_id)),
-                    None,
-                )
-                .await
-            {
-                Ok((spaces, _)) if spaces.first().is_some_and(|s| s.closed_at.is_some()) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "forbidden", "description": "the Space is closed" }),
-                    );
-                    continue;
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                    continue;
-                }
-            }
-
-            let default_channel_id: Option<Id> =
-                match obj_val.get("defaultChannelId").and_then(|v| v.as_str()) {
-                    Some(s) => match jmap_server::parse_wire_id(s, "defaultChannelId") {
-                        Ok(id) => Some(id),
-                        Err(err) => {
-                            not_created.insert(create_id.clone(), serde_json::Value::from(&*err));
-                            continue;
-                        }
-                    },
-                    None => None,
-                };
-
-            // expiresAt is a UTCDate per RFC 8620 §1.4. Validate the wire
-            // shape via UTCDate::new_validated; a malformed value produces
-            // invalidProperties rather than storing an unparseable string.
-            let expires_at: Option<UTCDate> =
-                if let Some(s) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
-                    let Ok(d) = UTCDate::new_validated(s) else {
-                        not_created.insert(
-                            create_id.clone(),
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["expiresAt"],
-                            }),
-                        );
-                        continue;
-                    };
-                    Some(d)
-                } else {
-                    None
-                };
-
-            let max_uses: Option<u64> = obj_val.get("maxUses").and_then(|v| v.as_u64());
-            if max_uses == Some(0) {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({ "type": "invalidProperties", "properties": ["maxUses"] }),
-                );
-                continue;
-            }
-
-            let now_str = now_utc_string();
-            let now: UTCDate = UTCDate::from(now_str.as_ref());
-
-            // Delegate code generation to the backend. The trait contract
-            // (`ChatSpaces::generate_invite_code`) requires a CSPRNG with
-            // at least 128 bits of entropy and a fixed-length ASCII-safe
-            // encoding; the reference `MemoryBackend` uses `getrandom::fill`
-            // on a 16-byte buffer (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93). The
-            // handler does NOT re-validate the output shape — a backend
-            // that fails the contract leaks the invite-code unguessability
-            // bound.
-            let code = match backend.generate_invite_code(caller, &account_id).await {
-                Ok(code) => code,
-                Err(e) => {
-                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
-                    continue;
-                }
-            };
-
-            // Security: createdBy MUST be set server-side, never accepted
-            // from the client body. The creator is the owner, referenced by
-            // the accountId (draft-atwood-jmap-chat-00 §Terminology,
-            // §SpaceInvite.createdBy).
-            if let Some(err) = invite_denied(backend, caller, &account_id, &space_id, None).await {
-                not_created.insert(create_id.clone(), err);
-                continue;
-            }
-
-            let invite = |id: &Id| {
-                SpaceInvite::new(
-                    id.clone(),
-                    code,
-                    space_id,
-                    account_id.clone(),
-                    0,
-                    now,
-                    default_channel_id,
-                    expires_at,
-                    max_uses,
-                )
-            };
-            match backend
-                .create_object::<SpaceInvite, _>(caller, &account_id, create_id, invite)
-                .await
-            {
-                Ok((_server_id, created_obj)) => {
-                    mutated = true;
-                    created.insert(
-                        create_id.clone(),
-                        jmap_server::serialize_value(&created_obj)?,
-                    );
-                }
-                Err(e) => {
-                    not_created.insert(create_id.clone(), backend_set_error_value(e));
-                }
-            }
+            mutated |= create_one(ctx, create_id, obj_val, acc).await?;
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update — forbidden: SpaceInvite objects are write-once per spec
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+/// One `create` entry of `SpaceInvite/set`. Returns whether the backend was
+/// written.
+async fn create_one<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    create_id: &str,
+    obj_val: &Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let resolved = match resolved_create(obj_val, &["spaceId", "defaultChannelId"], ctx.created_ids)
+    {
+        Ok(v) => v,
+        Err(err) => {
+            acc.not_created
+                .insert(create_id.to_owned(), serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+    let space_id = match create_space_id(&resolved) {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+    if let Some(err) = space_closed_error(ctx, &space_id).await {
+        acc.not_created.insert(create_id.to_owned(), err);
+        return Ok(false);
+    }
+    let CreateOptions {
+        default_channel_id,
+        expires_at,
+        max_uses,
+    } = match create_options(&resolved) {
+        Ok(options) => options,
+        Err(err) => {
+            acc.not_created.insert(create_id.to_owned(), err);
+            return Ok(false);
+        }
+    };
+
+    let now_str = now_utc_string();
+    let now: UTCDate = UTCDate::from(now_str.as_ref());
+
+    // Delegate code generation to the backend. The trait contract
+    // (`ChatSpaces::generate_invite_code`) requires a CSPRNG with
+    // at least 128 bits of entropy and a fixed-length ASCII-safe
+    // encoding; the reference `MemoryBackend` uses `getrandom::fill`
+    // on a 16-byte buffer (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93). The
+    // handler does NOT re-validate the output shape — a backend
+    // that fails the contract leaks the invite-code unguessability
+    // bound.
+    let code = match ctx
+        .backend
+        .generate_invite_code(ctx.caller, ctx.account_id)
+        .await
+    {
+        Ok(code) => code,
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), server_fail_value_from_backend(&e));
+            return Ok(false);
+        }
+    };
+
+    // Security: createdBy MUST be set server-side, never accepted
+    // from the client body. The creator is the owner, referenced by
+    // the accountId (draft-atwood-jmap-chat-00 §Terminology,
+    // §SpaceInvite.createdBy).
+    if let Some(err) = invite_denied(ctx.backend, ctx.caller, ctx.account_id, &space_id, None).await
+    {
+        acc.not_created.insert(create_id.to_owned(), err);
+        return Ok(false);
+    }
+
+    let invite = |id: &Id| {
+        SpaceInvite::new(
+            id.clone(),
+            code,
+            space_id,
+            ctx.account_id.clone(),
+            0,
+            now,
+            default_channel_id,
+            expires_at,
+            max_uses,
+        )
+    };
+    match ctx
+        .backend
+        .create_object::<SpaceInvite, _>(ctx.caller, ctx.account_id, create_id, invite)
+        .await
+    {
+        Ok((_server_id, created_obj)) => {
+            acc.created.insert(
+                create_id.to_owned(),
+                jmap_server::serialize_value(&created_obj)?,
+            );
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_created
+                .insert(create_id.to_owned(), backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// Check the server-set, wrongly-typed and `spaceId` properties of one
+/// `SpaceInvite/set` create object (with `#creationId` references
+/// resolved) and return its `spaceId`, or the SetError value for
+/// `notCreated`.
+fn create_space_id(obj_val: &Value) -> Result<Id, Value> {
+    if let Some(err) = obj_val
+        .as_object()
+        .and_then(reject_server_set::<SpaceInvite>)
+    {
+        return Err(serde_json::Value::from(&err));
+    }
+    // Optional properties: a wrongly-typed value is invalidProperties
+    // (RFC 8620 §5.3), not a silent absence.
+    if let Some(err) = mistyped_create_props(
+        obj_val,
+        &[
+            ("defaultChannelId", PropType::Str),
+            ("expiresAt", PropType::Str),
+            ("maxUses", PropType::UnsignedInt),
+        ],
+    ) {
+        return Err(err);
+    }
+    // spaceId is required on create.
+    match obj_val
+        .get("spaceId")
+        .and_then(|v| v.as_str())
+        .and_then(|s| Id::new_validated(s).ok())
+    {
+        Some(id) => Ok(id),
+        _ => Err(json!({ "type": "invalidProperties", "properties": ["spaceId"] })),
+    }
+}
+
+/// The SetError value for a `SpaceInvite/set` create in a closed Space, or
+/// `None` to go on.
+///
+/// draft-atwood-jmap-chat-00 §Space `closedAt`: "The server MUST also
+/// reject ... `SpaceInvite/set` create for the Space with a `forbidden`
+/// SetError".
+async fn space_closed_error<B: ChatBackend>(ctx: &SetCtx<'_, B>, space_id: &Id) -> Option<Value> {
+    match ctx
+        .backend
+        .get_objects::<Space>(
+            ctx.caller,
+            ctx.account_id,
+            Some(std::slice::from_ref(space_id)),
+            None,
+        )
+        .await
+    {
+        Ok((spaces, _)) if spaces.first().is_some_and(|s| s.closed_at.is_some()) => {
+            Some(json!({ "type": "forbidden", "description": "the Space is closed" }))
+        }
+        Ok(_) => None,
+        Err(e) => Some(server_fail_value_from_backend(&e)),
+    }
+}
+
+/// The optional properties of a `SpaceInvite/set` create, checked.
+struct CreateOptions {
+    default_channel_id: Option<Id>,
+    expires_at: Option<UTCDate>,
+    max_uses: Option<u64>,
+}
+
+/// The optional `defaultChannelId`, `expiresAt` and `maxUses` of one
+/// `SpaceInvite/set` create object, checked, or the SetError value for
+/// `notCreated`.
+fn create_options(obj_val: &Value) -> Result<CreateOptions, Value> {
+    let default_channel_id: Option<Id> =
+        match obj_val.get("defaultChannelId").and_then(|v| v.as_str()) {
+            Some(s) => Some(
+                jmap_server::parse_wire_id(s, "defaultChannelId")
+                    .map_err(|err| serde_json::Value::from(&*err))?,
+            ),
+            None => None,
+        };
+
+    // expiresAt is a UTCDate per RFC 8620 §1.4. Validate the wire
+    // shape via UTCDate::new_validated; a malformed value produces
+    // invalidProperties rather than storing an unparseable string.
+    let expires_at: Option<UTCDate> =
+        if let Some(s) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
+            let Ok(d) = UTCDate::new_validated(s) else {
+                return Err(json!({
+                    "type": "invalidProperties",
+                    "properties": ["expiresAt"],
+                }));
+            };
+            Some(d)
+        } else {
+            None
+        };
+
+    let max_uses: Option<u64> = obj_val.get("maxUses").and_then(|v| v.as_u64());
+    if max_uses == Some(0) {
+        return Err(json!({ "type": "invalidProperties", "properties": ["maxUses"] }));
+    }
+    Ok(CreateOptions {
+        default_channel_id,
+        expires_at,
+        max_uses,
+    })
+}
+
+/// The `update` part of `SpaceInvite/set`: forbidden, because SpaceInvite
+/// objects are write-once per spec.
+fn set_update(args: &mut serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, _) in update_map {
-            not_updated.insert(
+            acc.not_updated.insert(
                 id_str,
                 serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// The `destroy` part of `SpaceInvite/set`. Returns whether the backend
+/// was written.
+async fn set_destroy<B: ChatBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -502,47 +578,37 @@ pub async fn handle_invite_set<B: ChatBackend>(
             let id = match jmap_server::parse_wire_id(id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str.to_owned(), serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            if let Some(err) = stored_invite_denied(backend, caller, &account_id, &id).await {
-                not_destroyed.insert(id_str.to_owned(), err);
+            if let Some(err) =
+                stored_invite_denied(ctx.backend, ctx.caller, ctx.account_id, &id).await
+            {
+                acc.not_destroyed.insert(id_str.to_owned(), err);
                 continue;
             }
 
-            match backend
-                .destroy_object::<SpaceInvite>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<SpaceInvite>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
+                    acc.destroyed.push(Value::String(id_str.to_owned()));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str.to_owned(), backend_set_error_value(e));
+                    acc.not_destroyed
+                        .insert(id_str.to_owned(), backend_set_error_value(e));
                 }
             }
         }
     }
 
-    finalize_set_response::<B, SpaceInvite>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 /// draft-atwood-jmap-chat-00 §SpaceInvite/set: create "Requires
