@@ -20,6 +20,21 @@ wire behaviour that a conforming peer can observe.
   (docs/specs/jmap-tasks-local.md). **jmap-object-history-types**:
   `PENDING_HISTORY_REGISTRATION` is now empty, so `is_history_type` answers
   for Task and TaskList through the registry (bd:JMAP-tna1.3.26).
+- **jmap-chat-slack**: new support crate presenting one Slack workspace as
+  a JMAP Chat Space, for a workspace's own internal Slack app (decision 51,
+  bd:JMAP-hb8j). `SlackBridge` is a `ChatBackend` over an embedded
+  `MemoryBackend`: `connect` (`auth.test`), `initial_sync` (`users.list`,
+  `conversations.list`, `conversations.members`, `conversations.history`,
+  `conversations.replies`, paginated, honouring 429 `Retry-After`) and
+  `apply_event` (messages, edits, deletes, reactions, channel and member
+  events) fill it; Message/set creates, edits, deletes and reactions go
+  to `chat.postMessage`, `chat.update`, `chat.delete`, `reactions.add` and
+  `reactions.remove`, with Slack errors surfaced as SetErrors. Workspace →
+  Space, channel → channel Chat, DM / group DM → direct / group Chat,
+  thread → `threadRootId`, mrkdwn → rich body spans. Also `client`
+  (`SlackClient`, `RetryPolicy`), `events` (request signature
+  verification, Events API and Socket Mode envelopes) and `mrkdwn`.
+  Browser session tokens are refused.
 
 - **jmap-filenode-server**: `FileNodeBackend::may_destroy`, a fail-open
   hook the `FileNode/set` and `FileNode/copy` handlers ask about every node
