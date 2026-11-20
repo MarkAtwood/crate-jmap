@@ -27,7 +27,7 @@ No HTTP, no persistence, no WebSocket transport.
 | `op::*` | graph-edit §GraphNodeOp/set, §GraphNodeOp/query, §GraphNode/cursor |
 | `GraphEditSubscription`, `should_deliver` | graph-edit §WebSocket Stream |
 | `query::*` | §Graph/query, §GraphNode/query, §GraphEdge/query match and order functions |
-| `search::check_search_filter`, `search::GraphView`, `COLLATIONS` | graph-search §FilterCondition Extensions, §The Built-In Filter Language, §Visibility |
+| `search::check_search_filter`, `search::GraphView` | graph-search §FilterCondition Extensions, §The Built-In Filter Language, §Visibility; field tests and collations evaluated by `jmap-search` |
 | `provenance::*` | graph-provenance §Provenance Properties, §Curation Properties, §Retraction, §Sharing Rights, §Graph Extensions checks; `sweep_retention` (§Retention) |
 | `memory::MemoryBackend` (feature `memory`) | reference backend, not production; `register_provenance` |
 
@@ -57,7 +57,7 @@ object `GraphBackend::graph_capability` returns. For live editing, also
 call `register_graph_edit_handlers` and advertise `JMAP_GRAPH_EDIT_URI`
 with the object `GraphBackend::graph_edit_capability` returns. For
 search, advertise `JMAP_GRAPH_SEARCH_URI` with the object
-`GraphBackend::graph_search_capability` returns, and `search::COLLATIONS`
+`GraphBackend::graph_search_capability` returns, and `jmap_search::COLLATIONS`
 in the core `collationAlgorithms`. For provenance records, advertise
 `JMAP_GRAPH_PROVENANCE_URI` with `{}`, return `true` for it from
 `GraphBackend::has_capability`, carry `mayCurate` in `myRights`, and run
@@ -95,7 +95,8 @@ in the core `collationAlgorithms`. For provenance records, advertise
 - Search: with `graph_search_capability`, `where`, `language` and
   `expression` are checked (`invalidArguments` when malformed,
   `unsupportedFilter` for an unknown operator, an unlisted language,
-  `$text` without `supportsText` or a `$collation` outside `COLLATIONS`,
+  `$text` without `supportsText` or a `$collation` outside
+  `jmap_search::COLLATIONS`,
   `queryTooComplex` past `maxDepth`); `/query` says
   `canCalculateChanges: false` and `/queryChanges` is
   `cannotCalculateChanges`. The backend evaluates `where` with a

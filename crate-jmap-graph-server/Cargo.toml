@@ -23,16 +23,15 @@ memory = ["dep:ulid", "dep:jmap-object-history-server", "jmap-server/scoped-stat
 # Validates and sizes base64url op and cursor `data`
 # (draft-atwood-jmap-graph-edit-00 §GraphNodeOp/set, §GraphNode/cursor).
 base64 = "0.22"
-# RFC 5051 i;unicode-casemap for the graph-search `$collation`
-# (draft-atwood-jmap-graph-search-00 §Collation), as in jmap-metadata-server.
-icu_casemap = { workspace = true }
-icu_normalizer = { workspace = true }
 # RFC 3987 IRI syntax for provenance `validFor.purposes`
 # (draft-atwood-jmap-graph-provenance-00 §Provenance Properties). Already in
 # the tree via jmap-base-client.
 iri-string = { workspace = true }
 jmap-types = { workspace = true }
 jmap-graph-types = { workspace = true }
+# The draft-atwood-jmap-graph-search-00 field-test evaluator and collations
+# (`$collation` §Collation), shared with urn:ietf:params:jmap:search.
+jmap-search = { workspace = true, features = ["eval"] }
 jmap-server = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

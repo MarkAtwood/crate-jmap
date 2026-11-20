@@ -11,36 +11,30 @@
 //! reference `MemoryBackend` does. No advertised language
 //! (`language`/`expression`) is implemented here.
 //!
+//! The field tests, comparison operators, array rules and collations are
+//! evaluated by the `jmap-search` crate (`FieldTest::matches`,
+//! `jmap_search::collate`), whose language the built-in one extends; this
+//! module adds the structural operators and the Graph-specific `$text`.
+//!
 //! # Collations
 //!
-//! `$collation` may name one of [`COLLATIONS`]; anything else is
+//! `$collation` may name one of `jmap_search::COLLATIONS`
+//! (`i;ascii-casemap`, `i;octet`, `i;unicode-casemap`); anything else is
 //! `unsupportedFilter`. Each of them "provides equality, substring, and
 //! ordering operations" (RFC 4790 §9.2.1, §9.3.1; RFC 5051 §2), so no operator
 //! is refused for its collation. A consumer advertises at least these in
 //! the core capability's `collationAlgorithms` (RFC 8620 §2).
 
-use std::borrow::Cow;
-use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 
-use icu_casemap::CaseMapper;
-use icu_normalizer::DecomposingNormalizerBorrowed;
 use jmap_graph_types::{
-    Bound, CandidateKind, Direction, EdgeTest, Expression, FieldTest, GraphSearchCapability,
-    QUERY_TOO_COMPLEX, ReachTest,
+    CandidateKind, Direction, EdgeTest, Expression, GraphSearchCapability, QUERY_TOO_COMPLEX,
+    ReachTest,
 };
 use jmap_graph_types::{GraphEdge, GraphNode};
+use jmap_search::{collate, is_supported_collation};
 use jmap_types::{Id, JmapError};
-use serde_json::{Number, Value};
-
-/// The `$collation` values the evaluator implements: `i;ascii-casemap`
-/// (RFC 4790 §9.2), `i;octet` (RFC 4790 §9.3) and `i;unicode-casemap`
-/// (RFC 5051).
-///
-/// ponytail: a fixed list rather than the consumer's `collationAlgorithms`;
-/// a consumer that advertises fewer accepts these anyway. Upgrade path: a
-/// `GraphBackend` hook returning the advertised list.
-pub const COLLATIONS: &[&str] = &["i;ascii-casemap", "i;octet", "i;unicode-casemap"];
+use serde_json::Value;
 
 /// The FilterCondition properties draft-atwood-jmap-graph-search-00 adds
 /// (§FilterCondition Extensions).
@@ -72,7 +66,7 @@ pub(crate) fn uses_search(filter: &Value) -> bool {
 ///   operator defined in this document; `language` is not in the account's
 ///   `languages` list; the expression uses `$text` and `supportsText` is
 ///   `false`; or an operator object's `$collation`" is not one of
-///   [`COLLATIONS`].
+///   `jmap_search::COLLATIONS`.
 /// - `queryTooComplex` for "an expression whose traversal depth exceeds the
 ///   advertised `maxDepth`".
 pub fn check_search_filter(
@@ -100,7 +94,7 @@ pub fn check_search_filter(
         bad_collation |= e.fields.values().any(|t| {
             t.collation
                 .as_deref()
-                .is_some_and(|c| !COLLATIONS.contains(&c))
+                .is_some_and(|c| !is_supported_collation(c))
         });
     });
     if (text && !cap.supports_text) || bad_collation {
@@ -145,7 +139,7 @@ fn visit(e: &Expression, f: &mut impl FnMut(&Expression)) {
 /// Field tests resolve their JSON Pointer against each object's serialized
 /// form, which is its `/get` representation. Expressions are expected to
 /// have passed [`check_search_filter`]; a `$collation` outside
-/// [`COLLATIONS`] compares by code point.
+/// `jmap_search::COLLATIONS` compares by code point.
 ///
 /// `$text` is server-defined (§Full-Text Matching); here it is true if a
 /// string-valued annotation contains the text under `i;unicode-casemap`.
@@ -227,7 +221,7 @@ impl<'a> GraphView<'a> {
     fn common(&self, expr: &Expression, json: &Value, sub: impl Fn(&Expression) -> bool) -> bool {
         expr.fields
             .iter()
-            .all(|(pointer, t)| field_test(t, json.pointer(pointer)))
+            .all(|(pointer, t)| t.matches(json.pointer(pointer)))
             && expr.and.as_ref().is_none_or(|v| v.iter().all(&sub))
             && expr.or.as_ref().is_none_or(|v| v.iter().any(&sub))
             && expr.not.as_deref().is_none_or(|e| !sub(e))
@@ -296,125 +290,14 @@ impl<'a> GraphView<'a> {
     }
 }
 
-/// One field test against the value its pointer resolved to, `None` when
-/// the field is missing (§Comparison Operators, §Arrays). "The test is true
-/// if every operator in it is true."
-fn field_test(t: &FieldTest, field: Option<&Value>) -> bool {
-    let c = t.collation.as_deref();
-    let eq = |v: &Value| each(field, v.is_array(), |f| json_eq(f, v, c));
-    let in_ = |vs: &[Value]| vs.iter().any(eq);
-    let ord = |b: &Bound, want: fn(Ordering) -> bool| {
-        each(field, false, |f| bound_cmp(f, b, c).is_some_and(want))
-    };
-    let string = |test: &dyn Fn(&str) -> bool| each(field, false, |f| f.as_str().is_some_and(test));
-    t.eq.as_ref().is_none_or(eq)
-        && t.ne.as_ref().is_none_or(|v| !eq(v))
-        && t.gt.as_ref().is_none_or(|b| ord(b, Ordering::is_gt))
-        && t.gte.as_ref().is_none_or(|b| ord(b, Ordering::is_ge))
-        && t.lt.as_ref().is_none_or(|b| ord(b, Ordering::is_lt))
-        && t.lte.as_ref().is_none_or(|b| ord(b, Ordering::is_le))
-        && t.in_.as_deref().is_none_or(in_)
-        && t.nin.as_deref().is_none_or(|vs| !in_(vs))
-        && t.exists.is_none_or(|x| x == field.is_some())
-        && t.prefix
-            .as_ref()
-            .is_none_or(|p| string(&|s| prepare(s, c).starts_with(&*prepare(p, c))))
-        && t.contains
-            .as_ref()
-            .is_none_or(|p| string(&|s| prepare(s, c).contains(&*prepare(p, c))))
-}
-
-/// `test` applied to the field: "When the field is an array and the operand
-/// ... is not an array, the operator is true if it is true for at least one
-/// element of the field. ... Elements are not searched recursively." A
-/// missing field fails every test.
-fn each(field: Option<&Value>, operand_is_array: bool, test: impl Fn(&Value) -> bool) -> bool {
-    match field {
-        None => false,
-        Some(Value::Array(a)) if !operand_is_array => a.iter().any(test),
-        Some(f) => test(f),
-    }
-}
-
-/// "Two JSON values are equal when they have the same JSON type and: both
-/// are `null`; both are the same Boolean; both are numbers with the same
-/// numeric value; both are strings that are equal under the test's
-/// collation; both are arrays of the same length whose elements are
-/// pairwise equal; or both are objects with the same member names whose
-/// values are pairwise equal."
-fn json_eq(a: &Value, b: &Value, c: Option<&str>) -> bool {
-    match (a, b) {
-        (Value::Null, Value::Null) => true,
-        (Value::Bool(x), Value::Bool(y)) => x == y,
-        (Value::Number(x), Value::Number(y)) => num_cmp(x, y) == Some(Ordering::Equal),
-        (Value::String(x), Value::String(y)) => prepare(x, c) == prepare(y, c),
-        (Value::Array(x), Value::Array(y)) => {
-            x.len() == y.len() && x.iter().zip(y).all(|(x, y)| json_eq(x, y, c))
-        }
-        (Value::Object(x), Value::Object(y)) => {
-            x.len() == y.len()
-                && x.iter()
-                    .all(|(k, v)| y.get(k).is_some_and(|w| json_eq(v, w, c)))
-        }
-        _ => false,
-    }
-}
-
-/// `$gt`, `$gte`, `$lt`, `$lte`: "The field and the operand are both
-/// numbers and compare numerically as stated, or are both strings and
-/// compare as stated under the test's collation. Otherwise false."
-fn bound_cmp(field: &Value, b: &Bound, c: Option<&str>) -> Option<Ordering> {
-    match (field, b) {
-        (Value::Number(x), Bound::Number(y)) => num_cmp(x, y),
-        (Value::String(x), Bound::String(y)) => Some(prepare(x, c).cmp(&prepare(y, c))),
-        _ => None,
-    }
-}
-
-/// Numeric order, exact for integers and by `f64` otherwise.
-fn num_cmp(a: &Number, b: &Number) -> Option<Ordering> {
-    if let (Some(x), Some(y)) = (a.as_i64(), b.as_i64()) {
-        return Some(x.cmp(&y));
-    }
-    if let (Some(x), Some(y)) = (a.as_u64(), b.as_u64()) {
-        return Some(x.cmp(&y));
-    }
-    a.as_f64()?.partial_cmp(&b.as_f64()?)
-}
-
-/// `s` prepared for octet comparison under collation `c`: unchanged for
-/// code-point comparison (no `$collation`, §Collation) and `i;octet`, whose
-/// octet order over UTF-8 is code-point order. `i;ascii-casemap`: "the
-/// lower-case letters (octet values 97-122) in each input string are
-/// changed to upper case" (RFC 4790 §9.2.1). `i;unicode-casemap`: the RFC
-/// 5051 §2 "titlecased canonicalized UTF-8" form, each code point's simple
-/// titlecase mapping, then its compatibility decomposition, code point by
-/// code point. "Following the above preparation process on each string, the
-/// equality, ordering, and substring operations are as for i;octet."
-fn prepare<'s>(s: &'s str, c: Option<&str>) -> Cow<'s, str> {
-    match c {
-        Some("i;ascii-casemap") => Cow::Owned(s.to_ascii_uppercase()),
-        Some("i;unicode-casemap") => {
-            let case = CaseMapper::new();
-            let nfkd = DecomposingNormalizerBorrowed::new_nfkd();
-            Cow::Owned(
-                s.chars()
-                    .flat_map(|ch| nfkd.normalize_iter(std::iter::once(case.simple_titlecase(ch))))
-                    .collect(),
-            )
-        }
-        _ => Cow::Borrowed(s),
-    }
-}
-
 /// `$text` over the candidate `json`: a string-valued annotation contains
 /// `text` under `i;unicode-casemap`.
 fn text_matches(json: &Value, text: &str) -> bool {
-    let needle = prepare(text, Some("i;unicode-casemap"));
+    let needle = collate(text, Some("i;unicode-casemap"));
     json.get("annotations")
         .and_then(Value::as_object)
         .into_iter()
         .flat_map(|m| m.values())
         .filter_map(Value::as_str)
-        .any(|s| prepare(s, Some("i;unicode-casemap")).contains(&*needle))
+        .any(|s| collate(s, Some("i;unicode-casemap")).contains(&*needle))
 }

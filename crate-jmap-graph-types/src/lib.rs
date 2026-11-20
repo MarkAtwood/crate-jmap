@@ -71,6 +71,7 @@ pub use edit::{
     OPS_COMPACTED,
 };
 pub use graph::{Graph, GraphRights};
+pub use jmap_search::{Bound, FieldTest, QUERY_TOO_COMPLEX, WhereError};
 pub use node::GraphNode;
 pub use provenance::{
     EVIDENCE_EDGE_TYPE, JMAP_GRAPH_PROVENANCE_URI, MAX_EVIDENCE_EDGES, MAX_PURPOSES, PermittedUse,
@@ -82,6 +83,6 @@ pub use query::{
     GraphNodeFilterCondition, GraphNodeSortProperty, GraphSortProperty, Operator,
 };
 pub use search::{
-    Bound, CandidateKind, Direction, EdgeTest, Expression, FieldTest, GraphSearchCapability,
-    JMAP_GRAPH_SEARCH_URI, QUERY_TOO_COMPLEX, ReachTest, WhereError,
+    CandidateKind, Direction, EdgeTest, Expression, GraphSearchCapability, JMAP_GRAPH_SEARCH_URI,
+    ReachTest,
 };

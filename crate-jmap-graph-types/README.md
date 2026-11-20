@@ -18,7 +18,7 @@ no I/O.
 | `query::*` filters and comparators | §Graph/query, §GraphNode/query, §GraphEdge/query |
 | `JMAP_URI_GRAPH_TYPE`, `JMAP_URI_GRAPH_NODE_TYPE`, `JMAP_URI_GRAPH_EDGE_TYPE` | §JMAP Object URI Type Registrations |
 | `edit::*` — `JMAP_GRAPH_EDIT_URI`, `GraphEditCapability`, `GraphNodeOp`, `GraphNode::edit_format`/`snapshot_seq`, `OPS_COMPACTED`, `GraphNode/cursor`, the WebSocket stream frames | draft-atwood-jmap-graph-edit-00 |
-| `search::*` — `JMAP_GRAPH_SEARCH_URI`, `GraphSearchCapability`, the filter `where`/`language`/`expression` fields, the built-in filter language `Expression`, `QUERY_TOO_COMPLEX` | draft-atwood-jmap-graph-search-00 |
+| `search::*` — `JMAP_GRAPH_SEARCH_URI`, `GraphSearchCapability`, the filter `where`/`language`/`expression` fields, the built-in filter language `Expression`; `FieldTest`, `Bound`, `WhereError`, `QUERY_TOO_COMPLEX` re-exported from `jmap-search` | draft-atwood-jmap-graph-search-00 |
 
 The session-level capability value is `{}` and has no type. Every Graph
 method is a standard RFC 8620 method, so requests and responses use the

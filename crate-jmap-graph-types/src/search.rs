@@ -11,6 +11,12 @@
 //!   [`Expression::traversal_depth`] computes §Traversal Depth.
 //! - [`QUERY_TOO_COMPLEX`] (§Errors).
 //!
+//! The type-neutral parts — [`FieldTest`], [`Bound`], [`WhereError`] and
+//! [`QUERY_TOO_COMPLEX`] — are those of the `jmap-search` crate
+//! (urn:ietf:params:jmap:search), re-exported at this crate's root: the
+//! built-in language is that crate's language plus the structural
+//! operators defined here.
+//!
 //! # Why `where` is raw JSON in the filter condition
 //!
 //! The draft gives a malformed expression `invalidArguments` but an unknown
@@ -30,11 +36,13 @@
 //! [`GraphEdgeFilterCondition`]: crate::query::GraphEdgeFilterCondition
 
 use std::collections::BTreeMap;
-use std::fmt;
 
-use jmap_types::JmapError;
+use jmap_search::{FieldTest, WhereError, is_json_pointer};
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Number, Value};
+use serde_json::{Map, Value};
+
+#[cfg(doc)]
+use jmap_search::{Bound, QUERY_TOO_COMPLEX};
 
 /// Capability URI for JMAP Graph Search
 /// (draft-atwood-jmap-graph-search-00 §Capability).
@@ -44,13 +52,6 @@ use serde_json::{Map, Number, Value};
 /// JSON object `{}`" and is not modelled; the account-level value is
 /// [`GraphSearchCapability`].
 pub const JMAP_GRAPH_SEARCH_URI: &str = "urn:ietf:params:jmap:graph:search";
-
-/// The method-level error type for a query that "is valid, but the server
-/// will not evaluate it because it exceeds a server limit, such as
-/// `maxDepth` or a limit on evaluation time or work"
-/// (draft-atwood-jmap-graph-search-00 §Errors). [`JmapError`] carries any
-/// type string, so this only names it.
-pub const QUERY_TOO_COMPLEX: &str = "queryTooComplex";
 
 /// The largest RFC 8620 §1.3 `UnsignedInt`, 2^53-1.
 const MAX_UNSIGNED_INT: u64 = (1 << 53) - 1;
@@ -96,44 +97,6 @@ pub enum CandidateKind {
     Edge,
 }
 
-/// Why [`Expression::parse`] rejected a `where` value
-/// (draft-atwood-jmap-graph-search-00 §FilterCondition Extensions).
-///
-/// Each variant names its error type; `From<WhereError> for JmapError`
-/// builds that error.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum WhereError {
-    /// "`where` is not well-formed (other than by using an unknown
-    /// operator)": an `invalidArguments` error. The string describes the
-    /// defect.
-    Malformed(String),
-    /// "`where` uses a `$`-prefixed name that is not an operator defined in
-    /// this document": an `unsupportedFilter` error. The string is that
-    /// name.
-    UnknownOperator(String),
-}
-
-impl fmt::Display for WhereError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Malformed(why) => write!(f, "malformed where expression: {why}"),
-            Self::UnknownOperator(name) => write!(f, "unknown where operator {name}"),
-        }
-    }
-}
-
-impl std::error::Error for WhereError {}
-
-impl From<WhereError> for JmapError {
-    fn from(e: WhereError) -> Self {
-        match e {
-            WhereError::Malformed(_) => JmapError::invalid_arguments(e.to_string()),
-            WhereError::UnknownOperator(_) => JmapError::unsupported_filter(),
-        }
-    }
-}
-
 /// A built-in filter expression (draft-atwood-jmap-graph-search-00 §The
 /// Built-In Filter Language).
 ///
@@ -172,58 +135,6 @@ pub struct Expression {
     /// `$text`: "True if the candidate matches the given text." Matching is
     /// server-defined.
     pub text: Option<String>,
-}
-
-/// The operators of one field test (§Field Tests, §Comparison Operators).
-///
-/// A plain value is "shorthand for `{"$eq": value}`" and parses to a test
-/// with only [`eq`](Self::eq) set; both forms compare strings by code point,
-/// so they are the same test. Every set operator must be true;
-/// [`FieldTest::default`] has none and is always true.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct FieldTest {
-    /// `$eq`: "The field is present and equal to the operand."
-    /// `Some(Value::Null)` is an explicit `null`, which "is true only for an
-    /// explicit `null`".
-    pub eq: Option<Value>,
-    /// `$ne`: "Not `$eq`. True when the field is missing."
-    pub ne: Option<Value>,
-    /// `$gt`.
-    pub gt: Option<Bound>,
-    /// `$gte`.
-    pub gte: Option<Bound>,
-    /// `$lt`.
-    pub lt: Option<Bound>,
-    /// `$lte`.
-    pub lte: Option<Bound>,
-    /// `$in`: "The field is `$eq` to at least one element of the operand."
-    pub in_: Option<Vec<Value>>,
-    /// `$nin`: "Not `$in`. True when the field is missing."
-    pub nin: Option<Vec<Value>>,
-    /// `$exists`: "If `true`, the field is present (its value may be
-    /// `null`); if `false`, it is missing."
-    pub exists: Option<bool>,
-    /// `$prefix`: "The field is a string that begins with the operand under
-    /// the test's collation."
-    pub prefix: Option<String>,
-    /// `$contains`: "The field is a string that contains the operand as a
-    /// substring under the test's collation."
-    pub contains: Option<String>,
-    /// `$collation`: "Not a test. Names the collation algorithm used by this
-    /// operator object's string operators." `None` means code-point
-    /// comparison (§Collation).
-    pub collation: Option<String>,
-}
-
-/// The operand of `$gt`, `$gte`, `$lt` and `$lte`: "(Number or String)".
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Bound {
-    /// Compared numerically with a number field.
-    Number(Number),
-    /// Compared under the test's collation with a string field.
-    String(String),
 }
 
 /// The `direction` of an [`EdgeTest`] or [`ReachTest`].
@@ -336,7 +247,7 @@ impl Expression {
                 "$text" => expr.text = Some(string(v, name)?),
                 n if n.starts_with('$') => return Err(WhereError::UnknownOperator(n.to_owned())),
                 n if is_json_pointer(n) => {
-                    expr.fields.insert(n.to_owned(), parse_field_test(v)?);
+                    expr.fields.insert(n.to_owned(), FieldTest::parse(v)?);
                 }
                 n => {
                     return Err(malformed(&format!(
@@ -431,43 +342,6 @@ impl Expression {
     }
 }
 
-impl FieldTest {
-    /// A test with only `$eq` set: the meaning of a plain value.
-    pub fn equal_to(value: Value) -> Self {
-        Self {
-            eq: Some(value),
-            ..Self::default()
-        }
-    }
-
-    fn to_value(&self) -> Value {
-        let bound = |b: &Bound| match b {
-            Bound::Number(n) => Value::Number(n.clone()),
-            Bound::String(s) => Value::String(s.clone()),
-        };
-        let entries = [
-            ("$eq", self.eq.clone()),
-            ("$ne", self.ne.clone()),
-            ("$gt", self.gt.as_ref().map(bound)),
-            ("$gte", self.gte.as_ref().map(bound)),
-            ("$lt", self.lt.as_ref().map(bound)),
-            ("$lte", self.lte.as_ref().map(bound)),
-            ("$in", self.in_.clone().map(Value::Array)),
-            ("$nin", self.nin.clone().map(Value::Array)),
-            ("$exists", self.exists.map(Value::Bool)),
-            ("$prefix", self.prefix.clone().map(Value::String)),
-            ("$contains", self.contains.clone().map(Value::String)),
-            ("$collation", self.collation.clone().map(Value::String)),
-        ];
-        Value::Object(
-            entries
-                .into_iter()
-                .filter_map(|(k, v)| v.map(|v| (k.to_owned(), v)))
-                .collect(),
-        )
-    }
-}
-
 impl EdgeTest {
     fn to_value(&self) -> Value {
         let mut m = Map::new();
@@ -501,13 +375,7 @@ impl ReachTest {
 }
 
 fn malformed(why: &str) -> WhereError {
-    WhereError::Malformed(why.to_owned())
-}
-
-/// RFC 6901: `"" / *( "/" reference-token )`, where `~` is only allowed as
-/// `~0` or `~1`.
-fn is_json_pointer(s: &str) -> bool {
-    (s.is_empty() || s.starts_with('/')) && s.split('~').skip(1).all(|t| t.starts_with(['0', '1']))
+    WhereError::malformed(why)
 }
 
 fn require_kind(kind: CandidateKind, wanted: CandidateKind, name: &str) -> Result<(), WhereError> {
@@ -536,52 +404,6 @@ fn parse_list(v: &Value, kind: CandidateKind, name: &str) -> Result<Vec<Expressi
         .iter()
         .map(|e| Expression::parse(e, kind))
         .collect()
-}
-
-fn parse_bound(v: &Value, name: &str) -> Result<Bound, WhereError> {
-    match v {
-        Value::Number(n) => Ok(Bound::Number(n.clone())),
-        Value::String(s) => Ok(Bound::String(s.clone())),
-        _ => Err(malformed(&format!("{name} must be a Number or String"))),
-    }
-}
-
-/// "An operator object is a JSON object at least one of whose member names
-/// begins with `$`. [...] Any other value is shorthand for `{"$eq": value}`."
-fn parse_field_test(v: &Value) -> Result<FieldTest, WhereError> {
-    let ops = match v.as_object() {
-        Some(obj) if obj.keys().any(|k| k.starts_with('$')) => obj,
-        _ => return Ok(FieldTest::equal_to(v.clone())),
-    };
-    let mut t = FieldTest::default();
-    for (name, v) in ops {
-        match name.as_str() {
-            "$eq" => t.eq = Some(v.clone()),
-            "$ne" => t.ne = Some(v.clone()),
-            "$gt" => t.gt = Some(parse_bound(v, name)?),
-            "$gte" => t.gte = Some(parse_bound(v, name)?),
-            "$lt" => t.lt = Some(parse_bound(v, name)?),
-            "$lte" => t.lte = Some(parse_bound(v, name)?),
-            "$in" => t.in_ = Some(array(v, name)?.clone()),
-            "$nin" => t.nin = Some(array(v, name)?.clone()),
-            "$exists" => {
-                t.exists = Some(
-                    v.as_bool()
-                        .ok_or_else(|| malformed("$exists must be a Boolean"))?,
-                );
-            }
-            "$prefix" => t.prefix = Some(string(v, name)?),
-            "$contains" => t.contains = Some(string(v, name)?),
-            "$collation" => t.collation = Some(string(v, name)?),
-            n if n.starts_with('$') => return Err(WhereError::UnknownOperator(n.to_owned())),
-            n => {
-                return Err(malformed(&format!(
-                    "operator object mixes $-prefixed names with {n:?}"
-                )));
-            }
-        }
-    }
-    Ok(t)
 }
 
 fn parse_direction(v: &Value) -> Result<Direction, WhereError> {

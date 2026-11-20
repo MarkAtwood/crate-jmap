@@ -2304,13 +2304,12 @@ name = "jmap-graph-server"
 version = "0.5.0"
 dependencies = [
  "base64",
- "icu_casemap",
- "icu_normalizer",
  "iri-string",
  "jmap-graph-server",
  "jmap-graph-types",
  "jmap-object-history-server",
  "jmap-object-history-types",
+ "jmap-search",
  "jmap-server",
  "jmap-types",
  "serde",
@@ -2324,6 +2323,7 @@ name = "jmap-graph-types"
 version = "0.5.0"
 dependencies = [
  "jmap-object-history-types",
+ "jmap-search",
  "jmap-types",
  "serde",
  "serde_json",
@@ -2654,6 +2654,14 @@ dependencies = [
 [[package]]
 name = "jmap-search"
 version = "0.5.0"
+dependencies = [
+ "icu_casemap",
+ "icu_normalizer",
+ "jmap-search",
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "jmap-server"

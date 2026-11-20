@@ -14,5 +14,9 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 [dependencies]
 jmap-types = { workspace = true }
 jmap-object-history-types = { workspace = true }
+# The type-neutral core of the draft-atwood-jmap-graph-search-00 built-in
+# language (field tests, operators, WhereError); public dependency, its
+# FieldTest, Bound, WhereError and QUERY_TOO_COMPLEX are re-exported.
+jmap-search = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
