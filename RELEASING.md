@@ -264,21 +264,11 @@ yet committed into git
 This is a safety check, not a defect. Either commit first, or pass
 `--allow-dirty`.
 
-### 5. mime-tree path dependency (bd:JMAP-6zvo, decision 49) — open
+### 5. mime-tree path dependency (bd:JMAP-6zvo, decision 49) — resolved
 
-The workspace `mime-tree` dependency is a temporary path dependency,
-`{ path = "/data/PROJECT/MIME/mime-tree", version = "0.6" }`, on the
-`mime-writer` branch of crate-mime, which adds the RFC 5322 / MIME writer
-that `jmap-mime` now builds on. Before crate-jmap publishes:
-
-1. Mark publishes mime-tree 0.6.0 to crates.io.
-2. Replace the entry in the root `Cargo.toml` with `mime-tree = "0.6"`,
-   drop its "temporary" comment, and run `cargo update -p mime-tree`.
-3. Run the pre-publish checklist below.
-
-Publishing with the path entry fails: `cargo publish` resolves the
-`version` against crates.io, which has no mime-tree 0.6 until step 1, and
-the path exists only on Mark's machine.
+mime-tree 0.6.0, with the RFC 5322 / MIME writer that `jmap-mime` builds
+on, was published to crates.io on 2026-11-20, and the workspace depends
+on `mime-tree = "0.6"` again.
 
 ## Pre-publish checklist
 

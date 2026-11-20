@@ -165,10 +165,7 @@ jmap-metadata-client   = { path = "crate-jmap-metadata-client",  version = "0.5"
 jmap-vtc-client        = { path = "crate-jmap-vtc-client",       version = "0.5" }
 jmap-scene-client      = { path = "crate-jmap-scene-client",     version = "0.5" }
 jmap-graph-client      = { path = "crate-jmap-graph-client",     version = "0.5" }
-# Temporary path dependency on the mime-writer branch of crate-mime until
-# mime-tree 0.6 (with the RFC 5322 / MIME writer) is published; then switch
-# back to `mime-tree = "0.6"` (decision 49, bd:JMAP-6zvo, RELEASING.md).
-mime-tree              = { path = "/data/PROJECT/MIME/mime-tree", version = "0.6" }
+mime-tree              = "0.6"
 futures                = "0.3"
 serde                  = { version = "1", features = ["derive"] }
 serde_json             = "1"
