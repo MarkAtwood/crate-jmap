@@ -198,12 +198,41 @@ pub(crate) async fn scene_asset_set<B: SceneBackend>(
         return Err(JmapError::state_mismatch());
     }
 
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+    };
     let mut acc = SetAccumulators::default();
-    let mut mutated = false;
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
+    finalize_set_response::<B, SceneAsset>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `SceneAsset/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: SceneBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+}
+
+/// The `create` part of `SceneAsset/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: SceneBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj) in create_map {
-            match create_asset(backend, caller, &account_id, &create_id, obj).await {
+            match create_asset(ctx.backend, ctx.caller, ctx.account_id, &create_id, obj).await {
                 Ok(created) => {
                     mutated = true;
                     acc.created.insert(create_id, created);
@@ -214,9 +243,17 @@ pub(crate) async fn scene_asset_set<B: SceneBackend>(
             }
         }
     }
+    Ok(mutated)
+}
 
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+/// The `update` part of `SceneAsset/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: SceneBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
@@ -227,7 +264,7 @@ pub(crate) async fn scene_asset_set<B: SceneBackend>(
                     continue;
                 }
             };
-            match update_asset(backend, caller, &account_id, &id, patch).await {
+            match update_asset(ctx.backend, ctx.caller, ctx.account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
                     acc.updated.insert(id_str, echo);
@@ -238,7 +275,18 @@ pub(crate) async fn scene_asset_set<B: SceneBackend>(
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The `destroy` part of `SceneAsset/set`, including the whole-request
+/// `invalidArguments` for a non-string element. Returns whether the
+/// backend was written.
+async fn set_destroy<B: SceneBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of `destroy` is an Id.
         let ids: Vec<&str> = destroy_arr
@@ -260,7 +308,7 @@ pub(crate) async fn scene_asset_set<B: SceneBackend>(
                     continue;
                 }
             };
-            match destroy_asset(backend, caller, &account_id, &id).await {
+            match destroy_asset(ctx.backend, ctx.caller, ctx.account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
                     acc.destroyed.push(Value::String(id_str.to_owned()));
@@ -271,9 +319,7 @@ pub(crate) async fn scene_asset_set<B: SceneBackend>(
             }
         }
     }
-
-    finalize_set_response::<B, SceneAsset>(backend, caller, &account_id, old_state, mutated, acc)
-        .await
+    Ok(mutated)
 }
 
 /// `true` if the server accepts `media_type` for a SceneAsset: "MUST be a

@@ -167,3 +167,13 @@ orchestrator, in lines.
   `identity_builder`) and `update_one`. ShareNotification/set refuses create and update with
   `forbidden` without touching the backend, so its `set_create` and `set_update` take no `ctx`
   and return nothing. Only `set_destroy` reports a write.
+- **jmap-scene-server** (`handle_scene_object_set` 123 → 48, `handle_scene_region_set` 117 → 46,
+  `scene_asset_set` 109 → 47, `handle_scene_avatar_set` 106 → 46). The per-entry functions
+  already existed under their own names (`create_scene_object`, `update_region`, `enter_region`,
+  `update_avatar`, `create_asset` and so on) and keep them: they are these modules' `create_one`
+  and `update_one`. SceneObject clones `created_ids` and passes it to `set_create` as `&mut` and
+  to `set_update` as `&`, as Mailbox does. SceneRegion and SceneAvatar only read it, so it sits in
+  `SetCtx`. SceneAvatar's `set_destroy` refuses every id without touching the backend, so it
+  takes no `ctx` and does not feed `mutated`. New spec features go into `set_create` /
+  `set_update` or the per-entry functions, not the orchestrators. `update_avatar` (180 lines)
+  is still over 100.

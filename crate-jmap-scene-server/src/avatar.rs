@@ -176,17 +176,50 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
         return Err(JmapError::state_mismatch());
     }
 
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+    };
     let mut acc = SetAccumulators::default();
-    let mut mutated = false;
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    set_destroy(&mut args, &mut acc)?;
 
+    finalize_set_response::<B, SceneAvatar>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `SceneAvatar/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: SceneBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's creation ids, for `#creationId` references in
+    /// [`AVATAR_ID_PROPERTIES`].
+    created_ids: &'a BTreeMap<Id, Id>,
+}
+
+/// The `create` part of `SceneAvatar/set`: each entry enters a region.
+/// Returns whether the backend was written.
+async fn set_create<B: SceneBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj) in create_map {
-            if let Err(err) = resolve_refs(&mut obj, AVATAR_ID_PROPERTIES, created_ids) {
+            if let Err(err) = resolve_refs(&mut obj, AVATAR_ID_PROPERTIES, ctx.created_ids) {
                 acc.not_created
                     .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
-            match enter_region(backend, caller, &account_id, &create_id, obj).await {
+            match enter_region(ctx.backend, ctx.caller, ctx.account_id, &create_id, obj).await {
                 Ok(created) => {
                     mutated = true;
                     acc.created.insert(create_id, created);
@@ -197,9 +230,17 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
             }
         }
     }
+    Ok(mutated)
+}
 
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+/// The `update` part of `SceneAvatar/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: SceneBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, mut patch) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
@@ -210,12 +251,12 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
                     continue;
                 }
             };
-            if let Err(err) = resolve_refs(&mut patch, AVATAR_ID_PROPERTIES, created_ids) {
+            if let Err(err) = resolve_refs(&mut patch, AVATAR_ID_PROPERTIES, ctx.created_ids) {
                 acc.not_updated
                     .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
-            match update_avatar(backend, caller, &account_id, &id, patch).await {
+            match update_avatar(ctx.backend, ctx.caller, ctx.account_id, &id, patch).await {
                 Ok(echo) => {
                     mutated = true;
                     acc.updated.insert(id_str, echo);
@@ -226,7 +267,13 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
             }
         }
     }
+    Ok(mutated)
+}
 
+/// The `destroy` part of `SceneAvatar/set`: every id is `forbidden`, after
+/// the whole-request `invalidArguments` for a non-string element. Never
+/// touches the backend.
+fn set_destroy(args: &mut Map<String, Value>, acc: &mut SetAccumulators) -> Result<(), JmapError> {
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of `destroy` is an Id.
         let ids: Vec<&str> = destroy_arr
@@ -248,9 +295,7 @@ pub async fn handle_scene_avatar_set<B: SceneBackend>(
             );
         }
     }
-
-    finalize_set_response::<B, SceneAvatar>(backend, caller, &account_id, old_state, mutated, acc)
-        .await
+    Ok(())
 }
 
 /// `true` if `s` has the RFC 8620 §1.4 UTCDate shape
