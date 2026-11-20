@@ -103,7 +103,7 @@ enable them in `Cargo.toml` only if you need the corresponding extension:
 
 ```toml
 [dependencies]
-jmap-mail-types = { version = "0.5", features = ["mdn", "sieve", "emailpush"] }
+jmap-mail-types = { version = "0.6", features = ["mdn", "sieve", "emailpush"] }
 ```
 
 ### `emailpush` — draft-ietf-jmap-emailpush-05 Email Delivery Push
@@ -153,7 +153,7 @@ Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
-jmap-mail-types = "0.5"
+jmap-mail-types = "0.6"
 ```
 
 ### Deserializing a Mailbox from JSON

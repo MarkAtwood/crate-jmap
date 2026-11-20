@@ -45,7 +45,7 @@ attachment references.
 
 ```toml
 [dependencies]
-jmap-cid-types = "0.5"
+jmap-cid-types = "0.6"
 ```
 
 Pulls in `serde` and `serde_json` at runtime. No async runtime,

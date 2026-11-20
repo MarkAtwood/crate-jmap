@@ -14,7 +14,7 @@ it; servers and clients that need to resolve DIDs opt in.
 
 ```toml
 [dependencies]
-jmap-did-resolver = "0.5"
+jmap-did-resolver = "0.6"
 ```
 
 ```rust,no_run

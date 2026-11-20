@@ -109,7 +109,7 @@ and feed it Events API deliveries. Sibling support crates are
 
 ```toml
 [dependencies]
-jmap-chat-slack = "0.5"
+jmap-chat-slack = "0.6"
 ```
 
 ```rust,no_run

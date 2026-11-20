@@ -15,7 +15,7 @@ that accept federated peer requests opt in.
 
 ```toml
 [dependencies]
-jmap-peer-auth-io = "0.5"
+jmap-peer-auth-io = "0.6"
 ```
 
 ```rust,no_run

@@ -7,7 +7,7 @@ adds the server's in-memory reference backend).
 
 ```toml
 [dependencies]
-jmap-quotas = { version = "0.5", features = ["client"] }
+jmap-quotas = { version = "0.6", features = ["client"] }
 ```
 
 | Feature | Re-export |

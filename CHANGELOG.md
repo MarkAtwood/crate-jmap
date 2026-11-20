@@ -12,9 +12,11 @@ wire behaviour that a conforming peer can observe.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-20
+
 ### Added
 
-- **jmap-websocket**: 0.5.0 replaces the 0.0.1 name-claim placeholder
+- **jmap-websocket**: 0.6.0 replaces the 0.0.1 name-claim placeholder
   with RFC 8887 JMAP over WebSocket (bd:JMAP-tzcc). Keeps `CAPABILITY`;
   adds `SUBPROTOCOL`, `offers_jmap`, `WebSocketCapability` and the §4.3
   messages `WsRequest`, `WsResponse`, `WsRequestError`, `WsStateChange`,
@@ -286,7 +288,7 @@ wire behaviour that a conforming peer can observe.
   `body`), and the search URI in `using` from `message_query`,
   `message_query_changes` and `Batch::message_query_get`. The
   `chatId`/`hasMention: true` rule still applies.
-- **jmap-search**: 0.5.0 replaces the 0.0.1 placeholder with a reserved,
+- **jmap-search**: 0.6.0 replaces the 0.0.1 placeholder with a reserved,
   empty crate (no public items, no dependencies) holding the name for the
   planned generic filter-expression extension (bd:JMAP-nn3i). Graph search
   stays in `jmap-graph-types` and `jmap-graph-server`. (bd:JMAP-gs76.7)

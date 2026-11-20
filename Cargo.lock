@@ -1769,7 +1769,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jmap-base-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "bytes",
@@ -1801,7 +1801,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-blob"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-blob-client",
  "jmap-blob-server",
@@ -1811,7 +1811,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-blob-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-blob-types",
@@ -1824,7 +1824,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-blob-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "jmap-blob-server",
@@ -1837,7 +1837,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-blob-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "jmap-types",
@@ -1849,7 +1849,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-calendars-client",
  "jmap-calendars-server",
@@ -1858,7 +1858,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-calendars-types",
@@ -1872,7 +1872,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-calendars-server",
  "jmap-calendars-types",
@@ -1891,7 +1891,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-jscalendar-types",
  "jmap-metadata-types",
@@ -1903,7 +1903,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-chat-client",
  "jmap-chat-server",
@@ -1912,7 +1912,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-calendars-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-calendars-server",
  "jmap-calendars-types",
@@ -1926,7 +1926,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures",
  "jmap-base-client",
@@ -1946,7 +1946,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-federation-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-chat-federation-types",
  "jmap-chat-server",
@@ -1962,7 +1962,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-federation-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-chat-types",
@@ -1976,7 +1976,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-filenode-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
@@ -1990,7 +1990,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-mimi-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-chat-mimi-types",
@@ -2007,7 +2007,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-mimi-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "jmap-chat-mimi-server",
@@ -2026,7 +2026,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-mimi-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-chat-types",
  "jmap-types",
@@ -2036,7 +2036,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-scene-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-scene-server",
  "jmap-scene-types",
@@ -2047,7 +2047,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "getrandom 0.3.4",
@@ -2072,7 +2072,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-slack"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
@@ -2091,7 +2091,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-tasks-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
@@ -2105,7 +2105,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-cid-types",
  "jmap-did-types",
@@ -2119,7 +2119,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-vtc-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-chat-server",
  "jmap-chat-types",
@@ -2133,7 +2133,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-cid"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-cid-types",
  "serde_json",
@@ -2141,7 +2141,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-cid-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "serde",
@@ -2150,7 +2150,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-conditional"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-server",
  "jmap-types",
@@ -2159,7 +2159,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-contacts-client",
  "jmap-contacts-server",
@@ -2168,7 +2168,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-contacts-types",
@@ -2181,7 +2181,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-contacts-server",
  "jmap-contacts-types",
@@ -2200,7 +2200,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-jscontact-types",
  "jmap-metadata-types",
@@ -2212,7 +2212,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-did"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-did-types",
  "serde_json",
@@ -2220,7 +2220,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-did-resolver"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-did-types",
  "jmap-types",
@@ -2233,7 +2233,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-did-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "ed25519-dalek 3.0.0",
@@ -2248,7 +2248,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-emailpush"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-mail-client",
  "jmap-mail-server",
@@ -2258,7 +2258,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-filenode-client",
  "jmap-filenode-server",
@@ -2268,7 +2268,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "bytes",
  "jmap-base-client",
@@ -2282,7 +2282,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-cid-types",
  "jmap-filenode-server",
@@ -2300,7 +2300,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-cid-types",
  "jmap-metadata-types",
@@ -2312,7 +2312,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-graph-client",
  "jmap-graph-server",
@@ -2322,7 +2322,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures",
  "jmap-base-client",
@@ -2337,7 +2337,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-projection-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-contacts-types",
  "jmap-graph-types",
@@ -2352,7 +2352,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "iri-string",
@@ -2371,7 +2371,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-graph-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-object-history-types",
  "jmap-object-uri",
@@ -2383,7 +2383,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-jscalendar-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -2392,7 +2392,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-jscontact-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2400,7 +2400,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-mail-client",
  "jmap-mail-server",
@@ -2409,7 +2409,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-mail-client",
@@ -2425,7 +2425,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "getrandom 0.3.4",
  "jmap-mail-server",
@@ -2447,7 +2447,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-sharing"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-sharing-client",
  "jmap-sharing-server",
@@ -2457,7 +2457,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-metadata-types",
  "jmap-object-history-types",
@@ -2468,7 +2468,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mdn"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-mail-server",
  "jmap-mail-types",
@@ -2477,7 +2477,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-metadata-client",
  "jmap-metadata-server",
@@ -2487,14 +2487,14 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde_json",
 ]
 
 [[package]]
 name = "jmap-metadata-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "icu_casemap",
  "icu_normalizer",
@@ -2505,7 +2505,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-metadata-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2513,7 +2513,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mime"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "criterion",
  "jmap-mail-types",
@@ -2524,7 +2524,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-object-history"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-object-history-client",
  "jmap-object-history-server",
@@ -2534,7 +2534,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-object-history-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-object-history-types",
@@ -2547,7 +2547,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-object-history-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-object-history-types",
  "jmap-types",
@@ -2556,7 +2556,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-object-history-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -2565,7 +2565,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-object-uri"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-types",
  "serde_json",
@@ -2573,7 +2573,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-peer-auth"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "ed25519-dalek 3.0.0",
@@ -2590,7 +2590,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-peer-auth-io"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "hickory-resolver",
  "http",
@@ -2608,7 +2608,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-platform-push"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "jmap-types",
@@ -2626,7 +2626,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-quotas"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-quotas-client",
  "jmap-quotas-server",
@@ -2636,7 +2636,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-quotas-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-quotas-types",
@@ -2649,7 +2649,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-quotas-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-quotas-server",
  "jmap-quotas-types",
@@ -2661,7 +2661,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-quotas-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-types",
  "serde",
@@ -2670,7 +2670,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-scene-client",
  "jmap-scene-server",
@@ -2680,7 +2680,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures",
  "jmap-base-client",
@@ -2703,7 +2703,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-object-history-server",
  "jmap-object-history-types",
@@ -2719,7 +2719,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-object-history-types",
  "jmap-types",
@@ -2729,7 +2729,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-scene-vtc-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-scene-server",
  "jmap-scene-types",
@@ -2743,7 +2743,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-search"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "icu_casemap",
  "icu_normalizer",
@@ -2755,7 +2755,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "criterion",
  "http",
@@ -2772,7 +2772,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-sharing-client",
  "jmap-sharing-server",
@@ -2782,7 +2782,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-sharing-types",
@@ -2795,7 +2795,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-metadata-server",
  "jmap-metadata-types",
@@ -2811,7 +2811,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-metadata-types",
  "jmap-types",
@@ -2821,7 +2821,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sieve"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-mail-server",
  "jmap-mail-types",
@@ -2830,7 +2830,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-tasks-client",
  "jmap-tasks-server",
@@ -2839,7 +2839,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-base-client",
  "jmap-tasks-types",
@@ -2852,7 +2852,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-metadata-server",
  "jmap-metadata-types",
@@ -2871,7 +2871,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-jscalendar-types",
  "jmap-metadata-types",
@@ -2928,7 +2928,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "icu_segmenter",
  "iri-string",
@@ -2939,7 +2939,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-vtc-client",
  "jmap-vtc-server",
@@ -2949,7 +2949,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc-aws"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "jmap-types",
@@ -2968,7 +2968,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc-client"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures",
  "jmap-base-client",
@@ -2983,7 +2983,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-object-history-server",
  "jmap-object-history-types",
@@ -2999,7 +2999,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-vtc-types"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "jmap-object-history-types",
  "jmap-types",
@@ -3009,7 +3009,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-web-push"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "base64",
  "ece-native",
@@ -3030,7 +3030,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-websocket"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "futures",
  "jmap-mail-server",

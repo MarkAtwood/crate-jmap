@@ -49,7 +49,7 @@ on it.
 
 ```toml
 [dependencies]
-jmap-vtc-aws = "0.5"
+jmap-vtc-aws = "0.6"
 ```
 
 ```rust,ignore

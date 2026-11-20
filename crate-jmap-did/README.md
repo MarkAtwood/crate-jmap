@@ -27,7 +27,7 @@ crate; workspace crates depend on `jmap-did-types` directly.
 
 ```toml
 [dependencies]
-jmap-did = "0.5"
+jmap-did = "0.6"
 ```
 
 ```rust
@@ -55,7 +55,7 @@ with this one on the shared `jmap-*` line.
   directly.
 - Depending on this crate and on `jmap-did-types` at a different version
   gives two copies of each type, which do not unify.
-- Version 0.5.0 replaces the 0.0.1 name-claim placeholder.
+- Version 0.6.0 replaces the 0.0.1 name-claim placeholder.
 
 ## References
 

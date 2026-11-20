@@ -312,7 +312,7 @@ after their dependencies are published.
 
 ## Version bump conventions
 
-All publishable crates share one version (currently `0.5.0`) and are
+All publishable crates share one version (currently `0.6.0`) and are
 versioned together. Bumping a `*-types` crate is a
 potential SemVer event for every consumer that re-exports its types — see
 the canonical-template propagation rule in `AGENTS.md`. When in doubt,
@@ -360,6 +360,17 @@ change, FileNode `depth`, `onExists` and `forbiddenNodeNames` follow
 draft-ietf-jmap-filenode-19), so the shared line is now `0.5.x` and the
 workspace dependency requirements are `"0.5"`. `CHANGELOG.md` lists every
 break.
+
+The 0.6.0 release moves every publishable crate to `0.6.0` and publishes
+the umbrella crates, `jmap-object-uri`, `jmap-websocket`, `jmap-search`
+and the other crates that held 0.0.1 name-claim placeholders. Changes
+since `0.5.0` break the 0.5 API (`JmapBackend` split into `JmapAccounts`
+and `JmapReads`, one shared `MemoryCaller` with `Id` as every reference
+backend's default caller, `ChatBackend`'s methods moved into ten hook traits,
+the VTC capability's required `livestreamPushSchemes` and `layouts`, the
+Tasks query and sort changes, `jmap-mime` on mime-tree 0.6 with the MIME
+writer moved there), so the shared line is now `0.6.x` and the workspace
+dependency requirements are `"0.6"`. `CHANGELOG.md` lists every break.
 
 ### Third-party majors in public APIs
 

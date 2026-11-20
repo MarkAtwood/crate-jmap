@@ -8,7 +8,7 @@ server's in-memory reference backend).
 
 ```toml
 [dependencies]
-jmap-blob = { version = "0.5", features = ["client"] }
+jmap-blob = { version = "0.6", features = ["client"] }
 ```
 
 | Feature | Re-export |

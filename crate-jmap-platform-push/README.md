@@ -36,7 +36,7 @@ builders produce (`StateChange`, `ChatMessagePush`, `VTCCallPush`). No
 
 ```toml
 [dependencies]
-jmap-platform-push = "0.5"
+jmap-platform-push = "0.6"
 ```
 
 ```rust,no_run

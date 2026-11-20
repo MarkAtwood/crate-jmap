@@ -40,7 +40,7 @@ this crate; workspace crates use `jmap-types` and `jmap-server` directly.
 
 ```toml
 [dependencies]
-jmap-conditional = { version = "0.5", features = ["server"] }
+jmap-conditional = { version = "0.6", features = ["server"] }
 ```
 
 ```rust
@@ -81,7 +81,7 @@ lockstep with this one on the shared `jmap-*` line.
   `atomic_failure_details`) are inherent methods of `jmap_types::JmapError`.
 - Depending on this crate and on `jmap-types` or `jmap-server` at a
   different version gives two copies of each type, which do not unify.
-- Version 0.5.0 replaces the 0.0.1 name-claim placeholder.
+- Version 0.6.0 replaces the 0.0.1 name-claim placeholder.
 
 ## References
 

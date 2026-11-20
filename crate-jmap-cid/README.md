@@ -27,7 +27,7 @@ umbrella name depend on this crate; workspace crates depend on
 
 ```toml
 [dependencies]
-jmap-cid = "0.5"
+jmap-cid = "0.6"
 ```
 
 ```rust
@@ -52,7 +52,7 @@ with this one on the shared `jmap-*` line.
   `-server` crate exists to re-export.
 - Depending on this crate and on `jmap-cid-types` at a different version
   gives two copies of each type, which do not unify.
-- Version 0.5.0 replaces the 0.0.1 name-claim placeholder.
+- Version 0.6.0 replaces the 0.0.1 name-claim placeholder.
 
 ## References
 

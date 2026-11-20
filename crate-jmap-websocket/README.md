@@ -50,7 +50,7 @@ has its own frame types today.
 
 ```toml
 [dependencies]
-jmap-websocket = { version = "0.5", features = ["tungstenite"] }
+jmap-websocket = { version = "0.6", features = ["tungstenite"] }
 ```
 
 ```rust,no_run

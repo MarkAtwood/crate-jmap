@@ -56,7 +56,7 @@ defined independently of the JMAP wire envelope.
 
 ```toml
 [dependencies]
-jmap-jscontact-types = "0.5"
+jmap-jscontact-types = "0.6"
 ```
 
 Transitively pulls in `serde`, `serde_json`. No JMAP dependency. Parse a

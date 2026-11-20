@@ -30,7 +30,7 @@ crates directly.
 
 ```toml
 [dependencies]
-jmap-mdn = { version = "0.5", features = ["server"] }
+jmap-mdn = { version = "0.6", features = ["server"] }
 ```
 
 ```rust
@@ -64,7 +64,7 @@ crates version in lockstep with this one on the shared `jmap-*` line.
   `jmap_mail_server::memory` directly.
 - Depending on this crate and on a mail crate at a different version gives
   two copies of each type, which do not unify.
-- Version 0.5.0 replaces the 0.0.1 name-claim placeholder.
+- Version 0.6.0 replaces the 0.0.1 name-claim placeholder.
 
 ## References
 

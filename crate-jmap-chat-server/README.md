@@ -136,7 +136,7 @@ A backend crate writes one `ConformanceBackend` impl and one macro line:
 
 ```toml
 [dev-dependencies]
-jmap-chat-server = { version = "0.5", features = ["testkit"] }
+jmap-chat-server = { version = "0.6", features = ["testkit"] }
 ```
 
 ```rust,ignore

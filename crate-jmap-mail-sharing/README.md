@@ -32,7 +32,7 @@ depend on the component crates directly.
 
 ```toml
 [dependencies]
-jmap-mail-sharing = { version = "0.5", features = ["client"] }
+jmap-mail-sharing = { version = "0.6", features = ["client"] }
 ```
 
 ```rust
@@ -74,7 +74,7 @@ the shared `jmap-*` line.
 - Depending on this crate and on a component crate at a different version
   gives two copies of each type, which do not unify. Keep them on one
   version line.
-- Version 0.5.0 replaces the 0.0.1 name-claim placeholder.
+- Version 0.6.0 replaces the 0.0.1 name-claim placeholder.
 
 ## References
 
