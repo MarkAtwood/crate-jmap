@@ -26,7 +26,7 @@ trait.
 | `VtcBackend` | storage, capability object, caller userId, moderator hook, recording consent event, unmute-request and gateway-signal delivery |
 | `MediaEffect`, `VtcBackend::run_media_effect` | the media start, pause, resume and stop a stored VTCRecording/VTCLivestream change implies, requested after the write |
 | `media_report::MediaReporter` | §Livestream States and §Pausing, Resuming, and Stopping a Recording server-initiated transitions: `livestream_live`, `livestream_endpoints`, `livestream_failed`, `livestream_stopped` (idle stop), `recording_paused`, `recording_resumed`, `recording_stopped`, `recording_processing`, `recording_available`, `recording_failed` |
-| `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
+| `memory::MemoryBackend` (`memory` feature) | in-memory reference backend; accounts with `with_account` / `register_account`, companion capabilities with `advertise` |
 | `register_vtc_handlers` | wires the twenty `VTCCall/*`, `VTCParticipant/*`, `VTCRecording/*` and `VTCLivestream/*` methods |
 
 ## What it's for
@@ -43,7 +43,8 @@ use std::sync::Arc;
 use jmap_server::Dispatcher;
 use jmap_vtc_server::{memory::MemoryBackend, register_vtc_handlers};
 
-let backend = Arc::new(MemoryBackend::new());
+// `capability`: the account-level object the Session advertises.
+let backend = Arc::new(MemoryBackend::new().with_account(&account_id, capability));
 let mut dispatcher: Dispatcher<String> = Dispatcher::new();
 register_vtc_handlers(&mut dispatcher, backend);
 ```

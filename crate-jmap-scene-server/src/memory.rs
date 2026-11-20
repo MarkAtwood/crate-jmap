@@ -18,6 +18,14 @@
 //! owner, its region's owner and the admins; a created object's `ownerId`
 //! is the caller.
 //!
+//! # Accounts
+//!
+//! An account exists once
+//! [`MemoryBackend::with_account`](crate::memory::MemoryBackend::with_account) (or
+//! [`MemoryBackend::register_account`](crate::memory::MemoryBackend::register_account)) registers it with the Scene
+//! capability object it advertises; every call naming any other account is
+//! `accountNotFound` (RFC 8620 §3.6.2).
+//!
 //! # Avatars
 //!
 //! [`SceneBackend::caller_user_id`] is the caller.
@@ -53,7 +61,7 @@
 //!
 //! # Companion capabilities and bindings
 //!
-//! `advertise_capability` records a capability URI for an account, for
+//! `advertise` records a capability URI for an account, for
 //! [`SceneBackend::has_capability`]. `set_region_binding` records what a
 //! binding id references; [`SceneBackend::region_binding`] answers
 //! [`BindingTarget::Missing`] for any id not recorded. `set_channel_space`
@@ -431,9 +439,61 @@ impl MemoryBackend {
         self.inner.lock().await
     }
 
-    /// Register `account_id` with the Scene capability object it
-    /// advertises.
-    #[doc(hidden)]
+    /// Register `account_id` with the `urn:ietf:params:jmap:scene` account capability object
+    /// it advertises, and return `self` for chaining.
+    ///
+    /// Until an account is registered every method call naming it is
+    /// `accountNotFound` (RFC 8620 §3.6.2). The builder form of
+    /// [`Self::register_account`].
+    ///
+    /// ```
+    /// use jmap_scene_server::memory::MemoryBackend;
+    /// use jmap_server::JmapAccounts;
+    /// use jmap_types::Id;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let capability = serde_json::from_value(serde_json::json!({
+    ///     "mayCreateRegion": true,
+    ///     "mayCreateObject": true,
+    ///     "supportedVisualTypes": ["model/gltf-binary"],
+    ///     "maxRegionsPerAccount": null,
+    ///     "maxObjectsPerRegion": null,
+    ///     "maxAvatarsPerRegion": null,
+    ///     "maxAssetSizeBytes": null,
+    ///     "supportsSceneAsset": false
+    /// }))?;
+    /// let account = Id::from("a1");
+    /// let backend = MemoryBackend::new().with_account(&account, capability);
+    /// let caller = String::from("alice");
+    /// tokio::runtime::Runtime::new()?.block_on(async {
+    ///     assert!(backend.account_exists(&caller, &account).await?);
+    ///     assert!(!backend.account_exists(&caller, &Id::from("a2")).await?);
+    ///     Ok(())
+    /// })
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account(self, account_id: &Id, capability: SceneCapability) -> Self {
+        self.register_account(account_id, capability);
+        self
+    }
+
+    /// Register `account_id` with the `urn:ietf:params:jmap:scene` account capability object
+    /// it advertises: the `&self` form of [`Self::with_account`], for a
+    /// backend already shared with a dispatcher.
+    ///
+    /// Registering an account again replaces its capability; its objects
+    /// are kept.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
     pub fn register_account(&self, account_id: &Id, capability: SceneCapability) {
         debug_assert!(
             !account_id.as_ref().is_empty(),
@@ -467,9 +527,11 @@ impl MemoryBackend {
         self.lock().admins.insert(user.to_owned());
     }
 
-    /// Advertise capability `uri` for `account_id`.
-    #[doc(hidden)]
-    pub fn advertise_capability(&self, account_id: &Id, uri: &str) {
+    /// Advertise the companion capability `uri` (e.g.
+    /// `urn:ietf:params:jmap:chat`) on `account_id`, so
+    /// [`SceneBackend::has_capability`] answers `true` for it. List the
+    /// same capability in the account's Session `accountCapabilities`.
+    pub fn advertise(&self, account_id: &Id, uri: &str) {
         self.lock()
             .capabilities
             .entry(account_id.as_ref().to_owned())

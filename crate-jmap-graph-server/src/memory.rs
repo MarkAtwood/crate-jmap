@@ -10,7 +10,8 @@
 //!
 //! `CallerCtx` is the caller's Principal id, which
 //! [`JmapAccounts::principal_id`](jmap_server::JmapAccounts::principal_id) returns, so `createdBy` and `updatedBy` are
-//! the caller. Each account is registered with an owner, who "implicitly
+//! the caller. Each account is registered with an owner
+//! ([`MemoryBackend::with_account`](crate::memory::MemoryBackend::with_account)), who "implicitly
 //! has all rights" on its Graphs and is the only user who may create one.
 //! Every other user has the rights the Graph's `shareWith` gives their id,
 //! or none. `isSubscribed` is kept per user: `true` for the owner and
@@ -508,9 +509,58 @@ impl MemoryBackend {
         self.inner.lock().await
     }
 
-    /// Register `account_id`, owned by Principal `owner`, with the Graph
-    /// capability object it advertises.
-    #[doc(hidden)]
+    /// Register `account_id`, owned by Principal `owner`, with the
+    /// `urn:ietf:params:jmap:graph` account capability object it
+    /// advertises, and return `self` for chaining.
+    ///
+    /// Until an account is registered every method call naming it is
+    /// `accountNotFound` (RFC 8620 §3.6.2). The owner "implicitly has all
+    /// rights" on the account's Graphs and is the only user who may create
+    /// one (see the module docs). The builder form of
+    /// [`Self::register_account`].
+    ///
+    /// ```
+    /// use jmap_graph_server::memory::MemoryBackend;
+    /// use jmap_graph_types::GraphCapability;
+    /// use jmap_server::JmapAccounts;
+    /// use jmap_types::Id;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let capability: GraphCapability =
+    ///     serde_json::from_value(serde_json::json!({ "maxAnnotationSize": null }))?;
+    /// let alice = Id::from("alice");
+    /// let backend = MemoryBackend::new().with_account(&alice, &alice, capability);
+    /// tokio::runtime::Runtime::new()?.block_on(async {
+    ///     assert!(backend.account_exists(&alice, &alice).await?);
+    ///     assert!(!backend.account_exists(&alice, &Id::from("bob")).await?);
+    ///     Ok(())
+    /// })
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account(self, account_id: &Id, owner: &Id, capability: GraphCapability) -> Self {
+        self.register_account(account_id, owner, capability);
+        self
+    }
+
+    /// Register `account_id`, owned by Principal `owner`, with the
+    /// `urn:ietf:params:jmap:graph` account capability object it
+    /// advertises: the `&self` form of [`Self::with_account`], for a
+    /// backend already shared with a dispatcher.
+    ///
+    /// Registering an account again replaces its owner and capability and
+    /// drops what [`Self::register_edit`], [`Self::register_search`] and
+    /// `set_projected_graph` set for it; its objects are kept.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
     pub fn register_account(&self, account_id: &Id, owner: &Id, capability: GraphCapability) {
         debug_assert!(
             !account_id.as_ref().is_empty(),
@@ -529,18 +579,20 @@ impl MemoryBackend {
         );
     }
 
-    /// Advertise `urn:ietf:params:jmap:graph:edit` for the registered
-    /// `account_id` with `capability`.
-    #[doc(hidden)]
+    /// Advertise `urn:ietf:params:jmap:graph:edit`
+    /// (draft-atwood-jmap-graph-edit-00) for the registered `account_id`
+    /// with `capability`: GraphNodeOp and the GraphNode edit extensions
+    /// then work there. Does nothing for an account not registered.
     pub fn register_edit(&self, account_id: &Id, capability: GraphEditCapability) {
         if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
             a.edit = Some(capability);
         }
     }
 
-    /// Advertise `urn:ietf:params:jmap:graph:search` for the registered
-    /// `account_id` with `capability`.
-    #[doc(hidden)]
+    /// Advertise `urn:ietf:params:jmap:graph:search`
+    /// (draft-atwood-jmap-graph-search-00) for the registered `account_id`
+    /// with `capability`: GraphNode and GraphEdge `/query` then accept a
+    /// `where` filter there. Does nothing for an account not registered.
     pub fn register_search(&self, account_id: &Id, capability: GraphSearchCapability) {
         if let Some(a) = self.lock().accounts.get_mut(account_id.as_ref()) {
             a.search = Some(capability);
@@ -565,8 +617,9 @@ impl MemoryBackend {
     }
 
     /// Advertise the companion capability `uri` (e.g.
-    /// `urn:ietf:params:jmap:chat`) on `account_id`.
-    #[doc(hidden)]
+    /// `urn:ietf:params:jmap:chat`) on `account_id`, so
+    /// [`GraphBackend::has_capability`] answers `true` for it. List the
+    /// same capability in the account's Session `accountCapabilities`.
     pub fn advertise(&self, account_id: &Id, uri: &str) {
         self.lock()
             .advertised

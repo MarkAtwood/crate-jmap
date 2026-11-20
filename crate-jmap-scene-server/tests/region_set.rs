@@ -413,7 +413,7 @@ async fn active_call_id_is_not_a_create_property() {
     // are "`chatId` (String), `spaceId` (String), `channelId` (String)".
     // `activeCallId` is first patchable on update (L1065).
     let backend = backend();
-    backend.advertise_capability(&Id::from(ACCOUNT), VTC);
+    backend.advertise(&Id::from(ACCOUNT), VTC);
     let mut r = design_review_room();
     r["activeCallId"] = json!("call-1");
     assert_invalid(&create_error(&backend, r).await, &["activeCallId"]);
@@ -437,7 +437,7 @@ async fn space_policy_needs_a_space_id() {
     // null"; L1085 names the property: such a region "fails with
     // `invalidProperties` naming `spaceId`".
     let backend = backend();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
     let mut r = design_review_room();
     r["accessPolicy"] = json!("space");
     r["spaceId"] = Value::Null;
@@ -456,7 +456,7 @@ async fn clearing_space_id_under_space_policy_names_space_id() {
     // `accessPolicy` is `\"space\"` fails with `invalidProperties` naming
     // `spaceId`."
     let backend = backend();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
     backend.set_region_binding(BindingProperty::SpaceId, "space-1", BindingTarget::Usable);
     let mut r = design_review_room();
     r["accessPolicy"] = json!("space");
@@ -482,7 +482,7 @@ async fn channel_must_be_a_channel_of_the_space() {
     // SHOULD return `invalidProperties` naming the binding property
     // (`chatId`, `spaceId`, or `channelId`) if a check fails."
     let backend = backend();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
     for (property, id) in [
         (BindingProperty::SpaceId, "space-1"),
         (BindingProperty::SpaceId, "space-2"),
@@ -520,7 +520,7 @@ async fn chat_binding_must_reference_an_accessible_object() {
     // property (`chatId`, `spaceId`, or `channelId`) if the referenced
     // object does not exist or the caller cannot access it."
     let backend = backend();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
     backend.set_region_binding(
         BindingProperty::SpaceId,
         "space-hidden",
@@ -544,8 +544,8 @@ async fn usable_chat_binding_is_stored_with_null_siblings() {
     // ("chatId": "01J5CHAT000000000000000099", "spaceId": null,
     // "channelId": null, "activeCallId": null).
     let backend = backend();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
-    backend.advertise_capability(&Id::from(ACCOUNT), VTC);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), VTC);
     backend.set_region_binding(
         BindingProperty::ChatId,
         "01J5CHAT000000000000000099",
@@ -759,7 +759,7 @@ async fn active_call_id_checks_the_call() {
     // `activeCallId` if the VTCCall does not exist or is ended, and
     // `forbidden` if the caller lacks access."
     let backend = backend();
-    backend.advertise_capability(&Id::from(ACCOUNT), VTC);
+    backend.advertise(&Id::from(ACCOUNT), VTC);
     backend.set_region_binding(
         BindingProperty::ActiveCallId,
         "call-ended",

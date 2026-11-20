@@ -313,7 +313,7 @@ async fn destroyed_event_for_a_gone_object_is_delivered() {
 #[tokio::test]
 async fn avatar_event_from_a_blocked_user_is_dropped() {
     let backend = scene();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
     backend.block(BOB, MALLORY);
     for kind in ["entered", "left", "ejected"] {
         let e = avatar_event(MALLORY, kind);
@@ -349,7 +349,7 @@ async fn avatar_event_in_a_region_hiding_its_avatars_is_dropped() {
 #[tokio::test]
 async fn object_event_checks_updated_by() {
     let backend = scene();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
     backend.block(BOB, MALLORY);
     let by_mallory = object_event(OBJ42, "updated", json!(MALLORY));
     let by_server = object_event(OBJ42, "updated", json!(null));
@@ -364,7 +364,7 @@ async fn object_event_checks_updated_by() {
 #[tokio::test]
 async fn interaction_from_a_blocked_user_is_dropped() {
     let backend = scene();
-    backend.advertise_capability(&Id::from(ACCOUNT), CHAT);
+    backend.advertise(&Id::from(ACCOUNT), CHAT);
     backend.block(BOB, MALLORY);
     let e = SceneEvent::Interaction(interaction(R1, SCULPTURE, MALLORY));
     assert!(!delivers(&backend, BOB, &all(), &e).await);
@@ -401,7 +401,7 @@ async fn blocked_sender_check_uses_the_receiving_account() {
     let e = avatar_event(MALLORY, "entered");
     for (chat_account, expect_delivered) in [(&hosting, true), (&bob_personal, false)] {
         let backend = scene();
-        backend.advertise_capability(chat_account, CHAT);
+        backend.advertise(chat_account, CHAT);
         backend.block(BOB, MALLORY);
         let delivered = should_deliver(
             &backend,

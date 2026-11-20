@@ -4,7 +4,10 @@ pub use jmap_scene_server::Urgency
 pub mod jmap_scene_server::memory
 #[non_exhaustive] pub struct jmap_scene_server::memory::MemoryBackend
 impl jmap_scene_server::memory::MemoryBackend
+pub fn jmap_scene_server::memory::MemoryBackend::advertise(&self, &jmap_types::id::Id, &str)
 pub fn jmap_scene_server::memory::MemoryBackend::new() -> Self
+pub fn jmap_scene_server::memory::MemoryBackend::register_account(&self, &jmap_types::id::Id, jmap_scene_types::capability::SceneCapability)
+pub fn jmap_scene_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id, jmap_scene_types::capability::SceneCapability) -> Self
 impl jmap_scene_server::memory::MemoryBackend
 pub fn jmap_scene_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
 pub fn jmap_scene_server::memory::MemoryBackend::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self

@@ -6,8 +6,13 @@ pub use jmap_graph_server::JMAP_GRAPH_URI
 pub mod jmap_graph_server::memory
 #[non_exhaustive] pub struct jmap_graph_server::memory::MemoryBackend
 impl jmap_graph_server::memory::MemoryBackend
+pub fn jmap_graph_server::memory::MemoryBackend::advertise(&self, &jmap_types::id::Id, &str)
 pub fn jmap_graph_server::memory::MemoryBackend::new() -> Self
+pub fn jmap_graph_server::memory::MemoryBackend::register_account(&self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_graph_types::capability::GraphCapability)
+pub fn jmap_graph_server::memory::MemoryBackend::register_edit(&self, &jmap_types::id::Id, jmap_graph_types::edit::GraphEditCapability)
 pub fn jmap_graph_server::memory::MemoryBackend::register_provenance(&self, &jmap_types::id::Id)
+pub fn jmap_graph_server::memory::MemoryBackend::register_search(&self, &jmap_types::id::Id, jmap_graph_types::search::GraphSearchCapability)
+pub fn jmap_graph_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id, &jmap_types::id::Id, jmap_graph_types::capability::GraphCapability) -> Self
 impl jmap_graph_server::memory::MemoryBackend
 pub fn jmap_graph_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
 pub fn jmap_graph_server::memory::MemoryBackend::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self

@@ -20,6 +20,14 @@
 //! [`VtcBackend::caller_user_id`] returns and what
 //! [`VtcBackend::is_moderator`] checks.
 //!
+//! # Accounts
+//!
+//! An account exists once
+//! [`MemoryBackend::with_account`](crate::memory::MemoryBackend::with_account) (or
+//! [`MemoryBackend::register_account`](crate::memory::MemoryBackend::register_account)) registers it with the VTC
+//! capability object it advertises; every call naming any other account is
+//! `accountNotFound` (RFC 8620 §3.6.2).
+//!
 //! # Access
 //!
 //! Every caller may access every call, except a `(userId, call)` pair
@@ -472,8 +480,63 @@ impl MemoryBackend {
         self.lock().max_active_livestreams = max;
     }
 
-    /// Register `account_id` with the VTC capability object it advertises.
-    #[doc(hidden)]
+    /// Register `account_id` with the `urn:ietf:params:jmap:vtc` account capability object
+    /// it advertises, and return `self` for chaining.
+    ///
+    /// Until an account is registered every method call naming it is
+    /// `accountNotFound` (RFC 8620 §3.6.2). The builder form of
+    /// [`Self::register_account`].
+    ///
+    /// ```
+    /// use jmap_vtc_server::memory::MemoryBackend;
+    /// use jmap_server::JmapAccounts;
+    /// use jmap_types::Id;
+    ///
+    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+    /// let capability = serde_json::from_value(serde_json::json!({
+    ///     "mayCreateCall": true,
+    ///     "supportsRingCalls": true,
+    ///     "supportsRoomCalls": true,
+    ///     "supportsScheduledCalls": false,
+    ///     "supportsRecording": false,
+    ///     "supportsLivestream": false,
+    ///     "livestreamModes": [],
+    ///     "supportsLobby": false,
+    ///     "supportsBreakoutRooms": false,
+    ///     "supportedMediaTypes": ["audio"]
+    /// }))?;
+    /// let account = Id::from("a1");
+    /// let backend = MemoryBackend::new().with_account(&account, capability);
+    /// let caller = String::from("alice");
+    /// tokio::runtime::Runtime::new()?.block_on(async {
+    ///     assert!(backend.account_exists(&caller, &account).await?);
+    ///     assert!(!backend.account_exists(&caller, &Id::from("a2")).await?);
+    ///     Ok(())
+    /// })
+    /// # }
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
+    #[must_use]
+    pub fn with_account(self, account_id: &Id, capability: VtcCapability) -> Self {
+        self.register_account(account_id, capability);
+        self
+    }
+
+    /// Register `account_id` with the `urn:ietf:params:jmap:vtc` account capability object
+    /// it advertises: the `&self` form of [`Self::with_account`], for a
+    /// backend already shared with a dispatcher.
+    ///
+    /// Registering an account again replaces its capability; its objects
+    /// are kept.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds, if `account_id` is the empty string (RFC 8620
+    /// §1.2, bd:JMAP-dx0s).
     pub fn register_account(&self, account_id: &Id, capability: VtcCapability) {
         debug_assert!(
             !account_id.as_ref().is_empty(),
@@ -486,8 +549,9 @@ impl MemoryBackend {
     }
 
     /// Advertise the companion capability `uri` (e.g.
-    /// `urn:ietf:params:jmap:chat`) on `account_id`.
-    #[doc(hidden)]
+    /// `urn:ietf:params:jmap:chat`) on `account_id`, so
+    /// [`VtcBackend::has_capability`] answers `true` for it. List the same
+    /// capability in the account's Session `accountCapabilities`.
     pub fn advertise(&self, account_id: &Id, uri: &str) {
         self.lock()
             .advertised

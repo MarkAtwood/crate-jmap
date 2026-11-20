@@ -29,7 +29,7 @@ No HTTP, no persistence, no WebSocket transport.
 | `query::*` | §Graph/query, §GraphNode/query, §GraphEdge/query match and order functions |
 | `search::check_search_filter`, `search::GraphView` | graph-search §FilterCondition Extensions, §The Built-In Filter Language, §Visibility; field tests and collations evaluated by `jmap-search` |
 | `provenance::*` | graph-provenance §Provenance Properties, §Curation Properties, §Retraction, §Sharing Rights, §Graph Extensions checks; `sweep_retention` (§Retention) |
-| `memory::MemoryBackend` (feature `memory`) | reference backend, not production; `register_provenance` |
+| `memory::MemoryBackend` (feature `memory`) | reference backend, not production; accounts with `with_account` / `register_account`, then `register_edit`, `register_search`, `register_provenance`, `advertise` |
 
 ## What it's for
 

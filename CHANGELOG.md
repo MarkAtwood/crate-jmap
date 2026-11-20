@@ -50,6 +50,17 @@ wire behaviour that a conforming peer can observe.
   `update_object_if` with the draft's source states, delivering the
   recording consent events and stop effects a client update would;
   `ReportError` says why a report changed nothing.
+- **jmap-graph-server**, **jmap-vtc-server**, **jmap-scene-server**
+  (`memory`): a public way to add an account to the reference
+  `MemoryBackend`, which before had only a `#[doc(hidden)]`
+  `register_account`, so a consumer got `accountNotFound` for every call
+  (found by the toy-consumer check, bd:JMAP-fhvk). Each has a
+  `with_account` builder (graph: `with_account(account, owner,
+  capability)`; vtc and scene: `with_account(account, capability)`), and
+  `register_account`, its `&self` form, is now documented public API.
+  Graph's `register_edit`, `register_search` and `advertise`, and VTC's
+  and Scene's `advertise`, are documented public API too (Scene's was the
+  hidden `advertise_capability`, renamed to the name the other two use).
 
 - **jmap-types**: data-type registry rows for TaskList, Task and
   TaskNotification (`urn:ietf:params:jmap:tasks`; Supports History Yes,

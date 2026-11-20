@@ -30,7 +30,7 @@ trait.
 | `query::avatar_matches`, `query::compare_avatars` | §SceneAvatar/query filter, spatial filters and sort |
 | `SceneBackend` | storage, capability objects, blob sizes, permission and binding hooks |
 | `BindingTarget` | what a `chatId`/`spaceId`/`channelId`/`activeCallId` references |
-| `memory::MemoryBackend` (`memory` feature) | in-memory reference backend |
+| `memory::MemoryBackend` (`memory` feature) | in-memory reference backend; accounts with `with_account` / `register_account`, companion capabilities with `advertise` |
 | `register_scene_handlers` | wires the `SceneAsset/*`, `SceneRegion/*`, `SceneObject/*` (including `SceneObject/interact`) and `SceneAvatar/*` methods |
 
 ## What it's for
@@ -48,7 +48,8 @@ use std::sync::Arc;
 use jmap_server::Dispatcher;
 use jmap_scene_server::{memory::MemoryBackend, register_scene_handlers};
 
-let backend = Arc::new(MemoryBackend::new());
+// `capability`: the account-level object the Session advertises.
+let backend = Arc::new(MemoryBackend::new().with_account(&account_id, capability));
 let mut dispatcher: Dispatcher<String> = Dispatcher::new();
 register_scene_handlers(&mut dispatcher, backend);
 ```

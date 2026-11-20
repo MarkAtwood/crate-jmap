@@ -47,8 +47,11 @@ pub type jmap_vtc_server::media_report::RecordingReport<E> = core::result::Resul
 pub mod jmap_vtc_server::memory
 #[non_exhaustive] pub struct jmap_vtc_server::memory::MemoryBackend
 impl jmap_vtc_server::memory::MemoryBackend
+pub fn jmap_vtc_server::memory::MemoryBackend::advertise(&self, &jmap_types::id::Id, &str)
 pub fn jmap_vtc_server::memory::MemoryBackend::new() -> Self
+pub fn jmap_vtc_server::memory::MemoryBackend::register_account(&self, &jmap_types::id::Id, jmap_vtc_types::capability::VtcCapability)
 pub fn jmap_vtc_server::memory::MemoryBackend::set_max_active_livestreams(&self, core::option::Option<u64>)
+pub fn jmap_vtc_server::memory::MemoryBackend::with_account(self, &jmap_types::id::Id, jmap_vtc_types::capability::VtcCapability) -> Self
 impl jmap_vtc_server::memory::MemoryBackend
 pub fn jmap_vtc_server::memory::MemoryBackend::set_history_clock_for_test(&self, i64)
 pub fn jmap_vtc_server::memory::MemoryBackend::with_object_history(self, jmap_object_history_types::ObjectHistoryAccountCapability, jmap_object_history_server::log::HistoryRetention) -> Self
