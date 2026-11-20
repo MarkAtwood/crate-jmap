@@ -188,7 +188,8 @@ fn is_container(node: &FileNode) -> bool {
 ///   myRights.mayShare" (-20 §3.1.2).
 /// - Without `mayRead`, only "id, @type, name, parentId, myRights,
 ///   isSubscribed, and shareWith" keep their values; every other property
-///   is withheld (-20 §5).
+///   is withheld (-20 §5), and `handle_filenode_get` sends each one as
+///   null.
 /// - `isSubscribed` is the user's own value, `subscribed` (-20 §3.1.2:
 ///   "This property is stored per user").
 pub(super) fn shown(node: &FileNode, sight: &Sight, subscribed: Option<bool>) -> FileNode {

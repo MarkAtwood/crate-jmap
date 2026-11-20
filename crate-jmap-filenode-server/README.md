@@ -229,7 +229,11 @@ those in its parent's myRights" (§5), so `FileNode/get` reports no
 5. **Discoverability.** "Nodes which are not "discoverable" MUST
    return notFound errors if fetched with FileNode/get and MUST NOT be
    returned in response to FileNode/query." `get_objects` and
-   `query_objects` leave them out.
+   `query_objects` leave them out. For a node the user can discover but
+   not read, `FileNode/get` sends every property except id, @type, name,
+   parentId, myRights, isSubscribed and shareWith as null (§5), whatever
+   `get_objects` returned; the handler decides readability from the
+   rights it reports.
 
 6. **Change reporting.** `changed` is server-set and moves only for
    properties that have the same value for every user (§3.1.1; not

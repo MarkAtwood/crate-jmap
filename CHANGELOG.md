@@ -1135,6 +1135,21 @@ wire behaviour that a conforming peer can observe.
 
 ### Changed
 
+- **jmap-filenode-server**: `FileNode/get` sends every withheld property
+  of a node the caller can discover but not read as null, whatever the
+  backend returned (draft-ietf-jmap-filenode-20 §5: it "returns null for
+  every other property defined for the node's @type"). The handler finds
+  such nodes from the rights (`files_rights`, else the returned
+  `myRights`; a File or SymLink takes its parent's, and one whose parent
+  the caller cannot discover is unreadable); each property the type
+  defines and the request asks for is present as null, a File no longer
+  shows the `mediaType` and `executable` defaults, and the withheld
+  properties are marked unreadable for draft-ietf-jmap-conditional-02.
+  The rights hooks are not asked when the request names only properties
+  that are never withheld. The memory
+  backend no longer reports an update of withheld properties only in such
+  a caller's `FileNode/changes` (-20 §5 "SHOULD NOT report the node as
+  updated") (bd:JMAP-vcp4).
 - **BREAKING** **jmap-tasks-types**, **jmap-tasks-server**: Task/query sort
   properties follow draft-ietf-jmap-calendars-34 §5.11.2 as the local Tasks
   profile does (docs/specs/jmap-tasks-local.md, Sorting: `id`, `uid`,

@@ -96,6 +96,7 @@ use std::collections::{BTreeSet, HashMap};
 use std::marker::PhantomData;
 
 use crate::FileNodeBackend;
+use crate::filenode::VISIBLE_WITHOUT_MAY_READ;
 use jmap_cid_types::Sha256;
 use jmap_filenode_types::{
     FileNode, FileNodeComparator, FileNodeComparatorProperty, FileNodeFilter, FilesRights,
@@ -440,6 +441,14 @@ impl AccountStore {
     /// `owner_only` keeps it from the sharees: a change to the owner's own
     /// `isSubscribed` (-20 §3.1.1: "The server SHOULD report a per-user
     /// change in FileNode/changes only to the users whose value changed").
+    ///
+    /// A sharee who can discover but not read `id` before and after an
+    /// update sees only [`VISIBLE_WITHOUT_MAY_READ`] (-20 §5: "A change to a
+    /// property the user sees as null is not visible to the user, so the
+    /// server SHOULD NOT report the node as updated in FileNode/changes
+    /// because of it"). Such a sharee gets no entry for an update of hidden
+    /// properties only, and an entry of its own, naming only the visible
+    /// properties, for an update that also changes visible ones.
     fn log_write(
         &mut self,
         before: &HashMap<Id, FileNode>,
@@ -457,11 +466,37 @@ impl AccountStore {
         for user in users {
             let was = access::view(before, self.viewer(Some(&user), metadata));
             let now = self.view_for(Some(&user), metadata);
-            let reaches = match change_type {
+            let mut reaches = match change_type {
                 ChangeType::Created | ChangeType::Restored => now.contains_key(id),
                 ChangeType::Destroyed => was.contains_key(id),
                 ChangeType::Updated => was.contains_key(id) && now.contains_key(id),
             };
+            let blind = change_type == ChangeType::Updated
+                && !was.get(id).is_some_and(access::Sight::readable)
+                && !now.get(id).is_some_and(access::Sight::readable);
+            if reaches
+                && blind
+                && !owner_only
+                && let Some(props) = updated_props.as_ref()
+            {
+                let visible: BTreeSet<String> = props
+                    .iter()
+                    .filter(|p| VISIBLE_WITHOUT_MAY_READ.contains(&p.as_str()))
+                    .cloned()
+                    .collect();
+                if visible.len() != props.len() {
+                    // Not the shared entry: none, or one of the user's own.
+                    reaches = false;
+                    if !visible.is_empty() {
+                        per_user.push((
+                            ChangeType::Updated,
+                            id.clone(),
+                            Some(visible),
+                            user.clone(),
+                        ));
+                    }
+                }
+            }
             if reaches && !owner_only {
                 main.insert(user.clone());
             }

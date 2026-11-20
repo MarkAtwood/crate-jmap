@@ -27,7 +27,8 @@ use std::collections::BTreeMap;
 
 use common::{MemoryBackend, owner};
 use jmap_filenode_server::{
-    handle_filenode_changes, handle_filenode_get, handle_filenode_query, handle_filenode_set,
+    handle_filenode_changes, handle_filenode_copy, handle_filenode_get, handle_filenode_query,
+    handle_filenode_set,
 };
 use jmap_types::Id;
 use serde_json::{Value, json};
@@ -633,4 +634,198 @@ async fn sharee_can_drop_into_a_directory_it_cannot_read() {
     assert_eq!(resp["notFound"], json!([id]), "{resp}");
     let resp = get(&backend, "owner", &[&id]).await;
     assert_eq!(resp["notFound"], json!([]), "{resp}");
+}
+
+// ─── Withheld properties are null (bd:JMAP-vcp4) ───────────────────────────
+//
+// L1293: "For a node that is discoverable but does not have mayRead,
+// FileNode/get returns the real values of id, @type, name, parentId,
+// myRights, isSubscribed, and shareWith (which follows its own rule for
+// mayShare).  It returns null for every other property defined for the
+// node's @type, including created, changed, and role, even where that
+// property's type does not otherwise allow null." The properties defined
+// for each @type are those of L340-L620 (§3.1.1 common: id, @type,
+// parentId, name, created, modified, accessed, changed; §3.1.2 container:
+// isSubscribed, myRights, shareWith; §3.1.3 File: blobId, size, mediaType,
+// executable; §3.1.4 Directory: role; §3.1.5 SymLink: target).
+
+/// Assert `node` holds `property`, and that its value is null.
+fn null_present(node: &Value, property: &str) {
+    assert!(
+        node.get(property).is_some_and(Value::is_null),
+        "{property} must be present as null: {node}"
+    );
+}
+
+/// `drop` is discoverable by bob only through its own shareWith entry
+/// (L1279: "A node that is discoverable only through the second rule has
+/// mayRead false"): every withheld Directory property is present as null.
+#[tokio::test]
+async fn withheld_directory_properties_are_present_as_null() {
+    let backend = fixture();
+    let resp = get(&backend, BOB, &["drop", "home"]).await;
+    for id in ["drop", "home"] {
+        let node = listed(&resp, id);
+        for property in ["created", "modified", "accessed", "changed", "role"] {
+            null_present(&node, property);
+        }
+        assert_eq!(node["name"], json!(id), "{node}");
+        assert_eq!(node["@type"], json!("Directory"), "{node}");
+        assert_eq!(node["myRights"]["mayRead"], json!(false), "{node}");
+        assert_eq!(node["isSubscribed"], json!(true), "{node}");
+        assert!(node.get("shareWith").is_some(), "{node}");
+    }
+    assert_eq!(listed(&resp, "drop")["parentId"], json!("home"), "{resp}");
+    // A readable Directory keeps its values; the owner reads everything.
+    let resp = get(&backend, BOB, &["work"]).await;
+    assert_eq!(
+        listed(&resp, "work")["created"],
+        json!("2020-01-01T00:00:00Z"),
+        "{resp}"
+    );
+    let resp = get(&backend, "owner", &["drop"]).await;
+    assert_eq!(
+        listed(&resp, "drop")["created"],
+        json!("2020-01-01T00:00:00Z"),
+        "{resp}"
+    );
+}
+
+/// With `properties`, only the requested withheld properties appear (RFC
+/// 8620 §5.1: "If supplied, only the properties listed in the array are
+/// returned for each Foo object"), still as null.
+#[tokio::test]
+async fn withheld_properties_follow_the_properties_argument() {
+    let backend = fixture();
+    let resp = handle_filenode_get(
+        &backend,
+        &Id::from(BOB),
+        json!({ "accountId": ACCOUNT, "ids": ["drop"],
+                "properties": ["name", "role", "modified"] }),
+        &[],
+    )
+    .await
+    .expect("FileNode/get")
+    .primary;
+    let drop = listed(&resp, "drop");
+    null_present(&drop, "role");
+    null_present(&drop, "modified");
+    assert_eq!(drop["name"], json!("drop"), "{drop}");
+    assert!(drop.get("created").is_none(), "not requested: {drop}");
+}
+
+/// A File the caller can discover without mayRead (L1264: "The user's
+/// rights on it are those in its parent's myRights"; here bob's parent
+/// `private` gives none, and the memory backend counts the File by a
+/// shareWith entry seeded on it, by the second rule) gets null for every
+/// withheld File property, not the defaults of mediaType ("default:
+/// "application/octet-stream"") and executable ("default: false").
+#[tokio::test]
+async fn withheld_file_properties_are_null_not_defaults() {
+    let backend = fixture();
+    backend.seed_node(
+        &Id::from(ACCOUNT),
+        serde_json::from_value(json!({
+            "id": "note", "@type": "File", "name": "note", "parentId": "private",
+            "blobId": "B-note", "size": 3, "mediaType": "text/plain", "executable": true,
+            "created": "2020-01-01T00:00:00Z",
+            "shareWith": { BOB: rights(&["mayDelete"]) }
+        }))
+        .expect("fixture"),
+    );
+    let resp = get(&backend, BOB, &["note"]).await;
+    let note = listed(&resp, "note");
+    for property in [
+        "blobId",
+        "size",
+        "mediaType",
+        "executable",
+        "created",
+        "modified",
+        "accessed",
+        "changed",
+    ] {
+        null_present(&note, property);
+    }
+    assert_eq!(note["name"], json!("note"), "{note}");
+    assert_eq!(note["parentId"], json!("private"), "{note}");
+    assert_eq!(note["@type"], json!("File"), "{note}");
+    let resp = get(&backend, "owner", &["note"]).await;
+    assert_eq!(listed(&resp, "note")["mediaType"], json!("text/plain"));
+}
+
+/// The withheld properties are marked unreadable for the
+/// draft-ietf-jmap-conditional-02 §9.1 evaluator (a precondition on a
+/// property the caller cannot read is `forbidden`).
+#[tokio::test]
+async fn withheld_properties_are_marked_unreadable() {
+    let backend = fixture();
+    let out = handle_filenode_get(
+        &backend,
+        &Id::from(BOB),
+        json!({ "accountId": ACCOUNT, "ids": ["drop", "work"] }),
+        &[],
+    )
+    .await
+    .expect("FileNode/get");
+    let drop = out
+        .unreadable
+        .get(&Id::from("drop"))
+        .expect("drop withheld");
+    assert!(
+        drop.contains("role") && drop.contains("created"),
+        "{drop:?}"
+    );
+    assert!(!drop.contains("name"), "{drop:?}");
+    assert!(!out.unreadable.contains_key(&Id::from("work")));
+}
+
+/// L1293: "A change to a property the user sees as null is not visible to
+/// the user, so the server SHOULD NOT report the node as updated in
+/// FileNode/changes because of it". A rename is visible (name keeps its
+/// value).
+#[tokio::test]
+async fn changes_hide_updates_of_withheld_properties() {
+    let backend = fixture();
+    let since = state(&backend).await;
+    set(
+        &backend,
+        "owner",
+        json!({ "update": { "drop": { "modified": "2024-05-05T00:00:00Z" } } }),
+    )
+    .await;
+    let bob = changes(&backend, BOB, &since).await;
+    assert_eq!(bob["updated"], json!([]), "{bob}");
+    let owner_view = changes(&backend, "owner", &since).await;
+    assert_eq!(owner_view["updated"], json!(["drop"]), "{owner_view}");
+
+    let since = state(&backend).await;
+    set(
+        &backend,
+        "owner",
+        json!({ "update": { "drop": { "name": "inbox" } } }),
+    )
+    .await;
+    let bob = changes(&backend, BOB, &since).await;
+    assert_eq!(bob["updated"], json!(["drop"]), "{bob}");
+}
+
+/// L852: "Copying a node requires mayRead on it". Bob cannot copy `drop`,
+/// which he can discover but not read, into an account he owns.
+#[tokio::test]
+async fn copy_of_an_unreadable_node_is_forbidden() {
+    let backend = fixture().with_account_owner(&Id::from("bobs"), &Id::from(BOB));
+    let resp = handle_filenode_copy(
+        &backend,
+        &Id::from(BOB),
+        json!({ "fromAccountId": ACCOUNT, "accountId": "bobs",
+                "create": { "c": { "id": "drop", "parentId": null } } }),
+        "c0",
+        &[],
+    )
+    .await
+    .expect("FileNode/copy")
+    .primary;
+    assert_eq!(resp["notCreated"]["c"]["type"], "forbidden", "{resp}");
+    assert!(resp["created"].is_null(), "{resp}");
 }

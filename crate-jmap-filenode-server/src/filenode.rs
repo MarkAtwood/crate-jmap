@@ -41,7 +41,7 @@
 //! `notCreated` / `notUpdated` / `notDestroyed` maps within
 //! `Ok((Value, ...))`, not as `Err`.
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap, HashSet};
 
 use jmap_filenode_types::{FileNode, FilesRights, NodeRole, NodeType};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, SetObject};
@@ -617,6 +617,15 @@ async fn ensure_filenode_supported<B: FileNodeBackend>(
 /// A File or SymLink has no `myRights` (-20 §5: "The user's rights on it
 /// are those in its parent's myRights").
 ///
+/// For a node the caller can discover but not read, every property other
+/// than id, @type, name, parentId, myRights, isSubscribed and shareWith is
+/// sent as null, present whenever `properties` asks for it, whatever the
+/// backend returned (draft-ietf-jmap-filenode-20 §5); the response marks
+/// them with [`HandlerOutput::with_unreadable`]. The node is unreadable
+/// when its rights (a Directory's [`FileNodeBackend::files_rights`] or
+/// returned `myRights`, a File's or SymLink's parent's) lack `mayRead`, or
+/// when it is a File or SymLink whose parent the caller cannot discover.
+///
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]). When the backend lists FileNode for
 /// draft-ietf-jmap-metadata-05 ([`JmapAccounts::metadata_info`](jmap_server::JmapAccounts::metadata_info)),
@@ -639,9 +648,14 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     // RFC 8620 §5.1: `properties` null or absent means all properties.
-    let wants = |property: &str| match args.get("properties") {
-        Some(Value::Array(props)) => props.iter().any(|p| p == property),
-        _ => true,
+    let properties: Option<Vec<Value>> = match args.get("properties") {
+        Some(Value::Array(props)) => Some(props.clone()),
+        _ => None,
+    };
+    let wants = |property: &str| {
+        properties
+            .as_ref()
+            .is_none_or(|props| props.iter().any(|p| p == property))
     };
     let wants_sha256 = wants("sha256");
     let wants_my_rights = wants("myRights");
@@ -654,6 +668,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     let HandlerOutput {
         primary: mut response,
         extra_invocations: tail,
+        unreadable: mut withheld,
         ..
     } = jmap_server::handle_get_with_metadata::<FileNode, B>(backend, caller, args, using).await?;
 
@@ -667,7 +682,9 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
             .and_then(|v| v.as_str())
             .map(Id::from)
         else {
-            return Ok(HandlerOutput::new(response).with_extra(tail));
+            return Ok(HandlerOutput::new(response)
+                .with_extra(tail)
+                .with_unreadable(withheld));
         };
         // Read phase: borrow the list immutably to collect ids of nodes
         // already in the response. The immutable borrow ends with this
@@ -708,7 +725,9 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
             // best-effort if the list shape is unexpected" posture
             // without introducing a refactor-fragile expect/panic.
             let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) else {
-                return Ok(HandlerOutput::new(response).with_extra(tail));
+                return Ok(HandlerOutput::new(response)
+                    .with_extra(tail)
+                    .with_unreadable(withheld));
             };
             for ancestor in ancestors {
                 // Deduplicate: only append if not already in the list.
@@ -746,7 +765,239 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         }
     }
 
-    Ok(HandlerOutput::new(response).with_extra(tail))
+    // Last, so that it also covers the ancestors `fetchParents` added and
+    // the `sha256` filled in above.
+    for (id, props) in withhold_unreadable(backend, caller, &mut response, &wants).await? {
+        withheld.entry(id).or_default().extend(props);
+    }
+
+    Ok(HandlerOutput::new(response)
+        .with_extra(tail)
+        .with_unreadable(withheld))
+}
+
+/// The properties a node the user can discover but not read keeps in
+/// `FileNode/get`: draft-ietf-jmap-filenode-20 §5 (L1293), "FileNode/get
+/// returns the real values of id, @type, name, parentId, myRights,
+/// isSubscribed, and shareWith (which follows its own rule for mayShare)".
+pub(crate) const VISIBLE_WITHOUT_MAY_READ: [&str; 7] = [
+    "id",
+    "@type",
+    "name",
+    "parentId",
+    "myRights",
+    "isSubscribed",
+    "shareWith",
+];
+
+/// The properties draft-ietf-jmap-filenode-20 defines for a node of type
+/// `node_type`: the common ones (§3.1.1) and those of its type (§3.1.2 to
+/// §3.1.5). Extension properties (`sha256`, `spaceId`, `metadata`, ...)
+/// are not listed; they are withheld where the response carries them.
+fn defined_properties(node_type: Option<&NodeType>) -> Vec<&'static str> {
+    let mut props = vec![
+        "id", "@type", "parentId", "name", "created", "modified", "accessed", "changed",
+    ];
+    match node_type {
+        Some(NodeType::Directory) => {
+            props.extend(["isSubscribed", "myRights", "shareWith", "role"]);
+        }
+        Some(NodeType::File) => props.extend(["blobId", "size", "mediaType", "executable"]),
+        Some(NodeType::Symlink) => props.push("target"),
+        _ => {}
+    }
+    props
+}
+
+/// The ids among `nodes` (as the backend stores them for `caller`) that the
+/// caller can discover but not read.
+///
+/// draft-ietf-jmap-filenode-20 §5: a Directory's rights are its
+/// `myRights` ([`FileNodeBackend::files_rights`] when that is `Some`,
+/// otherwise the `myRights` the backend returned); a node "whose @type does
+/// not permit children has no myRights. The user's rights on it are those
+/// in its parent's myRights", and with a null `parentId` it "is
+/// discoverable only by the account owner, who has all rights on it". A
+/// File or SymLink whose parent the caller cannot discover has no ancestor
+/// granting `mayRead` (the first discoverability rule would make the
+/// parent discoverable), so it is unreadable too. Where no rights are
+/// known, the node counts as readable.
+///
+/// # Errors
+///
+/// The backend's error when a parent or a rights hook cannot be read.
+async fn unreadable_nodes<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    nodes: &[FileNode],
+) -> Result<HashSet<Id>, B::Error> {
+    let mut by_id: HashMap<Id, FileNode> =
+        nodes.iter().map(|n| (n.id.clone(), n.clone())).collect();
+    let missing_parents: Vec<Id> = nodes
+        .iter()
+        .filter(|n| !has_my_rights(n))
+        .filter_map(|n| n.parent_id.clone())
+        .filter(|p| !by_id.contains_key(p))
+        .collect::<BTreeSet<Id>>()
+        .into_iter()
+        .collect();
+    if !missing_parents.is_empty() {
+        let (parents, _) = backend
+            .get_objects::<FileNode>(caller, account_id, Some(&missing_parents), None)
+            .await?;
+        by_id.extend(parents.into_iter().map(|n| (n.id.clone(), n)));
+    }
+    // `Some(false)`: a Directory without mayRead; `None`: rights unknown.
+    let mut may_read: HashMap<Id, Option<bool>> = HashMap::new();
+    for node in by_id.values().filter(|n| has_my_rights(n)) {
+        let rights = match backend.files_rights(caller, account_id, node).await? {
+            Some(r) => Some(r),
+            None => node.my_rights.clone(),
+        };
+        may_read.insert(node.id.clone(), rights.map(|r| r.may_read));
+    }
+    let mut out = HashSet::new();
+    for node in nodes {
+        let readable = if has_my_rights(node) {
+            may_read.get(&node.id).copied().flatten() != Some(false)
+        } else {
+            match node.parent_id.as_ref() {
+                None => true,
+                Some(parent) => match by_id.get(parent) {
+                    None => false,
+                    Some(p) if has_my_rights(p) => {
+                        may_read.get(parent).copied().flatten() != Some(false)
+                    }
+                    Some(_) => true,
+                },
+            }
+        };
+        if !readable {
+            out.insert(node.id.clone());
+        }
+    }
+    Ok(out)
+}
+
+/// Null every withheld property of each node in a `FileNode/get` response
+/// `list` that the caller can discover but not read
+/// ([`unreadable_nodes`]), whatever the backend returned for it.
+///
+/// draft-ietf-jmap-filenode-20 §5 (L1293): FileNode/get "returns null for
+/// every other property defined for the node's @type, including created,
+/// changed, and role, even where that property's type does not otherwise
+/// allow null". Each property defined for the node's `@type` that the
+/// request asks for (`wants`) is present as null, and so is any other
+/// property the backend put in the response (an extension property such
+/// as `sha256` or `metadata`), except [`VISIBLE_WITHOUT_MAY_READ`].
+///
+/// Returns the withheld properties by node id, for
+/// [`HandlerOutput::with_unreadable`] (a draft-ietf-jmap-conditional-02
+/// precondition on one is `forbidden`).
+///
+/// ponytail: re-reads the listed nodes (and the parents of Files and
+/// SymLinks) with `get_objects`, since `properties` may have stripped the
+/// `@type` and `parentId` this needs; one extra read per `FileNode/get`.
+async fn withhold_unreadable<B: FileNodeBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    response: &mut Value,
+    wants: &impl Fn(&str) -> bool,
+) -> Result<BTreeMap<Id, BTreeSet<String>>, JmapError> {
+    let mut withheld = BTreeMap::new();
+    // Nothing to withhold when only always-visible properties are asked
+    // for; the rights hooks are then not asked either.
+    let any_hideable = response
+        .get("list")
+        .and_then(Value::as_array)
+        .is_some_and(|list| {
+            list.iter()
+                .filter_map(Value::as_object)
+                .flat_map(|o| o.keys())
+                .any(|k| !VISIBLE_WITHOUT_MAY_READ.contains(&k.as_str()))
+        })
+        || [
+            "created",
+            "modified",
+            "accessed",
+            "changed",
+            "role",
+            "blobId",
+            "size",
+            "mediaType",
+            "executable",
+            "target",
+        ]
+        .into_iter()
+        .any(wants);
+    if !any_hideable {
+        return Ok(withheld);
+    }
+    let Some(account_id) = response
+        .get("accountId")
+        .and_then(Value::as_str)
+        .map(Id::from)
+    else {
+        return Ok(withheld);
+    };
+    let ids: Vec<Id> = response
+        .get("list")
+        .and_then(Value::as_array)
+        .map(|list| {
+            list.iter()
+                .filter_map(|n| n.get("id").and_then(Value::as_str).map(Id::from))
+                .collect()
+        })
+        .unwrap_or_default();
+    if ids.is_empty() {
+        return Ok(withheld);
+    }
+    let (nodes, _) = backend
+        .get_objects::<FileNode>(caller, &account_id, Some(&ids), None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    let unreadable = unreadable_nodes(backend, caller, &account_id, &nodes)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    if unreadable.is_empty() {
+        return Ok(withheld);
+    }
+    let types: HashMap<&Id, Option<&NodeType>> = nodes
+        .iter()
+        .map(|n| (&n.id, n.node_type.as_ref()))
+        .collect();
+    let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) else {
+        return Ok(withheld);
+    };
+    for obj in list.iter_mut().filter_map(Value::as_object_mut) {
+        let Some(id) = obj
+            .get("id")
+            .and_then(Value::as_str)
+            .map(Id::from)
+            .filter(|id| unreadable.contains(id))
+        else {
+            continue;
+        };
+        let mut props: BTreeSet<String> = BTreeSet::new();
+        for p in defined_properties(types.get(&id).copied().flatten()) {
+            if VISIBLE_WITHOUT_MAY_READ.contains(&p) {
+                continue;
+            }
+            props.insert(p.to_owned());
+            if wants(p) {
+                obj.insert(p.to_owned(), Value::Null);
+            }
+        }
+        for (k, v) in obj.iter_mut() {
+            if !VISIBLE_WITHOUT_MAY_READ.contains(&k.as_str()) {
+                *v = Value::Null;
+                props.insert(k.clone());
+            }
+        }
+        withheld.insert(id, props);
+    }
+    Ok(withheld)
 }
 
 /// Replace the `myRights` of each Directory in a `FileNode/get` response
