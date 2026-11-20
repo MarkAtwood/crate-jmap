@@ -1,1 +1,2 @@
 {"id":"01a18e7f-9edc-7d78-a987-8c0ccf20355c","issue_id":"JMAP-amr2","event_type":"created","actor":"agent","old_value":"","new_value":"","created_at":"2026-10-30T20:28:10.844883428Z"}
+{"id":"01a1f79e-bb43-7593-8c54-cbee9e966ad3","issue_id":"JMAP-amr2","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"Umbrella in workspace (e7c1ab22): types/client/server/memory re-exports, tests, public-api snapshot, RELEASING layer entry; publishes at 0.6.0 replacing 0.0.1.","created_at":"2026-11-20T06:22:17.411366405Z"}
