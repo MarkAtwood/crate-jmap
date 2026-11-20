@@ -1,6 +1,6 @@
 # Releasing
 
-The 79 publishable `jmap-*` crates in this workspace must reach crates.io
+The 80 publishable `jmap-*` crates in this workspace must reach crates.io
 in **topological order**: each crate must find its dependencies on the
 registry. `cargo publish` with several `-p` flags orders them itself, and
 `scripts/publish.sh` wraps it (see "Publish procedure").
