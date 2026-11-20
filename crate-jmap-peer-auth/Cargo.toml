@@ -24,3 +24,7 @@ sfv = "0.14"
 sha2 = "0.10"
 thiserror = { workspace = true }
 url = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

@@ -69,6 +69,7 @@
 //! struct, serialize, deserialize, compare" — that pattern uses the code
 //! under test as its own oracle.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;

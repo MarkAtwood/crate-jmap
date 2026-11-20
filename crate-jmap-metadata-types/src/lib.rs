@@ -41,6 +41,7 @@
 //! assert!(!is_valid_namespace(""));                 // empty
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod capability;

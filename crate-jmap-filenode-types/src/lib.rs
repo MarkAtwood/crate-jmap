@@ -11,6 +11,7 @@
 //!
 //! All public types are re-exported at the crate root.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

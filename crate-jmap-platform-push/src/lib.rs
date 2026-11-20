@@ -34,6 +34,7 @@
 //! Only Web Push is end-to-end encrypted. Every platform here can read the
 //! payload (jmap-push-platform-guide §Security, Vendor-visible payloads).
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::fmt;

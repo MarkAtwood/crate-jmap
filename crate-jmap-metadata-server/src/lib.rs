@@ -46,6 +46,7 @@
 //! should instead integrate the helper functions into their own
 //! `Foo/get`, `Foo/set`, `Foo/changes`, and `Foo/query` handlers.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod changes;

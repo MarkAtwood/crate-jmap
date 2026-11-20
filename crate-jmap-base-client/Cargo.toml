@@ -45,3 +45,7 @@ tokio-rustls = { version = "0.26", default-features = false, features = ["ring"]
 [[bench]]
 name = "session_and_urls"
 harness = false
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

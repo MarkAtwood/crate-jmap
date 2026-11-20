@@ -40,6 +40,7 @@
 //! assert_eq!(serde_json::to_value(&owner.principal_id).unwrap(), "P1");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_sharing_types as types;

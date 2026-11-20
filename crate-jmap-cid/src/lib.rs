@@ -20,6 +20,7 @@
 //! assert_eq!(digest.to_cidv1(), "bafkreihdwdcefgh4dqkjv67uzcmw7ojee6xedzdetojuzjevtenxquvyku");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_cid_types as types;

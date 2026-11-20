@@ -22,6 +22,7 @@
 //! assert!(cap.current_user_principal_id.is_some());
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_sharing_types as types;

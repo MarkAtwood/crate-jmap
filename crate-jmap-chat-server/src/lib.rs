@@ -50,6 +50,7 @@
 //! - Defense-in-depth handler pre-checks are allowed but the backend
 //!   MUST re-verify atomically with the mutation.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 // bd:JMAP-uqhn.2 — narrowing and sign-changing `as` casts are banned;
 // use `try_from`. Widening `usize as u64` stays legal (these lints do

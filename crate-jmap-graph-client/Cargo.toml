@@ -23,3 +23,7 @@ futures = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net"] }
 tokio-tungstenite = { workspace = true }
 wiremock = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

@@ -96,6 +96,7 @@
 //! assert_eq!(ab.name, "Personal");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod addressbook;

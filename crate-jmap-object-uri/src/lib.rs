@@ -49,6 +49,7 @@
 //! No async and no I/O: resolving a URI never fetches anything (§Security
 //! Considerations); the caller makes the `/get` call.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod registry;

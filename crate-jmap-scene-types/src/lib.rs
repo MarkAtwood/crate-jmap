@@ -48,6 +48,7 @@
 //!   [`SceneEventType`], [`SCENE_EVENT_TYPES`] — the stream control frames (scene-wss draft
 //!   §Scene Stream Control Messages).
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod asset;

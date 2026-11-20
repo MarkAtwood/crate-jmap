@@ -107,6 +107,7 @@
 //! the reqwest implementation; tests and deployments with their own HTTP
 //! stack supply another.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::HashMap;

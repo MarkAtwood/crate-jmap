@@ -18,3 +18,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 jmap-chat-types = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

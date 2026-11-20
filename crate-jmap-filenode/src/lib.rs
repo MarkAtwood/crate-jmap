@@ -25,6 +25,7 @@
 //! assert_eq!(dir.node_type, Some(NodeType::Directory));
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_filenode_types as types;

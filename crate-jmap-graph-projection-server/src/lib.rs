@@ -32,6 +32,7 @@
 //! or GraphEdge: "The server MUST NOT project the Graph, GraphNode, or
 //! GraphEdge data types."
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeSet;

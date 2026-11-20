@@ -72,6 +72,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod domain;

@@ -22,6 +22,7 @@
 //! Each function takes only the backend it reads or writes, so the two
 //! backends may have different caller contexts and error types.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::HashSet;

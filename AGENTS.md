@@ -394,6 +394,21 @@ canonical pattern that breaks a rule (for example the "Public API
 constraints" below), fix the canonical first, then mirror the fix. Do
 not reproduce the flaw for consistency's sake.
 
+Every publishable crate, whatever its family, carries the docs.rs setup
+(bd:JMAP-ch6h): in `Cargo.toml`
+
+```toml
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+```
+
+and, as the first inner attribute of `src/lib.rs`,
+`#![cfg_attr(docsrs, feature(doc_cfg))]`. On current nightly `doc_cfg`
+labels every `#[cfg(feature = "...")]` item automatically, so do not add
+per-item `#[cfg_attr(docsrs, doc(cfg(...)))]`. Check with
+`RUSTDOCFLAGS="--cfg docsrs -D warnings" cargo +nightly-2026-09-13 doc --no-deps --all-features`.
+
 | Family | Canonical | Siblings (must mirror) |
 |---|---|---|
 | Foundation types | `jmap-types` | (none — sole foundation) |

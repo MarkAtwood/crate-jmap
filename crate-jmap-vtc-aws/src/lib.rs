@@ -31,6 +31,7 @@
 //! discovery (environment, profiles, instance metadata, STS), and retries.
 //! See the README's Gotchas.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::fmt;

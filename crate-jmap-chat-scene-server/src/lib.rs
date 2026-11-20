@@ -10,6 +10,7 @@
 //! |---|---|
 //! | WebSocket transport, before sending a Scene event | [`should_deliver_scene`] |
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use jmap_scene_server::{SceneBackend, SceneEphemeralSubscription};

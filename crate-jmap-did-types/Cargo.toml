@@ -21,3 +21,7 @@ p256 = { version = "0.13", default-features = false, features = ["ecdsa"] }
 serde = { workspace = true }
 serde_json = { workspace = true, features = ["float_roundtrip"] }
 sha2 = "0.10"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

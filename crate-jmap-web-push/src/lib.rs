@@ -23,6 +23,7 @@
 //! cause the JMAP server to reduce the frequency of pushes") are the
 //! caller's.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::fmt;

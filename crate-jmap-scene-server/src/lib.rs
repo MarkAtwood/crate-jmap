@@ -98,6 +98,7 @@
 //! crate's tests. **Not production.** Its API may break in any minor
 //! release while the crate is pre-1.0.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::sync::Arc;

@@ -31,6 +31,7 @@
 //! assert_eq!(config.properties, ["id", "subject"]);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub mod types {

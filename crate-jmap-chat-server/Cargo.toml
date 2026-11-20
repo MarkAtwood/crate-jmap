@@ -87,3 +87,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # Path-only, no version: cargo drops it on publish, so it never has to
 # resolve against crates.io versions that lack these features (JMAP-31o4).
 jmap-chat-server = { path = ".", features = ["memory", "test-helpers", "testkit"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

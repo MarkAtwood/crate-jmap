@@ -34,3 +34,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 wiremock = { workspace = true }
 # Integration tests drive the adapter through MemoryBackend.
 jmap-vtc-server = { workspace = true, features = ["memory", "test-helpers"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

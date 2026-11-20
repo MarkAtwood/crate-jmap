@@ -47,6 +47,7 @@
 //!   [`never_sets_read`] (draft §Message Identifiers through §Message
 //!   Status, §Security Considerations).
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod base64url;

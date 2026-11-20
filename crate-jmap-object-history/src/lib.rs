@@ -27,6 +27,7 @@
 //! assert!(cap.supports_type("Email"));
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_object_history_types as types;

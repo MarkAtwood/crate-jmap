@@ -46,6 +46,7 @@
 //! # demo().unwrap();
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod compose;

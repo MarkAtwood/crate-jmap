@@ -19,6 +19,7 @@
 //! assert_eq!(JMAP_CONTACTS_URI, "urn:ietf:params:jmap:contacts");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_contacts_types as types;

@@ -24,6 +24,7 @@
 //! | `ownership` | [`is_task_owner`], [`task_has_owner`] (the `mayWriteOwn` owner, as Calendars defines it) |
 //! | Crate root | [`TasksCapability`], [`TasksAccountCapability`], URI constants, extension capabilities |
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

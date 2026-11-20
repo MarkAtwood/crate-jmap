@@ -22,3 +22,7 @@ serde_json = { workspace = true }
 jmap-metadata-types = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 wiremock = { workspace = true }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

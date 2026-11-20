@@ -53,6 +53,7 @@
 //!   proofs by the DIF did:webvh v1.0 rules and returns a [`WebvhLog`]
 //!   whose valid versions resolve by `versionId`.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod capability;

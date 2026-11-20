@@ -27,6 +27,7 @@
 //! The authenticated HTTP request that opens the WebSocket, and the TLS
 //! under it (RFC 8887 §4.1, §5.1), are the deployment's.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod capability;

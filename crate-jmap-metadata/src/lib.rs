@@ -22,6 +22,7 @@
 //! assert_eq!(info.max_depth, Some(3));
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_metadata_types as types;

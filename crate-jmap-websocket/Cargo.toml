@@ -39,3 +39,4 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "tim
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

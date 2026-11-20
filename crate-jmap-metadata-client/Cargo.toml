@@ -15,3 +15,7 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 serde_json = { workspace = true }
 
 [dev-dependencies]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

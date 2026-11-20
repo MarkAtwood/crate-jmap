@@ -35,6 +35,7 @@
 //!   `ownerEndpoints` its server's Session publishes
 //!   (draft-atwood-jmap-chat-00 §ChatContact).
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod contact;

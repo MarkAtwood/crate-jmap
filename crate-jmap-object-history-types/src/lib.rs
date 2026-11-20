@@ -37,6 +37,7 @@
 //! assert_eq!(entry.object["id"], "c1");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;

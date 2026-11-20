@@ -31,6 +31,7 @@
 //! assert_eq!(p.principal_type, PrincipalType::Individual);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

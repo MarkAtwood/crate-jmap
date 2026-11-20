@@ -22,6 +22,7 @@
 //! request on `Space/set`, so the Calendar always persists; a member who
 //! wants it gone destroys it with `Calendar/set`.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use jmap_calendars_server::CalendarsBackend;

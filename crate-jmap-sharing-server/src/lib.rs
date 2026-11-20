@@ -61,6 +61,7 @@
 //! Outside the `memory` feature, the crate aims for the same "no breaks in
 //! minor releases" discipline as the rest of the `jmap-*` workspace.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 // bd:JMAP-uqhn.6 — narrowing and sign-changing `as` casts are banned;
 // use `try_from`. Widening `usize as u64` stays legal (these lints do

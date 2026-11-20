@@ -25,6 +25,7 @@
 //! assert_eq!(cap.max_data_sources, 64);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_blob_types as types;

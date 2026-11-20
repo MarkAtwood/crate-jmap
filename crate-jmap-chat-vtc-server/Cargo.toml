@@ -24,3 +24,7 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 jmap-chat-server = { workspace = true, features = ["memory", "test-helpers"] }
 jmap-vtc-server = { workspace = true, features = ["memory", "test-helpers"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

@@ -19,6 +19,7 @@
 //! assert_eq!(JMAP_CALENDARS_URI, "urn:ietf:params:jmap:calendars");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_calendars_types as types;

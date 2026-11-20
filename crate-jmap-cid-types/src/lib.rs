@@ -77,6 +77,7 @@
 //! The [`CidCapability`] value-object shape (draft §3) lives at the
 //! crate root alongside [`JMAP_CID_URI`].
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod blobext;

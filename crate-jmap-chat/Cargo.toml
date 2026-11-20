@@ -24,3 +24,4 @@ memory = ["server", "jmap-chat-server/memory"]
 
 [package.metadata.docs.rs]
 all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

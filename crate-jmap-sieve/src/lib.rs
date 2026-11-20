@@ -27,6 +27,7 @@
 //! assert_eq!(cap.implementation, "ACME Email Filtering");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub mod types {

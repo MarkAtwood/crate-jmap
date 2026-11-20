@@ -33,6 +33,7 @@
 //! types are `jmap-blob-types`'. The `jmap-*` crates are released
 //! together: depend on the same version of each.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod legacy;

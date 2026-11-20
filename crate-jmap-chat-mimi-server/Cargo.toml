@@ -46,3 +46,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # resolve against crates.io versions that lack these features (JMAP-31o4).
 jmap-chat-mimi-server = { path = ".", features = ["memory"] }
 openmls_basic_credential = "=0.6.0"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

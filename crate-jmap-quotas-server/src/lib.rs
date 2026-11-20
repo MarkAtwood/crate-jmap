@@ -23,6 +23,7 @@
 //! register_quotas_handlers(&mut dispatcher, backend);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 // bd:JMAP-uqhn.6 — narrowing and sign-changing `as` casts are banned;
 // use `try_from`.

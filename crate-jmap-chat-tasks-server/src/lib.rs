@@ -31,6 +31,7 @@
 //! request on `Space/set`, so the TaskList always persists; a member who
 //! wants it gone destroys it with `TaskList/set`.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::hash_map::Entry;

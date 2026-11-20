@@ -41,6 +41,7 @@
 //! No async and no I/O; the evaluator holds no index and scans what the
 //! caller hands it.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod capability;

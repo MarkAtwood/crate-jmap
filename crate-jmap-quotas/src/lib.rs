@@ -22,6 +22,7 @@
 //! assert_eq!(q.hard_limit, 10);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_quotas_types as types;

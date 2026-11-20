@@ -43,6 +43,7 @@
 //!   [`VtcParticipant`] (`"VTCParticipant"`), each get/set/query, for
 //!   `jmap-vtc-server`.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

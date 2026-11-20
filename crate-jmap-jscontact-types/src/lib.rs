@@ -134,6 +134,7 @@
 //! inheritance for documentation only — the wire format is a flat
 //! object per concrete type.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::BTreeMap;

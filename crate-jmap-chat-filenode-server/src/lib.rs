@@ -25,6 +25,7 @@
 //! Each function takes the backends it reads, with their own caller
 //! contexts and error types.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use std::collections::HashSet;

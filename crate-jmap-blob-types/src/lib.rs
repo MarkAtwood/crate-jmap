@@ -37,6 +37,7 @@
 //! assert_eq!(d.finish(), b1.digests[&DigestAlgorithm::Sha256]);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod blob_ref;

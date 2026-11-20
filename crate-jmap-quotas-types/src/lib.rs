@@ -31,6 +31,7 @@
 //! assert_eq!(q.scope, Scope::Account);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

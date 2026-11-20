@@ -19,6 +19,7 @@
 //! assert_eq!(JMAP_TASKS_URI, "urn:ietf:params:jmap:tasks");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_tasks_types as types;

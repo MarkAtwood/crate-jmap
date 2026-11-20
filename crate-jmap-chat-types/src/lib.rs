@@ -102,6 +102,7 @@
 //! assert_eq!(chat.kind, ChatKind::Direct);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

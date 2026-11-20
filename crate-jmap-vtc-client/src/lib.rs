@@ -31,6 +31,7 @@
 //! depend on the same version of this crate, `jmap-base-client` and
 //! `jmap-types`.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod methods;

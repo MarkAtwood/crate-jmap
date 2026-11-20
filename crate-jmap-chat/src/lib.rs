@@ -19,6 +19,7 @@
 //! assert_eq!(JMAP_CHAT_URI, "urn:ietf:params:jmap:chat");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_chat_types as types;

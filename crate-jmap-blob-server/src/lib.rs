@@ -16,6 +16,7 @@
 //! to .10), RFC 9404 `Blob/upload` (JMAP-tna1.2.11), conditional
 //! `Blob/set` (JMAP-tna1.2.12) and `Blob/copy` (JMAP-tna1.2.14).
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 // bd:JMAP-uqhn.6 — narrowing and sign-changing `as` casts are banned;
 // use `try_from`.

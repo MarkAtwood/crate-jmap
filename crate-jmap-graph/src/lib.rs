@@ -22,6 +22,7 @@
 //! assert_eq!(f.from_id.as_deref().map(<[_]>::len), Some(1));
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_graph_types as types;

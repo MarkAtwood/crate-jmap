@@ -28,6 +28,7 @@
 //! assert_eq!(req.method_calls[0].name, "Mailbox/get");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

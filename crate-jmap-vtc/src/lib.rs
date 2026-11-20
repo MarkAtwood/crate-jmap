@@ -20,6 +20,7 @@
 //! assert_eq!(JMAP_VTC_WEBSOCKET_URI, "urn:ietf:params:jmap:vtc:websocket");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_vtc_types as types;

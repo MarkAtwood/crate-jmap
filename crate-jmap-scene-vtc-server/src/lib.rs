@@ -12,6 +12,7 @@
 //! | `VtcBackend::update_object::<VtcCall>` and `update_object_if::<VtcCall>`, after the write | [`clear_active_call_id`] |
 //! | `SceneBackend::may_see_region_avatars`, for a region with an `activeCallId` | [`may_see_region_avatars`] |
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 use jmap_scene_server::SceneBackend;

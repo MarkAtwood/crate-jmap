@@ -46,3 +46,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # Path-only, no version: cargo drops it on publish, so it never has to
 # resolve against crates.io versions that lack these features (JMAP-31o4).
 jmap-filenode-server = { path = ".", features = ["memory"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]

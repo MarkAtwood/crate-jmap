@@ -43,6 +43,7 @@
 //!   [`Expression`] carried in the GraphNode and
 //!   GraphEdge filter conditions' `where`, and `queryTooComplex`.
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod backend;

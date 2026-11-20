@@ -30,6 +30,7 @@
 //! assert_eq!(d.type_, DispositionType::Displayed);
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub mod types {

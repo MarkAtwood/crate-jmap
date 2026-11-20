@@ -30,6 +30,7 @@
 //! the crate root (top-level names like `Location`, `Participant`,
 //! `Alert`).
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 mod availability;

@@ -34,6 +34,7 @@
 //! assert!(args.if_unchanged_by.contains_key("M1"));
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_types::conditional as types;

@@ -22,6 +22,7 @@
 //! assert_eq!(JMAP_MAIL_URI, "urn:ietf:params:jmap:mail");
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_mail_types as types;

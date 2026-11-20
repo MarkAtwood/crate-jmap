@@ -24,6 +24,7 @@
 //! assert_eq!(cap.key_custody, Some(KeyCustody::User));
 //! ```
 
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![forbid(unsafe_code)]
 
 pub use jmap_did_types as types;
