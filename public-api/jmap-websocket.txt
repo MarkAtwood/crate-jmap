@@ -102,6 +102,14 @@ pub fn jmap_websocket::server::NoPush::fmt(&self, &mut core::fmt::Formatter<'_>)
 impl core::marker::Copy for jmap_websocket::server::NoPush
 impl jmap_websocket::server::PushSource for jmap_websocket::server::NoPush
 pub fn jmap_websocket::server::NoPush::subscribe(&mut self, &jmap_websocket::WebSocketPushEnable) -> futures_core::stream::BoxStream<'static, jmap_websocket::WsStateChange>
+pub struct jmap_websocket::server::PublishingHandler<H>
+impl<H: jmap_websocket::server::RequestHandler> jmap_websocket::server::PublishingHandler<H>
+pub fn jmap_websocket::server::PublishingHandler<H>::new(H, jmap_websocket::server::PushHub) -> Self
+impl<H: core::fmt::Debug> core::fmt::Debug for jmap_websocket::server::PublishingHandler<H>
+pub fn jmap_websocket::server::PublishingHandler<H>::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl<H: jmap_websocket::server::RequestHandler> jmap_websocket::server::RequestHandler for jmap_websocket::server::PublishingHandler<H>
+pub async fn jmap_websocket::server::PublishingHandler<H>::handle(&self, jmap_types::wire::JmapRequest) -> core::result::Result<jmap_types::wire::JmapResponse, jmap_types::error::JmapError>
+pub fn jmap_websocket::server::PublishingHandler<H>::prepare_problem(&self, &mut jmap_types::problem::ProblemDetails)
 pub struct jmap_websocket::server::PushHub
 impl jmap_websocket::server::PushHub
 pub fn jmap_websocket::server::PushHub::new(usize) -> Self
@@ -126,11 +134,17 @@ pub fn jmap_websocket::server::RequestHandler::prepare_problem(&self, &mut jmap_
 impl<C: core::clone::Clone + core::marker::Send + core::marker::Sync + 'static> jmap_websocket::server::RequestHandler for jmap_websocket::server::DispatcherHandler<C>
 pub async fn jmap_websocket::server::DispatcherHandler<C>::handle(&self, jmap_types::wire::JmapRequest) -> core::result::Result<jmap_types::wire::JmapResponse, jmap_types::error::JmapError>
 pub fn jmap_websocket::server::DispatcherHandler<C>::prepare_problem(&self, &mut jmap_types::problem::ProblemDetails)
+impl<H: jmap_websocket::server::RequestHandler> jmap_websocket::server::RequestHandler for jmap_websocket::server::PublishingHandler<H>
+pub async fn jmap_websocket::server::PublishingHandler<H>::handle(&self, jmap_types::wire::JmapRequest) -> core::result::Result<jmap_types::wire::JmapResponse, jmap_types::error::JmapError>
+pub fn jmap_websocket::server::PublishingHandler<H>::prepare_problem(&self, &mut jmap_types::problem::ProblemDetails)
 pub fn jmap_websocket::server::filter_state_change(jmap_websocket::WsStateChange, core::option::Option<&[alloc::string::String]>) -> core::option::Option<jmap_websocket::WsStateChange>
 pub fn jmap_websocket::server::parse_client_message(&str, &jmap_websocket::server::ConnectionConfig) -> core::result::Result<jmap_websocket::ClientMessage, jmap_websocket::WsRequestError>
 pub fn jmap_websocket::server::request_error(&jmap_types::error::JmapError, core::option::Option<alloc::string::String>) -> jmap_websocket::WsRequestError
+pub fn jmap_websocket::server::state_change_for_response(&jmap_types::wire::JmapResponse) -> core::option::Option<jmap_types::push::StateChange>
 pub mod jmap_websocket::tungstenite
+pub async fn jmap_websocket::tungstenite::accept<S>(S) -> core::result::Result<tokio_tungstenite::WebSocketStream<S>, tungstenite::error::Error> where S: tokio::io::async_read::AsyncRead + tokio::io::async_write::AsyncWrite + core::marker::Unpin
 pub fn jmap_websocket::tungstenite::inbound(tungstenite::protocol::message::Message) -> core::option::Option<jmap_websocket::server::Inbound>
+pub fn jmap_websocket::tungstenite::negotiate_jmap(&tungstenite::handshake::server::Request, tungstenite::handshake::server::Response) -> core::result::Result<tungstenite::handshake::server::Response, tungstenite::handshake::server::ErrorResponse>
 pub fn jmap_websocket::tungstenite::outbound(jmap_websocket::server::Outbound) -> tungstenite::protocol::message::Message
 pub async fn jmap_websocket::tungstenite::serve<H, P, S>(jmap_websocket::server::Connection<H, P>, tokio_tungstenite::WebSocketStream<S>) -> core::result::Result<(), jmap_websocket::server::ConnectionError> where H: jmap_websocket::server::RequestHandler, P: jmap_websocket::server::PushSource, S: tokio::io::async_read::AsyncRead + tokio::io::async_write::AsyncWrite + core::marker::Unpin
 #[non_exhaustive] pub enum jmap_websocket::ClientMessage

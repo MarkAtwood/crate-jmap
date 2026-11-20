@@ -331,6 +331,7 @@ pub jmap_types::JmapUriError::InvalidDataType
 pub jmap_types::JmapUriError::InvalidObjectId(jmap_types::ValidationError)
 pub jmap_types::JmapUriError::MissingObjectId
 pub jmap_types::JmapUriError::NotJmapScheme
+pub jmap_types::JmapUriError::ReservedForm
 impl core::clone::Clone for jmap_types::JmapUriError
 pub fn jmap_types::JmapUriError::clone(&self) -> jmap_types::JmapUriError
 impl core::cmp::Eq for jmap_types::JmapUriError
@@ -747,8 +748,12 @@ pub fn jmap_types::JmapUri::object_id(&self) -> &jmap_types::Id
 impl core::clone::Clone for jmap_types::JmapUri
 pub fn jmap_types::JmapUri::clone(&self) -> jmap_types::JmapUri
 impl core::cmp::Eq for jmap_types::JmapUri
+impl core::cmp::Ord for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::cmp(&self, &jmap_types::JmapUri) -> core::cmp::Ordering
 impl core::cmp::PartialEq for jmap_types::JmapUri
 pub fn jmap_types::JmapUri::eq(&self, &jmap_types::JmapUri) -> bool
+impl core::cmp::PartialOrd for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::partial_cmp(&self, &jmap_types::JmapUri) -> core::option::Option<core::cmp::Ordering>
 impl core::fmt::Debug for jmap_types::JmapUri
 pub fn jmap_types::JmapUri::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
 impl core::fmt::Display for jmap_types::JmapUri
@@ -759,6 +764,10 @@ impl core::marker::StructuralPartialEq for jmap_types::JmapUri
 impl core::str::traits::FromStr for jmap_types::JmapUri
 pub type jmap_types::JmapUri::Err = jmap_types::JmapUriError
 pub fn jmap_types::JmapUri::from_str(&str) -> core::result::Result<Self, Self::Err>
+impl serde_core::ser::Serialize for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::serialize<S: serde_core::ser::Serializer>(&self, S) -> core::result::Result<<S as serde_core::ser::Serializer>::Ok, <S as serde_core::ser::Serializer>::Error>
+impl<'de> serde_core::de::Deserialize<'de> for jmap_types::JmapUri
+pub fn jmap_types::JmapUri::deserialize<D: serde_core::de::Deserializer<'de>>(D) -> core::result::Result<Self, <D as serde_core::de::Deserializer>::Error>
 pub struct jmap_types::PartialObject
 pub jmap_types::PartialObject::extra: serde_json::map::Map<alloc::string::String, serde_json::value::Value>
 pub jmap_types::PartialObject::id: core::option::Option<jmap_types::Id>

@@ -45,7 +45,9 @@ A single deliberately-minimal workspace member, `crate-jmap-testjig/` (epic
 bd:JMAP-cf7p), exists as a `publish = false` binary crate that wires the kit's pieces
 (dispatcher + 8 extension handlers + reference MemoryBackends) into a running
 HTTP/SSE/WS process for the workspace's **own** integration testing and demonstration.
-It is the only workspace member with `axum` / `tokio-tungstenite` deps. It is loudly
+It is the only workspace member that depends on `axum`; `tokio-tungstenite` is also a
+dependency of `jmap-base-client` (client WebSocket) and an optional one of
+`jmap-websocket` (`tungstenite` feature). The testjig is loudly
 documented as NOT FOR PRODUCTION: in-memory only, single-user, hardcoded bearer auth,
 no persistence. Its purpose is to support workspace integration tests and contributor
 smoke-testing — not to be a JMAP server anyone deploys.

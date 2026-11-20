@@ -211,6 +211,22 @@ wire behaviour that a conforming peer can observe.
   `jmap-object-history` keeps 0.0.1's `CAPABILITY`
   (`urn:ietf:params:jmap:object-history`). (bd:JMAP-gs76.1-.6, .8)
 
+- **jmap-websocket**: `tungstenite::negotiate_jmap` (the RFC 8887 §4.2
+  subprotocol check as an `accept_hdr_async` callback) and
+  `tungstenite::accept`; `server::PublishingHandler`, which publishes the
+  `newState` of each changed `/set` to a `PushHub`, and
+  `server::state_change_for_response`. Found writing the
+  `toy-websocket-server` toy-consumer probe, which needed both by hand.
+  (bd:JMAP-95rh)
+- **jmap-types**: `JmapUri` serializes as its wire string (deserializing
+  validates it) and is `Ord`; `JmapUriError::ReservedForm` for the
+  reserved `jmap://` forms (previously `InvalidDataType`), and a string
+  with no `:` is `NotJmapScheme` (previously `InvalidDataType`).
+  **jmap-chat-federation-types** `is_jmap_object_uri` and
+  **jmap-chat-slack** link handling use `jmap_object_uri::is_jmap_uri`;
+  the Graph, Chat-Tasks and Graph-projection URI type names are tested
+  against `jmap_object_uri::URI_TYPES`. (bd:JMAP-pj6i)
+
 - **jmap-mail**, **jmap-chat**, **jmap-calendars**, **jmap-contacts**,
   **jmap-tasks**: umbrella crates, replacing the 0.0.1 name-claim
   placeholders, with the same `types` / `client` / `server` / `memory`
