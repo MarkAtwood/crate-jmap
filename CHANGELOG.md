@@ -199,6 +199,22 @@ wire behaviour that a conforming peer can observe.
   client or server crate. `jmap-did` does not re-export the
   `jmap-did-resolver` support crate. (bd:JMAP-gs76.9, .10)
 
+- **jmap-object-uri**: replaces the 0.0.1 placeholder with the `jmap` URI
+  scheme of draft-atwood-jmap-object-uri-00 (bd:JMAP-l5q7). Keeps the
+  placeholder's `SCHEME` and re-exports `jmap-types`' `JmapUri` and
+  `JmapUriError` (parse, validate and format
+  `jmap:<type>:<accountId>:<objectId>`). Adds `is_jmap_uri` (any `jmap`
+  form, for the chat-federation strip rule), the "JMAP Object URI Types"
+  registry (`URI_TYPES`, `UriTypeEntry`, `uri_type`,
+  `uri_type_for_data_type`) with the registrations of the chat,
+  chat-calendars, chat-tasks, chat-filenode, graph, graph-projection, scene
+  and vtc drafts, and §Interpretation resolution: `resolve_type` and
+  `resolve` (against a `SessionView`, implemented for a Session as
+  `serde_json::Value`) return a `Resolution` with the data type, `/get`
+  method name, `using` capability and `/get` arguments, or a
+  `ResolveError`. The crate is no longer `no_std`: it depends on
+  `jmap-types`.
+
 - **jmap-search**: replaces the 0.0.1 placeholder with JMAP Search,
   `urn:ietf:params:jmap:search` (decision 51, bd:JMAP-nn3i, bd:JMAP-gs76.7):
   one `where` filter language for every data type's `/query`, specified by
