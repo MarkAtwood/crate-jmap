@@ -67,6 +67,15 @@
 //! implement the trait with its own locking
 //! rather than copy this pattern.
 //!
+//! # Caller context and rights
+//!
+//! `CallerCtx` is `()`: every caller acts as the account owner, who
+//! "always has implicit full rights to the mailbox"
+//! (draft-ietf-jmap-mail-sharing-02 §3.6). A Mailbox's `myRights` is
+//! computed for the caller on every read and in the `/set` echoes, never
+//! taken from the stored object, so the owner sees every RFC 8621 §2 right
+//! true (and `maySetMetadata` true when metadata is on).
+//!
 //! # Tracking
 //!
 //! Promoted from `tests/common/mod.rs` per Beads issue JMAP-hwdv (epic)
@@ -1162,6 +1171,57 @@ fn invalid_metadata_property(property: &str, description: &str) -> BackendSetErr
 }
 
 impl Inner {
+    /// The Mailbox `myRights` of the account owner: every RFC 8621 §2
+    /// right true. `maySetMetadata` is present, and true, only when
+    /// [`MemoryBackend::with_metadata_info`] lists Mailbox or Email (-05
+    /// §4.1: the right exists for a type the capability lists "or a type it
+    /// contains").
+    fn owner_mailbox_rights(&self) -> serde_json::Value {
+        let mut rights: serde_json::Map<String, serde_json::Value> = [
+            "mayReadItems",
+            "mayAddItems",
+            "mayRemoveItems",
+            "maySetSeen",
+            "maySetKeywords",
+            "mayCreateChild",
+            "mayRename",
+            "mayDelete",
+            "maySubmit",
+        ]
+        .into_iter()
+        .map(|k| (k.to_owned(), serde_json::Value::Bool(true)))
+        .collect();
+        if self.metadata_info.contains_key(Mailbox::TYPE_NAME)
+            || self.metadata_info.contains_key(Email::TYPE_NAME)
+        {
+            rights.insert("maySetMetadata".to_owned(), serde_json::Value::Bool(true));
+        }
+        serde_json::Value::Object(rights)
+    }
+
+    /// The caller's view of a stored Mailbox: `myRights` is computed for
+    /// the caller, never read from storage (RFC 8621 §2: "The set of
+    /// rights ... the user has in relation to this Mailbox"). Every caller
+    /// of this backend acts as the account owner, who "always has implicit
+    /// full rights to the mailbox" (draft-ietf-jmap-mail-sharing-02 §3.6).
+    fn view_mailbox(&self, stored: &serde_json::Value) -> serde_json::Value {
+        let mut view = stored.clone();
+        if let serde_json::Value::Object(m) = &mut view {
+            m.insert("myRights".to_owned(), self.owner_mailbox_rights());
+        }
+        view
+    }
+
+    /// The caller's view of a stored `type_name` object: a Mailbox through
+    /// [`Self::view_mailbox`], anything else as stored.
+    fn view(&self, type_name: &str, stored: &serde_json::Value) -> serde_json::Value {
+        if type_name == Mailbox::TYPE_NAME {
+            self.view_mailbox(stored)
+        } else {
+            stored.clone()
+        }
+    }
+
     /// draft-ietf-jmap-metadata-05 §3.2 rules 1 to 3 for a metadata write
     /// on a `type_name` object, before the write is applied. Returns the
     /// type's DataTypeMetadataInfo for the rule 4 check after applying,
@@ -1207,18 +1267,22 @@ impl Inner {
                 .and_then(serde_json::Value::as_bool)
                 == Some(false)
         };
+        // The rights are the caller's (`view_mailbox`), not the stored
+        // `myRights`.
+        let rights_of =
+            |mailbox: &serde_json::Value| self.view_mailbox(mailbox)["myRights"].clone();
         let forbidden = writes_shared
             && if type_name == Mailbox::TYPE_NAME {
-                denies(stored.and_then(|m| m.get("myRights")))
+                denies(
+                    stored
+                        .map(|m| rights_of(&serde_json::Value::Object(m.clone())))
+                        .as_ref(),
+                )
             } else {
                 let mailboxes = self.objects_ref(Mailbox::TYPE_NAME, account_id);
-                containers.iter().any(|id| {
-                    denies(
-                        mailboxes
-                            .and_then(|m| m.get(*id))
-                            .and_then(|mb| mb.get("myRights")),
-                    )
-                })
+                containers
+                    .iter()
+                    .any(|id| denies(mailboxes.and_then(|m| m.get(*id)).map(rights_of).as_ref()))
             };
         if forbidden {
             return Err(BackendSetError::SetError(Box::new(
@@ -1382,6 +1446,7 @@ impl JmapReads for MemoryBackend {
             for id in ids {
                 match store.get(id) {
                     Some(val) => {
+                        let val = &inner.view(O::TYPE_NAME, val);
                         let obj: O = O::deserialize(val).map_err(|e| {
                             MemoryError::serde(format_args!("deserialize {}", O::TYPE_NAME), &e)
                         })?;
@@ -1392,6 +1457,7 @@ impl JmapReads for MemoryBackend {
             }
         } else {
             for val in store.values() {
+                let val = &inner.view(O::TYPE_NAME, val);
                 let obj: O = O::deserialize(val).map_err(|e| {
                     MemoryError::serde(format_args!("deserialize {}", O::TYPE_NAME), &e)
                 })?;
@@ -1955,12 +2021,14 @@ impl MailBackend for MemoryBackend {
         };
         let val = serde_json::to_value(build(&id))
             .map_err(|e| BackendSetError::Other(MemoryError::serde("serialize", &e)))?;
-        let created_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError::serde("deserialize after create", &e))
-        })?;
 
         let mut inner = self.inner.lock().await;
         inner.require_account(account_id.as_ref())?;
+        // The echo is the caller's view: a new Mailbox's `myRights` are the
+        // creator's, not the placeholder the handler built (RFC 8621 §2).
+        let created_obj: O = O::deserialize(&inner.view(O::TYPE_NAME, &val)).map_err(|e| {
+            BackendSetError::Other(MemoryError::serde("deserialize after create", &e))
+        })?;
         // Object history §5.1: never reuse the id of a destroyed object with
         // retained history. A fresh v4 UUID cannot collide; the singleton
         // VacationResponse is never destroyed.
@@ -2167,7 +2235,7 @@ impl MailBackend for MemoryBackend {
             // A null or wrong-typed value on a required property must
             // not reach storage, or every later /get fails to decode it.
             let patched = serde_json::Value::Object(patched);
-            let Ok(decoded) = O::deserialize(&patched) else {
+            let Ok(decoded) = O::deserialize(&inner.view(O::TYPE_NAME, &patched)) else {
                 return Err(invalid_patched_properties(O::TYPE_NAME, &patch_map));
             };
             // `localized_update` contract: return the object when pruning

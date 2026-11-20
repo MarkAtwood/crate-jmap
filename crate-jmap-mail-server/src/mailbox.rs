@@ -1518,10 +1518,12 @@ fn build_mailbox_from_props(
         },
     };
 
+    // RFC 8621 §2 isSubscribed: "This SHOULD default to ... true for any
+    // new Mailboxes created by the user themself."
     let is_subscribed: bool = props
         .get("isSubscribed")
         .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+        .unwrap_or(true);
 
     // RFC 8621 §2: parentId is Id|null. Per RFC 8620 §5.3, a malformed
     // value (e.g. integer, boolean, object) MUST produce invalidProperties
@@ -1587,6 +1589,9 @@ fn build_mailbox_from_props(
             0,
             0,
             0,
+            // A placeholder: `myRights` is server-set and the caller's
+            // (RFC 8621 §2), so the backend's create returns the rights it
+            // computes for the caller, which the response echoes.
             jmap_mail_types::MailboxRights::default(),
             is_subscribed,
         );

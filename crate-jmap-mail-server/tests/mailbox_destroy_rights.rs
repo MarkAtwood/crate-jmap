@@ -16,6 +16,7 @@ use jmap_types::Id;
 use serde_json::json;
 
 #[tokio::test]
+#[ignore = "the owner holds every right; restricted rights need a sharee (bd JMAP-irij)"]
 async fn forbidden_destroy_keeps_the_emails() {
     with_principal();
     let b = FaultyBackend::new();

@@ -461,8 +461,8 @@ impl ObjectHistoryBackend for MemoryBackend {
             .map_err(|e| BackendQueryError::Method(bad_date(&e)))?;
         let mut entries = Vec::with_capacity(rows.len());
         for (snapshot, info) in rows {
-            let object =
-                O::deserialize(&snapshot).map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
+            let object = O::deserialize(&inner.view(O::TYPE_NAME, &snapshot))
+                .map_err(|e| BackendQueryError::Other(serde_fail(&e)))?;
             entries.push(HistoryEntry::new(object, info));
         }
         Ok(HistoryGetResult::new(entries, not_found))

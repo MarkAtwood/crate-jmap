@@ -1251,6 +1251,15 @@ wire behaviour that a conforming peer can observe.
   bridge, not only `account_exists` and `metadata_info`; the direct
   `jmap-metadata-types` dependency is gone (bd:JMAP-saks).
 
+- **jmap-mail-server**: a Mailbox's `myRights` is the account owner's on
+  every read and `/set` echo of the reference `MemoryBackend`, every RFC
+  8621 §2 right true (draft-ietf-jmap-mail-sharing-02 §3.6: the owner
+  "always has implicit full rights"), plus `maySetMetadata` when metadata
+  is on; the backend computes it instead of returning the all-false
+  placeholder the `Mailbox/set` handler builds. A `Mailbox/set` create
+  without `isSubscribed` now subscribes the creator (RFC 8621 §2 "SHOULD
+  default to ... true for any new Mailboxes created by the user
+  themself"); it was `false` (toy-consumer finding b5, bd:JMAP-4kpz).
 - **BREAKING** **jmap-mime**: depends on mime-tree 0.6 (was 0.4). jmap-mime's
   public API takes and returns mime-tree types (`ParsedPart`,
   `ParsedMessage`, `DecodedBodyValue`), and mime-tree 0.5 made them
