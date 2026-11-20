@@ -36,7 +36,7 @@
 //! `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_sharing_types::ShareNotification;
-use jmap_types::JmapError;
+use jmap_types::{Id, JmapError};
 use serde_json::Value;
 
 use crate::SharingBackend;
@@ -139,41 +139,71 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+    };
+    let mut acc = SetAccumulators::default();
+    set_create(&mut args, &mut acc);
+    set_update(&mut args, &mut acc);
+    let mutated = set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create — forbidden: ShareNotification is server-created only
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, ShareNotification>(
+        backend,
+        caller,
+        &account_id,
+        old_state,
+        mutated,
+        acc,
+    )
+    .await
+}
+
+/// What every `ShareNotification/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: SharingBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+}
+
+/// The `create` part of `ShareNotification/set`: forbidden, because a
+/// ShareNotification is server-created only.
+fn set_create(args: &mut serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, _) in create_map {
-            not_created.insert(
+            acc.not_created.insert(
                 create_id,
                 serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
+}
 
-    // -----------------------------------------------------------------------
-    // update — forbidden: ShareNotification is immutable
-    // -----------------------------------------------------------------------
+/// The `update` part of `ShareNotification/set`: forbidden, because a
+/// ShareNotification is immutable.
+fn set_update(args: &mut serde_json::Map<String, Value>, acc: &mut SetAccumulators) {
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, _) in update_map {
-            not_updated.insert(
+            acc.not_updated.insert(
                 id_str,
                 serde_json::Value::from(&SetError::new(SetErrorType::Forbidden)),
             );
         }
     }
+}
 
-    // -----------------------------------------------------------------------
-    // destroy — the only permitted operation (RFC 9670 §3.3)
-    // -----------------------------------------------------------------------
+/// The `destroy` part of `ShareNotification/set`, the only permitted
+/// operation (RFC 9670 §3.3), including the whole-request
+/// `invalidArguments` for a non-string element. Returns whether the
+/// backend was written.
+async fn set_destroy<B: SharingBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -198,42 +228,28 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            match backend
-                .destroy_object::<ShareNotification>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<ShareNotification>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, ShareNotification>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------

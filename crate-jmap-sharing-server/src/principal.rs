@@ -177,98 +177,48 @@ pub async fn handle_principal_set<B: SharingBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        using,
+        i18n_set: &i18n_set,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, Principal>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `Principal/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: SharingBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    using: &'a [String],
+    i18n_set: &'a jmap_server::I18nSet,
+}
+
+/// The `create` part of `Principal/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: SharingBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Principal>) {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            let mut obj_val = obj_val;
-            if let Value::Object(m) = &mut obj_val
-                && let Err(err) = i18n_set.check_create(m)
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // Deserialize the Principal from the client-provided object.
-            // `Principal.id` is required, so the parse fills it with
-            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
-            // `capabilities` and `accounts` are server-set (RFC 9670 §2)
-            // and required, so the server supplies them: no capabilities
-            // and no accounts until the backend grants some.
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
-                    m.insert("capabilities".to_owned(), json!({}));
-                    m.insert("accounts".to_owned(), Value::Null);
-                    Value::Object(m)
-                }
-                other => other,
-            };
-
-            // RFC 8620 §5.3: a create entry that is not an object has no
-            // properties to name, so report it without a `properties` list.
-            if !obj_with_id.is_object() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "description": "a create entry must be an object",
-                    }),
-                );
-                continue;
-            }
-
-            // RFC 9670 §2: `type` and `name` are required. serde reports a
-            // missing field at the root, not on a property path, so name them
-            // here (RFC 8620 §5.3 invalidProperties).
-            let missing: Vec<&str> = ["type", "name"]
-                .into_iter()
-                .filter(|p| obj_with_id.get(p).is_none())
-                .collect();
-            if !missing.is_empty() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": missing,
-                        "description": "required property missing on create",
-                    }),
-                );
-                continue;
-            }
-
-            let mut principal: Principal = match serde_path_to_error::deserialize(obj_with_id) {
+            let mut principal = match principal_from_create(ctx, obj_val) {
                 Ok(p) => p,
-                Err(e) => {
-                    // RFC 8620 §5.3: invalidProperties SHOULD list the
-                    // invalid properties; the first path segment is the
-                    // top-level property whose value failed to parse.
-                    let mut err =
-                        json!({ "type": "invalidProperties", "description": e.to_string() });
-                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
-                    {
-                        err["properties"] = json!([key]);
-                    }
-                    not_created.insert(create_id, err);
+                Err(err) => {
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -277,103 +227,205 @@ pub async fn handle_principal_set<B: SharingBackend>(
                 principal.id = id.clone();
                 principal
             };
-            match backend
-                .create_object::<Principal, _>(caller, &account_id, &create_id, build)
+            match ctx
+                .backend
+                .create_object::<Principal, _>(ctx.caller, ctx.account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
                     let mut entry = jmap_server::serialize_value(&created_obj)?;
-                    i18n_set.echo(&mut entry);
-                    created.insert(create_id, entry);
+                    ctx.i18n_set.echo(&mut entry);
+                    acc.created.insert(create_id, entry);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// Check one `Principal/set` create object and parse it into the Principal
+/// to store, or return the SetError value for `notCreated`.
+fn principal_from_create<B: SharingBackend>(
+    ctx: &SetCtx<'_, B>,
+    obj_val: Value,
+) -> Result<Principal, Value> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Principal>) {
+        return Err(serde_json::Value::from(&err));
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, ctx.using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    let mut obj_val = obj_val;
+    if let Value::Object(m) = &mut obj_val
+        && let Err(err) = ctx.i18n_set.check_create(m)
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // Deserialize the Principal from the client-provided object.
+    // `Principal.id` is required, so the parse fills it with
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; `build` overwrites it with the minted id.
+    // `capabilities` and `accounts` are server-set (RFC 9670 §2)
+    // and required, so the server supplies them: no capabilities
+    // and no accounts until the backend grants some.
+    let obj_with_id = match obj_val {
+        Value::Object(mut m) => {
+            m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
+            m.insert("capabilities".to_owned(), json!({}));
+            m.insert("accounts".to_owned(), Value::Null);
+            Value::Object(m)
+        }
+        other => other,
+    };
+
+    // RFC 8620 §5.3: a create entry that is not an object has no
+    // properties to name, so report it without a `properties` list.
+    if !obj_with_id.is_object() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "description": "a create entry must be an object",
+        }));
+    }
+
+    // RFC 9670 §2: `type` and `name` are required. serde reports a
+    // missing field at the root, not on a property path, so name them
+    // here (RFC 8620 §5.3 invalidProperties).
+    let missing: Vec<&str> = ["type", "name"]
+        .into_iter()
+        .filter(|p| obj_with_id.get(p).is_none())
+        .collect();
+    if !missing.is_empty() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": missing,
+            "description": "required property missing on create",
+        }));
+    }
+
+    serde_path_to_error::deserialize(obj_with_id).map_err(|e| {
+        // RFC 8620 §5.3: invalidProperties SHOULD list the
+        // invalid properties; the first path segment is the
+        // top-level property whose value failed to parse.
+        let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+        if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+            err["properties"] = json!([key]);
+        }
+        err
+    })
+}
+
+/// The `update` part of `Principal/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: SharingBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-            // RFC 9670 §2: `id`, `capabilities` and `accounts` are server-set. A changed value is rejected, an identical
-            // one dropped (RFC 8620 §5.3); nothing left is a no-op success.
-            match check_read_only_patch::<_, Principal>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using)
-                .and_then(|()| i18n_set.check_patch(patch.as_map()))
-            {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-
-            match backend
-                .update_object::<Principal>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    let mut entry = jmap_server::serialize_value(&obj)?;
-                    i18n_set.echo(&mut entry);
-                    updated.insert(id_str, entry);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// One entry of the `Principal/set` `update` map. Returns whether the
+/// backend was written.
+async fn update_one<B: SharingBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
+
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return Ok(false);
+        }
+    };
+    // RFC 9670 §2: `id`, `capabilities` and `accounts` are server-set. A changed value is rejected, an identical
+    // one dropped (RFC 8620 §5.3); nothing left is a no-op success.
+    match check_read_only_patch::<_, Principal>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        patch.as_map_mut(),
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
+        }
+    }
+    if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using)
+        .and_then(|()| ctx.i18n_set.check_patch(patch.as_map()))
+    {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+
+    match ctx
+        .backend
+        .update_object::<Principal>(ctx.caller, ctx.account_id, &id, patch)
+        .await
+    {
+        Ok(Some(obj)) => {
+            let mut entry = jmap_server::serialize_value(&obj)?;
+            ctx.i18n_set.echo(&mut entry);
+            acc.updated.insert(id_str, entry);
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            return Ok(false);
+        }
+    }
+    Ok(true)
+}
+
+/// The `destroy` part of `Principal/set`, including the whole-request
+/// `invalidArguments` for a non-string element. Returns whether the
+/// backend was written.
+async fn set_destroy<B: SharingBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
@@ -398,42 +450,28 @@ pub async fn handle_principal_set<B: SharingBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            match backend
-                .destroy_object::<Principal>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<Principal>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, Principal>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------

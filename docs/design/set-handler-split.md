@@ -156,3 +156,14 @@ Where it differs from the template:
   `onDestroyRemoveContents` cascade are `destroy_contents_error`. Its update runs the
   metadata, i18n and `shareWith` checks as one `and_then` chain, as Calendar/set does.
 - ContactCard/set has an `update_one`.
+
+## 8. In the sibling servers
+
+The same shape, with these differences per crate. Sizes are before → after for the
+orchestrator, in lines.
+
+- **jmap-sharing-server** (`handle_principal_set` 302 → 61, `handle_share_notification_set`
+  131 → 55). Principal/set has `principal_from_create` (check and parse, like Identity's
+  `identity_builder`) and `update_one`. ShareNotification/set refuses create and update with
+  `forbidden` without touching the backend, so its `set_create` and `set_update` take no `ctx`
+  and return nothing. Only `set_destroy` reports a write.
