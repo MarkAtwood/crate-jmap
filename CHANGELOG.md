@@ -34,7 +34,8 @@ wire behaviour that a conforming peer can observe.
   thread → `threadRootId`, mrkdwn → rich body spans. Also `client`
   (`SlackClient`, `RetryPolicy`), `events` (request signature
   verification, Events API and Socket Mode envelopes) and `mrkdwn`.
-  Browser session tokens are refused.
+  Browser session tokens are refused. Re-exports `reqwest` and `url`, the
+  public dependencies of `SlackClient` (found by the toy-consumer check).
 
 - **jmap-filenode-server** (`memory`): **BREAKING** per-user access
   control in the reference `MemoryBackend` (draft-ietf-jmap-filenode-20 §5,

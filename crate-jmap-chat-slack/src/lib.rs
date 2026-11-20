@@ -77,3 +77,9 @@ pub use bridge::{
     SlackBridge, SyncReport,
 };
 pub use token::{SlackToken, TokenError, TokenKind};
+
+// Public dependencies: `SlackClient::from_client` takes a
+// `reqwest::Client`, `SlackClient::with_base_url` a `url::Url`, and
+// `SlackClient::new` and `SlackError` carry `reqwest::Error`.
+pub use reqwest;
+pub use url;

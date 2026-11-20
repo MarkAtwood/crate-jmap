@@ -1,4 +1,6 @@
 pub mod jmap_chat_slack
+pub use jmap_chat_slack::reqwest
+pub use jmap_chat_slack::url
 pub mod jmap_chat_slack::client
 #[non_exhaustive] pub enum jmap_chat_slack::client::SlackError
 pub jmap_chat_slack::client::SlackError::Api
