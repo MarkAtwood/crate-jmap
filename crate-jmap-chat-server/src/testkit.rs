@@ -1398,7 +1398,8 @@ mod query_filters {
         )
         .await
         .expect_err("text filter");
-        assert_eq!(err, JmapError::unsupported_filter());
+        assert_eq!(err.error_type, JmapError::unsupported_filter().error_type);
+        assert!(err.description.is_some(), "the refusal names its rule");
     }
 
     /// L1269: "Servers MUST return an `unsupportedFilter` error for any
@@ -1420,7 +1421,8 @@ mod query_filters {
         )
         .await
         .expect_err("no chatId");
-        assert_eq!(err, JmapError::unsupported_filter());
+        assert_eq!(err.error_type, JmapError::unsupported_filter().error_type);
+        assert!(err.description.is_some(), "the refusal names its rule");
     }
 
     /// L1389 (jmap-chat-spec 33702a5) §Space/query: "Filter properties:

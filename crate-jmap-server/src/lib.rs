@@ -39,6 +39,11 @@ mod helpers;
 mod history;
 mod i18n;
 
+/// The draft-ietf-jmap-metadata-05 §1.2.1 DataTypeMetadataInfo that
+/// [`JmapAccounts::metadata_info`] returns, re-exported so a backend or a
+/// wrapper can name it without a direct `jmap-metadata-types` dependency.
+pub use jmap_metadata_types::DataTypeMetadataInfo;
+
 pub use backend::{
     AddedItem, BackendChangesError, BackendQueryError, BackendSetError, ChangesParams,
     ChangesResult, DelegateJmapAccounts, DelegateJmapReads, GetObject, JmapAccounts, JmapBackend,
@@ -443,6 +448,25 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
         }
         self.handlers.insert(method, handler);
         Ok(())
+    }
+
+    /// The names of the methods registered on this dispatcher, in sorted
+    /// order: every name [`Self::register`] or [`Self::try_register`] took,
+    /// including those an extension crate's `register_*_handlers` added.
+    ///
+    /// For a front dispatcher that bridges every method an inner one
+    /// serves, or a Session object that lists what is served.
+    ///
+    /// ```
+    /// use jmap_server::Dispatcher;
+    ///
+    /// let dispatcher: Dispatcher<()> = Dispatcher::new();
+    /// assert_eq!(dispatcher.methods().count(), 0);
+    /// ```
+    pub fn methods(&self) -> impl Iterator<Item = &str> + '_ {
+        let mut names: Vec<&str> = self.handlers.keys().map(String::as_str).collect();
+        names.sort_unstable();
+        names.into_iter()
     }
 
     /// Process a validated [`JmapRequest`] and return a [`JmapResponse`].
@@ -1082,6 +1106,22 @@ mod tests {
     /// for any subsequent registration of the same name. On Err the
     /// dispatcher's handler map MUST be left unchanged — the
     /// already-registered handler stays in place.
+    /// `methods` lists every registered name once, sorted, whichever of
+    /// `register` and `try_register` added it (toy-consumer finding b4).
+    #[test]
+    fn methods_lists_registered_names_sorted() {
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register("Foo/set", Arc::new(EchoHandler(json!({}))));
+        d.try_register("Bar/get", Arc::new(EchoHandler(json!({}))))
+            .expect("first registration");
+        d.register("Foo/get", Arc::new(EchoHandler(json!({}))));
+        let _ = d.try_register("Foo/get", Arc::new(EchoHandler(json!({}))));
+        assert_eq!(
+            d.methods().collect::<Vec<_>>(),
+            ["Bar/get", "Foo/get", "Foo/set"]
+        );
+    }
+
     #[tokio::test]
     async fn try_register_succeeds_then_errors_on_duplicate() {
         let mut d: Dispatcher<String> = Dispatcher::new();

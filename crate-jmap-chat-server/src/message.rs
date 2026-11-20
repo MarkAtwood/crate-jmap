@@ -495,16 +495,30 @@ fn check_message_filter(
     filter: Option<&MessageFilter>,
     supports_threads: bool,
 ) -> Result<&MessageFilterCondition, JmapError> {
-    match filter {
-        Some(Filter::Condition(c))
-            if (c.chat_id.is_some() || c.has_mention == Some(true))
-                && c.text.is_none()
-                && (c.thread_root_id.is_none() || supports_threads) =>
-        {
-            Ok(c)
-        }
-        _ => Err(JmapError::unsupported_filter()),
+    let unsupported = |description: &str| {
+        let mut err = JmapError::unsupported_filter();
+        err.description = Some(description.to_owned());
+        err
+    };
+    let Some(Filter::Condition(c)) = filter else {
+        return Err(unsupported(
+            "the filter must be a single condition with chatId or hasMention: true",
+        ));
+    };
+    if c.chat_id.is_none() && c.has_mention != Some(true) {
+        return Err(unsupported(
+            "the filter must set chatId or hasMention: true",
+        ));
     }
+    if c.text.is_some() {
+        return Err(unsupported("full-text search (text) is not supported"));
+    }
+    if c.thread_root_id.is_some() && !supports_threads {
+        return Err(unsupported(
+            "threadRootId is valid only when supportsThreads is true",
+        ));
+    }
+    Ok(c)
 }
 
 // ---------------------------------------------------------------------------

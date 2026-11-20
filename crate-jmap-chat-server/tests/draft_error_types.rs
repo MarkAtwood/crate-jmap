@@ -92,6 +92,36 @@ async fn message_query_text_and_thread_root_filters_are_unsupported() {
         .await
         .expect_err(key);
         assert_eq!(err.error_type.to_string(), "unsupportedFilter", "{key}");
+        let description = err.description.expect("the refusal names its rule");
+        assert!(description.contains(key), "{key}: {description}");
+    }
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §Message/query — "Servers MUST
+/// return an `unsupportedFilter` error for any request that omits
+/// `chatId` without also including `hasMention: true`"; the description
+/// names the two properties (toy-consumer finding c1).
+#[tokio::test]
+async fn message_query_without_chat_id_names_the_rule() {
+    let backend = common::account_backend();
+    for filter in [
+        json!({ "topicId": "a" }),
+        json!({ "operator": "AND", "conditions": [] }),
+    ] {
+        let err = handle_message_query(
+            &backend,
+            &(),
+            json!({ "accountId": ACCOUNT_ID, "filter": filter }),
+            &[],
+        )
+        .await
+        .expect_err("no chatId");
+        assert_eq!(err.error_type.to_string(), "unsupportedFilter");
+        let description = err.description.expect("the refusal names its rule");
+        assert!(
+            description.contains("chatId") && description.contains("hasMention"),
+            "{description}"
+        );
     }
 }
 

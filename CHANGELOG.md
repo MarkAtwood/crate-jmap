@@ -50,6 +50,12 @@ wire behaviour that a conforming peer can observe.
   `update_object_if` with the draft's source states, delivering the
   recording consent events and stop effects a client update would;
   `ReportError` says why a report changed nothing.
+- **jmap-server**: `Dispatcher::methods()`, the registered method names
+  in sorted order, for a front dispatcher that bridges an inner one; and a
+  root re-export of `jmap_metadata_types::DataTypeMetadataInfo`, the
+  return type of `JmapAccounts::metadata_info` (toy-consumer findings b4
+  and a4, bd:JMAP-14yr).
+
 - **jmap-server**: `DelegateJmapAccounts`, the `JmapAccounts` companion of
   `DelegateJmapReads` (found by the toy-consumer check, bd:JMAP-saks). A
   wrapper implements it instead of `JmapAccounts` (`type Target`,
@@ -1231,6 +1237,14 @@ wire behaviour that a conforming peer can observe.
   sets `progressUpdated` to the current time, unless the same write sets
   it, as the local Tasks profile's {#workflow} rule 1 says for every
   server change of `progress` (bd:JMAP-gr6p).
+- **jmap-chat-server**: the `Message/query` and `Message/queryChanges`
+  `unsupportedFilter` refusals carry a `description` naming the rule: a
+  filter that is not a single condition with `chatId` or `hasMention:
+  true`, a `text` condition, or `threadRootId` without `supportsThreads`
+  (toy-consumer finding c1, bd:JMAP-14yr). The `testkit` checks compare
+  the error type and require a description instead of comparing the
+  whole error.
+
 - **jmap-chat-slack**: `SlackBridge` gets `JmapAccounts` through
   `DelegateJmapAccounts` instead of a hand-written impl, so every
   `JmapAccounts` answer of the embedded `MemoryBackend` reaches the

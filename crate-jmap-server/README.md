@@ -100,6 +100,10 @@ pub use jmap_types::{
 };
 ```
 
+`DataTypeMetadataInfo` is re-exported from `jmap-metadata-types` too,
+since `JmapAccounts::metadata_info` returns it: a backend or a wrapper that
+answers `metadata_info` names it as `jmap_server::DataTypeMetadataInfo`.
+
 These are the RFC 8620 wire primitives: `Id`, `UTCDate`, and `State` for
 typed identifier/timestamp/state-token fields; `JmapRequest` / `JmapResponse`
 for the top-level request/response envelopes; `Invocation` for individual

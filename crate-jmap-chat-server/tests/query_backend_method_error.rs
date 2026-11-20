@@ -10,9 +10,10 @@
 //! > "unsupportedFilter": The "filter" is syntactically valid, but the
 //! > server cannot process it.
 //!
-//! The handlers' own `unsupportedFilter` refusals carry no description,
-//! so the injected description on the wire proves the backend's error
-//! passed through rather than being replaced or redacted to `serverFail`.
+//! The handlers' own `unsupportedFilter` refusals carry descriptions of
+//! their own, so the injected description on the wire proves the
+//! backend's error passed through rather than being replaced or redacted
+//! to `serverFail`.
 
 mod common;
 

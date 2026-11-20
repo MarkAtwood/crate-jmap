@@ -7,12 +7,11 @@
 //! gives, so an answer that fell back to a default instead of reaching
 //! `Inner` would show. Expected values are written out by hand.
 
-use jmap_metadata_types::DataTypeMetadataInfo;
 use jmap_server::{
-    BackendChangesError, BackendQueryError, ChangesParams, ChangesResult, DelegateJmapAccounts,
-    DelegateJmapReads, GetObject, I18nInfo, Id, JmapAccounts, JmapBackend, JmapObject, JmapReads,
-    QueryChangesParams, QueryChangesResult, QueryObject, QueryParams, QueryResult, State,
-    handle_get,
+    BackendChangesError, BackendQueryError, ChangesParams, ChangesResult, DataTypeMetadataInfo,
+    DelegateJmapAccounts, DelegateJmapReads, GetObject, I18nInfo, Id, JmapAccounts, JmapBackend,
+    JmapObject, JmapReads, QueryChangesParams, QueryChangesResult, QueryObject, QueryParams,
+    QueryResult, State, handle_get,
 };
 use jmap_types::MethodErrorType;
 use serde_json::json;
