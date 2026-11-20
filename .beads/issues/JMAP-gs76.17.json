@@ -2,13 +2,15 @@
   "id": "JMAP-gs76.17",
   "title": "Claim crates.io names for this session's new crates",
   "description": "Free on crates.io as of 2026-11-20 (checked via the crates.io API): jmap-vtc-aws, jmap-vtc-livekit, jmap-vtc-ffmpeg, jmap-vtc-gstreamer (alias for the ffmpeg/GStreamer backend, claim defensively), jmap-vtc-cloudflare, jmap-vtc-sip, jmap-chat-slack, jmap-platform-push. jmap-search is already ours (0.0.1). Claim each with a 0.0.1 placeholder from ~/PROJECT/jmap-name-claims/ as gs76 did (docs point at the real crate or bead), or publish the real crate for those already built (jmap-chat-slack, jmap-platform-push, jmap-vtc-aws) with 0.6.0. Publishing needs Mark's go; mind the crates.io new-crate rate limit (RELEASING.md blocker notes).",
-  "status": "open",
+  "status": "closed",
   "priority": 3,
   "issue_type": "task",
   "owner": "mark@reviewcommit.com",
   "created_at": "2026-11-20T03:58:41.618267646Z",
   "created_by": "Mark Atwood",
-  "updated_at": "2026-11-20T03:58:41.618267646Z",
+  "updated_at": "2026-11-20T04:22:41.009732056Z",
+  "closed_at": "2026-11-20T04:22:41.009732056Z",
+  "close_reason": "Claimed 2026-11-20 as 0.0.1 placeholders (source ~/PROJECT/jmap-name-claims/): jmap-chat-slack, jmap-platform-push, jmap-vtc-aws, jmap-vtc-livekit, jmap-vtc-ffmpeg, jmap-vtc-gstreamer, jmap-vtc-cloudflare, jmap-vtc-sip. The built crates replace them at 0.6.0.",
   "dependencies": [
     {
       "issue_id": "JMAP-gs76.17",
