@@ -1,0 +1,1 @@
+{"id":"01a1fa31-5d00-76e0-81d6-db308e817437","issue_id":"JMAP-ch6h","event_type":"closed","actor":"Mark Atwood","old_value":"","new_value":"All 93 publishable crates: docs.rs metadata + doc_cfg (automatic labels); stable and nightly docsrs rustdoc -D warnings clean; AGENTS.md rule.","created_at":"2026-11-20T18:21:41.504451834Z"}
