@@ -1,0 +1,25 @@
+# Toy consumer (bd:JMAP-698j.3): one Dispatcher serving Mail (with the
+# EmailPush, Sieve and MDN facades), Tasks, FileNode, Graph and VTC, with
+# conditional-02 and object history. Built by scripts/toy-consumers.sh
+# outside the workspace; @WORKSPACE@ is replaced with the workspace root.
+[package]
+name = "toy-multi-server"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+jmap-types = { path = "@WORKSPACE@/crate-jmap-types" }
+jmap-server = { path = "@WORKSPACE@/crate-jmap-server" }
+jmap-mail-server = { path = "@WORKSPACE@/crate-jmap-mail-server", features = ["memory"] }
+jmap-emailpush = { path = "@WORKSPACE@/crate-jmap-emailpush", features = ["server"] }
+jmap-sieve = { path = "@WORKSPACE@/crate-jmap-sieve", features = ["server"] }
+jmap-mdn = { path = "@WORKSPACE@/crate-jmap-mdn", features = ["server"] }
+jmap-tasks-server = { path = "@WORKSPACE@/crate-jmap-tasks-server", features = ["memory"] }
+jmap-filenode = { path = "@WORKSPACE@/crate-jmap-filenode", features = ["server", "memory"] }
+jmap-graph = { path = "@WORKSPACE@/crate-jmap-graph", features = ["server", "memory"] }
+jmap-vtc = { path = "@WORKSPACE@/crate-jmap-vtc", features = ["server", "memory"] }
+jmap-conditional = { path = "@WORKSPACE@/crate-jmap-conditional", features = ["server"] }
+jmap-object-history = { path = "@WORKSPACE@/crate-jmap-object-history", features = ["server"] }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

@@ -1,0 +1,35 @@
+# Toy consumer (bd:JMAP-698j.3): a client app over the Chat, Scene, Graph
+# and Tasks clients, plus jmap-platform-push. Built by
+# scripts/toy-consumers.sh outside the workspace; @WORKSPACE@ is replaced
+# with the workspace root.
+[package]
+name = "toy-client-app"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+jmap-base-client = { path = "@WORKSPACE@/crate-jmap-base-client" }
+jmap-chat-client = { path = "@WORKSPACE@/crate-jmap-chat-client" }
+jmap-chat-types = { path = "@WORKSPACE@/crate-jmap-chat-types" }
+jmap-scene-client = { path = "@WORKSPACE@/crate-jmap-scene-client" }
+jmap-scene-types = { path = "@WORKSPACE@/crate-jmap-scene-types" }
+jmap-graph-client = { path = "@WORKSPACE@/crate-jmap-graph-client" }
+jmap-graph-types = { path = "@WORKSPACE@/crate-jmap-graph-types" }
+jmap-tasks-client = { path = "@WORKSPACE@/crate-jmap-tasks-client" }
+jmap-tasks-types = { path = "@WORKSPACE@/crate-jmap-tasks-types" }
+jmap-platform-push = { path = "@WORKSPACE@/crate-jmap-platform-push" }
+jmap-types = { path = "@WORKSPACE@/crate-jmap-types" }
+# The loopback JMAP server the client talks to.
+jmap-server = { path = "@WORKSPACE@/crate-jmap-server" }
+jmap-chat-server = { path = "@WORKSPACE@/crate-jmap-chat-server", features = ["memory"] }
+jmap-tasks-server = { path = "@WORKSPACE@/crate-jmap-tasks-server", features = ["memory"] }
+jmap-search = { path = "@WORKSPACE@/crate-jmap-search" }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util"] }
+tokio-tungstenite = "0.29"
+futures = "0.3"
+# Dummy push credentials, generated at run time.
+rsa = { version = "0.10", default-features = false, features = ["std", "encoding", "getrandom"] }
+ring = "0.17"
+base64 = "0.22"

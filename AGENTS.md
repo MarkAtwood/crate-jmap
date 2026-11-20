@@ -1127,6 +1127,35 @@ code change. The script pins the nightly toolchain; rustup installs it on
 first use. A snapshot diff that removes or changes a line is a breaking
 change and needs a **BREAKING** CHANGELOG entry.
 
+## End of each feature wave: toy-consumer check
+
+At the end of every feature wave (a batch of decisions), not only at a
+freeze, build throwaway consumer crates against the wave's crates using
+only their public API (decision 51, bd:JMAP-698j.3). They catch what the
+crates' own tests cannot: a missing re-export, an item a consumer needs
+that is private or `#[doc(hidden)]`, a `#[non_exhaustive]` type with no
+constructor, a feature found only by reading source, a wrong doc.
+
+1. Write or update probes under `docs/toy-consumers/<name>/` (a
+   `Cargo.toml` naming workspace crates as
+   `path = "@WORKSPACE@/crate-jmap-<x>"`, and `src/main.rs`). Probes are
+   not workspace members (`exclude` in the root `Cargo.toml`). Use no
+   `#[doc(hidden)]` item, no `test-helpers` feature, no `*_for_test`
+   function. A probe asserts what it exercises and runs offline
+   (loopback servers are fine). Cover what the wave changed (see
+   CHANGELOG `[Unreleased]`): a backend wrapper, a multi-extension
+   server, a client app, any new support crate.
+2. Run `scripts/toy-consumers.sh -o <dir outside the repo> [probe...]`.
+   It scaffolds each probe with `cargo new`, copies its source in, seeds
+   `Cargo.lock` from the workspace, and runs `cargo build`, `cargo run`
+   and `cargo clippy -D warnings`.
+3. Write the findings to `docs/audits/<date>-toy-consumers/README.md`, one
+   row per finding (crate, item, what was needed, the workaround, the
+   suggested fix, severity). Fix the trivially safe ones (a missing
+   re-export, a wrong doc) in their own commits; file the API-design ones
+   as beads. Keep the probes building: a probe that works around a
+   finding says so in a comment, so the fix can remove the workaround.
+
 ## Backend caps and limits
 
 Extension backend traits that expose implementation-defined caps

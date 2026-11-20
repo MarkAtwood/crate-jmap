@@ -1,0 +1,18 @@
+# Toy consumer (bd:JMAP-698j.3): a database-shaped ChatBackend that wraps
+# the reference MemoryBackend. Built by scripts/toy-consumers.sh outside
+# the workspace; @WORKSPACE@ is replaced with the workspace root.
+[package]
+name = "toy-chat-db-backend"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+jmap-chat-server = { path = "@WORKSPACE@/crate-jmap-chat-server", features = ["memory"] }
+jmap-chat-types = { path = "@WORKSPACE@/crate-jmap-chat-types" }
+jmap-metadata-types = { path = "@WORKSPACE@/crate-jmap-metadata-types" }
+jmap-server = { path = "@WORKSPACE@/crate-jmap-server" }
+jmap-types = { path = "@WORKSPACE@/crate-jmap-types" }
+jmap-search = { path = "@WORKSPACE@/crate-jmap-search" }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

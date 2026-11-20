@@ -1,0 +1,19 @@
+# Toy consumer (bd:JMAP-698j.3): a Slack-bridge consumer of
+# jmap-chat-slack, against a loopback stand-in for the Slack Web API.
+# Built by scripts/toy-consumers.sh outside the workspace; @WORKSPACE@ is
+# replaced with the workspace root.
+[package]
+name = "toy-slack-bridge"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+jmap-chat-slack = { path = "@WORKSPACE@/crate-jmap-chat-slack" }
+jmap-chat-server = { path = "@WORKSPACE@/crate-jmap-chat-server" }
+jmap-server = { path = "@WORKSPACE@/crate-jmap-server" }
+jmap-types = { path = "@WORKSPACE@/crate-jmap-types" }
+serde_json = "1"
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util"] }
+# Only to sign the sample Events API request.
+ring = "0.17"

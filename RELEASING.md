@@ -291,7 +291,12 @@ RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 cargo deny check
 ```
 
-All five must succeed. The `README.md`, `PLAN.md`, and `AGENTS.md` files
+All five must succeed. The last feature wave's toy-consumer check
+(AGENTS.md "End of each feature wave: toy-consumer check") must also have
+run: `scripts/toy-consumers.sh -o <dir outside the repo>` builds and runs
+every probe under `docs/toy-consumers/`.
+
+The `README.md`, `PLAN.md`, and `AGENTS.md` files
 are checked-in artifacts and do not need a separate action; `cargo publish`
 includes them automatically.
 

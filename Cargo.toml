@@ -87,6 +87,9 @@ members = [
     "crate-jmap-mail-sharing",
     "crate-jmap-testjig",
 ]
+# Toy-consumer probes (AGENTS.md "End of each feature wave: toy-consumer
+# check"): built outside the workspace by scripts/toy-consumers.sh.
+exclude = ["docs/toy-consumers"]
 resolver = "2"
 
 [workspace.package]
