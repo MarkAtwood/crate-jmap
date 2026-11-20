@@ -815,6 +815,23 @@ pub(crate) async fn mailbox_set<B: MailBackend>(
                 continue;
             }
 
+            // RFC 8621 §2: `parentId` names a Mailbox, existing or created
+            // earlier in this call (deferred to commit when atomic).
+            if !atomic
+                && let Some(parent) = props.get("parentId").and_then(Value::as_str)
+                && !all_mailboxes.iter().any(|m| m.id.as_ref() == parent)
+                && !created_ids.values().any(|id| id.as_ref() == parent)
+            {
+                not_created.insert(
+                    create_id.clone(),
+                    serde_json::Value::from(
+                        &SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(["parentId"]),
+                    ),
+                );
+                continue;
+            }
+
             // Role uniqueness check (deferred to commit when atomic).
             if !atomic
                 && let Some(role_val) = props.get("role").filter(|v| !v.is_null())
@@ -1478,6 +1495,14 @@ async fn tree_conflict<B: MailBackend>(
         return Ok(Some(Value::from(&SetError::new(
             SetErrorType::AlreadyExists,
         ))));
+    }
+    // RFC 8621 §2: a new `parentId` must name a Mailbox.
+    if let Some(Value::String(p)) = map.get("parentId")
+        && !all.iter().any(|m| m.id.as_ref() == p.as_str())
+    {
+        return Ok(Some(Value::from(
+            &SetError::new(SetErrorType::InvalidProperties).with_properties(["parentId"]),
+        )));
     }
     // Walk up from the new parent; reaching `id` closes a loop. A chain
     // longer than the number of Mailboxes already loops elsewhere.

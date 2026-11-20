@@ -83,8 +83,9 @@ each of `Mailbox/set`, `TaskList/set`, `Graph/set`, `VTCCall/set` and
 
 While writing the probe: an atomic `Mailbox/set` create whose `parentId`
 names no Mailbox was accepted by the mail memory backend; the probe uses
-a server-set property for its failing create instead. Not checked
-outside an atomic scope.
+a server-set property for its failing create instead. Outside an atomic
+scope the owner's create and move were accepted too. Fixed in JMAP-madz:
+both paths now give `invalidProperties` naming `parentId`.
 
 ## Fixed after the check
 

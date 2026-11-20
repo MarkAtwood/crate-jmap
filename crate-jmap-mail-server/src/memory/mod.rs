@@ -4018,8 +4018,8 @@ impl<C: MemoryCaller> ConditionalBackend for MemoryBackend<C> {
 /// in the state it would commit (conditional-02 §4.2):
 ///
 /// - Mailbox (RFC 8621 §2): two mailboxes with one name under one parent
-///   (`alreadyExists`), two with one role, or a `parentId` chain that
-///   loops (`invalidProperties`);
+///   (`alreadyExists`), two with one role, or a `parentId` that names no
+///   Mailbox or whose chain loops (`invalidProperties`);
 /// - SieveScript (RFC 9661 §2): two scripts with one name
 ///   (`alreadyExists`), more than one active script
 ///   (`invalidProperties`), or more scripts than the per-account cap
@@ -4083,7 +4083,9 @@ fn mailbox_failures(before: Option<&Objects>, after: &Objects) -> Vec<DeferredFa
                 && others().any(|(_, o)| str_prop(o, "role") == Some(role))
             {
                 invalid_properties("role")
-            } else if parent_chain_loops(after, id) {
+            } else if parent.is_some_and(|p| !after.contains_key(p))
+                || parent_chain_loops(after, id)
+            {
                 invalid_properties("parentId")
             } else {
                 return None;

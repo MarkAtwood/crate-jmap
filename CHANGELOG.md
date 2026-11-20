@@ -2054,6 +2054,15 @@ wire behaviour that a conforming peer can observe.
   draft-atwood-jmap-chat-filenode-00; a Space root is any Directory with
   `spaceId`.
 
+### Fixed
+
+- jmap-mail-server: `Mailbox/set` refuses a `parentId` that names no
+  Mailbox with `invalidProperties` naming `parentId` (RFC 8621 §2), on
+  create and update, and under `atomic` at commit in the memory
+  backend's final-state check. A parent created earlier in the same call
+  still counts. Before this, the owner's create or move under a missing
+  parent was accepted (bd JMAP-madz).
+
 ## [0.5.0] - 2026-11-02
 
 ### Added

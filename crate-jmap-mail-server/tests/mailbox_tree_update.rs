@@ -56,6 +56,7 @@ async fn update(d: &Dispatcher<()>, update: Value) -> Value {
     resp["methodResponses"][0][1].clone()
 }
 
+/// `invalidProperties` naming `parentId`: a loop, or a parent that is not there.
 fn loop_error() -> Value {
     json!({"type": "invalidProperties", "properties": ["parentId"]})
 }
@@ -118,4 +119,35 @@ async fn harmless_renames_and_moves_pass() {
     )
     .await;
     assert!(r["notUpdated"].is_null(), "{r}");
+}
+
+async fn create(d: &Dispatcher<()>, create: Value) -> Value {
+    let req: JmapRequest = serde_json::from_value(json!({
+        "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+        "methodCalls": [["Mailbox/set", {"accountId": "u1", "create": create}, "0"]]
+    }))
+    .unwrap();
+    let resp = serde_json::to_value(d.dispatch(req, (), State::from("s")).await).unwrap();
+    resp["methodResponses"][0][1].clone()
+}
+
+/// RFC 8621 §2 (bd JMAP-madz): `parentId` names a Mailbox. A move or a
+/// create under one that does not exist is `invalidProperties` naming
+/// `parentId`; a parent created earlier in the call counts.
+#[tokio::test]
+async fn a_missing_parent_is_invalid_properties() {
+    let d = dispatcher();
+    assert_eq!(
+        update(&d, json!({"a1": {"parentId": "nope"}})).await["notUpdated"]["a1"],
+        loop_error()
+    );
+    let r = create(&d, json!({"c": {"name": "Orphan", "parentId": "nope"}})).await;
+    assert_eq!(r["notCreated"]["c"], loop_error(), "{r}");
+    let r = create(
+        &d,
+        json!({"kid": {"name": "Kid", "parentId": "#top"}, "top": {"name": "Top"}}),
+    )
+    .await;
+    assert!(r["notCreated"].is_null(), "{r}");
+    assert_eq!(r["created"].as_object().map(|m| m.len()), Some(2), "{r}");
 }

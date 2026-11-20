@@ -406,3 +406,45 @@ async fn atomic_sieve_name_handover() {
     names.sort_unstable();
     assert_eq!(names, ["main", "main-old"]);
 }
+
+/// RFC 8621 §2 (bd JMAP-madz): under `atomic` the create path skips its
+/// parent check, so the final state must catch a `parentId` naming no
+/// Mailbox, while a parent created by the same call still counts.
+#[tokio::test]
+async fn atomic_missing_parent_is_an_atomic_failure() {
+    let b = backend();
+    let d = dispatcher(&b);
+    let (name, r) = call(
+        &d,
+        json!(["Mailbox/set", {
+            "accountId": "u1",
+            "atomic": true,
+            "create": {"c1": {"name": "Orphan", "parentId": "nope"}}
+        }, "0"]),
+    )
+    .await;
+    assert_eq!(
+        (name.as_str(), r),
+        (
+            "error",
+            json!({"type": "atomicFailure", "notCreated": {
+                "c1": {"type": "invalidProperties", "properties": ["parentId"]}
+            }})
+        )
+    );
+
+    let (name, r) = call(
+        &d,
+        json!(["Mailbox/set", {
+            "accountId": "u1",
+            "atomic": true,
+            "create": {
+                "child": {"name": "Child", "parentId": "#top"},
+                "top": {"name": "Top"}
+            }
+        }, "0"]),
+    )
+    .await;
+    assert_eq!(name, "Mailbox/set", "{r:?}");
+    assert_eq!(r["created"].as_object().map(|m| m.len()), Some(2), "{r:?}");
+}
