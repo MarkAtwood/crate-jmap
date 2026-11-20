@@ -89,3 +89,20 @@ again, as before.
 Each new sub-function is at most 100 lines. One function is still longer:
 EmailSubmission's `create_one` (the former `process_create`) has 141 lines. It was 196 before
 `derive_envelope` and `check_envelope` were split out of it.
+
+## 5. In jmap-tasks-server
+
+| Handler | Before (lines) | After (orchestrator) |
+|---|---|---|
+| `handle_task_list_set` | 341 | 54 |
+| `handle_task_set` | 288 | 51 |
+| `handle_task_notification_set` | 130 | 53 |
+
+Where it differs from the template:
+
+- TaskNotification/set refuses every create and update with `forbidden`, so its `set_create` and
+  `set_update` take only `args` and `acc`, cannot fail and return nothing. It never had a
+  `resolve_set_id_refs` step (nothing can be created), and still has none.
+- TaskList/set checks and parses each create object in `task_list_from_create`, which returns the
+  TaskList or the SetError value, as Identity's `identity_builder` does.
+- Task/set's per-user routing test is `patch_is_per_user_only`.

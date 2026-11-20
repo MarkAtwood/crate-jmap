@@ -163,114 +163,50 @@ pub async fn handle_task_list_set<B: TasksBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        using,
+        on_destroy_remove_tasks,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, TaskList>(backend, caller, &account_id, old_state, mutated, acc)
+        .await
+}
+
+/// What every `TaskList/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: TasksBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+    /// The draft-tasks-06 §3.7 `onDestroyRemoveTasks` argument.
+    on_destroy_remove_tasks: bool,
+}
+
+/// The `create` part of `TaskList/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: TasksBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
-            if let Some(err) = obj_val.as_object().and_then(reject_server_set::<TaskList>) {
-                not_created.insert(create_id, serde_json::Value::from(&err));
-                continue;
-            }
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // draft-ietf-jmap-tasks-06 §3 `shareWith`: Id[TaskRights], keyed
-            // by Principal id.
-            if let Some(Err(err)) = obj_val
-                .as_object()
-                .map(|o| check_map_key_ids(o, "shareWith"))
-            {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
-                continue;
-            }
-            // `TaskList.id` is required, so the parse fills it with
-            // `jmap_server::CREATE_ID_PLACEHOLDER`; `build`
-            // overwrites it with the id the backend mints.
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
-                    // RFC 8620 §5.3: the server fills omitted properties that
-                    // have a default. draft-ietf-jmap-tasks-06 §3:
-                    // `isSubscribed` SHOULD default to true for any new task
-                    // list created by the user themselves.
-                    m.entry("isSubscribed").or_insert(Value::Bool(true));
-                    // `myRights` is server-set (draft-ietf-jmap-tasks-06 §3)
-                    // and TaskList requires it, so the server supplies it.
-                    //
-                    // ponytail: the creator holds every right, as the owner of
-                    // a task list in their own account; a backend with finer
-                    // sharing may replace `myRights` in `create_object`.
-                    m.insert(
-                        "myRights".to_owned(),
-                        json!({
-                            "mayReadItems": true,
-                            "mayWriteAll": true,
-                            "mayWriteOwn": true,
-                            "mayUpdatePrivate": true,
-                            "mayRSVP": true,
-                            "mayAdmin": true,
-                            "mayDelete": true,
-                        }),
-                    );
-                    Value::Object(m)
-                }
-                other => other,
-            };
-
-            // RFC 8620 §5.3: a create entry that is not an object has no
-            // properties to name, so report it without a `properties` list.
-            if !obj_with_id.is_object() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "description": "a create entry must be an object",
-                    }),
-                );
-                continue;
-            }
-
-            // draft-ietf-jmap-tasks-06 §3: `name` is required. serde reports a missing
-            // field at the root, not on a property path, so name it here
-            // (RFC 8620 §5.3 invalidProperties).
-            if obj_with_id.get("name").is_none() {
-                not_created.insert(
-                    create_id,
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["name"],
-                        "description": "name is required on create",
-                    }),
-                );
-                continue;
-            }
-
-            let mut task_list: TaskList = match serde_path_to_error::deserialize(obj_with_id) {
-                Ok(tl) => tl,
-                Err(e) => {
-                    // RFC 8620 §5.3: invalidProperties SHOULD list the
-                    // invalid properties; the first path segment is the
-                    // top-level property whose value failed to parse.
-                    let mut err =
-                        json!({ "type": "invalidProperties", "description": e.to_string() });
-                    if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next()
-                    {
-                        err["properties"] = json!([key]);
-                    }
-                    not_created.insert(create_id, err);
+            let mut task_list = match task_list_from_create(obj_val, ctx.using) {
+                Ok(task_list) => task_list,
+                Err(err) => {
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -279,32 +215,128 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                 task_list.id = id.clone();
                 task_list
             };
-            match backend
-                .create_object::<TaskList, _>(caller, &account_id, &create_id, build)
+            match ctx
+                .backend
+                .create_object::<TaskList, _>(ctx.caller, ctx.account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
+                    acc.created
+                        .insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, &std::collections::BTreeMap::new(), &created);
+/// Check one `TaskList/set` create object, fill in the server-set and
+/// defaulted properties, and parse it, or return the SetError value for
+/// `notCreated`.
+fn task_list_from_create(obj_val: Value, using: &[String]) -> Result<TaskList, Value> {
+    if let Some(err) = obj_val.as_object().and_then(reject_server_set::<TaskList>) {
+        return Err(serde_json::Value::from(&err));
+    }
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_metadata_entry(o, true, using))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // draft-ietf-jmap-tasks-06 §3 `shareWith`: Id[TaskRights], keyed
+    // by Principal id.
+    if let Some(Err(err)) = obj_val
+        .as_object()
+        .map(|o| check_map_key_ids(o, "shareWith"))
+    {
+        return Err(serde_json::Value::from(&*err));
+    }
+    // `TaskList.id` is required, so the parse fills it with
+    // `jmap_server::CREATE_ID_PLACEHOLDER`; `build`
+    // overwrites it with the id the backend mints.
+    let obj_with_id = match obj_val {
+        Value::Object(mut m) => {
+            m.insert("id".to_owned(), jmap_server::CREATE_ID_PLACEHOLDER.into());
+            // RFC 8620 §5.3: the server fills omitted properties that
+            // have a default. draft-ietf-jmap-tasks-06 §3:
+            // `isSubscribed` SHOULD default to true for any new task
+            // list created by the user themselves.
+            m.entry("isSubscribed").or_insert(Value::Bool(true));
+            // `myRights` is server-set (draft-ietf-jmap-tasks-06 §3)
+            // and TaskList requires it, so the server supplies it.
+            //
+            // ponytail: the creator holds every right, as the owner of
+            // a task list in their own account; a backend with finer
+            // sharing may replace `myRights` in `create_object`.
+            m.insert(
+                "myRights".to_owned(),
+                json!({
+                    "mayReadItems": true,
+                    "mayWriteAll": true,
+                    "mayWriteOwn": true,
+                    "mayUpdatePrivate": true,
+                    "mayRSVP": true,
+                    "mayAdmin": true,
+                    "mayDelete": true,
+                }),
+            );
+            Value::Object(m)
+        }
+        other => other,
+    };
+
+    // RFC 8620 §5.3: a create entry that is not an object has no
+    // properties to name, so report it without a `properties` list.
+    if !obj_with_id.is_object() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "description": "a create entry must be an object",
+        }));
+    }
+
+    // draft-ietf-jmap-tasks-06 §3: `name` is required. serde reports a missing
+    // field at the root, not on a property path, so name it here
+    // (RFC 8620 §5.3 invalidProperties).
+    if obj_with_id.get("name").is_none() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": ["name"],
+            "description": "name is required on create",
+        }));
+    }
+
+    serde_path_to_error::deserialize(obj_with_id).map_err(|e| {
+        // RFC 8620 §5.3: invalidProperties SHOULD list the
+        // invalid properties; the first path segment is the
+        // top-level property whose value failed to parse.
+        let mut err = json!({ "type": "invalidProperties", "description": e.to_string() });
+        if let Some(serde_path_to_error::Segment::Map { key }) = e.path().iter().next() {
+            err["properties"] = json!([key]);
+        }
+        err
+    })
+}
+
+/// The `update` part of `TaskList/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: TasksBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_updated
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -315,7 +347,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
-                    not_updated.insert(
+                    acc.not_updated.insert(
                         id_str,
                         json!({ "type": "invalidPatch", "description": e.to_string() }),
                     );
@@ -325,9 +357,9 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             // draft-ietf-jmap-tasks-06 §3: `id` and `myRights` are server-set. A changed value is rejected, an identical
             // one dropped (RFC 8620 §5.3); nothing left is a no-op success.
             match check_read_only_patch::<_, TaskList>(
-                backend,
-                caller,
-                &account_id,
+                ctx.backend,
+                ctx.caller,
+                ctx.account_id,
                 &id,
                 patch.as_map_mut(),
             )
@@ -335,45 +367,61 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             {
                 Ok(false) => {}
                 Ok(true) => {
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                     continue;
                 }
                 Err(err) => {
-                    not_updated.insert(id_str, err);
+                    acc.not_updated.insert(id_str, err);
                     continue;
                 }
             }
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
+            if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using) {
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
             if let Err(err) = check_map_key_ids(patch.as_map(), "shareWith") {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
+                acc.not_updated
+                    .insert(id_str, serde_json::Value::from(&*err));
                 continue;
             }
 
-            match backend
-                .update_object::<TaskList>(caller, &account_id, &id, patch)
+            match ctx
+                .backend
+                .update_object::<TaskList>(ctx.caller, ctx.account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
+                    acc.updated
+                        .insert(id_str, jmap_server::serialize_value(&obj)?);
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str, Value::Null);
+                    acc.updated.insert(id_str, Value::Null);
                 }
                 Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
+                    acc.not_updated.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+/// The `destroy` part of `TaskList/set`, with the draft-tasks-06 §3.7
+/// `onDestroyRemoveTasks` check or cascade. Returns whether the backend
+/// was written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+async fn set_destroy<B: TasksBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Two-pass validation is intentional: this up-front loop fails the whole
@@ -399,7 +447,8 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
@@ -408,17 +457,23 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             // The three-way result distinguishes 'definitely empty',
             // 'definitely has tasks', and 'transient backend failure'
             // (analogous to bd:JMAP-ic0j.4 for calendars).
-            if !on_destroy_remove_tasks {
-                match backend.task_list_has_tasks(caller, &account_id, &id).await {
+            if !ctx.on_destroy_remove_tasks {
+                match ctx
+                    .backend
+                    .task_list_has_tasks(ctx.caller, ctx.account_id, &id)
+                    .await
+                {
                     Ok(true) => {
-                        not_destroyed.insert(id_str, json!({ "type": "taskListHasTask" }));
+                        acc.not_destroyed
+                            .insert(id_str, json!({ "type": "taskListHasTask" }));
                         continue;
                     }
                     Ok(false) => {
                         // proceed to destroy below
                     }
                     Err(e) => {
-                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
+                        acc.not_destroyed
+                            .insert(id_str, server_fail_value_from_backend(&e));
                         continue;
                     }
                 }
@@ -428,44 +483,30 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             // TaskList will be removed from it, and they will be destroyed."
             // A failed cascade leaves the list in place rather than
             // orphaning the Tasks that remain.
-            if on_destroy_remove_tasks
-                && let Err(value) = destroy_task_list_tasks(backend, caller, &account_id, &id).await
+            if ctx.on_destroy_remove_tasks
+                && let Err(value) =
+                    destroy_task_list_tasks(ctx.backend, ctx.caller, ctx.account_id, &id).await
             {
-                not_destroyed.insert(id_str, value);
+                acc.not_destroyed.insert(id_str, value);
                 continue;
             }
 
-            match backend
-                .destroy_object::<TaskList>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<TaskList>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, TaskList>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 /// Destroy every Task whose `taskListId` is `task_list_id`

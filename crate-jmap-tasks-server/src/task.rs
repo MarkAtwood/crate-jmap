@@ -289,32 +289,61 @@ pub async fn handle_task_set<B: TasksBackend>(
         return Err(JmapError::state_mismatch());
     }
 
-    let mut created = serde_json::Map::new();
-    let mut not_created = serde_json::Map::new();
-    let mut updated = serde_json::Map::new();
-    let mut not_updated = serde_json::Map::new();
-    let mut destroyed_list: Vec<Value> = Vec::new();
-    let mut not_destroyed = serde_json::Map::new();
-    let mut mutated = false;
+    let ctx = SetCtx {
+        backend,
+        caller,
+        account_id: &account_id,
+        created_ids,
+        using,
+    };
+    let mut acc = SetAccumulators::default();
+    let mut mutated = set_create(&ctx, &mut args, &mut acc).await?;
+    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
+    jmap_server::resolve_set_id_refs(&mut args, created_ids, &acc.created);
+    mutated |= set_update(&ctx, &mut args, &mut acc).await?;
+    mutated |= set_destroy(&ctx, &mut args, &mut acc).await?;
 
-    // -----------------------------------------------------------------------
-    // create
-    // -----------------------------------------------------------------------
+    finalize_set_response::<B, Task>(backend, caller, &account_id, old_state, mutated, acc).await
+}
+
+/// What every `Task/set` sub-function needs from the request
+/// (docs/design/set-handler-split.md).
+struct SetCtx<'a, B: TasksBackend> {
+    backend: &'a B,
+    caller: &'a B::CallerCtx,
+    account_id: &'a Id,
+    /// The request-wide `#creationId` map (RFC 8620 §5.3).
+    created_ids: &'a BTreeMap<Id, Id>,
+    /// The request's `using` capabilities.
+    using: &'a [String],
+}
+
+/// The `create` part of `Task/set`. Returns whether the backend was
+/// written.
+async fn set_create<B: TasksBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, mut obj_val) in create_map {
             if let Some(err) = obj_val.as_object().and_then(reject_server_set::<Task>) {
-                not_created.insert(create_id, serde_json::Value::from(&err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&err));
                 continue;
             }
             if let Some(Err(err)) = obj_val
                 .as_object()
-                .map(|o| check_metadata_entry(o, true, using))
+                .map(|o| check_metadata_entry(o, true, ctx.using))
             {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
-            if let Err(err) = resolve_refs(&mut obj_val, TASK_ID_PROPERTIES, created_ids) {
-                not_created.insert(create_id, serde_json::Value::from(&*err));
+            if let Err(err) = resolve_refs(&mut obj_val, TASK_ID_PROPERTIES, ctx.created_ids) {
+                acc.not_created
+                    .insert(create_id, serde_json::Value::from(&*err));
                 continue;
             }
             if let Some(prop) = obj_val
@@ -322,7 +351,7 @@ pub async fn handle_task_set<B: TasksBackend>(
                 .and_then(|o| o.iter().find(|(_, v)| has_bad_person_uri(v)))
                 .map(|(k, _)| k.clone())
             {
-                not_created.insert(create_id, person_uri_error(&prop));
+                acc.not_created.insert(create_id, person_uri_error(&prop));
                 continue;
             }
             // `Task.id` is optional, so the create parses without one and
@@ -339,7 +368,7 @@ pub async fn handle_task_set<B: TasksBackend>(
                     {
                         err["properties"] = json!([key]);
                     }
-                    not_created.insert(create_id, err);
+                    acc.not_created.insert(create_id, err);
                     continue;
                 }
             };
@@ -348,138 +377,178 @@ pub async fn handle_task_set<B: TasksBackend>(
                 task.id = Some(id.clone());
                 task
             };
-            match backend
-                .create_object::<Task, _>(caller, &account_id, &create_id, build)
+            match ctx
+                .backend
+                .create_object::<Task, _>(ctx.caller, ctx.account_id, &create_id, build)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(create_id, jmap_server::serialize_value(&created_obj)?);
+                    acc.created
+                        .insert(create_id, jmap_server::serialize_value(&created_obj)?);
                 }
                 Err(e) => {
-                    not_created.insert(create_id, backend_set_error_value(e));
+                    acc.not_created
+                        .insert(create_id, backend_set_error_value(e));
                 }
             }
         }
     }
+    Ok(mutated)
+}
 
-    // -----------------------------------------------------------------------
-    // update
-    // -----------------------------------------------------------------------
-    // RFC 8620 §5.3: update keys and destroy ids may name this call's creates.
-    jmap_server::resolve_set_id_refs(&mut args, created_ids, &created);
+/// The `update` part of `Task/set`. Returns whether the backend was
+/// written.
+async fn set_update<B: TasksBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, mut patch_val) in update_map {
-            // isDraft immutability (draft-tasks-06 §4 isDraft paragraph) is
-            // enforced by the backend in update_object, atomically with the
-            // write (TasksBackend::update_object, bd:JMAP-h47t.29).
-            let id = match jmap_server::parse_wire_id(&id_str, "id") {
-                Ok(id) => id,
-                Err(err) => {
-                    not_updated.insert(id_str, serde_json::Value::from(&*err));
-                    continue;
-                }
-            };
+        for (id_str, patch_val) in update_map {
+            mutated |= update_one(ctx, id_str, patch_val, acc).await?;
+        }
+    }
+    Ok(mutated)
+}
 
-            if let Err(err) = resolve_refs(&mut patch_val, TASK_ID_PROPERTIES, created_ids) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-            if let Some(prop) = patch_val.as_object().and_then(bad_person_uri_in_patch) {
-                not_updated.insert(id_str, person_uri_error(&prop));
-                continue;
-            }
+/// One entry of the `Task/set` `update` map. Returns whether the backend
+/// was written.
+async fn update_one<B: TasksBackend>(
+    ctx: &SetCtx<'_, B>,
+    id_str: String,
+    mut patch_val: Value,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    // isDraft immutability (draft-tasks-06 §4 isDraft paragraph) is
+    // enforced by the backend in update_object, atomically with the
+    // write (TasksBackend::update_object, bd:JMAP-h47t.29).
+    let id = match jmap_server::parse_wire_id(&id_str, "id") {
+        Ok(id) => id,
+        Err(err) => {
+            acc.not_updated
+                .insert(id_str, serde_json::Value::from(&*err));
+            return Ok(false);
+        }
+    };
 
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
-            // draft-ietf-jmap-tasks-06 §4: `id`, `baseTaskId` and `isOrigin`
-            // are server-set. A changed value is rejected, an identical one
-            // dropped (RFC 8620 §5.3); nothing left is a no-op success.
-            match check_read_only_patch::<_, Task>(
-                backend,
-                caller,
-                &account_id,
-                &id,
-                patch.as_map_mut(),
-            )
-            .await
-            {
-                Ok(false) => {}
-                Ok(true) => {
-                    updated.insert(id_str, Value::Null);
-                    continue;
-                }
-                Err(err) => {
-                    not_updated.insert(id_str, err);
-                    continue;
-                }
-            }
+    if let Err(err) = resolve_refs(&mut patch_val, TASK_ID_PROPERTIES, ctx.created_ids) {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+    if let Some(prop) = patch_val.as_object().and_then(bad_person_uri_in_patch) {
+        acc.not_updated.insert(id_str, person_uri_error(&prop));
+        return Ok(false);
+    }
 
-            // Route to the per-user update path when every patch key targets
-            // a per-user Task property (draft-tasks-06 §4.5.1). Classified
-            // after the identical server-set values are dropped above, so
-            // they do not force a per-user change onto the shared path.
-            //
-            // PatchObject keys are RFC 6901 JSON Pointers (RFC 8620 §5.3), so a
-            // per-user keyword toggle is sent as `keywords/done`, not bare
-            // `keywords`. Classify on the FIRST pointer segment (the substring
-            // before the first '/'), not the whole key.
-            //
-            // A delete-shared-property patch like `{"title": null}` is a
-            // shared mutation and goes to `update_object`.
-            //
-            // Per-user property names (`keywords`, `color`, `freeBusyStatus`,
-            // `useDefaultAlerts`, `alerts`) contain no `/` or `~`, so a plain
-            // `split('/').next()` is correct without RFC 6901 unescaping.
-            let is_per_user_only = patch.as_map().keys().all(|k| {
-                let head = k.split('/').next().unwrap_or(k);
-                jmap_tasks_types::is_per_user_task_property(head)
-            });
-            if let Err(err) = check_metadata_entry(patch.as_map(), false, using) {
-                not_updated.insert(id_str, serde_json::Value::from(&*err));
-                continue;
-            }
-
-            let update_result = if is_per_user_only {
-                backend
-                    .update_task_per_user(caller, &account_id, &id, patch)
-                    .await
-            } else {
-                backend
-                    .update_object::<Task>(caller, &account_id, &id, patch)
-                    .await
-            };
-
-            match update_result {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(id_str, jmap_server::serialize_value(&obj)?);
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(e) => {
-                    not_updated.insert(id_str, backend_set_error_value(e));
-                }
-            }
+    // Convert wire-format Value into a typed PatchObject. RFC 8620
+    // §5.3 mandates a PatchObject is a JSON Object; non-object
+    // values produce an `invalidPatch` SetError.
+    let mut patch = match serde_json::from_value::<PatchObject>(patch_val) {
+        Ok(p) => p,
+        Err(e) => {
+            acc.not_updated.insert(
+                id_str,
+                json!({ "type": "invalidPatch", "description": e.to_string() }),
+            );
+            return Ok(false);
+        }
+    };
+    // draft-ietf-jmap-tasks-06 §4: `id`, `baseTaskId` and `isOrigin`
+    // are server-set. A changed value is rejected, an identical one
+    // dropped (RFC 8620 §5.3); nothing left is a no-op success.
+    match check_read_only_patch::<_, Task>(
+        ctx.backend,
+        ctx.caller,
+        ctx.account_id,
+        &id,
+        patch.as_map_mut(),
+    )
+    .await
+    {
+        Ok(false) => {}
+        Ok(true) => {
+            acc.updated.insert(id_str, Value::Null);
+            return Ok(false);
+        }
+        Err(err) => {
+            acc.not_updated.insert(id_str, err);
+            return Ok(false);
         }
     }
 
-    // -----------------------------------------------------------------------
-    // destroy
-    // -----------------------------------------------------------------------
+    // Classified after the identical server-set values are dropped above,
+    // so they do not force a per-user change onto the shared path.
+    let is_per_user_only = patch_is_per_user_only(&patch);
+    if let Err(err) = check_metadata_entry(patch.as_map(), false, ctx.using) {
+        acc.not_updated
+            .insert(id_str, serde_json::Value::from(&*err));
+        return Ok(false);
+    }
+
+    let update_result = if is_per_user_only {
+        ctx.backend
+            .update_task_per_user(ctx.caller, ctx.account_id, &id, patch)
+            .await
+    } else {
+        ctx.backend
+            .update_object::<Task>(ctx.caller, ctx.account_id, &id, patch)
+            .await
+    };
+
+    match update_result {
+        Ok(Some(obj)) => {
+            acc.updated
+                .insert(id_str, jmap_server::serialize_value(&obj)?);
+            Ok(true)
+        }
+        Ok(None) => {
+            acc.updated.insert(id_str, Value::Null);
+            Ok(true)
+        }
+        Err(e) => {
+            acc.not_updated.insert(id_str, backend_set_error_value(e));
+            Ok(false)
+        }
+    }
+}
+
+/// Whether every key of a `Task/set` patch targets a per-user Task
+/// property, so the update goes to the per-user path
+/// (draft-tasks-06 §4.5.1).
+///
+/// PatchObject keys are RFC 6901 JSON Pointers (RFC 8620 §5.3), so a
+/// per-user keyword toggle is sent as `keywords/done`, not bare
+/// `keywords`. Classify on the FIRST pointer segment (the substring
+/// before the first '/'), not the whole key.
+///
+/// A delete-shared-property patch like `{"title": null}` is a
+/// shared mutation and goes to `update_object`.
+///
+/// Per-user property names (`keywords`, `color`, `freeBusyStatus`,
+/// `useDefaultAlerts`, `alerts`) contain no `/` or `~`, so a plain
+/// `split('/').next()` is correct without RFC 6901 unescaping.
+fn patch_is_per_user_only(patch: &PatchObject) -> bool {
+    patch.as_map().keys().all(|k| {
+        let head = k.split('/').next().unwrap_or(k);
+        jmap_tasks_types::is_per_user_task_property(head)
+    })
+}
+
+/// The `destroy` part of `Task/set`. Returns whether the backend was
+/// written.
+///
+/// # Errors
+///
+/// `invalidArguments` when an element of `destroy` is not a string.
+async fn set_destroy<B: TasksBackend>(
+    ctx: &SetCtx<'_, B>,
+    args: &mut serde_json::Map<String, Value>,
+    acc: &mut SetAccumulators,
+) -> Result<bool, JmapError> {
+    let mut mutated = false;
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Two-pass validation is intentional: this up-front loop fails the whole
@@ -505,42 +574,28 @@ pub async fn handle_task_set<B: TasksBackend>(
             let id = match jmap_server::parse_wire_id(&id_str, "id") {
                 Ok(id) => id,
                 Err(err) => {
-                    not_destroyed.insert(id_str, serde_json::Value::from(&*err));
+                    acc.not_destroyed
+                        .insert(id_str, serde_json::Value::from(&*err));
                     continue;
                 }
             };
 
-            match backend
-                .destroy_object::<Task>(caller, &account_id, &id)
+            match ctx
+                .backend
+                .destroy_object::<Task>(ctx.caller, ctx.account_id, &id)
                 .await
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str));
+                    acc.destroyed.push(Value::String(id_str));
                 }
                 Err(e) => {
-                    not_destroyed.insert(id_str, backend_set_error_value(e));
+                    acc.not_destroyed.insert(id_str, backend_set_error_value(e));
                 }
             }
         }
     }
-
-    finalize_set_response::<B, Task>(
-        backend,
-        caller,
-        &account_id,
-        old_state,
-        mutated,
-        SetAccumulators {
-            created,
-            updated,
-            destroyed: destroyed_list,
-            not_created,
-            not_updated,
-            not_destroyed,
-        },
-    )
-    .await
+    Ok(mutated)
 }
 
 // ---------------------------------------------------------------------------
