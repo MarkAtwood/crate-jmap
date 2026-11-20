@@ -314,6 +314,24 @@ pub(crate) const USING_CHAT_FILENODE: &[&str] = &[
 /// `using` for calls that need only the core capability (`Core/echo`).
 pub(crate) const USING_CORE: &[&str] = &["urn:ietf:params:jmap:core"];
 
+/// `base` plus `urn:ietf:params:jmap:search` when the `filter` in `args`
+/// sets a JMAP Search `where` anywhere (crate-jmap docs/specs/jmap-search.md
+/// §Opting In a Data Type: `where` is accepted "only in requests whose
+/// `using` includes `urn:ietf:params:jmap:search`").
+pub(crate) fn using_with_search(
+    base: &[&'static str],
+    args: &serde_json::Value,
+) -> Vec<&'static str> {
+    let mut using = base.to_vec();
+    if args
+        .get("filter")
+        .is_some_and(jmap_search::filter_uses_where)
+    {
+        using.push(jmap_search::JMAP_SEARCH_URI);
+    }
+    using
+}
+
 // ---------------------------------------------------------------------------
 // build_request helper
 // ---------------------------------------------------------------------------

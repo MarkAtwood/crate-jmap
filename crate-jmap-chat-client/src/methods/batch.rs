@@ -64,6 +64,9 @@ use super::{GetResponse, QueryResponse};
 pub struct Batch {
     account_id: String,
     calls: Vec<Invocation>,
+    /// A call's filter sets a JMAP Search `where`, so `using` carries
+    /// `urn:ietf:params:jmap:search`.
+    search: bool,
 }
 
 /// Reference to one call in a [`Batch`]; `T` is that call's response type.
@@ -166,6 +169,9 @@ impl Batch {
         jmap_base_client::ClientError,
     > {
         let args = super::message::message_query_args(&self.account_id, filter, sort, params)?;
+        self.search |= args
+            .get("filter")
+            .is_some_and(jmap_search::filter_uses_where);
         Ok(self.query_get("Message/query", args, "Message/get", properties))
     }
 
@@ -208,6 +214,7 @@ impl super::SessionClient {
         Ok(Batch {
             account_id: self.chat_account_id()?.to_string(),
             calls: Vec::new(),
+            search: false,
         })
     }
 
@@ -226,7 +233,10 @@ impl super::SessionClient {
         &self,
         batch: Batch,
     ) -> Result<BatchResponse, jmap_base_client::ClientError> {
-        let using = super::USING_CHAT.iter().map(|&s| s.to_owned()).collect();
+        let mut using: Vec<String> = super::USING_CHAT.iter().map(|&s| s.to_owned()).collect();
+        if batch.search {
+            using.push(jmap_search::JMAP_SEARCH_URI.to_owned());
+        }
         let req = JmapRequest::new(using, batch.calls, None);
         let response = self.call_internal(self.api_url(), &req).await?;
         Ok(BatchResponse { response })

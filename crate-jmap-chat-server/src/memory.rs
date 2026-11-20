@@ -232,6 +232,9 @@ struct Inner {
     /// DataTypeMetadataInfo set by [`MemoryBackend::with_metadata_info`].
     /// A type without an entry does not have the metadata properties.
     metadata_info: HashMap<&'static str, DataTypeMetadataInfo>,
+    /// The `urn:ietf:params:jmap:search` capability of every account, set
+    /// by [`MemoryBackend::with_search_capability`].
+    search: Option<jmap_search::SearchCapability>,
     /// Object history, once `MemoryBackend::with_object_history` turns it
     /// on.
     history: Option<jmap_object_history_server::HistoryStore>,
@@ -503,6 +506,27 @@ impl MemoryBackend {
             .lock_unscoped()
             .metadata_info
             .insert(type_name, info);
+        self
+    }
+
+    /// Advertise JMAP Search (`urn:ietf:params:jmap:search`, crate-jmap
+    /// docs/specs/jmap-search.md) with `capability` for every account:
+    /// [`ChatSettings::search_capability`] returns it.
+    ///
+    /// When `capability` lists `"Message"` in `dataTypes`, `Message/query`
+    /// evaluates `where` over the account's Messages in Chats the owner
+    /// may view, each as its stored representation without `editHistory`
+    /// unless edit history is retained (as `Message/get` returns it), and
+    /// `$text` as a case-insensitive substring of `body`
+    /// (`i;unicode-casemap`). Advertising the capability in the session is
+    /// the server's job.
+    ///
+    /// ponytail: the computed `replyCount` and `unreadReplyCount`, which
+    /// `Message/get` fills in, are not stored, so a pointer to them is
+    /// missing. Upgrade path: compute them into the candidate.
+    #[must_use]
+    pub fn with_search_capability(self, capability: jmap_search::SearchCapability) -> Self {
+        self.inner.lock_unscoped().search = Some(capability);
         self
     }
 
@@ -1354,6 +1378,7 @@ impl JmapReads for MemoryBackend {
         let sort_val: Option<serde_json::Value> = sort.and_then(|s| serde_json::to_value(s).ok());
         if let Some(fv) = &filter_val {
             check_metadata_filter(fv, inner.metadata_info.get(O::TYPE_NAME))?;
+            check_where(fv, O::TYPE_NAME, inner.search.as_ref())?;
         }
 
         let mut ids: Vec<Id> = inner
@@ -2485,6 +2510,17 @@ impl ChatSettings for MemoryBackend {
     ) -> Result<Option<String>, Self::Error> {
         let inner = self.inner.lock().await;
         Ok(inner.owner_user_ids.get(account_id.as_ref()).cloned())
+    }
+
+    /// Reference implementation of [`ChatSettings::search_capability`]:
+    /// the capability set by [`MemoryBackend::with_search_capability`], for
+    /// every account.
+    async fn search_capability(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+    ) -> Result<Option<jmap_search::SearchCapability>, Self::Error> {
+        Ok(self.inner.lock().await.search.clone())
     }
 }
 
@@ -5875,7 +5911,9 @@ fn condition_matches(
         "Chat" => eq("kind") && flag_eq("muted") && metadata_leaf_matches(obj, cond),
         "ChatContact" => flag_eq("blocked") && eq("presence") && eq("identity"),
         "Message" => {
-            message_matches_filter(inner, obj, cond, account_id) && metadata_leaf_matches(obj, cond)
+            message_matches_filter(inner, obj, cond, account_id)
+                && metadata_leaf_matches(obj, cond)
+                && message_where_matches(inner, obj, cond)
         }
         "Space" => {
             flag_eq("isPublic")
@@ -5962,6 +6000,67 @@ fn message_matches_filter(
     }
 
     true
+}
+
+/// Every JMAP Search `where` in the `type_name` filter `filter` checked
+/// against `search`, the backend's capability (crate-jmap
+/// docs/specs/jmap-search.md §Errors), so a direct `query_objects` call
+/// cannot evaluate an expression the handlers would refuse.
+/// `unsupportedFilter` without the capability, and for a type that is not
+/// listed in it.
+fn check_where(
+    filter: &serde_json::Value,
+    type_name: &str,
+    search: Option<&jmap_search::SearchCapability>,
+) -> Result<(), BackendQueryError<MemoryError>> {
+    for w in jmap_search::where_values(filter) {
+        let Some(cap) = search else {
+            return Err(BackendQueryError::Method(
+                jmap_types::JmapError::unsupported_filter(),
+            ));
+        };
+        jmap_search::check_where(w, type_name, cap).map_err(BackendQueryError::Method)?;
+    }
+    Ok(())
+}
+
+/// Whether the stored Message `obj` passes the JMAP Search `where` of the
+/// FilterCondition `cond` (crate-jmap docs/specs/jmap-search.md); a
+/// condition without `where` passes, and one that does not parse (which
+/// the handler and [`check_where`] refuse first) fails.
+///
+/// The candidate is `obj` without `editHistory` unless edit history is
+/// retained, as `Message/get` returns it; `$text` is a case-insensitive
+/// (`i;unicode-casemap`) substring of `body`.
+fn message_where_matches(inner: &Inner, obj: &serde_json::Value, cond: &serde_json::Value) -> bool {
+    struct MessageCandidate(serde_json::Value);
+    impl jmap_search::Candidate for MessageCandidate {
+        fn field(&self, pointer: &str) -> Option<&serde_json::Value> {
+            self.0.pointer(pointer)
+        }
+        fn matches_text(&self, text: &str) -> bool {
+            let casemap = Some("i;unicode-casemap");
+            self.0
+                .get("body")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|b| {
+                    jmap_search::collate(b, casemap).contains(&*jmap_search::collate(text, casemap))
+                })
+        }
+    }
+    let Some(w) = cond.get("where").filter(|w| !w.is_null()) else {
+        return true;
+    };
+    let Ok(expr) = jmap_search::Expression::parse(w) else {
+        return false;
+    };
+    let mut json = obj.clone();
+    if !inner.retains_edit_history
+        && let Some(m) = json.as_object_mut()
+    {
+        m.remove("editHistory");
+    }
+    expr.matches(&MessageCandidate(json))
 }
 
 /// Return every Message id whose `chatId` field equals `chat_id`.

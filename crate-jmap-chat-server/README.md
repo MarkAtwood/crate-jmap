@@ -96,7 +96,7 @@ empty `impl ChatX for MyBackend {}` keeps every default of that trait.
 | `ChatModeration` (needs `ChatStore`) | `create_chat_ban`, `update_chat_ban`, `destroy_chat_ban`, `kick_chat_members` |
 | `ChatMessageLifecycle` | `expire_message`, `read_and_burn_message` |
 | `ChatEvents` | `on_chat_destroyed`, `on_space_destroyed`, `on_space_ban_created`, `on_outbound_event` |
-| `ChatSettings` | `limits`, `retains_edit_history`, `maintains_unread_count`, `owner_user_id` |
+| `ChatSettings` | `limits`, `retains_edit_history`, `maintains_unread_count`, `owner_user_id`, `search_capability` (JMAP Search `where` on `Message/query`, `jmap-search`) |
 | `ChatResolvers` | `attachment_blob`, `filenode_attachment` |
 
 The rustdoc of each method states its contract, its default and who

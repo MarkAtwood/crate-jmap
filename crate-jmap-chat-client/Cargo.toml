@@ -17,6 +17,9 @@ jmap-chat-types = { workspace = true }
 jmap-blob-client = { workspace = true }
 jmap-blob-types = { workspace = true }
 jmap-base-client = { workspace = true }
+# urn:ietf:params:jmap:search: the URI and filter_uses_where, to add the
+# capability to `using` when a Message filter sets `where`.
+jmap-search = { workspace = true }
 ulid = "1"
 serde = { workspace = true }
 serde_json = { workspace = true }

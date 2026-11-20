@@ -319,7 +319,13 @@ pub async fn handle_message_changes<B: ChatBackend>(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
 /// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
-/// filter condition is `unsupportedFilter` (-05 §3).
+/// filter condition is `unsupportedFilter` (-05 §3). A JMAP Search
+/// `where` (crate-jmap docs/specs/jmap-search.md) needs
+/// `urn:ietf:params:jmap:search` in `using` and `"Message"` in
+/// [`ChatSettings::search_capability`], else `unsupportedFilter`; it is
+/// checked with [`jmap_search::check_where_filter`] and makes
+/// `canCalculateChanges` `false`. It does not lift the `chatId` /
+/// `hasMention: true` rule.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_query<B: ChatBackend>(
@@ -343,6 +349,9 @@ pub async fn handle_message_query<B: ChatBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    let searched =
+        check_message_search(backend, caller, &account_id, args.get("filter"), using).await?;
 
     let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
@@ -424,7 +433,7 @@ pub async fn handle_message_query<B: ChatBackend>(
     let mut resp = json!({
         "accountId": account_id.as_ref(),
         "queryState": result.query_state.as_ref(),
-        "canCalculateChanges": result.can_calculate_changes,
+        "canCalculateChanges": result.can_calculate_changes && !searched,
         "position": position,
         "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
@@ -433,6 +442,33 @@ pub async fn handle_message_query<B: ChatBackend>(
     }
 
     Ok(HandlerOutput::new(resp))
+}
+
+/// Check the JMAP Search `where` of the undecoded Message `filter`
+/// against `using` and [`ChatSettings::search_capability`], and return
+/// whether there was one (crate-jmap docs/specs/jmap-search.md §Errors,
+/// §Opting In a Data Type). The capability is read only for a filter with
+/// `where`.
+///
+/// # Errors
+///
+/// As [`jmap_search::check_where_filter`] for the `"Message"` data type,
+/// and `serverFail` when the backend fails.
+async fn check_message_search<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    filter: Option<&Value>,
+    using: &[String],
+) -> Result<bool, JmapError> {
+    if !filter.is_some_and(jmap_search::filter_uses_where) {
+        return Ok(false);
+    }
+    let cap = backend
+        .search_capability(caller, account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+    jmap_search::check_where_filter(filter, "Message", using, cap.as_ref())
 }
 
 /// Apply the draft-atwood-jmap-chat-00 §Message/query `unsupportedFilter`
@@ -491,7 +527,9 @@ fn check_message_filter(
 /// `using` is the request's capability list (pass
 /// [`jmap_server::CallContext::using`]); without
 /// `urn:ietf:params:jmap:metadata` a draft-ietf-jmap-metadata-05 §3.6
-/// filter condition is `unsupportedFilter` (-05 §3).
+/// filter condition is `unsupportedFilter` (-05 §3). A filter with a
+/// JMAP Search `where` is checked as for [`handle_message_query`] and then
+/// answered with `cannotCalculateChanges` (jmap-search §Query Changes).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_message_query_changes<B: ChatBackend>(
@@ -540,6 +578,12 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
         let filter: Option<MessageFilter> = filter_arg(&mut probe)?;
         let supports_threads = backend.limits(caller, account_id).supports_threads;
         check_message_filter(filter.as_ref(), supports_threads)?;
+        // jmap-search §Query Changes: "Servers MAY return
+        // `cannotCalculateChanges` for any `/queryChanges` call whose
+        // filter uses `where`".
+        if check_message_search(backend, caller, account_id, args.get("filter"), using).await? {
+            return Err(JmapError::cannot_calculate_changes());
+        }
     }
 
     // §Message/query (jmap-chat-spec 77c3474 L1301): "messages in channels

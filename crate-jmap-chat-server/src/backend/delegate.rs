@@ -541,6 +541,16 @@ impl<T: DelegateChatSettings> ChatSettings for T {
     ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
         self.chat_settings().owner_user_id(_caller, _account_id)
     }
+
+    fn search_capability(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_search::SearchCapability>, Self::Error>,
+    > + Send {
+        self.chat_settings().search_capability(_caller, _account_id)
+    }
 }
 
 /// Forward every [`ChatResolvers`] method to [`chat_resolvers`](Self::chat_resolvers)'s target.

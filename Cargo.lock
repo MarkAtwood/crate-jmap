@@ -2041,6 +2041,7 @@ dependencies = [
  "jmap-object-history-server",
  "jmap-object-history-types",
  "jmap-peer-auth",
+ "jmap-search",
  "jmap-server",
  "jmap-types",
  "serde",

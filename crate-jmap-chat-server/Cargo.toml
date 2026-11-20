@@ -22,6 +22,7 @@ exclude = ["AGENTS.md", "CLAUDE.md", "PLAN.md"]
 # `generate_invite_code` impl can satisfy the CSPRNG contract documented on
 # the `ChatBackend::generate_invite_code` trait method (bd:JMAP-sc1b.93).
 memory = [
+    "jmap-search/eval",
     "dep:getrandom",
     "dep:ulid",
     "dep:jmap-metadata-server",
@@ -50,6 +51,9 @@ jmap-did-types = { workspace = true }
 jmap-peer-auth = { workspace = true }
 base64 = "0.22"
 jmap-server = { workspace = true }
+# urn:ietf:params:jmap:search `where` on Message/query (public dependency:
+# ChatSettings::search_capability returns its SearchCapability).
+jmap-search = { workspace = true }
 # draft-ietf-jmap-metadata-05 capability URI and DataTypeMetadataInfo
 # (serde-only); the /set handlers check `using` against the URI.
 jmap-metadata-types = { workspace = true }

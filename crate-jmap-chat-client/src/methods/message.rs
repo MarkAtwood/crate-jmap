@@ -137,7 +137,8 @@ impl super::SessionClient {
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let args = message_query_args(account_id, filter, sort, params)?;
-        let req = super::build_request("Message/query", args, super::USING_CHAT);
+        let using = super::using_with_search(super::USING_CHAT, &args);
+        let req = super::build_request("Message/query", args, &using);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -542,7 +543,8 @@ impl super::SessionClient {
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
         }
-        let req = super::build_request("Message/queryChanges", args, super::USING_CHAT);
+        let using = super::using_with_search(super::USING_CHAT, &args);
+        let req = super::build_request("Message/queryChanges", args, &using);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

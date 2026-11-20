@@ -2915,6 +2915,36 @@ pub trait ChatSettings: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
         async { Ok(None) }
     }
+
+    /// The account-level `urn:ietf:params:jmap:search` capability object
+    /// (crate-jmap docs/specs/jmap-search.md §Account-Level Capability
+    /// Object) the consumer advertises for `account_id`, or `None` when it
+    /// does not advertise the capability.
+    ///
+    /// With `None`, or without `"Message"` in its `dataTypes`, a
+    /// `Message/query` or `Message/queryChanges` filter that sets `where`
+    /// is `unsupportedFilter`, as it is when the request's `using` lacks
+    /// `urn:ietf:params:jmap:search` (§Opting In a Data Type). With it, the
+    /// handlers check `where` against it
+    /// ([`jmap_search::check_where_filter`]), report `canCalculateChanges:
+    /// false` from `Message/query` and answer `Message/queryChanges` with
+    /// `cannotCalculateChanges` (§Query Changes). `query_objects` then
+    /// evaluates `where` over the Messages the caller may fetch, each as
+    /// the caller would receive it from `Message/get` (§Visibility,
+    /// §Addressable Properties).
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(None)`: no search.
+    fn search_capability(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_search::SearchCapability>, Self::Error>,
+    > + Send {
+        async { Ok(None) }
+    }
 }
 
 /// Lookups outside chat storage: attachment blobs and FileNode attachments.
